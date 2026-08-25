@@ -1,0 +1,18 @@
+{
+  "name": "restaurant-qr-platform",
+  "version": "1.0.0",
+  "description": "Multi-tenant QR ordering platform for restaurants and cafes",
+  "scripts": {},
+  "keywords": [],
+  "author": "",
+  "license": "UNLICENSED",
+  "private": true,
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "npm@11.12.1"
+}
