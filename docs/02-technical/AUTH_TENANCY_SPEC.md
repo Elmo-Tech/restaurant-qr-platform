@@ -1,0 +1,2679 @@
+﻿# Authentication and Multi-Tenancy Specification
+
+## Document Purpose
+
+This document defines the authoritative V1 behavior for:
+
+- Restaurant staff authentication
+- Platform administrator authentication
+- Password security
+- Authenticated sessions
+- Restaurant memberships
+- Roles
+- Permissions
+- Branch access
+- Tenant selection
+- Tenant isolation
+- Guest Sessions
+- Guest authorization
+- Login / logout
+- Invitations
+- Password reset
+- Session revocation
+- Security boundaries
+
+This specification is the source of truth for V1 Authentication and Multi-Tenancy behavior.
+
+---
+
+# 1. Core Principle
+
+Authentication answers:
+
+> Who is making this request?
+
+Authorization answers:
+
+> What is this identity allowed to do?
+
+Tenant context answers:
+
+> For which Restaurant is the action being performed?
+
+These three concerns must remain separate.
+
+---
+
+# 2. Identity Types
+
+V1 recognizes three primary identity types:
+
+1. Restaurant User
+2. Platform Administrator
+3. Anonymous Guest
+
+They do not share the same authorization model.
+
+---
+
+# 3. Restaurant User
+
+A Restaurant User is an authenticated staff account.
+
+Examples:
+
+- Owner
+- Manager
+- Cashier
+- Kitchen Staff
+- Waiter
+
+A Restaurant User may belong to one or more Restaurants through Restaurant Memberships.
+
+---
+
+# 4. Platform Administrator
+
+A Platform Administrator manages Platform-level SaaS operations.
+
+Platform Administrator is not simply:
+
+Restaurant OWNER with extra permissions.
+
+It is a separate authorization domain.
+
+---
+
+# 5. Anonymous Guest
+
+A Guest is not required to create an account.
+
+Guest identity is represented through a temporary anonymous Guest Session.
+
+Guest Session supports:
+
+- QR browsing
+- Cart context
+- Order ownership
+- Order tracking
+- Service Requests
+- Table Session safety
+
+It does not grant Restaurant staff privileges.
+
+---
+
+# 6. V1 Staff Authentication Method
+
+V1 uses:
+
+Email
++
+Password
+
+for Restaurant Users and Platform Administrators.
+
+Future authentication methods may include:
+
+- Google
+- Microsoft
+- Passwordless login
+- SSO
+- MFA
+
+These are not required for initial V1.
+
+---
+
+# 7. V1 Session Architecture
+
+Authenticated Web sessions use:
+
+> Secure opaque server-managed session tokens.
+
+Preferred flow:
+
+Browser
+→ Login
+→ Backend validates credentials
+→ Backend creates Auth Session
+→ Browser receives secure HttpOnly cookie
+→ Database stores only token hash
+
+V1 does not require JWT access + refresh token architecture.
+
+---
+
+# 8. Why Opaque Sessions
+
+For the current architecture, opaque sessions provide:
+
+- Simple revocation
+- Immediate disabled-user enforcement
+- Immediate membership-change enforcement
+- Easy logout-all-devices
+- Good SSR compatibility
+- No refresh-token rotation complexity
+- No Redis requirement
+
+This fits:
+
+One Next.js Web application
++
+One NestJS Backend
++
+One PostgreSQL Database.
+
+---
+
+# 9. Future Mobile Authentication
+
+A future Flutter staff application may use:
+
+- OAuth-style token flow
+- Bearer access tokens
+- Device-specific credentials
+
+This does not require changing Restaurant Membership or Permission models.
+
+Mobile authentication is deferred.
+
+---
+
+# 10. Same-Origin Production Preference
+
+Preferred Production routing:
+
+`https://app.example.com`
+
+and API:
+
+`https://app.example.com/api/v1/...`
+
+through Nginx.
+
+Using the same origin simplifies:
+
+- Cookies
+- CORS
+- CSRF protection
+- Browser security
+- SSR
+
+Different public Web and API domains should only be introduced when needed.
+
+---
+
+# 11. Local Development
+
+Local development may use:
+
+Web:
+`http://localhost:3000`
+
+API:
+`http://localhost:4000`
+
+CORS may explicitly allow the local Web origin.
+
+Do not use wildcard CORS with credentials.
+
+---
+
+# 12. Password Storage
+
+Passwords must never be stored in plaintext.
+
+Approved password hashing algorithm:
+
+Argon2id.
+
+The implementation should use secure production parameters appropriate to the deployment environment.
+
+Do not implement custom password hashing.
+
+---
+
+# 13. Password Hash
+
+Database stores:
+
+`passwordHash`
+
+Never:
+
+`password`
+
+Never return passwordHash through normal APIs.
+
+Never log passwordHash.
+
+---
+
+# 14. Password Policy
+
+Initial V1 password policy:
+
+- Minimum 10 characters
+- Maximum reasonable limit such as 128 characters
+- No forced arbitrary composition rules
+
+Do not require patterns such as:
+
+- Exactly one uppercase letter
+- Exactly one symbol
+- Forced periodic password changes
+
+unless future security policy requires them.
+
+---
+
+# 15. Login Identifier
+
+Email is the V1 login identifier.
+
+Email should be:
+
+- Trimmed
+- Normalized safely
+- Compared case-insensitively
+
+The normalized login email must be unique across User accounts.
+
+---
+
+# 16. User Status
+
+Initial User states:
+
+- ACTIVE
+- INVITED
+- DISABLED
+
+Potential future:
+
+- LOCKED
+
+---
+
+# 17. ACTIVE User
+
+ACTIVE may authenticate normally if at least one valid authorization context exists.
+
+---
+
+# 18. INVITED User
+
+INVITED represents an account awaiting initial setup.
+
+An INVITED user cannot use normal password login until invitation setup is completed.
+
+---
+
+# 19. DISABLED User
+
+DISABLED cannot authenticate.
+
+Existing Auth Sessions must no longer authorize requests.
+
+Disabling a User should revoke active sessions.
+
+---
+
+# 20. Auth Session
+
+Database entity:
+
+`auth_sessions`
+
+Conceptual fields:
+
+- id
+- userId
+- tokenHash
+- createdAt
+- lastSeenAt
+- expiresAt
+- revokedAt nullable
+- userAgentSummary nullable
+- createdByIpHash nullable if needed
+- revokeReason nullable
+
+The raw session token must not be stored.
+
+---
+
+# 21. Session Token
+
+Raw session token should be:
+
+- Cryptographically random
+- High entropy
+- Opaque
+- Unpredictable
+
+Browser receives raw token.
+
+Database stores a cryptographic hash of the token.
+
+---
+
+# 22. Auth Cookie
+
+Production cookie should be:
+
+- HttpOnly
+- Secure
+- SameSite=Lax
+- Path=/
+- Host-only where practical
+
+Exact cookie name is an implementation detail.
+
+---
+
+# 23. Why HttpOnly
+
+JavaScript running in the browser should not be able to read the Auth Session token.
+
+This reduces token theft through normal client-side script access.
+
+---
+
+# 24. Secure Cookie
+
+Production authentication cookies must require HTTPS.
+
+Local development may relax Secure only when required by localhost development.
+
+---
+
+# 25. Session Expiry
+
+Staff Auth Sessions must not be permanent.
+
+Recommended V1 default:
+
+30-day absolute expiry.
+
+This may later become configurable.
+
+A session must stop working after:
+
+`expiresAt`
+
+even if the cookie still exists.
+
+---
+
+# 26. lastSeenAt
+
+Auth Session may maintain:
+
+`lastSeenAt`
+
+for:
+
+- Account security view
+- Session management
+- Operational investigation
+
+Do not update it on every request if this creates unnecessary database writes.
+
+A throttled update is sufficient.
+
+---
+
+# 27. Multiple Devices
+
+Restaurant Users may have multiple active Auth Sessions.
+
+Example:
+
+Manager:
+
+Laptop
++
+Tablet
+
+Both may remain logged in.
+
+---
+
+# 28. Logout
+
+Normal logout:
+
+- Revokes current Auth Session
+- Clears browser cookie
+
+It does not need to revoke every device.
+
+---
+
+# 29. Logout All Devices
+
+Security-sensitive action may revoke all Auth Sessions for a User.
+
+Useful after:
+
+- Password compromise
+- Password reset
+- Employee departure
+
+---
+
+# 30. Password Change
+
+Changing password should revoke other active Auth Sessions.
+
+The current session may remain active or be replaced intentionally.
+
+Exact UX will be finalized during implementation.
+
+---
+
+# 31. Password Reset
+
+V1 architecture supports password reset using a one-time token.
+
+Concept:
+
+Forgot Password
+→ Generate random reset token
+→ Store token hash
+→ Expire token
+→ Send / deliver secure reset link
+→ User chooses new password
+→ Token consumed
+→ Existing sessions revoked
+
+---
+
+# 32. Password Reset Token
+
+Database entity may be:
+
+`password_reset_tokens`
+
+Fields:
+
+- id
+- userId
+- tokenHash
+- expiresAt
+- consumedAt nullable
+- createdAt
+
+Raw reset token must not be stored.
+
+---
+
+# 33. Password Reset Expiry
+
+Reset tokens must be short-lived.
+
+Recommended default:
+
+30 to 60 minutes.
+
+Exact value may be configured during implementation.
+
+---
+
+# 34. Forgot Password Enumeration
+
+Forgot Password endpoint should not reveal whether an email exists.
+
+Guest-facing response should be similar for:
+
+Known email
+
+and:
+
+Unknown email.
+
+---
+
+# 35. Login Error
+
+Invalid login should return a generic message.
+
+Example:
+
+`Invalid email or password.`
+
+Do not reveal:
+
+- Email exists
+- Password specifically incorrect
+- Account membership details
+
+---
+
+# 36. Login Rate Protection
+
+Login endpoints require rate protection.
+
+Protection may consider:
+
+- IP
+- Normalized email
+- Recent failed attempts
+
+Do not permanently lock legitimate users because of a few failed attempts.
+
+---
+
+# 37. Restaurant Membership
+
+Authorization to a Restaurant comes from:
+
+`restaurant_memberships`
+
+Conceptual relationship:
+
+User
+→ Restaurant Membership
+→ Restaurant
+
+---
+
+# 38. Membership Fields
+
+Conceptual fields:
+
+- id
+- userId
+- restaurantId
+- role
+- status
+- allBranches
+- createdAt
+- updatedAt
+
+Unique:
+
+restaurantId + userId
+
+---
+
+# 39. Membership Status
+
+Initial states:
+
+- ACTIVE
+- INVITED
+- DISABLED
+
+A valid User account alone does not authorize Restaurant access.
+
+Membership must also be ACTIVE.
+
+---
+
+# 40. User With Multiple Restaurants
+
+Architecture allows:
+
+User
+→ Restaurant A Membership
+→ Restaurant B Membership
+
+This supports future:
+
+- Restaurant groups
+- Consultants
+- Multi-brand operators
+
+V1 UI may commonly show only one Restaurant for most accounts.
+
+---
+
+# 41. Tenant Context Is Explicit
+
+Protected Restaurant operations must always have explicit Restaurant context.
+
+Preferred API shape:
+
+`/api/v1/restaurants/{restaurantId}/...`
+
+Examples:
+
+`GET /api/v1/restaurants/{restaurantId}/orders`
+
+`GET /api/v1/restaurants/{restaurantId}/tables`
+
+`POST /api/v1/restaurants/{restaurantId}/promotions`
+
+Exact route conventions will be finalized in API_CONVENTIONS.md.
+
+---
+
+# 42. Restaurant ID Is Not Authorization
+
+Receiving:
+
+`restaurantId`
+
+from a route does not authorize the caller.
+
+Backend must verify:
+
+Authenticated User
++
+ACTIVE Membership
++
+Required Permission.
+
+---
+
+# 43. No Global Active Tenant Trust
+
+Frontend may remember a selected Restaurant for UX.
+
+Backend must not trust that selection.
+
+Every protected request validates membership.
+
+---
+
+# 44. Tenant Switch
+
+If User belongs to multiple Restaurants:
+
+Dashboard may allow switching Restaurant.
+
+Switching Restaurant:
+
+- Changes current UI context
+- Does not require new login
+- Does not change User identity
+- Requires valid Membership
+
+---
+
+# 45. Restaurant Roles
+
+V1 fixed Restaurant Roles:
+
+- OWNER
+- MANAGER
+- CASHIER
+- KITCHEN
+- WAITER
+
+Custom Roles are deferred.
+
+---
+
+# 46. Why Fixed Roles in V1
+
+Custom role builders add significant complexity.
+
+V1 fixed Roles provide:
+
+- Predictable permissions
+- Easier testing
+- Easier onboarding
+- Faster Pilot delivery
+
+Architecture uses Permission checks so custom roles can be added later.
+
+---
+
+# 47. Permission Principle
+
+Code should authorize:
+
+Permissions
+
+rather than scattering Role checks everywhere.
+
+Prefer:
+
+`orders.accept`
+
+instead of:
+
+`role === MANAGER || role === OWNER || ...`
+
+Role maps to Permission set.
+
+---
+
+# 48. V1 Permission Keys
+
+Initial Permission keys:
+
+### Restaurant
+
+- `restaurant.view`
+- `restaurant.manage`
+
+### Branches
+
+- `branches.view`
+- `branches.manage`
+
+### Users
+
+- `users.view`
+- `users.manage`
+
+### Tables / QR
+
+- `tables.view`
+- `tables.manage`
+
+### Menu
+
+- `menu.view`
+- `menu.manage`
+
+### Promotions
+
+- `promotions.view`
+- `promotions.manage`
+
+### Orders
+
+- `orders.view`
+- `orders.accept`
+- `orders.reject`
+- `orders.cancel`
+- `orders.markServed`
+
+### Kitchen
+
+- `kitchen.view`
+- `kitchen.update`
+
+### Table Sessions
+
+- `sessions.view`
+- `sessions.resume`
+- `sessions.settle`
+- `sessions.close`
+
+### Service Requests
+
+- `serviceRequests.view`
+- `serviceRequests.handle`
+
+### Analytics
+
+- `analytics.view`
+
+### Integrations
+
+- `integrations.view`
+- `integrations.manage`
+
+---
+
+# 49. OWNER Permissions
+
+OWNER has all Restaurant-level V1 Permissions.
+
+OWNER may:
+
+- Manage Restaurant configuration
+- Manage Branches
+- Manage Users
+- Manage Tables
+- Manage Menu
+- Manage Promotions
+- Manage Orders
+- Manage Sessions
+- View Analytics
+- Manage Integrations
+
+OWNER role assignment itself must be protected carefully.
+
+---
+
+# 50. MANAGER Permissions
+
+MANAGER normally receives:
+
+- restaurant.view
+- branches.view
+- branches.manage
+- users.view
+- users.manage
+- tables.view
+- tables.manage
+- menu.view
+- menu.manage
+- promotions.view
+- promotions.manage
+- orders.view
+- orders.accept
+- orders.reject
+- orders.cancel
+- orders.markServed
+- kitchen.view
+- kitchen.update
+- sessions.view
+- sessions.resume
+- sessions.settle
+- sessions.close
+- serviceRequests.view
+- serviceRequests.handle
+- analytics.view
+- integrations.view
+
+MANAGER should not normally:
+
+- Transfer Restaurant ownership
+- Assign OWNER role
+- Perform Platform-level billing actions
+- Become Platform Administrator
+
+---
+
+# 51. CASHIER Permissions
+
+CASHIER normally receives:
+
+- restaurant.view
+- branches.view
+- tables.view
+- menu.view
+- promotions.view
+- orders.view
+- orders.accept
+- orders.reject
+- orders.cancel
+- orders.markServed
+- sessions.view
+- sessions.resume
+- sessions.settle
+- sessions.close
+- serviceRequests.view
+- serviceRequests.handle
+
+Cashier may operate payment / settlement workflow.
+
+---
+
+# 52. KITCHEN Permissions
+
+KITCHEN normally receives:
+
+- restaurant.view
+- branches.view
+- menu.view
+- orders.view
+- kitchen.view
+- kitchen.update
+
+Kitchen may:
+
+- See preparation-relevant Orders
+- Move preparation status
+- Mark Kitchen Ticket Ready
+
+Kitchen may not:
+
+- Close Table Sessions
+- Settle bills
+- Manage Users
+- Manage Promotions
+- Manage Restaurant configuration
+
+---
+
+# 53. WAITER Permissions
+
+WAITER normally receives:
+
+- restaurant.view
+- branches.view
+- tables.view
+- menu.view
+- orders.view
+- orders.markServed
+- sessions.view
+- serviceRequests.view
+- serviceRequests.handle
+
+Waiter may:
+
+- View Table context
+- Handle Guest requests
+- Mark Ready Order as Served
+
+Waiter cannot normally:
+
+- Settle bill
+- Close Session
+- Cancel accepted Orders
+- Manage Menu
+- Manage Users
+
+---
+
+# 54. Permission Matrix Is Code Configuration
+
+V1 role-to-permission mapping may be defined as stable Backend configuration.
+
+It does not require Permission rows in the Database.
+
+This keeps V1 simpler.
+
+Future custom roles may introduce:
+
+- roles
+- permissions
+- role_permissions
+
+without changing permission checks in application code.
+
+---
+
+# 55. Role Assignment Rules
+
+OWNER may assign:
+
+- MANAGER
+- CASHIER
+- KITCHEN
+- WAITER
+
+MANAGER may assign non-OWNER roles if granted users.manage.
+
+MANAGER must not promote someone to OWNER.
+
+---
+
+# 56. Last Owner Protection
+
+The Restaurant must not accidentally lose its final OWNER.
+
+Backend must reject:
+
+- Disabling last OWNER Membership
+- Removing last OWNER
+- Downgrading last OWNER
+
+unless an explicit ownership transfer succeeds.
+
+---
+
+# 57. Ownership Transfer
+
+Full ownership-transfer workflow is not required for first vertical slice.
+
+Before V1 Production user management is considered complete, OWNER transfer behavior must be explicit.
+
+At minimum:
+
+Old OWNER
+→ Select new eligible User
+→ Confirm
+→ New OWNER assigned
+→ Old OWNER role changed only after successful transfer
+
+---
+
+# 58. Branch Access
+
+Restaurant Membership may access:
+
+- All Branches
+or
+- Selected Branches
+
+This is independent from Role.
+
+Example:
+
+Kitchen User:
+Role = KITCHEN
+
+Branch Access:
+New Cairo only
+
+---
+
+# 59. allBranches
+
+Membership may contain:
+
+`allBranches`
+
+Boolean.
+
+OWNER should normally have:
+
+`allBranches = true`
+
+---
+
+# 60. Selected Branch Access
+
+When:
+
+`allBranches = false`
+
+authorized Branches are stored in:
+
+`restaurant_membership_branches`
+
+Conceptual fields:
+
+- restaurantMembershipId
+- branchId
+
+Unique:
+
+membershipId + branchId
+
+---
+
+# 61. Branch Ownership Validation
+
+A Branch access assignment must reference a Branch belonging to the same Restaurant as the Membership.
+
+Cross-Restaurant assignment is invalid.
+
+---
+
+# 62. Branch Access Enforcement
+
+Example:
+
+Kitchen User authorized:
+
+New Cairo Branch
+
+Request:
+
+Maadi Kitchen Orders
+
+Backend returns:
+
+Forbidden.
+
+Frontend hiding Maadi is not sufficient protection.
+
+---
+
+# 63. Restaurant-Wide Resources
+
+Some resources are Restaurant-wide.
+
+Examples:
+
+- Restaurant profile
+- Memberships
+- Core Menu definition
+
+Branch-scoped users may receive read access only when operationally required.
+
+Exact route-specific scope will be defined during module implementation.
+
+---
+
+# 64. Branch-Scoped Operational Resources
+
+Examples:
+
+- Table
+- Table Session
+- Order
+- Kitchen Ticket
+- Service Request
+
+Branch authorization must be checked.
+
+---
+
+# 65. Authorization Guard Flow
+
+Protected Restaurant request should conceptually pass:
+
+1. Authentication Guard
+2. User status validation
+3. Restaurant Membership validation
+4. Membership status validation
+5. Branch scope validation where applicable
+6. Permission validation
+7. Domain logic
+
+---
+
+# 66. NestJS Authorization Structure
+
+Preferred conceptual implementation:
+
+`AuthGuard`
+
+→ establishes User identity
+
+`RestaurantContextGuard`
+
+→ validates Membership / Tenant
+
+`PermissionsGuard`
+
+→ validates required Permission
+
+Business services still validate resource ownership.
+
+---
+
+# 67. Guards Do Not Replace Domain Validation
+
+Example:
+
+User has:
+
+orders.cancel
+
+but requested Order belongs to another Restaurant.
+
+Domain query must still be tenant-scoped.
+
+Permission alone is not ownership validation.
+
+---
+
+# 68. Tenant-Scoped Query Rule
+
+Avoid protected business queries such as:
+
+`findOrderById(orderId)`
+
+when tenant context is available.
+
+Prefer conceptually:
+
+`findOrder({
+  id: orderId,
+  restaurantId: authorizedRestaurantId
+})`
+
+or an equivalent verified relational query.
+
+---
+
+# 69. Never Trust Client Tenant Fields
+
+Frontend must not be allowed to create:
+
+Product with restaurantId B
+
+while operating in Restaurant A.
+
+Backend derives or validates tenant ownership from authorized context.
+
+---
+
+# 70. User Account vs Membership
+
+Disabling one Restaurant Membership should not necessarily disable User globally.
+
+Example:
+
+User belongs to:
+
+Restaurant A
+Restaurant B
+
+Restaurant A disables Membership.
+
+User may still access Restaurant B.
+
+---
+
+# 71. Global User Disable
+
+Platform-level disabling of User blocks all Auth Sessions and all Restaurant access.
+
+This is different from Membership disable.
+
+---
+
+# 72. Platform Administrator Authorization
+
+Platform Administrator status is checked separately from Restaurant Membership.
+
+Platform Admin endpoints should use a dedicated authorization guard / permission domain.
+
+---
+
+# 73. Platform Admin Does Not Automatically Access Restaurant Data
+
+Being Platform Administrator must not silently turn normal Restaurant APIs into unrestricted APIs.
+
+Platform-level access should use explicit Platform Admin routes and auditing.
+
+---
+
+# 74. Support Impersonation
+
+Restaurant impersonation / "Login as Restaurant" is not required in V1.
+
+If introduced later:
+
+- Explicit action
+- Short-lived
+- Clearly visible
+- Fully audited
+- Never silent
+
+---
+
+# 75. Invitations
+
+Restaurant User creation should preferably use an invitation flow.
+
+Concept:
+
+OWNER / MANAGER
+→ Enter email
+→ Select Role
+→ Select Branch access
+→ Create Invitation
+→ Secure invitation link
+→ User sets password
+→ Membership becomes ACTIVE
+
+---
+
+# 76. Invitation Entity
+
+Potential table:
+
+`restaurant_invitations`
+
+Fields:
+
+- id
+- restaurantId
+- emailNormalized
+- role
+- allBranches
+- tokenHash
+- expiresAt
+- acceptedAt nullable
+- revokedAt nullable
+- invitedByUserId
+- createdAt
+
+Branch selections may use supporting invitation branch records if needed.
+
+---
+
+# 77. Invitation Token
+
+Invitation token must be:
+
+- Random
+- One-time
+- Expiring
+- Stored only as hash
+
+---
+
+# 78. Invitation Expiry
+
+Recommended initial expiry:
+
+7 days.
+
+Expired invitation may be reissued.
+
+---
+
+# 79. Invitation Delivery
+
+Production may send invitation by email.
+
+During early Pilot setup, Dashboard may also allow authorized OWNER to copy a secure invitation link if email infrastructure is not yet configured.
+
+Do not send temporary plaintext passwords.
+
+---
+
+# 80. Existing User Invitation
+
+If invited email already belongs to an existing User:
+
+Invitation should create / activate Membership after secure acceptance.
+
+Do not create duplicate User account.
+
+---
+
+# 81. Duplicate Membership
+
+Restaurant cannot have duplicate Membership for same User.
+
+Unique:
+
+restaurantId + userId.
+
+---
+
+# 82. Removing Staff
+
+Preferred operational action:
+
+Disable Membership.
+
+This:
+
+- Removes Restaurant access
+- Preserves historical actor references
+- Preserves Orders / Audit history
+
+Do not delete User merely because employee left one Restaurant.
+
+---
+
+# 83. Membership Disable and Sessions
+
+Since Auth Session belongs to User rather than one Restaurant:
+
+Disabling Restaurant Membership does not necessarily revoke entire User Auth Session.
+
+Future requests to that Restaurant fail immediately.
+
+If User has no remaining active memberships, UI should reflect no accessible Restaurant.
+
+---
+
+# 84. OWNER Security
+
+Sensitive OWNER actions should require a recent authenticated session where practical.
+
+Examples:
+
+- Ownership transfer
+- Integration credential changes
+- Future billing changes
+
+Full step-up authentication is not required initially but architecture should not prevent it.
+
+---
+
+# 85. Guest Session Architecture
+
+Anonymous Guest authorization uses:
+
+`guest_sessions`
+
+separately from staff:
+
+`auth_sessions`.
+
+Never reuse staff authentication cookies for Guest identity.
+
+---
+
+# 86. Guest Session Creation
+
+A valid QR resolution may create or restore Guest Session.
+
+Guest Session creation does not create:
+
+- Table Session
+- Order
+- Customer account
+
+---
+
+# 87. Guest Session Cookie
+
+Guest browser may receive a separate opaque token cookie.
+
+Preferred properties:
+
+- HttpOnly where compatible with application flow
+- Secure in Production
+- SameSite=Lax
+- Scoped safely
+
+Database stores only token hash.
+
+---
+
+# 88. Guest Session Scope
+
+Guest Session is scoped to Restaurant context.
+
+For TABLE QR it may also include:
+
+- Branch
+- QR
+- Table
+
+For GENERIC QR:
+
+Table remains null.
+
+---
+
+# 89. Guest Session Is Not Proof of Presence
+
+Guest Session proves only:
+
+This browser previously established this public interaction context.
+
+It does not prove:
+
+Physical presence at the Table.
+
+---
+
+# 90. Guest Session Binding
+
+Before first Dine-In Order:
+
+`boundTableSessionId = null`
+
+After successful first / current authorized Order:
+
+Guest Session may bind to active Table Session.
+
+---
+
+# 91. Old Guest Protection
+
+If Guest Session is bound to:
+
+Session #101
+
+and Session #101 becomes CLOSED:
+
+That Guest Session must not silently join:
+
+Session #102.
+
+Guest should begin a fresh valid interaction.
+
+---
+
+# 92. Fresh Interaction
+
+Fresh interaction may require:
+
+- Rescan Table QR
+- Create fresh Guest Session context
+
+Exact UX can be optimized while preserving the safety boundary.
+
+---
+
+# 93. Multiple Guests at Table
+
+Each browser may have independent Guest Session.
+
+Example:
+
+Table 4
+Session #101
+
+Guest A
+Guest B
+Guest C
+
+All can submit separate Orders into Session #101 while safely valid.
+
+---
+
+# 94. Guest Order Ownership
+
+Order should store:
+
+`guestSessionId`
+
+where created by anonymous Guest.
+
+This allows guest-scoped Order tracking.
+
+---
+
+# 95. Guest Order Read Authorization
+
+Guest should not retrieve arbitrary Order using only:
+
+Order publicId.
+
+Preferred rule:
+
+Order publicId
++
+valid Guest Session ownership
+
+or another explicit guest-scoped access mechanism.
+
+---
+
+# 96. Public Order ID
+
+Public Order ID prevents easy sequential enumeration.
+
+It does not replace Guest authorization.
+
+---
+
+# 97. Table-Wide Order History
+
+V1 Guest authorization does not automatically grant each Guest Session access to all Table Orders.
+
+Guest primarily sees Orders associated with its own Guest Session.
+
+Full shared-table visibility is deferred.
+
+---
+
+# 98. Guest Service Requests
+
+Guest may create Service Request only when:
+
+- Guest Session valid
+- Table QR context valid
+- Guest Session safely bound to active Table Session where required
+- Table Session state permits request
+
+---
+
+# 99. Request Bill Authorization
+
+Guest Request Bill must target current valid bound Table Session.
+
+Client cannot provide arbitrary Table Session ID and request another Table's bill.
+
+---
+
+# 100. Generic QR Guest
+
+Generic QR Guest may:
+
+- Browse Menu
+- Create allowed Pickup / Takeaway Cart
+- Create associated Order
+
+Generic Guest does not receive Table Session privileges.
+
+---
+
+# 101. Guest Session Expiry
+
+Guest Sessions require finite expiry.
+
+Recommended V1 maximum:
+
+24 hours
+
+with shorter effective validity after associated Table Session closes.
+
+Exact expiry may be refined during implementation.
+
+---
+
+# 102. Guest Session Revocation
+
+Guest Session may be revoked for:
+
+- Abuse
+- QR regeneration context change
+- Security operation
+- Explicit session invalidation
+
+Revoked Guest Session cannot perform new protected Guest actions.
+
+---
+
+# 103. Guest Context Change
+
+Scanning a materially different QR context may create a fresh Guest Session.
+
+Example:
+
+Table 4
+→ later scans Table 8
+
+The system must not silently mutate ownership of existing Orders.
+
+---
+
+# 104. Cart and Guest Session
+
+Cart may be linked in browser UX to Guest Session.
+
+Cart itself is still temporary frontend state until Order submission.
+
+Guest Session does not make stale prices authoritative.
+
+---
+
+# 105. CSRF Protection
+
+Because staff authentication uses cookies, state-changing authenticated requests require CSRF protection.
+
+Preferred V1 layers:
+
+- SameSite cookies
+- Strict allowed origins
+- Origin / Referer validation for unsafe methods
+- No wildcard credentialed CORS
+
+If architecture later requires cross-site cookie usage, introduce explicit CSRF token protection.
+
+---
+
+# 106. Unsafe HTTP Methods
+
+At minimum apply origin validation to:
+
+POST
+PUT
+PATCH
+DELETE
+
+for cookie-authenticated protected routes.
+
+---
+
+# 107. CORS
+
+Production should not use:
+
+`Access-Control-Allow-Origin: *`
+
+with credentials.
+
+Allow only trusted Web origins.
+
+---
+
+# 108. XSS
+
+HttpOnly cookies reduce authentication token theft but do not eliminate XSS risk.
+
+Frontend must still:
+
+- Escape untrusted content
+- Avoid unsafe HTML injection
+- Sanitize rich content if ever introduced
+- Use Content Security Policy where practical
+
+---
+
+# 109. Session Fixation
+
+Login must create a fresh Auth Session token.
+
+Do not reuse an unauthenticated token as authenticated session identity.
+
+---
+
+# 110. Session Revocation Check
+
+Every protected request validates that Auth Session:
+
+- Exists
+- Matches token hash
+- Is not revoked
+- Is not expired
+- Belongs to ACTIVE User
+
+---
+
+# 111. Membership Check Frequency
+
+Membership authorization should be validated on each protected Restaurant request.
+
+This allows permission changes to take effect immediately.
+
+Do not cache Membership indefinitely in client tokens.
+
+---
+
+# 112. Permission Change
+
+If OWNER changes User:
+
+MANAGER
+→ WAITER
+
+new permission restrictions should apply immediately to subsequent API requests.
+
+No logout/login cycle should be required.
+
+---
+
+# 113. Session Cache
+
+Do not introduce Redis session cache in V1.
+
+PostgreSQL session lookup is sufficient for Pilot scale.
+
+Performance can be measured later.
+
+---
+
+# 114. Session Indexes
+
+Auth Sessions should be indexed for:
+
+- tokenHash unique lookup
+- userId
+- expiresAt
+- revokedAt where useful
+
+Guest Sessions should be indexed for:
+
+- tokenHash unique lookup
+- restaurantId
+- boundTableSessionId
+- expiresAt
+
+---
+
+# 115. Session Cleanup
+
+Expired / revoked session records may be cleaned through scheduled maintenance later.
+
+Do not delete active security history immediately.
+
+Retention period can be defined before Production hardening.
+
+---
+
+# 116. Authentication Logging
+
+Security-relevant events should be logged / audited where useful.
+
+Examples:
+
+- LOGIN_SUCCESS
+- LOGIN_FAILED
+- LOGOUT
+- PASSWORD_CHANGED
+- PASSWORD_RESET
+- USER_DISABLED
+- MEMBERSHIP_DISABLED
+- ROLE_CHANGED
+- SESSION_REVOKED
+
+Do not log passwords or raw tokens.
+
+---
+
+# 117. Failed Login Privacy
+
+Avoid permanently storing full IP addresses solely for analytics without a defined security need and retention policy.
+
+Rate-limiting infrastructure may temporarily process network identifiers.
+
+---
+
+# 118. Audit Actor
+
+Authenticated Restaurant action should identify:
+
+User
++
+Restaurant Membership context
++
+Restaurant
+
+where appropriate.
+
+This makes historical actions understandable even if Role changes later.
+
+---
+
+# 119. Audit Role Snapshot
+
+High-value Audit Event may preserve:
+
+Role at action time
+
+as metadata if useful.
+
+Do not depend only on current Membership Role when reviewing historical actions.
+
+---
+
+# 120. Staff Resource Ownership
+
+Protected actions must validate both:
+
+Permission
+and
+Resource Tenant.
+
+Example:
+
+Manager from Restaurant A knows Order UUID from Restaurant B.
+
+Request must return:
+
+Not Found
+or
+Forbidden according to API security convention.
+
+No Restaurant B data is returned.
+
+---
+
+# 121. Enumeration Resistance
+
+Cross-Tenant lookup responses should avoid leaking whether inaccessible resources exist.
+
+API_CONVENTIONS.md will define consistent 404 / 403 behavior.
+
+---
+
+# 122. Branch Isolation Example
+
+User:
+
+Restaurant A
+Role:
+KITCHEN
+Branch:
+New Cairo
+
+May access:
+
+New Cairo Kitchen Tickets
+
+Must not access:
+
+Maadi Kitchen Tickets
+
+even within same Restaurant unless branch scope allows it.
+
+---
+
+# 123. OWNER Branch Access
+
+OWNER should normally remain Restaurant-wide.
+
+Restricting OWNER to selected Branches is not supported in V1.
+
+---
+
+# 124. MANAGER Branch Access
+
+MANAGER may be:
+
+Restaurant-wide
+
+or
+
+Branch-scoped.
+
+Example:
+
+New Cairo Branch Manager.
+
+---
+
+# 125. CASHIER Branch Access
+
+CASHIER should normally be Branch-scoped unless restaurant operation requires multiple Branches.
+
+---
+
+# 126. KITCHEN Branch Access
+
+KITCHEN should normally be Branch-scoped.
+
+Kitchen interfaces must never combine unauthorized Branch Orders.
+
+---
+
+# 127. WAITER Branch Access
+
+WAITER should normally be Branch-scoped.
+
+---
+
+# 128. User Management Scope
+
+Users with:
+
+`users.manage`
+
+may manage staff only within:
+
+- Their Restaurant
+- Branches / role levels permitted by Domain rules
+
+A Branch-scoped Manager must not silently grant themselves Restaurant-wide privileges.
+
+---
+
+# 129. Privilege Escalation Protection
+
+An administrator must never be able to assign a Role / Branch scope that exceeds their own management authority unless OWNER rules explicitly permit it.
+
+This must be enforced server-side.
+
+---
+
+# 130. Self-Modification
+
+Restaurant User should not be able to:
+
+- Promote own Role
+- Expand own Branch scope
+- Disable last OWNER protection
+
+through ordinary staff management endpoints.
+
+---
+
+# 131. User Profile
+
+User may normally edit personal settings such as:
+
+- Display name
+- Preferred Locale
+- Password
+
+User cannot edit:
+
+- Own Restaurant Role
+- Own Restaurant Membership status
+- Own Platform Admin status
+
+through profile endpoint.
+
+---
+
+# 132. Platform Administrator Sessions
+
+Platform Administrator may use the same underlying Auth Session mechanism.
+
+Authorization differs through:
+
+Platform Administrator record / permissions.
+
+---
+
+# 133. Platform Admin Security
+
+Platform Admin actions are highly privileged.
+
+Before public Production use, consider:
+
+- MFA
+- Stronger session lifetime
+- Restricted administration origin
+- Additional audit
+
+MFA is strongly desirable for Platform Admin but may be introduced during Production hardening rather than first vertical slice.
+
+---
+
+# 134. Customer Accounts
+
+Registered Restaurant customer accounts are not part of V1.
+
+Do not confuse:
+
+Guest Session
+
+with:
+
+Future Customer Profile.
+
+Future V3 may introduce Customer identity independently.
+
+---
+
+# 135. Integration Authentication
+
+External POS and system integrations do not use Restaurant User cookies.
+
+They require separate Integration authentication.
+
+Examples future:
+
+- API key
+- OAuth
+- HMAC signature
+- Provider Webhook signature
+
+Integration auth belongs in Integration / Security specification.
+
+---
+
+# 136. n8n Authentication
+
+n8n must not impersonate a Restaurant User browser session.
+
+Backend should expose controlled service-to-service AI / automation interfaces.
+
+n8n credentials must have only necessary privileges.
+
+---
+
+# 137. AI Guest Context
+
+AI Assistant request receives Backend-validated Guest context.
+
+AI Provider must not decide:
+
+- Restaurant identity
+- Branch authorization
+- Table Session authorization
+
+Backend determines those first.
+
+---
+
+# 138. AI Staff Context
+
+If future Restaurant staff AI exists:
+
+AI actions must run with permission-limited Restaurant User context.
+
+AI cannot bypass Role permissions.
+
+---
+
+# 139. Public QR Context
+
+QR resolution is public.
+
+Public QR access does not produce staff authentication.
+
+QR context can create Guest Session only.
+
+---
+
+# 140. Table QR Copy Risk
+
+Authentication architecture does not pretend that Table QR proves presence.
+
+Manual Order acceptance remains an operational V1 protection.
+
+Future presence verification is separate from authentication.
+
+---
+
+# 141. Database Additions Required by This Specification
+
+The Database model must include:
+
+`auth_sessions`
+
+and likely:
+
+`restaurant_membership_branches`
+
+`restaurant_invitations`
+
+`password_reset_tokens`
+
+These are authoritative additions to the earlier DATABASE_SPEC.md.
+
+Before Prisma implementation, DATABASE_SPEC.md must be reconciled to include them.
+
+---
+
+# 142. auth_sessions
+
+Conceptual fields:
+
+- id UUID
+- userId UUID
+- tokenHash
+- createdAt
+- lastSeenAt
+- expiresAt
+- revokedAt nullable
+- revokeReason nullable
+
+Constraints:
+
+- tokenHash unique
+- userId foreign key
+
+---
+
+# 143. restaurant_membership_branches
+
+Conceptual fields:
+
+- restaurantMembershipId
+- branchId
+
+Constraint:
+
+Unique composite:
+
+restaurantMembershipId + branchId
+
+Both relationships must belong to same Restaurant.
+
+---
+
+# 144. restaurant_invitations
+
+Conceptual fields:
+
+- id
+- restaurantId
+- emailNormalized
+- role
+- allBranches
+- tokenHash
+- expiresAt
+- acceptedAt nullable
+- revokedAt nullable
+- invitedByUserId
+- createdAt
+
+tokenHash unique.
+
+---
+
+# 145. password_reset_tokens
+
+Conceptual fields:
+
+- id
+- userId
+- tokenHash
+- expiresAt
+- consumedAt nullable
+- createdAt
+
+tokenHash unique.
+
+---
+
+# 146. No Permission Tables in V1
+
+Do not create:
+
+permissions
+
+role_permissions
+
+custom_roles
+
+for V1 fixed RBAC.
+
+Permission map belongs in Backend code.
+
+This avoids unnecessary data-model complexity.
+
+---
+
+# 147. Authentication Endpoints
+
+Conceptual endpoints:
+
+`POST /api/v1/auth/login`
+
+`POST /api/v1/auth/logout`
+
+`POST /api/v1/auth/logout-all`
+
+`GET /api/v1/auth/me`
+
+`POST /api/v1/auth/change-password`
+
+`POST /api/v1/auth/forgot-password`
+
+`POST /api/v1/auth/reset-password`
+
+Invitation endpoints will be Restaurant-authorized resources.
+
+Exact request / response contracts belong in API_CONVENTIONS.md.
+
+---
+
+# 148. /auth/me
+
+Authenticated session endpoint should return safe User context such as:
+
+- User profile
+- Accessible Restaurant Memberships
+- Role
+- Branch scope
+- UI Locale preference
+
+Never return:
+
+- passwordHash
+- session token
+- reset tokens
+- security secrets
+
+---
+
+# 149. Session Response
+
+Login does not need to return raw Auth Session token in JSON when cookie authentication is used.
+
+Backend sets secure cookie.
+
+Response returns safe User context.
+
+---
+
+# 150. Unauthenticated Response
+
+Protected endpoints with missing / invalid Auth Session return:
+
+401 Unauthorized.
+
+Authenticated User without required permission returns:
+
+403 Forbidden
+
+unless cross-Tenant non-disclosure convention intentionally returns 404.
+
+---
+
+# 151. Guest Authorization Errors
+
+Invalid Guest Session should not expose internal security details.
+
+Guest may receive friendly states such as:
+
+- Session expired
+- Please scan the table QR again
+- This table visit has ended
+
+---
+
+# 152. Session Expired UX
+
+Restaurant Staff:
+
+Redirect to Login with safe return path where appropriate.
+
+Guest:
+
+Preserve non-sensitive browsing where possible, but require fresh context for protected actions.
+
+---
+
+# 153. Login Return Path
+
+After Staff login, application may return User to intended authorized Dashboard route.
+
+Return URL must be validated.
+
+Do not allow open redirects to arbitrary external domains.
+
+---
+
+# 154. Account Discovery
+
+Login and password reset responses must minimize account enumeration.
+
+Administrative User lists are authorized and may show actual membership state.
+
+---
+
+# 155. Initial OWNER Bootstrap
+
+The first Restaurant OWNER may be created through:
+
+Platform Admin onboarding
+or
+controlled Restaurant creation workflow.
+
+Do not ship default credentials such as:
+
+admin / admin.
+
+---
+
+# 156. Development Seed Account
+
+Development may create documented demo credentials through seed script.
+
+These credentials must never be automatically created in Production.
+
+---
+
+# 157. Production Secrets
+
+Auth security depends on securely generated secrets where required by:
+
+- Token hashing strategy
+- Cookie signing if used
+- CSRF implementation
+- Encryption
+
+Production secrets live in environment / secret management.
+
+Never commit them.
+
+---
+
+# 158. Cookie Signing
+
+Opaque Auth Session token itself does not require embedding trusted claims.
+
+Cookie signing may still be used for tamper detection depending on framework setup.
+
+Database session lookup remains authoritative.
+
+---
+
+# 159. No Sensitive Claims in Browser
+
+Do not rely on client-stored values such as:
+
+`role=OWNER`
+
+or:
+
+`restaurantId=...`
+
+as trusted authorization state.
+
+They may be displayed or cached for UX only.
+
+Backend revalidates.
+
+---
+
+# 160. Cache-Control
+
+Sensitive authenticated API responses should use appropriate cache controls.
+
+Do not allow shared public caches to serve one Restaurant's private data to another User.
+
+---
+
+# 161. SSR Authentication
+
+Next.js Server Components may forward authenticated cookies to the Backend when loading protected Dashboard data.
+
+Next.js must not duplicate authorization rules.
+
+Backend remains authoritative.
+
+---
+
+# 162. Middleware
+
+Next.js middleware may provide UX-level route redirection.
+
+It must not be considered sufficient security.
+
+Even if middleware allows route access:
+
+Backend permission checks remain mandatory.
+
+---
+
+# 163. API Service Authentication
+
+Future internal services should use dedicated service credentials.
+
+Do not reuse Restaurant User Auth Session tokens for machine-to-machine communication.
+
+---
+
+# 164. Security Headers
+
+Production Web / Nginx should provide suitable security headers.
+
+Examples:
+
+- Content-Security-Policy where practical
+- X-Content-Type-Options
+- Referrer-Policy
+- Frame restrictions
+
+Detailed values belong in SECURITY_SPEC.md.
+
+---
+
+# 165. Authentication Tests
+
+Critical automated tests must include:
+
+- Correct password login
+- Incorrect password rejection
+- Disabled User rejection
+- Expired Session rejection
+- Revoked Session rejection
+- Logout revokes session
+- Membership disabled blocks Restaurant
+- Role change changes permissions
+- Branch restriction is enforced
+- Cross-Tenant resource access is blocked
+- Last OWNER cannot be removed
+- Guest Session cannot access another Guest's Order
+- Closed Table Session prevents old Guest from joining new visit
+
+---
+
+# 166. Multi-Tenant Test Requirement
+
+Tenant isolation tests are release-critical.
+
+At minimum create:
+
+Restaurant A
+Restaurant B
+
+Then verify Restaurant A User cannot:
+
+- Read B Products
+- Read B Orders
+- Read B Tables
+- Mutate B Promotions
+- Access B Sessions
+- Manage B Users
+
+---
+
+# 167. Branch Isolation Tests
+
+Within one Restaurant:
+
+Branch A User
+
+must not access Branch B operational resources when Branch scope excludes B.
+
+---
+
+# 168. Permission Tests
+
+Every protected state-changing operation requires at least:
+
+Allowed-role test
+
+and
+
+Denied-role test.
+
+---
+
+# 169. Guest Tests
+
+Guest tests should verify:
+
+- QR creates safe Guest context
+- Guest has no staff privileges
+- Guest cannot choose arbitrary Restaurant
+- Guest cannot choose arbitrary Table Session
+- Guest sees own Order
+- Guest cannot see another Guest's private Order
+- Expired Guest Session fails protected actions
+
+---
+
+# 170. V1 Deferred Authentication Features
+
+Not required initially:
+
+- Social Login
+- Google Login
+- Microsoft Login
+- Passkeys
+- Customer Accounts
+- Custom Restaurant Roles
+- Fine-grained database permission editor
+- Enterprise SSO
+- SCIM
+- LDAP
+- Device trust
+- IP allowlists
+- Platform Admin impersonation
+- Full MFA for all Restaurant Users
+- API OAuth server
+
+---
+
+# 171. Future MFA
+
+MFA should be considered for:
+
+- Platform Administrators
+- Restaurant OWNER accounts
+- Enterprise customers
+
+It can be introduced without changing Membership or Tenant model.
+
+---
+
+# 172. Future Custom Roles
+
+Future model may become:
+
+Custom Role
+→ Permissions
+→ Membership
+
+Because application code already authorizes Permission keys, this can be added without rewriting every Domain module.
+
+---
+
+# 173. Future Flutter App
+
+Future Flutter staff app may authenticate against the same Auth Domain.
+
+It may use a mobile-appropriate token transport rather than Web cookies.
+
+The resulting authenticated identity still resolves:
+
+User
+→ Membership
+→ Permissions
+→ Branch scope.
+
+---
+
+# 174. Core Invariants
+
+## INV-AUTH-001
+
+Passwords are never stored in plaintext.
+
+## INV-AUTH-002
+
+Raw Auth Session tokens are not stored in Database.
+
+## INV-AUTH-003
+
+A User must have ACTIVE Membership to access a Restaurant.
+
+## INV-AUTH-004
+
+Role alone does not prove Tenant ownership.
+
+## INV-AUTH-005
+
+Every protected Restaurant action validates Tenant context.
+
+## INV-AUTH-006
+
+Branch-scoped Users cannot access unauthorized Branch operational resources.
+
+## INV-AUTH-007
+
+Frontend permission hiding is not security.
+
+## INV-AUTH-008
+
+Permission changes apply to subsequent requests without requiring new login.
+
+## INV-AUTH-009
+
+Platform Administrator is separate from Restaurant OWNER.
+
+## INV-AUTH-010
+
+Guest Session never grants Staff authorization.
+
+## INV-AUTH-011
+
+Guest Session cannot silently cross from an old closed Table Session into a new dining party's Session.
+
+## INV-AUTH-012
+
+A Restaurant must retain at least one valid OWNER.
+
+## INV-AUTH-013
+
+Cross-Tenant access is rejected even when attacker knows internal resource identifiers.
+
+## INV-AUTH-014
+
+Authentication sessions have finite expiration.
+
+## INV-AUTH-015
+
+Disabling a User invalidates their authenticated access.
+
+---
+
+# 175. Acceptance Criteria
+
+Authentication and Tenant architecture is acceptable when:
+
+- Staff can login using Email and Password.
+- Password is hashed with Argon2id.
+- Successful login creates opaque Auth Session.
+- Raw Auth Session token is not stored.
+- Browser receives HttpOnly session cookie.
+- Session can expire.
+- Session can be revoked.
+- Logout works.
+- Logout-all works.
+- Disabled User cannot access protected endpoints.
+- User may belong to more than one Restaurant.
+- Membership controls Restaurant access.
+- OWNER / MANAGER / CASHIER / KITCHEN / WAITER roles exist.
+- Permissions are checked server-side.
+- Branch scope is enforceable.
+- User cannot access another Restaurant by changing route IDs.
+- Last OWNER cannot be accidentally removed.
+- Invitations use expiring one-time tokens.
+- Password reset uses expiring one-time tokens.
+- Platform Admin authorization is separate.
+- Guest Session is separate from Auth Session.
+- Guest can track only authorized Orders.
+- Closed dining visit cannot leak into next Table Session.
+- Tenant isolation receives automated tests.
+- Branch isolation receives automated tests.
+
+---
+
+# Authentication Principle
+
+> A session proves who the caller is; a membership proves which Restaurant they belong to; permissions decide what they may do. Never treat one of those as a substitute for the others.

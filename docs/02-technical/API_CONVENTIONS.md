@@ -1,0 +1,2754 @@
+﻿# API Conventions
+
+## Document Purpose
+
+This document defines the V1 HTTP API conventions for the Restaurant QR Platform.
+
+It defines:
+
+- API versioning
+- URL structure
+- Public and authenticated APIs
+- Tenant routing
+- Resource naming
+- Request conventions
+- Response conventions
+- Error format
+- Validation
+- HTTP status codes
+- Pagination
+- Filtering
+- Sorting
+- Idempotency
+- Authentication
+- Guest authorization
+- Concurrency conflicts
+- Realtime relationship
+- OpenAPI requirements
+- External integration boundaries
+
+This document is the source of truth for V1 REST API design.
+
+---
+
+# 1. Core API Principle
+
+The API should be:
+
+- Predictable
+- Resource-oriented
+- Explicit
+- Secure
+- Easy to consume
+- Easy to document
+- Stable enough for future integrations
+
+Avoid clever API design when a simple REST convention is sufficient.
+
+---
+
+# 2. API Technology
+
+V1 API uses:
+
+REST
++
+JSON
++
+HTTPS in Production
+
+Backend framework:
+
+NestJS.
+
+GraphQL is not required.
+
+---
+
+# 3. Base API Prefix
+
+All V1 endpoints use:
+
+`/api/v1`
+
+Example:
+
+`GET /api/v1/auth/me`
+
+`POST /api/v1/public/orders`
+
+`GET /api/v1/restaurants/{restaurantId}/orders`
+
+---
+
+# 4. Versioning
+
+Version is part of the URL.
+
+V1:
+
+`/api/v1`
+
+Future breaking API:
+
+`/api/v2`
+
+Do not introduce V2 until an actual breaking contract requires it.
+
+---
+
+# 5. API Areas
+
+V1 API is separated conceptually into:
+
+- Authentication
+- Public Guest
+- Restaurant
+- Platform Administration
+- Internal / Integration
+
+---
+
+# 6. Authentication Routes
+
+Authentication routes:
+
+`/api/v1/auth/...`
+
+Examples:
+
+`POST /api/v1/auth/login`
+
+`POST /api/v1/auth/logout`
+
+`POST /api/v1/auth/logout-all`
+
+`GET /api/v1/auth/me`
+
+`POST /api/v1/auth/change-password`
+
+`POST /api/v1/auth/forgot-password`
+
+`POST /api/v1/auth/reset-password`
+
+---
+
+# 7. Public Guest Routes
+
+Public guest endpoints use:
+
+`/api/v1/public/...`
+
+Examples:
+
+`GET /api/v1/public/qr/{publicCode}`
+
+`GET /api/v1/public/menu`
+
+`POST /api/v1/public/orders`
+
+`GET /api/v1/public/orders/{orderPublicId}`
+
+`POST /api/v1/public/service-requests`
+
+These endpoints still require backend validation.
+
+Public does not mean unrestricted.
+
+---
+
+# 8. Restaurant Routes
+
+Authenticated Restaurant APIs use explicit Restaurant context:
+
+`/api/v1/restaurants/{restaurantId}/...`
+
+Examples:
+
+`GET /api/v1/restaurants/{restaurantId}/branches`
+
+`GET /api/v1/restaurants/{restaurantId}/orders`
+
+`POST /api/v1/restaurants/{restaurantId}/products`
+
+`PATCH /api/v1/restaurants/{restaurantId}/orders/{orderId}/status`
+
+The route Restaurant ID is not authorization.
+
+Backend validates Membership.
+
+---
+
+# 9. Platform Administration Routes
+
+Platform administration endpoints use:
+
+`/api/v1/platform/...`
+
+Examples:
+
+`GET /api/v1/platform/restaurants`
+
+`POST /api/v1/platform/restaurants`
+
+These endpoints require Platform Administrator authorization.
+
+---
+
+# 10. Integration Routes
+
+Future provider integration routes should use clear boundaries.
+
+Examples:
+
+`/api/v1/integrations/...`
+
+or trusted provider Webhook paths such as:
+
+`/api/v1/webhooks/{provider}`
+
+Exact provider routes are defined with the Integration module.
+
+---
+
+# 11. Resource Naming
+
+Use plural resource nouns.
+
+Preferred:
+
+`restaurants`
+
+`branches`
+
+`tables`
+
+`orders`
+
+`products`
+
+Avoid:
+
+`getOrders`
+
+`createProduct`
+
+`updateTable`
+
+HTTP method already communicates the action.
+
+---
+
+# 12. URL Naming
+
+Use:
+
+lowercase kebab-case
+
+Examples:
+
+`table-sessions`
+
+`service-requests`
+
+`password-reset`
+
+Avoid:
+
+camelCase URLs.
+
+---
+
+# 13. Internal IDs vs Public IDs
+
+Authenticated Restaurant APIs may use internal UUID resource identifiers where appropriate.
+
+Public Guest APIs should prefer public identifiers.
+
+Example authenticated:
+
+`/restaurants/{restaurantId}/orders/{orderId}`
+
+Example guest:
+
+`/public/orders/{orderPublicId}`
+
+---
+
+# 14. Public QR Identity
+
+QR resolution uses:
+
+`publicCode`
+
+Example:
+
+`GET /api/v1/public/qr/{publicCode}`
+
+Do not expose:
+
+`GET /public/tables/17`
+
+as the QR contract.
+
+---
+
+# 15. Tenant Context
+
+Restaurant-owned protected endpoints must include or derive verified tenant context.
+
+Preferred route form:
+
+`/restaurants/{restaurantId}/...`
+
+This makes tenant scope visible in:
+
+- API logs
+- OpenAPI
+- Authorization
+- Debugging
+
+---
+
+# 16. Branch Context
+
+Branch-scoped resources may use:
+
+`/restaurants/{restaurantId}/branches/{branchId}/...`
+
+when the hierarchy materially improves clarity.
+
+Example:
+
+`GET /api/v1/restaurants/{restaurantId}/branches/{branchId}/tables`
+
+However, do not create unnecessarily deep URLs for every resource.
+
+---
+
+# 17. Orders Route
+
+Preferred Restaurant Order collection:
+
+`GET /api/v1/restaurants/{restaurantId}/orders`
+
+with filters such as:
+
+`branchId`
+
+`status`
+
+rather than requiring:
+
+`/restaurants/{restaurantId}/branches/{branchId}/orders`
+
+for every use case.
+
+This supports multi-Branch managers.
+
+---
+
+# 18. Resource Nesting Rule
+
+Prefer no more than two meaningful nested ownership levels where practical.
+
+Avoid routes such as:
+
+`/restaurants/{restaurantId}/branches/{branchId}/tables/{tableId}/sessions/{sessionId}/orders/{orderId}/items/{itemId}`
+
+Use direct resource endpoints with authorization instead.
+
+---
+
+# 19. HTTP Methods
+
+Use:
+
+GET
+→ Read
+
+POST
+→ Create / execute non-idempotent domain action
+
+PATCH
+→ Partial state / resource update
+
+PUT
+→ Full replacement only when genuinely appropriate
+
+DELETE
+→ Actual deletion only when Domain allows it
+
+---
+
+# 20. DELETE Usage
+
+Most historical business entities are not deleted.
+
+Examples:
+
+Product:
+deactivate via PATCH
+
+QR:
+deactivate via PATCH / domain action
+
+Membership:
+disable
+
+Order:
+cancel
+
+Do not misuse DELETE for Domain lifecycle state changes.
+
+---
+
+# 21. Domain Actions
+
+Some business transitions are clearer as explicit action endpoints.
+
+Example:
+
+`POST /orders/{id}/accept`
+
+`POST /orders/{id}/reject`
+
+`POST /orders/{id}/start-preparing`
+
+`POST /orders/{id}/mark-ready`
+
+`POST /orders/{id}/mark-served`
+
+This is preferred over allowing arbitrary client status assignment.
+
+---
+
+# 22. Why Explicit Order Actions
+
+Bad:
+
+`PATCH /orders/{id}`
+
+Body:
+
+{
+  "status": "SERVED"
+}
+
+This invites invalid state manipulation.
+
+Preferred:
+
+`POST /orders/{id}/mark-served`
+
+Backend controls allowed transition.
+
+---
+
+# 23. Table Session Actions
+
+Authenticated Restaurant actions use explicit tenant-scoped routes.
+
+Examples:
+
+`POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/resume`
+
+`POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/mark-paid`
+
+`POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/close`
+
+Guest bill request is not a direct Table Session mutation endpoint.
+
+Guest creates:
+
+`POST /api/v1/public/service-requests`
+
+with:
+
+`REQUEST_BILL`
+
+Backend validates the Guest context and updates the Table Session to PAYMENT_PENDING where applicable.
+
+UI may expose:
+
+Mark Paid & Close
+
+as one Restaurant Staff operation if Backend implements a safe combined action.
+
+---
+
+# 24. Service Request Actions
+
+Examples:
+
+`POST /service-requests/{id}/acknowledge`
+
+`POST /service-requests/{id}/complete`
+
+`POST /service-requests/{id}/cancel`
+
+Do not let clients submit arbitrary state transitions.
+
+---
+
+# 25. Success Response Envelope
+
+V1 uses a consistent success envelope.
+
+Single resource:
+
+{
+  "data": {
+    "id": "..."
+  }
+}
+
+Collection:
+
+{
+  "data": [
+    {}
+  ],
+  "meta": {}
+}
+
+---
+
+# 26. Why Use a Data Envelope
+
+The envelope allows future addition of:
+
+- Metadata
+- Pagination
+- Warnings
+- Request context
+
+without changing the resource shape.
+
+---
+
+# 27. Empty Successful Response
+
+When no response body provides value:
+
+Use:
+
+`204 No Content`
+
+Example:
+
+successful logout.
+
+Do not return fake payloads such as:
+
+{
+  "success": true
+}
+
+unless useful information is included.
+
+---
+
+# 28. Create Response
+
+Successful resource creation returns:
+
+`201 Created`
+
+with created resource or useful representation.
+
+Example:
+
+{
+  "data": {
+    "id": "...",
+    "publicId": "...",
+    "status": "PENDING"
+  }
+}
+
+---
+
+# 29. Error Response Format
+
+All normal API errors use a stable structure.
+
+Example:
+
+{
+  "error": {
+    "code": "PRODUCT_UNAVAILABLE",
+    "message": "The product is currently unavailable.",
+    "requestId": "req_...",
+    "details": {}
+  }
+}
+
+---
+
+# 30. Error Code
+
+`code`
+
+is the stable machine-readable identifier.
+
+Examples:
+
+`PRODUCT_UNAVAILABLE`
+
+`INVALID_MODIFIER_SELECTION`
+
+`ORDER_STATE_CONFLICT`
+
+`SESSION_PAYMENT_PENDING`
+
+Frontend logic may depend on code.
+
+---
+
+# 31. Error Message
+
+`message`
+
+is a safe developer / fallback message.
+
+Guest-facing frontend localization should normally use:
+
+error code
+→ localized UI message.
+
+Backend message is not the localization contract.
+
+---
+
+# 32. requestId
+
+Every API request should eventually have a correlation / request identifier.
+
+Errors return:
+
+`requestId`
+
+This allows:
+
+Guest reports issue
+→ Restaurant support
+→ Backend logs.
+
+---
+
+# 33. Error Details
+
+`details`
+
+is optional.
+
+May contain structured safe information.
+
+Example validation:
+
+{
+  "field": "email",
+  "reason": "INVALID_FORMAT"
+}
+
+Never include:
+
+- SQL errors
+- Stack traces
+- passwords
+- tokens
+- internal secrets
+
+---
+
+# 34. Validation Error
+
+DTO validation error example:
+
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "The request contains invalid data.",
+    "requestId": "req_123",
+    "details": {
+      "fields": [
+        {
+          "field": "email",
+          "code": "INVALID_EMAIL"
+        }
+      ]
+    }
+  }
+}
+
+---
+
+# 35. HTTP 400
+
+Use:
+
+`400 Bad Request`
+
+for:
+
+- Malformed JSON
+- Invalid query syntax
+- Invalid DTO structure
+- Missing required request data
+- Invalid enum values
+- Basic validation failure
+
+---
+
+# 36. HTTP 401
+
+Use:
+
+`401 Unauthorized`
+
+when authentication is missing, expired, invalid, or revoked.
+
+Examples:
+
+- Missing Staff Auth Session
+- Expired Staff Session
+- Invalid protected API credentials
+
+---
+
+# 37. HTTP 403
+
+Use:
+
+`403 Forbidden`
+
+when caller is authenticated but lacks required Permission or Branch access.
+
+Example:
+
+WAITER attempts Promotion management.
+
+---
+
+# 38. HTTP 404
+
+Use:
+
+`404 Not Found`
+
+when resource does not exist.
+
+For cross-Tenant protected resources, 404 may also be preferred to avoid existence disclosure.
+
+Example:
+
+Restaurant A User requests Restaurant B Order ID.
+
+API may return 404.
+
+---
+
+# 39. HTTP 409
+
+Use:
+
+`409 Conflict`
+
+for current-state conflicts.
+
+Examples:
+
+- Invalid Order lifecycle transition
+- Table Session already closed
+- Duplicate active Session conflict
+- Resource version / state conflict
+- Email Membership already exists
+
+---
+
+# 40. HTTP 422
+
+Use:
+
+`422 Unprocessable Entity`
+
+for requests that are structurally valid but fail business validation where a dedicated Domain error is more appropriate.
+
+Examples:
+
+- PRODUCT_UNAVAILABLE
+- PRICE_CHANGED
+- PROMOTION_NO_LONGER_VALID
+- Required Product option no longer available
+
+The distinction between 400 and 422 should remain consistent.
+
+---
+
+# 41. HTTP 429
+
+Use:
+
+`429 Too Many Requests`
+
+for rate limiting.
+
+Response should include safe retry information where practical.
+
+---
+
+# 42. HTTP 500
+
+Unexpected server failure:
+
+`500 Internal Server Error`
+
+Client receives generic safe error.
+
+Detailed stack belongs only in secure logs.
+
+---
+
+# 43. HTTP 503
+
+Use:
+
+`503 Service Unavailable`
+
+when a required temporary dependency prevents the requested capability.
+
+Example:
+
+AI Assistant unavailable because n8n is down.
+
+Core Menu should not return 503 merely because AI is unavailable.
+
+---
+
+# 44. Domain Error Mapping
+
+Domain errors should map consistently to:
+
+Error Code
++
+HTTP Status
+
+Do not choose HTTP status differently in each Controller.
+
+A centralized exception / error mapping approach is preferred.
+
+---
+
+# 45. Request JSON Naming
+
+JSON API fields use:
+
+camelCase
+
+Examples:
+
+{
+  "tableSessionId": "...",
+  "orderType": "DINE_IN",
+  "guestLocale": "ar"
+}
+
+Database snake_case must not leak into HTTP JSON.
+
+---
+
+# 46. Response JSON Naming
+
+Response JSON also uses:
+
+camelCase.
+
+---
+
+# 47. Date / Time Response Format
+
+Timestamps use ISO 8601 strings.
+
+Example:
+
+`2026-08-25T15:30:00.000Z`
+
+Do not return locale-formatted date strings from API.
+
+Frontend formats for the user.
+
+---
+
+# 48. Money API Representation
+
+Money must not be exposed as an unsafe floating-point contract.
+
+Preferred V1 API representation:
+
+Decimal string.
+
+Example:
+
+{
+  "price": "250.00",
+  "discountTotal": "50.00",
+  "total": "200.00",
+  "currencyCode": "EGP"
+}
+
+---
+
+# 49. Why Money Is String
+
+JSON has only a generic numeric type.
+
+Returning decimal strings prevents accidental floating-point precision assumptions across clients.
+
+Frontend parses / formats using approved money utilities.
+
+---
+
+# 50. Quantity
+
+Whole Product quantities use integers.
+
+Example:
+
+{
+  "quantity": 2
+}
+
+---
+
+# 51. Enum Representation
+
+Enums use stable uppercase string values.
+
+Example:
+
+`DINE_IN`
+
+`PENDING`
+
+`TABLE_QR`
+
+Do not localize API enum values.
+
+---
+
+# 52. Boolean Naming
+
+Boolean fields should read clearly.
+
+Examples:
+
+`isActive`
+
+`isDefault`
+
+`isVegetarian`
+
+`allBranches`
+
+Avoid ambiguous fields such as:
+
+`activeFlag`.
+
+---
+
+# 53. Null
+
+Use null only when it represents legitimate absence.
+
+Do not alternate unpredictably between:
+
+missing field
+
+and:
+
+null
+
+for the same response contract.
+
+---
+
+# 54. Optional Request Fields
+
+PATCH requests may omit fields that are not changing.
+
+Explicit null may mean:
+
+clear value
+
+only when API contract states that behavior.
+
+---
+
+# 55. Pagination
+
+Large collections must paginate.
+
+Initial strategy:
+
+Cursor pagination for high-volume operational history.
+
+Simple offset pagination may be acceptable for small administrative lists.
+
+Prefer one pattern per resource category.
+
+---
+
+# 56. Orders Pagination
+
+Orders should use cursor pagination.
+
+Example:
+
+`GET /orders?limit=25&cursor=...`
+
+Response:
+
+{
+  "data": [],
+  "meta": {
+    "nextCursor": "...",
+    "hasMore": true
+  }
+}
+
+---
+
+# 57. Cursor Meaning
+
+Cursor must be opaque to clients.
+
+Client should not construct or modify cursor internals.
+
+---
+
+# 58. Default Page Size
+
+Recommended default:
+
+25
+
+Recommended maximum:
+
+100
+
+Exact limit may vary by endpoint.
+
+Backend enforces maximum.
+
+---
+
+# 59. Small Admin Collections
+
+Small collections such as:
+
+Restaurant Branches
+
+may return all active records if expected volume is safely small.
+
+Do not add pagination merely for theoretical consistency when it harms UX.
+
+---
+
+# 60. Filtering
+
+Filters use query parameters.
+
+Example:
+
+`GET /orders?status=PENDING&branchId=...`
+
+Multiple filter rules should remain explicit.
+
+---
+
+# 61. Multiple Enum Filters
+
+If useful:
+
+`status=PENDING,ACCEPTED`
+
+may represent several statuses.
+
+The exact parser must be consistent across endpoints.
+
+---
+
+# 62. Date Filtering
+
+Use ISO values.
+
+Example:
+
+`createdFrom=2026-08-25T00:00:00Z`
+
+`createdTo=2026-08-26T00:00:00Z`
+
+Restaurant-local date filters may require Backend timezone conversion.
+
+---
+
+# 63. Search
+
+Simple search query:
+
+`q=burger`
+
+Backend defines which fields participate.
+
+Do not expose arbitrary SQL-like filtering syntax.
+
+---
+
+# 64. Sorting
+
+Use explicit sort parameters where required.
+
+Example:
+
+`sort=createdAt`
+
+`direction=desc`
+
+Supported fields must be allowlisted.
+
+Never pass arbitrary column names directly to Database queries.
+
+---
+
+# 65. Default Sorting
+
+Every collection with meaningful order must define default sorting.
+
+Example:
+
+Orders:
+
+`createdAt DESC`
+
+Menu Products:
+
+configured `displayOrder ASC`.
+
+---
+
+# 66. Include / Expansion
+
+V1 should avoid generic arbitrary:
+
+`?include=everything`
+
+APIs.
+
+Endpoints should return DTOs designed for their actual UI use case.
+
+This avoids accidental large payloads and authorization leaks.
+
+---
+
+# 67. Field Selection
+
+Generic GraphQL-like field selection is not required.
+
+Use purpose-built response DTOs.
+
+---
+
+# 68. Public Menu API
+
+Public Menu should return Guest-ready localized data.
+
+It should not return every internal Menu field.
+
+Example response may include:
+
+- Category
+- Product
+- Current effective price
+- Availability
+- Variant options
+- Modifier groups
+- Promotion display information
+
+---
+
+# 69. Dashboard Menu API
+
+Dashboard Menu APIs may return:
+
+- All configured translations
+- Internal status
+- Branch overrides
+- Edit metadata
+
+Public and Dashboard DTOs should not be identical merely for convenience.
+
+---
+
+# 70. DTO Principle
+
+Database Model
+≠
+API DTO.
+
+Do not serialize Prisma entities directly as API contracts.
+
+---
+
+# 71. Order Creation Endpoint
+
+Preferred public endpoint:
+
+`POST /api/v1/public/orders`
+
+For Dine-In, context may be derived from Guest Session and Table QR.
+
+Body contains business selection data.
+
+---
+
+# 72. Order Creation Request
+
+Conceptually:
+
+{
+  "orderType": "DINE_IN",
+  "items": [
+    {
+      "productPublicId": "...",
+      "variantPublicId": "...",
+      "quantity": 1,
+      "modifierOptionPublicIds": [],
+      "note": "Sauce on the side"
+    }
+  ]
+}
+
+The final DTO may evolve.
+
+Client does not submit authoritative price.
+
+---
+
+# 73. Never Accept Order Totals from Guest
+
+Do not accept client-authoritative:
+
+`subtotal`
+
+`discountTotal`
+
+`total`
+
+as trusted pricing.
+
+If frontend sends expected pricing for change detection, it must be clearly named and treated only as expectation.
+
+---
+
+# 74. Expected Price Version
+
+Future implementation may include:
+
+- Menu pricing version
+- Expected Cart total
+
+for detecting stale Cart.
+
+Backend always recalculates.
+
+---
+
+# 75. PRICE_CHANGED Response
+
+When pricing changed materially before Order creation:
+
+Return:
+
+`422`
+
+Code:
+
+`PRICE_CHANGED`
+
+Details may include refreshed Cart pricing.
+
+Example:
+
+{
+  "error": {
+    "code": "PRICE_CHANGED",
+    "message": "The order price has changed.",
+    "requestId": "req_123",
+    "details": {
+      "pricing": {
+        "subtotal": "270.00",
+        "discountTotal": "0.00",
+        "total": "270.00",
+        "currencyCode": "EGP"
+      }
+    }
+  }
+}
+
+Guest confirms again.
+
+---
+
+# 76. Idempotency Header
+
+Critical create operations use:
+
+`Idempotency-Key`
+
+HTTP Header.
+
+Order creation requires it.
+
+Example:
+
+`Idempotency-Key: 9c7d...`
+
+---
+
+# 77. Idempotency Key Requirements
+
+Key must be:
+
+- Random
+- Non-empty
+- Length-limited
+- Reused only for retrying the same logical request
+
+Recommended:
+
+UUID or equivalent random identifier.
+
+---
+
+# 78. Order Idempotency Scope
+
+Order Idempotency Key is scoped by Restaurant / Guest or equivalent trusted context.
+
+Database uniqueness provides final duplicate protection.
+
+---
+
+# 79. Same Key Same Request
+
+Retrying same Order request with same Idempotency-Key:
+
+Returns original Order result.
+
+Must not create second Order.
+
+---
+
+# 80. Same Key Different Request
+
+If same Idempotency-Key is reused with materially different request payload:
+
+Backend should return:
+
+`409 IDEMPOTENCY_KEY_REUSED`
+
+Do not silently return unrelated Order.
+
+---
+
+# 81. Idempotency Request Fingerprint
+
+Backend may store a safe request fingerprint / hash to detect incompatible reuse.
+
+Do not store unnecessary sensitive raw request data solely for idempotency.
+
+---
+
+# 82. Mutation Retry Safety
+
+Other high-risk mutations may become idempotent when needed.
+
+Examples:
+
+- Accept Order
+- Mark Ready
+- Webhook processing
+
+Repeated action should not duplicate side effects.
+
+---
+
+# 83. Authentication Transport
+
+Staff Web authentication uses secure HttpOnly cookie.
+
+Protected Restaurant APIs read authenticated session from cookie.
+
+Do not require frontend JavaScript to store Bearer token in localStorage.
+
+---
+
+# 84. Guest Authentication Transport
+
+Guest Session uses separate safe opaque session mechanism.
+
+Staff Auth and Guest Session must not share identity.
+
+---
+
+# 85. Credentials
+
+Cookie-authenticated frontend requests must send credentials according to same-origin / allowed-origin setup.
+
+---
+
+# 86. CSRF
+
+Unsafe cookie-authenticated methods require CSRF defenses defined in AUTH_TENANCY_SPEC.md and SECURITY_SPEC.md.
+
+---
+
+# 87. Authorization Failure
+
+API must validate:
+
+- User
+- Auth Session
+- Membership
+- Branch scope
+- Permission
+- Resource ownership
+
+before executing protected Domain action.
+
+---
+
+# 88. Resource Ownership Query
+
+Protected lookups should include tenant context.
+
+Do not fetch arbitrary global resource then hope Controller remembers to check tenant later.
+
+---
+
+# 89. Public Guest Context
+
+Guest requests should resolve context through trusted:
+
+- Guest Session
+- QR Public Code
+- Public resource identifier
+
+Never accept arbitrary:
+
+restaurantId
++
+tableId
+
+from guest and assume they are valid.
+
+---
+
+# 90. Guest Order Tracking
+
+Preferred endpoint:
+
+`GET /api/v1/public/orders/{orderPublicId}`
+
+Requires valid Guest Session ownership.
+
+Order public ID alone is not sufficient authorization.
+
+---
+
+# 91. Guest Menu Context
+
+After QR resolution, public Menu request may use Guest Session context rather than repeatedly sending raw internal Restaurant / Table IDs.
+
+Exact implementation will be finalized during Web scaffolding.
+
+---
+
+# 92. QR Resolve Endpoint
+
+Concept:
+
+`GET /api/v1/public/qr/{publicCode}`
+
+Returns safe context.
+
+Example:
+
+{
+  "data": {
+    "type": "TABLE",
+    "restaurant": {
+      "publicId": "...",
+      "name": "..."
+    },
+    "branch": {
+      "publicId": "...",
+      "name": "..."
+    },
+    "table": {
+      "number": "4"
+    },
+    "locale": {
+      "default": "ar",
+      "supported": ["ar", "en"]
+    }
+  }
+}
+
+---
+
+# 93. QR Resolve Must Not Return
+
+Do not expose:
+
+- Internal Table UUID unnecessarily
+- Active Table Session internal ID
+- Restaurant users
+- Integration configuration
+- Current table-wide order history
+
+---
+
+# 94. Restaurant Orders API
+
+Example:
+
+`GET /api/v1/restaurants/{restaurantId}/orders`
+
+Potential filters:
+
+- branchId
+- status
+- orderType
+- orderSource
+- tableId
+- createdFrom
+- createdTo
+- cursor
+- limit
+
+---
+
+# 95. Order Detail API
+
+`GET /api/v1/restaurants/{restaurantId}/orders/{orderId}`
+
+Returns Restaurant-operational Order view.
+
+May include:
+
+- Items
+- Modifiers
+- Pricing
+- Table context
+- Guest note
+- Status timestamps
+- Promotion snapshot
+- Kitchen ticket summary
+
+---
+
+# 96. Accept Order
+
+`POST /api/v1/restaurants/{restaurantId}/orders/{orderId}/accept`
+
+Permission:
+
+`orders.accept`
+
+Expected transition:
+
+PENDING
+→ ACCEPTED
+
+---
+
+# 97. Reject Order
+
+`POST /api/v1/restaurants/{restaurantId}/orders/{orderId}/reject`
+
+Body:
+
+{
+  "reason": "ITEM_UNAVAILABLE"
+}
+
+Permission:
+
+`orders.reject`
+
+---
+
+# 98. Cancel Order
+
+`POST /api/v1/restaurants/{restaurantId}/orders/{orderId}/cancel`
+
+Requires authorized reason.
+
+Permission:
+
+`orders.cancel`
+
+---
+
+# 99. Kitchen Actions
+
+Potential:
+
+`POST /api/v1/restaurants/{restaurantId}/kitchen-tickets/{ticketId}/start`
+
+`POST /api/v1/restaurants/{restaurantId}/kitchen-tickets/{ticketId}/mark-ready`
+
+Permission:
+
+`kitchen.update`
+
+---
+
+# 100. Mark Served
+
+Potential:
+
+`POST /api/v1/restaurants/{restaurantId}/orders/{orderId}/mark-served`
+
+Permission:
+
+`orders.markServed`
+
+---
+
+# 101. Table Sessions API
+
+Restaurant collection:
+
+`GET /api/v1/restaurants/{restaurantId}/table-sessions`
+
+Potential filters:
+
+- branchId
+- tableId
+- status
+- active
+- cursor
+
+---
+
+# 102. Table Session Detail
+
+`GET /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}`
+
+May include:
+
+- Table
+- Orders
+- Current total
+- Service Requests
+- Lifecycle timestamps
+
+according to permission.
+
+---
+
+# 103. Mark Paid
+
+`POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/mark-paid`
+
+Permission:
+
+`sessions.settle`
+
+V1 means external payment confirmed.
+
+---
+
+# 104. Close Session
+
+`POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/close`
+
+Permission:
+
+`sessions.close`
+
+Backend validates unresolved Orders.
+
+---
+
+# 105. Resume Session
+
+`POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/resume`
+
+Expected:
+
+PAYMENT_PENDING
+→ OPEN
+
+Permission:
+
+`sessions.resume`
+
+---
+
+# 106. Public Service Request
+
+`POST /api/v1/public/service-requests`
+
+Backend derives active Guest / Table Session context.
+
+Guest must not submit arbitrary sessionId.
+
+---
+
+# 107. Service Request Dashboard
+
+`GET /api/v1/restaurants/{restaurantId}/service-requests`
+
+Filters:
+
+- branchId
+- status
+- type
+
+---
+
+# 108. Menu Management
+
+Examples:
+
+`GET /api/v1/restaurants/{restaurantId}/menus`
+
+`POST /api/v1/restaurants/{restaurantId}/categories`
+
+`POST /api/v1/restaurants/{restaurantId}/products`
+
+`PATCH /api/v1/restaurants/{restaurantId}/products/{productId}`
+
+---
+
+# 109. Product Activation
+
+Product lifecycle may be controlled through:
+
+PATCH:
+
+{
+  "status": "INACTIVE"
+}
+
+because this is configuration state rather than operational state-machine action.
+
+---
+
+# 110. Product Availability
+
+Example:
+
+`PATCH /api/v1/restaurants/{restaurantId}/products/{productId}/availability`
+
+Body:
+
+{
+  "availability": "SOLD_OUT"
+}
+
+or equivalent focused endpoint.
+
+Exact implementation should optimize Dashboard clarity.
+
+---
+
+# 111. Promotions API
+
+Examples:
+
+`GET /api/v1/restaurants/{restaurantId}/promotions`
+
+`POST /api/v1/restaurants/{restaurantId}/promotions`
+
+`GET /api/v1/restaurants/{restaurantId}/promotions/{promotionId}`
+
+`PATCH /api/v1/restaurants/{restaurantId}/promotions/{promotionId}`
+
+---
+
+# 112. Promotion Activation
+
+Promotion may be activated / deactivated through PATCH if it is simple configuration.
+
+Backend still validates schedule / targets.
+
+---
+
+# 113. QR Administration
+
+Examples:
+
+`GET /api/v1/restaurants/{restaurantId}/qr-codes`
+
+`POST /api/v1/restaurants/{restaurantId}/tables/{tableId}/qr/regenerate`
+
+`POST /api/v1/restaurants/{restaurantId}/qr-codes/{qrId}/deactivate`
+
+Regenerate should be explicit because it invalidates physical printed QR.
+
+---
+
+# 114. Table Creation
+
+`POST /api/v1/restaurants/{restaurantId}/branches/{branchId}/tables`
+
+Backend may automatically create initial Table QR in same transaction.
+
+Response may include Table and QR summary.
+
+---
+
+# 115. Auth Login
+
+`POST /api/v1/auth/login`
+
+Body:
+
+{
+  "email": "manager@example.com",
+  "password": "..."
+}
+
+Successful response:
+
+- Sets session cookie
+- Returns safe User context
+
+---
+
+# 116. Auth Me
+
+`GET /api/v1/auth/me`
+
+Returns:
+
+- User
+- Memberships
+- Roles
+- Branch access
+- Preferred Locale
+
+---
+
+# 117. Invitations
+
+Potential endpoints:
+
+`POST /api/v1/restaurants/{restaurantId}/invitations`
+
+`GET /api/v1/restaurants/{restaurantId}/invitations`
+
+`POST /api/v1/auth/invitations/{token}/accept`
+
+Token route design may be refined for safe implementation.
+
+---
+
+# 118. Never Put Secrets in Logs
+
+Routes containing one-time tokens must be configured carefully so reverse proxy / application logs do not retain sensitive full tokens unnecessarily.
+
+Prefer token transport strategies that minimize exposure.
+
+---
+
+# 119. Password Reset
+
+Conceptual:
+
+`POST /auth/forgot-password`
+
+`POST /auth/reset-password`
+
+Reset request contains one-time token and new password.
+
+---
+
+# 120. OpenAPI
+
+NestJS OpenAPI / Swagger should document:
+
+- Routes
+- Parameters
+- Request DTOs
+- Response DTOs
+- Error models
+- Auth requirements
+
+---
+
+# 121. OpenAPI Source
+
+API documentation should be generated from actual Backend contracts where practical.
+
+Do not maintain a completely separate manually drifting API reference.
+
+---
+
+# 122. Swagger Environment
+
+Swagger UI should be enabled in:
+
+Development
+
+and optionally:
+
+Staging
+
+Production exposure should be disabled or protected unless intentionally required.
+
+---
+
+# 123. API Contract Stability
+
+Once a route is consumed by:
+
+- Production Web
+- Mobile App
+- POS Integration
+- External customer
+
+breaking changes require deliberate version / migration strategy.
+
+---
+
+# 124. Internal Web API Is Still an API
+
+Do not assume:
+
+"Only our frontend uses it"
+
+therefore contracts can be careless.
+
+Future integrations and mobile clients may reuse the same Domain APIs.
+
+---
+
+# 125. Response Size
+
+Do not return unnecessary nested data.
+
+Examples:
+
+Orders list does not need full Product descriptions and every translation.
+
+Use:
+
+Summary DTO
+
+vs:
+
+Detail DTO.
+
+---
+
+# 126. N+1 Protection
+
+API implementation must avoid obvious N+1 query patterns.
+
+Especially:
+
+- Public Menu
+- Orders Dashboard
+- Kitchen Board
+
+---
+
+# 127. Bulk APIs
+
+Do not introduce generic bulk CRUD APIs initially.
+
+Add focused bulk actions only when operational need exists.
+
+Example future:
+
+Bulk mark Products Sold Out.
+
+---
+
+# 128. Rate Limiting
+
+Public routes requiring protection include:
+
+- QR resolution
+- Order creation
+- AI Assistant
+- Login
+- Forgot Password
+- Service Requests
+
+Limits may differ by endpoint.
+
+---
+
+# 129. Rate Limit Identity
+
+Rate limiting may consider:
+
+- IP
+- Guest Session
+- Restaurant
+- User
+- Endpoint
+
+Do not rely on one global fixed limit for all traffic.
+
+---
+
+# 130. AI API
+
+Potential Guest endpoint:
+
+`POST /api/v1/public/ai/messages`
+
+Backend validates Guest / Restaurant context.
+
+n8n remains behind Backend.
+
+---
+
+# 131. AI Request
+
+Guest should submit:
+
+- Message
+- Conversation context identifier where approved
+
+Guest must not submit unrestricted AI Tool permissions.
+
+---
+
+# 132. AI Response
+
+Response may contain structured recommendations.
+
+Example:
+
+{
+  "data": {
+    "message": "...",
+    "products": [
+      {
+        "publicId": "...",
+        "name": "...",
+        "price": "250.00"
+      }
+    ]
+  }
+}
+
+AI output must use verified Product data for structured Product references.
+
+---
+
+# 133. AI Error Isolation
+
+If AI fails:
+
+Return capability-specific failure.
+
+Do not break normal Menu APIs.
+
+---
+
+# 134. Realtime and REST
+
+REST is the authoritative state retrieval mechanism.
+
+Realtime communicates:
+
+Something changed.
+
+Clients recover from missed events through REST.
+
+---
+
+# 135. Realtime Event Payload
+
+Realtime payload should be small.
+
+Example:
+
+{
+  "event": "ORDER_CREATED",
+  "orderId": "...",
+  "restaurantId": "...",
+  "branchId": "..."
+}
+
+Client may fetch detail if needed.
+
+Detailed event conventions belong in REALTIME_SPEC.md.
+
+---
+
+# 136. Optimistic UI
+
+Frontend may use optimistic UI only where rollback is safe.
+
+Do not optimistically show:
+
+Order ACCEPTED
+
+before Backend confirms.
+
+---
+
+# 137. Concurrency Conflict
+
+If resource state changed between UI load and mutation:
+
+Backend returns:
+
+409
+
+with stable Domain error.
+
+Frontend refetches current state.
+
+---
+
+# 138. No Generic Update Status Endpoint
+
+Avoid:
+
+`PATCH /resource/{id}/status`
+
+for complex state machines when explicit actions provide safer authorization and transition rules.
+
+---
+
+# 139. Request Body Limits
+
+Backend / Nginx should enforce reasonable JSON body size limits.
+
+Order notes and other text fields must also have specific limits.
+
+---
+
+# 140. File Upload APIs
+
+File upload is different from normal JSON API.
+
+Product Image upload should:
+
+- Validate MIME
+- Validate actual file type
+- Enforce size
+- Generate safe asset identity
+
+Exact endpoint belongs in Storage / Security implementation.
+
+---
+
+# 141. File Names
+
+Do not trust uploaded file name as storage path.
+
+Generate controlled storage identifiers.
+
+---
+
+# 142. Locale
+
+Public APIs may receive active locale through a consistent mechanism.
+
+Preferred:
+
+Validated query/header or Guest Session preference.
+
+Exact mechanism will be selected during Web setup.
+
+---
+
+# 143. Accept-Language
+
+`Accept-Language` may be used as initial hint.
+
+Explicit Guest-selected Locale overrides browser hint.
+
+---
+
+# 144. Dashboard Locale
+
+Dashboard interface Locale is User preference / frontend concern.
+
+Restaurant content editing APIs return translations independently of Dashboard interface language.
+
+---
+
+# 145. API Locale Does Not Affect Pricing
+
+Changing requested locale must never change:
+
+- Price
+- Promotion eligibility
+- Order
+- Tenant
+- Table Session
+
+---
+
+# 146. API Currency
+
+API always returns Currency Code alongside financial context where ambiguity exists.
+
+Do not rely on frontend hard-coded:
+
+EGP
+
+forever.
+
+---
+
+# 147. Public Resource Caching
+
+Public Menu GET responses may eventually use HTTP caching where safe.
+
+Ordering-sensitive APIs must use current authoritative validation.
+
+---
+
+# 148. Authenticated Response Caching
+
+Private Restaurant data must not be served through shared public caches.
+
+Use appropriate:
+
+Cache-Control.
+
+---
+
+# 149. ETags
+
+ETag / conditional requests are optional.
+
+Do not add them until they provide actual value.
+
+---
+
+# 150. Health API
+
+Potential:
+
+`GET /api/v1/health`
+
+or infrastructure-level:
+
+`/health`
+
+Returns minimal health state.
+
+Do not expose:
+
+- Database passwords
+- Internal network names
+- detailed stack traces
+
+---
+
+# 151. Readiness vs Liveness
+
+Future production may expose:
+
+Liveness
+→ API process alive
+
+Readiness
+→ Required core dependencies available
+
+Initial implementation can remain simple.
+
+---
+
+# 152. External Webhooks
+
+Webhook endpoints require:
+
+- Signature verification
+- Timestamp / replay protection where supported
+- Provider identity
+- Idempotency
+
+Do not accept unauthenticated provider state changes.
+
+---
+
+# 153. Webhook Response
+
+Providers usually expect fast acknowledgment.
+
+Do not run unnecessary slow AI or analytics processing before responding if provider contract does not require it.
+
+---
+
+# 154. Webhook Idempotency
+
+Same provider event may be delivered multiple times.
+
+Store provider event identity where available.
+
+Repeated event must not duplicate business action.
+
+---
+
+# 155. Integration Error Mapping
+
+Provider-specific error messages must not leak into Guest APIs unfiltered.
+
+Connector maps provider failure into Platform-safe errors.
+
+---
+
+# 156. Logging
+
+API logs should include:
+
+- requestId
+- method
+- route
+- statusCode
+- duration
+- authenticated userId where safe
+- restaurantId where safe
+- branchId where relevant
+
+Never log:
+
+- password
+- raw Auth token
+- raw Guest token
+- reset token
+- invitation token
+- integration secrets
+
+---
+
+# 157. Sensitive Query Parameters
+
+Avoid placing secrets in query strings.
+
+Query strings are commonly logged.
+
+Use secure body / headers for sensitive tokens when practical.
+
+---
+
+# 158. Request ID Header
+
+Backend may accept trusted incoming:
+
+`X-Request-ID`
+
+or generate one.
+
+Never blindly trust unbounded arbitrary values.
+
+---
+
+# 159. Client Request ID
+
+Frontend may optionally send:
+
+`X-Client-Request-ID`
+
+for debugging.
+
+This is not authorization.
+
+---
+
+# 160. Deprecation
+
+If API field or endpoint is deprecated:
+
+Document replacement.
+
+Do not silently remove production-used contract.
+
+---
+
+# 161. API Naming Consistency
+
+Choose one term and keep it.
+
+Use:
+
+`tableSession`
+
+not alternating:
+
+`diningSession`
+`visit`
+`tableVisit`
+
+Use terminology from PRODUCT_GLOSSARY.md.
+
+---
+
+# 162. No POS Terms in Core API
+
+Do not expose provider-specific terms such as:
+
+FoodicsOrderStatus
+
+inside core Order API.
+
+Use Platform terminology.
+
+---
+
+# 163. No AI Terms in Normal Ordering
+
+Normal Order creation must not depend on AI-specific fields.
+
+AI is an optional interface into normal Platform capabilities.
+
+---
+
+# 164. Platform Boundary
+
+API clients cannot bypass Domain rules by choosing a different route.
+
+Example:
+
+If Order cannot transition:
+
+PENDING → READY
+
+no alternate Admin API should silently allow it unless a documented privileged override exists.
+
+---
+
+# 165. Admin Overrides
+
+V1 should minimize overrides.
+
+Where an override is necessary:
+
+- Explicit endpoint
+- Strong Permission
+- Required reason
+- Audit event
+
+---
+
+# 166. Validation Layers
+
+Request passes:
+
+DTO Validation
+→ Authentication
+→ Authorization
+→ Tenant Validation
+→ Domain Validation
+→ Database Constraints
+
+Each layer has a distinct purpose.
+
+---
+
+# 167. DTO Validation
+
+DTO validation checks:
+
+- Required fields
+- Types
+- Enum values
+- Length
+- Shape
+
+---
+
+# 168. Domain Validation
+
+Domain validation checks:
+
+- Product available
+- Session OPEN
+- Promotion eligible
+- Order transition allowed
+- User may assign Role
+- Table belongs to Branch
+
+---
+
+# 169. Database Validation
+
+Database protects:
+
+- Foreign Keys
+- Uniqueness
+- Critical concurrency invariants
+- Check Constraints
+
+---
+
+# 170. Frontend Validation
+
+Frontend validation improves UX.
+
+It is never authoritative security.
+
+---
+
+# 171. API Testing
+
+Critical API automated tests include:
+
+- Authentication
+- Tenant isolation
+- Permission denial
+- Branch isolation
+- QR resolution
+- Order idempotency
+- Order lifecycle transitions
+- Session conflicts
+- Price change
+- Promotion calculation
+- Guest ownership
+- Validation errors
+
+---
+
+# 172. Contract Tests
+
+Important API responses should have DTO / integration tests that prevent accidental breaking shape changes.
+
+---
+
+# 173. OpenAPI Validation
+
+Before major API release:
+
+Review generated OpenAPI for:
+
+- Missing Auth declarations
+- Wrong response status
+- Internal fields exposed
+- Missing validation constraints
+
+---
+
+# 174. Public API Safety
+
+Public API responses must avoid internal operational information.
+
+Example Guest Menu does not need:
+
+- Product cost
+- Integration IDs
+- Staff notes
+- Supplier data
+- Audit records
+
+---
+
+# 175. Restaurant API Safety
+
+Restaurant API still must not expose:
+
+- Password hashes
+- Auth session hashes
+- Integration secret plaintext
+- reset token hashes
+
+even to OWNER.
+
+---
+
+# 176. Platform Admin Safety
+
+Platform Admin API should also avoid returning secret plaintext unnecessarily.
+
+Privileged user is not a reason to expose secrets by default.
+
+---
+
+# 177. API Documentation Examples
+
+Documentation examples must use:
+
+Fake IDs
+Fake emails
+Fake secrets
+
+Never copy Production credentials into Swagger examples.
+
+---
+
+# 178. Development Error Details
+
+Development may log rich errors server-side.
+
+Do not create different public response contracts between Development and Production.
+
+---
+
+# 179. Request Timeout
+
+API and Nginx should use reasonable timeouts.
+
+Normal Order creation should not wait indefinitely for:
+
+- AI
+- External analytics
+- Optional integrations
+
+---
+
+# 180. External Integration Timeout
+
+Future synchronous POS integration should have explicit timeout behavior.
+
+Do not keep Guest browser request hanging indefinitely.
+
+Detailed policy belongs in Integration spec.
+
+---
+
+# 181. Async Integration Future
+
+If provider synchronization later requires durable async processing:
+
+Introduce queue infrastructure deliberately.
+
+Do not fake success before recording sync state.
+
+---
+
+# 182. V1 API Non-Goals
+
+Not required:
+
+- GraphQL
+- gRPC public API
+- Generic CRUD generator
+- Dynamic query language
+- OData
+- JSON:API compliance
+- HAL
+- HATEOAS
+- API Gateway product
+- Multiple API microservices
+
+---
+
+# 183. Core API Invariants
+
+## INV-API-001
+
+All V1 routes use explicit versioning.
+
+## INV-API-002
+
+Restaurant ID in URL is never treated as authorization.
+
+## INV-API-003
+
+Public APIs do not expose sensitive internal IDs unnecessarily.
+
+## INV-API-004
+
+Database entities are not serialized directly as API contracts.
+
+## INV-API-005
+
+Money is represented safely.
+
+## INV-API-006
+
+Order creation does not trust client prices.
+
+## INV-API-007
+
+Order creation is idempotent.
+
+## INV-API-008
+
+Complex lifecycle transitions use controlled Domain actions.
+
+## INV-API-009
+
+Errors use stable machine-readable codes.
+
+## INV-API-010
+
+Cross-Tenant access never exposes another Tenant's data.
+
+## INV-API-011
+
+Guest Order public ID alone is not sufficient authorization.
+
+## INV-API-012
+
+Realtime does not replace REST state retrieval.
+
+## INV-API-013
+
+External Webhooks are authenticated and idempotent.
+
+## INV-API-014
+
+Raw authentication and one-time tokens are never logged.
+
+---
+
+# 184. Acceptance Criteria
+
+API architecture is acceptable when:
+
+- `/api/v1` prefix is used.
+- Authentication routes are clearly separated.
+- Public Guest routes are clearly separated.
+- Restaurant routes carry explicit tenant context.
+- Platform Admin routes are separate.
+- Success responses use consistent `data` envelope.
+- Errors use consistent `error` envelope.
+- Validation errors are structured.
+- Request IDs are available for operational debugging.
+- Money uses Decimal-safe API representation.
+- Timestamps use ISO 8601.
+- Orders support Idempotency-Key.
+- Same Order retry does not create duplicate Order.
+- Different payload with reused key is rejected.
+- Order lifecycle actions cannot bypass Domain transitions.
+- Restaurant Membership and Permission are enforced.
+- Branch scope is enforced.
+- Guest cannot fetch another Guest's private Order.
+- QR resolution exposes only safe public context.
+- Public Menu and Dashboard Menu have appropriate separate DTOs.
+- Collections paginate where volume requires it.
+- Filtering and sorting are allowlisted.
+- Swagger / OpenAPI can describe actual contracts.
+- Public errors do not expose implementation details.
+- Webhooks can be authenticated and deduplicated.
+- Core ordering does not depend on AI availability.
+
+---
+
+# API Principle
+
+> URLs identify the resource context, HTTP communicates intent, the Backend enforces the business rules, and every response should be predictable enough that clients never need to guess.
+
+
+
+
+
+
+
+
