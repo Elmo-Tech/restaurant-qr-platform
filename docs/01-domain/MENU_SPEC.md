@@ -1,4 +1,4 @@
-﻿# Menu Specification
+# Menu Specification
 
 ## Document Purpose
 
@@ -381,6 +381,43 @@ Variants should be used when the choice is central to the Product identity or ba
 
 ---
 
+# 21A. Variant Translation
+
+A Product Variant has a customer-facing translatable name.
+
+V1 represents Variant translated content through:
+
+`ProductVariantTranslation`
+
+with one translation per:
+
+Product Variant
++
+Locale.
+
+Do not store language-specific Variant fields such as:
+
+- name_ar
+- name_en
+
+The Restaurant Default Locale translation is required before an active Variant may be presented as a Guest ordering choice.
+
+If the requested Locale translation is missing:
+
+Use field-level fallback to the Restaurant Default Locale according to the I18N specification.
+
+Language-independent Variant data remains on the Product Variant itself.
+
+Examples:
+
+- Price adjustment
+- Status
+- Display order
+- Default Variant state
+
+Variant pricing and operational state are not duplicated in translation records.
+
+---
 # 22. Variant Price
 
 A Variant may define:
@@ -1633,6 +1670,7 @@ Menu implementation is acceptable when:
 - Product can be made Sold Out.
 - Product can be deactivated.
 - Product can support Variants.
+- Variant customer-facing names support Restaurant translations.
 - Product can support required and optional Modifier Groups.
 - Modifier Groups enforce min / max rules.
 - Modifier Options can affect price.

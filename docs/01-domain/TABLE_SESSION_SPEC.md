@@ -1,4 +1,4 @@
-﻿# Table Session Specification
+# Table Session Specification
 
 ## Document Purpose
 
@@ -325,7 +325,17 @@ Shared table order history is a V2 concern.
 
 # 15. Order Round
 
-Every confirmed Dine-In order submission creates a new Order Round.
+`Order Round` is a business concept, not a separate persistent entity in V1.
+
+Every successfully created Dine-In `Order` represents exactly one Order Round inside its active Table Session.
+
+The persistent record is:
+
+`Order`
+
+and its sequence within the Table Session is stored as:
+
+`Order.roundNumber`
 
 Example:
 
@@ -363,7 +373,9 @@ Round #1
 
 Round number is not a global identifier.
 
-The system must maintain a separate secure unique identifier for every Order / Round.
+Each persistent `Order` has its own secure unique identifier.
+
+The Order Round does not receive a second independent V1 identity because it is the business meaning of that Dine-In Order within the Table Session.
 
 ---
 

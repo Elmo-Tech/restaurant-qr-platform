@@ -1,4 +1,4 @@
-﻿# Internationalization Specification
+# Internationalization Specification
 
 ## Document Purpose
 
@@ -371,6 +371,9 @@ Conceptually:
 Product
 → ProductTranslation
 
+Product Variant
+→ ProductVariantTranslation
+
 Category
 → CategoryTranslation
 
@@ -407,6 +410,44 @@ Locale
 
 ---
 
+# 21A. Product Variant Translation
+
+`ProductVariantTranslation` contains the customer-facing translated name of a Product Variant.
+
+Conceptual fields:
+
+- Product Variant reference
+- Locale
+- Name
+
+Unique rule:
+
+One translation per:
+
+Product Variant
++
+Locale.
+
+Variant translation follows the same Restaurant Locale rules as other Menu content.
+
+The Restaurant Default Locale translation is required before an active Variant may be presented as a Guest ordering choice.
+
+If the requested Locale is missing:
+
+Use field-level fallback to the Restaurant Default Locale according to this specification.
+
+Language-independent Variant data does not belong in the translation record.
+
+Examples:
+
+- Price adjustment
+- Status
+- Display order
+- Default Variant state
+
+remain on the Product Variant itself.
+
+---
 # 22. Category Translation
 
 CategoryTranslation may contain:
