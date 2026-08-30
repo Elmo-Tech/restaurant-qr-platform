@@ -1,7 +1,7 @@
 export default function Home() {
   return (
     <main>
-      <div>Hello world!</div>
+      <h1>Restaurant QR Platform</h1>
     </main>
   );
 }
