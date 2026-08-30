@@ -10,6 +10,9 @@ dist/
 build/
 *.tsbuildinfo
 
+# Prisma generated client (derived code, not committed)
+apps/api/src/generated/prisma/
+
 # Tests
 coverage/
 

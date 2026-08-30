@@ -14,7 +14,9 @@
     "typecheck": "npm run typecheck --workspaces --if-present",
     "typecheck:web": "npm run typecheck --workspace=apps/web",
     "typecheck:api": "npm run typecheck --workspace=apps/api",
-    "test": "npm run test --workspaces --if-present"
+    "test": "npm run test --workspaces --if-present",
+    "db:validate": "npm run prisma:validate --workspace=apps/api",
+    "db:generate": "npm run prisma:generate --workspace=apps/api"
   },
   "keywords": [],
   "author": "",
