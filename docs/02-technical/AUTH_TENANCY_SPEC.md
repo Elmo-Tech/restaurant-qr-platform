@@ -1304,7 +1304,7 @@ Fields:
 - invitedByUserId
 - createdAt
 
-Branch selections may use supporting invitation branch records if needed.
+Branch-scoped invitation selections (when `allBranches = false`) use the supporting `restaurant_invitation_branches` join table (see DATABASE_SPEC.md #33F).
 
 ---
 

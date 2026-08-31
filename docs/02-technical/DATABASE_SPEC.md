@@ -454,6 +454,8 @@ RestaurantMembershipBranch
 
 RestaurantInvitation
 
+RestaurantInvitationBranch
+
 PlatformAdministrator
 
 Table
@@ -568,6 +570,8 @@ SUSPENDED represents Platform-level restriction.
 
 INACTIVE represents Restaurant configuration state.
 
+The Database column has no default value. Restaurant creation must explicitly provide the initial status at the application/domain layer.
+
 ---
 
 # 25. Restaurant Locale Configuration
@@ -597,6 +601,8 @@ restaurantId + locale
 `restaurant_locales` defines the set of Restaurant-supported Locales.
 
 Backend must guarantee that the Restaurant Default Locale has an active matching `restaurant_locales` record.
+
+`isActive` has no database default. The onboarding workflow that creates the `restaurant_locales` record must explicitly decide whether it starts active.
 
 ---
 
@@ -636,6 +642,19 @@ Fields may include:
 - address text where required
 - createdAt
 - updatedAt
+
+---
+
+# 27A. Branch Status
+
+V1 values:
+
+ACTIVE
+INACTIVE
+
+Branch intentionally has no SUSPENDED value. SUSPENDED is a Restaurant-level (tenant) state (see #24). There is no documented Branch-level suspended lifecycle in V1.
+
+The Database column has no default value. Branch creation must explicitly provide the initial status at the application/domain layer.
 
 ---
 
@@ -799,6 +818,8 @@ Recommended indexes:
 - expiresAt
 - revokedAt where useful
 
+`lastSeenAt` has no database default. Auth creation logic explicitly sets its initial value when Auth is implemented.
+
 Auth Session validity requires:
 
 - Session exists
@@ -843,6 +864,8 @@ The Branch must belong to the same Restaurant as the Restaurant Membership.
 
 Cross-Restaurant branch assignment is invalid.
 
+V1 uses a composite Primary Key on `restaurantMembershipId + branchId`. There is no surrogate `id` column: this is a pure authorization join table with no independent public identity or lifecycle.
+
 ---
 
 # 33C. Restaurant Invitation
@@ -879,7 +902,7 @@ Critical rules:
 
 For Branch-scoped invitations, selected Branch access must be validated against the same Restaurant and materialized into the resulting Restaurant Membership branch assignments.
 
-The exact temporary representation of selected invitation Branches may be finalized during implementation without changing the Membership authorization model.
+The temporary representation of selected invitation Branches is `restaurant_invitation_branches` (see #33F).
 
 ---
 
@@ -937,6 +960,41 @@ emailNormalized
 Authentication queries must use normalized email.
 
 Do not rely on case-sensitive raw email comparison for login identity.
+
+---
+
+# 33F. Restaurant Invitation Branch
+
+Database table:
+
+`restaurant_invitation_branches`
+
+Approved temporary representation for the intended Branch access of a Branch-scoped `RestaurantInvitation` (see #33C).
+
+Fields:
+
+- restaurantInvitationId
+- branchId
+
+Constraint:
+
+Composite Primary Key:
+
+restaurantInvitationId + branchId
+
+There is no surrogate `id` column: this is a pure join table with no independent public identity or lifecycle, matching `restaurant_membership_branches` (#33B).
+
+This table is used only when:
+
+`restaurant_invitations.allBranches = false`
+
+If `allBranches = true`, rows in this table are not required.
+
+Rules enforced by application/domain transaction logic, not by the schema:
+
+- Every selected Branch must belong to the same Restaurant as the Invitation.
+- When `allBranches = false`, the invitation workflow requires the intended Branch assignments before the Invitation can be used to grant Branch-scoped access.
+- On acceptance, selected Branches here are materialized into `restaurant_membership_branches` for the resulting Restaurant Membership.
 
 ---
 
@@ -2726,6 +2784,10 @@ restaurant_invitations:
 - emailNormalized
 - expiresAt
 
+restaurant_invitation_branches:
+- restaurantInvitationId + branchId unique (composite Primary Key)
+- branchId
+
 tables:
 - branchId
 - restaurantId
@@ -3734,6 +3796,8 @@ restaurant_memberships
 restaurant_membership_branches
 
 restaurant_invitations
+
+restaurant_invitation_branches
 
 tables
 

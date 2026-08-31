@@ -3,7 +3,292 @@ datasource db {
 }
 
 generator client {
-  provider      = "prisma-client"
-  output        = "../src/generated/prisma"
-  moduleFormat  = "cjs"
+  provider     = "prisma-client"
+  output       = "../src/generated/prisma"
+  moduleFormat = "cjs"
+}
+
+// -----------------------------------------------------------------------------
+// Enums (DATABASE_SPEC.md #138, AUTH_TENANCY_SPEC.md #16 / #39 / #45)
+// -----------------------------------------------------------------------------
+
+enum RestaurantStatus {
+  ACTIVE
+  INACTIVE
+  SUSPENDED
+
+  @@map("restaurant_status")
+}
+
+enum BranchStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("branch_status")
+}
+
+enum UserState {
+  ACTIVE
+  INVITED
+  DISABLED
+
+  @@map("user_state")
+}
+
+enum RestaurantMembershipRole {
+  OWNER
+  MANAGER
+  CASHIER
+  KITCHEN
+  WAITER
+
+  @@map("restaurant_membership_role")
+}
+
+enum RestaurantMembershipStatus {
+  ACTIVE
+  INVITED
+  DISABLED
+
+  @@map("restaurant_membership_status")
+}
+
+// -----------------------------------------------------------------------------
+// Restaurant / Branch (DATABASE_SPEC.md #23-30)
+// -----------------------------------------------------------------------------
+
+model Restaurant {
+  id            String           @id @default(uuid()) @db.Uuid
+  publicId      String           @unique @map("public_id")
+  name          String
+  // No database default: DATABASE_SPEC.md #24 defines the allowed values but
+  // not a creation default. Restaurant creation must explicitly choose the
+  // initial status at the application/domain layer.
+  status        RestaurantStatus
+  // Authoritative default locale (DATABASE_SPEC.md #26). restaurant_locales
+  // stores supported locales only and does not maintain a second isDefault
+  // flag.
+  defaultLocale String           @map("default_locale")
+  currencyCode  String           @map("currency_code") @db.Char(3)
+  logoAssetPath String?          @map("logo_asset_path")
+  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  locales     RestaurantLocale[]
+  branches    Branch[]
+  memberships RestaurantMembership[]
+  invitations RestaurantInvitation[]
+
+  @@map("restaurants")
+}
+
+model RestaurantLocale {
+  id           String   @id @default(uuid()) @db.Uuid
+  restaurantId String   @map("restaurant_id") @db.Uuid
+  // Normalized locale string (e.g. "ar", "en"), not a fixed enum, so the
+  // Platform can support additional locales without a schema change
+  // (I18N_SPEC.md #2, #19).
+  locale       String
+  // No database default: the onboarding workflow explicitly decides whether
+  // a locale is active when the record is created.
+  isActive     Boolean  @map("is_active")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+
+  @@unique([restaurantId, locale])
+  @@map("restaurant_locales")
+}
+
+model Branch {
+  id           String       @id @default(uuid()) @db.Uuid
+  publicId     String       @unique @map("public_id")
+  restaurantId String       @map("restaurant_id") @db.Uuid
+  name         String
+  // V1 BranchStatus intentionally has no SUSPENDED value: SUSPENDED is a
+  // Restaurant-level (tenant) state, and there is no documented Branch-level
+  // suspended lifecycle (DATABASE_SPEC.md #27A). No database default:
+  // Branch creation must explicitly choose the initial status at the
+  // application/domain layer.
+  status       BranchStatus
+  // IANA timezone identifier (e.g. "Africa/Cairo"), not a fixed UTC offset
+  // (DATABASE_SPEC.md #28).
+  timezone     String
+  phone        String?
+  address      String?
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant         Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  membershipBranches RestaurantMembershipBranch[]
+  invitationBranches RestaurantInvitationBranch[]
+
+  @@index([restaurantId])
+  @@map("branches")
+}
+
+// -----------------------------------------------------------------------------
+// User / Auth (DATABASE_SPEC.md #31, #33A, #33D, #33E; AUTH_TENANCY_SPEC.md
+// #15-21, #32, #142, #145)
+// -----------------------------------------------------------------------------
+
+model User {
+  id              String    @id @default(uuid()) @db.Uuid
+  email           String
+  // Normalized login identity used for authentication lookups
+  // (DATABASE_SPEC.md #33E, AUTH_TENANCY_SPEC.md #15).
+  emailNormalized String    @unique @map("email_normalized")
+  passwordHash    String    @map("password_hash")
+  status          UserState
+  preferredLocale String?   @map("preferred_locale")
+  createdAt       DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  authSessions        AuthSession[]
+  passwordResetTokens PasswordResetToken[]
+  memberships         RestaurantMembership[]
+  sentInvitations     RestaurantInvitation[] @relation("InvitedByUser")
+
+  @@map("users")
+}
+
+model AuthSession {
+  id           String    @id @default(uuid()) @db.Uuid
+  userId       String    @map("user_id") @db.Uuid
+  // Only the hash of the opaque session token is ever stored; the raw token
+  // is never persisted (DATABASE_SPEC.md #33A, AUTH_TENANCY_SPEC.md #21).
+  tokenHash    String    @unique @map("token_hash")
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  // No database default: Auth creation logic explicitly sets the initial
+  // lastSeenAt when Auth is implemented.
+  lastSeenAt   DateTime  @map("last_seen_at") @db.Timestamptz
+  expiresAt    DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt    DateTime? @map("revoked_at") @db.Timestamptz
+  revokeReason String?   @map("revoke_reason")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  // revokedAt has no dedicated index: AUTH_TENANCY_SPEC.md #114 only
+  // mentions it as indexed "where useful", and no query pattern currently
+  // justifies a speculative index. userId and expiresAt are explicitly
+  // required (DATABASE_SPEC.md #130).
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("auth_sessions")
+}
+
+model PasswordResetToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  userId     String    @map("user_id") @db.Uuid
+  // Only the hash of the reset token is ever stored (DATABASE_SPEC.md #33D,
+  // AUTH_TENANCY_SPEC.md #32).
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  consumedAt DateTime? @map("consumed_at") @db.Timestamptz
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict)
+
+  @@index([userId])
+  @@index([expiresAt])
+  @@map("password_reset_tokens")
+}
+
+// -----------------------------------------------------------------------------
+// Restaurant Membership (DATABASE_SPEC.md #32, #33B; AUTH_TENANCY_SPEC.md
+// #37-40, #58-61, #143)
+// -----------------------------------------------------------------------------
+
+model RestaurantMembership {
+  id           String                     @id @default(uuid()) @db.Uuid
+  restaurantId String                     @map("restaurant_id") @db.Uuid
+  userId       String                     @map("user_id") @db.Uuid
+  role         RestaurantMembershipRole
+  status       RestaurantMembershipStatus
+  // true = Restaurant-wide Branch access; false = access is restricted to
+  // the Branches listed in RestaurantMembershipBranch
+  // (AUTH_TENANCY_SPEC.md #58-60). No schema default: every Membership must
+  // explicitly decide its Branch scope at creation time.
+  allBranches  Boolean                    @map("all_branches")
+  createdAt    DateTime                   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime                   @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant   Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  user         User                         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  branchAccess RestaurantMembershipBranch[]
+
+  @@unique([restaurantId, userId])
+  @@index([restaurantId])
+  @@index([userId])
+  @@map("restaurant_memberships")
+}
+
+model RestaurantMembershipBranch {
+  restaurantMembershipId String @map("restaurant_membership_id") @db.Uuid
+  branchId               String @map("branch_id") @db.Uuid
+
+  membership RestaurantMembership @relation(fields: [restaurantMembershipId], references: [id], onDelete: Restrict)
+  branch     Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  // Cross-Restaurant validation (the Branch must belong to the same
+  // Restaurant as the Membership) is a relational invariant that cannot be
+  // expressed as a simple column constraint here; it is enforced by
+  // application/domain logic (AUTH_TENANCY_SPEC.md #61).
+  @@id([restaurantMembershipId, branchId])
+  @@index([branchId])
+  @@map("restaurant_membership_branches")
+}
+
+// -----------------------------------------------------------------------------
+// Restaurant Invitation (DATABASE_SPEC.md #33C; AUTH_TENANCY_SPEC.md #76-81,
+// #144)
+// -----------------------------------------------------------------------------
+
+model RestaurantInvitation {
+  id              String                   @id @default(uuid()) @db.Uuid
+  restaurantId    String                   @map("restaurant_id") @db.Uuid
+  emailNormalized String                   @map("email_normalized")
+  role            RestaurantMembershipRole
+  allBranches     Boolean                  @map("all_branches")
+  // Only the hash of the invitation token is ever stored
+  // (DATABASE_SPEC.md #33C).
+  tokenHash       String                   @unique @map("token_hash")
+  expiresAt       DateTime                 @map("expires_at") @db.Timestamptz
+  acceptedAt      DateTime?                @map("accepted_at") @db.Timestamptz
+  revokedAt       DateTime?                @map("revoked_at") @db.Timestamptz
+  invitedByUserId String                   @map("invited_by_user_id") @db.Uuid
+  createdAt       DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  invitedBy  User       @relation("InvitedByUser", fields: [invitedByUserId], references: [id], onDelete: Restrict)
+
+  // Populated only when allBranches = false (DATABASE_SPEC.md #33C,
+  // AUTH_TENANCY_SPEC.md #76). On acceptance, selected Branches are
+  // materialized into RestaurantMembershipBranch records for the resulting
+  // Restaurant Membership.
+  branches RestaurantInvitationBranch[]
+
+  @@index([restaurantId])
+  @@index([emailNormalized])
+  @@index([expiresAt])
+  @@map("restaurant_invitations")
+}
+
+// Approved temporary representation for the intended Branch access of a
+// Branch-scoped RestaurantInvitation (allBranches = false). Pure join table:
+// no independent identity or lifecycle, matching RestaurantMembershipBranch.
+// Same-Restaurant validation (each Branch must belong to the same Restaurant
+// as the Invitation) and materialization into RestaurantMembershipBranch on
+// acceptance are application/domain transaction logic, not schema
+// constraints (DATABASE_SPEC.md #33C, AUTH_TENANCY_SPEC.md #61, #76).
+model RestaurantInvitationBranch {
+  restaurantInvitationId String @map("restaurant_invitation_id") @db.Uuid
+  branchId               String @map("branch_id") @db.Uuid
+
+  invitation RestaurantInvitation @relation(fields: [restaurantInvitationId], references: [id], onDelete: Restrict)
+  branch     Branch               @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@id([restaurantInvitationId, branchId])
+  @@index([branchId])
+  @@map("restaurant_invitation_branches")
 }
