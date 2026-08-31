@@ -358,6 +358,34 @@ Database stores a cryptographic hash of the token.
 
 ---
 
+# 21A. Session Token Implementation
+
+Approved concrete representation (Auth Foundation A):
+
+Raw token:
+
+- 256 bits (32 bytes) generated with a cryptographically secure random source.
+- base64url encoded for safe transport.
+
+Stored representation:
+
+`auth_sessions.token_hash`
+
+- SHA-256 digest of the complete raw token.
+- Lowercase hexadecimal, 64 characters.
+
+The raw token is never persisted anywhere, never logged, and never included in error output. Only the hash is stored, matching the general rule in #21.
+
+Session tokens are already high-entropy random material, so a fast cryptographic hash (SHA-256) is sufficient here. This is different from password storage (#12-13), which requires a slow, memory-hard algorithm (Argon2id) because passwords are low-entropy human-chosen secrets.
+
+PostgreSQL remains the authoritative session store. No Redis or other session cache is introduced by this representation.
+
+`token_hash` is persistence-internal. Auth session services return an explicit safe result/principal to callers (session identifier, User identifier, `expiresAt`, `lastSeenAt`, User state) and never the raw Prisma `AuthSession` row or `token_hash` itself.
+
+`passwordHash` is never part of a resolved session principal. Session resolution loads only the `User` fields required to enforce #110 (currently just `status`); it does not return the `User` row. Future safe profile fields may be added to the resolved principal deliberately, but the full `User`/`AuthSession` Prisma models must never be returned as-is from authentication infrastructure.
+
+---
+
 # 22. Auth Cookie
 
 Production cookie should be:

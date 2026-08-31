@@ -50,6 +50,15 @@ export const envSchema = z
           value.startsWith('postgresql://') || value.startsWith('postgres://'),
         { message: 'DATABASE_URL must be a PostgreSQL connection string' },
       ),
+
+    // Approved V1 guidance (.env.example, AUTH_TENANCY_SPEC.md #25,
+    // SECURITY_SPEC.md #25): staff Auth Session absolute expiry, ~30 days.
+    AUTH_SESSION_TTL_DAYS: z.coerce
+      .number({ message: 'AUTH_SESSION_TTL_DAYS must be a number' })
+      .int('AUTH_SESSION_TTL_DAYS must be an integer')
+      .min(1, 'AUTH_SESSION_TTL_DAYS must be between 1 and 365')
+      .max(365, 'AUTH_SESSION_TTL_DAYS must be between 1 and 365')
+      .default(30),
   })
   // Unrelated environment variables (AI, n8n, auth, upload, Docker Postgres
   // credentials, etc.) must be allowed through untouched, not rejected and

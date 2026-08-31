@@ -119,6 +119,33 @@ describe('validateEnv', () => {
     );
   });
 
+  it('applies the documented default AUTH_SESSION_TTL_DAYS when omitted', () => {
+    const result = validateEnv(omit(validConfig(), 'AUTH_SESSION_TTL_DAYS'));
+
+    expect(result.AUTH_SESSION_TTL_DAYS).toBe(30);
+  });
+
+  it('coerces a valid AUTH_SESSION_TTL_DAYS to a number', () => {
+    const result = validateEnv(validConfig({ AUTH_SESSION_TTL_DAYS: '7' }));
+
+    expect(result.AUTH_SESSION_TTL_DAYS).toBe(7);
+  });
+
+  it('rejects a non-integer AUTH_SESSION_TTL_DAYS', () => {
+    expect(() =>
+      validateEnv(validConfig({ AUTH_SESSION_TTL_DAYS: '30.5' })),
+    ).toThrow(/AUTH_SESSION_TTL_DAYS/);
+  });
+
+  it('rejects an out-of-range AUTH_SESSION_TTL_DAYS', () => {
+    expect(() =>
+      validateEnv(validConfig({ AUTH_SESSION_TTL_DAYS: '0' })),
+    ).toThrow(/AUTH_SESSION_TTL_DAYS/);
+    expect(() =>
+      validateEnv(validConfig({ AUTH_SESSION_TTL_DAYS: '400' })),
+    ).toThrow(/AUTH_SESSION_TTL_DAYS/);
+  });
+
   it('rejects a non-PostgreSQL DATABASE_URL without leaking the value', () => {
     let caught: Error | undefined;
 

@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { validateEnv } from './config/env.schema';
+import { AuthModule } from './auth/auth.module';
 import { DatabaseModule } from './database/database.module';
 
 // This repository owns a single root-level .env / .env.example. Resolving
@@ -21,6 +22,7 @@ const rootEnvFilePath = path.resolve(__dirname, '..', '..', '..', '.env');
       validate: validateEnv,
     }),
     DatabaseModule,
+    AuthModule,
   ],
   controllers: [AppController],
   providers: [AppService],
