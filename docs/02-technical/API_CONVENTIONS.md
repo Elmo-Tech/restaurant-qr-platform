@@ -1862,13 +1862,25 @@ Successful response:
 
 `GET /api/v1/auth/me`
 
+Protected by the Staff session AuthGuard (#36A). Returns `200` for any
+authenticated request, regardless of the User's current Restaurant/Branch
+operational state (AUTH_TENANCY_SPEC.md #148A) -- only missing/invalid
+authentication returns the `UNAUTHENTICATED` 401.
+
 Returns:
 
-- User
-- Memberships
-- Roles
-- Branch access
-- Preferred Locale
+- User: `id`, `email`, `preferredLocale`
+- Memberships (only `RestaurantMembershipStatus.ACTIVE`; INVITED/DISABLED are
+  never included): membership `id`, `role`, `allBranches`, `restaurant`
+  (`id`, `name`, `status`), `branches` (`id`, `name`, `status` -- the
+  Membership's authorized Branch scope per #58-60, including INACTIVE
+  Branches within that scope)
+
+`restaurant.status` and `branch.status` reflect current operational state,
+not authorization -- see AUTH_TENANCY_SPEC.md #148A. Memberships and their
+`branches` are ordered by `id` ascending for deterministic output only; this
+ordering has no product meaning (no "current"/"default" Restaurant or
+Branch).
 
 ---
 

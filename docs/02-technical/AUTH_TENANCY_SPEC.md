@@ -1109,6 +1109,16 @@ Cross-Restaurant assignment is invalid.
 
 ---
 
+# 61A. Same-Restaurant Invariant Is Enforced at Both Write and Read
+
+A `RestaurantMembershipBranch` row is a valid authorization grant only when `Branch.restaurantId` equals the owning `RestaurantMembership.restaurantId`. The independent foreign keys on `restaurantMembershipId` and `branchId` do not by themselves prove this -- the database schema cannot express this cross-row invariant as a column constraint (see DATABASE_SPEC.md).
+
+Write paths (Membership/Branch-assignment mutations) must validate this invariant before creating or updating an assignment.
+
+Read/authorization paths (including `/auth/me`, #148A) must not trust `restaurantMembershipId` alone as sufficient scope. They must remain Tenant-scoped by construction -- querying assigned Branches for a Membership must also require the Branch's `restaurantId` to match that Membership's own `restaurantId` -- so that a malformed or inconsistent stored row can never be exposed as authorized context, regardless of how it came to exist.
+
+---
+
 # 62. Branch Access Enforcement
 
 Example:
@@ -2282,6 +2292,22 @@ Never return:
 - session token
 - reset tokens
 - security secrets
+
+---
+
+# 148A. Authorization Context vs Operational State
+
+Restaurant Membership authorization and Restaurant/Branch operational state are separate concepts and must not be merged.
+
+`RestaurantMembershipStatus.ACTIVE` (#39) alone answers: does this User have authorized Restaurant context? It remains the only Membership filter for `/auth/me` -- INVITED and DISABLED Memberships are excluded regardless of Restaurant or Branch status.
+
+`Restaurant.status` (DATABASE_SPEC.md #24) and `Branch.status` (DATABASE_SPEC.md #27A) separately answer: is this Restaurant/Branch currently operationally usable? An ACTIVE Membership remains present in `/auth/me` even when its Restaurant is INACTIVE or SUSPENDED, and an authorized Branch (per #58-60) remains present even when INACTIVE. `/auth/me` returns the raw `status` enum value for both so the application can render the current state -- it does not remove, hide, or reinterpret the Membership or Branch, and does not add a derived flag such as `canOperate` or a suspension reason.
+
+`/auth/me` itself always returns `200` for a valid authenticated session, regardless of these operational states or of the User having zero ACTIVE Memberships -- only missing/invalid authentication produces the `UNAUTHENTICATED` 401 (#150A). An empty `memberships` array is a valid, non-error response (#83: the frontend reflects "no accessible Restaurant" from this state, not the Backend).
+
+Normal Restaurant business operations will separately require `Restaurant.status == ACTIVE` (and, for Branch-scoped operations, `Branch.status == ACTIVE`) once Restaurant/Branch/Permission guards are introduced. Those guards, and the exact HTTP failure code/status they return, are explicitly deferred to that later slice and must not be invented now.
+
+`/auth/me`'s Branch scope for `allBranches == false` Memberships must also respect the same-Restaurant invariant (#61A): a `RestaurantMembershipBranch` row is only a valid grant when its Branch belongs to the same Restaurant as the Membership, and the query construction -- not application-level trust -- is what enforces this.
 
 ---
 
