@@ -266,6 +266,22 @@ Use generic response:
 
 Invalid email or password.
 
+Enumeration protection covers response content and must also cover
+processing time. Login must avoid quick-exit paths that let an attacker
+distinguish an unknown email, an INVITED account, or a DISABLED account from
+an existing ACTIVE account with a wrong password by how fast the response
+arrives. For every syntactically well-formed login attempt (non-empty email
+and password that reach the credential-check step), the login flow performs
+exactly one Argon2id password verification: against the User's real stored
+hash when the User exists and is ACTIVE, or otherwise against a fixed,
+non-secret Argon2id dummy hash reserved for this purpose. This is comparable
+computational work, not a constant-time network guarantee.
+
+When an HTTP transport is added for login, the unknown-account,
+wrong-password, INVITED-account, and DISABLED-account cases must be
+externally indistinguishable: the same HTTP status, the same response body
+shape, and the same generic message.
+
 ---
 
 # 15. Forgot Password Enumeration
