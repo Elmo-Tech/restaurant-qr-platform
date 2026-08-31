@@ -777,6 +777,53 @@ API may return 404.
 
 ---
 
+# 38A. Restaurant/Branch Authorization Error Contracts
+
+Authenticated Restaurant/Branch-scoped routes (`/restaurants/{restaurantId}/...`, #8/#15-16; AUTH_TENANCY_SPEC.md #65A) use exactly five settled contracts, in this mandatory precedence -- authorization is always resolved before operational state is ever disclosed:
+
+**Restaurant, evaluated first:**
+
+```
+404 Not Found
+{ "error": { "code": "RESTAURANT_NOT_FOUND", "message": "Restaurant not found." } }
+```
+
+Used identically whether the Restaurant UUID does not exist, belongs outside the authenticated User's authorized Tenant scope, or the User's Membership for it is missing, INVITED, or DISABLED. Existence-hiding is deliberate -- do not distinguish these cases.
+
+```
+409 Conflict
+{ "error": { "code": "RESTAURANT_NOT_OPERATIONAL", "message": "Restaurant is not currently operational." } }
+```
+
+Only reachable after an ACTIVE Membership has already been proven; used identically for `RestaurantStatus.INACTIVE` and `SUSPENDED` (no separate public codes). The exact status remains visible through the already-authorized `/auth/me` context (#148A) for UI rendering.
+
+**Branch, evaluated only after Restaurant authorization succeeds:**
+
+```
+404 Not Found
+{ "error": { "code": "BRANCH_NOT_FOUND", "message": "Branch not found." } }
+```
+
+Used identically whether the Branch UUID does not exist or `Branch.restaurantId` does not equal the authorized Restaurant's id -- including a malformed cross-Restaurant `RestaurantMembershipBranch` row (AUTH_TENANCY_SPEC.md #61A). This check happens before Branch-scope or Branch-status disclosure, and applies even when `allBranches == true`.
+
+```
+403 Forbidden
+{ "error": { "code": "BRANCH_ACCESS_DENIED", "message": "You do not have access to this Branch." } }
+```
+
+The Branch belongs to the authorized Restaurant but is outside the Membership's authorized Branch scope (`allBranches == false` with no valid same-Restaurant assignment, including zero assignments). Never includes the Membership id or Role.
+
+```
+409 Conflict
+{ "error": { "code": "BRANCH_NOT_OPERATIONAL", "message": "Branch is not currently operational." } }
+```
+
+Only reachable after both Branch identity and Branch-scope authorization have already been proven.
+
+Worked examples showing why order matters: a foreign, INACTIVE Branch is `404 BRANCH_NOT_FOUND` (identity fails first, status is never reached); a same-Restaurant Branch outside scope that happens to be INACTIVE is `403 BRANCH_ACCESS_DENIED` (scope fails before status); only a same-Restaurant, in-scope, INACTIVE Branch is `409 BRANCH_NOT_OPERATIONAL`.
+
+---
+
 # 39. HTTP 409
 
 Use:

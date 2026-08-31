@@ -1183,6 +1183,28 @@ Protected Restaurant request should conceptually pass:
 
 ---
 
+# 65A. Restaurant/Branch Authorization Contracts (Settled)
+
+RestaurantAccessGuard and BranchAccessGuard run only after AuthGuard (#65), reading `request.auth.userId` -- never re-authenticating, and never accepting a client-supplied Restaurant/Branch/Membership/Role as authority. The requested `restaurantId`/`branchId` route identifiers (API_CONVENTIONS.md #8, #16) are identification only.
+
+Mandatory precedence, exact external contracts in API_CONVENTIONS.md #38A:
+
+Restaurant:
+1. Resolve the current ACTIVE `RestaurantMembership` for `(userId, requestedRestaurantId)`. Missing, INVITED, DISABLED, or a nonexistent/foreign Restaurant UUID are all `404 RESTAURANT_NOT_FOUND` -- existence-hiding, never distinguished.
+2. Only then inspect `Restaurant.status`. Non-ACTIVE (`INACTIVE` or `SUSPENDED`) is `409 RESTAURANT_NOT_OPERATIONAL`.
+3. ACTIVE Membership + ACTIVE Restaurant produces the authorized Restaurant context (`membershipId`, `restaurantId`, `role`, `allBranches` -- Role carried as metadata only, not yet interpreted into Permission checks).
+
+Branch (only evaluated once Restaurant authorization has already succeeded):
+1. The requested Branch must exist AND belong to the authorized Restaurant (`Branch.restaurantId == authorized Restaurant.id`), even when `allBranches == true`. Otherwise `404 BRANCH_NOT_FOUND`. This is the read-boundary defense against a malformed cross-Restaurant `RestaurantMembershipBranch` row (#61A) -- such a row can never authorize a foreign Branch.
+2. Only then check Branch scope: `allBranches == true` authorizes every same-Restaurant Branch (already proven in step 1); `allBranches == false` requires an explicit, same-Restaurant assignment. Outside scope (including zero assignments) is `403 BRANCH_ACCESS_DENIED`.
+3. Only then inspect `Branch.status`. INACTIVE is `409 BRANCH_NOT_OPERATIONAL`.
+
+Every check uses current database state on every request -- there is no authorization cache and no trust in a prior `/auth/me` response. A Membership disabled, a Restaurant suspended, an `allBranches` flag flipped, an assignment removed, or a Branch deactivated all take effect on the very next request.
+
+This slice enforces Tenant/Branch scope only. Role is carried forward as safe metadata but is not yet interpreted into Permission checks -- that is a later slice (#66).
+
+---
+
 # 66. NestJS Authorization Structure
 
 Preferred conceptual implementation:

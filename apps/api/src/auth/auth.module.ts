@@ -1,7 +1,11 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { AuthContextService } from './context/auth-context.service';
+import { BranchAccessService } from './context/branch-access.service';
+import { RestaurantAccessService } from './context/restaurant-access.service';
 import { AuthGuard } from './guard/auth.guard';
+import { BranchAccessGuard } from './guard/branch-access.guard';
+import { RestaurantAccessGuard } from './guard/restaurant-access.guard';
 import { LoginController } from './login/login.controller';
 import { LoginService } from './login/login.service';
 import { MeController } from './me/me.controller';
@@ -11,13 +15,15 @@ import { SessionTokenService } from './session/session-token.service';
 
 /**
  * Session, password-hashing, login, HTTP login transport, cookie-session
- * AuthGuard, and read-only /auth/me authorization context (Auth Foundation
- * A-F). No CurrentUser/CurrentRestaurant decorator, no permission/
- * Restaurant/Branch enforcement guards yet -- those belong to a later
- * slice. Kept explicit (not global), matching DatabaseModule. AuthGuard is
- * NOT registered as a global APP_GUARD: most V1 routes (login, public QR,
- * guest menu, guest AI) are intentionally unauthenticated, so protection is
- * applied explicitly per controller/route with `@UseGuards(AuthGuard)`.
+ * AuthGuard, read-only /auth/me authorization context, and Restaurant/Branch
+ * Tenant-scope enforcement (Auth Foundation A-F, Authorization Foundation
+ * G). No CurrentUser/CurrentRestaurant decorator, no Permission guard yet --
+ * that belongs to a later slice. Kept explicit (not global), matching
+ * DatabaseModule. None of these guards are registered as a global
+ * APP_GUARD: most V1 routes (login, public QR, guest menu, guest AI) are
+ * intentionally unauthenticated/untenanted, so protection is applied
+ * explicitly per controller/route with
+ * `@UseGuards(AuthGuard, RestaurantAccessGuard, BranchAccessGuard)`.
  */
 @Module({
   imports: [DatabaseModule],
@@ -29,12 +35,25 @@ import { SessionTokenService } from './session/session-token.service';
     LoginService,
     AuthGuard,
     AuthContextService,
+    RestaurantAccessService,
+    BranchAccessService,
+    RestaurantAccessGuard,
+    BranchAccessGuard,
   ],
   // SessionTokenService and PasswordHasherService are internal
-  // implementation details, only consumed inside this module.
-  // AuthSessionService, LoginService, AuthGuard, and AuthContextService are
+  // implementation details, only consumed inside this module. The rest are
   // exported for future feature modules that need to authenticate, resolve
-  // sessions, or read authorization context.
-  exports: [AuthSessionService, LoginService, AuthGuard, AuthContextService],
+  // sessions, read authorization context, or enforce Restaurant/Branch
+  // scope.
+  exports: [
+    AuthSessionService,
+    LoginService,
+    AuthGuard,
+    AuthContextService,
+    RestaurantAccessService,
+    BranchAccessService,
+    RestaurantAccessGuard,
+    BranchAccessGuard,
+  ],
 })
 export class AuthModule {}
