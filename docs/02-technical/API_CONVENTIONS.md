@@ -717,6 +717,34 @@ Examples:
 
 ---
 
+# 36A. Staff Session Authentication Failure Contract
+
+The Staff cookie-session AuthGuard boundary (AUTH_TENANCY_SPEC.md #150A) uses exactly one external response for every authentication failure reason:
+
+```
+401 Unauthorized
+
+{
+  "error": {
+    "code": "UNAUTHENTICATED",
+    "message": "Authentication is required."
+  }
+}
+```
+
+This single response covers, without distinguishing among them externally:
+
+- missing session cookie
+- malformed session token
+- unknown session token
+- revoked session
+- expired session
+- session whose User is no longer ACTIVE
+
+This is distinct from the Login endpoint's own `INVALID_CREDENTIALS` contract (#115), which covers rejected login attempts, not an already-established session failing later authentication checks.
+
+---
+
 # 37. HTTP 403
 
 Use:

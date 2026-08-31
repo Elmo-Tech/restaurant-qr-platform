@@ -2319,6 +2319,27 @@ unless cross-Tenant non-disclosure convention intentionally returns 404.
 
 ---
 
+# 150A. Unauthenticated Response Contract
+
+The exact external body for #150 is authoritative (API_CONVENTIONS.md #36A):
+
+```
+401 Unauthorized
+
+{
+  "error": {
+    "code": "UNAUTHENTICATED",
+    "message": "Authentication is required."
+  }
+}
+```
+
+This exact body is used identically for every Staff session-authentication failure reason: missing session cookie, malformed session token, unknown session token, revoked session, expired session, and a session whose User is no longer ACTIVE (#110). The underlying reason is never exposed externally -- AuthSessionService may distinguish them internally, but the AuthGuard boundary must not.
+
+This is separate from the Login endpoint's own generic failure contract (#35/#154), which governs rejected login attempts rather than an already-established session later failing authentication.
+
+---
+
 # 151. Guest Authorization Errors
 
 Invalid Guest Session should not expose internal security details.
