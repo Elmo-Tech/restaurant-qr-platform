@@ -10,6 +10,7 @@ function validConfig(overrides: Record<string, unknown> = {}) {
     API_PORT: '4000',
     API_PREFIX: '/api/v1',
     DATABASE_URL: VALID_DATABASE_URL,
+    CORS_ORIGIN: 'http://localhost:3000',
     ...overrides,
   };
 }
@@ -160,5 +161,76 @@ describe('validateEnv', () => {
     expect(caught).toBeInstanceOf(Error);
     expect(caught?.message).toMatch(/DATABASE_URL/);
     expect(caught?.message).not.toContain('secret');
+  });
+
+  it('rejects a missing CORS_ORIGIN', () => {
+    expect(() => validateEnv(omit(validConfig(), 'CORS_ORIGIN'))).toThrow(
+      /CORS_ORIGIN/,
+    );
+  });
+
+  it('rejects a wildcard CORS_ORIGIN', () => {
+    expect(() => validateEnv(validConfig({ CORS_ORIGIN: '*' }))).toThrow(
+      /CORS_ORIGIN/,
+    );
+  });
+
+  it('rejects a non-URL CORS_ORIGIN', () => {
+    expect(() =>
+      validateEnv(validConfig({ CORS_ORIGIN: 'not-a-url' })),
+    ).toThrow(/CORS_ORIGIN/);
+  });
+
+  it('applies the documented default AUTH_SESSION_COOKIE_NAME when omitted', () => {
+    const result = validateEnv(omit(validConfig(), 'AUTH_SESSION_COOKIE_NAME'));
+
+    expect(result.AUTH_SESSION_COOKIE_NAME).toBe('restaurant_session');
+  });
+
+  it('rejects an empty AUTH_SESSION_COOKIE_NAME', () => {
+    expect(() =>
+      validateEnv(validConfig({ AUTH_SESSION_COOKIE_NAME: '' })),
+    ).toThrow(/AUTH_SESSION_COOKIE_NAME/);
+  });
+
+  it('defaults AUTH_COOKIE_SECURE to false and coerces the string "true"', () => {
+    const defaulted = validateEnv(omit(validConfig(), 'AUTH_COOKIE_SECURE'));
+    expect(defaulted.AUTH_COOKIE_SECURE).toBe(false);
+
+    const enabled = validateEnv(validConfig({ AUTH_COOKIE_SECURE: 'true' }));
+    expect(enabled.AUTH_COOKIE_SECURE).toBe(true);
+  });
+
+  it('rejects a non-boolean-string AUTH_COOKIE_SECURE', () => {
+    expect(() =>
+      validateEnv(validConfig({ AUTH_COOKIE_SECURE: 'yes' })),
+    ).toThrow(/AUTH_COOKIE_SECURE/);
+  });
+
+  it('requires AUTH_COOKIE_SECURE=true when NODE_ENV=production', () => {
+    expect(() =>
+      validateEnv(
+        validConfig({ NODE_ENV: 'production', AUTH_COOKIE_SECURE: 'false' }),
+      ),
+    ).toThrow(/AUTH_COOKIE_SECURE/);
+
+    const result = validateEnv(
+      validConfig({ NODE_ENV: 'production', AUTH_COOKIE_SECURE: 'true' }),
+    );
+    expect(result.AUTH_COOKIE_SECURE).toBe(true);
+  });
+
+  it('defaults AUTH_COOKIE_SAME_SITE to lax and accepts it case-insensitively', () => {
+    const defaulted = validateEnv(omit(validConfig(), 'AUTH_COOKIE_SAME_SITE'));
+    expect(defaulted.AUTH_COOKIE_SAME_SITE).toBe('lax');
+
+    const upper = validateEnv(validConfig({ AUTH_COOKIE_SAME_SITE: 'Lax' }));
+    expect(upper.AUTH_COOKIE_SAME_SITE).toBe('lax');
+  });
+
+  it('rejects an AUTH_COOKIE_SAME_SITE other than lax', () => {
+    expect(() =>
+      validateEnv(validConfig({ AUTH_COOKIE_SAME_SITE: 'none' })),
+    ).toThrow(/AUTH_COOKIE_SAME_SITE/);
   });
 });

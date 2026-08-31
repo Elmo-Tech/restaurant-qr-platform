@@ -2295,6 +2295,16 @@ Response returns safe User context.
 
 ---
 
+# 149A. Login Response Scope
+
+Login establishes authentication and issues the opaque session cookie. Its JSON response may return minimal safe identity metadata (for example `userId`) confirming which User is now authenticated.
+
+Login does not resolve or return Restaurant Membership, Role, Branch access, or Locale preference. `/auth/me` (#148) remains the canonical endpoint that assembles and returns that fuller "safe User context" -- login is not required to duplicate it.
+
+This does not weaken #41-44 / #65-69: tenancy context must still always be independently Backend-authorized on every protected request, never inferred from the login response or cached client-side.
+
+---
+
 # 150. Unauthenticated Response
 
 Protected endpoints with missing / invalid Auth Session return:
