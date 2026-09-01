@@ -11,6 +11,11 @@ import { PrismaService } from './../src/database/prisma.service';
  * `npm run test` stays fast and does not require a database.
  *
  * Non-mutating only: no rows are inserted, updated, or deleted.
+ *
+ * The `restaurant.count() === 0` assertion below relies on `jest-e2e.json`'s
+ * `maxWorkers: 1`: all DB-backed API e2e suites share one local PostgreSQL
+ * test database, so they run serially rather than racing each other's
+ * create/delete cycles.
  */
 describe('Database connectivity (e2e)', () => {
   let app: INestApplication;

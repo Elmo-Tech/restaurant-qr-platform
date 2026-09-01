@@ -983,6 +983,16 @@ Waiter cannot normally:
 
 ---
 
+# 53A. Fixed V1 Role -> Permission Mapping (Normative)
+
+The exact Permission lists in #50 MANAGER, #51 CASHIER, #52 KITCHEN, and #53 WAITER are not illustrative examples. For the current V1 implementation they are the authoritative, exhaustive, fixed Role -> Permission mapping enforced by `PermissionGuard` (#65B): a Role grants exactly the Permissions listed in its section, no more and no less. The "normally receives" / "normally" wording in #50-#53 may remain for historical readability, but does not weaken this: there is no undocumented additional grant and no silent narrowing.
+
+OWNER receives every canonical Restaurant-level V1 Permission listed in #48 (#49) -- not a hand-maintained list, so it can never drift out of sync with #48.
+
+No per-Restaurant custom Roles and no per-Restaurant Permission overrides exist in V1. Every Restaurant using the platform shares this identical fixed mapping. Custom Roles remain a documented future possibility (#172), not a V1 capability.
+
+---
+
 # 54. Permission Matrix Is Code Configuration
 
 V1 role-to-permission mapping may be defined as stable Backend configuration.
@@ -1043,6 +1053,19 @@ Old OWNER
 → Confirm
 → New OWNER assigned
 → Old OWNER role changed only after successful transfer
+
+---
+
+# 57A. Permission Grant Does Not Replace Domain Invariants
+
+A Role holding a Permission (#53A) is an ordinary `PermissionGuard` capability check and nothing more. It does not by itself authorize, and must not be implemented as authorizing, any of the following separate Domain/authorization invariants:
+
+- Final active OWNER protection (#56): rejecting the disable, removal, or downgrade of a Restaurant's last OWNER Membership.
+- Ownership-transfer sequencing (#57): the old-OWNER-confirms, new-OWNER-assigned, old-OWNER-changed-only-after-success order.
+- MANAGER's inability to assign or promote a User to OWNER, even when MANAGER holds `users.manage` (#55).
+- Any other management-authority or Branch-scope-expansion constraint on who may grant, change, or widen another Membership's Role or Branch scope.
+
+These remain distinct authorization rules enforced by dedicated Domain/application logic in whatever later slice implements Staff-management mutations -- not by `PermissionGuard` or by adding entries to the fixed Role -> Permission matrix. This mirrors #67 (Guards Do Not Replace Domain Validation): Permission alone is not ownership validation, and here, Permission alone is not management-authority validation either. None of these mutations are implemented yet.
 
 ---
 
@@ -1201,7 +1224,22 @@ Branch (only evaluated once Restaurant authorization has already succeeded):
 
 Every check uses current database state on every request -- there is no authorization cache and no trust in a prior `/auth/me` response. A Membership disabled, a Restaurant suspended, an `allBranches` flag flipped, an assignment removed, or a Branch deactivated all take effect on the very next request.
 
-This slice enforces Tenant/Branch scope only. Role is carried forward as safe metadata but is not yet interpreted into Permission checks -- that is a later slice (#66).
+This slice enforces Tenant/Branch scope only. Role is carried forward as safe metadata but is not yet interpreted into Permission checks -- that is a later slice (#66), settled by #65B.
+
+---
+
+# 65B. Permission Guard Contract (Settled)
+
+`PermissionGuard` is the implementation of #66's `PermissionsGuard` step. Settled contract:
+
+- Runs only after `RestaurantAccessGuard` in the same guard chain, and after `BranchAccessGuard` as well for Branch-scoped routes -- it never re-authenticates and never re-derives Tenant/Branch authorization itself.
+- Reads the current Role only from the already-authorized `request.restaurantAccess.role` that `RestaurantAccessGuard` attached this same request. It performs no Membership/Prisma query of its own, so there is nothing for it to cache and nothing that can go stale within a request.
+- Supports exactly one canonical Permission per `@RequirePermission(...)` declaration in V1 -- no `ALL`/`ANY` multi-permission semantics.
+- A route decorated with `PermissionGuard` but no `@RequirePermission(...)` fails closed with `PERMISSION_DENIED` (API_CONVENTIONS.md #38B) rather than treating missing metadata as an implicit allow.
+- A request missing `request.restaurantAccess` (`PermissionGuard` used without `RestaurantAccessGuard` ahead of it) fails closed with `PERMISSION_DENIED` rather than trusting `request.auth` alone or inferring a Role.
+- Role alone never proves Tenant or Branch ownership (#67) -- Business services still validate resource ownership independently.
+
+Mandatory guard precedence for a fully protected Branch-scoped route: `AuthGuard` → `RestaurantAccessGuard` → `BranchAccessGuard` (where applicable) → `PermissionGuard`.
 
 ---
 
@@ -1217,7 +1255,7 @@ Preferred conceptual implementation:
 
 → validates Membership / Tenant
 
-`PermissionsGuard`
+`PermissionGuard`
 
 → validates required Permission
 

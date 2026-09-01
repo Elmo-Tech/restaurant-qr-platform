@@ -824,6 +824,19 @@ Worked examples showing why order matters: a foreign, INACTIVE Branch is `404 BR
 
 ---
 
+# 38B. Permission Authorization Error Contract
+
+Evaluated only after Restaurant authorization (and Branch authorization, where applicable) has already succeeded (AUTH_TENANCY_SPEC.md #65, #65A, #65B). Exactly one contract, used identically for every denial reason:
+
+```
+403 Forbidden
+{ "error": { "code": "PERMISSION_DENIED", "message": "You do not have permission to perform this action." } }
+```
+
+Used identically whether the route is missing its `@RequirePermission` declaration, the request is missing an authorized Restaurant context, or the authenticated Role genuinely lacks the required Permission (AUTH_TENANCY_SPEC.md #47-#53). Never includes the required Permission, the current Role, the Membership id, or the Role's full granted-Permission list -- the caller learns only that the action is denied, never why.
+
+---
+
 # 39. HTTP 409
 
 Use:
