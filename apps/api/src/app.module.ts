@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { validateEnv } from './config/env.schema';
 import { AuthModule } from './auth/auth.module';
+import { BranchesModule } from './branches/branches.module';
 import { DatabaseModule } from './database/database.module';
 
 // This repository owns a single root-level .env / .env.example. Resolving
@@ -23,6 +24,7 @@ const rootEnvFilePath = path.resolve(__dirname, '..', '..', '..', '.env');
     }),
     DatabaseModule,
     AuthModule,
+    BranchesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

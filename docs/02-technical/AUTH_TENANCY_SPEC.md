@@ -1192,6 +1192,20 @@ Exact route-specific scope will be defined during module implementation.
 
 ---
 
+# 63A. Branch Collection Scope (Settled)
+
+`GET /restaurants/{restaurantId}/branches` (API_CONVENTIONS.md #6, #59) returns the Branches visible through the caller's current ACTIVE `RestaurantMembership` Branch scope -- the same scope semantics `/auth/me`'s `AuthContextService` already established (#58-61A), not a separate, looser Restaurant-wide policy:
+
+- `allBranches = true` -> every Branch belonging to the Restaurant.
+- `allBranches = false` -> exactly the Branches with an explicit `RestaurantMembershipBranch` assignment for that Membership. Zero assignments returns an empty collection (`200 { "data": [] }`); it never falls back to all Restaurant Branches.
+- A malformed cross-Restaurant assignment (#61A) must never surface a foreign Branch: the query requires both `restaurantMembershipId` and `Branch.restaurantId` to match, not the assignment row alone.
+
+`branches.view` gates whether the caller may call this route at all; it does not widen which Branches within it they may see -- Role never expands Branch scope beyond the Membership's own `allBranches`/assignment state.
+
+Branch `status` does not expand or reduce authorization scope (#148A): a Branch legitimately within scope is listed with its current status whether `ACTIVE` or `INACTIVE`. This route is metadata/list context, not an operational Branch action.
+
+---
+
 # 64. Branch-Scoped Operational Resources
 
 Examples:
