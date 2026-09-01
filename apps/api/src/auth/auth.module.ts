@@ -3,12 +3,14 @@ import { DatabaseModule } from '../database/database.module';
 import { AuthContextService } from './context/auth-context.service';
 import { BranchAccessService } from './context/branch-access.service';
 import { RestaurantAccessService } from './context/restaurant-access.service';
+import { CsrfGuard } from './csrf/csrf.guard';
 import { AuthGuard } from './guard/auth.guard';
 import { BranchAccessGuard } from './guard/branch-access.guard';
 import { PermissionGuard } from './guard/permission.guard';
 import { RestaurantAccessGuard } from './guard/restaurant-access.guard';
 import { LoginController } from './login/login.controller';
 import { LoginService } from './login/login.service';
+import { LogoutController } from './logout/logout.controller';
 import { MeController } from './me/me.controller';
 import { PasswordHasherService } from './password/password-hasher.service';
 import { AuthSessionService } from './session/auth-session.service';
@@ -17,19 +19,28 @@ import { SessionTokenService } from './session/session-token.service';
 /**
  * Session, password-hashing, login, HTTP login transport, cookie-session
  * AuthGuard, read-only /auth/me authorization context, Restaurant/Branch
- * Tenant-scope enforcement, and fixed V1 Role/Permission enforcement (Auth
- * Foundation A-F, Authorization Foundation G-H). No Staff-management
- * mutations, ownership transfer, or last-OWNER logic yet -- those belong to
- * a later slice. Kept explicit (not global), matching DatabaseModule. None
- * of these guards are registered as a global APP_GUARD: most V1 routes
- * (login, public QR, guest menu, guest AI) are intentionally
- * unauthenticated/untenanted, so protection is applied explicitly per
- * controller/route with
- * `@UseGuards(AuthGuard, RestaurantAccessGuard, BranchAccessGuard, PermissionGuard)`.
+ * Tenant-scope enforcement, fixed V1 Role/Permission enforcement, the
+ * reusable Staff cookie-mutation CSRF boundary, and Staff logout (Auth
+ * Foundation A-F, Authorization Foundation G-H, Auth Foundation I). No
+ * Staff-management mutations, ownership transfer, or last-OWNER logic yet --
+ * those belong to a later slice. Kept explicit (not global), matching
+ * DatabaseModule. None of these guards are registered as a global
+ * APP_GUARD: most V1 routes (login, public QR, guest menu, guest AI) are
+ * intentionally unauthenticated/untenanted, so protection is applied
+ * explicitly per controller/route. Every unsafe (state-changing)
+ * cookie-authenticated Staff mutation requires AuthGuard and CsrfGuard
+ * together with whatever Restaurant/Branch/Permission guards that route
+ * also needs -- for a Tenant-scoped mutation that is AuthGuard,
+ * RestaurantAccessGuard, BranchAccessGuard, PermissionGuard, and CsrfGuard
+ * (AUTH_TENANCY_SPEC.md #65, #106A; the exact relative order of CsrfGuard
+ * against the Tenant/Branch/Permission guards is not yet settled by that
+ * documentation). Logout carries no Tenant/Branch/Permission context, so
+ * its settled order is exactly `@UseGuards(AuthGuard, CsrfGuard)`
+ * (AUTH_TENANCY_SPEC.md #28A).
  */
 @Module({
   imports: [DatabaseModule],
-  controllers: [LoginController, MeController],
+  controllers: [LoginController, LogoutController, MeController],
   providers: [
     SessionTokenService,
     AuthSessionService,
@@ -42,12 +53,13 @@ import { SessionTokenService } from './session/session-token.service';
     RestaurantAccessGuard,
     BranchAccessGuard,
     PermissionGuard,
+    CsrfGuard,
   ],
   // SessionTokenService and PasswordHasherService are internal
   // implementation details, only consumed inside this module. The rest are
   // exported for future feature modules that need to authenticate, resolve
   // sessions, read authorization context, or enforce Restaurant/Branch/
-  // Permission scope.
+  // Permission/CSRF scope.
   exports: [
     AuthSessionService,
     LoginService,
@@ -58,6 +70,7 @@ import { SessionTokenService } from './session/session-token.service';
     RestaurantAccessGuard,
     BranchAccessGuard,
     PermissionGuard,
+    CsrfGuard,
   ],
 })
 export class AuthModule {}

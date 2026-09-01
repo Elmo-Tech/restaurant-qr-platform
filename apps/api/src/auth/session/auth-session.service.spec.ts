@@ -40,6 +40,11 @@ interface RevokeSessionArgs {
   data: { revokedAt: Date; revokeReason: string | null };
 }
 
+interface RevokeSessionByIdArgs {
+  where: { id: string; revokedAt: null };
+  data: { revokedAt: Date; revokeReason: string | null };
+}
+
 function buildFoundSession(
   overrides: Partial<FindSessionResult> = {},
 ): FindSessionResult {
@@ -62,7 +67,10 @@ describe('AuthSessionService', () => {
         Promise<FindSessionResult | null>,
         [FindSessionArgs]
       >;
-      updateMany: jest.Mock<Promise<{ count: number }>, [RevokeSessionArgs]>;
+      updateMany: jest.Mock<
+        Promise<{ count: number }>,
+        [RevokeSessionArgs | RevokeSessionByIdArgs]
+      >;
     };
   };
   let configService: { get: jest.Mock };
@@ -78,7 +86,10 @@ describe('AuthSessionService', () => {
           [FindSessionArgs]
         >(),
         updateMany: jest
-          .fn<Promise<{ count: number }>, [RevokeSessionArgs]>()
+          .fn<
+            Promise<{ count: number }>,
+            [RevokeSessionArgs | RevokeSessionByIdArgs]
+          >()
           .mockResolvedValue({ count: 1 }),
       },
     };
@@ -357,6 +368,49 @@ describe('AuthSessionService', () => {
         await expect(service.revokeSession(value)).resolves.toBeUndefined();
         expect(prisma.authSession.updateMany).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('revokeSessionById', () => {
+    it('sets revokedAt through an idempotent updateMany scoped by id', async () => {
+      await service.revokeSessionById('session-id');
+
+      const updateArgs = prisma.authSession.updateMany.mock
+        .calls[0][0] as RevokeSessionByIdArgs;
+
+      expect(updateArgs.where).toEqual({ id: 'session-id', revokedAt: null });
+      expect(updateArgs.data.revokedAt).toBeInstanceOf(Date);
+      expect(updateArgs.data.revokeReason).toBeNull();
+    });
+
+    it('passes the given reason through', async () => {
+      await service.revokeSessionById('session-id', 'logout');
+
+      const updateArgs = prisma.authSession.updateMany.mock
+        .calls[0][0] as RevokeSessionByIdArgs;
+
+      expect(updateArgs.data.revokeReason).toBe('logout');
+    });
+
+    it('is safe to call repeatedly (second call matches zero rows)', async () => {
+      prisma.authSession.updateMany
+        .mockResolvedValueOnce({ count: 1 })
+        .mockResolvedValueOnce({ count: 0 });
+
+      await expect(
+        service.revokeSessionById('session-id'),
+      ).resolves.toBeUndefined();
+      await expect(
+        service.revokeSessionById('session-id'),
+      ).resolves.toBeUndefined();
+    });
+
+    it('never computes a tokenHash or touches SessionTokenService', async () => {
+      const hashSpy = jest.spyOn(sessionTokenService, 'hashToken');
+
+      await service.revokeSessionById('session-id');
+
+      expect(hashSpy).not.toHaveBeenCalled();
     });
   });
 });

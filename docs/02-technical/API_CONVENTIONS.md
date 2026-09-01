@@ -837,6 +837,19 @@ Used identically whether the route is missing its `@RequirePermission` declarati
 
 ---
 
+# 38C. CSRF Validation Failure Contract
+
+Evaluated only for unsafe (POST/PUT/PATCH/DELETE) cookie-authenticated Staff requests, after `AuthGuard` has already succeeded (AUTH_TENANCY_SPEC.md #106A). Exactly one contract, used identically for every rejection reason:
+
+```
+403 Forbidden
+{ "error": { "code": "CSRF_VALIDATION_FAILED", "message": "Cross-origin request rejected." } }
+```
+
+Used identically for a missing Origin and Referer, a malformed or mismatched Origin, the literal `Origin: null`, a malformed or foreign Referer, or a misconfigured trusted origin. Never reveals whether Origin or Referer specifically caused the rejection. A CSRF rejection never performs the guarded mutation.
+
+---
+
 # 39. HTTP 409
 
 Use:

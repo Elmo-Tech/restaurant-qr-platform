@@ -479,6 +479,20 @@ It does not need to revoke every device.
 
 ---
 
+# 28A. Staff Logout Contract (Settled)
+
+`POST /api/v1/auth/logout` (API_CONVENTIONS.md #6). Protected by `AuthGuard` then the Staff CSRF boundary (#106A) -- it carries no `RestaurantAccessGuard`, `BranchAccessGuard`, or `PermissionGuard`, since ending one's own session never requires Restaurant Membership.
+
+Success is `204 No Content` with no response body (API_CONVENTIONS.md #27, whose canonical example is precisely a successful logout) -- never an invented `{ success: true }` payload.
+
+Session revocation happens before the success response is produced: revoking through `AuthSessionService` using the already-resolved `request.auth.sessionId` (never by re-reading or re-parsing the raw cookie token), then clearing the browser cookie in the same response using the exact `AUTH_SESSION_COOKIE_NAME`, `AUTH_COOKIE_SECURE`, `AUTH_COOKIE_SAME_SITE`, and `Path=/` that Login used to set it (no `Domain` attribute, matching the host-only cookie Login creates).
+
+Missing, revoked, expired, or non-ACTIVE-User sessions are rejected by `AuthGuard`'s own existing, unmodified `401 UNAUTHENTICATED` contract (#150A) before the Logout handler ever runs -- Logout has no separate idempotent-success behavior for an already-invalid session.
+
+A CSRF-rejected or otherwise-failed-authentication logout attempt never revokes the Auth Session: revocation only ever happens after both `AuthGuard` and the CSRF boundary succeed.
+
+---
+
 # 29. Logout All Devices
 
 Security-sensitive action may revoke all Auth Sessions for a User.
@@ -1776,6 +1790,28 @@ PATCH
 DELETE
 
 for cookie-authenticated protected routes.
+
+---
+
+# 106A. Staff CSRF Origin/Referer Algorithm (Settled)
+
+Implemented by the reusable `CsrfGuard` (`apps/api/src/auth/csrf/`), a security concern kept separate from `AuthGuard`: `AuthGuard` answers "is this Staff session valid?"; `CsrfGuard` answers "is this unsafe browser request coming from the approved application origin?". `CsrfGuard` performs no database query.
+
+GET/HEAD/OPTIONS are always safe and bypass this check entirely (#106); only POST/PUT/PATCH/DELETE are validated.
+
+Algorithm, in this exact precedence:
+
+1. **Origin present** -- authoritative. Its parsed `scheme://host:port` (URL semantics, never string prefix/suffix comparison, #70) must exactly equal the single configured trusted origin. A mismatched Origin, a malformed Origin, or the literal `Origin: null` are all rejected immediately and never fall back to Referer.
+2. **Origin absent** -- only then is Referer consulted. Its parsed origin (the scheme/host/port of the full Referer URL, path discarded) must exactly equal the configured trusted origin; a missing, malformed, or foreign Referer is rejected.
+3. **Both Origin and Referer absent, or the configured trusted origin itself fails to parse** -- rejected. CSRF validation never defaults to allow because a header or configuration value is missing or malformed.
+
+Approved origin source: the existing validated `CORS_ORIGIN` (env.schema.ts) -- the same single non-wildcard "Strict allowed origins" authority CORS already enforces (#68-70), not a second, separately configured value. In Production this is the public Nginx-fronted application origin (DEPLOYMENT_ARCHITECTURE.md #11-12), never an internal Docker/Nest host.
+
+Rejection contract: API_CONVENTIONS.md #38C -- one generic `403 CSRF_VALIDATION_FAILED` for every rejection reason, never revealing whether Origin or Referer specifically caused it.
+
+A CSRF rejection never performs the guarded mutation -- for Logout (#28A) specifically, the Auth Session is never revoked when CSRF validation fails.
+
+Login is outside this boundary: it does not consume an existing Staff session cookie as authority, so it carries no `CsrfGuard`.
 
 ---
 

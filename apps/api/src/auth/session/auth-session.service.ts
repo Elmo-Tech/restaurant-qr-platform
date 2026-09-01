@@ -161,4 +161,22 @@ export class AuthSessionService {
       data: { revokedAt: new Date(), revokeReason: reason ?? null },
     });
   }
+
+  /**
+   * Revokes the session identified by its own safe `sessionId` (Auth
+   * Foundation I: Logout already has `request.auth.sessionId` from
+   * `AuthGuard`'s own resolution this same request, so re-reading or
+   * re-parsing the raw cookie token is unnecessary). Safe/idempotent like
+   * `revokeSession`: an unknown or already-revoked id simply matches zero
+   * rows. `sessionId` is never client-supplied -- it only ever comes from a
+   * previously resolved `ResolvedAuthSession`, so no shape pre-check is
+   * needed here the way `revokeSession` needs one for an attacker-controlled
+   * raw cookie value.
+   */
+  async revokeSessionById(sessionId: string, reason?: string): Promise<void> {
+    await this.prisma.authSession.updateMany({
+      where: { id: sessionId, revokedAt: null },
+      data: { revokedAt: new Date(), revokeReason: reason ?? null },
+    });
+  }
 }
