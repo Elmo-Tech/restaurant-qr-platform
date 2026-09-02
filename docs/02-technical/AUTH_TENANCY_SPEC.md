@@ -1271,6 +1271,22 @@ Mandatory guard precedence for a fully protected Branch-scoped route: `AuthGuard
 
 ---
 
+# 65C. Create Branch Authorization Contract (Settled)
+
+`POST /api/v1/restaurants/{restaurantId}/branches` (API_CONVENTIONS.md #113A). Required Permission: `branches.manage`.
+
+Creating a Branch is a Restaurant-structural mutation: the resource being created cannot already exist inside any Membership's Branch scope, so `branches.manage` alone is not sufficient authority. The caller's current ACTIVE `RestaurantMembership` must additionally have `allBranches = true`:
+
+- OWNER + `allBranches = true` -> allowed.
+- MANAGER + `allBranches = true` -> allowed.
+- MANAGER + `allBranches = false` -> `403 PERMISSION_DENIED` (API_CONVENTIONS.md #38B) -- the exact same generic contract as an ordinary missing Permission, never a distinct externally-visible reason.
+
+Role or Permission alone never widens Branch structural authority -- a Branch-scoped Membership cannot gain Restaurant-wide creation authority merely because its Role holds `branches.manage`.
+
+Settled guard order for this route specifically (not a generalized precedent for other future mutations): `AuthGuard` → `CsrfGuard` → `RestaurantAccessGuard` → `PermissionGuard` → `AllBranchesRequiredGuard`. `CsrfGuard` runs immediately after authentication so a cross-origin unsafe request is rejected before Tenant/authorization database work where possible. `AllBranchesRequiredGuard` is a structural-authority check layered after `PermissionGuard` -- it does not replace `RestaurantAccessGuard`'s Tenant resolution or `PermissionGuard`'s Permission check; it adds one further condition specific to Restaurant-wide mutations.
+
+---
+
 # 66. NestJS Authorization Structure
 
 Preferred conceptual implementation:

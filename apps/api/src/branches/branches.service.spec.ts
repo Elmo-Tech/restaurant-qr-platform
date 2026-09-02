@@ -2,6 +2,8 @@ import {
   BranchesService,
   type AuthorizedBranchScope,
   type BranchListItem,
+  type CreateBranchInput,
+  type CreatedBranch,
 } from './branches.service';
 
 interface FindManyBranchArgs {
@@ -14,6 +16,11 @@ interface FindManyAssignmentArgs {
   where: Record<string, unknown>;
   orderBy: Record<string, unknown>;
   select: Record<string, unknown>;
+}
+
+interface CreateBranchArgs {
+  data: Record<string, unknown>;
+  select: Record<string, boolean>;
 }
 
 const ALL_BRANCHES_SCOPE: AuthorizedBranchScope = {
@@ -39,8 +46,21 @@ describe('BranchesService', () => {
         [FindManyAssignmentArgs]
       >;
     };
+  } & {
+    branch: {
+      findMany: jest.Mock<Promise<BranchListItem[]>, [FindManyBranchArgs]>;
+      create: jest.Mock<Promise<CreatedBranch>, [CreateBranchArgs]>;
+    };
   };
   let service: BranchesService;
+
+  const CREATE_INPUT: CreateBranchInput = {
+    restaurantId: 'restaurant-1',
+    name: 'Maadi',
+    timezone: 'Africa/Cairo',
+    phone: null,
+    address: null,
+  };
 
   beforeEach(() => {
     prisma = {
@@ -48,6 +68,16 @@ describe('BranchesService', () => {
         findMany: jest
           .fn<Promise<BranchListItem[]>, [FindManyBranchArgs]>()
           .mockResolvedValue([]),
+        create: jest
+          .fn<Promise<CreatedBranch>, [CreateBranchArgs]>()
+          .mockResolvedValue({
+            id: 'new-branch-id',
+            name: 'Maadi',
+            status: 'INACTIVE',
+            timezone: 'Africa/Cairo',
+            phone: null,
+            address: null,
+          }),
       },
       restaurantMembershipBranch: {
         findMany: jest
@@ -144,6 +174,109 @@ describe('BranchesService', () => {
 
       expect(result).toEqual([]);
       expect(prisma.branch.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('createBranch', () => {
+    it('persists restaurantId from the input, not any other source', async () => {
+      await service.createBranch(CREATE_INPUT);
+
+      const args = prisma.branch.create.mock.calls[0][0];
+      expect(args.data.restaurantId).toBe('restaurant-1');
+    });
+
+    it('always persists status INACTIVE regardless of input', async () => {
+      await service.createBranch(CREATE_INPUT);
+
+      const args = prisma.branch.create.mock.calls[0][0];
+      expect(args.data.status).toBe('INACTIVE');
+    });
+
+    it('generates a publicId with the branch-<UUID> shape', async () => {
+      await service.createBranch(CREATE_INPUT);
+
+      const args = prisma.branch.create.mock.calls[0][0];
+      expect(args.data.publicId).toMatch(/^branch-[0-9a-f-]{36}$/i);
+    });
+
+    it('publicId is independent from Branch.id -- never derived from it', async () => {
+      await service.createBranch(CREATE_INPUT);
+
+      const args = prisma.branch.create.mock.calls[0][0];
+      // Nothing in the created data ties publicId's value to any id field --
+      // it is generated standalone before the row exists.
+      expect(args.data.publicId).not.toContain('new-branch-id');
+    });
+
+    it('persists name, timezone, phone, and address exactly as given', async () => {
+      await service.createBranch({
+        restaurantId: 'restaurant-1',
+        name: 'Nasr City',
+        timezone: 'Africa/Cairo',
+        phone: '+20 100 000 0000',
+        address: '1 Nile Street',
+      });
+
+      const args = prisma.branch.create.mock.calls[0][0];
+      expect(args.data.name).toBe('Nasr City');
+      expect(args.data.timezone).toBe('Africa/Cairo');
+      expect(args.data.phone).toBe('+20 100 000 0000');
+      expect(args.data.address).toBe('1 Nile Street');
+    });
+
+    it('persists null phone/address as null, not undefined or empty string', async () => {
+      await service.createBranch(CREATE_INPUT);
+
+      const args = prisma.branch.create.mock.calls[0][0];
+      expect(args.data.phone).toBeNull();
+      expect(args.data.address).toBeNull();
+    });
+
+    it('builds the Prisma data object with exactly the expected keys -- never a spread of the input', async () => {
+      await service.createBranch(CREATE_INPUT);
+
+      const args = prisma.branch.create.mock.calls[0][0];
+      expect(Object.keys(args.data).sort()).toEqual(
+        [
+          'address',
+          'name',
+          'phone',
+          'publicId',
+          'restaurantId',
+          'status',
+          'timezone',
+        ].sort(),
+      );
+    });
+
+    it('selects only the safe response fields -- never restaurantId, publicId, createdAt, or updatedAt', async () => {
+      await service.createBranch(CREATE_INPUT);
+
+      const args = prisma.branch.create.mock.calls[0][0];
+      expect(args.select).toEqual({
+        id: true,
+        name: true,
+        status: true,
+        timezone: true,
+        phone: true,
+        address: true,
+      });
+    });
+
+    it('returns whatever Prisma resolves, unmodified', async () => {
+      const created: CreatedBranch = {
+        id: 'b1',
+        name: 'Maadi',
+        status: 'INACTIVE',
+        timezone: 'Africa/Cairo',
+        phone: null,
+        address: null,
+      };
+      prisma.branch.create.mockResolvedValue(created);
+
+      const result = await service.createBranch(CREATE_INPUT);
+
+      expect(result).toEqual(created);
     });
   });
 });

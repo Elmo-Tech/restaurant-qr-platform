@@ -1,15 +1,31 @@
-import { Controller, Get, Req, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Post,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { AllBranchesRequiredGuard } from '../auth/guard/all-branches-required.guard';
+import { AuthGuard } from '../auth/guard/auth.guard';
 import { PermissionGuard } from '../auth/guard/permission.guard';
 import { RestaurantAccessGuard } from '../auth/guard/restaurant-access.guard';
 import type { RestaurantAuthorizedRequest } from '../auth/guard/restaurant-authorized-request';
-import { AuthGuard } from '../auth/guard/auth.guard';
+import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
 import { BranchesService } from './branches.service';
-import type { BranchListItem } from './branches.service';
+import type { BranchListItem, CreatedBranch } from './branches.service';
+import { CreateBranchDto } from './dto/create-branch.dto';
 
 interface BranchListResponseBody {
   data: BranchListItem[];
+}
+
+interface CreateBranchResponseBody {
+  data: CreatedBranch;
 }
 
 /**
@@ -44,6 +60,44 @@ export class BranchesController {
       restaurantId: request.restaurantAccess.restaurantId,
       membershipId: request.restaurantAccess.membershipId,
       allBranches: request.restaurantAccess.allBranches,
+    });
+
+    return { data };
+  }
+
+  /**
+   * Business Foundation K, settled contract: creating a Branch is a
+   * Restaurant-structural mutation. Guard order is deliberately settled
+   * for this route specifically (not a global precedent):
+   * AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard ->
+   * AllBranchesRequiredGuard. CsrfGuard runs immediately after
+   * authentication so a cross-origin unsafe request is rejected before any
+   * Tenant/authorization database work where possible; `branches.manage`
+   * alone is not sufficient authority -- `AllBranchesRequiredGuard` (after
+   * PermissionGuard) additionally requires the Membership to have
+   * Restaurant-wide Branch scope, so a Branch-scoped MANAGER can never
+   * create a new Branch merely because their Role holds the Permission.
+   */
+  @Post()
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.BRANCHES_MANAGE)
+  async createBranch(
+    @Body() dto: CreateBranchDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<CreateBranchResponseBody> {
+    const data = await this.branchesService.createBranch({
+      restaurantId: request.restaurantAccess.restaurantId,
+      name: dto.name,
+      timezone: dto.timezone,
+      phone: dto.phone ?? null,
+      address: dto.address ?? null,
     });
 
     return { data };

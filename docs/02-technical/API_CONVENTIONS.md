@@ -1903,6 +1903,54 @@ Regenerate should be explicit because it invalidates physical printed QR.
 
 ---
 
+# 113A. Branch Creation (Settled)
+
+`POST /api/v1/restaurants/{restaurantId}/branches`
+
+Requires `branches.manage` and Restaurant-wide structural authority (`request.restaurantAccess.allBranches === true`; AUTH_TENANCY_SPEC.md #65C) and the Foundation I `CsrfGuard` (unsafe cookie-authenticated mutation).
+
+Request body:
+
+```
+{
+  "name": string,
+  "timezone": string,
+  "phone": string | null,
+  "address": string | null
+}
+```
+
+- `name` -- required, trimmed, must remain non-empty after trim.
+- `timezone` -- required, trimmed, must remain non-empty, must be a valid IANA timezone.
+- `phone` -- optional; when a string, trimmed; an empty string after trim normalizes to `null`; may be omitted entirely.
+- `address` -- optional; same trimming/normalization as `phone`; may be omitted entirely.
+
+The client cannot authoritatively set `id`, `publicId`, `restaurantId`, `status`, `membershipId`, `allBranches`, `role`, or `permission` -- `restaurantId` comes only from the already-authorized `request.restaurantAccess.restaurantId`, and any of these fields sent in the request body are ignored (stripped by the existing global whitelist `ValidationPipe`, #167).
+
+Initial `status` is always server-derived as `INACTIVE` -- Branch creation and Branch activation are separate lifecycle concerns; the client cannot choose an initial status.
+
+Success:
+
+```
+201 Created
+{
+  "data": {
+    "id": "...",
+    "name": "...",
+    "status": "INACTIVE",
+    "timezone": "...",
+    "phone": null,
+    "address": null
+  }
+}
+```
+
+Never returns `restaurantId`, `publicId`, `createdAt`, or `updatedAt`.
+
+Update, Activate, Deactivate, and Delete Branch contracts remain undocumented and unimplemented -- do not infer them from this section.
+
+---
+
 # 114. Table Creation
 
 `POST /api/v1/restaurants/{restaurantId}/branches/{branchId}/tables`

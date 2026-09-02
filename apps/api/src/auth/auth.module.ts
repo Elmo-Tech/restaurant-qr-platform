@@ -4,6 +4,7 @@ import { AuthContextService } from './context/auth-context.service';
 import { BranchAccessService } from './context/branch-access.service';
 import { RestaurantAccessService } from './context/restaurant-access.service';
 import { CsrfGuard } from './csrf/csrf.guard';
+import { AllBranchesRequiredGuard } from './guard/all-branches-required.guard';
 import { AuthGuard } from './guard/auth.guard';
 import { BranchAccessGuard } from './guard/branch-access.guard';
 import { PermissionGuard } from './guard/permission.guard';
@@ -22,8 +23,10 @@ import { SessionTokenService } from './session/session-token.service';
  * Tenant-scope enforcement, fixed V1 Role/Permission enforcement, the
  * reusable Staff cookie-mutation CSRF boundary, and Staff logout (Auth
  * Foundation A-F, Authorization Foundation G-H, Auth Foundation I). No
- * Staff-management mutations, ownership transfer, or last-OWNER logic yet --
- * those belong to a later slice. Kept explicit (not global), matching
+ * Staff membership/user-management mutations, ownership transfer, or
+ * last-OWNER logic yet -- those, and further business mutations beyond
+ * Business Foundation K's Create Branch, belong to a later slice. Kept
+ * explicit (not global), matching
  * DatabaseModule. None of these guards are registered as a global
  * APP_GUARD: most V1 routes (login, public QR, guest menu, guest AI) are
  * intentionally unauthenticated/untenanted, so protection is applied
@@ -33,10 +36,17 @@ import { SessionTokenService } from './session/session-token.service';
  * also needs -- for a Tenant-scoped mutation that is AuthGuard,
  * RestaurantAccessGuard, BranchAccessGuard, PermissionGuard, and CsrfGuard
  * (AUTH_TENANCY_SPEC.md #65, #106A; the exact relative order of CsrfGuard
- * against the Tenant/Branch/Permission guards is not yet settled by that
- * documentation). Logout carries no Tenant/Branch/Permission context, so
- * its settled order is exactly `@UseGuards(AuthGuard, CsrfGuard)`
- * (AUTH_TENANCY_SPEC.md #28A).
+ * against the Tenant/Branch/Permission guards is not globally settled by
+ * that documentation -- it is settled per mutation as each is implemented).
+ * Logout carries no Tenant/Branch/Permission context, so its settled order
+ * is exactly `@UseGuards(AuthGuard, CsrfGuard)` (AUTH_TENANCY_SPEC.md
+ * #28A). Business Foundation K's Create Branch settled its own order as
+ * `AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard,
+ * AllBranchesRequiredGuard` (DATABASE_SPEC.md / AUTH_TENANCY_SPEC.md
+ * Foundation K section) -- `AllBranchesRequiredGuard` enforces the
+ * Restaurant-structural-authority rule that a Branch-scoped Membership
+ * (`allBranches = false`) must never gain Restaurant-wide authority merely
+ * because its Role holds a relevant Permission.
  */
 @Module({
   imports: [DatabaseModule],
@@ -54,12 +64,13 @@ import { SessionTokenService } from './session/session-token.service';
     BranchAccessGuard,
     PermissionGuard,
     CsrfGuard,
+    AllBranchesRequiredGuard,
   ],
   // SessionTokenService and PasswordHasherService are internal
   // implementation details, only consumed inside this module. The rest are
   // exported for future feature modules that need to authenticate, resolve
   // sessions, read authorization context, or enforce Restaurant/Branch/
-  // Permission/CSRF scope.
+  // Permission/CSRF/structural-authority scope.
   exports: [
     AuthSessionService,
     LoginService,
@@ -71,6 +82,7 @@ import { SessionTokenService } from './session/session-token.service';
     BranchAccessGuard,
     PermissionGuard,
     CsrfGuard,
+    AllBranchesRequiredGuard,
   ],
 })
 export class AuthModule {}

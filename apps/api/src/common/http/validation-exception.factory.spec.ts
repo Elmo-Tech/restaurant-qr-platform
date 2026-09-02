@@ -19,6 +19,7 @@ describe('toFieldErrorCode', () => {
     ['isNotEmpty', 'REQUIRED'],
     ['isString', 'INVALID_TYPE'],
     ['isLength', 'INVALID_LENGTH'],
+    ['isTimeZone', 'INVALID_TIMEZONE'],
     ['isSomethingUnmapped', 'INVALID_VALUE'],
   ])('maps the %s constraint to %s', (constraintKey, expectedCode) => {
     expect(toFieldErrorCode({ [constraintKey]: 'message' })).toBe(expectedCode);

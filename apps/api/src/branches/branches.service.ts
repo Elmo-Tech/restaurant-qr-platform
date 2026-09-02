@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import type { BranchStatus } from '../generated/prisma/client';
+import { createBranchPublicId } from './branch-public-id';
 
 /**
  * Safe Staff-facing Branch shape (API_CONVENTIONS.md #59: Restaurant
@@ -27,6 +28,30 @@ export interface AuthorizedBranchScope {
   restaurantId: string;
   membershipId: string;
   allBranches: boolean;
+}
+
+/** The safe Branch detail shape returned by Create (Business Foundation K). Never `restaurantId`, `publicId`, `createdAt`, or `updatedAt`. */
+export interface CreatedBranch {
+  id: string;
+  name: string;
+  status: BranchStatus;
+  timezone: string;
+  phone: string | null;
+  address: string | null;
+}
+
+/**
+ * Client-writable Create Branch input, already DTO-validated and
+ * normalized (trimmed; empty optional strings already reduced to `null`).
+ * `restaurantId` here is the Backend-authorized value from
+ * `request.restaurantAccess.restaurantId` -- never a client-supplied value.
+ */
+export interface CreateBranchInput {
+  restaurantId: string;
+  name: string;
+  timezone: string;
+  phone: string | null;
+  address: string | null;
 }
 
 /**
@@ -71,5 +96,39 @@ export class BranchesService {
     });
 
     return rows.map((row) => row.branch);
+  }
+
+  /**
+   * Business Foundation K: creates a new Branch. `restaurantId` authority
+   * comes only from the caller (already the Backend-authorized
+   * `request.restaurantAccess.restaurantId` by the time it reaches here --
+   * this service does not re-derive or re-trust any other source).
+   * `publicId` is Backend-generated and independent from the internal `id`
+   * (never derived from it). `status` is always `INACTIVE` on creation --
+   * Branch creation and Branch activation are separate lifecycle concerns,
+   * and the client cannot choose an initial status. The Prisma `data`
+   * object is built explicitly field-by-field, never a spread of the
+   * input, so DTO growth can never silently become persistence authority.
+   */
+  async createBranch(input: CreateBranchInput): Promise<CreatedBranch> {
+    return this.prisma.branch.create({
+      data: {
+        restaurantId: input.restaurantId,
+        publicId: createBranchPublicId(),
+        name: input.name,
+        status: 'INACTIVE',
+        timezone: input.timezone,
+        phone: input.phone,
+        address: input.address,
+      },
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        timezone: true,
+        phone: true,
+        address: true,
+      },
+    });
   }
 }

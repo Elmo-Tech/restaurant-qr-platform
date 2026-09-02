@@ -658,6 +658,18 @@ The Database column has no default value. Branch creation must explicitly provid
 
 ---
 
+# 27B. Branch publicId (Settled, Branch-Specific)
+
+`branches.publicId` is Backend-generated, never client-controlled. Exact format:
+
+`branch-<UUIDv4>`
+
+using an independently generated UUIDv4 -- it is never derived from the internal `branches.id`; the two identifiers are generated separately so one can never be computed from the other. It remains subject to the existing database `UNIQUE` constraint on `branches.public_id`; no collision-retry logic exists or is required in V1. It is not returned in the Business Foundation K Create Branch response (API_CONVENTIONS.md #113A).
+
+This convention is specific to Branch. Do not assume or generalize this exact format for Restaurant, Product, Order, or any other entity's `publicId` without a separate, explicit decision for that entity.
+
+---
+
 # 28. Branch Timezone
 
 Branch should store an IANA timezone identifier.

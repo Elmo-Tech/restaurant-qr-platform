@@ -21,6 +21,8 @@ export function toFieldErrorCode(
       return 'INVALID_TYPE';
     case 'isLength':
       return 'INVALID_LENGTH';
+    case 'isTimeZone':
+      return 'INVALID_TIMEZONE';
     default:
       return 'INVALID_VALUE';
   }
