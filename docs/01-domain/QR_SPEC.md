@@ -851,28 +851,59 @@ The invalid QR page should:
 
 # 50. QR Generation
 
-Restaurant Dashboard should allow QR generation for active Tables.
+A Table's initial QR is generated automatically as part of Table creation (#51).
+
+The Restaurant Dashboard should allow Staff to preview and download / print that existing QR.
 
 Normal flow:
 
 Create Table
-→ Generate QR
+→ Initial TABLE QR created atomically
 → Preview QR
 → Download / Print
+
+QR regeneration is a separate explicit lifecycle action governed by #57.
 
 ---
 
 # 51. Automatic QR Creation
 
-Preferred V1 behavior:
+Settled V1 behavior (Business Foundation L):
 
-Creating a Table automatically creates its initial QR record.
+Creating a Table MUST automatically create its initial TABLE QR, atomically, in the same database transaction as the Table row. Either both rows commit or neither does.
+
+The initial TABLE QR is created:
+
+type = TABLE
+status = ACTIVE
 
 This reduces unnecessary setup steps.
 
 The Dashboard can then immediately display:
 
 `Download QR`
+
+Table/QR administration is a configuration mutation only. It does NOT create a Table Session, a Guest Session, an Order, occupancy state, or a QR scan analytics event -- those remain governed entirely by their own documented flows (#15-19, #31).
+
+---
+
+# 51A. QR Public Code Generation (Settled)
+
+Business Foundation L settles the exact V1 `publicCode` generation algorithm, satisfying the entropy/opacity properties described in #72 without treating that section's example as final:
+
+Node's built-in `node:crypto`:
+
+`randomBytes(32).toString("base64url")`
+
+Properties:
+
+- 256 bits of randomness (32 raw bytes)
+- 43-character URL-safe string
+- Opaque; not derived from the Table id, Branch id, or Restaurant id
+- Never client-selected -- Backend-generated only
+- Global uniqueness enforced by the database (DATABASE_SPEC.md #54), not by this generation step
+
+No collision-retry infrastructure exists or is required in V1; the database `UNIQUE` constraint remains the final collision invariant.
 
 ---
 

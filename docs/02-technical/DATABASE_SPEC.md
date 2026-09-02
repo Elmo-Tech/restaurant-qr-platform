@@ -1016,16 +1016,21 @@ Database table:
 
 `tables`
 
-Potential fields:
+Settled V1 persisted fields (Business Foundation L1):
 
 - id
-- publicId
 - restaurantId
 - branchId
 - tableNumber
 - status
 - createdAt
 - updatedAt
+
+Table has no `publicId` in V1. Authenticated Staff APIs use the internal `id` (API_CONVENTIONS.md #13: authenticated Restaurant APIs may use internal UUID identifiers). Guest/public Table resolution happens exclusively through `QrCode.publicCode` (#54) -- Table itself is never addressed directly by a public identifier.
+
+Both `restaurantId` and `branchId` are stored directly (not derived solely through a join), matching this Platform's established Tenant-scoped defense-in-depth query pattern (AUTH_TENANCY_SPEC.md #61A, SECURITY_SPEC.md #40).
+
+All Table foreign keys (`restaurantId`, `branchId`) use `ON DELETE RESTRICT`, matching every other Tenant-owned entity in this schema.
 
 ---
 
@@ -1047,7 +1052,7 @@ If a future requirement needs Table identity replacement or historical number re
 
 # 36. Table Status
 
-Initial:
+V1 values:
 
 ACTIVE
 INACTIVE
@@ -1055,6 +1060,8 @@ INACTIVE
 Current occupancy should not be duplicated as persistent Table status.
 
 Occupancy is derived from active Table Session.
+
+No database default (mirrors Restaurant/Branch, #24/#27A): the initial status is an explicit application/domain-layer choice, not a schema default. Business Foundation L3 settles this choice: a newly created Table is always created `ACTIVE`. This is intentional -- Branch operational status is the outer onboarding gate; a Table added to a still-`INACTIVE` Branch may exist `ACTIVE` while remaining non-operational to Guests until the Branch itself becomes `ACTIVE` (no second Table-activation step is required once the Branch is ready).
 
 ---
 
@@ -1324,19 +1331,23 @@ Database table:
 
 `qr_codes`
 
-Potential fields:
+Settled V1 persisted fields (Business Foundation L1):
 
 - id
 - publicCode
 - restaurantId
-- branchId
+- branchId nullable
 - tableId nullable
 - type
 - status
-- source
 - createdAt
 - updatedAt
-- regeneratedAt nullable
+
+`source` and `regeneratedAt` are deliberately not part of the Foundation L1 schema -- they have no defined use until Generic QR creation and QR regeneration are implemented (both out of V1 Foundation L scope). Both are purely additive nullable columns when that later slice needs them; omitting them now does not foreclose that.
+
+`restaurantId` is always required (every QR type needs it directly -- a Generic QR has no Table to derive it from, #4). `branchId` and `tableId` are both nullable: see #55.
+
+All QR foreign keys (`restaurantId`, `branchId`, `tableId`) use `ON DELETE RESTRICT`, matching every other Tenant-owned entity in this schema.
 
 ---
 
@@ -1383,13 +1394,17 @@ QR resolution must be efficient.
 
 TABLE QR requires:
 
-tableId non-null.
+tableId non-null
+AND
+branchId non-null (populated from the Table's own branchId, #67).
 
 GENERIC QR requires:
 
 tableId null.
 
-A PostgreSQL Check Constraint should enforce compatible type and Table relationship where practical.
+branchId may be null or non-null for GENERIC -- a future Restaurant-wide Generic QR (#4) has no Branch, so this column must tolerate null rather than forcing every Generic QR to name a Branch.
+
+Enforced by the `qr_codes_type_context_check` PostgreSQL Check Constraint (#56A) -- not application code alone.
 
 ---
 
@@ -1397,19 +1412,38 @@ A PostgreSQL Check Constraint should enforce compatible type and Table relations
 
 V1 normally permits one active primary TABLE QR per Table.
 
-Recommended PostgreSQL Partial Unique Index:
+Settled PostgreSQL Partial Unique Index (Business Foundation L1), committed as custom migration SQL (Prisma schema syntax cannot express a `WHERE`-predicated unique index, #41):
 
-Unique:
+```sql
+CREATE UNIQUE INDEX "qr_codes_one_active_table_qr"
+ON "qr_codes" ("table_id")
+WHERE "type" = 'TABLE' AND "status" = 'ACTIVE';
+```
 
-table_id
+---
 
-WHERE:
+# 56A. QR Type/Context Check Constraint
 
-type = 'TABLE'
-AND
-status = 'ACTIVE'
+Settled PostgreSQL Check Constraint (Business Foundation L1) enforcing #55:
 
-This may also use a custom migration SQL file.
+```sql
+ALTER TABLE "qr_codes"
+ADD CONSTRAINT "qr_codes_type_context_check"
+CHECK (
+  (
+    "type" = 'TABLE'
+    AND "table_id" IS NOT NULL
+    AND "branch_id" IS NOT NULL
+  )
+  OR
+  (
+    "type" = 'GENERIC'
+    AND "table_id" IS NULL
+  )
+);
+```
+
+`restaurantId` is `NOT NULL` at the column level independently of this constraint (#51).
 
 ---
 

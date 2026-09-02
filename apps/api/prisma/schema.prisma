@@ -53,6 +53,27 @@ enum RestaurantMembershipStatus {
   @@map("restaurant_membership_status")
 }
 
+enum TableStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("table_status")
+}
+
+enum QrType {
+  TABLE
+  GENERIC
+
+  @@map("qr_type")
+}
+
+enum QrStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("qr_status")
+}
+
 // -----------------------------------------------------------------------------
 // Restaurant / Branch (DATABASE_SPEC.md #23-30)
 // -----------------------------------------------------------------------------
@@ -78,6 +99,8 @@ model Restaurant {
   branches    Branch[]
   memberships RestaurantMembership[]
   invitations RestaurantInvitation[]
+  tables      Table[]
+  qrCodes     QrCode[]
 
   @@map("restaurants")
 }
@@ -122,9 +145,75 @@ model Branch {
   restaurant         Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   membershipBranches RestaurantMembershipBranch[]
   invitationBranches RestaurantInvitationBranch[]
+  tables             Table[]
+  qrCodes            QrCode[]
 
   @@index([restaurantId])
   @@map("branches")
+}
+
+// -----------------------------------------------------------------------------
+// Table / QR (DATABASE_SPEC.md #34-36, #51-56; QR_SPEC.md #2-3, #11-12,
+// #50-51, #55-56, #67, #72, #75)
+// -----------------------------------------------------------------------------
+
+model Table {
+  id           String      @id @default(uuid()) @db.Uuid
+  restaurantId String      @map("restaurant_id") @db.Uuid
+  branchId     String      @map("branch_id") @db.Uuid
+  tableNumber  String      @map("table_number")
+  // No database default (mirrors Restaurant/Branch, DATABASE_SPEC.md
+  // #24/#27A): Table creation must explicitly choose the initial status at
+  // the application/domain layer. Business Foundation L3 always creates a
+  // new Table as ACTIVE.
+  status       TableStatus
+  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  qrCodes    QrCode[]
+
+  // DATABASE_SPEC.md #35: Table Number unique within a Branch. This compound
+  // index's leading column (branchId) already serves branchId-only lookups,
+  // so no separate @@index([branchId]) is added.
+  @@unique([branchId, tableNumber])
+  @@index([restaurantId])
+  @@map("tables")
+}
+
+model QrCode {
+  id           String   @id @default(uuid()) @db.Uuid
+  publicCode   String   @unique @map("public_code")
+  restaurantId String   @map("restaurant_id") @db.Uuid
+  // Nullable: required for TABLE (populated from the Table's own branchId,
+  // QR_SPEC.md #67), but a future Restaurant-wide GENERIC QR (QR_SPEC.md #4)
+  // has no Branch -- enforced by qr_codes_type_context_check, not by
+  // NOT NULL here.
+  branchId     String?  @map("branch_id") @db.Uuid
+  // Nullable: required for TABLE, must be null for GENERIC
+  // (QR_SPEC.md #55) -- enforced by qr_codes_type_context_check.
+  tableId      String?  @map("table_id") @db.Uuid
+  type         QrType
+  // No database default, same rationale as Table.status. Business
+  // Foundation L3 always creates the initial Table QR as ACTIVE.
+  status       QrStatus
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  branch     Branch?    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  table      Table?     @relation(fields: [tableId], references: [id], onDelete: Restrict)
+
+  // DATABASE_SPEC.md #54/#75: publicCode is globally unique (the @unique
+  // above). #56: at most one ACTIVE TABLE QR per Table is enforced by the
+  // qr_codes_one_active_table_qr partial unique index, added via committed
+  // custom migration SQL -- Prisma's schema syntax cannot express a partial
+  // (WHERE-predicated) unique index.
+  @@index([restaurantId])
+  @@index([branchId])
+  @@index([tableId])
+  @@map("qr_codes")
 }
 
 // -----------------------------------------------------------------------------
