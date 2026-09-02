@@ -324,4 +324,202 @@ describe('BranchAccessService', () => {
       });
     });
   });
+
+  describe('resolveBranchManagementAccess', () => {
+    it('A. rejects a malformed (non-UUID) requested Branch identifier without querying Prisma', async () => {
+      const result = await service.resolveBranchManagementAccess(
+        buildRestaurantAccess(),
+        'not-a-uuid',
+      );
+
+      expect(result).toEqual({ outcome: 'notFound' });
+      expect(prisma.branch.findUnique).not.toHaveBeenCalled();
+    });
+
+    it('B. unknown Branch -> notFound', async () => {
+      prisma.branch.findUnique.mockResolvedValue(null);
+
+      const result = await service.resolveBranchManagementAccess(
+        buildRestaurantAccess(),
+        BRANCH_ID,
+      );
+
+      expect(result).toEqual({ outcome: 'notFound' });
+    });
+
+    it('C. Branch exists but belongs to a foreign Restaurant -> notFound, never accessDenied', async () => {
+      prisma.branch.findUnique.mockResolvedValue({
+        id: BRANCH_ID,
+        restaurantId: FOREIGN_RESTAURANT_ID,
+        status: 'ACTIVE',
+      });
+
+      const result = await service.resolveBranchManagementAccess(
+        buildRestaurantAccess({ allBranches: true }),
+        BRANCH_ID,
+      );
+
+      expect(result).toEqual({ outcome: 'notFound' });
+      expect(
+        prisma.restaurantMembershipBranch.findFirst,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('D. foreign + INACTIVE Branch -> notFound, not authorized', async () => {
+      prisma.branch.findUnique.mockResolvedValue({
+        id: BRANCH_ID,
+        restaurantId: FOREIGN_RESTAURANT_ID,
+        status: 'INACTIVE',
+      });
+
+      const result = await service.resolveBranchManagementAccess(
+        buildRestaurantAccess({ allBranches: true }),
+        BRANCH_ID,
+      );
+
+      expect(result).toEqual({ outcome: 'notFound' });
+    });
+
+    it('foreign Branch cannot be authorized by a malformed assignment when allBranches=false', async () => {
+      // Membership belongs to RESTAURANT_ID, but the requested Branch
+      // actually belongs to FOREIGN_RESTAURANT_ID. The assignment mock is
+      // preconfigured as though a malformed cross-Restaurant
+      // RestaurantMembershipBranch row exists -- the invariant under test
+      // is that Branch identity (notFound) is decided before that row can
+      // ever be consulted, so its presence must not matter.
+      prisma.branch.findUnique.mockResolvedValue({
+        id: BRANCH_ID,
+        restaurantId: FOREIGN_RESTAURANT_ID,
+        status: 'ACTIVE',
+      });
+      prisma.restaurantMembershipBranch.findFirst.mockResolvedValue({
+        branchId: BRANCH_ID,
+      });
+
+      const result = await service.resolveBranchManagementAccess(
+        buildRestaurantAccess({ allBranches: false }),
+        BRANCH_ID,
+      );
+
+      expect(result).toEqual({ outcome: 'notFound' });
+      expect(
+        prisma.restaurantMembershipBranch.findFirst,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('E. allBranches=true + same-Restaurant ACTIVE Branch -> authorized, without checking assignments', async () => {
+      prisma.branch.findUnique.mockResolvedValue({
+        id: BRANCH_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'ACTIVE',
+      });
+
+      const result = await service.resolveBranchManagementAccess(
+        buildRestaurantAccess({ allBranches: true }),
+        BRANCH_ID,
+      );
+
+      expect(result).toEqual({
+        outcome: 'authorized',
+        context: { branchId: BRANCH_ID },
+      });
+      expect(
+        prisma.restaurantMembershipBranch.findFirst,
+      ).not.toHaveBeenCalled();
+    });
+
+    it('F. allBranches=true + same-Restaurant INACTIVE Branch -> authorized (no operational check)', async () => {
+      prisma.branch.findUnique.mockResolvedValue({
+        id: BRANCH_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'INACTIVE',
+      });
+
+      const result = await service.resolveBranchManagementAccess(
+        buildRestaurantAccess({ allBranches: true }),
+        BRANCH_ID,
+      );
+
+      expect(result).toEqual({
+        outcome: 'authorized',
+        context: { branchId: BRANCH_ID },
+      });
+    });
+
+    it('G. allBranches=false + assigned ACTIVE Branch -> authorized', async () => {
+      prisma.branch.findUnique.mockResolvedValue({
+        id: BRANCH_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'ACTIVE',
+      });
+      prisma.restaurantMembershipBranch.findFirst.mockResolvedValue({
+        branchId: BRANCH_ID,
+      });
+
+      const result = await service.resolveBranchManagementAccess(
+        buildRestaurantAccess({ allBranches: false }),
+        BRANCH_ID,
+      );
+
+      expect(result).toEqual({
+        outcome: 'authorized',
+        context: { branchId: BRANCH_ID },
+      });
+    });
+
+    it('H. allBranches=false + assigned INACTIVE Branch -> authorized (no operational check)', async () => {
+      prisma.branch.findUnique.mockResolvedValue({
+        id: BRANCH_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'INACTIVE',
+      });
+      prisma.restaurantMembershipBranch.findFirst.mockResolvedValue({
+        branchId: BRANCH_ID,
+      });
+
+      const result = await service.resolveBranchManagementAccess(
+        buildRestaurantAccess({ allBranches: false }),
+        BRANCH_ID,
+      );
+
+      expect(result).toEqual({
+        outcome: 'authorized',
+        context: { branchId: BRANCH_ID },
+      });
+    });
+
+    it('unassigned Branch -> accessDenied, regardless of operational status', async () => {
+      prisma.branch.findUnique.mockResolvedValue({
+        id: BRANCH_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'INACTIVE',
+      });
+      prisma.restaurantMembershipBranch.findFirst.mockResolvedValue(null);
+
+      const result = await service.resolveBranchManagementAccess(
+        buildRestaurantAccess({ allBranches: false }),
+        BRANCH_ID,
+      );
+
+      expect(result).toEqual({ outcome: 'accessDenied' });
+    });
+
+    it('never produces a notOperational-shaped outcome', async () => {
+      prisma.branch.findUnique.mockResolvedValue({
+        id: BRANCH_ID,
+        restaurantId: RESTAURANT_ID,
+        status: 'INACTIVE',
+      });
+      prisma.restaurantMembershipBranch.findFirst.mockResolvedValue({
+        branchId: BRANCH_ID,
+      });
+
+      const result = await service.resolveBranchManagementAccess(
+        buildRestaurantAccess({ allBranches: false }),
+        BRANCH_ID,
+      );
+
+      expect(result.outcome).not.toBe('notOperational');
+    });
+  });
 });

@@ -7,6 +7,7 @@ import { CsrfGuard } from './csrf/csrf.guard';
 import { AllBranchesRequiredGuard } from './guard/all-branches-required.guard';
 import { AuthGuard } from './guard/auth.guard';
 import { BranchAccessGuard } from './guard/branch-access.guard';
+import { BranchManagementAccessGuard } from './guard/branch-management-access.guard';
 import { PermissionGuard } from './guard/permission.guard';
 import { RestaurantAccessGuard } from './guard/restaurant-access.guard';
 import { LoginController } from './login/login.controller';
@@ -46,7 +47,15 @@ import { SessionTokenService } from './session/session-token.service';
  * Foundation K section) -- `AllBranchesRequiredGuard` enforces the
  * Restaurant-structural-authority rule that a Branch-scoped Membership
  * (`allBranches = false`) must never gain Restaurant-wide authority merely
- * because its Role holds a relevant Permission.
+ * because its Role holds a relevant Permission. Business Foundation L2 adds
+ * `BranchManagementAccessGuard` alongside the existing `BranchAccessGuard`:
+ * both enforce identical Branch identity/Membership-scope rules, but
+ * `BranchAccessGuard` additionally requires `Branch.status === 'ACTIVE'`
+ * (OPERATIONAL access, for ordinary Branch-scoped business operations),
+ * while `BranchManagementAccessGuard` does not (MANAGEMENT access, for
+ * Staff configuration mutations against a Branch that may still be
+ * `INACTIVE`, e.g. adding a Table) -- see AUTH_TENANCY_SPEC.md #65D. The two
+ * guards are never combined on the same route.
  */
 @Module({
   imports: [DatabaseModule],
@@ -62,6 +71,7 @@ import { SessionTokenService } from './session/session-token.service';
     BranchAccessService,
     RestaurantAccessGuard,
     BranchAccessGuard,
+    BranchManagementAccessGuard,
     PermissionGuard,
     CsrfGuard,
     AllBranchesRequiredGuard,
@@ -80,6 +90,7 @@ import { SessionTokenService } from './session/session-token.service';
     BranchAccessService,
     RestaurantAccessGuard,
     BranchAccessGuard,
+    BranchManagementAccessGuard,
     PermissionGuard,
     CsrfGuard,
     AllBranchesRequiredGuard,

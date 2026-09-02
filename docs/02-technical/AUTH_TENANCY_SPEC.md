@@ -1287,6 +1287,23 @@ Settled guard order for this route specifically (not a generalized precedent for
 
 ---
 
+# 65D. Branch Management Access Contract (Settled, Business Foundation L2)
+
+`BranchAccessService` exposes two resolution modes over one shared internal identity + Membership-scope resolver (`apps/api/src/auth/context/branch-access.service.ts`), never duplicated Branch-lookup logic:
+
+- **OPERATIONAL access** -- `resolveBranchAccess`, unchanged from Authorization Foundation G. Identity + Membership-scope, then additionally requires `Branch.status === 'ACTIVE'` (otherwise `409 BRANCH_NOT_OPERATIONAL`). Enforced by the existing `BranchAccessGuard`, for ordinary Branch-scoped business operations.
+- **MANAGEMENT access** -- `resolveBranchManagementAccess`, new in Business Foundation L2. Identity + Membership-scope only -- deliberately does **not** check `Branch.status`. A Branch created via Business Foundation K starts `INACTIVE`, and Staff must still be able to configure it (e.g. adding a Table) before activation. Enforced by the new `BranchManagementAccessGuard`.
+
+Both modes share identical Branch identity and Membership-scope precedence and outcomes (unknown Branch or foreign-Restaurant Branch -> `notFound`; same-Restaurant Branch outside the Membership's authorized scope -> `accessDenied`), including the same defense-in-depth re-check of the same-Restaurant invariant at the assignment-query level (#61A). They diverge only on whether Branch operational status is evaluated at all -- the management mode has no `notOperational` outcome in its result type, so no code path in `BranchManagementAccessGuard` can ever produce a `409 BRANCH_NOT_OPERATIONAL` response.
+
+`BranchManagementAccessGuard` reuses the exact same externally-visible `404 BRANCH_NOT_FOUND` / `403 BRANCH_ACCESS_DENIED` contracts as `BranchAccessGuard` -- Business Foundation L2 introduces no new error code. It also reuses the exact same request context shape, attaching `request.branchAccess: BranchAccessContext` (`{ branchId }`) -- there is no separate "management" request field; a downstream handler reads `request.branchAccess.branchId` identically regardless of which guard authorized the request.
+
+`BranchManagementAccessGuard` must run after `AuthGuard` and `RestaurantAccessGuard` in the same guard chain (`AuthGuard` → `RestaurantAccessGuard` → `BranchManagementAccessGuard`), matching `BranchAccessGuard`'s own precedent, and reads only `request.restaurantAccess` and the canonical `branchId` route parameter. It performs no Role/Permission decision and no CSRF decision -- those remain separate guards composed alongside it per route. It must never be combined with `AllBranchesRequiredGuard`: a Branch-scoped Membership (`allBranches = false`) assigned to the specific requested Branch has legitimate management authority over that Branch, unlike Restaurant-structural mutations such as Create Branch.
+
+Fail-closed requirement: `BranchManagementAccessGuard` used without `RestaurantAccessGuard` ahead of it (missing `request.restaurantAccess`) must deny with the same `404 BRANCH_NOT_FOUND` contract used when a requested Branch's identity cannot be disclosed -- never a `TypeError`/500.
+
+---
+
 # 66. NestJS Authorization Structure
 
 Preferred conceptual implementation:
