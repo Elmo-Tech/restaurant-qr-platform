@@ -1304,6 +1304,20 @@ Fail-closed requirement: `BranchManagementAccessGuard` used without `RestaurantA
 
 ---
 
+# 65E. Table Creation Authorization Contract (Settled, Business Foundation L3)
+
+`POST /api/v1/restaurants/{restaurantId}/branches/{branchId}/tables` (API_CONVENTIONS.md #114). Required Permission: `tables.manage`.
+
+Table Creation uses MANAGEMENT Branch access (#65D's `BranchManagementAccessGuard`), not operational Branch access -- it is a Branch configuration mutation, not an ordinary Branch-scoped business operation. Consequences:
+
+- The target Branch may be `ACTIVE` or `INACTIVE`; an `INACTIVE` Branch is allowed and never produces `409 BRANCH_NOT_OPERATIONAL` on this route.
+- A Branch-scoped Membership (`allBranches = false`) with `tables.manage` may create Tables inside its own assigned Branch, whether that Branch is `ACTIVE` or `INACTIVE` -- Table creation is not a Restaurant-structural mutation like Create Branch, so `AllBranchesRequiredGuard` is never used here.
+- Restaurant operational state is still enforced normally by `RestaurantAccessGuard` -- an authorized but `INACTIVE`/`SUSPENDED` Restaurant still produces `409 RESTAURANT_NOT_OPERATIONAL` before Branch resolution is even reached.
+
+Settled guard order for this route specifically (not a generalized precedent): `AuthGuard` → `CsrfGuard` → `RestaurantAccessGuard` → `BranchManagementAccessGuard` → `PermissionGuard`. `BranchAccessGuard` is never used on this route (it would incorrectly block an `INACTIVE` Branch).
+
+---
+
 # 66. NestJS Authorization Structure
 
 Preferred conceptual implementation:

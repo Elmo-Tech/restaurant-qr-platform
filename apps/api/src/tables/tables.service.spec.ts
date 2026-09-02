@@ -1,0 +1,223 @@
+import { Prisma } from '../generated/prisma/client';
+import { createQrPublicCode } from '../qr/qr-public-code';
+import { TablesService } from './tables.service';
+
+jest.mock('../qr/qr-public-code', () => ({
+  createQrPublicCode: jest.fn(() => 'fixed-test-public-code'),
+}));
+
+const RESTAURANT_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
+const BRANCH_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+const TABLE_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
+const QR_ID = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
+
+const VALID_INPUT = {
+  restaurantId: RESTAURANT_ID,
+  branchId: BRANCH_ID,
+  tableNumber: 'A1',
+};
+
+interface TableCreateArgs {
+  data: {
+    restaurantId: string;
+    branchId: string;
+    tableNumber: string;
+    status: string;
+  };
+  select: Record<string, boolean>;
+}
+
+interface QrCodeCreateArgs {
+  data: {
+    publicCode: string;
+    restaurantId: string;
+    branchId: string;
+    tableId: string;
+    type: string;
+    status: string;
+  };
+  select: Record<string, boolean>;
+}
+
+function buildPrismaMock() {
+  const tableCreate = jest.fn<
+    Promise<{ id: string; tableNumber: string; status: string }>,
+    [TableCreateArgs]
+  >();
+  const qrCodeCreate = jest.fn<
+    Promise<{ id: string; publicCode: string; status: string }>,
+    [QrCodeCreateArgs]
+  >();
+  const txClient = {
+    table: { create: tableCreate },
+    qrCode: { create: qrCodeCreate },
+  };
+  const $transaction = jest.fn((callback: (tx: typeof txClient) => unknown) =>
+    Promise.resolve(callback(txClient)),
+  );
+  // Deliberately no top-level `table`/`qrCode` on this mock: if the service
+  // ever wrote outside `$transaction`'s callback (violating K), that call
+  // would throw here rather than silently succeeding.
+  return { prisma: { $transaction }, tableCreate, qrCodeCreate, $transaction };
+}
+
+function fakeUniqueViolation(constraintIndex: string, table: string) {
+  return new Prisma.PrismaClientKnownRequestError(
+    `Unique constraint failed on the constraint: \`${constraintIndex}\``,
+    {
+      code: 'P2002',
+      clientVersion: '7.10.0',
+      meta: {
+        driverAdapterError: {
+          name: 'DriverAdapterError',
+          cause: {
+            originalCode: '23505',
+            originalMessage: `duplicate key value violates unique constraint "${constraintIndex}"`,
+            kind: 'UniqueConstraintViolation',
+            constraint: { index: constraintIndex },
+            table,
+          },
+        },
+      },
+    },
+  );
+}
+
+describe('TablesService', () => {
+  let mock: ReturnType<typeof buildPrismaMock>;
+  let service: TablesService;
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mock = buildPrismaMock();
+    service = new TablesService(mock.prisma as never);
+  });
+
+  describe('successful creation', () => {
+    beforeEach(() => {
+      mock.tableCreate.mockResolvedValue({
+        id: TABLE_ID,
+        tableNumber: 'A1',
+        status: 'ACTIVE',
+      });
+      mock.qrCodeCreate.mockResolvedValue({
+        id: QR_ID,
+        publicCode: 'fixed-test-public-code',
+        status: 'ACTIVE',
+      });
+    });
+
+    it('A. creates an ACTIVE Table', async () => {
+      await service.createTable(VALID_INPUT);
+
+      expect(mock.tableCreate).toHaveBeenCalledWith({
+        data: {
+          restaurantId: RESTAURANT_ID,
+          branchId: BRANCH_ID,
+          tableNumber: 'A1',
+          status: 'ACTIVE',
+        },
+        select: { id: true, tableNumber: true, status: true },
+      });
+    });
+
+    it('B. creates an ACTIVE TABLE QrCode', async () => {
+      await service.createTable(VALID_INPUT);
+
+      const call = mock.qrCodeCreate.mock.calls[0][0];
+      expect(call.data.type).toBe('TABLE');
+      expect(call.data.status).toBe('ACTIVE');
+      expect(call.select).toEqual({ id: true, publicCode: true, status: true });
+    });
+
+    it('C. Table and QrCode use the same authorized restaurantId', async () => {
+      await service.createTable(VALID_INPUT);
+
+      expect(mock.tableCreate.mock.calls[0][0].data.restaurantId).toBe(
+        RESTAURANT_ID,
+      );
+      expect(mock.qrCodeCreate.mock.calls[0][0].data.restaurantId).toBe(
+        RESTAURANT_ID,
+      );
+    });
+
+    it('D. Table and QrCode use the same authorized branchId', async () => {
+      await service.createTable(VALID_INPUT);
+
+      expect(mock.tableCreate.mock.calls[0][0].data.branchId).toBe(BRANCH_ID);
+      expect(mock.qrCodeCreate.mock.calls[0][0].data.branchId).toBe(BRANCH_ID);
+    });
+
+    it('E. QR.tableId equals the newly-created Table.id', async () => {
+      await service.createTable(VALID_INPUT);
+
+      expect(mock.qrCodeCreate.mock.calls[0][0].data.tableId).toBe(TABLE_ID);
+    });
+
+    it('F. QR publicCode comes from the QR helper', async () => {
+      await service.createTable(VALID_INPUT);
+
+      expect(createQrPublicCode).toHaveBeenCalledTimes(1);
+      expect(mock.qrCodeCreate.mock.calls[0][0].data.publicCode).toBe(
+        'fixed-test-public-code',
+      );
+    });
+
+    it('G. returns exactly the safe response shape', async () => {
+      const result = await service.createTable(VALID_INPUT);
+
+      expect(result).toEqual({
+        outcome: 'created',
+        data: {
+          table: { id: TABLE_ID, tableNumber: 'A1', status: 'ACTIVE' },
+          qr: {
+            id: QR_ID,
+            publicCode: 'fixed-test-public-code',
+            status: 'ACTIVE',
+          },
+        },
+      });
+    });
+
+    it('K. both writes go through the same $transaction callback', async () => {
+      await service.createTable(VALID_INPUT);
+
+      expect(mock.$transaction).toHaveBeenCalledTimes(1);
+      expect(mock.tableCreate).toHaveBeenCalledTimes(1);
+      expect(mock.qrCodeCreate).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('duplicate Table Number', () => {
+    it('H. maps the tables(branch_id, table_number) unique violation to a typed conflict result', async () => {
+      mock.$transaction.mockRejectedValue(
+        fakeUniqueViolation('tables_branch_id_table_number_key', 'tables'),
+      );
+
+      const result = await service.createTable(VALID_INPUT);
+
+      expect(result).toEqual({ outcome: 'tableNumberConflict' });
+    });
+  });
+
+  describe('QR publicCode uniqueness', () => {
+    it('I. a qr_codes(public_code) unique violation is NOT classified as a Table Number conflict', async () => {
+      mock.$transaction.mockRejectedValue(
+        fakeUniqueViolation('qr_codes_public_code_key', 'qr_codes'),
+      );
+
+      await expect(service.createTable(VALID_INPUT)).rejects.toBeInstanceOf(
+        Prisma.PrismaClientKnownRequestError,
+      );
+    });
+  });
+
+  describe('unexpected persistence error', () => {
+    it('J. an unrelated database error is NOT classified as a Table Number conflict', async () => {
+      const unexpected = new Error('connection reset');
+      mock.$transaction.mockRejectedValue(unexpected);
+
+      await expect(service.createTable(VALID_INPUT)).rejects.toBe(unexpected);
+    });
+  });
+});

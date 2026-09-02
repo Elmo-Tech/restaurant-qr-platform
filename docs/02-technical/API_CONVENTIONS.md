@@ -1951,13 +1951,67 @@ Update, Activate, Deactivate, and Delete Branch contracts remain undocumented an
 
 ---
 
-# 114. Table Creation
+# 114. Table Creation (Settled, Business Foundation L3)
 
 `POST /api/v1/restaurants/{restaurantId}/branches/{branchId}/tables`
 
-Backend may automatically create initial Table QR in same transaction.
+Requires `tables.manage` (V1 holders: OWNER, MANAGER). This is a Branch management/configuration mutation, not an ordinary Branch-scoped business operation -- the target Branch may be `ACTIVE` or `INACTIVE`; Branch operational status never blocks Table creation (Restaurant operational state is still enforced normally).
 
-Response may include Table and QR summary.
+Guard order (settled for this route specifically, not a generalized precedent): `AuthGuard` → `CsrfGuard` → `RestaurantAccessGuard` → `BranchManagementAccessGuard` → `PermissionGuard` (AUTH_TENANCY_SPEC.md #65E). `BranchAccessGuard` and `AllBranchesRequiredGuard` are not used on this route.
+
+Request body:
+
+```
+{
+  "tableNumber": "A1"
+}
+```
+
+- `tableNumber` -- required, string, trimmed, must remain non-empty after trim. No maximum length or numeric-only restriction ("12", "A1", "VIP-2" are all valid).
+
+The request body cannot authoritatively set `id`, `restaurantId`, `branchId`, `status`, `publicCode`, `type`, `createdAt`, or `updatedAt` -- `restaurantId` comes only from `request.restaurantAccess.restaurantId` and `branchId` only from `request.branchAccess.branchId` (the already-authorized safe contexts, never the raw `:restaurantId`/`:branchId` route parameters directly); any of these fields sent in the request body are ignored (stripped by the existing global whitelist `ValidationPipe`, #167).
+
+Initial `status` is always server-derived `ACTIVE` for both the Table and its initial QR -- the client cannot choose it, and this holds even when the parent Branch is `INACTIVE`.
+
+The Table and its initial TABLE QR are created atomically in one database transaction: either both commit or neither does.
+
+Success:
+
+```
+201 Created
+{
+  "data": {
+    "table": {
+      "id": "...",
+      "tableNumber": "...",
+      "status": "ACTIVE"
+    },
+    "qr": {
+      "id": "...",
+      "publicCode": "...",
+      "status": "ACTIVE"
+    }
+  }
+}
+```
+
+Never returns `restaurantId`, `branchId`, `type`, `createdAt`, or `updatedAt`. Table has no `publicId` in V1.
+
+Duplicate `tableNumber` within the same Branch (durable `UNIQUE(branchId, tableNumber)` invariant):
+
+```
+409 Conflict
+{
+  "error": {
+    "code": "TABLE_NUMBER_ALREADY_EXISTS",
+    "message": "Table number already exists in this Branch."
+  }
+}
+```
+
+The same `tableNumber` in a different Branch is allowed.
+
+Table list, detail, update, rename, activate/deactivate, delete, QR regeneration/deactivation, Generic QR creation, and the QR scan endpoint remain undocumented and unimplemented -- do not infer them from this section.
 
 ---
 
