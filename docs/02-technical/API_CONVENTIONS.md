@@ -2305,6 +2305,70 @@ Token route design may be refined for safe implementation.
 
 ---
 
+# 117A. Restaurant Staff Membership List (Settled, Business Foundation R)
+
+`GET /api/v1/restaurants/{restaurantId}/memberships`
+
+The Restaurant Staff/Team Membership List for one authorized Restaurant. Membership-centric: the resource is `RestaurantMembership` joined to the minimum safe User identity fields, never a global User list -- a User can belong to multiple Restaurants, and Restaurant authorization belongs to `RestaurantMembership`. No Branch-nested route (`/branches/{branchId}/memberships` does not exist) and no `/staff` or `/users` alias -- Memberships are a Restaurant-wide resource (AUTH_TENANCY_SPEC.md #63), matching the Orders precedent (#17) rather than the Branch-nested Table precedent (#114A).
+
+Requires `users.view` -- deliberately not `users.manage`. Read visibility and future Staff-management (mutation) authority are separate concerns (AUTH_TENANCY_SPEC.md #65K).
+
+Settled guard order (not a generalized precedent): `AuthGuard` -> `RestaurantAccessGuard` -> `PermissionGuard`. No `CsrfGuard` -- GET is read-only (#106A). No `BranchAccessGuard`, `BranchManagementAccessGuard`, or `AllBranchesRequiredGuard` -- this route has no single `:branchId` target; Branch-scoped subset visibility (below) is enforced entirely inside `StaffService`, not by a guard. `RestaurantAccessGuard` keeps its existing unchanged behavior: an unknown/inaccessible Restaurant is `404 RESTAURANT_NOT_FOUND`; an authorized but `INACTIVE`/`SUSPENDED` Restaurant is `409 RESTAURANT_NOT_OPERATIONAL`, both before any Staff Membership list query runs.
+
+**Visibility (AUTH_TENANCY_SPEC.md #65K settles the route-specific read scope #63 deferred):**
+
+- Caller `allBranches = true`: every `RestaurantMembership` with `restaurantId == authorizedRestaurantId`.
+- Caller `allBranches = false`: always includes the caller's own Membership (even with zero Branch assignments). Every other Membership is included only when it is itself `allBranches = false`, has at least one valid same-Restaurant Branch assignment, and its complete valid Branch assignment set is a subset of the caller's own valid Branch set. Consequently a Branch-scoped caller never sees: another `allBranches = true` Membership (including OWNER, which is `allBranches = true` under normal V1 invariants), a Membership assigned exclusively to a different Branch, a Membership whose Branch scope partially extends beyond the caller's own, or a same-Restaurant-scoped Membership with zero valid Branch assignments.
+
+This is READ VISIBILITY ONLY. It does not settle Staff-management (mutation) authority -- MANAGER-cannot-assign-OWNER, self-escalation protection, Branch-scope-expansion protection, last-OWNER protection, and ownership-transfer rules all remain separate, unimplemented concerns for a future mutation slice.
+
+**Membership status:** lists persisted `RestaurantMembership` rows regardless of `status` -- `ACTIVE`, `INVITED`, and `DISABLED` all appear. This deliberately differs from `/auth/me` (#116), whose purpose is accessible authorization context and therefore returns `ACTIVE` Memberships only. This does not settle when or whether a future Invitation-acceptance workflow creates a Membership with `status = INVITED` -- Foundation R simply reflects whatever `RestaurantMembership` rows are already persisted.
+
+**Invitations:** `RestaurantInvitation` (#117) is a separate resource. This endpoint never queries it, never merges Invitation rows into the response, and never infers a Membership from a pending Invitation.
+
+Success:
+
+```
+200 OK
+{
+  "data": [
+    {
+      "id": "<restaurantMembershipId>",
+      "user": {
+        "id": "<userId>",
+        "email": "<email>"
+      },
+      "role": "OWNER|MANAGER|CASHIER|KITCHEN|WAITER",
+      "status": "ACTIVE|INVITED|DISABLED",
+      "allBranches": true,
+      "branches": [
+        {
+          "id": "<branchId>",
+          "name": "<branchName>",
+          "status": "ACTIVE|INACTIVE"
+        }
+      ]
+    }
+  ]
+}
+```
+
+Exact fields only -- Membership: `id`, `user`, `role`, `status`, `allBranches`, `branches`. User: `id`, `email` (the current `User` Prisma model has no `name`/`displayName` field; email is the only human-readable identity returned -- do not derive or invent a display name). Branch: `id`, `name`, `status`. Never returned: `restaurantId`, a flat duplicate `userId`, `emailNormalized`, `passwordHash`, `preferredLocale`, `User.status` (Membership `status` is a separate concept from global User status), `createdAt`/`updatedAt`, Platform Administrator metadata, AuthSession data, Invitation data, token hashes, or a Permission array.
+
+For `allBranches = true`, `branches` contains every Branch belonging to the authorized Restaurant regardless of `ACTIVE`/`INACTIVE` status. For `allBranches = false`, `branches` contains exactly the Membership's valid same-Restaurant assigned Branches (possibly empty). A malformed cross-Restaurant `RestaurantMembershipBranch` row (AUTH_TENANCY_SPEC.md #61A) is never surfaced and never widens visibility -- every Branch assignment query requires `Branch.restaurantId == authorizedRestaurantId` directly, never `restaurantMembershipId` alone. OWNER is not special-cased in this read logic; under valid V1 data OWNER is expected to have `allBranches = true`, and its stored scope is rendered like any other Membership's.
+
+Deterministic ordering only, no product meaning: Memberships `id` ascending; `branches` within each Membership `id` ascending. No user-selected sorting.
+
+No pagination, no cursor, no offset/page/pageSize, and no query parameters (search, `role` filter, `status` filter, `branchId` filter, sort selector) -- this is a small V1 administrative collection, matching #59.
+
+A normal authorized request always has at least the caller's own Membership visible (`RestaurantAccessGuard` only reaches the handler after proving that caller's ACTIVE Membership, and the settled visibility rule always includes self). If the list calculation produces zero Memberships, the response is `200 { "data": [] }` -- never `404`/`204`/`null`.
+
+No new public error code is introduced -- failures reuse the existing `UNAUTHENTICATED`, `RESTAURANT_NOT_FOUND`, `RESTAURANT_NOT_OPERATIONAL`, and `PERMISSION_DENIED` contracts. This List has no child-resource identity and therefore no Membership-specific 404.
+
+GET only: no mutation, no audit event, no realtime event, no session/Invitation/Membership/User changes.
+
+---
+
 # 118. Never Put Secrets in Logs
 
 Routes containing one-time tokens must be configured carefully so reverse proxy / application logs do not retain sensitive full tokens unnecessarily.

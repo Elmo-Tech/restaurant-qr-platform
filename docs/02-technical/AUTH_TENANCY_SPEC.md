@@ -1392,6 +1392,25 @@ Table resolution happens only after the entire guard chain above -- including `P
 
 ---
 
+# 65K. Restaurant Staff Membership List Authorization Contract (Settled, Business Foundation R)
+
+`GET /api/v1/restaurants/{restaurantId}/memberships` (API_CONVENTIONS.md #117A). Required Permission: `users.view` -- deliberately not `users.manage`. Read visibility and future Staff-management (mutation) authority are separate concerns; a caller who can see the roster does not thereby gain any authority to change it.
+
+This route settles the route-specific Membership read scope that #63 explicitly deferred ("Branch-scoped users may receive read access only when operationally required. Exact route-specific scope will be defined during module implementation."). Memberships remain classified as a Restaurant-wide resource (#63), so this route carries no Branch guard of any kind -- it has no single `:branchId` target, and Branch-scoped subset visibility is enforced entirely inside `StaffService`, not by a guard:
+
+- Caller `allBranches = true`: every `RestaurantMembership` with `restaurantId == authorizedRestaurantId` is visible.
+- Caller `allBranches = false`: the caller's own Membership is always visible, regardless of its own Branch assignment set. Every other Membership is visible only when ALL of: (1) the target is itself `allBranches = false`; (2) the target has at least one valid same-Restaurant Branch assignment; (3) the target's complete valid Branch assignment set is a subset of the caller's own valid Branch set. A Branch-scoped caller therefore never sees another `allBranches = true` Membership (OWNER included, which is `allBranches = true` under normal V1 invariants -- OWNER is not special-cased in this read logic beyond that), a Membership assigned exclusively to a different Branch, a Membership whose Branch scope partially extends outside the caller's own scope, or a same-Restaurant-scoped Membership with zero valid Branch assignments.
+
+This is READ VISIBILITY ONLY (#128's "manage staff only within... Branches/role levels permitted by Domain rules" remains a separate, still-unimplemented management-authority question). It does not settle, and must not be read as settling, any of: MANAGER-cannot-assign-OWNER (#55), self-escalation protection (#130), Branch-scope-expansion protection (#129), last-OWNER protection (#56), or ownership-transfer sequencing (#57) -- all remain unimplemented, separate Domain rules for a future Staff-mutation slice, exactly as #57A already establishes for Permission grants generally.
+
+Branch assignment defense-in-depth reuses #61A unchanged: every Branch assignment surfaced or used in the subset-visibility computation requires `Branch.restaurantId == authorizedRestaurantId` directly in the query, never `restaurantMembershipId` alone -- a malformed cross-Restaurant `RestaurantMembershipBranch` row can never become authorized context or widen visibility.
+
+Membership status: this route lists persisted `RestaurantMembership` rows regardless of `status` (`ACTIVE`, `INVITED`, `DISABLED` all included) -- unlike `/auth/me` (#148A), whose purpose is accessible authorization context and therefore filters to `ACTIVE` only. `RestaurantInvitation` (#75-81) remains a fully separate resource; this route never queries or merges it.
+
+Settled guard order for this route specifically (not a generalized precedent): `AuthGuard` -> `RestaurantAccessGuard` -> `PermissionGuard`. No `CsrfGuard` -- GET is read-only (#106A). No `BranchAccessGuard`, `BranchManagementAccessGuard`, or `AllBranchesRequiredGuard`. `RestaurantAccessGuard` keeps its existing unchanged behavior (#65A): unknown/inaccessible Restaurant -> `404 RESTAURANT_NOT_FOUND`; authorized but `INACTIVE`/`SUSPENDED` Restaurant -> `409 RESTAURANT_NOT_OPERATIONAL`, both before any Staff Membership list query runs. No new public error code is introduced.
+
+---
+
 # 66. NestJS Authorization Structure
 
 Preferred conceptual implementation:
