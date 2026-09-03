@@ -1947,7 +1947,7 @@ Success:
 
 Never returns `restaurantId`, `publicId`, `createdAt`, or `updatedAt`.
 
-Update, Deactivate, and Delete Branch contracts remain undocumented and unimplemented -- do not infer them from this section. Activate Branch is settled separately (#113B).
+Deactivate and Delete Branch contracts remain undocumented and unimplemented -- do not infer them from this section. Activate Branch is settled separately (#113B); Basic Info Update is settled separately (#113C).
 
 ---
 
@@ -1955,7 +1955,7 @@ Update, Deactivate, and Delete Branch contracts remain undocumented and unimplem
 
 `POST /api/v1/restaurants/{restaurantId}/branches/{branchId}/activate`
 
-A dedicated Branch lifecycle action, not part of a generic Branch-update endpoint (no such endpoint exists yet). Requires `branches.manage`.
+A dedicated Branch lifecycle action, separate from the Branch Basic Info Update endpoint (#113C). Requires `branches.manage`.
 
 Activation targets an already-existing Branch, so it is not a Restaurant-structural mutation like Create Branch -- ordinary authorized Membership Branch scope is sufficient: `allBranches = true` for any same-Restaurant Branch, or `allBranches = false` with the target Branch explicitly assigned. `AllBranchesRequiredGuard` is not used.
 
@@ -1983,7 +1983,59 @@ Never returns `name`, `timezone`, `phone`, `address`, `restaurantId`, `publicId`
 
 Activation changes only `Branch.status` -- it never mutates existing Tables or QR Codes, and does not create an AuditEvent, realtime event, or notification (deferred until those infrastructures exist and are separately contracted).
 
-Branch Deactivation, generic Branch Update, and Branch Delete remain undocumented and unimplemented -- do not infer them from this section.
+Branch Deactivation and Branch Delete remain undocumented and unimplemented -- do not infer them from this section. Basic Info Update is settled separately (#113C).
+
+---
+
+# 113C. Branch Basic Info Update (Settled, Business Foundation N)
+
+`PATCH /api/v1/restaurants/{restaurantId}/branches/{branchId}`
+
+A partial update of an already-existing Branch's basic information. Requires `branches.manage` (V1 holders: OWNER, MANAGER). Like Activate Branch (#113B), this targets an already-existing Branch, so ordinary authorized Membership Branch scope is sufficient authority -- `allBranches = true` for any same-Restaurant Branch, or `allBranches = false` with the target Branch explicitly assigned; `AllBranchesRequiredGuard` is not used. The target Branch may be `ACTIVE` or `INACTIVE` -- basic-info editing is not blocked by Branch operational status. Restaurant operational state is still enforced normally by `RestaurantAccessGuard`.
+
+Guard order (settled for this route specifically, not a generalized precedent): `AuthGuard` → `CsrfGuard` → `RestaurantAccessGuard` → `BranchManagementAccessGuard` → `PermissionGuard` (AUTH_TENANCY_SPEC.md #65G). `BranchAccessGuard` and `AllBranchesRequiredGuard` are not used on this route.
+
+Request body -- all four fields optional (partial update):
+
+```
+{
+  "name": string,
+  "timezone": string,
+  "phone": string | null,
+  "address": string | null
+}
+```
+
+- `name` -- if supplied, trimmed, must remain non-empty after trim; explicit `null` is rejected (`400 VALIDATION_ERROR`); omitted leaves the current value unchanged.
+- `timezone` -- if supplied, trimmed, must remain non-empty, must be a valid IANA timezone; explicit `null` is rejected; omitted leaves the current value unchanged.
+- `phone` -- if supplied as a string, trimmed, with an empty/whitespace-only result normalizing to `null`; explicit `null` is accepted and clears the field; omitted leaves the current value unchanged.
+- `address` -- same rules as `phone`.
+
+`status` is not part of this request body at all -- Branch lifecycle remains Foundation M's dedicated `POST .../activate` action; this route can never activate, deactivate, or otherwise change `status`. The client also cannot authoritatively set `id`, `publicId`, `restaurantId`, or `branchId` -- the target Branch's identity comes only from `request.branchAccess.branchId` (resolved by `BranchManagementAccessGuard` from the `:branchId` route parameter, never read directly), and any of these fields sent in the request body are ignored (stripped by the existing global whitelist `ValidationPipe`, #167).
+
+An empty body (`{}`) is valid and returns `200` with the Branch's current, unchanged safe representation -- not a validation error and not a no-op error of any kind.
+
+Success:
+
+```
+200 OK
+{
+  "data": {
+    "id": "...",
+    "name": "...",
+    "status": "ACTIVE",
+    "timezone": "Africa/Cairo",
+    "phone": null,
+    "address": null
+  }
+}
+```
+
+`status` in the response is read-only current state, never writable by this endpoint. Never returns `restaurantId`, `publicId`, `createdAt`, or `updatedAt`. No new public error code is introduced -- failures reuse the existing `UNAUTHENTICATED`, `CSRF_VALIDATION_FAILED`, `RESTAURANT_NOT_FOUND`, `RESTAURANT_NOT_OPERATIONAL`, `BRANCH_NOT_FOUND`, `BRANCH_ACCESS_DENIED`, `PERMISSION_DENIED`, and `VALIDATION_ERROR` contracts. `Branch.name` has no V1 uniqueness constraint; duplicate Branch names are allowed, including between Branches of the same Restaurant. No uniqueness pre-check or conflict error exists.
+
+This update touches only the supplied Branch basic-info fields -- it never mutates Tables, QR Codes, Menu, Membership, or Restaurant state, and does not create an AuditEvent, realtime event, or notification (deferred until those infrastructures exist and are separately contracted).
+
+Branch Deactivation and Branch Delete remain undocumented and unimplemented -- do not infer them from this section.
 
 ---
 

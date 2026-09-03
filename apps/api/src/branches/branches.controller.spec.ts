@@ -12,6 +12,7 @@ import { REQUIRED_PERMISSION_KEY } from '../auth/permission/require-permission.d
 import { BranchesController } from './branches.controller';
 import type { RestaurantAuthorizedRequest } from '../auth/guard/restaurant-authorized-request';
 import type { CreateBranchDto } from './dto/create-branch.dto';
+import type { UpdateBranchDto } from './dto/update-branch.dto';
 
 function buildRequest(params: {
   restaurantId: string;
@@ -57,6 +58,7 @@ describe('BranchesController', () => {
     listBranches: jest.Mock;
     createBranch: jest.Mock;
     activateBranch: jest.Mock;
+    updateBranch: jest.Mock;
   };
   let controller: BranchesController;
 
@@ -74,6 +76,14 @@ describe('BranchesController', () => {
       activateBranch: jest
         .fn()
         .mockResolvedValue({ id: 'branch-1', status: 'ACTIVE' }),
+      updateBranch: jest.fn().mockResolvedValue({
+        id: 'branch-1',
+        name: 'Maadi',
+        status: 'ACTIVE',
+        timezone: 'Africa/Cairo',
+        phone: null,
+        address: null,
+      }),
     };
     controller = new BranchesController(branchesService as never);
   });
@@ -318,6 +328,163 @@ describe('BranchesController', () => {
       );
 
       expect(body).toEqual({ data: { id: 'branch-1', status: 'ACTIVE' } });
+    });
+  });
+
+  describe('updateBranch', () => {
+    const EMPTY_DTO: UpdateBranchDto = {};
+
+    // Nest metadata reflection targets a class method reference without
+    // ever invoking it -- not the unintended-`this`-scoping pattern
+    // @typescript-eslint/unbound-method guards against.
+    /* eslint-disable @typescript-eslint/unbound-method */
+    const updateBranchHandler = BranchesController.prototype.updateBranch;
+    /* eslint-enable @typescript-eslint/unbound-method */
+
+    it('declares exactly the settled guard order', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        updateBranchHandler,
+      ) as unknown[];
+
+      expect(guards).toEqual([
+        AuthGuard,
+        CsrfGuard,
+        RestaurantAccessGuard,
+        BranchManagementAccessGuard,
+        PermissionGuard,
+      ]);
+    });
+
+    it('requires exactly branches.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        updateBranchHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.BRANCHES_MANAGE);
+    });
+
+    it('never declares AllBranchesRequiredGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        updateBranchHandler,
+      ) as unknown[];
+
+      expect(guards).not.toContain(AllBranchesRequiredGuard);
+    });
+
+    it('never declares BranchAccessGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        updateBranchHandler,
+      ) as unknown[];
+
+      expect(guards).not.toContain(BranchAccessGuard);
+    });
+
+    it('passes branchId from request.branchAccess, not the raw route param', async () => {
+      const request = buildActivateRequest({
+        restaurantId: 'restaurant-1',
+        branchId: 'authorized-branch',
+        routeParamBranchId: 'attacker-branch',
+      });
+
+      await controller.updateBranch(EMPTY_DTO, request);
+
+      expect(branchesService.updateBranch).toHaveBeenCalledWith(
+        expect.objectContaining({ branchId: 'authorized-branch' }),
+      );
+    });
+
+    it('forwards DTO name/timezone/phone/address unchanged', async () => {
+      const dto: UpdateBranchDto = {
+        name: 'Nasr City',
+        timezone: 'Africa/Cairo',
+        phone: null,
+        address: '1 Nile Street',
+      };
+
+      await controller.updateBranch(
+        dto,
+        buildActivateRequest({
+          restaurantId: 'restaurant-1',
+          branchId: 'branch-1',
+        }),
+      );
+
+      expect(branchesService.updateBranch).toHaveBeenCalledWith({
+        branchId: 'branch-1',
+        name: 'Nasr City',
+        timezone: 'Africa/Cairo',
+        phone: null,
+        address: '1 Nile Street',
+      });
+    });
+
+    it('omitted DTO fields are forwarded as undefined, not defaulted to null', async () => {
+      await controller.updateBranch(
+        EMPTY_DTO,
+        buildActivateRequest({
+          restaurantId: 'restaurant-1',
+          branchId: 'branch-1',
+        }),
+      );
+
+      expect(branchesService.updateBranch).toHaveBeenCalledWith({
+        branchId: 'branch-1',
+        name: undefined,
+        timezone: undefined,
+        phone: undefined,
+        address: undefined,
+      });
+    });
+
+    it('never sends a body-supplied branchId/restaurantId/status as authority, even if present', async () => {
+      const dtoWithForeignFields = {
+        name: 'Legitimate Name',
+        branchId: 'attacker-branch',
+        restaurantId: 'attacker-restaurant',
+        status: 'INACTIVE',
+      } as UpdateBranchDto & Record<string, unknown>;
+
+      await controller.updateBranch(
+        dtoWithForeignFields,
+        buildActivateRequest({
+          restaurantId: 'restaurant-1',
+          branchId: 'authorized-branch',
+        }),
+      );
+
+      expect(branchesService.updateBranch).toHaveBeenCalledWith({
+        branchId: 'authorized-branch',
+        name: 'Legitimate Name',
+        timezone: undefined,
+        phone: undefined,
+        address: undefined,
+      });
+    });
+
+    it('wraps the result in the exact data envelope', async () => {
+      const updated = {
+        id: 'branch-1',
+        name: 'Nasr City',
+        status: 'ACTIVE' as const,
+        timezone: 'Africa/Cairo',
+        phone: null,
+        address: null,
+      };
+      branchesService.updateBranch.mockResolvedValue(updated);
+
+      const body = await controller.updateBranch(
+        EMPTY_DTO,
+        buildActivateRequest({
+          restaurantId: 'restaurant-1',
+          branchId: 'branch-1',
+        }),
+      );
+
+      expect(body).toEqual({ data: updated });
     });
   });
 });

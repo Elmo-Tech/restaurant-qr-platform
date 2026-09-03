@@ -1334,6 +1334,22 @@ Settled guard order for this route specifically (not a generalized precedent): `
 
 ---
 
+# 65G. Branch Basic Info Update Authorization Contract (Settled, Business Foundation N)
+
+`PATCH /api/v1/restaurants/{restaurantId}/branches/{branchId}` (API_CONVENTIONS.md #113C). Required Permission: `branches.manage`.
+
+Authorization mirrors Branch Activation (#65F) exactly, for the same reason: this targets an already-existing Branch that can already be authorized through its exact Membership scope, so ordinary authorized Membership Branch scope is sufficient and `AllBranchesRequiredGuard` is never used:
+
+- `allBranches = true` + same-Restaurant Branch -> allowed.
+- `allBranches = false` + explicitly assigned target Branch -> allowed.
+- `allBranches = false` + target Branch not assigned -> `403 BRANCH_ACCESS_DENIED`.
+
+Uses MANAGEMENT Branch access (#65D's `BranchManagementAccessGuard`), not operational Branch access -- basic-info editing remains available whether the target Branch is `ACTIVE` or `INACTIVE`, so `BranchAccessGuard` is never used (it would incorrectly reject an `INACTIVE` Branch). Restaurant operational state is still enforced normally and unchanged by `RestaurantAccessGuard`: an authorized but `INACTIVE`/`SUSPENDED` Restaurant still produces `409 RESTAURANT_NOT_OPERATIONAL` before Branch resolution.
+
+Settled guard order for this route specifically (not a generalized precedent): `AuthGuard` → `CsrfGuard` → `RestaurantAccessGuard` → `BranchManagementAccessGuard` → `PermissionGuard`. Neither `BranchAccessGuard` nor `AllBranchesRequiredGuard` is used. `status` is not a field this route can write at all -- Branch lifecycle remains Foundation M's dedicated `/activate` action.
+
+---
+
 # 66. NestJS Authorization Structure
 
 Preferred conceptual implementation:

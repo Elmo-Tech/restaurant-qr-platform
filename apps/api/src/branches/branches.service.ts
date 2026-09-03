@@ -69,6 +69,37 @@ export interface ActivateBranchInput {
   branchId: string;
 }
 
+/** The safe Branch shape returned by Update (Business Foundation N). Never `restaurantId`, `publicId`, `createdAt`, or `updatedAt`. */
+export interface UpdatedBranch {
+  id: string;
+  name: string;
+  status: BranchStatus;
+  timezone: string;
+  phone: string | null;
+  address: string | null;
+}
+
+/**
+ * `branchId` is the already-authorized `request.branchAccess.branchId`
+ * (produced by `BranchManagementAccessGuard`) -- never the raw `:branchId`
+ * route parameter. `name`/`timezone`/`phone`/`address` are already
+ * DTO-validated and normalized; each is a genuinely optional partial-update
+ * field -- `undefined` means "field was omitted, leave unchanged" and must
+ * be distinguished from a present value (including `null` for
+ * `phone`/`address`, which means "clear this field"). The service builds
+ * Prisma's `data` object explicitly field-by-field (checking each field for
+ * presence), never by spreading this input -- matching the same explicit
+ * convention `createBranch` already uses, so no future field ever silently
+ * becomes persistence authority and `status` can never appear here at all.
+ */
+export interface UpdateBranchInput {
+  branchId: string;
+  name?: string;
+  timezone?: string;
+  phone?: string | null;
+  address?: string | null;
+}
+
 /**
  * Business Foundation J (corrected): Branch list honors the caller's
  * current ACTIVE RestaurantMembership Branch scope, reusing the same
@@ -165,6 +196,58 @@ export class BranchesService {
       where: { id: input.branchId },
       data: { status: 'ACTIVE' },
       select: { id: true, status: true },
+    });
+  }
+
+  /**
+   * Business Foundation N, settled contract: partial update of an
+   * already-existing, already-authorized Branch's basic info. `branchId`
+   * authority comes only from the caller (`request.branchAccess.branchId`,
+   * already resolved by `BranchManagementAccessGuard`) -- this service
+   * performs no Membership query and re-runs no Branch authorization of its
+   * own. Only fields actually present on `input` (`!== undefined`) are
+   * included in the Prisma `data` object -- an omitted field is left
+   * completely untouched, while an explicit `null` for `phone`/`address`
+   * is persisted as `null`. `status` never appears in `data`; it is
+   * read-only response information here, mutated only by Foundation M's
+   * dedicated `/activate` action. An empty `input` (all four fields
+   * omitted) still performs the update call with an empty `data` object --
+   * Prisma supports this as a safe no-op that returns the current row
+   * (verified against this repository's real database in Foundation N's
+   * E2E suite). No Table or QrCode row is touched.
+   */
+  async updateBranch(input: UpdateBranchInput): Promise<UpdatedBranch> {
+    const data: {
+      name?: string;
+      timezone?: string;
+      phone?: string | null;
+      address?: string | null;
+    } = {};
+
+    if (input.name !== undefined) {
+      data.name = input.name;
+    }
+    if (input.timezone !== undefined) {
+      data.timezone = input.timezone;
+    }
+    if (input.phone !== undefined) {
+      data.phone = input.phone;
+    }
+    if (input.address !== undefined) {
+      data.address = input.address;
+    }
+
+    return this.prisma.branch.update({
+      where: { id: input.branchId },
+      data,
+      select: {
+        id: true,
+        name: true,
+        status: true,
+        timezone: true,
+        phone: true,
+        address: true,
+      },
     });
   }
 }

@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -23,8 +24,10 @@ import type {
   ActivatedBranch,
   BranchListItem,
   CreatedBranch,
+  UpdatedBranch,
 } from './branches.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
+import { UpdateBranchDto } from './dto/update-branch.dto';
 
 interface BranchListResponseBody {
   data: BranchListItem[];
@@ -36,6 +39,10 @@ interface CreateBranchResponseBody {
 
 interface ActivateBranchResponseBody {
   data: ActivatedBranch;
+}
+
+interface UpdateBranchResponseBody {
+  data: UpdatedBranch;
 }
 
 /**
@@ -149,6 +156,55 @@ export class BranchesController {
   ): Promise<ActivateBranchResponseBody> {
     const data = await this.branchesService.activateBranch({
       branchId: request.branchAccess.branchId,
+    });
+
+    return { data };
+  }
+
+  /**
+   * Business Foundation N, settled contract: partial update of an
+   * already-existing Branch's basic info (`name`, `timezone`, `phone`,
+   * `address`). `status` is deliberately not part of this route at all --
+   * Branch lifecycle remains Foundation M's dedicated `/activate` action;
+   * `status` here is read-only response information. Like Activate, this
+   * targets an already-existing Branch, so ordinary authorized Membership
+   * Branch scope is sufficient authority and `AllBranchesRequiredGuard` is
+   * never used. Basic-info editing remains available whether the target
+   * Branch is `ACTIVE` or `INACTIVE`, so this route uses
+   * `BranchManagementAccessGuard` (not `BranchAccessGuard`, which would
+   * incorrectly reject an `INACTIVE` Branch). `RestaurantAccessGuard`
+   * still applies unchanged -- an authorized but non-operational Restaurant
+   * still fails with `409 RESTAURANT_NOT_OPERATIONAL` before Branch
+   * resolution.
+   *
+   * Settled guard order for this route specifically: `AuthGuard` ->
+   * `CsrfGuard` -> `RestaurantAccessGuard` -> `BranchManagementAccessGuard`
+   * -> `PermissionGuard` (AUTH_TENANCY_SPEC.md #65G). The Branch id
+   * authority comes only from `request.branchAccess.branchId` -- never the
+   * raw `:branchId` route parameter, and never a body-supplied `branchId`/
+   * `restaurantId` (the DTO declares no such fields, and the global
+   * whitelist `ValidationPipe` strips them regardless).
+   */
+  @Patch(':branchId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    BranchManagementAccessGuard,
+    PermissionGuard,
+  )
+  @RequirePermission(PERMISSIONS.BRANCHES_MANAGE)
+  async updateBranch(
+    @Body() dto: UpdateBranchDto,
+    @Req() request: BranchAuthorizedRequest,
+  ): Promise<UpdateBranchResponseBody> {
+    const data = await this.branchesService.updateBranch({
+      branchId: request.branchAccess.branchId,
+      name: dto.name,
+      timezone: dto.timezone,
+      phone: dto.phone,
+      address: dto.address,
     });
 
     return { data };

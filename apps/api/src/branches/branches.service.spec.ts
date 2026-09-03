@@ -6,6 +6,8 @@ import {
   type BranchListItem,
   type CreateBranchInput,
   type CreatedBranch,
+  type UpdateBranchInput,
+  type UpdatedBranch,
 } from './branches.service';
 
 interface FindManyBranchArgs {
@@ -30,6 +32,8 @@ interface UpdateBranchArgs {
   data: Record<string, unknown>;
   select: Record<string, boolean>;
 }
+
+type BranchUpdateResult = ActivatedBranch | UpdatedBranch;
 
 const ALL_BRANCHES_SCOPE: AuthorizedBranchScope = {
   restaurantId: 'restaurant-1',
@@ -58,7 +62,7 @@ describe('BranchesService', () => {
     branch: {
       findMany: jest.Mock<Promise<BranchListItem[]>, [FindManyBranchArgs]>;
       create: jest.Mock<Promise<CreatedBranch>, [CreateBranchArgs]>;
-      update: jest.Mock<Promise<ActivatedBranch>, [UpdateBranchArgs]>;
+      update: jest.Mock<Promise<BranchUpdateResult>, [UpdateBranchArgs]>;
     };
   };
   let service: BranchesService;
@@ -72,6 +76,15 @@ describe('BranchesService', () => {
   };
 
   const ACTIVATE_INPUT: ActivateBranchInput = { branchId: 'branch-1' };
+
+  const UPDATED_BRANCH: UpdatedBranch = {
+    id: 'branch-1',
+    name: 'Maadi',
+    status: 'ACTIVE',
+    timezone: 'Africa/Cairo',
+    phone: null,
+    address: null,
+  };
 
   beforeEach(() => {
     prisma = {
@@ -90,7 +103,7 @@ describe('BranchesService', () => {
             address: null,
           }),
         update: jest
-          .fn<Promise<ActivatedBranch>, [UpdateBranchArgs]>()
+          .fn<Promise<BranchUpdateResult>, [UpdateBranchArgs]>()
           .mockResolvedValue({ id: 'branch-1', status: 'ACTIVE' }),
       },
       restaurantMembershipBranch: {
@@ -358,6 +371,133 @@ describe('BranchesService', () => {
       await service.activateBranch(ACTIVATE_INPUT);
 
       expect(prisma.restaurantMembershipBranch.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('updateBranch', () => {
+    beforeEach(() => {
+      prisma.branch.update.mockResolvedValue(UPDATED_BRANCH);
+    });
+
+    it('A. persists a supplied name', async () => {
+      const input: UpdateBranchInput = {
+        branchId: 'branch-1',
+        name: 'Nasr City',
+      };
+
+      await service.updateBranch(input);
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(args.where).toEqual({ id: 'branch-1' });
+      expect(args.data.name).toBe('Nasr City');
+    });
+
+    it('B. persists a supplied timezone', async () => {
+      const input: UpdateBranchInput = {
+        branchId: 'branch-1',
+        timezone: 'Africa/Cairo',
+      };
+
+      await service.updateBranch(input);
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(args.data.timezone).toBe('Africa/Cairo');
+    });
+
+    it('C. phone: null clears phone', async () => {
+      const input: UpdateBranchInput = { branchId: 'branch-1', phone: null };
+
+      await service.updateBranch(input);
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(args.data).toHaveProperty('phone', null);
+    });
+
+    it('D. address: null clears address', async () => {
+      const input: UpdateBranchInput = { branchId: 'branch-1', address: null };
+
+      await service.updateBranch(input);
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(args.data).toHaveProperty('address', null);
+    });
+
+    it('E. omitted fields are not present in the Prisma update data', async () => {
+      const input: UpdateBranchInput = {
+        branchId: 'branch-1',
+        name: 'Nasr City',
+      };
+
+      await service.updateBranch(input);
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(Object.keys(args.data)).toEqual(['name']);
+    });
+
+    it('F. status is never present in the Prisma update data', async () => {
+      const input: UpdateBranchInput = {
+        branchId: 'branch-1',
+        name: 'Nasr City',
+        timezone: 'Africa/Cairo',
+        phone: null,
+        address: null,
+      };
+
+      await service.updateBranch(input);
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(args.data).not.toHaveProperty('status');
+    });
+
+    it('G. selects exactly id, name, status, timezone, phone, address', async () => {
+      await service.updateBranch({ branchId: 'branch-1' });
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(args.select).toEqual({
+        id: true,
+        name: true,
+        status: true,
+        timezone: true,
+        phone: true,
+        address: true,
+      });
+    });
+
+    it('H. an empty update (all fields omitted) still succeeds with an empty data object', async () => {
+      const result = await service.updateBranch({ branchId: 'branch-1' });
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(args.data).toEqual({});
+      expect(result).toEqual(UPDATED_BRANCH);
+    });
+
+    it('I. performs no Membership/authorization query', async () => {
+      await service.updateBranch({ branchId: 'branch-1', name: 'Nasr City' });
+
+      expect(prisma.restaurantMembershipBranch.findMany).not.toHaveBeenCalled();
+    });
+
+    it('J. never touches Table or QrCode', async () => {
+      const prismaWithTableQr = prisma as unknown as {
+        table?: unknown;
+        qrCode?: unknown;
+      };
+
+      await service.updateBranch({ branchId: 'branch-1', name: 'Nasr City' });
+
+      expect(prismaWithTableQr.table).toBeUndefined();
+      expect(prismaWithTableQr.qrCode).toBeUndefined();
+    });
+
+    it('returns whatever Prisma resolves, unmodified', async () => {
+      prisma.branch.update.mockResolvedValue(UPDATED_BRANCH);
+
+      const result = await service.updateBranch({
+        branchId: 'branch-1',
+        name: 'Maadi',
+      });
+
+      expect(result).toEqual(UPDATED_BRANCH);
     });
   });
 });
