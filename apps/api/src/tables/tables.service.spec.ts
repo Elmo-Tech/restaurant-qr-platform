@@ -39,6 +39,12 @@ interface QrCodeCreateArgs {
   select: Record<string, boolean>;
 }
 
+interface TableFindManyArgs {
+  where: Record<string, unknown>;
+  orderBy: Record<string, unknown>;
+  select: Record<string, boolean>;
+}
+
 function buildPrismaMock() {
   const tableCreate = jest.fn<
     Promise<{ id: string; tableNumber: string; status: string }>,
@@ -48,6 +54,12 @@ function buildPrismaMock() {
     Promise<{ id: string; publicCode: string; status: string }>,
     [QrCodeCreateArgs]
   >();
+  const tableFindMany = jest
+    .fn<
+      Promise<{ id: string; tableNumber: string; status: string }[]>,
+      [TableFindManyArgs]
+    >()
+    .mockResolvedValue([]);
   const txClient = {
     table: { create: tableCreate },
     qrCode: { create: qrCodeCreate },
@@ -55,10 +67,19 @@ function buildPrismaMock() {
   const $transaction = jest.fn((callback: (tx: typeof txClient) => unknown) =>
     Promise.resolve(callback(txClient)),
   );
-  // Deliberately no top-level `table`/`qrCode` on this mock: if the service
-  // ever wrote outside `$transaction`'s callback (violating K), that call
-  // would throw here rather than silently succeeding.
-  return { prisma: { $transaction }, tableCreate, qrCodeCreate, $transaction };
+  // Deliberately no top-level `qrCode` and no `restaurantMembershipBranch`
+  // on this mock: if the service ever wrote outside `$transaction`'s
+  // callback (violating K), or ever queried Membership/QR data, that call
+  // would throw here rather than silently succeeding. `table.findMany` is
+  // the one legitimate top-level (non-transactional) read `listTables`
+  // performs.
+  return {
+    prisma: { $transaction, table: { findMany: tableFindMany } },
+    tableCreate,
+    qrCodeCreate,
+    tableFindMany,
+    $transaction,
+  };
 }
 
 function fakeUniqueViolation(constraintIndex: string, table: string) {
@@ -218,6 +239,97 @@ describe('TablesService', () => {
       mock.$transaction.mockRejectedValue(unexpected);
 
       await expect(service.createTable(VALID_INPUT)).rejects.toBe(unexpected);
+    });
+  });
+
+  describe('listTables', () => {
+    const LIST_INPUT = { restaurantId: RESTAURANT_ID, branchId: BRANCH_ID };
+
+    it('A. query uses the authorized restaurantId', async () => {
+      await service.listTables(LIST_INPUT);
+
+      const args = mock.tableFindMany.mock.calls[0][0];
+      expect(args.where.restaurantId).toBe(RESTAURANT_ID);
+    });
+
+    it('B. query uses the authorized branchId', async () => {
+      await service.listTables(LIST_INPUT);
+
+      const args = mock.tableFindMany.mock.calls[0][0];
+      expect(args.where.branchId).toBe(BRANCH_ID);
+    });
+
+    it('C. where contains BOTH restaurantId and branchId, nothing else', async () => {
+      await service.listTables(LIST_INPUT);
+
+      const args = mock.tableFindMany.mock.calls[0][0];
+      expect(args.where).toEqual({
+        restaurantId: RESTAURANT_ID,
+        branchId: BRANCH_ID,
+      });
+    });
+
+    it('D. no status filter exists', async () => {
+      await service.listTables(LIST_INPUT);
+
+      const args = mock.tableFindMany.mock.calls[0][0];
+      expect(args.where).not.toHaveProperty('status');
+    });
+
+    it('E. ordering is exactly tableNumber asc', async () => {
+      await service.listTables(LIST_INPUT);
+
+      const args = mock.tableFindMany.mock.calls[0][0];
+      expect(args.orderBy).toEqual({ tableNumber: 'asc' });
+    });
+
+    it('F. selects exactly id, tableNumber, status', async () => {
+      await service.listTables(LIST_INPUT);
+
+      const args = mock.tableFindMany.mock.calls[0][0];
+      expect(args.select).toEqual({
+        id: true,
+        tableNumber: true,
+        status: true,
+      });
+    });
+
+    it('G. returns Prisma rows unchanged', async () => {
+      const rows = [
+        { id: 'table-1', tableNumber: 'A1', status: 'ACTIVE' },
+        { id: 'table-2', tableNumber: 'B2', status: 'INACTIVE' },
+      ];
+      mock.tableFindMany.mockResolvedValue(rows);
+
+      const result = await service.listTables(LIST_INPUT);
+
+      expect(result).toEqual(rows);
+    });
+
+    it('H. empty Prisma result returns []', async () => {
+      mock.tableFindMany.mockResolvedValue([]);
+
+      const result = await service.listTables(LIST_INPUT);
+
+      expect(result).toEqual([]);
+    });
+
+    it('I. performs no Membership query', async () => {
+      const prismaWithMembership = mock.prisma as unknown as {
+        restaurantMembershipBranch?: unknown;
+      };
+
+      await service.listTables(LIST_INPUT);
+
+      expect(prismaWithMembership.restaurantMembershipBranch).toBeUndefined();
+    });
+
+    it('J. performs no QR query', async () => {
+      const prismaWithQr = mock.prisma as unknown as { qrCode?: unknown };
+
+      await service.listTables(LIST_INPUT);
+
+      expect(prismaWithQr.qrCode).toBeUndefined();
     });
   });
 });

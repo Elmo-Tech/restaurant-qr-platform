@@ -2,6 +2,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  Get,
   HttpCode,
   HttpStatus,
   Post,
@@ -18,7 +19,7 @@ import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
 import { CreateTableDto } from './dto/create-table.dto';
 import { TablesService } from './tables.service';
-import type { CreatedTable } from './tables.service';
+import type { CreatedTable, TableListItem } from './tables.service';
 
 /**
  * Business Foundation L3, settled contract: Table Number conflict reuses no
@@ -34,6 +35,10 @@ const TABLE_NUMBER_ALREADY_EXISTS_RESPONSE = {
 
 interface CreateTableResponseBody {
   data: CreatedTable;
+}
+
+interface TableListResponseBody {
+  data: TableListItem[];
 }
 
 /**
@@ -90,5 +95,38 @@ export class TablesController {
     }
 
     return { data: result.data };
+  }
+
+  /**
+   * Business Foundation O, settled contract: the Staff-facing Table
+   * Management list for one authorized Branch (API_CONVENTIONS.md #114A).
+   * This is a management/configuration read, not an ordinary Branch-scoped
+   * business operation -- it reuses Table Creation's exact access model
+   * (`BranchManagementAccessGuard`, not `BranchAccessGuard`), so Staff can
+   * inspect Tables already configured inside an `INACTIVE` Branch before
+   * activation. `RestaurantAccessGuard` still applies unchanged. GET is
+   * read-only, so no `CsrfGuard` (AUTH_TENANCY_SPEC.md #106A). Settled
+   * guard order for this route specifically: `AuthGuard` ->
+   * `RestaurantAccessGuard` -> `BranchManagementAccessGuard` ->
+   * `PermissionGuard` (AUTH_TENANCY_SPEC.md #65H). Returns both `ACTIVE`
+   * and `INACTIVE` Tables -- no status filter.
+   */
+  @Get()
+  @UseGuards(
+    AuthGuard,
+    RestaurantAccessGuard,
+    BranchManagementAccessGuard,
+    PermissionGuard,
+  )
+  @RequirePermission(PERMISSIONS.TABLES_VIEW)
+  async listTables(
+    @Req() request: BranchAuthorizedRequest,
+  ): Promise<TableListResponseBody> {
+    const data = await this.tablesService.listTables({
+      restaurantId: request.restaurantAccess.restaurantId,
+      branchId: request.branchAccess.branchId,
+    });
+
+    return { data };
   }
 }

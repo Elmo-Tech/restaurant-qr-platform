@@ -34,6 +34,23 @@ export type CreateTableResult =
   | { outcome: 'created'; data: CreatedTable }
   | { outcome: 'tableNumberConflict' };
 
+/** The exact safe Table List item shape (API_CONVENTIONS.md #114A). Exactly `id`, `tableNumber`, `status` -- never `restaurantId`, `branchId`, timestamps, or QR data. */
+export interface TableListItem {
+  id: string;
+  tableNumber: string;
+  status: TableStatus;
+}
+
+/**
+ * `restaurantId`/`branchId` here are the already-authorized
+ * `request.restaurantAccess.restaurantId` / `request.branchAccess.branchId`
+ * -- never the raw `:restaurantId`/`:branchId` route parameters.
+ */
+export interface ListTablesInput {
+  restaurantId: string;
+  branchId: string;
+}
+
 /**
  * The real Postgres unique-index name behind `@@unique([branchId,
  * tableNumber])` on `Table` (Business Foundation L1 migration). Confirmed
@@ -131,5 +148,28 @@ export class TablesService {
       }
       throw error;
     }
+  }
+
+  /**
+   * Business Foundation O, settled contract: lists all Tables (both
+   * `ACTIVE` and `INACTIVE` -- no status filter, this is a management/
+   * configuration list) belonging to one already-authorized Branch, fixed
+   * `tableNumber` ascending (ordinary database string ordering, no natural-
+   * sort). `restaurantId`/`branchId` come only from the caller's
+   * already-authorized context; both are included in the query `where`
+   * clause as deliberate defense-in-depth even though Branch
+   * ownership/scope was already resolved by `BranchManagementAccessGuard`
+   * before this service is ever called. No Membership or QR query is
+   * performed here.
+   */
+  async listTables(input: ListTablesInput): Promise<TableListItem[]> {
+    return this.prisma.table.findMany({
+      where: {
+        restaurantId: input.restaurantId,
+        branchId: input.branchId,
+      },
+      orderBy: { tableNumber: 'asc' },
+      select: { id: true, tableNumber: true, status: true },
+    });
   }
 }

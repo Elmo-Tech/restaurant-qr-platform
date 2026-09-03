@@ -1350,6 +1350,22 @@ Settled guard order for this route specifically (not a generalized precedent): `
 
 ---
 
+# 65H. Table List Authorization Contract (Settled, Business Foundation O)
+
+`GET /api/v1/restaurants/{restaurantId}/branches/{branchId}/tables` (API_CONVENTIONS.md #114A). Required Permission: `tables.view`.
+
+Table List is a Staff management/configuration read. Its Branch access behavior uses the existing MANAGEMENT access model (#65D), consistent with Table Creation (#65E): Staff may inspect Tables configured inside an `ACTIVE` or `INACTIVE` Branch when that Branch is within their authorized Membership scope. The route's Permission is independently `tables.view`; it does not inherit `tables.manage` from Table Creation or `branches.manage` from Branch Activation/Update. Existing Membership Branch scope applies unchanged:
+
+- `allBranches = true` + same-Restaurant Branch -> allowed.
+- `allBranches = false` + explicitly assigned target Branch -> allowed.
+- `allBranches = false` + target Branch not assigned -> `403 BRANCH_ACCESS_DENIED`.
+
+Uses MANAGEMENT Branch access (#65D's `BranchManagementAccessGuard`), not operational Branch access -- the target Branch may be `ACTIVE` or `INACTIVE`; `BranchAccessGuard` is never used (it would incorrectly reject an `INACTIVE` Branch). Restaurant operational state is still enforced normally and unchanged by `RestaurantAccessGuard`: an authorized but `INACTIVE`/`SUSPENDED` Restaurant still produces `409 RESTAURANT_NOT_OPERATIONAL` before Branch resolution.
+
+Settled guard order for this route specifically (not a generalized precedent): `AuthGuard` → `RestaurantAccessGuard` → `BranchManagementAccessGuard` → `PermissionGuard`. No `CsrfGuard` -- GET is read-only (#106A). Neither `BranchAccessGuard` nor `AllBranchesRequiredGuard` is used.
+
+---
+
 # 66. NestJS Authorization Structure
 
 Preferred conceptual implementation:

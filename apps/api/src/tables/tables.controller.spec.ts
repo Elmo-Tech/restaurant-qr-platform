@@ -1,6 +1,8 @@
 import { ConflictException } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AllBranchesRequiredGuard } from '../auth/guard/all-branches-required.guard';
 import { AuthGuard } from '../auth/guard/auth.guard';
+import { BranchAccessGuard } from '../auth/guard/branch-access.guard';
 import { BranchManagementAccessGuard } from '../auth/guard/branch-management-access.guard';
 import { PermissionGuard } from '../auth/guard/permission.guard';
 import { RestaurantAccessGuard } from '../auth/guard/restaurant-access.guard';
@@ -33,7 +35,7 @@ function buildRequest(params: {
 }
 
 describe('TablesController', () => {
-  let tablesService: { createTable: jest.Mock };
+  let tablesService: { createTable: jest.Mock; listTables: jest.Mock };
   let controller: TablesController;
 
   const DTO: CreateTableDto = { tableNumber: 'A1' };
@@ -50,7 +52,10 @@ describe('TablesController', () => {
   };
 
   beforeEach(() => {
-    tablesService = { createTable: jest.fn().mockResolvedValue(CREATED) };
+    tablesService = {
+      createTable: jest.fn().mockResolvedValue(CREATED),
+      listTables: jest.fn().mockResolvedValue([]),
+    };
     controller = new TablesController(tablesService as never);
   });
 
@@ -186,6 +191,117 @@ describe('TablesController', () => {
           message: 'Table number already exists in this Branch.',
         },
       });
+    });
+  });
+
+  describe('listTables', () => {
+    // Nest metadata reflection targets a class method reference without
+    // ever invoking it -- not the unintended-`this`-scoping pattern
+    // @typescript-eslint/unbound-method guards against.
+    /* eslint-disable @typescript-eslint/unbound-method */
+    const listTablesHandler = TablesController.prototype.listTables;
+    /* eslint-enable @typescript-eslint/unbound-method */
+
+    it('A. declares exactly the settled guard order', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        listTablesHandler,
+      ) as unknown[];
+
+      expect(guards).toEqual([
+        AuthGuard,
+        RestaurantAccessGuard,
+        BranchManagementAccessGuard,
+        PermissionGuard,
+      ]);
+    });
+
+    it('B. requires exactly tables.view', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        listTablesHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.TABLES_VIEW);
+    });
+
+    it('C. never declares CsrfGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        listTablesHandler,
+      ) as unknown[];
+
+      expect(guards).not.toContain(CsrfGuard);
+    });
+
+    it('D. never declares BranchAccessGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        listTablesHandler,
+      ) as unknown[];
+
+      expect(guards).not.toContain(BranchAccessGuard);
+    });
+
+    it('E. never declares AllBranchesRequiredGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        listTablesHandler,
+      ) as unknown[];
+
+      expect(guards).not.toContain(AllBranchesRequiredGuard);
+    });
+
+    it('F. passes restaurantId from request.restaurantAccess, not the raw route param', async () => {
+      const request = buildRequest({
+        restaurantId: 'authorized-restaurant',
+        branchId: 'authorized-branch',
+        routeParamRestaurantId: 'attacker-restaurant',
+      });
+
+      await controller.listTables(request);
+
+      expect(tablesService.listTables).toHaveBeenCalledWith(
+        expect.objectContaining({ restaurantId: 'authorized-restaurant' }),
+      );
+    });
+
+    it('G. passes branchId from request.branchAccess, not the raw route param', async () => {
+      const request = buildRequest({
+        restaurantId: 'restaurant-1',
+        branchId: 'authorized-branch',
+        routeParamBranchId: 'attacker-branch',
+      });
+
+      await controller.listTables(request);
+
+      expect(tablesService.listTables).toHaveBeenCalledWith(
+        expect.objectContaining({ branchId: 'authorized-branch' }),
+      );
+    });
+
+    it('H. wraps the result in the exact { data } envelope', async () => {
+      const rows = [
+        { id: 'table-1', tableNumber: 'A1', status: 'ACTIVE' as const },
+        { id: 'table-2', tableNumber: 'B2', status: 'INACTIVE' as const },
+      ];
+      tablesService.listTables.mockResolvedValue(rows);
+
+      const body = await controller.listTables(
+        buildRequest({ restaurantId: 'restaurant-1', branchId: 'branch-1' }),
+      );
+
+      expect(body).toEqual({ data: rows });
+    });
+
+    it('returns an empty array as data, not an error, for a Branch with zero Tables', async () => {
+      tablesService.listTables.mockResolvedValue([]);
+
+      const body = await controller.listTables(
+        buildRequest({ restaurantId: 'restaurant-1', branchId: 'branch-1' }),
+      );
+
+      expect(body).toEqual({ data: [] });
     });
   });
 });

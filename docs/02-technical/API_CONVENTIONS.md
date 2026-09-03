@@ -2099,7 +2099,44 @@ Duplicate `tableNumber` within the same Branch (durable `UNIQUE(branchId, tableN
 
 The same `tableNumber` in a different Branch is allowed.
 
-Table list, detail, update, rename, activate/deactivate, delete, QR regeneration/deactivation, Generic QR creation, and the QR scan endpoint remain undocumented and unimplemented -- do not infer them from this section.
+Table detail, update, rename, activate/deactivate, delete, QR regeneration/deactivation, Generic QR creation, and the QR scan endpoint remain undocumented and unimplemented -- do not infer them from this section. Table List is settled separately (#114A).
+
+---
+
+# 114A. Table List (Settled, Business Foundation O)
+
+`GET /api/v1/restaurants/{restaurantId}/branches/{branchId}/tables`
+
+The Staff-facing Table Management list for one authorized Branch. Requires `tables.view`. This is a management/configuration read, not an ordinary Branch-scoped business operation -- it reuses Table Creation's exact access model: the target Branch may be `ACTIVE` or `INACTIVE` (Staff must be able to inspect Tables already configured inside an `INACTIVE` Branch before activation), authorized through `BranchManagementAccessGuard`, not `BranchAccessGuard`. Restaurant operational state is still enforced normally by `RestaurantAccessGuard`.
+
+Guard order (settled for this route specifically, not a generalized precedent): `AuthGuard` → `RestaurantAccessGuard` → `BranchManagementAccessGuard` → `PermissionGuard` (AUTH_TENANCY_SPEC.md #65H). `BranchAccessGuard` and `AllBranchesRequiredGuard` are not used. No `CsrfGuard` -- GET is read-only.
+
+Returns both `ACTIVE` and `INACTIVE` Tables -- no status filter; this is a management list, not a Guest-facing operational view. Fixed ordering: `tableNumber` ascending, ordinary database string ordering (no natural/numeric sort -- `"1"`, `"10"`, `"2"` sort in that string order, not numeric order).
+
+Success:
+
+```
+200 OK
+{
+  "data": [
+    {
+      "id": "...",
+      "tableNumber": "A1",
+      "status": "ACTIVE"
+    }
+  ]
+}
+```
+
+Each item contains exactly `id`, `tableNumber`, `status` -- never `restaurantId`, `branchId`, `createdAt`, or `updatedAt`. No QR data (`qr`, `publicCode`, `qrStatus`, or similar) is included -- QR information is a separate future contract, not implied by Table Creation's own initial-QR response. No Session/Order/Service Request enrichment -- those persistence foundations do not exist yet.
+
+An authorized Branch with zero Tables returns `200 { "data": [] }` -- never `404`/`204`/`null`.
+
+No pagination and no query parameters (`page`, `pageSize`, `limit`, `cursor`, status filter, search, sort selector) -- this is a small administrative list scoped to one physical Branch.
+
+No new public error code is introduced -- failures reuse the existing `UNAUTHENTICATED`, `RESTAURANT_NOT_FOUND`, `RESTAURANT_NOT_OPERATIONAL`, `BRANCH_NOT_FOUND`, `BRANCH_ACCESS_DENIED`, and `PERMISSION_DENIED` contracts. Never `BRANCH_NOT_OPERATIONAL` -- `BranchManagementAccessGuard` intentionally allows `INACTIVE` Branches.
+
+Table Detail, Table Update, Table Activate/Deactivate, Table Delete, QR management, and Generic QR remain undocumented and unimplemented -- do not infer them from this section.
 
 ---
 
