@@ -45,6 +45,27 @@ interface TableFindManyArgs {
   select: Record<string, boolean>;
 }
 
+interface TableFindFirstArgs {
+  where: Record<string, unknown>;
+  select: {
+    id: boolean;
+    tableNumber: boolean;
+    status: boolean;
+    qrCodes: {
+      where: Record<string, unknown>;
+      select: Record<string, boolean>;
+      take: number;
+    };
+  };
+}
+
+interface TableDetailRow {
+  id: string;
+  tableNumber: string;
+  status: string;
+  qrCodes: { id: string; publicCode: string; status: string }[];
+}
+
 function buildPrismaMock() {
   const tableCreate = jest.fn<
     Promise<{ id: string; tableNumber: string; status: string }>,
@@ -60,6 +81,9 @@ function buildPrismaMock() {
       [TableFindManyArgs]
     >()
     .mockResolvedValue([]);
+  const tableFindFirst = jest
+    .fn<Promise<TableDetailRow | null>, [TableFindFirstArgs]>()
+    .mockResolvedValue(null);
   const txClient = {
     table: { create: tableCreate },
     qrCode: { create: qrCodeCreate },
@@ -70,14 +94,18 @@ function buildPrismaMock() {
   // Deliberately no top-level `qrCode` and no `restaurantMembershipBranch`
   // on this mock: if the service ever wrote outside `$transaction`'s
   // callback (violating K), or ever queried Membership/QR data, that call
-  // would throw here rather than silently succeeding. `table.findMany` is
-  // the one legitimate top-level (non-transactional) read `listTables`
-  // performs.
+  // would throw here rather than silently succeeding. `table.findMany`/
+  // `table.findFirst` are the legitimate top-level (non-transactional)
+  // reads `listTables`/`getTableDetail` perform.
   return {
-    prisma: { $transaction, table: { findMany: tableFindMany } },
+    prisma: {
+      $transaction,
+      table: { findMany: tableFindMany, findFirst: tableFindFirst },
+    },
     tableCreate,
     qrCodeCreate,
     tableFindMany,
+    tableFindFirst,
     $transaction,
   };
 }
@@ -330,6 +358,186 @@ describe('TablesService', () => {
       await service.listTables(LIST_INPUT);
 
       expect(prismaWithQr.qrCode).toBeUndefined();
+    });
+  });
+
+  describe('getTableDetail', () => {
+    const DETAIL_INPUT = {
+      restaurantId: RESTAURANT_ID,
+      branchId: BRANCH_ID,
+      tableId: TABLE_ID,
+    };
+
+    it('A. malformed tableId -> notFound, Prisma Table lookup NOT called', async () => {
+      const result = await service.getTableDetail({
+        ...DETAIL_INPUT,
+        tableId: 'not-a-uuid',
+      });
+
+      expect(result).toEqual({ outcome: 'notFound' });
+      expect(mock.tableFindFirst).not.toHaveBeenCalled();
+    });
+
+    it('B. unknown well-formed tableId -> notFound', async () => {
+      mock.tableFindFirst.mockResolvedValue(null);
+
+      const result = await service.getTableDetail(DETAIL_INPUT);
+
+      expect(result).toEqual({ outcome: 'notFound' });
+    });
+
+    it('C. query uses the authorized restaurantId', async () => {
+      await service.getTableDetail(DETAIL_INPUT);
+
+      const args = mock.tableFindFirst.mock.calls[0][0];
+      expect(args.where.restaurantId).toBe(RESTAURANT_ID);
+    });
+
+    it('D. query uses the authorized branchId', async () => {
+      await service.getTableDetail(DETAIL_INPUT);
+
+      const args = mock.tableFindFirst.mock.calls[0][0];
+      expect(args.where.branchId).toBe(BRANCH_ID);
+    });
+
+    it('E. query uses the tableId', async () => {
+      await service.getTableDetail(DETAIL_INPUT);
+
+      const args = mock.tableFindFirst.mock.calls[0][0];
+      expect(args.where.id).toBe(TABLE_ID);
+    });
+
+    it('F. where contains exactly id, restaurantId, branchId', async () => {
+      await service.getTableDetail(DETAIL_INPUT);
+
+      const args = mock.tableFindFirst.mock.calls[0][0];
+      expect(args.where).toEqual({
+        id: TABLE_ID,
+        restaurantId: RESTAURANT_ID,
+        branchId: BRANCH_ID,
+      });
+    });
+
+    it('G. no Table status filter', async () => {
+      await service.getTableDetail(DETAIL_INPUT);
+
+      const args = mock.tableFindFirst.mock.calls[0][0];
+      expect(args.where).not.toHaveProperty('status');
+    });
+
+    it('H. select contains exactly the safe Table fields plus the narrow QR relation', async () => {
+      await service.getTableDetail(DETAIL_INPUT);
+
+      const args = mock.tableFindFirst.mock.calls[0][0];
+      expect(Object.keys(args.select).sort()).toEqual(
+        ['id', 'tableNumber', 'status', 'qrCodes'].sort(),
+      );
+      expect(args.select.qrCodes.select).toEqual({
+        id: true,
+        publicCode: true,
+        status: true,
+      });
+      expect(args.select.qrCodes.take).toBe(1);
+    });
+
+    it('I. QR relation filters restaurantId, branchId, type TABLE, and status ACTIVE', async () => {
+      await service.getTableDetail(DETAIL_INPUT);
+
+      const args = mock.tableFindFirst.mock.calls[0][0];
+      expect(args.select.qrCodes.where).toEqual({
+        restaurantId: RESTAURANT_ID,
+        branchId: BRANCH_ID,
+        type: 'TABLE',
+        status: 'ACTIVE',
+      });
+    });
+
+    it('J. an active QR maps to the exact nullable qr object', async () => {
+      mock.tableFindFirst.mockResolvedValue({
+        id: TABLE_ID,
+        tableNumber: 'A1',
+        status: 'ACTIVE',
+        qrCodes: [{ id: QR_ID, publicCode: 'a-public-code', status: 'ACTIVE' }],
+      });
+
+      const result = await service.getTableDetail(DETAIL_INPUT);
+
+      expect(result).toEqual({
+        outcome: 'found',
+        data: {
+          id: TABLE_ID,
+          tableNumber: 'A1',
+          status: 'ACTIVE',
+          qr: { id: QR_ID, publicCode: 'a-public-code', status: 'ACTIVE' },
+        },
+      });
+    });
+
+    it('K. no active QR maps to qr: null', async () => {
+      mock.tableFindFirst.mockResolvedValue({
+        id: TABLE_ID,
+        tableNumber: 'A1',
+        status: 'ACTIVE',
+        qrCodes: [],
+      });
+
+      const result = await service.getTableDetail(DETAIL_INPUT);
+
+      expect(result).toEqual({
+        outcome: 'found',
+        data: {
+          id: TABLE_ID,
+          tableNumber: 'A1',
+          status: 'ACTIVE',
+          qr: null,
+        },
+      });
+    });
+
+    it('L. a historical INACTIVE QR is never surfaced (excluded by the query itself)', async () => {
+      // The service never even reads an INACTIVE row -- the narrow `where`
+      // on the qrCodes relation already excludes it at the database level,
+      // so the mock never resolves one here. This asserts the resulting
+      // service outcome is still null, not a leaked historical row.
+      mock.tableFindFirst.mockResolvedValue({
+        id: TABLE_ID,
+        tableNumber: 'A1',
+        status: 'ACTIVE',
+        qrCodes: [],
+      });
+
+      const result = await service.getTableDetail(DETAIL_INPUT);
+
+      expect(result.outcome === 'found' && result.data.qr).toBeNull();
+    });
+
+    it('M. performs no Membership query', async () => {
+      const prismaWithMembership = mock.prisma as unknown as {
+        restaurantMembershipBranch?: unknown;
+      };
+
+      await service.getTableDetail(DETAIL_INPUT);
+
+      expect(prismaWithMembership.restaurantMembershipBranch).toBeUndefined();
+    });
+
+    it('N. performs no transaction', async () => {
+      await service.getTableDetail(DETAIL_INPUT);
+
+      expect(mock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('O. Table result retains its ACTIVE or INACTIVE status unchanged', async () => {
+      mock.tableFindFirst.mockResolvedValue({
+        id: TABLE_ID,
+        tableNumber: 'A1',
+        status: 'INACTIVE',
+        qrCodes: [],
+      });
+
+      const result = await service.getTableDetail(DETAIL_INPUT);
+
+      expect(result.outcome === 'found' && result.data.status).toBe('INACTIVE');
     });
   });
 });

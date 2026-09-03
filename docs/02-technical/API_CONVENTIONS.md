@@ -2099,7 +2099,7 @@ Duplicate `tableNumber` within the same Branch (durable `UNIQUE(branchId, tableN
 
 The same `tableNumber` in a different Branch is allowed.
 
-Table detail, update, rename, activate/deactivate, delete, QR regeneration/deactivation, Generic QR creation, and the QR scan endpoint remain undocumented and unimplemented -- do not infer them from this section. Table List is settled separately (#114A).
+Table List is settled separately (#114A). Table Detail is settled separately (#114B). Table update/rename, activate/deactivate, delete, QR regeneration/deactivation, Generic QR creation, and the QR scan endpoint remain undocumented and unimplemented -- do not infer them from this section.
 
 ---
 
@@ -2128,7 +2128,7 @@ Success:
 }
 ```
 
-Each item contains exactly `id`, `tableNumber`, `status` -- never `restaurantId`, `branchId`, `createdAt`, or `updatedAt`. No QR data (`qr`, `publicCode`, `qrStatus`, or similar) is included -- QR information is a separate future contract, not implied by Table Creation's own initial-QR response. No Session/Order/Service Request enrichment -- those persistence foundations do not exist yet.
+Each item contains exactly `id`, `tableNumber`, `status` -- never `restaurantId`, `branchId`, `createdAt`, or `updatedAt`. No QR data (`qr`, `publicCode`, `qrStatus`, or similar) is included in the Table List. The current active TABLE QR read is exposed only through the separately settled Table Detail contract (#114B); Table Creation's initial-QR response does not imply QR data belongs in the List. No Session/Order/Service Request enrichment -- those persistence foundations do not exist yet.
 
 An authorized Branch with zero Tables returns `200 { "data": [] }` -- never `404`/`204`/`null`.
 
@@ -2136,7 +2136,55 @@ No pagination and no query parameters (`page`, `pageSize`, `limit`, `cursor`, st
 
 No new public error code is introduced -- failures reuse the existing `UNAUTHENTICATED`, `RESTAURANT_NOT_FOUND`, `RESTAURANT_NOT_OPERATIONAL`, `BRANCH_NOT_FOUND`, `BRANCH_ACCESS_DENIED`, and `PERMISSION_DENIED` contracts. Never `BRANCH_NOT_OPERATIONAL` -- `BranchManagementAccessGuard` intentionally allows `INACTIVE` Branches.
 
-Table Detail, Table Update, Table Activate/Deactivate, Table Delete, QR management, and Generic QR remain undocumented and unimplemented -- do not infer them from this section.
+Table Update, Table Activate/Deactivate, Table Delete, QR management, and Generic QR remain undocumented and unimplemented -- do not infer them from this section. Table Detail is settled separately (#114B).
+
+---
+
+# 114B. Table Detail (Settled, Business Foundation P)
+
+`GET /api/v1/restaurants/{restaurantId}/branches/{branchId}/tables/{tableId}`
+
+The Staff-facing management Detail for one Table already contained inside one authorized Branch. Requires `tables.view`. Reuses List's exact access model: `BranchManagementAccessGuard` (both `ACTIVE` and `INACTIVE` Branches allowed), Restaurant operational state still enforced normally by `RestaurantAccessGuard`. Both `ACTIVE` and `INACTIVE` Tables are visible -- `status` is returned as current read-only state; this endpoint performs no Table lifecycle mutation.
+
+Guard order (settled for this route specifically, not a generalized precedent): `AuthGuard` → `RestaurantAccessGuard` → `BranchManagementAccessGuard` → `PermissionGuard` (AUTH_TENANCY_SPEC.md #65I). No `CsrfGuard` -- GET is read-only. The Table identity/ownership lookup happens only after this entire guard chain (including `PermissionGuard`) succeeds -- a caller lacking `tables.view` receives `PERMISSION_DENIED` before the application ever attempts to disclose whether a Table id exists. No `TableAccessGuard` exists or is introduced -- Table resource ownership is enforced by a Tenant/Branch-scoped business lookup inside `TablesService`, not a separate guard layer.
+
+`:tableId` is resource identification, not authorization -- `restaurantId`/`branchId` persistence authority come only from `request.restaurantAccess.restaurantId`/`request.branchAccess.branchId`; `tableId` is trusted only once the tenant/Branch-scoped lookup actually finds a matching row.
+
+One new public error is introduced:
+
+```
+404 Not Found
+{
+  "error": {
+    "code": "TABLE_NOT_FOUND",
+    "message": "Table not found."
+  }
+}
+```
+
+This exact response is used for ALL of: a malformed `tableId`, a well-formed but nonexistent `tableId`, a Table belonging to another Branch in the same Restaurant, a Table belonging to another Restaurant, and a URL Branch/Table mismatch -- deliberate existence-hiding consistent with the Restaurant/Branch `_NOT_FOUND` convention. No distinct public reason (`TABLE_ACCESS_DENIED`, `TABLE_WRONG_BRANCH`, `INVALID_TABLE_ID`, or similar) is ever exposed.
+
+Success:
+
+```
+200 OK
+{
+  "data": {
+    "id": "...",
+    "tableNumber": "A1",
+    "status": "ACTIVE",
+    "qr": {
+      "id": "...",
+      "publicCode": "...",
+      "status": "ACTIVE"
+    }
+  }
+}
+```
+
+`qr` is the Table's current ACTIVE TABLE QR only, or `null` if none exists -- the database guarantees at most one ACTIVE TABLE QR per Table (the partial unique index), never at least one, so `qr: null` is a normal `200` outcome, never `404`/`500`/a placeholder object. Historical `INACTIVE` QR rows and GENERIC QR rows are never included -- if only a historical `INACTIVE` QR exists, `qr` is still `null`. The nested active TABLE QR lookup is constrained by the same authorized Restaurant and Branch context as the Table; a malformed QrCode whose direct `restaurantId` or `branchId` does not match that authorized context is not surfaced, so `qr` is `null` when no context-matching ACTIVE TABLE QR exists. Never returns `restaurantId`, `branchId`, `createdAt`, `updatedAt`, `qr.tableId`, `qr.type`, `qr.restaurantId`, `qr.branchId`, `qr.createdAt`, or `qr.updatedAt`. No Session/Order/Service Request enrichment -- those persistence foundations do not exist yet.
+
+Table Update, Table Activate/Deactivate, Table Delete, QR management, and Generic QR remain undocumented and unimplemented -- do not infer them from this section.
 
 ---
 

@@ -1366,6 +1366,20 @@ Settled guard order for this route specifically (not a generalized precedent): `
 
 ---
 
+# 65I. Table Detail Authorization Contract (Settled, Business Foundation P)
+
+`GET /api/v1/restaurants/{restaurantId}/branches/{branchId}/tables/{tableId}` (API_CONVENTIONS.md #114B). Required Permission: `tables.view`.
+
+Reuses Table List's (#65H) exact Branch access model: `BranchManagementAccessGuard`, both `ACTIVE` and `INACTIVE` Branches allowed, existing Membership Branch scope applies unchanged (`allBranches = true` + same-Restaurant Branch -> allowed; `allBranches = false` + explicitly assigned Branch -> allowed; otherwise `403 BRANCH_ACCESS_DENIED`). Restaurant operational state is still enforced normally and unchanged by `RestaurantAccessGuard`: an authorized but `INACTIVE`/`SUSPENDED` Restaurant still produces `409 RESTAURANT_NOT_OPERATIONAL` before Branch resolution.
+
+Settled guard order for this route specifically (not a generalized precedent): `AuthGuard` → `RestaurantAccessGuard` → `BranchManagementAccessGuard` → `PermissionGuard`. No `CsrfGuard` -- GET is read-only. Neither `BranchAccessGuard` nor `AllBranchesRequiredGuard` is used. No `TableAccessGuard` exists or is introduced.
+
+Table identity/ownership is deliberately NOT a guard concern: the Table lookup happens only after the entire guard chain above -- including `PermissionGuard` -- has already succeeded. A caller lacking `tables.view` receives `PERMISSION_DENIED` before the application ever attempts to disclose whether a Table id exists, matching this repository's general precedence of authorization before resource-existence disclosure. The lookup itself is Tenant/Branch-scoped by construction inside `TablesService` (`id` + `restaurantId` + `branchId` together in one query `where` clause -- never `findUnique({ id })` followed by a separate ownership check), so a foreign-Branch or foreign-Restaurant Table can never even be loaded before being hidden.
+
+`TABLE_NOT_FOUND` existence-hides every Table identity/ownership failure identically -- malformed `tableId`, unknown `tableId`, cross-Branch `tableId` (same Restaurant), and cross-Restaurant `tableId` -- consistent with the Restaurant/Branch `_NOT_FOUND` existence-hiding convention (#61A/#65A).
+
+---
+
 # 66. NestJS Authorization Structure
 
 Preferred conceptual implementation:

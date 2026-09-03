@@ -1,4 +1,4 @@
-import { ConflictException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { GUARDS_METADATA } from '@nestjs/common/constants';
 import { AllBranchesRequiredGuard } from '../auth/guard/all-branches-required.guard';
 import { AuthGuard } from '../auth/guard/auth.guard';
@@ -35,7 +35,11 @@ function buildRequest(params: {
 }
 
 describe('TablesController', () => {
-  let tablesService: { createTable: jest.Mock; listTables: jest.Mock };
+  let tablesService: {
+    createTable: jest.Mock;
+    listTables: jest.Mock;
+    getTableDetail: jest.Mock;
+  };
   let controller: TablesController;
 
   const DTO: CreateTableDto = { tableNumber: 'A1' };
@@ -55,6 +59,7 @@ describe('TablesController', () => {
     tablesService = {
       createTable: jest.fn().mockResolvedValue(CREATED),
       listTables: jest.fn().mockResolvedValue([]),
+      getTableDetail: jest.fn().mockResolvedValue({ outcome: 'notFound' }),
     };
     controller = new TablesController(tablesService as never);
   });
@@ -302,6 +307,164 @@ describe('TablesController', () => {
       );
 
       expect(body).toEqual({ data: [] });
+    });
+  });
+
+  describe('getTableDetail', () => {
+    const FOUND = {
+      outcome: 'found' as const,
+      data: {
+        id: 'table-1',
+        tableNumber: 'A1',
+        status: 'ACTIVE' as const,
+        qr: {
+          id: 'qr-1',
+          publicCode: 'a-public-code',
+          status: 'ACTIVE' as const,
+        },
+      },
+    };
+
+    // Nest metadata reflection targets a class method reference without
+    // ever invoking it -- not the unintended-`this`-scoping pattern
+    // @typescript-eslint/unbound-method guards against.
+    /* eslint-disable @typescript-eslint/unbound-method */
+    const getTableDetailHandler = TablesController.prototype.getTableDetail;
+    /* eslint-enable @typescript-eslint/unbound-method */
+
+    it('A. declares exactly the settled guard order', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        getTableDetailHandler,
+      ) as unknown[];
+
+      expect(guards).toEqual([
+        AuthGuard,
+        RestaurantAccessGuard,
+        BranchManagementAccessGuard,
+        PermissionGuard,
+      ]);
+    });
+
+    it('B. requires exactly tables.view', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        getTableDetailHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.TABLES_VIEW);
+    });
+
+    it('C. never declares CsrfGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        getTableDetailHandler,
+      ) as unknown[];
+
+      expect(guards).not.toContain(CsrfGuard);
+    });
+
+    it('D. never declares BranchAccessGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        getTableDetailHandler,
+      ) as unknown[];
+
+      expect(guards).not.toContain(BranchAccessGuard);
+    });
+
+    it('E. never declares AllBranchesRequiredGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        getTableDetailHandler,
+      ) as unknown[];
+
+      expect(guards).not.toContain(AllBranchesRequiredGuard);
+    });
+
+    it('F. passes restaurantId from request.restaurantAccess, not the raw route param', async () => {
+      tablesService.getTableDetail.mockResolvedValue(FOUND);
+      const request = buildRequest({
+        restaurantId: 'authorized-restaurant',
+        branchId: 'authorized-branch',
+        routeParamRestaurantId: 'attacker-restaurant',
+      });
+
+      await controller.getTableDetail('table-1', request);
+
+      expect(tablesService.getTableDetail).toHaveBeenCalledWith(
+        expect.objectContaining({ restaurantId: 'authorized-restaurant' }),
+      );
+    });
+
+    it('G. passes branchId from request.branchAccess, not the raw route param', async () => {
+      tablesService.getTableDetail.mockResolvedValue(FOUND);
+      const request = buildRequest({
+        restaurantId: 'restaurant-1',
+        branchId: 'authorized-branch',
+        routeParamBranchId: 'attacker-branch',
+      });
+
+      await controller.getTableDetail('table-1', request);
+
+      expect(tablesService.getTableDetail).toHaveBeenCalledWith(
+        expect.objectContaining({ branchId: 'authorized-branch' }),
+      );
+    });
+
+    it('H. tableId comes from the :tableId identifier', async () => {
+      tablesService.getTableDetail.mockResolvedValue(FOUND);
+
+      await controller.getTableDetail(
+        'table-identifier',
+        buildRequest({ restaurantId: 'restaurant-1', branchId: 'branch-1' }),
+      );
+
+      expect(tablesService.getTableDetail).toHaveBeenCalledWith(
+        expect.objectContaining({ tableId: 'table-identifier' }),
+      );
+    });
+
+    it('I. service notFound -> exact 404 TABLE_NOT_FOUND', async () => {
+      tablesService.getTableDetail.mockResolvedValue({ outcome: 'notFound' });
+
+      let caught: NotFoundException | undefined;
+      try {
+        await controller.getTableDetail(
+          'table-1',
+          buildRequest({ restaurantId: 'restaurant-1', branchId: 'branch-1' }),
+        );
+      } catch (error) {
+        caught = error as NotFoundException;
+      }
+
+      expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught?.getStatus()).toBe(404);
+      expect(caught?.getResponse()).toEqual({
+        error: { code: 'TABLE_NOT_FOUND', message: 'Table not found.' },
+      });
+    });
+
+    it('J. service found -> exact { data } envelope', async () => {
+      tablesService.getTableDetail.mockResolvedValue(FOUND);
+
+      const body = await controller.getTableDetail(
+        'table-1',
+        buildRequest({ restaurantId: 'restaurant-1', branchId: 'branch-1' }),
+      );
+
+      expect(body).toEqual({ data: FOUND.data });
+    });
+
+    it('K. no Table-specific access guard exists in the guard chain', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        getTableDetailHandler,
+      ) as unknown[];
+
+      expect(
+        guards.map((guard) => (guard as { name: string }).name),
+      ).not.toContain('TableAccessGuard');
     });
   });
 });

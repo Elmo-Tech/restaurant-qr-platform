@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { isWellFormedUuid } from '../common/is-uuid';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import type { QrStatus, TableStatus } from '../generated/prisma/client';
@@ -50,6 +51,47 @@ export interface ListTablesInput {
   restaurantId: string;
   branchId: string;
 }
+
+/** The exact safe QR shape nested in Table Detail (API_CONVENTIONS.md #114B). Never `restaurantId`, `branchId`, `tableId`, `type`, or timestamps. */
+export interface TableDetailQr {
+  id: string;
+  publicCode: string;
+  status: QrStatus;
+}
+
+/**
+ * The exact safe Table Detail shape. `qr` is the Table's current ACTIVE
+ * TABLE QR, or `null` -- the database guarantees at most one, never at
+ * least one (DATABASE_SPEC.md #56's partial unique index has no matching
+ * existence requirement).
+ */
+export interface TableDetail {
+  id: string;
+  tableNumber: string;
+  status: TableStatus;
+  qr: TableDetailQr | null;
+}
+
+/**
+ * `restaurantId`/`branchId` are the already-authorized
+ * `request.restaurantAccess.restaurantId` / `request.branchAccess.branchId`.
+ * `tableId` is the raw `:tableId` route identifier -- identification only,
+ * not authorization; it is trusted only once the tenant/Branch-scoped
+ * lookup below actually finds a matching row.
+ */
+export interface GetTableDetailInput {
+  restaurantId: string;
+  branchId: string;
+  tableId: string;
+}
+
+/**
+ * Business Foundation P, settled result type: a plain outcome, never an
+ * HTTP exception -- the controller alone decides how `notFound` maps to
+ * `404 TABLE_NOT_FOUND`.
+ */
+export type TableDetailResult =
+  { outcome: 'found'; data: TableDetail } | { outcome: 'notFound' };
 
 /**
  * The real Postgres unique-index name behind `@@unique([branchId,
@@ -171,5 +213,76 @@ export class TablesService {
       orderBy: { tableNumber: 'asc' },
       select: { id: true, tableNumber: true, status: true },
     });
+  }
+
+  /**
+   * Business Foundation P, settled contract: the Staff-facing Table Detail
+   * read. A malformed `tableId` is rejected before ever querying Prisma
+   * (`isWellFormedUuid`) -- a value that isn't even a well-formed UUID can
+   * never match any real row, and passing it to a `@db.Uuid` column
+   * comparison would otherwise fail at the SQL level rather than simply
+   * returning no rows. The lookup itself is Tenant/Branch-scoped by
+   * construction (`id` + `restaurantId` + `branchId` together in one
+   * `findFirst` `where` clause) -- never `findUnique({ id })` followed by
+   * an ownership check, so a foreign-Branch or foreign-Restaurant Table can
+   * never even be loaded before being hidden. Both `ACTIVE` and `INACTIVE`
+   * Tables are returned -- no status filter. The nested `qrCodes` read is
+   * narrowed to `restaurantId`/`branchId` (the same authorized values, not
+   * merely the `tableId` relation) plus `type: 'TABLE', status: 'ACTIVE'`,
+   * with `take: 1` -- this is deliberate defense-in-depth: `QrCode` stores
+   * its own direct `restaurantId`/`branchId` context independently of its
+   * Table relation, so a malformed/inconsistent row (one whose `tableId`
+   * points at the authorized Table but whose own `restaurantId`/`branchId`
+   * does not match the authorized context) must never surface as the
+   * current QR. Historical `INACTIVE` QR rows and GENERIC QR rows are also
+   * never selected in the first place; the database's own partial unique
+   * index guarantees at most one context-matching ACTIVE TABLE QR row
+   * exists, so `take: 1` never silently drops a second one. The internal
+   * `qrCodes` array is never exposed -- it is mapped to a single nullable
+   * `qr` field before returning. No Membership query, no Restaurant query,
+   * no second Branch query (all already resolved by the guard chain before
+   * this service is ever called), and no transaction (a single read).
+   */
+  async getTableDetail(input: GetTableDetailInput): Promise<TableDetailResult> {
+    if (!isWellFormedUuid(input.tableId)) {
+      return { outcome: 'notFound' };
+    }
+
+    const table = await this.prisma.table.findFirst({
+      where: {
+        id: input.tableId,
+        restaurantId: input.restaurantId,
+        branchId: input.branchId,
+      },
+      select: {
+        id: true,
+        tableNumber: true,
+        status: true,
+        qrCodes: {
+          where: {
+            restaurantId: input.restaurantId,
+            branchId: input.branchId,
+            type: 'TABLE',
+            status: 'ACTIVE',
+          },
+          select: { id: true, publicCode: true, status: true },
+          take: 1,
+        },
+      },
+    });
+
+    if (!table) {
+      return { outcome: 'notFound' };
+    }
+
+    return {
+      outcome: 'found',
+      data: {
+        id: table.id,
+        tableNumber: table.tableNumber,
+        status: table.status,
+        qr: table.qrCodes[0] ?? null,
+      },
+    };
   }
 }
