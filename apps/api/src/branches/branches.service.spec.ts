@@ -1,5 +1,7 @@
 import {
   BranchesService,
+  type ActivatedBranch,
+  type ActivateBranchInput,
   type AuthorizedBranchScope,
   type BranchListItem,
   type CreateBranchInput,
@@ -19,6 +21,12 @@ interface FindManyAssignmentArgs {
 }
 
 interface CreateBranchArgs {
+  data: Record<string, unknown>;
+  select: Record<string, boolean>;
+}
+
+interface UpdateBranchArgs {
+  where: Record<string, unknown>;
   data: Record<string, unknown>;
   select: Record<string, boolean>;
 }
@@ -50,6 +58,7 @@ describe('BranchesService', () => {
     branch: {
       findMany: jest.Mock<Promise<BranchListItem[]>, [FindManyBranchArgs]>;
       create: jest.Mock<Promise<CreatedBranch>, [CreateBranchArgs]>;
+      update: jest.Mock<Promise<ActivatedBranch>, [UpdateBranchArgs]>;
     };
   };
   let service: BranchesService;
@@ -61,6 +70,8 @@ describe('BranchesService', () => {
     phone: null,
     address: null,
   };
+
+  const ACTIVATE_INPUT: ActivateBranchInput = { branchId: 'branch-1' };
 
   beforeEach(() => {
     prisma = {
@@ -78,6 +89,9 @@ describe('BranchesService', () => {
             phone: null,
             address: null,
           }),
+        update: jest
+          .fn<Promise<ActivatedBranch>, [UpdateBranchArgs]>()
+          .mockResolvedValue({ id: 'branch-1', status: 'ACTIVE' }),
       },
       restaurantMembershipBranch: {
         findMany: jest
@@ -277,6 +291,73 @@ describe('BranchesService', () => {
       const result = await service.createBranch(CREATE_INPUT);
 
       expect(result).toEqual(created);
+    });
+  });
+
+  describe('activateBranch', () => {
+    it('A. sets the exact target Branch status to ACTIVE', async () => {
+      await service.activateBranch(ACTIVATE_INPUT);
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(args.where).toEqual({ id: 'branch-1' });
+      expect(args.data).toEqual({ status: 'ACTIVE' });
+    });
+
+    it('B. selects/returns exactly id and status', async () => {
+      await service.activateBranch(ACTIVATE_INPUT);
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(args.select).toEqual({ id: true, status: true });
+    });
+
+    it('B. returns whatever Prisma resolves, unmodified', async () => {
+      const activated: ActivatedBranch = { id: 'branch-1', status: 'ACTIVE' };
+      prisma.branch.update.mockResolvedValue(activated);
+
+      const result = await service.activateBranch(ACTIVATE_INPUT);
+
+      expect(result).toEqual(activated);
+    });
+
+    it('C. an already-ACTIVE target may be activated again successfully', async () => {
+      prisma.branch.update.mockResolvedValue({
+        id: 'branch-1',
+        status: 'ACTIVE',
+      });
+
+      await expect(service.activateBranch(ACTIVATE_INPUT)).resolves.toEqual({
+        id: 'branch-1',
+        status: 'ACTIVE',
+      });
+    });
+
+    it('D. never touches Table or QrCode', async () => {
+      const prismaWithTableQr = prisma as unknown as {
+        table?: unknown;
+        qrCode?: unknown;
+      };
+
+      await service.activateBranch(ACTIVATE_INPUT);
+
+      expect(prismaWithTableQr.table).toBeUndefined();
+      expect(prismaWithTableQr.qrCode).toBeUndefined();
+    });
+
+    it('E. the persisted status is always the literal ACTIVE, never taken from input', async () => {
+      // ActivateBranchInput has no status field at all -- there is nothing
+      // for the service to read even if it wanted to. Asserting the data
+      // object's only key is `status: 'ACTIVE'` proves it is server-derived.
+      await service.activateBranch(ACTIVATE_INPUT);
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(Object.keys(args.data)).toEqual(['status']);
+      expect(args.data.status).toBe('ACTIVE');
+    });
+
+    it('F. performs no Membership/authorization query', async () => {
+      await service.activateBranch(ACTIVATE_INPUT);
+
+      expect(prisma.restaurantMembershipBranch.findMany).not.toHaveBeenCalled();
     });
   });
 });

@@ -1947,7 +1947,43 @@ Success:
 
 Never returns `restaurantId`, `publicId`, `createdAt`, or `updatedAt`.
 
-Update, Activate, Deactivate, and Delete Branch contracts remain undocumented and unimplemented -- do not infer them from this section.
+Update, Deactivate, and Delete Branch contracts remain undocumented and unimplemented -- do not infer them from this section. Activate Branch is settled separately (#113B).
+
+---
+
+# 113B. Branch Activation (Settled, Business Foundation M)
+
+`POST /api/v1/restaurants/{restaurantId}/branches/{branchId}/activate`
+
+A dedicated Branch lifecycle action, not part of a generic Branch-update endpoint (no such endpoint exists yet). Requires `branches.manage`.
+
+Activation targets an already-existing Branch, so it is not a Restaurant-structural mutation like Create Branch -- ordinary authorized Membership Branch scope is sufficient: `allBranches = true` for any same-Restaurant Branch, or `allBranches = false` with the target Branch explicitly assigned. `AllBranchesRequiredGuard` is not used.
+
+The target Branch will normally be `INACTIVE` before activation, so this route authorizes Branch scope through `BranchManagementAccessGuard` (AUTH_TENANCY_SPEC.md #65D), not `BranchAccessGuard` -- the latter would incorrectly reject an `INACTIVE` Branch as non-operational. `RestaurantAccessGuard` still applies unchanged: an authorized but `INACTIVE`/`SUSPENDED` Restaurant still fails with `409 RESTAURANT_NOT_OPERATIONAL` before Branch resolution -- Branch activation is not exempt from the Restaurant operational gate.
+
+Guard order (settled for this route specifically, not a generalized precedent): `AuthGuard` → `CsrfGuard` → `RestaurantAccessGuard` → `BranchManagementAccessGuard` → `PermissionGuard` (AUTH_TENANCY_SPEC.md #65F).
+
+The request has no writable body field at all -- `id`/`status`/`restaurantId`/`branchId` sent in the body are inert; the target Branch's identity comes only from `request.branchAccess.branchId` (resolved by `BranchManagementAccessGuard` from the `:branchId` route parameter, never read directly), and `status` is always server-derived as `ACTIVE`.
+
+Transition semantics: `INACTIVE -> ACTIVE` succeeds; `ACTIVE -> ACTIVE` also succeeds identically (idempotent) -- repeated activation converges on the same business state, so there is no `BRANCH_ALREADY_ACTIVE` or similar conflict code. There are no V1 activation readiness prerequisites (no required Table, QR, Menu, or other configuration state).
+
+Success:
+
+```
+200 OK
+{
+  "data": {
+    "id": "...",
+    "status": "ACTIVE"
+  }
+}
+```
+
+Never returns `name`, `timezone`, `phone`, `address`, `restaurantId`, `publicId`, `createdAt`, or `updatedAt`. No new public error code is introduced -- failures reuse the existing `UNAUTHENTICATED`, `CSRF_VALIDATION_FAILED`, `RESTAURANT_NOT_FOUND`, `RESTAURANT_NOT_OPERATIONAL`, `BRANCH_NOT_FOUND`, `BRANCH_ACCESS_DENIED`, and `PERMISSION_DENIED` contracts.
+
+Activation changes only `Branch.status` -- it never mutates existing Tables or QR Codes, and does not create an AuditEvent, realtime event, or notification (deferred until those infrastructures exist and are separately contracted).
+
+Branch Deactivation, generic Branch Update, and Branch Delete remain undocumented and unimplemented -- do not infer them from this section.
 
 ---
 

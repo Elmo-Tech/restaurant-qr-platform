@@ -1,3 +1,14 @@
+import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { AllBranchesRequiredGuard } from '../auth/guard/all-branches-required.guard';
+import { AuthGuard } from '../auth/guard/auth.guard';
+import { BranchAccessGuard } from '../auth/guard/branch-access.guard';
+import { BranchManagementAccessGuard } from '../auth/guard/branch-management-access.guard';
+import type { BranchAuthorizedRequest } from '../auth/guard/branch-authorized-request';
+import { PermissionGuard } from '../auth/guard/permission.guard';
+import { RestaurantAccessGuard } from '../auth/guard/restaurant-access.guard';
+import { CsrfGuard } from '../auth/csrf/csrf.guard';
+import { PERMISSIONS } from '../auth/permission/permission';
+import { REQUIRED_PERMISSION_KEY } from '../auth/permission/require-permission.decorator';
 import { BranchesController } from './branches.controller';
 import type { RestaurantAuthorizedRequest } from '../auth/guard/restaurant-authorized-request';
 import type { CreateBranchDto } from './dto/create-branch.dto';
@@ -21,8 +32,32 @@ function buildRequest(params: {
   } as unknown as RestaurantAuthorizedRequest;
 }
 
+function buildActivateRequest(params: {
+  restaurantId: string;
+  branchId: string;
+  routeParamBranchId?: string;
+}): BranchAuthorizedRequest {
+  return {
+    params: {
+      restaurantId: params.restaurantId,
+      branchId: params.routeParamBranchId ?? params.branchId,
+    },
+    restaurantAccess: {
+      membershipId: 'membership-1',
+      restaurantId: params.restaurantId,
+      role: 'OWNER',
+      allBranches: true,
+    },
+    branchAccess: { branchId: params.branchId },
+  } as unknown as BranchAuthorizedRequest;
+}
+
 describe('BranchesController', () => {
-  let branchesService: { listBranches: jest.Mock; createBranch: jest.Mock };
+  let branchesService: {
+    listBranches: jest.Mock;
+    createBranch: jest.Mock;
+    activateBranch: jest.Mock;
+  };
   let controller: BranchesController;
 
   beforeEach(() => {
@@ -36,6 +71,9 @@ describe('BranchesController', () => {
         phone: null,
         address: null,
       }),
+      activateBranch: jest
+        .fn()
+        .mockResolvedValue({ id: 'branch-1', status: 'ACTIVE' }),
     };
     controller = new BranchesController(branchesService as never);
   });
@@ -199,6 +237,87 @@ describe('BranchesController', () => {
       expect(branchesService.createBranch).toHaveBeenCalledWith(
         expect.objectContaining({ restaurantId: 'authorized-restaurant' }),
       );
+    });
+  });
+
+  describe('activateBranch', () => {
+    // Nest metadata reflection targets a class method reference without
+    // ever invoking it -- not the unintended-`this`-scoping pattern
+    // @typescript-eslint/unbound-method guards against.
+    /* eslint-disable @typescript-eslint/unbound-method */
+    const activateBranchHandler = BranchesController.prototype.activateBranch;
+    /* eslint-enable @typescript-eslint/unbound-method */
+
+    it('A. declares exactly the settled guard order', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        activateBranchHandler,
+      ) as unknown[];
+
+      expect(guards).toEqual([
+        AuthGuard,
+        CsrfGuard,
+        RestaurantAccessGuard,
+        BranchManagementAccessGuard,
+        PermissionGuard,
+      ]);
+    });
+
+    it('B. requires exactly branches.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        activateBranchHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.BRANCHES_MANAGE);
+    });
+
+    it('E. never declares AllBranchesRequiredGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        activateBranchHandler,
+      ) as unknown[];
+
+      expect(guards).not.toContain(AllBranchesRequiredGuard);
+    });
+
+    it('F. never declares BranchAccessGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        activateBranchHandler,
+      ) as unknown[];
+
+      expect(guards).not.toContain(BranchAccessGuard);
+    });
+
+    it('C. passes branchId from request.branchAccess, not the raw route param', async () => {
+      const request = buildActivateRequest({
+        restaurantId: 'restaurant-1',
+        branchId: 'authorized-branch',
+        routeParamBranchId: 'attacker-branch',
+      });
+
+      await controller.activateBranch(request);
+
+      expect(branchesService.activateBranch).toHaveBeenCalledWith({
+        branchId: 'authorized-branch',
+      });
+    });
+
+    it('D. wraps the result in the exact data envelope', async () => {
+      branchesService.activateBranch.mockResolvedValue({
+        id: 'branch-1',
+        status: 'ACTIVE',
+      });
+
+      const body = await controller.activateBranch(
+        buildActivateRequest({
+          restaurantId: 'restaurant-1',
+          branchId: 'branch-1',
+        }),
+      );
+
+      expect(body).toEqual({ data: { id: 'branch-1', status: 'ACTIVE' } });
     });
   });
 });

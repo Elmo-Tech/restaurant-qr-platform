@@ -10,6 +10,8 @@ import {
 } from '@nestjs/common';
 import { AllBranchesRequiredGuard } from '../auth/guard/all-branches-required.guard';
 import { AuthGuard } from '../auth/guard/auth.guard';
+import { BranchManagementAccessGuard } from '../auth/guard/branch-management-access.guard';
+import type { BranchAuthorizedRequest } from '../auth/guard/branch-authorized-request';
 import { PermissionGuard } from '../auth/guard/permission.guard';
 import { RestaurantAccessGuard } from '../auth/guard/restaurant-access.guard';
 import type { RestaurantAuthorizedRequest } from '../auth/guard/restaurant-authorized-request';
@@ -17,7 +19,11 @@ import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
 import { BranchesService } from './branches.service';
-import type { BranchListItem, CreatedBranch } from './branches.service';
+import type {
+  ActivatedBranch,
+  BranchListItem,
+  CreatedBranch,
+} from './branches.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 
 interface BranchListResponseBody {
@@ -26,6 +32,10 @@ interface BranchListResponseBody {
 
 interface CreateBranchResponseBody {
   data: CreatedBranch;
+}
+
+interface ActivateBranchResponseBody {
+  data: ActivatedBranch;
 }
 
 /**
@@ -98,6 +108,47 @@ export class BranchesController {
       timezone: dto.timezone,
       phone: dto.phone ?? null,
       address: dto.address ?? null,
+    });
+
+    return { data };
+  }
+
+  /**
+   * Business Foundation M, settled contract: activation targets an
+   * already-existing Branch, so ordinary authorized Membership Branch scope
+   * is sufficient authority -- unlike Create Branch, this is not a
+   * Restaurant-structural mutation, so `AllBranchesRequiredGuard` is never
+   * used here. The target Branch will normally be `INACTIVE` before
+   * activation, so this route uses `BranchManagementAccessGuard` (not
+   * `BranchAccessGuard`, which would incorrectly reject an `INACTIVE`
+   * Branch as non-operational). `RestaurantAccessGuard` still applies
+   * unchanged -- an authorized but non-operational Restaurant still fails
+   * with `409 RESTAURANT_NOT_OPERATIONAL` before Branch resolution.
+   * `INACTIVE -> ACTIVE` and `ACTIVE -> ACTIVE` both succeed identically
+   * (idempotent) -- there is no activation-specific conflict.
+   *
+   * Settled guard order for this route specifically: `AuthGuard` ->
+   * `CsrfGuard` -> `RestaurantAccessGuard` -> `BranchManagementAccessGuard`
+   * -> `PermissionGuard` (AUTH_TENANCY_SPEC.md #65F). The Branch id
+   * authority comes only from `request.branchAccess.branchId` -- never the
+   * raw `:branchId` route parameter. The request body has no writable
+   * field at all.
+   */
+  @Post(':branchId/activate')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    BranchManagementAccessGuard,
+    PermissionGuard,
+  )
+  @RequirePermission(PERMISSIONS.BRANCHES_MANAGE)
+  async activateBranch(
+    @Req() request: BranchAuthorizedRequest,
+  ): Promise<ActivateBranchResponseBody> {
+    const data = await this.branchesService.activateBranch({
+      branchId: request.branchAccess.branchId,
     });
 
     return { data };

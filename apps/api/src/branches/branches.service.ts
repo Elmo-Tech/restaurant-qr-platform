@@ -54,6 +54,21 @@ export interface CreateBranchInput {
   address: string | null;
 }
 
+/** The safe Branch shape returned by Activate (Business Foundation M). Exactly `id` and `status` -- never any other field. */
+export interface ActivatedBranch {
+  id: string;
+  status: BranchStatus;
+}
+
+/**
+ * `branchId` here is the already-authorized `request.branchAccess.branchId`
+ * (produced by `BranchManagementAccessGuard`) -- never the raw `:branchId`
+ * route parameter or any client-supplied identifier.
+ */
+export interface ActivateBranchInput {
+  branchId: string;
+}
+
 /**
  * Business Foundation J (corrected): Branch list honors the caller's
  * current ACTIVE RestaurantMembership Branch scope, reusing the same
@@ -129,6 +144,27 @@ export class BranchesService {
         phone: true,
         address: true,
       },
+    });
+  }
+
+  /**
+   * Business Foundation M, settled contract: activates an already-existing,
+   * already-authorized Branch. `branchId` authority comes only from the
+   * caller (`request.branchAccess.branchId`, already resolved by
+   * `BranchManagementAccessGuard`) -- this service performs no Membership
+   * query and re-runs no Branch authorization of its own. `status` is
+   * always explicitly set to `ACTIVE`, never derived from the request body
+   * (the route has no writable body field at all). `INACTIVE -> ACTIVE` and
+   * `ACTIVE -> ACTIVE` both succeed identically -- repeated activation
+   * converges on the same business state, so there is no
+   * activation-specific conflict to detect. No Table or QrCode row is
+   * touched; Branch activation changes only `Branch.status`.
+   */
+  async activateBranch(input: ActivateBranchInput): Promise<ActivatedBranch> {
+    return this.prisma.branch.update({
+      where: { id: input.branchId },
+      data: { status: 'ACTIVE' },
+      select: { id: true, status: true },
     });
   }
 }
