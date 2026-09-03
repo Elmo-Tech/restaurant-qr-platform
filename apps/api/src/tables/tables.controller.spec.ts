@@ -11,6 +11,7 @@ import { PERMISSIONS } from '../auth/permission/permission';
 import { REQUIRED_PERMISSION_KEY } from '../auth/permission/require-permission.decorator';
 import type { BranchAuthorizedRequest } from '../auth/guard/branch-authorized-request';
 import type { CreateTableDto } from './dto/create-table.dto';
+import type { UpdateTableDto } from './dto/update-table.dto';
 import { TablesController } from './tables.controller';
 
 function buildRequest(params: {
@@ -39,6 +40,7 @@ describe('TablesController', () => {
     createTable: jest.Mock;
     listTables: jest.Mock;
     getTableDetail: jest.Mock;
+    updateTable: jest.Mock;
   };
   let controller: TablesController;
 
@@ -60,6 +62,7 @@ describe('TablesController', () => {
       createTable: jest.fn().mockResolvedValue(CREATED),
       listTables: jest.fn().mockResolvedValue([]),
       getTableDetail: jest.fn().mockResolvedValue({ outcome: 'notFound' }),
+      updateTable: jest.fn().mockResolvedValue({ outcome: 'notFound' }),
     };
     controller = new TablesController(tablesService as never);
   });
@@ -465,6 +468,203 @@ describe('TablesController', () => {
       expect(
         guards.map((guard) => (guard as { name: string }).name),
       ).not.toContain('TableAccessGuard');
+    });
+  });
+
+  describe('updateTable', () => {
+    const UPDATE_DTO: UpdateTableDto = { tableNumber: 'A2' };
+    const UPDATED = {
+      outcome: 'updated' as const,
+      data: { id: 'table-1', tableNumber: 'A2', status: 'ACTIVE' as const },
+    };
+
+    // Nest metadata reflection targets a class method reference without
+    // ever invoking it -- not the unintended-`this`-scoping pattern
+    // @typescript-eslint/unbound-method guards against.
+    /* eslint-disable @typescript-eslint/unbound-method */
+    const updateTableHandler = TablesController.prototype.updateTable;
+    /* eslint-enable @typescript-eslint/unbound-method */
+
+    it('A. declares exactly the settled guard order', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        updateTableHandler,
+      ) as unknown[];
+
+      expect(guards).toEqual([
+        AuthGuard,
+        CsrfGuard,
+        RestaurantAccessGuard,
+        BranchManagementAccessGuard,
+        PermissionGuard,
+      ]);
+    });
+
+    it('B. requires exactly tables.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        updateTableHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.TABLES_MANAGE);
+    });
+
+    it('C. never declares BranchAccessGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        updateTableHandler,
+      ) as unknown[];
+
+      expect(guards).not.toContain(BranchAccessGuard);
+    });
+
+    it('D. never declares AllBranchesRequiredGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        updateTableHandler,
+      ) as unknown[];
+
+      expect(guards).not.toContain(AllBranchesRequiredGuard);
+    });
+
+    it('E. no Table-specific access guard exists in the guard chain', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        updateTableHandler,
+      ) as unknown[];
+
+      expect(
+        guards.map((guard) => (guard as { name: string }).name),
+      ).not.toContain('TableAccessGuard');
+    });
+
+    it('F. passes restaurantId from request.restaurantAccess, not the raw route param', async () => {
+      tablesService.updateTable.mockResolvedValue(UPDATED);
+      const request = buildRequest({
+        restaurantId: 'authorized-restaurant',
+        branchId: 'authorized-branch',
+        routeParamRestaurantId: 'attacker-restaurant',
+      });
+
+      await controller.updateTable('table-1', UPDATE_DTO, request);
+
+      expect(tablesService.updateTable).toHaveBeenCalledWith(
+        expect.objectContaining({ restaurantId: 'authorized-restaurant' }),
+      );
+    });
+
+    it('G. passes branchId from request.branchAccess, not the raw route param', async () => {
+      tablesService.updateTable.mockResolvedValue(UPDATED);
+      const request = buildRequest({
+        restaurantId: 'restaurant-1',
+        branchId: 'authorized-branch',
+        routeParamBranchId: 'attacker-branch',
+      });
+
+      await controller.updateTable('table-1', UPDATE_DTO, request);
+
+      expect(tablesService.updateTable).toHaveBeenCalledWith(
+        expect.objectContaining({ branchId: 'authorized-branch' }),
+      );
+    });
+
+    it('H. tableId comes from the route identifier', async () => {
+      tablesService.updateTable.mockResolvedValue(UPDATED);
+
+      await controller.updateTable(
+        'table-identifier',
+        UPDATE_DTO,
+        buildRequest({ restaurantId: 'restaurant-1', branchId: 'branch-1' }),
+      );
+
+      expect(tablesService.updateTable).toHaveBeenCalledWith(
+        expect.objectContaining({ tableId: 'table-identifier' }),
+      );
+    });
+
+    it('I. the DTO supplies only tableNumber', async () => {
+      tablesService.updateTable.mockResolvedValue(UPDATED);
+      const dtoWithForeignFields = {
+        tableNumber: 'A2',
+        status: 'INACTIVE',
+        restaurantId: 'attacker-restaurant',
+        branchId: 'attacker-branch',
+      } as UpdateTableDto & Record<string, unknown>;
+
+      await controller.updateTable(
+        'table-1',
+        dtoWithForeignFields,
+        buildRequest({
+          restaurantId: 'authorized-restaurant',
+          branchId: 'authorized-branch',
+        }),
+      );
+
+      expect(tablesService.updateTable).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        branchId: 'authorized-branch',
+        tableId: 'table-1',
+        tableNumber: 'A2',
+      });
+    });
+
+    it('J. service notFound -> exact 404 TABLE_NOT_FOUND', async () => {
+      tablesService.updateTable.mockResolvedValue({ outcome: 'notFound' });
+
+      let caught: NotFoundException | undefined;
+      try {
+        await controller.updateTable(
+          'table-1',
+          UPDATE_DTO,
+          buildRequest({ restaurantId: 'restaurant-1', branchId: 'branch-1' }),
+        );
+      } catch (error) {
+        caught = error as NotFoundException;
+      }
+
+      expect(caught).toBeInstanceOf(NotFoundException);
+      expect(caught?.getStatus()).toBe(404);
+      expect(caught?.getResponse()).toEqual({
+        error: { code: 'TABLE_NOT_FOUND', message: 'Table not found.' },
+      });
+    });
+
+    it('K. service tableNumberConflict -> exact 409 TABLE_NUMBER_ALREADY_EXISTS', async () => {
+      tablesService.updateTable.mockResolvedValue({
+        outcome: 'tableNumberConflict',
+      });
+
+      let caught: ConflictException | undefined;
+      try {
+        await controller.updateTable(
+          'table-1',
+          UPDATE_DTO,
+          buildRequest({ restaurantId: 'restaurant-1', branchId: 'branch-1' }),
+        );
+      } catch (error) {
+        caught = error as ConflictException;
+      }
+
+      expect(caught).toBeInstanceOf(ConflictException);
+      expect(caught?.getStatus()).toBe(409);
+      expect(caught?.getResponse()).toEqual({
+        error: {
+          code: 'TABLE_NUMBER_ALREADY_EXISTS',
+          message: 'Table number already exists in this Branch.',
+        },
+      });
+    });
+
+    it('L. success -> exact { data } envelope', async () => {
+      tablesService.updateTable.mockResolvedValue(UPDATED);
+
+      const body = await controller.updateTable(
+        'table-1',
+        UPDATE_DTO,
+        buildRequest({ restaurantId: 'restaurant-1', branchId: 'branch-1' }),
+      );
+
+      expect(body).toEqual({ data: UPDATED.data });
     });
   });
 });

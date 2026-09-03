@@ -7,6 +7,7 @@ import {
   HttpStatus,
   NotFoundException,
   Param,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -20,11 +21,13 @@ import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
 import { CreateTableDto } from './dto/create-table.dto';
+import { UpdateTableDto } from './dto/update-table.dto';
 import { TablesService } from './tables.service';
 import type {
   CreatedTable,
   TableDetail,
   TableListItem,
+  UpdatedTable,
 } from './tables.service';
 
 /**
@@ -64,6 +67,10 @@ interface TableListResponseBody {
 
 interface TableDetailResponseBody {
   data: TableDetail;
+}
+
+interface UpdateTableResponseBody {
+  data: UpdatedTable;
 }
 
 /**
@@ -200,6 +207,64 @@ export class TablesController {
 
     if (result.outcome === 'notFound') {
       throw new NotFoundException(TABLE_NOT_FOUND_RESPONSE);
+    }
+
+    return { data: result.data };
+  }
+
+  /**
+   * Business Foundation Q, settled contract: partial update of one Table's
+   * basic info (`tableNumber` only) for a Table already contained inside
+   * one authorized Branch (API_CONVENTIONS.md #114C). Reuses List/Detail's
+   * exact Branch access model (`BranchManagementAccessGuard`, both `ACTIVE`
+   * and `INACTIVE` Branches/Tables editable) and Foundation P's exact Table
+   * identity/ownership contract (`TABLE_NOT_FOUND` existence-hides every
+   * malformed/unknown/foreign-Branch/foreign-Restaurant `tableId`
+   * identically). This is an unsafe mutation, so `CsrfGuard` applies.
+   *
+   * Settled guard order for this route specifically: `AuthGuard` ->
+   * `CsrfGuard` -> `RestaurantAccessGuard` -> `BranchManagementAccessGuard`
+   * -> `PermissionGuard` (AUTH_TENANCY_SPEC.md #65J). The Table resource is
+   * resolved only after this entire guard chain (including
+   * `PermissionGuard`) succeeds -- a caller lacking `tables.manage`
+   * receives `PERMISSION_DENIED` before the application ever attempts to
+   * disclose whether a Table id exists. No `TableAccessGuard` exists or is
+   * introduced.
+   *
+   * `restaurantId`/`branchId` authority come only from
+   * `request.restaurantAccess`/`request.branchAccess`; `tableId` is the raw
+   * route identifier (identification only); `tableNumber` comes only from
+   * the DTO. An omitted `tableNumber` (including an empty body `{}`) is a
+   * true no-op, handled entirely inside `TablesService.updateTable` -- the
+   * response is still `200` with the Table's current data.
+   */
+  @Patch(':tableId')
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    BranchManagementAccessGuard,
+    PermissionGuard,
+  )
+  @RequirePermission(PERMISSIONS.TABLES_MANAGE)
+  async updateTable(
+    @Param('tableId') tableId: string,
+    @Body() dto: UpdateTableDto,
+    @Req() request: BranchAuthorizedRequest,
+  ): Promise<UpdateTableResponseBody> {
+    const result = await this.tablesService.updateTable({
+      restaurantId: request.restaurantAccess.restaurantId,
+      branchId: request.branchAccess.branchId,
+      tableId,
+      tableNumber: dto.tableNumber,
+    });
+
+    if (result.outcome === 'notFound') {
+      throw new NotFoundException(TABLE_NOT_FOUND_RESPONSE);
+    }
+
+    if (result.outcome === 'tableNumberConflict') {
+      throw new ConflictException(TABLE_NUMBER_ALREADY_EXISTS_RESPONSE);
     }
 
     return { data: result.data };

@@ -2099,7 +2099,7 @@ Duplicate `tableNumber` within the same Branch (durable `UNIQUE(branchId, tableN
 
 The same `tableNumber` in a different Branch is allowed.
 
-Table List is settled separately (#114A). Table Detail is settled separately (#114B). Table update/rename, activate/deactivate, delete, QR regeneration/deactivation, Generic QR creation, and the QR scan endpoint remain undocumented and unimplemented -- do not infer them from this section.
+Table List is settled separately (#114A). Table Detail is settled separately (#114B). Table Basic Info Update is settled separately (#114C). Table activate/deactivate, delete, QR regeneration/deactivation, and Generic QR creation remain unsettled and unimplemented -- do not infer them from this section. The QR Resolve endpoint is conceptually documented separately at #92 but is not yet a settled implemented Foundation.
 
 ---
 
@@ -2136,7 +2136,7 @@ No pagination and no query parameters (`page`, `pageSize`, `limit`, `cursor`, st
 
 No new public error code is introduced -- failures reuse the existing `UNAUTHENTICATED`, `RESTAURANT_NOT_FOUND`, `RESTAURANT_NOT_OPERATIONAL`, `BRANCH_NOT_FOUND`, `BRANCH_ACCESS_DENIED`, and `PERMISSION_DENIED` contracts. Never `BRANCH_NOT_OPERATIONAL` -- `BranchManagementAccessGuard` intentionally allows `INACTIVE` Branches.
 
-Table Update, Table Activate/Deactivate, Table Delete, QR management, and Generic QR remain undocumented and unimplemented -- do not infer them from this section. Table Detail is settled separately (#114B).
+Table Activate/Deactivate, Table Delete, QR management, and Generic QR remain unsettled and unimplemented -- do not infer them from this section. Table Detail is settled separately (#114B); Table Basic Info Update is settled separately (#114C).
 
 ---
 
@@ -2184,7 +2184,66 @@ Success:
 
 `qr` is the Table's current ACTIVE TABLE QR only, or `null` if none exists -- the database guarantees at most one ACTIVE TABLE QR per Table (the partial unique index), never at least one, so `qr: null` is a normal `200` outcome, never `404`/`500`/a placeholder object. Historical `INACTIVE` QR rows and GENERIC QR rows are never included -- if only a historical `INACTIVE` QR exists, `qr` is still `null`. The nested active TABLE QR lookup is constrained by the same authorized Restaurant and Branch context as the Table; a malformed QrCode whose direct `restaurantId` or `branchId` does not match that authorized context is not surfaced, so `qr` is `null` when no context-matching ACTIVE TABLE QR exists. Never returns `restaurantId`, `branchId`, `createdAt`, `updatedAt`, `qr.tableId`, `qr.type`, `qr.restaurantId`, `qr.branchId`, `qr.createdAt`, or `qr.updatedAt`. No Session/Order/Service Request enrichment -- those persistence foundations do not exist yet.
 
-Table Update, Table Activate/Deactivate, Table Delete, QR management, and Generic QR remain undocumented and unimplemented -- do not infer them from this section.
+Table Activate/Deactivate, Table Delete, QR management, and Generic QR remain unsettled and unimplemented -- do not infer them from this section. Table Basic Info Update is settled separately (#114C).
+
+---
+
+# 114C. Table Basic Info Update (Settled, Business Foundation Q)
+
+`PATCH /api/v1/restaurants/{restaurantId}/branches/{branchId}/tables/{tableId}`
+
+A partial update of an already-existing Table's basic information. The only writable field is `tableNumber`. Requires `tables.manage`. Reuses List/Detail's exact Branch access model: `BranchManagementAccessGuard`, both `ACTIVE` and `INACTIVE` Branches allowed. Both `ACTIVE` and `INACTIVE` Tables remain editable -- Table lifecycle state is independent from basic human-readable metadata; this endpoint never mutates `status`. Restaurant operational state is still enforced normally by `RestaurantAccessGuard`.
+
+Guard order (settled for this route specifically, not a generalized precedent): `AuthGuard` → `CsrfGuard` → `RestaurantAccessGuard` → `BranchManagementAccessGuard` → `PermissionGuard` (AUTH_TENANCY_SPEC.md #65J).
+
+Request body -- the one field is optional (partial update):
+
+```
+{
+  "tableNumber": "A2"
+}
+```
+
+- `tableNumber` -- if supplied, trimmed, must remain non-empty after trim; explicit `null` is rejected (`400 VALIDATION_ERROR`); omitted leaves the current value unchanged. No maximum length, format restriction, or case normalization.
+
+An empty body (`{}`) is valid and returns `200` with the Table's current, unchanged data -- a true no-op: no database write occurs and `updatedAt` is left untouched. The same rule applies when the supplied (trimmed) `tableNumber` equals the Table's current value -- a Table can never conflict with itself.
+
+Table identity reuses Foundation P's exact contract unchanged: malformed `tableId`, unknown `tableId`, cross-Branch `tableId` (same Restaurant), cross-Restaurant `tableId`, and a Branch/Table URL mismatch all produce the identical `404 TABLE_NOT_FOUND`. Table resolution happens only after the entire guard chain (including `PermissionGuard`) succeeds -- a caller lacking `tables.manage` receives `PERMISSION_DENIED` before the application ever attempts to disclose whether a Table id exists.
+
+Duplicate `tableNumber` within the same Branch reuses the exact existing conflict:
+
+```
+409 Conflict
+{
+  "error": {
+    "code": "TABLE_NUMBER_ALREADY_EXISTS",
+    "message": "Table number already exists in this Branch."
+  }
+}
+```
+
+The same `tableNumber` in a different Branch remains allowed (uniqueness is Branch-scoped).
+
+Success:
+
+```
+200 OK
+{
+  "data": {
+    "id": "...",
+    "tableNumber": "A2",
+    "status": "ACTIVE"
+  }
+}
+```
+
+Exactly `id`, `tableNumber`, `status` -- never `restaurantId`, `branchId`, `createdAt`, `updatedAt`, or QR data. This is the basic-info mutation response, not the Table Detail read (#114B).
+
+Changing `tableNumber` has zero QR side effects -- `QrCode.publicCode`/`status` are never touched, no QR is created/deactivated/regenerated; the human-readable Table Number is intentionally independent from QR identity (QR_SPEC.md §71). It also has zero effect on Table Sessions, Orders, Kitchen Tickets, or Service Requests -- the durable Table UUID never changes.
+
+No new public error code beyond the existing `TABLE_NOT_FOUND`/`TABLE_NUMBER_ALREADY_EXISTS` contracts. No audit event or realtime broadcast is emitted (deferred until those infrastructures exist and are separately contracted).
+
+Table activate/deactivate, delete, QR regeneration/deactivation, and Generic QR creation remain unsettled and unimplemented -- do not infer them from this section. The QR Resolve endpoint is conceptually documented separately at #92 but is not yet a settled implemented Foundation.
 
 ---
 

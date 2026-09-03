@@ -1380,6 +1380,18 @@ Table identity/ownership is deliberately NOT a guard concern: the Table lookup h
 
 ---
 
+# 65J. Table Basic Info Update Authorization Contract (Settled, Business Foundation Q)
+
+`PATCH /api/v1/restaurants/{restaurantId}/branches/{branchId}/tables/{tableId}` (API_CONVENTIONS.md #114C). Required Permission: `tables.manage`.
+
+Reuses List/Detail's (#65H/#65I) exact Branch access model: `BranchManagementAccessGuard`, both `ACTIVE` and `INACTIVE` Branches allowed, existing Membership Branch scope applies unchanged (`allBranches = true` + same-Restaurant Branch -> allowed; `allBranches = false` + explicitly assigned Branch -> allowed; otherwise `403 BRANCH_ACCESS_DENIED`). Restaurant operational state is still enforced normally and unchanged by `RestaurantAccessGuard`.
+
+This is an unsafe mutation, so unlike List/Detail, `CsrfGuard` applies. Settled guard order for this route specifically (not a generalized precedent): `AuthGuard` → `CsrfGuard` → `RestaurantAccessGuard` → `BranchManagementAccessGuard` → `PermissionGuard`. Neither `BranchAccessGuard` nor `AllBranchesRequiredGuard` is used. No `TableAccessGuard` exists or is introduced.
+
+Table resolution happens only after the entire guard chain above -- including `PermissionGuard` -- has already succeeded, matching Foundation P's precedence: a caller lacking `tables.manage` receives `PERMISSION_DENIED` before the application ever attempts to disclose whether a Table id exists. The Table is resolved via the exact same Tenant/Branch-scoped `id` + `restaurantId` + `branchId` lookup as Detail, and `TABLE_NOT_FOUND` reuses Foundation P's contract unchanged for every identity/ownership failure (malformed, unknown, cross-Branch, cross-Restaurant `tableId`).
+
+---
+
 # 66. NestJS Authorization Structure
 
 Preferred conceptual implementation:

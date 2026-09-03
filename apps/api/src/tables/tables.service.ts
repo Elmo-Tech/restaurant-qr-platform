@@ -93,6 +93,40 @@ export interface GetTableDetailInput {
 export type TableDetailResult =
   { outcome: 'found'; data: TableDetail } | { outcome: 'notFound' };
 
+/** The exact safe response shape for Update (API_CONVENTIONS.md #114C). Never `restaurantId`, `branchId`, timestamps, or QR data. */
+export interface UpdatedTable {
+  id: string;
+  tableNumber: string;
+  status: TableStatus;
+}
+
+/**
+ * `restaurantId`/`branchId` are the already-authorized
+ * `request.restaurantAccess.restaurantId` / `request.branchAccess.branchId`.
+ * `tableId` is the raw `:tableId` route identifier -- identification only,
+ * trusted only once the tenant/Branch-scoped lookup finds a matching row.
+ * `tableNumber` is already DTO-validated/normalized; `undefined` means "the
+ * field was omitted, leave unchanged" and must be distinguished from a
+ * present value.
+ */
+export interface UpdateTableInput {
+  restaurantId: string;
+  branchId: string;
+  tableId: string;
+  tableNumber?: string;
+}
+
+/**
+ * Business Foundation Q, settled result type: `updated` represents either a
+ * real changed-value write or a true no-op (omitted/same-value) -- the HTTP
+ * response is identical either way, so no separate `unchanged`/`noOp`
+ * outcome is introduced.
+ */
+export type UpdateTableResult =
+  | { outcome: 'updated'; data: UpdatedTable }
+  | { outcome: 'notFound' }
+  | { outcome: 'tableNumberConflict' };
+
 /**
  * The real Postgres unique-index name behind `@@unique([branchId,
  * tableNumber])` on `Table` (Business Foundation L1 migration). Confirmed
@@ -284,5 +318,86 @@ export class TablesService {
         qr: table.qrCodes[0] ?? null,
       },
     };
+  }
+
+  /**
+   * Business Foundation Q, settled contract: partial update of an
+   * already-existing Table's `tableNumber`, reusing Foundation P's exact
+   * Table identity/ownership resolution (`isWellFormedUuid` pre-check, then
+   * a single `findFirst` scoped by `id` + `restaurantId` + `branchId` --
+   * never `findUnique({ id })` followed by an ownership check). `status` is
+   * never read from `input` and never appears in any mutation `data` --
+   * Table lifecycle mutation is not part of this contract, and both
+   * `ACTIVE`/`INACTIVE` Tables remain editable and unchanged in status.
+   *
+   * `tableNumber` omitted, or normalized-equal to the current value, is a
+   * TRUE no-op: no mutation call is made at all, `updatedAt` is left
+   * untouched, and the current row (already fetched by the identity lookup)
+   * is returned as `updated` -- self-update can never conflict with itself.
+   * Only a genuinely different value reaches `updateManyAndReturn`, whose
+   * `where` clause repeats the same `id`/`restaurantId`/`branchId` scope
+   * (never the raw route id alone) -- confirmed against this repository's
+   * real database that its `P2002` error shape for the
+   * `tables_branch_id_table_number_key` constraint is identical to
+   * `create`'s (Business Foundation L3), so the same narrow
+   * `isTableNumberConflict` check applies unchanged; no other P2002 is ever
+   * mislabeled. No QR write/query, no Membership query, and no transaction
+   * -- the identity lookup and the (at most one) subsequent mutation are
+   * each a single scoped statement.
+   */
+  async updateTable(input: UpdateTableInput): Promise<UpdateTableResult> {
+    if (!isWellFormedUuid(input.tableId)) {
+      return { outcome: 'notFound' };
+    }
+
+    const current = await this.prisma.table.findFirst({
+      where: {
+        id: input.tableId,
+        restaurantId: input.restaurantId,
+        branchId: input.branchId,
+      },
+      select: { id: true, tableNumber: true, status: true },
+    });
+
+    if (!current) {
+      return { outcome: 'notFound' };
+    }
+
+    if (
+      input.tableNumber === undefined ||
+      input.tableNumber === current.tableNumber
+    ) {
+      return { outcome: 'updated', data: current };
+    }
+
+    try {
+      const rows = await this.prisma.table.updateManyAndReturn({
+        where: {
+          id: current.id,
+          restaurantId: input.restaurantId,
+          branchId: input.branchId,
+        },
+        data: { tableNumber: input.tableNumber },
+        select: { id: true, tableNumber: true, status: true },
+      });
+
+      if (rows.length === 0) {
+        // The identity read and the mutation are two separate statements
+        // (no transaction) -- if the scoped Table ceased to exist or ceased
+        // to match the authorized restaurantId/branchId between them, this
+        // scoped updateManyAndReturn matches zero rows. Never fabricate an
+        // `updated` outcome with undefined data; the caller gets the same
+        // existence-hiding `notFound` it would have gotten from the
+        // identity read finding nothing in the first place.
+        return { outcome: 'notFound' };
+      }
+
+      return { outcome: 'updated', data: rows[0] };
+    } catch (error) {
+      if (isTableNumberConflict(error)) {
+        return { outcome: 'tableNumberConflict' };
+      }
+      throw error;
+    }
   }
 }

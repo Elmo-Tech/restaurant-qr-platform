@@ -66,6 +66,26 @@ interface TableDetailRow {
   qrCodes: { id: string; publicCode: string; status: string }[];
 }
 
+/**
+ * `table.findFirst` is shared between `getTableDetail` (select includes the
+ * nested `qrCodes` relation) and `updateTable`'s identity lookup (plain
+ * `id`/`tableNumber`/`status` select) -- the mock's declared arg type stays
+ * the Detail shape (unchanged, so existing Detail tests need no cast), and
+ * the new `updateTable` tests narrow the recorded call args locally instead
+ * of widening this shared type.
+ */
+interface TableIdentityRow {
+  id: string;
+  tableNumber: string;
+  status: string;
+}
+
+interface TableUpdateManyAndReturnArgs {
+  where: Record<string, unknown>;
+  data: Record<string, unknown>;
+  select: Record<string, boolean>;
+}
+
 function buildPrismaMock() {
   const tableCreate = jest.fn<
     Promise<{ id: string; tableNumber: string; status: string }>,
@@ -84,6 +104,9 @@ function buildPrismaMock() {
   const tableFindFirst = jest
     .fn<Promise<TableDetailRow | null>, [TableFindFirstArgs]>()
     .mockResolvedValue(null);
+  const tableUpdateManyAndReturn = jest
+    .fn<Promise<TableIdentityRow[]>, [TableUpdateManyAndReturnArgs]>()
+    .mockResolvedValue([]);
   const txClient = {
     table: { create: tableCreate },
     qrCode: { create: qrCodeCreate },
@@ -95,17 +118,23 @@ function buildPrismaMock() {
   // on this mock: if the service ever wrote outside `$transaction`'s
   // callback (violating K), or ever queried Membership/QR data, that call
   // would throw here rather than silently succeeding. `table.findMany`/
-  // `table.findFirst` are the legitimate top-level (non-transactional)
-  // reads `listTables`/`getTableDetail` perform.
+  // `table.findFirst`/`table.updateManyAndReturn` are the legitimate
+  // top-level (non-transactional) calls `listTables`/`getTableDetail`/
+  // `updateTable` perform.
   return {
     prisma: {
       $transaction,
-      table: { findMany: tableFindMany, findFirst: tableFindFirst },
+      table: {
+        findMany: tableFindMany,
+        findFirst: tableFindFirst,
+        updateManyAndReturn: tableUpdateManyAndReturn,
+      },
     },
     tableCreate,
     qrCodeCreate,
     tableFindMany,
     tableFindFirst,
+    tableUpdateManyAndReturn,
     $transaction,
   };
 }
@@ -538,6 +567,247 @@ describe('TablesService', () => {
       const result = await service.getTableDetail(DETAIL_INPUT);
 
       expect(result.outcome === 'found' && result.data.status).toBe('INACTIVE');
+    });
+  });
+
+  describe('updateTable', () => {
+    const UPDATE_INPUT = {
+      restaurantId: RESTAURANT_ID,
+      branchId: BRANCH_ID,
+      tableId: TABLE_ID,
+    };
+    const CURRENT_ROW = {
+      id: TABLE_ID,
+      tableNumber: 'A1',
+      status: 'ACTIVE' as const,
+      qrCodes: [],
+    };
+
+    beforeEach(() => {
+      mock.tableFindFirst.mockResolvedValue(CURRENT_ROW);
+    });
+
+    it('A. malformed tableId -> notFound, no Prisma Table lookup/mutation', async () => {
+      const result = await service.updateTable({
+        ...UPDATE_INPUT,
+        tableId: 'not-a-uuid',
+        tableNumber: 'A2',
+      });
+
+      expect(result).toEqual({ outcome: 'notFound' });
+      expect(mock.tableFindFirst).not.toHaveBeenCalled();
+      expect(mock.tableUpdateManyAndReturn).not.toHaveBeenCalled();
+    });
+
+    it('B. unknown scoped Table -> notFound', async () => {
+      mock.tableFindFirst.mockResolvedValue(null);
+
+      const result = await service.updateTable({
+        ...UPDATE_INPUT,
+        tableNumber: 'A2',
+      });
+
+      expect(result).toEqual({ outcome: 'notFound' });
+      expect(mock.tableUpdateManyAndReturn).not.toHaveBeenCalled();
+    });
+
+    it('C. identity resolution where contains exactly id, restaurantId, branchId', async () => {
+      await service.updateTable({ ...UPDATE_INPUT, tableNumber: 'A2' });
+
+      const args = mock.tableFindFirst.mock.calls[0][0];
+      expect(args.where).toEqual({
+        id: TABLE_ID,
+        restaurantId: RESTAURANT_ID,
+        branchId: BRANCH_ID,
+      });
+    });
+
+    it('D. no Table status filter in the identity resolution', async () => {
+      await service.updateTable({ ...UPDATE_INPUT, tableNumber: 'A2' });
+
+      const args = mock.tableFindFirst.mock.calls[0][0];
+      expect(args.where).not.toHaveProperty('status');
+    });
+
+    it('E. tableNumber omitted -> returns current data, no mutation call', async () => {
+      const result = await service.updateTable(UPDATE_INPUT);
+
+      expect(result).toEqual({ outcome: 'updated', data: CURRENT_ROW });
+      expect(mock.tableUpdateManyAndReturn).not.toHaveBeenCalled();
+    });
+
+    it('F. same tableNumber -> updated result, no mutation call', async () => {
+      const result = await service.updateTable({
+        ...UPDATE_INPUT,
+        tableNumber: 'A1',
+      });
+
+      expect(result).toEqual({ outcome: 'updated', data: CURRENT_ROW });
+      expect(mock.tableUpdateManyAndReturn).not.toHaveBeenCalled();
+    });
+
+    it('G. whitespace-normalized same value (already trimmed by DTO) -> no mutation call', async () => {
+      // The DTO trims before the service ever sees the value, so the
+      // service itself only ever receives an already-normalized string;
+      // this proves equality comparison against the current value still
+      // short-circuits correctly for that normalized input.
+      const result = await service.updateTable({
+        ...UPDATE_INPUT,
+        tableNumber: 'A1',
+      });
+
+      expect(result.outcome).toBe('updated');
+      expect(mock.tableUpdateManyAndReturn).not.toHaveBeenCalled();
+    });
+
+    it('H. changed tableNumber -> mutation uses authorized restaurantId, branchId, table id, and explicit data', async () => {
+      mock.tableUpdateManyAndReturn.mockResolvedValue([
+        { id: TABLE_ID, tableNumber: 'A2', status: 'ACTIVE' },
+      ]);
+
+      await service.updateTable({ ...UPDATE_INPUT, tableNumber: 'A2' });
+
+      const args = mock.tableUpdateManyAndReturn.mock.calls[0][0];
+      expect(args.where).toEqual({
+        id: TABLE_ID,
+        restaurantId: RESTAURANT_ID,
+        branchId: BRANCH_ID,
+      });
+      expect(args.data).toEqual({ tableNumber: 'A2' });
+    });
+
+    it('I. ACTIVE Table remains ACTIVE after a changed-value update', async () => {
+      mock.tableUpdateManyAndReturn.mockResolvedValue([
+        { id: TABLE_ID, tableNumber: 'A2', status: 'ACTIVE' },
+      ]);
+
+      const result = await service.updateTable({
+        ...UPDATE_INPUT,
+        tableNumber: 'A2',
+      });
+
+      expect(result.outcome === 'updated' && result.data.status).toBe('ACTIVE');
+    });
+
+    it('J. INACTIVE Table remains INACTIVE after a changed-value update', async () => {
+      mock.tableFindFirst.mockResolvedValue({
+        id: TABLE_ID,
+        tableNumber: 'A1',
+        status: 'INACTIVE',
+        qrCodes: [],
+      });
+      mock.tableUpdateManyAndReturn.mockResolvedValue([
+        { id: TABLE_ID, tableNumber: 'A2', status: 'INACTIVE' },
+      ]);
+
+      const result = await service.updateTable({
+        ...UPDATE_INPUT,
+        tableNumber: 'A2',
+      });
+
+      expect(result.outcome === 'updated' && result.data.status).toBe(
+        'INACTIVE',
+      );
+    });
+
+    it('K. exact response fields: id, tableNumber, status', async () => {
+      mock.tableUpdateManyAndReturn.mockResolvedValue([
+        { id: TABLE_ID, tableNumber: 'A2', status: 'ACTIVE' },
+      ]);
+
+      const result = await service.updateTable({
+        ...UPDATE_INPUT,
+        tableNumber: 'A2',
+      });
+
+      expect(result).toEqual({
+        outcome: 'updated',
+        data: { id: TABLE_ID, tableNumber: 'A2', status: 'ACTIVE' },
+      });
+    });
+
+    it('updateManyAndReturn matching zero rows (Table ceased to match scope between identity read and mutation) -> exactly notFound, never updated with undefined data', async () => {
+      mock.tableUpdateManyAndReturn.mockResolvedValue([]);
+
+      const result = await service.updateTable({
+        ...UPDATE_INPUT,
+        tableNumber: 'A2',
+      });
+
+      expect(result).toEqual({ outcome: 'notFound' });
+      const args = mock.tableUpdateManyAndReturn.mock.calls[0][0];
+      expect(args.where).toEqual({
+        id: TABLE_ID,
+        restaurantId: RESTAURANT_ID,
+        branchId: BRANCH_ID,
+      });
+    });
+
+    it('L. exact unique constraint conflict -> tableNumberConflict', async () => {
+      mock.tableUpdateManyAndReturn.mockRejectedValue(
+        fakeUniqueViolation('tables_branch_id_table_number_key', 'tables'),
+      );
+
+      const result = await service.updateTable({
+        ...UPDATE_INPUT,
+        tableNumber: 'A2',
+      });
+
+      expect(result).toEqual({ outcome: 'tableNumberConflict' });
+    });
+
+    it('M. an unrelated persistence error is rethrown, not classified as a conflict', async () => {
+      const unexpected = new Error('connection reset');
+      mock.tableUpdateManyAndReturn.mockRejectedValue(unexpected);
+
+      await expect(
+        service.updateTable({ ...UPDATE_INPUT, tableNumber: 'A2' }),
+      ).rejects.toBe(unexpected);
+    });
+
+    it('a qr_codes(public_code) unique violation is NOT classified as a Table Number conflict', async () => {
+      mock.tableUpdateManyAndReturn.mockRejectedValue(
+        fakeUniqueViolation('qr_codes_public_code_key', 'qr_codes'),
+      );
+
+      await expect(
+        service.updateTable({ ...UPDATE_INPUT, tableNumber: 'A2' }),
+      ).rejects.toBeInstanceOf(Prisma.PrismaClientKnownRequestError);
+    });
+
+    it('N. no QR write/query is required', async () => {
+      const prismaWithQr = mock.prisma as unknown as { qrCode?: unknown };
+
+      await service.updateTable({ ...UPDATE_INPUT, tableNumber: 'A2' });
+
+      expect(prismaWithQr.qrCode).toBeUndefined();
+    });
+
+    it('O. no Membership query', async () => {
+      const prismaWithMembership = mock.prisma as unknown as {
+        restaurantMembershipBranch?: unknown;
+      };
+
+      await service.updateTable({ ...UPDATE_INPUT, tableNumber: 'A2' });
+
+      expect(prismaWithMembership.restaurantMembershipBranch).toBeUndefined();
+    });
+
+    it('P. status is never present in the mutation data', async () => {
+      mock.tableUpdateManyAndReturn.mockResolvedValue([
+        { id: TABLE_ID, tableNumber: 'A2', status: 'ACTIVE' },
+      ]);
+
+      await service.updateTable({ ...UPDATE_INPUT, tableNumber: 'A2' });
+
+      const args = mock.tableUpdateManyAndReturn.mock.calls[0][0];
+      expect(args.data).not.toHaveProperty('status');
+    });
+
+    it('Q. no transaction is used', async () => {
+      await service.updateTable({ ...UPDATE_INPUT, tableNumber: 'A2' });
+
+      expect(mock.$transaction).not.toHaveBeenCalled();
     });
   });
 });
