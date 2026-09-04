@@ -2295,13 +2295,11 @@ Branch).
 
 Potential endpoints:
 
-`POST /api/v1/restaurants/{restaurantId}/invitations`
+`POST /api/v1/restaurants/{restaurantId}/invitations` -- settled, Business Foundation S (#117B below).
 
-`GET /api/v1/restaurants/{restaurantId}/invitations`
+`GET /api/v1/restaurants/{restaurantId}/invitations` -- remains unsettled and unimplemented.
 
-`POST /api/v1/auth/invitations/{token}/accept`
-
-Token route design may be refined for safe implementation.
+Acceptance is settled as `POST /api/v1/auth/invitations/accept` (token in the request body, not the path) -- Business Foundation T (#117C below).
 
 ---
 
@@ -2457,7 +2455,76 @@ Exact fields only. `email` is the normalized email. For `allBranches = true`, `b
 
 Foundation R (`GET /restaurants/{restaurantId}/memberships`, #117A) is unaffected: since this route creates no Membership, a pending Invitation never appears there.
 
-No new Audit event, realtime event, or notification infrastructure -- none exists in this codebase yet. Invitation List (`GET /restaurants/{restaurantId}/invitations`, #117) and Invitation acceptance (`POST /auth/invitations/{token}/accept`, #117) remain separate, unimplemented Foundations.
+No new Audit event, realtime event, or notification infrastructure -- none exists in this codebase yet. Invitation List (`GET /restaurants/{restaurantId}/invitations`, #117) remains a separate, unimplemented Foundation. Invitation acceptance is settled separately (#117C).
+
+---
+
+# 117C. Staff Invitation Acceptance (Settled, Business Foundation T)
+
+`POST /api/v1/auth/invitations/accept`
+
+Token in the request **body**, never the URL path or query string (SECURITY_SPEC.md #33-34: avoid a one-time secret appearing in reverse-proxy/application logs, browser history, or the Referrer header) -- deliberately not the `POST /auth/invitations/{token}/accept` route sketched conceptually in #117.
+
+Public, token-authorized endpoint: **no guard of any kind** protects this route (no `AuthGuard`, `CsrfGuard`, `RestaurantAccessGuard`, `BranchAccessGuard`/`BranchManagementAccessGuard`, `PermissionGuard`, or `AllBranchesRequiredGuard`). Possession of a valid Invitation token plus the settled password proof (below) is the request's entire authority -- a brand-new invited User cannot possibly already hold a Staff session. No `CsrfGuard` because this endpoint never consumes ambient session-cookie authority, exactly mirroring the existing Login precedent (AUTH_TENANCY_SPEC.md #106A: "Login is outside this boundary: it does not consume an existing Staff session cookie as authority, so it carries no CsrfGuard"). An ambient `restaurant_session` cookie, if any happens to be sent, is never read, compared, mutated, or revoked -- it has zero effect on which User the Invitation resolves to; Invitation identity comes only from `RestaurantInvitation.emailNormalized`. This Foundation performs no automatic account switching and no auto-login: success creates no `AuthSession` and sets no cookie -- the normal `POST /auth/login` remains the sole authentication entry point afterward.
+
+Request body, both fields required:
+
+```
+{
+  "token": "<raw invitation token>",
+  "password": "<password>"
+}
+```
+
+No `email`/`restaurantId`/`userId`/`membershipId`/`role`/`allBranches`/`branchIds`/`status`/`preferredLocale`/`invitedByUserId` field is ever accepted as authority, even if present (stripped by the existing global whitelist `ValidationPipe`, but never trusted regardless). `token` is validated at the DTO layer only as "a non-empty string" -- its specific raw-token shape is a business-layer concern (`SessionTokenService.isWellFormedRawToken`), so a malformed token converges on the identical generic outcome below rather than a distinguishable `400 VALIDATION_ERROR`.
+
+**Password is required for both a brand-new and an existing account** -- reusing the exact existing V1 password policy unchanged (10-128 characters, `PasswordHasherService`/Argon2id, no composition rules). For a brand-new User, it becomes the new account password (hashed, never the plaintext persisted). For an existing `ACTIVE` User, it must be that User's **current** password, verified against the existing `passwordHash` -- it is never used to replace or rehash that User's credential, and the User's `passwordHash`/`email`/`emailNormalized`/`preferredLocale`/`status` are never mutated by Acceptance. A wrong current password reuses the exact existing Login `401 INVALID_CREDENTIALS` contract unchanged -- the one deliberate exception to the generic outcome below. Random invalid-token traffic never reaches Argon2id: password work happens only after the Invitation, Restaurant, Branch-grant, and current-inviter-authority checks below have all already passed.
+
+**The single generic public outcome**, covering every other unusable-Invitation/unusable-grant-state reason:
+
+```
+404 Not Found
+{
+  "error": {
+    "code": "INVITATION_NOT_FOUND",
+    "message": "Invitation not found."
+  }
+}
+```
+
+Used identically for: a malformed or unknown token; an expired, revoked, or already-accepted Invitation (`acceptedAt IS NULL AND revokedAt IS NULL AND expiresAt > now` is the entire pending-state definition -- there is no separate status column); a historical/corrupt unsupported stored Role (Foundation S can never create an `OWNER` Invitation, so one appearing here is fail-closed data corruption); corrupt or cross-Restaurant Branch grant data (below); a global invited User whose current `status` is `INVITED` or `DISABLED`; an already-existing target-Restaurant Membership of ANY status (`ACTIVE`, `INVITED`, or `DISABLED` -- Foundation S already prevented this at Create time, but state can change before Acceptance, and this Foundation creates a Membership only when none currently exists at all); and a current inviter who is no longer authorized to grant this Invitation (below). No distinct reason ever leaks which condition occurred.
+
+`Restaurant` operational state is the one outcome deliberately **not** folded into the generic 404 -- it reuses the exact existing contract unchanged, and the Invitation is left unconsumed (retriable once the Restaurant becomes `ACTIVE` again):
+
+```
+409 Conflict
+{
+  "error": {
+    "code": "RESTAURANT_NOT_OPERATIONAL",
+    "message": "Restaurant is not currently operational."
+  }
+}
+```
+
+**Current inviter authority is revalidated at Acceptance time, inside the same transaction** -- an Invitation is not a frozen grant. The original `invitedByUserId` User must still be `status = ACTIVE`; their current same-Restaurant Membership must still be `status = ACTIVE` and its Role must still hold `users.manage`; if that Membership is `allBranches = false`, it can never authorize an `allBranches = true` Invitation, and the Invitation's already-validated Branch set must still be an exact subset of the inviter's CURRENT valid same-Restaurant Branch assignments (re-read live, never trusted from Create time). Any failure here is the same generic `404 INVITATION_NOT_FOUND`.
+
+**Branch materialization** (DATABASE_SPEC.md #33F): for `allBranches = true`, zero `RestaurantInvitationBranch` rows are required (a contradictory non-zero count is fail-closed data corruption) and zero `RestaurantMembershipBranch` rows are created. For `allBranches = false`, every `RestaurantInvitationBranch` row is revalidated against the same-Restaurant invariant at Acceptance time (not merely trusted from Create), and exactly the valid rows are materialized into `RestaurantMembershipBranch`; a zero-valid-row or partial cross-Restaurant-corruption result is fail-closed generic 404 -- it never silently widens to `allBranches = true`. `ACTIVE` and `INACTIVE` Branches are both valid.
+
+**New User** (no existing global User for `RestaurantInvitation.emailNormalized`): created with `email = emailNormalized` (the Invitation never preserved original casing, so both fields are identical), `passwordHash` = the submitted password hashed, `status = ACTIVE`, `preferredLocale = null`. No other field (name, display name, phone, profile, Platform Administrator state) is invented.
+
+**Resulting Membership**: `restaurantId`/`role`/`allBranches` copied only from the Invitation (never the request body), `userId` = the resolved-or-created User, `status = ACTIVE`.
+
+**Consumption**: immediately before creating the User/Membership/MembershipBranch rows, a conditional `UPDATE` requires the Invitation to still match the exact pending predicate above and sets `acceptedAt`; if zero rows transition (a concurrent winner already consumed it), the generic 404 is returned and no further mutation ever runs. All of this -- every business read, the conditional consumption, and every access-grant write -- happens inside one `SERIALIZABLE`-isolation Prisma transaction, retried up to 3 total attempts on a Postgres serialization conflict (`P2034`) or one of two specific unique-constraint races a concurrent Acceptance can legitimately produce (`users_email_normalized_key`, `restaurant_memberships_restaurant_id_user_id_key`) -- the same bounded-retry strategy Business Foundation S already established.
+
+Success:
+
+```
+204 No Content
+```
+
+No response body. Never returns `tokenHash`, the raw token, `passwordHash`, `invitedByUserId`, Membership/User internals, or Platform Administrator data -- there is nothing to leak because there is no body at all.
+
+Foundation R (`GET /restaurants/{restaurantId}/memberships`, #117A) requires no code change: the resulting `ACTIVE` Membership appears there naturally on the very next call, since that route always queries live database state.
 
 ---
 

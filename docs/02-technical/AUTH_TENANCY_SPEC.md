@@ -1435,6 +1435,28 @@ No new Audit event or realtime event -- neither exists in this codebase yet.
 
 ---
 
+# 65M. Staff Invitation Acceptance Authorization Contract (Settled, Business Foundation T)
+
+`POST /api/v1/auth/invitations/accept` (API_CONVENTIONS.md #117C). Token in the request body, never the path or query string (#118, SECURITY_SPEC.md #33-34).
+
+**No guard of any kind.** Not `AuthGuard`, `RestaurantAccessGuard`, `BranchAccessGuard`/`BranchManagementAccessGuard`, `PermissionGuard`, `AllBranchesRequiredGuard`, or `CsrfGuard`. This is a public, token-authorized endpoint: a brand-new invited User cannot possibly already hold a Staff session, so the accepting request's entire authority is possession of a valid Invitation token plus the settled password proof. No `CsrfGuard` for the same reason Login carries none (#106A): this endpoint never consumes ambient session-cookie authority. An ambient `restaurant_session` cookie, if sent, is never read, compared, mutated, or revoked, and has zero effect on which User the Invitation resolves to -- identity comes only from `RestaurantInvitation.emailNormalized`. This Foundation performs no automatic account switching.
+
+**No auto-login (settlement of the "smallest safe Foundation" default):** successful Acceptance creates no `AuthSession` and sets no cookie. Normal `POST /auth/login` (#6, #147) remains the sole authentication entry point afterward.
+
+**Password contract:** required for both a brand-new and an existing account, reusing the exact existing V1 policy unchanged (#14, PasswordHasherService: 10-128 characters, Argon2id, no composition rules) -- there is no second password policy. For a brand-new User it becomes the new account password. For an existing `ACTIVE` User it must be that User's CURRENT password, verified (never replaced, never rehashed, never persisted as a new value) -- token possession alone is not sufficient proof for an account that already has credentials (settles #80, above). A wrong current password reuses the exact existing Login `401 INVALID_CREDENTIALS` contract (#150, #35) unchanged -- the one deliberate exception to the generic outcome below. Password work (hashing or verification) never runs before the Invitation/Restaurant/Branch-grant/current-inviter-authority checks below have all already passed, so unusable-token traffic never reaches Argon2id.
+
+**One generic public outcome** (`404 INVITATION_NOT_FOUND`, API_CONVENTIONS.md #117C) covers every unusable-Invitation/unusable-grant-state reason without distinction: malformed/unknown token; expired/revoked/already-accepted Invitation; a historical/corrupt unsupported stored Role; corrupt or cross-Restaurant Branch grant data; a global invited User currently `INVITED` or `DISABLED` (#80); an already-existing target-Restaurant Membership of ANY status (#80); and a current inviter no longer authorized to grant this Invitation (below). `Restaurant` non-operational state is the one outcome deliberately not folded in -- it reuses the unchanged `409 RESTAURANT_NOT_OPERATIONAL` contract (#65A), and the Invitation is left unconsumed (retriable once the Restaurant becomes `ACTIVE` again).
+
+**Current inviter authority revalidation, SECURITY CRITICAL:** an Invitation is NOT an irrevocably frozen grant. Inside the same transaction, Acceptance re-reads: the original `invitedByUserId` User is still `status = ACTIVE`; their current same-Restaurant Membership is still `status = ACTIVE` and its Role still holds `users.manage` (#128/#129, same principle #65L already applies at Create, now re-verified at Accept); if that Membership is `allBranches = false`, it can never authorize an `allBranches = true` Invitation, and the Invitation's Branch set must still be an exact subset of the inviter's CURRENT valid same-Restaurant Branch assignments (re-read live via the #61A defense-in-depth pattern, never trusted from Create time). Any failure here is the same generic outcome, never a distinct reason.
+
+**Branch materialization** (DATABASE_SPEC.md #33F, revalidated -- not merely trusted from Create): `allBranches = true` requires zero `RestaurantInvitationBranch` rows and creates zero `RestaurantMembershipBranch` rows; `allBranches = false` requires every `RestaurantInvitationBranch` row to still pass the same-Restaurant invariant, materializing exactly the valid rows -- a zero-valid-row or cross-Restaurant-corruption result fails closed to the generic outcome and never silently widens to `allBranches = true`. `ACTIVE` and `INACTIVE` Branches are both valid, consistent with #65L.
+
+**Consumption is the concurrency guard:** a conditional `UPDATE` requiring the same pending predicate (`acceptedAt IS NULL AND revokedAt IS NULL AND expiresAt > now`) sets `acceptedAt`, in the same transaction as the resulting User/Membership/MembershipBranch writes -- zero rows transitioning means a concurrent winner already consumed it, producing the generic outcome with no further mutation. `SERIALIZABLE` isolation, retried up to 3 total attempts on `P2034` or one of the two specific unique-constraint races a concurrent Acceptance can legitimately produce (`users_email_normalized_key`, `restaurant_memberships_restaurant_id_user_id_key`) -- the same bounded-retry strategy #65L already established, extended to cover this route's own retryable error set. No raw SQL, no advisory locks, no Redis.
+
+No new Audit event or realtime event -- neither exists in this codebase yet.
+
+---
+
 # 66. NestJS Authorization Structure
 
 Preferred conceptual implementation:
@@ -1572,7 +1594,7 @@ OWNER / MANAGER
 → User sets password
 → Membership becomes ACTIVE
 
-Business Foundation S settles the "Create Invitation" step above precisely (#65L): it persists only `RestaurantInvitation` and, when Branch-scoped, `RestaurantInvitationBranch` rows -- it does NOT create or mutate `User` or `RestaurantMembership`. "Membership becomes ACTIVE" happens only during the future secure Invitation acceptance step, not at Create.
+Business Foundation S settles the "Create Invitation" step above precisely (#65L): it persists only `RestaurantInvitation` and, when Branch-scoped, `RestaurantInvitationBranch` rows -- it does NOT create or mutate `User` or `RestaurantMembership`. Business Foundation T settles the remaining steps precisely (#65M): "User sets password" and "Membership becomes ACTIVE" both happen only during Acceptance (`POST /auth/invitations/accept`, API_CONVENTIONS.md #117C), inside one transaction, never at Create.
 
 ---
 
@@ -1609,6 +1631,8 @@ Invitation token must be:
 - Expiring
 - Stored only as hash
 
+Business Foundation T settles "one-time" precisely (#65M): the token remains usable exactly while its Invitation is pending (`acceptedAt IS NULL AND revokedAt IS NULL AND expiresAt > now`); a conditional consumption update requiring that exact predicate, in the same transaction as the resulting access grant, is what guarantees a token can never successfully authorize a second Acceptance.
+
 ---
 
 # 78. Invitation Expiry
@@ -1638,6 +1662,8 @@ If invited email already belongs to an existing User:
 Invitation should create / activate Membership after secure acceptance.
 
 Do not create duplicate User account.
+
+Business Foundation T settles this precisely (#65M): "create / activate" means Acceptance creates exactly one new `RestaurantMembership` for the target Restaurant when none currently exists there for that User -- it does NOT reactivate an existing `ACTIVE`, `INVITED`, or `DISABLED` Membership for that Restaurant (any of the three is the same generic `INVITATION_NOT_FOUND` outcome), and it never mutates the existing User's `passwordHash`, `email`, `emailNormalized`, `preferredLocale`, or `status`. An existing globally `INVITED` or `DISABLED` User is blocked identically -- a Restaurant Invitation can never silently reactivate platform-level User state. Acceptance for an existing `ACTIVE` User additionally requires that User's current password as proof (API_CONVENTIONS.md #117C) -- token possession alone is not sufficient for an account that already has credentials.
 
 ---
 

@@ -35,7 +35,12 @@ function branchIdUniquenessKey(branchId: unknown): unknown {
  * exclusively to a future, explicit ownership-transfer/OWNER-assignment
  * workflow (AUTH_TENANCY_SPEC.md #55/#57, SECURITY_SPEC.md #32).
  */
-const INVITABLE_ROLES = ['MANAGER', 'CASHIER', 'KITCHEN', 'WAITER'] as const;
+export const INVITABLE_ROLES = [
+  'MANAGER',
+  'CASHIER',
+  'KITCHEN',
+  'WAITER',
+] as const;
 export type InvitableRole = (typeof INVITABLE_ROLES)[number];
 
 /**

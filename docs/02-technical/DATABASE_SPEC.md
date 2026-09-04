@@ -916,7 +916,9 @@ For Branch-scoped invitations, selected Branch access must be validated against 
 
 The temporary representation of selected invitation Branches is `restaurant_invitation_branches` (see #33F).
 
-**Lifecycle settlement (Business Foundation S, AUTH_TENANCY_SPEC.md #65L):** Invitation Create persists exactly `restaurant_invitations` (+ `restaurant_invitation_branches` rows when `allBranches = false`) -- no `users` row and no `restaurant_memberships` row is created or mutated at Create time, even when the invited email already belongs to an existing User. `RestaurantMembership` and `RestaurantMembershipBranch` materialization (the "resulting Restaurant Membership branch assignments" above) happens only during the future secure acceptance flow, never during Invitation creation.
+**Lifecycle settlement (Business Foundation S, AUTH_TENANCY_SPEC.md #65L):** Invitation Create persists exactly `restaurant_invitations` (+ `restaurant_invitation_branches` rows when `allBranches = false`) -- no `users` row and no `restaurant_memberships` row is created or mutated at Create time, even when the invited email already belongs to an existing User. `RestaurantMembership` and `RestaurantMembershipBranch` materialization (the "resulting Restaurant Membership branch assignments" above) happens only during Acceptance (Business Foundation T, AUTH_TENANCY_SPEC.md #65M), never during Invitation creation.
+
+**Atomic consumption settlement (Business Foundation T, AUTH_TENANCY_SPEC.md #65M):** there is no separate status column -- `acceptedAt` alone is the one-time-consumption marker, and "Accepted invitation cannot be reused" / "Revoked invitation cannot be accepted" above are both implemented by one exact pending predicate used identically for both the Acceptance read and its conditional write: `acceptedAt IS NULL AND revokedAt IS NULL AND expiresAt > now`. The conditional `UPDATE` that sets `acceptedAt` requires that same predicate to still hold and runs inside the same `SERIALIZABLE` transaction as the resulting `RestaurantMembership`/`RestaurantMembershipBranch` writes -- if zero rows transition, no access-grant write ever happens, guaranteeing a token can never produce two successful Acceptances. `restaurant_invitations` rows are never deleted for any reason (accepted, revoked, or expired) -- all three remain historical.
 
 ---
 
@@ -1008,7 +1010,7 @@ Rules enforced by application/domain transaction logic, not by the schema:
 
 - Every selected Branch must belong to the same Restaurant as the Invitation.
 - When `allBranches = false`, the invitation workflow requires the intended Branch assignments before the Invitation can be used to grant Branch-scoped access.
-- On acceptance, selected Branches here are materialized into `restaurant_membership_branches` for the resulting Restaurant Membership.
+- On acceptance, selected Branches here are materialized into `restaurant_membership_branches` for the resulting Restaurant Membership. Business Foundation T (AUTH_TENANCY_SPEC.md #65M) settles that this same-Restaurant invariant is revalidated live at Acceptance time, not merely trusted from Create -- a zero-valid-row or cross-Restaurant-corrupt result fails closed rather than silently widening to `allBranches = true`.
 
 ---
 

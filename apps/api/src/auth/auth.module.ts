@@ -10,6 +10,8 @@ import { BranchAccessGuard } from './guard/branch-access.guard';
 import { BranchManagementAccessGuard } from './guard/branch-management-access.guard';
 import { PermissionGuard } from './guard/permission.guard';
 import { RestaurantAccessGuard } from './guard/restaurant-access.guard';
+import { InvitationAcceptanceController } from './invitations/invitation-acceptance.controller';
+import { InvitationAcceptanceService } from './invitations/invitation-acceptance.service';
 import { LoginController } from './login/login.controller';
 import { LoginService } from './login/login.service';
 import { LogoutController } from './logout/logout.controller';
@@ -25,9 +27,13 @@ import { SessionTokenService } from './session/session-token.service';
  * reusable Staff cookie-mutation CSRF boundary, and Staff logout (Auth
  * Foundation A-F, Authorization Foundation G-H, Auth Foundation I). Business
  * Foundation S adds Staff Invitation Creation (INVITATION-ONLY: never
- * creates or mutates a User or RestaurantMembership). Staff Membership
- * mutation, ownership transfer, and last-OWNER logic remain future work.
- * Kept explicit (not global), matching
+ * creates or mutates a User or RestaurantMembership). Business Foundation T
+ * adds Staff Invitation Acceptance -- a public, token-authorized endpoint
+ * (no AuthGuard/CsrfGuard/Restaurant-Branch-Permission guard of any kind)
+ * that consumes a pending Invitation and materializes the resulting
+ * User/RestaurantMembership/RestaurantMembershipBranch access. Staff
+ * Membership mutation, ownership transfer, and last-OWNER logic remain
+ * future work. Kept explicit (not global), matching
  * DatabaseModule. None of these guards are registered as a global
  * APP_GUARD: most V1 routes (login, public QR, guest menu, guest AI) are
  * intentionally unauthenticated/untenanted, so protection is applied
@@ -59,7 +65,12 @@ import { SessionTokenService } from './session/session-token.service';
  */
 @Module({
   imports: [DatabaseModule],
-  controllers: [LoginController, LogoutController, MeController],
+  controllers: [
+    LoginController,
+    LogoutController,
+    MeController,
+    InvitationAcceptanceController,
+  ],
   providers: [
     SessionTokenService,
     AuthSessionService,
@@ -75,6 +86,7 @@ import { SessionTokenService } from './session/session-token.service';
     PermissionGuard,
     CsrfGuard,
     AllBranchesRequiredGuard,
+    InvitationAcceptanceService,
   ],
   // PasswordHasherService is an internal implementation detail, only
   // consumed inside this module. The rest are exported for future feature
