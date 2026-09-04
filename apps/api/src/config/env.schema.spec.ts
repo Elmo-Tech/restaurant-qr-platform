@@ -147,6 +147,45 @@ describe('validateEnv', () => {
     ).toThrow(/AUTH_SESSION_TTL_DAYS/);
   });
 
+  it('applies the documented default RESTAURANT_INVITATION_TTL_DAYS when omitted', () => {
+    const result = validateEnv(
+      omit(validConfig(), 'RESTAURANT_INVITATION_TTL_DAYS'),
+    );
+
+    expect(result.RESTAURANT_INVITATION_TTL_DAYS).toBe(7);
+  });
+
+  it('coerces a valid RESTAURANT_INVITATION_TTL_DAYS to a number', () => {
+    const result = validateEnv(
+      validConfig({ RESTAURANT_INVITATION_TTL_DAYS: '14' }),
+    );
+
+    expect(result.RESTAURANT_INVITATION_TTL_DAYS).toBe(14);
+  });
+
+  it('rejects a non-integer RESTAURANT_INVITATION_TTL_DAYS', () => {
+    expect(() =>
+      validateEnv(validConfig({ RESTAURANT_INVITATION_TTL_DAYS: '7.5' })),
+    ).toThrow(/RESTAURANT_INVITATION_TTL_DAYS/);
+  });
+
+  it('rejects a zero or negative RESTAURANT_INVITATION_TTL_DAYS', () => {
+    expect(() =>
+      validateEnv(validConfig({ RESTAURANT_INVITATION_TTL_DAYS: '0' })),
+    ).toThrow(/RESTAURANT_INVITATION_TTL_DAYS/);
+    expect(() =>
+      validateEnv(validConfig({ RESTAURANT_INVITATION_TTL_DAYS: '-1' })),
+    ).toThrow(/RESTAURANT_INVITATION_TTL_DAYS/);
+  });
+
+  it('accepts a value greater than 365 -- no maximum is part of the settled contract', () => {
+    const result = validateEnv(
+      validConfig({ RESTAURANT_INVITATION_TTL_DAYS: '400' }),
+    );
+
+    expect(result.RESTAURANT_INVITATION_TTL_DAYS).toBe(400);
+  });
+
   it('rejects a non-PostgreSQL DATABASE_URL without leaking the value', () => {
     let caught: Error | undefined;
 

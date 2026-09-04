@@ -2322,7 +2322,7 @@ Settled guard order (not a generalized precedent): `AuthGuard` -> `RestaurantAcc
 
 This is READ VISIBILITY ONLY. It does not settle Staff-management (mutation) authority -- MANAGER-cannot-assign-OWNER, self-escalation protection, Branch-scope-expansion protection, last-OWNER protection, and ownership-transfer rules all remain separate, unimplemented concerns for a future mutation slice.
 
-**Membership status:** lists persisted `RestaurantMembership` rows regardless of `status` -- `ACTIVE`, `INVITED`, and `DISABLED` all appear. This deliberately differs from `/auth/me` (#116), whose purpose is accessible authorization context and therefore returns `ACTIVE` Memberships only. This does not settle when or whether a future Invitation-acceptance workflow creates a Membership with `status = INVITED` -- Foundation R simply reflects whatever `RestaurantMembership` rows are already persisted.
+**Membership status:** lists persisted `RestaurantMembership` rows regardless of `status` -- `ACTIVE`, `INVITED`, and `DISABLED` all appear. This deliberately differs from `/auth/me` (#116), whose purpose is accessible authorization context and therefore returns `ACTIVE` Memberships only. Business Foundation S settles that Staff Invitation creation itself never creates a `RestaurantMembership` (INVITATION-ONLY lifecycle, #117B) -- this List simply reflects whatever `RestaurantMembership` rows are already persisted, and continues to display an `INVITED` Membership if one exists from some other historical or future flow.
 
 **Invitations:** `RestaurantInvitation` (#117) is a separate resource. This endpoint never queries it, never merges Invitation rows into the response, and never infers a Membership from a pending Invitation.
 
@@ -2366,6 +2366,98 @@ A normal authorized request always has at least the caller's own Membership visi
 No new public error code is introduced -- failures reuse the existing `UNAUTHENTICATED`, `RESTAURANT_NOT_FOUND`, `RESTAURANT_NOT_OPERATIONAL`, and `PERMISSION_DENIED` contracts. This List has no child-resource identity and therefore no Membership-specific 404.
 
 GET only: no mutation, no audit event, no realtime event, no session/Invitation/Membership/User changes.
+
+---
+
+# 117B. Staff Invitation Creation (Settled, Business Foundation S)
+
+`POST /api/v1/restaurants/{restaurantId}/invitations`
+
+INVITATION-ONLY creation: this route persists exactly a `RestaurantInvitation` (+ `RestaurantInvitationBranch` rows when `allBranches = false`) and never creates or mutates a `User` or `RestaurantMembership` of any kind, and never mutates an existing one. This reconciles #75/#80 (AUTH_TENANCY_SPEC.md): for an existing global User, Membership creation/activation happens only during the future secure acceptance flow, not at Invitation creation time.
+
+Requires `users.manage`. Restaurant-scoped -- no Branch-nested route, no `/staff`/`/users` alias. No Branch guard of any kind (`BranchAccessGuard`, `BranchManagementAccessGuard`, `AllBranchesRequiredGuard` are all unused): the requested `branchIds` are proposed authorization grants validated as Domain data inside the business service, not an existing resource this route is scoped to.
+
+Settled guard order (not a generalized precedent): `AuthGuard` -> `CsrfGuard` -> `RestaurantAccessGuard` -> `PermissionGuard` (AUTH_TENANCY_SPEC.md #65L). `RestaurantAccessGuard` keeps its existing unchanged behavior: unknown/inaccessible Restaurant -> `404 RESTAURANT_NOT_FOUND`; authorized but `INACTIVE`/`SUSPENDED` Restaurant -> `409 RESTAURANT_NOT_OPERATIONAL`, both before the Staff Invitation business method ever runs.
+
+Request body, all four fields required:
+
+```
+{
+  "email": "manager@example.com",
+  "role": "MANAGER",
+  "allBranches": false,
+  "branchIds": ["<uuid>"]
+}
+```
+
+`email` is normalized (`trim().toLowerCase()`, reusing Login's exact `normalizeLoginEmail` behavior) before validation and persistence -- only the normalized form is ever stored (`RestaurantInvitation.emailNormalized`) or returned. `role` must be exactly one of `MANAGER`, `CASHIER`, `KITCHEN`, `WAITER` -- `OWNER` is not a valid value for this ordinary endpoint (`400 VALIDATION_ERROR`); OWNER assignment belongs exclusively to a future, explicit ownership-transfer/OWNER-assignment workflow (AUTH_TENANCY_SPEC.md #55/#57, SECURITY_SPEC.md #32). `allBranches = true` requires `branchIds` to be exactly `[]`; `allBranches = false` requires at least one distinct, well-formed-UUID Branch id (duplicates rejected) -- either invariant violation is `400 VALIDATION_ERROR`.
+
+**Inviter Branch grant authority (AUTH_TENANCY_SPEC.md #65L), SECURITY CRITICAL:** a caller with `allBranches = true` may grant `allBranches = true` or any valid same-Restaurant Branch subset. A caller with `allBranches = false` may only grant `allBranches = false` with a Branch set that is an exact subset of their own CURRENT valid same-Restaurant Branch assignments (re-read from the database inside the same transaction, never trusted from stale/client state) -- granting `allBranches = true`, or any Branch outside that scope, is rejected regardless of Role or holding `users.manage`.
+
+Every requested Branch must exist and belong to the authorized Restaurant -- identity is checked before authority is disclosed. `ACTIVE` and `INACTIVE` Branches are both valid grants.
+
+**Existing Membership / duplicate Invitation (AUTH_TENANCY_SPEC.md #65L), privacy-preserving:** the existing-Membership check is Tenant-scoped by the query itself (`RestaurantMembership` joined to the invited email, scoped to the authorized Restaurant) -- never a global User fetch, so it can never reveal whether the email belongs to another Restaurant. ANY existing same-Restaurant Membership (`ACTIVE`, `INVITED`, or `DISABLED`) conflicts identically, as does an existing currently-pending Invitation (`acceptedAt IS NULL AND revokedAt IS NULL AND expiresAt > now`) for the same Restaurant + normalized email. Self-invitation is not special-cased -- it resolves through the same existing-Membership conflict, since the caller's own Membership already exists. A historical Invitation (accepted, revoked, or expired) never blocks a new Create. One response for every reason:
+
+```
+409 Conflict
+{
+  "error": {
+    "code": "STAFF_INVITATION_CONFLICT",
+    "message": "An invitation cannot be created for this email."
+  }
+}
+```
+
+A Branch grant that exceeds the inviter's authority (#9 above) produces, without ever disclosing which requested Branch was the reason:
+
+```
+403 Forbidden
+{
+  "error": {
+    "code": "STAFF_SCOPE_EXCEEDS_AUTHORITY",
+    "message": "You cannot grant Staff access beyond your authorized Branch scope."
+  }
+}
+```
+
+An unknown or foreign-Restaurant Branch id reuses the existing `404 BRANCH_NOT_FOUND` contract unchanged (#38A).
+
+**Concurrency:** the schema deliberately has no unique constraint on `(restaurantId, emailNormalized)` (DATABASE_SPEC.md #33C), so the duplicate-pending-Invitation check alone is not concurrency-safe. Creation runs inside one `SERIALIZABLE`-isolation Prisma transaction (all business reads and the Invitation/InvitationBranch writes together), retried up to 3 total attempts on a Postgres serialization conflict (`P2034`) -- a losing concurrent attempt observes the now-persisted pending Invitation on retry and returns `409 STAFF_INVITATION_CONFLICT`. The raw token is generated inside each transaction attempt, so only the successfully committed attempt's token ever leaves the service. No raw SQL, no advisory locks.
+
+**Token:** reuses the existing generic `SessionTokenService` primitive unchanged -- 256-bit cryptographically random, base64url raw token; SHA-256 hash is the only persisted representation (`RestaurantInvitation.tokenHash`, unique). The raw token is never logged and never persisted anywhere.
+
+**Current early-Pilot manual delivery contract:** no email-delivery infrastructure exists yet. The successful creation response returns the raw token exactly once, under `invitationToken`, so the authorized inviter can manually deliver it through the Pilot onboarding flow. This is a Pilot-only contract, not a claim that email delivery is complete -- before Production Release Acceptance, delivery must be reviewed and a proper email/out-of-band delivery flow introduced or explicitly approved. No invitation acceptance URL is constructed (the Web acceptance route is not yet settled).
+
+**Expiry:** `RESTAURANT_INVITATION_TTL_DAYS` (env, default 7 -- AUTH_TENANCY_SPEC.md #78), `expiresAt = now + configured TTL days`, stored as a normal UTC `Date`, serialized ISO-8601.
+
+Success:
+
+```
+201 Created
+{
+  "data": {
+    "id": "<restaurantInvitationId>",
+    "email": "manager@example.com",
+    "role": "MANAGER",
+    "allBranches": false,
+    "branches": [
+      {
+        "id": "<branchId>",
+        "name": "<branchName>",
+        "status": "ACTIVE"
+      }
+    ],
+    "expiresAt": "2026-09-10T20:00:00.000Z",
+    "invitationToken": "<raw-one-time-token>"
+  }
+}
+```
+
+Exact fields only. `email` is the normalized email. For `allBranches = true`, `branches` contains every Branch belonging to the authorized Restaurant (`ACTIVE` and `INACTIVE`), `id` ascending; for `allBranches = false`, exactly the validated requested Branches, `id` ascending. Never returned: `restaurantId`, `emailNormalized` as a separate field, `tokenHash`, `invitedByUserId`, `acceptedAt`, `revokedAt`, `createdAt`, `User`/`RestaurantMembership` data, Platform Administrator data, or a Permission array. The response is built explicitly -- never a spread of the Prisma entity.
+
+Foundation R (`GET /restaurants/{restaurantId}/memberships`, #117A) is unaffected: since this route creates no Membership, a pending Invitation never appears there.
+
+No new Audit event, realtime event, or notification infrastructure -- none exists in this codebase yet. Invitation List (`GET /restaurants/{restaurantId}/invitations`, #117) and Invitation acceptance (`POST /auth/invitations/{token}/accept`, #117) remain separate, unimplemented Foundations.
 
 ---
 

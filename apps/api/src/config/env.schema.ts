@@ -3,9 +3,9 @@ import { z } from 'zod';
 /**
  * Validates only the API runtime configuration that has a concrete current
  * consumer today (bootstrap host/port/prefix, the Prisma/PostgreSQL
- * connection string, Auth Session TTL, CORS origin, and the HTTP login
- * cookie policy). Other documented `.env.example` variables (Docker
- * Postgres credentials, AI/n8n settings, password reset/invitation
+ * connection string, Auth Session TTL, Staff Invitation TTL, CORS origin,
+ * and the HTTP login cookie policy). Other documented `.env.example`
+ * variables (Docker Postgres credentials, AI/n8n settings, password reset
  * settings, etc.) have no current runtime consumer in this application yet
  * and are intentionally left out of this schema rather than being required
  * prematurely.
@@ -73,6 +73,17 @@ export const envSchema = z
         message:
           'CORS_ORIGIN must not be a wildcard (SECURITY_SPEC.md #68: never combine credentials=true with origin=*)',
       }),
+
+    // Business Foundation S, settled contract (AUTH_TENANCY_SPEC.md #78):
+    // Staff Invitation absolute expiry, 7 days by default. Already
+    // documented in .env.example as RESTAURANT_INVITATION_TTL_DAYS=7 --
+    // this wires that existing variable into runtime validation for the
+    // first time; the name is unchanged.
+    RESTAURANT_INVITATION_TTL_DAYS: z.coerce
+      .number({ message: 'RESTAURANT_INVITATION_TTL_DAYS must be a number' })
+      .int('RESTAURANT_INVITATION_TTL_DAYS must be an integer')
+      .min(1, 'RESTAURANT_INVITATION_TTL_DAYS must be a positive integer')
+      .default(7),
 
     // Exact name is an implementation detail (AUTH_TENANCY_SPEC.md #22).
     AUTH_SESSION_COOKIE_NAME: z

@@ -1411,6 +1411,30 @@ Settled guard order for this route specifically (not a generalized precedent): `
 
 ---
 
+# 65L. Staff Invitation Creation Authorization Contract (Settled, Business Foundation S)
+
+`POST /api/v1/restaurants/{restaurantId}/invitations` (API_CONVENTIONS.md #117B). Required Permission: `users.manage`.
+
+**INVITATION-ONLY lifecycle (settlement of #75/#80's ordering for this specific Foundation):** Invitation creation persists exactly one `RestaurantInvitation` row (+ `RestaurantInvitationBranch` rows when `allBranches = false`). It never creates or mutates a `User`, and never creates or mutates a `RestaurantMembership` of any kind -- including for an email that already belongs to an existing global User. #75's "Membership becomes ACTIVE" and #80's "Invitation should create/activate Membership after secure acceptance" both refer to the future secure acceptance flow (not yet implemented), never to Invitation creation time. `RestaurantMembershipStatus.INVITED` (#39) remains a valid persisted enum state, but this Foundation never produces one -- if it is ever observed, it came from some other flow.
+
+Restaurant-scoped, not Branch-nested: an Invitation's requested `branchIds` are proposed authorization grants (Domain data validated by the business service), not an existing resource this route is scoped to, so no Branch guard applies. Settled guard order for this route specifically (not a generalized precedent): `AuthGuard` -> `CsrfGuard` -> `RestaurantAccessGuard` -> `PermissionGuard`. No `BranchAccessGuard`, `BranchManagementAccessGuard`, or `AllBranchesRequiredGuard`. `RestaurantAccessGuard` keeps its existing unchanged behavior (#65A): unknown/inaccessible Restaurant -> `404 RESTAURANT_NOT_FOUND`; authorized but `INACTIVE`/`SUSPENDED` Restaurant -> `409 RESTAURANT_NOT_OPERATIONAL`, both before the Staff Invitation business method ever runs.
+
+**Inviter Branch grant authority, SECURITY CRITICAL (settles what #128/#129 leave as a general principle for this specific route):** a caller with `allBranches = true` may grant `allBranches = true` or any valid same-Restaurant Branch subset; `users.manage` alone never authorizes this -- it is a separate Branch-scope check. A caller with `allBranches = false` may only grant `allBranches = false`, with a Branch set that is an exact subset of their own CURRENT valid same-Restaurant Branch assignments -- re-read from current database state inside the same transaction using the established #61A same-Restaurant defense-in-depth pattern, never trusted from stale/client-supplied scope. A Branch-scoped caller can never grant `allBranches = true`, regardless of Role. Branch identity (exists, belongs to the authorized Restaurant, #61A) is always checked before authority is disclosed -- an unknown or foreign-Restaurant Branch id produces the same `404 BRANCH_NOT_FOUND` (API_CONVENTIONS.md #38A) either way, never revealing whether authority would also have been denied.
+
+**Role assignment:** only `MANAGER`, `CASHIER`, `KITCHEN`, `WAITER` are valid DTO values. `OWNER` is rejected as a DTO validation failure (`400 VALIDATION_ERROR`), never reaching authorization logic -- consistent with #55 (MANAGER must never assign OWNER) and #57 (ownership transfer is a separate, not-yet-implemented workflow). This is unconditional: even an OWNER caller cannot invite a new OWNER through this endpoint.
+
+**Existing Membership / duplicate Invitation, privacy-preserving (settles #128's Tenant-scoping requirement for this route):** the existing-Membership check queries `RestaurantMembership` joined to the invited email, scoped directly to the authorized Restaurant -- never a global `User` fetch -- so it can never reveal whether the email belongs to another Restaurant (#73, #128). ANY existing same-Restaurant Membership status (`ACTIVE`, `INVITED`, `DISABLED`) conflicts identically, as does an existing currently-pending Invitation for the same Restaurant + normalized email. Self-invitation is not special-cased: it resolves through the same existing-Membership conflict, since the caller's own Membership already exists (#130 self-modification protection is satisfied as a natural consequence, not a dedicated check). One external reason for every case: `409 STAFF_INVITATION_CONFLICT`.
+
+**Concurrency-safety without a schema migration:** `restaurant_invitations` has no unique constraint on `(restaurantId, emailNormalized)` (DATABASE_SPEC.md #33C). Creation runs inside one `SERIALIZABLE`-isolation Prisma transaction covering every business read and the Invitation/InvitationBranch writes together, retried up to 3 total attempts on a Postgres serialization conflict (`P2034`); a losing concurrent attempt observes the now-persisted pending Invitation on retry and returns the same `409 STAFF_INVITATION_CONFLICT`. No raw SQL, no advisory locks, no Redis.
+
+**Token:** reuses the existing generic `SessionTokenService` primitive (#21A) unchanged for the Invitation token -- 256-bit random, base64url raw token; SHA-256 hash is the only persisted representation. Generated fresh inside each transaction attempt, so only the successfully committed attempt's raw token ever leaves the service.
+
+**Manual Pilot delivery (temporary, explicit V1 exception to never returning a raw secret):** no email-delivery infrastructure exists yet (unlike Password Reset/Auth Session, no provider is wired). The success response returns the raw token exactly once, under `invitationToken`, so an authorized inviter can manually deliver it during Pilot onboarding -- mirroring #79's documented interim allowance ("Dashboard may also allow authorized OWNER to copy a secure invitation link if email infrastructure is not yet configured"). This is not a claim that email delivery is complete; it must be reviewed before Production Release Acceptance.
+
+No new Audit event or realtime event -- neither exists in this codebase yet.
+
+---
+
 # 66. NestJS Authorization Structure
 
 Preferred conceptual implementation:
@@ -1547,6 +1571,8 @@ OWNER / MANAGER
 → Secure invitation link
 → User sets password
 → Membership becomes ACTIVE
+
+Business Foundation S settles the "Create Invitation" step above precisely (#65L): it persists only `RestaurantInvitation` and, when Branch-scoped, `RestaurantInvitationBranch` rows -- it does NOT create or mutate `User` or `RestaurantMembership`. "Membership becomes ACTIVE" happens only during the future secure Invitation acceptance step, not at Create.
 
 ---
 

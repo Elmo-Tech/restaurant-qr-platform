@@ -23,11 +23,11 @@ import { SessionTokenService } from './session/session-token.service';
  * AuthGuard, read-only /auth/me authorization context, Restaurant/Branch
  * Tenant-scope enforcement, fixed V1 Role/Permission enforcement, the
  * reusable Staff cookie-mutation CSRF boundary, and Staff logout (Auth
- * Foundation A-F, Authorization Foundation G-H, Auth Foundation I). No
- * Staff membership/user-management mutations, ownership transfer, or
- * last-OWNER logic yet -- those, and further business mutations beyond
- * Business Foundation K's Create Branch, belong to a later slice. Kept
- * explicit (not global), matching
+ * Foundation A-F, Authorization Foundation G-H, Auth Foundation I). Business
+ * Foundation S adds Staff Invitation Creation (INVITATION-ONLY: never
+ * creates or mutates a User or RestaurantMembership). Staff Membership
+ * mutation, ownership transfer, and last-OWNER logic remain future work.
+ * Kept explicit (not global), matching
  * DatabaseModule. None of these guards are registered as a global
  * APP_GUARD: most V1 routes (login, public QR, guest menu, guest AI) are
  * intentionally unauthenticated/untenanted, so protection is applied
@@ -76,11 +76,14 @@ import { SessionTokenService } from './session/session-token.service';
     CsrfGuard,
     AllBranchesRequiredGuard,
   ],
-  // SessionTokenService and PasswordHasherService are internal
-  // implementation details, only consumed inside this module. The rest are
-  // exported for future feature modules that need to authenticate, resolve
-  // sessions, read authorization context, or enforce Restaurant/Branch/
-  // Permission/CSRF/structural-authority scope.
+  // PasswordHasherService is an internal implementation detail, only
+  // consumed inside this module. The rest are exported for future feature
+  // modules that need to authenticate, resolve sessions, read authorization
+  // context, enforce Restaurant/Branch/Permission/CSRF/structural-authority
+  // scope, or generate/hash a generic opaque token. SessionTokenService is
+  // exported starting with Business Foundation S, which reuses its generic
+  // random-token/hash primitive for Staff Invitation tokens -- the same
+  // reasoning AuthSessionService already relies on it for internally.
   exports: [
     AuthSessionService,
     LoginService,
@@ -94,6 +97,7 @@ import { SessionTokenService } from './session/session-token.service';
     PermissionGuard,
     CsrfGuard,
     AllBranchesRequiredGuard,
+    SessionTokenService,
   ],
 })
 export class AuthModule {}

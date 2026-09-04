@@ -916,6 +916,8 @@ For Branch-scoped invitations, selected Branch access must be validated against 
 
 The temporary representation of selected invitation Branches is `restaurant_invitation_branches` (see #33F).
 
+**Lifecycle settlement (Business Foundation S, AUTH_TENANCY_SPEC.md #65L):** Invitation Create persists exactly `restaurant_invitations` (+ `restaurant_invitation_branches` rows when `allBranches = false`) -- no `users` row and no `restaurant_memberships` row is created or mutated at Create time, even when the invited email already belongs to an existing User. `RestaurantMembership` and `RestaurantMembershipBranch` materialization (the "resulting Restaurant Membership branch assignments" above) happens only during the future secure acceptance flow, never during Invitation creation.
+
 ---
 
 # 33D. Password Reset Token
