@@ -74,6 +74,34 @@ enum QrStatus {
   @@map("qr_status")
 }
 
+enum MenuStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("menu_status")
+}
+
+enum CategoryStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("category_status")
+}
+
+enum ProductStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("product_status")
+}
+
+enum ProductAvailability {
+  AVAILABLE
+  SOLD_OUT
+
+  @@map("product_availability")
+}
+
 // -----------------------------------------------------------------------------
 // Restaurant / Branch (DATABASE_SPEC.md #23-30)
 // -----------------------------------------------------------------------------
@@ -101,6 +129,9 @@ model Restaurant {
   invitations RestaurantInvitation[]
   tables      Table[]
   qrCodes     QrCode[]
+  menus       Menu[]
+  categories  Category[]
+  products    Product[]
 
   @@map("restaurants")
 }
@@ -150,6 +181,149 @@ model Branch {
 
   @@index([restaurantId])
   @@map("branches")
+}
+
+// -----------------------------------------------------------------------------
+// Menu / Category / Product (DATABASE_SPEC.md #58-67; MENU_SPEC.md #1-20,
+// #41-44; I18N_SPEC.md #20-23)
+// -----------------------------------------------------------------------------
+
+model Menu {
+  id           String     @id @default(uuid()) @db.Uuid
+  restaurantId String     @map("restaurant_id") @db.Uuid
+  // Internal-only label, never customer-facing (DATABASE_SPEC.md #58).
+  // Customer-facing name/description live in MenuTranslation.
+  nameInternal String     @map("name_internal")
+  // No database default: Menu creation must explicitly choose the initial
+  // status at the application/domain layer (mirrors Restaurant/Branch/Table).
+  status       MenuStatus
+  displayOrder Int        @map("display_order")
+  // At most one isPrimary=true Menu per Restaurant is enforced by the
+  // menus_one_primary_menu partial unique index (custom migration SQL,
+  // DATABASE_SPEC.md #41 policy) -- Prisma's schema syntax cannot express a
+  // partial (WHERE-predicated) unique index. "Every Restaurant must always
+  // have a primary Menu" is NOT a database invariant here; it is Batch C
+  // application/service logic (the first created Menu becomes primary).
+  isPrimary    Boolean    @map("is_primary")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  translations MenuTranslation[]
+  categories   Category[]
+
+  @@index([restaurantId])
+  @@map("menus")
+}
+
+model MenuTranslation {
+  id          String  @id @default(uuid()) @db.Uuid
+  menuId      String  @map("menu_id") @db.Uuid
+  // Normalized locale string (e.g. "ar", "en"), matching
+  // RestaurantLocale.locale -- not a fixed enum (I18N_SPEC.md #20-23).
+  locale      String
+  name        String
+  description String?
+
+  // Pure translation child of Menu, no independent historical value and
+  // never referenced by Orders -- Cascade is acceptable here
+  // (DATABASE_SPEC.md #136), unlike the Restrict used for every
+  // Tenant-owned parent entity itself.
+  menu Menu @relation(fields: [menuId], references: [id], onDelete: Cascade)
+
+  @@unique([menuId, locale])
+  @@map("menu_translations")
+}
+
+model Category {
+  id             String         @id @default(uuid()) @db.Uuid
+  restaurantId   String         @map("restaurant_id") @db.Uuid
+  menuId         String         @map("menu_id") @db.Uuid
+  // No database default, mirrors Menu.status.
+  status         CategoryStatus
+  displayOrder   Int            @map("display_order")
+  imageAssetPath String?        @map("image_asset_path")
+  createdAt      DateTime       @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime       @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Category.restaurantId == Menu.restaurantId is a cross-row Tenant
+  // invariant that cannot be expressed as a schema constraint here (mirrors
+  // AUTH_TENANCY_SPEC.md #61A) -- enforced by Batch C application write
+  // logic and by Tenant-scoped read queries, never trusted from menuId
+  // alone.
+  restaurant   Restaurant            @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  menu         Menu                  @relation(fields: [menuId], references: [id], onDelete: Restrict)
+  translations CategoryTranslation[]
+  products     Product[]
+
+  @@index([restaurantId])
+  @@index([menuId])
+  @@map("categories")
+}
+
+model CategoryTranslation {
+  id          String  @id @default(uuid()) @db.Uuid
+  categoryId  String  @map("category_id") @db.Uuid
+  locale      String
+  name        String
+  description String?
+
+  // Pure translation child of Category -- Cascade (DATABASE_SPEC.md #136),
+  // same rationale as MenuTranslation.
+  category Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, locale])
+  @@map("category_translations")
+}
+
+model Product {
+  id                    String              @id @default(uuid()) @db.Uuid
+  publicId              String              @unique @map("public_id")
+  restaurantId          String              @map("restaurant_id") @db.Uuid
+  categoryId            String              @map("category_id") @db.Uuid
+  // No database default, mirrors Menu/Category.status.
+  status                ProductStatus
+  // Independent from status (DATABASE_SPEC.md #63-64, MENU_SPEC.md #11):
+  // ACTIVE/INACTIVE is configuration visibility, AVAILABLE/SOLD_OUT is
+  // orderability. No database default: Product creation must explicitly
+  // choose the initial availability at the application/domain layer.
+  availability          ProductAvailability
+  // Fixed-precision money (DATABASE_SPEC.md #13-14) -- never Float/Double.
+  // Non-negative enforced by the products_base_price_non_negative CHECK
+  // constraint (custom migration SQL), not by application validation alone.
+  basePrice             Decimal             @map("base_price") @db.Decimal(14, 2)
+  primaryImageAssetPath String?             @map("primary_image_asset_path")
+  displayOrder          Int                 @map("display_order")
+  allowCustomerNotes    Boolean             @map("allow_customer_notes")
+  featured              Boolean
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Product.restaurantId == Category.restaurantId is a cross-row Tenant
+  // invariant enforced by Batch D application write logic and Tenant-scoped
+  // read queries, never trusted from categoryId alone (mirrors #61A).
+  restaurant   Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  category     Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  translations ProductTranslation[]
+
+  @@index([restaurantId])
+  @@index([categoryId])
+  @@map("products")
+}
+
+model ProductTranslation {
+  id          String  @id @default(uuid()) @db.Uuid
+  productId   String  @map("product_id") @db.Uuid
+  locale      String
+  name        String
+  description String?
+
+  // Pure translation child of Product -- Cascade (DATABASE_SPEC.md #136),
+  // same rationale as MenuTranslation/CategoryTranslation.
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, locale])
+  @@map("product_translations")
 }
 
 // -----------------------------------------------------------------------------

@@ -1467,138 +1467,144 @@ Do not overwrite old publicCode in place if historical scan attribution depends 
 
 ---
 
-# 58. Menu
+# 58. Menu (Implemented, Day 1 Menu Vertical Slice Batch B)
 
 Database table:
 
 `menus`
 
-Potential fields:
+Fields (exact, as implemented):
 
-- id
-- restaurantId
-- nameInternal
-- status
-- displayOrder
-- isPrimary
-- createdAt
-- updatedAt
+- id (UUID, PK)
+- restaurantId (UUID, FK -> restaurants.id, `ON DELETE RESTRICT`)
+- nameInternal (text, required -- internal-only label, never customer-facing)
+- status (`menu_status` enum, required, no database default -- the application/domain layer must explicitly choose the initial status, mirroring Restaurant/Branch/Table)
+- displayOrder (integer, required)
+- isPrimary (boolean, required)
+- createdAt / updatedAt (standard `TIMESTAMPTZ`, matching every other entity)
 
-Customer-facing name belongs in translation table.
+Customer-facing name/description belong in `menu_translations` (#59), never on this table.
+
+Index: `restaurantId`.
+
+**At-most-one-primary-Menu invariant:** a partial unique index, `menus_one_primary_menu` (`UNIQUE (restaurant_id) WHERE is_primary = true`), is committed as custom migration SQL (Prisma's schema syntax cannot express a partial/WHERE-predicated unique index, #41 policy) in `20260905143207_add_core_menu_schema`. This enforces only "at most one" -- it does NOT guarantee every Restaurant always has a primary Menu; that guarantee (first created Menu becomes primary) is Batch C application/service logic, not a database invariant.
 
 ---
 
-# 59. Menu Translation
+# 59. Menu Translation (Implemented, Day 1 Menu Vertical Slice Batch B)
 
 Table:
 
 `menu_translations`
 
-Fields:
+Fields (exact):
 
-- id
-- menuId
-- locale
-- name
-- description nullable
+- id (UUID, PK)
+- menuId (UUID, FK -> menus.id, `ON DELETE CASCADE` -- pure translation child with no independent historical value, never referenced by Orders, #136)
+- locale (text, required -- normalized locale string such as `"ar"`/`"en"`, matching `RestaurantLocale.locale`; not a fixed enum, #20-23 I18N_SPEC.md)
+- name (text, required)
+- description (text, nullable)
 
-Unique:
-
-menuId + locale
+Unique: `menuId + locale`.
 
 ---
 
-# 60. Category
+# 60. Category (Implemented, Day 1 Menu Vertical Slice Batch B)
 
 Table:
 
 `categories`
 
-Potential fields:
+Fields (exact):
 
-- id
-- restaurantId
-- menuId
-- status
-- displayOrder
-- imageAssetPath nullable
-- createdAt
-- updatedAt
+- id (UUID, PK)
+- restaurantId (UUID, FK -> restaurants.id, `ON DELETE RESTRICT`)
+- menuId (UUID, FK -> menus.id, `ON DELETE RESTRICT`)
+- status (`category_status` enum, required, no database default)
+- displayOrder (integer, required)
+- imageAssetPath (text, nullable)
+- createdAt / updatedAt (standard `TIMESTAMPTZ`)
+
+Indexes: `restaurantId`, `menuId`.
+
+**Cross-Tenant invariant** `Category.restaurantId == Menu.restaurantId` cannot be expressed as a schema constraint (mirrors AUTH_TENANCY_SPEC.md #61A) -- it is enforced by Batch C application write logic and by Tenant-scoped read queries that never trust `menuId` alone.
 
 ---
 
-# 61. Category Translation
+# 61. Category Translation (Implemented, Day 1 Menu Vertical Slice Batch B)
 
 Table:
 
 `category_translations`
 
-Fields:
+Fields (exact):
 
-- id
-- categoryId
-- locale
-- name
-- description nullable
+- id (UUID, PK)
+- categoryId (UUID, FK -> categories.id, `ON DELETE CASCADE` -- same rationale as `menu_translations`, #136)
+- locale (text, required)
+- name (text, required)
+- description (text, nullable)
 
-Unique:
-
-categoryId + locale
+Unique: `categoryId + locale`.
 
 ---
 
-# 62. Product
+# 62. Product (Implemented, Day 1 Menu Vertical Slice Batch B)
 
 Database table:
 
 `products`
 
-Potential fields:
+Fields (exact, as implemented -- dietary/nutrition fields deliberately deferred, see #65A below):
 
-- id
-- publicId
-- restaurantId
-- categoryId
-- status
-- availability
-- basePrice
-- primaryImageAssetPath nullable
-- displayOrder
-- spicyLevel nullable
-- isVegetarian nullable
-- isVegan nullable
-- calories nullable
-- proteinGrams nullable
-- carbohydratesGrams nullable
-- fatGrams nullable
-- allowCustomerNotes
-- featured
-- createdAt
-- updatedAt
+- id (UUID, PK)
+- publicId (text, globally unique -- guest-safe identifier, matching the Restaurant/Branch `publicId` convention)
+- restaurantId (UUID, FK -> restaurants.id, `ON DELETE RESTRICT`)
+- categoryId (UUID, FK -> categories.id, `ON DELETE RESTRICT`)
+- status (`product_status` enum, required, no database default)
+- availability (`product_availability` enum, required, no database default)
+- basePrice (`NUMERIC(14,2)` / Prisma `Decimal`, required -- never `FLOAT`/`REAL`, #13-14)
+- primaryImageAssetPath (text, nullable)
+- displayOrder (integer, required)
+- allowCustomerNotes (boolean, required)
+- featured (boolean, required)
+- createdAt / updatedAt (standard `TIMESTAMPTZ`)
+
+Indexes: `restaurantId`, `categoryId`.
+
+**Non-negative price:** a CHECK constraint, `products_base_price_non_negative` (`CHECK (base_price >= 0)`), is committed as custom migration SQL in `20260905143207_add_core_menu_schema` (#141) -- defense-in-depth alongside Batch D's application-level DTO validation, not a replacement for it.
+
+**Cross-Tenant invariant** `Product.restaurantId == Category.restaurantId` cannot be expressed as a schema constraint -- it is enforced by Batch D application write logic and Tenant-scoped read queries that never trust `categoryId` alone (mirrors #61A).
 
 ---
 
-# 63. Product Status
+# 62A. Product Fields Deferred Beyond Batch B
 
-Initial:
+Not implemented in Batch B, deliberately deferred to a later slice: `spicyLevel`, `isVegetarian`, `isVegan`, `calories`, `proteinGrams`, `carbohydratesGrams`, `fatGrams` (dietary/nutrition metadata), `ProductVariant`/`ProductVariantTranslation`, `ModifierGroup`/`ModifierGroupTranslation`, `ModifierOption`/`ModifierOptionTranslation`, `BranchProductOverride`, Promotions, Allergens, and any image-upload/storage infrastructure. All are nullable-additive columns or independent tables that can be introduced later without migrating existing Batch-B data.
+
+---
+
+# 63. Product Status (Implemented, Day 1 Menu Vertical Slice Batch B)
+
+`product_status` enum:
 
 ACTIVE
 INACTIVE
 
 ---
 
-# 64. Product Availability
+# 64. Product Availability (Implemented, Day 1 Menu Vertical Slice Batch B)
 
-Initial:
+`product_availability` enum:
 
 AVAILABLE
 SOLD_OUT
 
-Status and Availability remain separate.
+Status and Availability remain separate persisted fields on `products` (#62) -- confirmed distinct in the implemented schema, not merged into one enum.
 
 ---
 
-# 65. Dietary Values
+# 65. Dietary Values (Deferred, not part of Batch B -- see #62A)
 
 Nullable booleans are preferred where:
 
@@ -1626,7 +1632,7 @@ This distinction is important for AI safety.
 
 ---
 
-# 66. Nutrition Precision
+# 66. Nutrition Precision (Deferred, not part of Batch B -- see #62A)
 
 Nutrition fields may use Decimal values where appropriate.
 
@@ -1638,23 +1644,21 @@ These values are optional and Restaurant-supplied.
 
 ---
 
-# 67. Product Translation
+# 67. Product Translation (Implemented, Day 1 Menu Vertical Slice Batch B)
 
 Table:
 
 `product_translations`
 
-Potential fields:
+Fields (exact):
 
-- id
-- productId
-- locale
-- name
-- description nullable
+- id (UUID, PK)
+- productId (UUID, FK -> products.id, `ON DELETE CASCADE` -- same rationale as `menu_translations`/`category_translations`, #136)
+- locale (text, required)
+- name (text, required)
+- description (text, nullable)
 
-Unique:
-
-productId + locale
+Unique: `productId + locale`.
 
 ---
 
