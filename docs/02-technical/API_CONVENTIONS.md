@@ -1833,6 +1833,112 @@ Examples:
 
 `PATCH /api/v1/restaurants/{restaurantId}/products/{productId}`
 
+Menu List/Create and Category List/Create are settled below (#108A/#108B, Day 1 Menu Vertical Slice Batch C). Product endpoints remain unimplemented (Batch D).
+
+---
+
+# 108A. Menu List and Create (Settled, Day 1 Menu Vertical Slice Batch C)
+
+`GET`/`POST /api/v1/restaurants/{restaurantId}/menus`.
+
+Menu is a Restaurant-wide configuration resource -- no `branchId` exists anywhere in the schema (DATABASE_SPEC.md #58), so neither route carries a `BranchAccessGuard`/`BranchManagementAccessGuard`. `GET` requires `menu.view`; `POST` requires `menu.manage`. Guard order: `GET` is `AuthGuard -> RestaurantAccessGuard -> PermissionGuard` (no `CsrfGuard`, read-only, no `AllBranchesRequiredGuard` -- read visibility is governed by `menu.view` alone). `POST` is `AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard` (corrected, AUTH_TENANCY_SPEC.md #63/#65N): creating a Menu is a Restaurant-structural mutation, so `menu.manage` alone is not sufficient authority -- a Branch-scoped Membership (`allBranches = false`) must never gain Restaurant-wide Menu mutation authority merely because its Role holds `menu.manage`, exactly mirroring Create Branch's settled contract (#113A). `AllBranchesRequiredGuard` is reused unchanged; no new guard, no new error code -- a denied Branch-scoped caller receives the identical generic `403 PERMISSION_DENIED` (#38B) a caller simply lacking the Permission would receive. `RestaurantAccessGuard` keeps its existing unchanged behavior (#38A): unknown/inaccessible Restaurant -> `404 RESTAURANT_NOT_FOUND`; `INACTIVE`/`SUSPENDED` -> `409 RESTAURANT_NOT_OPERATIONAL`, both before any Menu query runs.
+
+Create request body, all fields required except `description`:
+
+```
+{
+  "nameInternal": "Main Menu",
+  "name": "القائمة الرئيسية",
+  "description": "وصف القائمة",
+  "status": "ACTIVE",
+  "displayOrder": 0
+}
+```
+
+`nameInternal`/`status`/`displayOrder` persist onto `Menu` directly. `name`/`description` are the default-locale `MenuTranslation` content -- the client never selects a locale; the Backend reads `Restaurant.defaultLocale` server-side and persists the translation under that locale only, atomically with the `Menu` row in one transaction (never a Menu without its required translation). `restaurantId`/`locale`/`isPrimary`/`createdAt`/`updatedAt` are never accepted, even if present (stripped by the global whitelist `ValidationPipe`, but never trusted regardless).
+
+**`isPrimary` is entirely server-controlled**: the first Menu created for a Restaurant becomes `isPrimary = true`; every subsequent one becomes `false`. The database's `menus_one_primary_menu` partial unique index (DATABASE_SPEC.md #58) is the final concurrency guarantee -- two truly concurrent first-Menu requests race an ordinary count-then-insert window; the loser's transaction is retried once (recomputing the count against the winner's now-committed row), which always resolves to `isPrimary = false`. Neither request ever surfaces a raw Prisma/constraint error.
+
+**`isPrimary` and `status` are independent fields (corrected):** `status` is an ordinary client-supplied Create field (`ACTIVE`/`INACTIVE`), never derived from or coupled to `isPrimary`. Consequently a Restaurant may have its primary Menu (`isPrimary = true`) with `status = INACTIVE` -- this is valid, expected state, not a data-integrity violation (MENU_SPEC.md #3). Batch C does not force `status = ACTIVE` for a primary Menu, and no Menu update/activation endpoint exists yet to change it after creation.
+
+Create success:
+
+```
+201 Created
+{
+  "data": {
+    "id": "<menuId>",
+    "nameInternal": "Main Menu",
+    "status": "ACTIVE",
+    "displayOrder": 0,
+    "isPrimary": true,
+    "translation": { "locale": "ar", "name": "القائمة الرئيسية", "description": "وصف القائمة" }
+  }
+}
+```
+
+Never returned: `restaurantId`, `createdAt`, `updatedAt`, or a raw `MenuTranslation` row (`id`/`menuId`).
+
+List success returns every Menu for the authorized Restaurant, each with its own default-locale translation (bounded per-Menu lookup, not a full-locale-set fetch), ordered deterministically `displayOrder` ascending then `id` ascending:
+
+```
+200 OK
+{ "data": [ { "id": "...", "nameInternal": "...", "status": "ACTIVE", "displayOrder": 0, "isPrimary": true, "translation": { "locale": "ar", "name": "...", "description": null } } ] }
+```
+
+No pagination, no query parameters -- Batch C treats this as a small V1 administrative collection (#59). Empty result is `200 { "data": [] }`, never `404`/`204`/`null`. No new public error code is introduced.
+
+---
+
+# 108B. Category List and Create (Settled, Day 1 Menu Vertical Slice Batch C)
+
+`GET`/`POST /api/v1/restaurants/{restaurantId}/categories`.
+
+Category is also a Restaurant-wide configuration resource -- no `BranchAccessGuard`/`BranchManagementAccessGuard` of any kind, mirroring #108A. Same Permission/guard/CSRF/error contract as Menu List/Create (`menu.view` for `GET`; `menu.manage` + `AllBranchesRequiredGuard` for `POST`, corrected -- a Branch-scoped Membership cannot create a Category for the same Restaurant-structural-mutation reason as Menu Create, above).
+
+Create request body, all fields required except `description`:
+
+```
+{
+  "menuId": "<uuid>",
+  "name": "المقبلات",
+  "description": "وصف الفئة",
+  "status": "ACTIVE",
+  "displayOrder": 0
+}
+```
+
+`menuId` is client-selected resource identity, **not** Tenant authority: the Backend resolves it with both `id = menuId` AND `restaurantId = authorizedRestaurantId` in the same query. An unknown or foreign-Restaurant `menuId` produces the identical, existence-hiding:
+
+```
+404 Not Found
+{ "error": { "code": "MENU_NOT_FOUND", "message": "Menu not found." } }
+```
+
+`name`/`description` are the default-locale `CategoryTranslation` content, created atomically with the `Category` row exactly as #108A describes for Menu. `imageAssetPath` is never client-writable in Batch C (image upload/storage infrastructure is intentionally deferred, DATABASE_SPEC.md #62A) and is always persisted as `null`, regardless of any value the client sends. `restaurantId`/`locale`/`createdAt`/`updatedAt` are never accepted.
+
+Create success:
+
+```
+201 Created
+{
+  "data": {
+    "id": "<categoryId>",
+    "menuId": "<menuId>",
+    "status": "ACTIVE",
+    "displayOrder": 0,
+    "imageAssetPath": null,
+    "translation": { "locale": "ar", "name": "المقبلات", "description": "وصف الفئة" }
+  }
+}
+```
+
+Never returned: `restaurantId`, `createdAt`, `updatedAt`.
+
+List supports one optional query parameter, `?menuId=<uuid>`, kept because the Staff Menu screen needs it. The query always additionally scopes by `restaurantId = authorizedRestaurantId` regardless of whether the filter is present -- a well-formed but foreign-Restaurant `menuId` never leaks existence; it simply matches zero rows, identical to any other non-matching value (no distinguishable 404 for a collection route). Ordered deterministically `displayOrder` ascending then `id` ascending; embeds only each Category's own default-locale translation, never nested Products. Empty result is `200 { "data": [] }`.
+
+**Forward rule for Batch D (Product):** The Product persistence schema already exists from Batch B, but Product Staff APIs/backend behavior are not implemented yet. When it is implemented, Restaurant-wide Product configuration mutations (ordinary Create/Update, matching Menu/Category above) must follow this same Restaurant-structural-mutation rule (`menu.manage` + `AllBranchesRequiredGuard`) unless a specific future endpoint is explicitly Branch-scoped (for example a future `BranchProductOverride` mutation, which would use ordinary Branch-scoped authority instead, matching Table Creation's `BranchManagementAccessGuard` precedent rather than Create Branch's `AllBranchesRequiredGuard` precedent). This is a documentation forward-declaration only -- no Product Staff API/backend implementation is added by Batch C.
+
 ---
 
 # 109. Product Activation

@@ -73,6 +73,15 @@ The architecture should not prevent multiple future Menus such as:
 
 However, V1 administration should avoid forcing restaurants to configure multiple Menus unless required.
 
+**Settled (Day 1 Menu Vertical Slice Batch C, corrected):** "at least one primary active Menu" is NOT a Batch C database or service guarantee in the literal sense of "primary implies Active." The actual implemented invariant is narrower:
+
+- Before any Menu exists, a Restaurant may have zero Menus.
+- After the first successful Menu Create, exactly that first Menu is `isPrimary = true`.
+- Every subsequent Menu Create is `isPrimary = false`.
+- The database guarantees at most one `isPrimary = true` Menu per Restaurant (a partial unique index, DATABASE_SPEC.md #58) -- it does not force a primary Menu to always exist, and it does not force it to be Active.
+- `Menu.status` (`ACTIVE`/`INACTIVE`) and `Menu.isPrimary` are independent fields. Batch C accepts `status` from the client on Create and never derives it from `isPrimary`, so a Restaurant may temporarily have a primary Menu whose `status` is `INACTIVE` (e.g. `isPrimary = true, status = INACTIVE`) -- this is valid, expected state, not a data-integrity violation.
+- Guest/public Menu visibility (a later, unimplemented slice) considers `Menu.status = ACTIVE` independently of `isPrimary`.
+
 ---
 
 # 4. Menu
@@ -93,6 +102,8 @@ Future versions may add:
 - Schedule
 - Branch targeting
 - Seasonal availability
+
+**Settled (Day 1 Menu Vertical Slice Batch C, API_CONVENTIONS.md #108A):** "Name"/"Description" above are `MenuTranslation.name`/`description` (default-locale only in Batch C, never a second raw field on `Menu` itself); "Active state" is `Menu.status` (`ACTIVE`/`INACTIVE`); "Default / primary flag" is `Menu.isPrimary`, entirely server-controlled (#3 above) -- never a Create request field.
 
 ---
 
@@ -129,6 +140,8 @@ A Category may contain:
 - Display order
 - Active state
 - Customer-facing translations
+
+**Settled (Day 1 Menu Vertical Slice Batch C, API_CONVENTIONS.md #108B):** "Name"/"Description" are `CategoryTranslation.name`/`description` (default-locale only); "Active state" is `Category.status`; "Image where useful" is `Category.imageAssetPath`, deliberately not client-writable yet (always persisted `null` -- image upload/storage infrastructure is intentionally deferred, DATABASE_SPEC.md #62A). Every Category belongs to exactly one Menu (`Category.menuId`), Tenant-validated against the authorized Restaurant at creation time.
 
 ---
 

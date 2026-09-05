@@ -7,6 +7,7 @@ import { validateEnv } from './config/env.schema';
 import { AuthModule } from './auth/auth.module';
 import { BranchesModule } from './branches/branches.module';
 import { DatabaseModule } from './database/database.module';
+import { MenuModule } from './menu/menu.module';
 import { StaffModule } from './staff/staff.module';
 import { TablesModule } from './tables/tables.module';
 
@@ -29,6 +30,7 @@ const rootEnvFilePath = path.resolve(__dirname, '..', '..', '..', '.env');
     BranchesModule,
     TablesModule,
     StaffModule,
+    MenuModule,
   ],
   controllers: [AppController],
   providers: [AppService],

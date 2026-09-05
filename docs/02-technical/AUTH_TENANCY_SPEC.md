@@ -1457,6 +1457,22 @@ No new Audit event or realtime event -- neither exists in this codebase yet.
 
 ---
 
+# 65N. Core Menu Authorization Contract (Settled, Day 1 Menu Vertical Slice Batch C, corrected)
+
+`GET`/`POST /api/v1/restaurants/{restaurantId}/menus` and `/categories` (API_CONVENTIONS.md #108A/#108B). This settles the route-specific Core Menu scope that #63 left open ("Exact route-specific scope will be defined during module implementation").
+
+**READ** (`menu.view`): `AuthGuard -> RestaurantAccessGuard -> PermissionGuard`. No `CsrfGuard` (read-only, #106A). No `BranchAccessGuard`, `BranchManagementAccessGuard`, or `AllBranchesRequiredGuard` -- Menu/Category have no `branchId` in the schema at all, and read visibility is governed by `menu.view` alone. A Branch-scoped Membership (`allBranches = false`) reads exactly according to its Role's granted Permission, identical to an `allBranches = true` Membership -- there is no Branch-scoped subset-visibility computation for this Restaurant-wide resource (unlike Membership List, #65K, whose per-row subset rule exists only because individual Memberships themselves carry Branch scope; Menu/Category rows carry none).
+
+**MUTATION** (`menu.manage`), corrected: Menu/Category Create are Restaurant-structural mutations (#63: Core Menu definition is a Restaurant-wide resource) -- `menu.manage` alone is not sufficient authority, exactly the same principle #65C already established for Create Branch. Guard order: `AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard`. A Branch-scoped Membership (`allBranches = false`) must never gain Restaurant-wide Menu/Category mutation authority merely because its Role holds `menu.manage`:
+
+- OWNER + `allBranches = true` -> allowed.
+- MANAGER + `allBranches = true` -> allowed.
+- MANAGER + `allBranches = false` -> `403 PERMISSION_DENIED` (API_CONVENTIONS.md #38B), identical to the existing generic Permission-denial contract -- `AllBranchesRequiredGuard` is reused entirely unchanged; no new guard, no new externally-visible error code, and a denied Branch-scoped caller is indistinguishable from a caller simply lacking `menu.manage`.
+
+**Forward rule for Batch D (Product):** The Product persistence schema already exists from Batch B, but Product Staff APIs/backend behavior are not implemented yet. Restaurant-wide Product configuration mutations must follow this same rule (`menu.manage` + `AllBranchesRequiredGuard`) unless a later endpoint is explicitly Branch-scoped (for example a future `BranchProductOverride`), which would instead use ordinary Branch-scoped Management authority (mirroring #65D-#65E's `BranchManagementAccessGuard` precedent, not this section's `AllBranchesRequiredGuard` precedent). Documentation forward-declaration only -- no Product Staff API/backend implementation is added by Batch C.
+
+---
+
 # 66. NestJS Authorization Structure
 
 Preferred conceptual implementation:
