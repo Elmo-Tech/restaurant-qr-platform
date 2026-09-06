@@ -4,6 +4,9 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  NotFoundException,
+  Param,
+  Patch,
   Post,
   Req,
   UseGuards,
@@ -17,8 +20,23 @@ import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
 import { CreateMenuDto } from './dto/create-menu.dto';
+import { UpdateMenuDto } from './dto/update-menu.dto';
 import { MenusService } from './menus.service';
 import type { MenuWithTranslation } from './menus.service';
+
+/**
+ * Day 1 Menu Vertical Slice, Batch F, settled contract: one stable
+ * existence-hiding error for a malformed, unknown, or foreign-Restaurant
+ * `menuId` on Menu Update/Set-Primary -- never a distinguishable
+ * `MENU_ACCESS_DENIED`/`MENU_WRONG_RESTAURANT`/`INVALID_MENU_ID` (mirrors
+ * the existing `CATEGORY_NOT_FOUND`/`PRODUCT_NOT_FOUND` convention).
+ */
+const MENU_NOT_FOUND_RESPONSE = {
+  error: {
+    code: 'MENU_NOT_FOUND',
+    message: 'Menu not found.',
+  },
+};
 
 interface MenuListResponseBody {
   data: MenuWithTranslation[];
@@ -100,5 +118,80 @@ export class MenusController {
     });
 
     return { data };
+  }
+
+  /**
+   * Partial Menu configuration update. `isPrimary` is deliberately not
+   * writable here -- it has its own dedicated Set-Primary endpoint, below.
+   * `menuId` identity/ownership resolution happens entirely inside
+   * `MenusService` (malformed/unknown/foreign all converge on the identical
+   * `MENU_NOT_FOUND`), only after this guard chain has already succeeded.
+   */
+  @Patch(':menuId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async updateMenu(
+    @Param('menuId') menuId: string,
+    @Body() dto: UpdateMenuDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<CreateMenuResponseBody> {
+    const result = await this.menusService.updateMenu({
+      restaurantId: request.restaurantAccess.restaurantId,
+      menuId,
+      nameInternal: dto.nameInternal,
+      name: dto.name,
+      description: dto.description,
+      status: dto.status,
+      displayOrder: dto.displayOrder,
+    });
+
+    if (result.outcome === 'menuNotFound') {
+      throw new NotFoundException(MENU_NOT_FOUND_RESPONSE);
+    }
+
+    return { data: result.data };
+  }
+
+  /**
+   * Focused Set-Primary operation (settled contract #12/#13). No
+   * client-controlled `isPrimary` field, and no meaningful request body at
+   * all -- the Backend alone performs the primary switch. If the target is
+   * already primary, this succeeds idempotently with no write. Otherwise
+   * the Restaurant's current primary Menu (if any) is unset and the target
+   * is set, inside one transaction -- the database's
+   * `menus_one_primary_menu` partial unique index remains the final
+   * concurrency authority unchanged.
+   */
+  @Patch(':menuId/primary')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async setPrimaryMenu(
+    @Param('menuId') menuId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<CreateMenuResponseBody> {
+    const result = await this.menusService.setPrimaryMenu({
+      restaurantId: request.restaurantAccess.restaurantId,
+      menuId,
+    });
+
+    if (result.outcome === 'menuNotFound') {
+      throw new NotFoundException(MENU_NOT_FOUND_RESPONSE);
+    }
+
+    return { data: result.data };
   }
 }

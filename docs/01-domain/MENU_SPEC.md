@@ -82,6 +82,8 @@ However, V1 administration should avoid forcing restaurants to configure multipl
 - `Menu.status` (`ACTIVE`/`INACTIVE`) and `Menu.isPrimary` are independent fields. Batch C accepts `status` from the client on Create and never derives it from `isPrimary`, so a Restaurant may temporarily have a primary Menu whose `status` is `INACTIVE` (e.g. `isPrimary = true, status = INACTIVE`) -- this is valid, expected state, not a data-integrity violation.
 - Guest/public Menu visibility (a later, unimplemented slice) considers `Menu.status = ACTIVE` independently of `isPrimary`.
 
+**Settled (Day 1 Menu Vertical Slice Batch F, API_CONVENTIONS.md #108A):** an existing Menu's primary status can also be switched explicitly through the dedicated Set-Primary endpoint (`PATCH .../menus/{menuId}/primary`) -- the same at-most-one-primary database invariant remains authoritative regardless of whether `isPrimary` became `true` via first-Create or via Set-Primary.
+
 ---
 
 # 4. Menu
@@ -103,7 +105,7 @@ Future versions may add:
 - Branch targeting
 - Seasonal availability
 
-**Settled (Day 1 Menu Vertical Slice Batch C, API_CONVENTIONS.md #108A):** "Name"/"Description" above are `MenuTranslation.name`/`description` (default-locale only in Batch C, never a second raw field on `Menu` itself); "Active state" is `Menu.status` (`ACTIVE`/`INACTIVE`); "Default / primary flag" is `Menu.isPrimary`, entirely server-controlled (#3 above) -- never a Create request field.
+**Settled (Day 1 Menu Vertical Slice Batch C/F, API_CONVENTIONS.md #108A):** "Name"/"Description" above are `MenuTranslation.name`/`description` (default-locale only, never a second raw field on `Menu` itself), editable through the generic Update endpoint; "Active state" is `Menu.status` (`ACTIVE`/`INACTIVE`), also editable through Update; "Default / primary flag" is `Menu.isPrimary`, entirely server-controlled (#3 above) -- never a Create or generic-Update request field, changed only through the dedicated Set-Primary endpoint.
 
 ---
 
@@ -141,7 +143,7 @@ A Category may contain:
 - Active state
 - Customer-facing translations
 
-**Settled (Day 1 Menu Vertical Slice Batch C, API_CONVENTIONS.md #108B):** "Name"/"Description" are `CategoryTranslation.name`/`description` (default-locale only); "Active state" is `Category.status`; "Image where useful" is `Category.imageAssetPath`, deliberately not client-writable yet (always persisted `null` -- image upload/storage infrastructure is intentionally deferred, DATABASE_SPEC.md #62A). Every Category belongs to exactly one Menu (`Category.menuId`), Tenant-validated against the authorized Restaurant at creation time.
+**Settled (Day 1 Menu Vertical Slice Batch C/F, API_CONVENTIONS.md #108B):** "Name"/"Description" are `CategoryTranslation.name`/`description` (default-locale only), editable through the generic Update endpoint; "Active state" is `Category.status`, also editable; "Image where useful" is `Category.imageAssetPath`, deliberately not client-writable yet (always persisted `null` -- image upload/storage infrastructure is intentionally deferred, DATABASE_SPEC.md #62A). Every Category belongs to exactly one Menu (`Category.menuId`), Tenant-validated against the authorized Restaurant at both creation time and, when moving a Category to another Menu, at Update time.
 
 ---
 

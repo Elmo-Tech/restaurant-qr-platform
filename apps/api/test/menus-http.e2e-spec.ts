@@ -213,6 +213,35 @@ describe('Menus (e2e)', () => {
     return req;
   }
 
+  function patchUpdateMenu(params: {
+    restaurantId: string;
+    menuId: string;
+    cookiePair?: string;
+    origin?: string;
+    body: Record<string, unknown>;
+  }) {
+    let req = request(app.getHttpServer()).patch(
+      `/api/v1/restaurants/${params.restaurantId}/menus/${params.menuId}`,
+    );
+    if (params.cookiePair) req = req.set('Cookie', params.cookiePair);
+    if (params.origin !== undefined) req = req.set('Origin', params.origin);
+    return req.send(params.body);
+  }
+
+  function patchSetPrimaryMenu(params: {
+    restaurantId: string;
+    menuId: string;
+    cookiePair?: string;
+    origin?: string;
+  }) {
+    let req = request(app.getHttpServer()).patch(
+      `/api/v1/restaurants/${params.restaurantId}/menus/${params.menuId}/primary`,
+    );
+    if (params.cookiePair) req = req.set('Cookie', params.cookiePair);
+    if (params.origin !== undefined) req = req.set('Origin', params.origin);
+    return req.send({});
+  }
+
   async function countMenus(restaurantId: string): Promise<number> {
     return prisma.menu.count({ where: { restaurantId } });
   }
@@ -626,6 +655,497 @@ describe('Menus (e2e)', () => {
       }).expect(200);
 
       expect(response.body).toEqual({ data: [] });
+    });
+  });
+
+  describe('MENU UPDATE', () => {
+    it('a successful partial update changes only the supplied fields', async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      await createMembership({ restaurantId: restaurant.id, userId });
+      const cookiePair = await loginAndGetCookie(email);
+      const created = await postCreateMenu({
+        restaurantId: restaurant.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(201);
+      const menuId = (created.body as { data: { id: string } }).data.id;
+
+      const response = await patchUpdateMenu({
+        restaurantId: restaurant.id,
+        menuId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+        body: { displayOrder: 7 },
+      }).expect(200);
+
+      const data = (
+        response.body as {
+          data: { displayOrder: number; nameInternal: string; status: string };
+        }
+      ).data;
+      expect(data.displayOrder).toBe(7);
+      expect(data.nameInternal).toBe(VALID_BODY.nameInternal);
+      expect(data.status).toBe('ACTIVE');
+    });
+
+    it('updates the default-locale translation, and description:null clears it', async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      await createMembership({ restaurantId: restaurant.id, userId });
+      const cookiePair = await loginAndGetCookie(email);
+      const created = await postCreateMenu({
+        restaurantId: restaurant.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(201);
+      const menuId = (created.body as { data: { id: string } }).data.id;
+
+      const renamed = await patchUpdateMenu({
+        restaurantId: restaurant.id,
+        menuId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+        body: { name: 'قائمة محدثة' },
+      }).expect(200);
+      expect(
+        (renamed.body as { data: { translation: { name: string } } }).data
+          .translation.name,
+      ).toBe('قائمة محدثة');
+
+      const cleared = await patchUpdateMenu({
+        restaurantId: restaurant.id,
+        menuId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+        body: { description: null },
+      }).expect(200);
+      expect(
+        (
+          cleared.body as {
+            data: { translation: { description: string | null } };
+          }
+        ).data.translation.description,
+      ).toBeNull();
+      const persisted = await prisma.menuTranslation.findFirstOrThrow({
+        where: { menuId },
+      });
+      expect(persisted.description).toBeNull();
+    });
+
+    it('an empty body is a safe no-op returning the current safe representation', async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      await createMembership({ restaurantId: restaurant.id, userId });
+      const cookiePair = await loginAndGetCookie(email);
+      const created = await postCreateMenu({
+        restaurantId: restaurant.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(201);
+      const menuId = (created.body as { data: { id: string } }).data.id;
+
+      const response = await patchUpdateMenu({
+        restaurantId: restaurant.id,
+        menuId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+        body: {},
+      }).expect(200);
+
+      expect((response.body as { data: { id: string } }).data.id).toBe(menuId);
+    });
+
+    it.each([
+      ['malformed', 'not-a-uuid'],
+      ['unknown', randomUUID()],
+    ] as const)(
+      '%s menuId -> the identical 404 MENU_NOT_FOUND',
+      async (_label, menuIdCase) => {
+        const { id: userId, email } = await createTestUser();
+        const restaurant = await createRestaurant();
+        await createMembership({ restaurantId: restaurant.id, userId });
+        const cookiePair = await loginAndGetCookie(email);
+
+        const response = await patchUpdateMenu({
+          restaurantId: restaurant.id,
+          menuId: menuIdCase,
+          cookiePair,
+          origin: APPROVED_ORIGIN,
+          body: { displayOrder: 1 },
+        }).expect(404);
+
+        expect(response.body).toEqual({
+          error: { code: 'MENU_NOT_FOUND', message: 'Menu not found.' },
+        });
+      },
+    );
+
+    it('a foreign-Restaurant menuId produces the identical 404 MENU_NOT_FOUND', async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      const foreignRestaurant = await createRestaurant();
+      await createMembership({ restaurantId: restaurant.id, userId });
+      await createMembership({ restaurantId: foreignRestaurant.id, userId });
+      const cookiePair = await loginAndGetCookie(email);
+      const foreignMenu = await postCreateMenu({
+        restaurantId: foreignRestaurant.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(201);
+      const foreignMenuId = (foreignMenu.body as { data: { id: string } }).data
+        .id;
+
+      const response = await patchUpdateMenu({
+        restaurantId: restaurant.id,
+        menuId: foreignMenuId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+        body: { displayOrder: 1 },
+      }).expect(404);
+
+      expect(response.body).toEqual({
+        error: { code: 'MENU_NOT_FOUND', message: 'Menu not found.' },
+      });
+    });
+
+    it.each(['nameInternal', 'name', 'status', 'displayOrder'] as const)(
+      'explicit null for %s -> 400 VALIDATION_ERROR, Menu left unchanged',
+      async (field) => {
+        const { id: userId, email } = await createTestUser();
+        const restaurant = await createRestaurant();
+        await createMembership({ restaurantId: restaurant.id, userId });
+        const cookiePair = await loginAndGetCookie(email);
+        const created = await postCreateMenu({
+          restaurantId: restaurant.id,
+          cookiePair,
+          origin: APPROVED_ORIGIN,
+        }).expect(201);
+        const menuId = (created.body as { data: { id: string } }).data.id;
+
+        const response = await patchUpdateMenu({
+          restaurantId: restaurant.id,
+          menuId,
+          cookiePair,
+          origin: APPROVED_ORIGIN,
+          body: { [field]: null },
+        }).expect(400);
+
+        expect((response.body as { error: { code: string } }).error.code).toBe(
+          'VALIDATION_ERROR',
+        );
+      },
+    );
+
+    it('MANAGER + allBranches=false with a legitimate Branch assignment -> 403 PERMISSION_DENIED', async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      const branch = await createBranch(restaurant.id);
+      const { id: ownerUserId, email: ownerEmail } = await createTestUser();
+      await createMembership({
+        restaurantId: restaurant.id,
+        userId: ownerUserId,
+      });
+      const ownerCookie = await loginAndGetCookie(ownerEmail);
+      const created = await postCreateMenu({
+        restaurantId: restaurant.id,
+        cookiePair: ownerCookie,
+        origin: APPROVED_ORIGIN,
+      }).expect(201);
+      const menuId = (created.body as { data: { id: string } }).data.id;
+      await createMembership({
+        restaurantId: restaurant.id,
+        userId,
+        role: 'MANAGER',
+        allBranches: false,
+        branchIds: [branch.id],
+      });
+      const cookiePair = await loginAndGetCookie(email);
+
+      const response = await patchUpdateMenu({
+        restaurantId: restaurant.id,
+        menuId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+        body: { displayOrder: 1 },
+      }).expect(403);
+
+      expect(response.body).toEqual(PERMISSION_DENIED_BODY);
+    });
+
+    it('MANAGER + allBranches=true succeeds', async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      await createMembership({
+        restaurantId: restaurant.id,
+        userId,
+        role: 'MANAGER',
+        allBranches: true,
+      });
+      const cookiePair = await loginAndGetCookie(email);
+      const created = await postCreateMenu({
+        restaurantId: restaurant.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(201);
+      const menuId = (created.body as { data: { id: string } }).data.id;
+
+      await patchUpdateMenu({
+        restaurantId: restaurant.id,
+        menuId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+        body: { displayOrder: 2 },
+      }).expect(200);
+    });
+  });
+
+  describe('SET PRIMARY', () => {
+    it('switching primary between two Menus: first becomes false, second becomes true, response reflects the target', async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      await createMembership({ restaurantId: restaurant.id, userId });
+      const cookiePair = await loginAndGetCookie(email);
+      const first = await postCreateMenu({
+        restaurantId: restaurant.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+        body: { ...VALID_BODY, nameInternal: 'First' },
+      }).expect(201);
+      const firstId = (
+        first.body as { data: { id: string; isPrimary: boolean } }
+      ).data.id;
+      expect(
+        (first.body as { data: { isPrimary: boolean } }).data.isPrimary,
+      ).toBe(true);
+      const second = await postCreateMenu({
+        restaurantId: restaurant.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+        body: { ...VALID_BODY, nameInternal: 'Second' },
+      }).expect(201);
+      const secondId = (second.body as { data: { id: string } }).data.id;
+
+      const response = await patchSetPrimaryMenu({
+        restaurantId: restaurant.id,
+        menuId: secondId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(200);
+
+      expect(
+        (response.body as { data: { id: string; isPrimary: boolean } }).data
+          .isPrimary,
+      ).toBe(true);
+      const firstAfter = await prisma.menu.findUniqueOrThrow({
+        where: { id: firstId },
+      });
+      const secondAfter = await prisma.menu.findUniqueOrThrow({
+        where: { id: secondId },
+      });
+      expect(firstAfter.isPrimary).toBe(false);
+      expect(secondAfter.isPrimary).toBe(true);
+    });
+
+    it('repeating Set-Primary on the already-primary Menu is idempotent', async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      await createMembership({ restaurantId: restaurant.id, userId });
+      const cookiePair = await loginAndGetCookie(email);
+      const created = await postCreateMenu({
+        restaurantId: restaurant.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(201);
+      const menuId = (created.body as { data: { id: string } }).data.id;
+
+      await patchSetPrimaryMenu({
+        restaurantId: restaurant.id,
+        menuId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(200);
+      const response = await patchSetPrimaryMenu({
+        restaurantId: restaurant.id,
+        menuId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(200);
+
+      expect(
+        (response.body as { data: { isPrimary: boolean } }).data.isPrimary,
+      ).toBe(true);
+      expect(
+        await prisma.menu.count({
+          where: { restaurantId: restaurant.id, isPrimary: true },
+        }),
+      ).toBe(1);
+    });
+
+    it("never affects another Restaurant's Menus", async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      const otherRestaurant = await createRestaurant();
+      await createMembership({ restaurantId: restaurant.id, userId });
+      await createMembership({ restaurantId: otherRestaurant.id, userId });
+      const cookiePair = await loginAndGetCookie(email);
+      const otherMenu = await postCreateMenu({
+        restaurantId: otherRestaurant.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(201);
+      const otherMenuId = (otherMenu.body as { data: { id: string } }).data.id;
+      const second = await postCreateMenu({
+        restaurantId: restaurant.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+        body: { ...VALID_BODY, nameInternal: 'Second' },
+      }).expect(201);
+      const secondId = (second.body as { data: { id: string } }).data.id;
+
+      await patchSetPrimaryMenu({
+        restaurantId: restaurant.id,
+        menuId: secondId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(200);
+
+      const otherAfter = await prisma.menu.findUniqueOrThrow({
+        where: { id: otherMenuId },
+      });
+      expect(otherAfter.isPrimary).toBe(true);
+    });
+
+    it.each([
+      ['malformed', 'not-a-uuid'],
+      ['unknown', randomUUID()],
+    ] as const)(
+      '%s menuId -> the identical 404 MENU_NOT_FOUND',
+      async (_label, menuIdCase) => {
+        const { id: userId, email } = await createTestUser();
+        const restaurant = await createRestaurant();
+        await createMembership({ restaurantId: restaurant.id, userId });
+        const cookiePair = await loginAndGetCookie(email);
+
+        const response = await patchSetPrimaryMenu({
+          restaurantId: restaurant.id,
+          menuId: menuIdCase,
+          cookiePair,
+          origin: APPROVED_ORIGIN,
+        }).expect(404);
+
+        expect(response.body).toEqual({
+          error: { code: 'MENU_NOT_FOUND', message: 'Menu not found.' },
+        });
+      },
+    );
+
+    it("a foreign-Restaurant menuId produces the identical 404 MENU_NOT_FOUND, and mutates neither Restaurant's primary state", async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurantA = await createRestaurant();
+      const restaurantB = await createRestaurant();
+      await createMembership({ restaurantId: restaurantA.id, userId });
+      await createMembership({ restaurantId: restaurantB.id, userId });
+      const cookiePair = await loginAndGetCookie(email);
+      const menuA = await postCreateMenu({
+        restaurantId: restaurantA.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(201);
+      const menuAId = (menuA.body as { data: { id: string } }).data.id;
+      const menuB = await postCreateMenu({
+        restaurantId: restaurantB.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(201);
+      const menuBId = (menuB.body as { data: { id: string } }).data.id;
+
+      const response = await patchSetPrimaryMenu({
+        restaurantId: restaurantA.id,
+        menuId: menuBId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(404);
+
+      expect(response.body).toEqual({
+        error: { code: 'MENU_NOT_FOUND', message: 'Menu not found.' },
+      });
+      const menuAAfter = await prisma.menu.findUniqueOrThrow({
+        where: { id: menuAId },
+      });
+      const menuBAfter = await prisma.menu.findUniqueOrThrow({
+        where: { id: menuBId },
+      });
+      expect(menuAAfter.isPrimary).toBe(true);
+      expect(menuBAfter.isPrimary).toBe(true);
+    });
+
+    it('MANAGER + allBranches=false with a legitimate Branch assignment -> 403 PERMISSION_DENIED', async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      const branch = await createBranch(restaurant.id);
+      const { id: ownerUserId, email: ownerEmail } = await createTestUser();
+      await createMembership({
+        restaurantId: restaurant.id,
+        userId: ownerUserId,
+      });
+      const ownerCookie = await loginAndGetCookie(ownerEmail);
+      const created = await postCreateMenu({
+        restaurantId: restaurant.id,
+        cookiePair: ownerCookie,
+        origin: APPROVED_ORIGIN,
+        body: { ...VALID_BODY, nameInternal: 'Second' },
+      }).expect(201);
+      const menuId = (created.body as { data: { id: string } }).data.id;
+      await createMembership({
+        restaurantId: restaurant.id,
+        userId,
+        role: 'MANAGER',
+        allBranches: false,
+        branchIds: [branch.id],
+      });
+      const cookiePair = await loginAndGetCookie(email);
+
+      const response = await patchSetPrimaryMenu({
+        restaurantId: restaurant.id,
+        menuId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(403);
+
+      expect(response.body).toEqual(PERMISSION_DENIED_BODY);
+    });
+
+    it('MANAGER + allBranches=true succeeds', async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      await createMembership({
+        restaurantId: restaurant.id,
+        userId,
+        role: 'MANAGER',
+        allBranches: true,
+      });
+      const cookiePair = await loginAndGetCookie(email);
+      const first = await postCreateMenu({
+        restaurantId: restaurant.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(201);
+      const second = await postCreateMenu({
+        restaurantId: restaurant.id,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+        body: { ...VALID_BODY, nameInternal: 'Second' },
+      }).expect(201);
+      const secondId = (second.body as { data: { id: string } }).data.id;
+      void first;
+
+      await patchSetPrimaryMenu({
+        restaurantId: restaurant.id,
+        menuId: secondId,
+        cookiePair,
+        origin: APPROVED_ORIGIN,
+      }).expect(200);
     });
   });
 

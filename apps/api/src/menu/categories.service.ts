@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { isWellFormedUuid } from '../common/is-uuid';
 import { PrismaService } from '../database/prisma.service';
 import type { CategoryStatus } from '../generated/prisma/client';
 
@@ -49,6 +50,30 @@ export interface CreateCategoryInput {
  */
 export type CreateCategoryResult =
   | { outcome: 'created'; data: CategoryWithTranslation }
+  | { outcome: 'menuNotFound' };
+
+/**
+ * `categoryId` is the raw, unauthorized `:categoryId` route parameter --
+ * every field other than `restaurantId`/`categoryId` is genuinely optional
+ * (`undefined` means "omitted, leave unchanged"; `description: null` means
+ * "clear this field"), mirroring `UpdateProductInput`'s settled convention
+ * exactly. `menuId`, when supplied, moves the Category to another Menu in
+ * the same Restaurant -- client-selected resource identity, NOT tenant
+ * authority.
+ */
+export interface UpdateCategoryInput {
+  restaurantId: string;
+  categoryId: string;
+  menuId?: string;
+  name?: string;
+  description?: string | null;
+  status?: CategoryStatus;
+  displayOrder?: number;
+}
+
+export type UpdateCategoryResult =
+  | { outcome: 'updated'; data: CategoryWithTranslation }
+  | { outcome: 'categoryNotFound' }
   | { outcome: 'menuNotFound' };
 
 /**
@@ -158,6 +183,112 @@ export class CategoriesService {
       });
 
       return { outcome: 'created', data: { ...category, translation } };
+    });
+  }
+
+  /**
+   * Settled contract (Batch F #7-#10): partial Category configuration
+   * update, including moving a Category to another same-Restaurant Menu.
+   * `categoryId` identity/ownership and (when supplied) `menuId` target
+   * identity/ownership are both resolved with a single combined
+   * `id + restaurantId` query each -- never `findUnique({ id })` followed
+   * by a separate comparison. An unknown/foreign target Menu leaves the
+   * Category entirely unchanged (checked before any write, inside the same
+   * transaction). Moving a Category only changes its own `menuId` column --
+   * Products remain attached via their own `categoryId` relation and are
+   * never rewritten.
+   */
+  async updateCategory(
+    input: UpdateCategoryInput,
+  ): Promise<UpdateCategoryResult> {
+    if (!isWellFormedUuid(input.categoryId)) {
+      return { outcome: 'categoryNotFound' };
+    }
+
+    const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
+      where: { id: input.restaurantId },
+      select: { defaultLocale: true },
+    });
+
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.category.findFirst({
+        where: { id: input.categoryId, restaurantId: input.restaurantId },
+        select: { id: true },
+      });
+      if (!existing) {
+        return { outcome: 'categoryNotFound' };
+      }
+
+      if (input.menuId !== undefined) {
+        const menu = await tx.menu.findFirst({
+          where: { id: input.menuId, restaurantId: input.restaurantId },
+          select: { id: true },
+        });
+        if (!menu) {
+          return { outcome: 'menuNotFound' };
+        }
+      }
+
+      // Explicit field-by-field `data` object, never a spread of `input` --
+      // matches `updateProduct`'s established convention. `restaurantId`/
+      // `imageAssetPath` can never appear here at all, since
+      // `UpdateCategoryInput` has no such fields.
+      const categoryData: {
+        menuId?: string;
+        status?: CategoryStatus;
+        displayOrder?: number;
+      } = {};
+      if (input.menuId !== undefined) {
+        categoryData.menuId = input.menuId;
+      }
+      if (input.status !== undefined) {
+        categoryData.status = input.status;
+      }
+      if (input.displayOrder !== undefined) {
+        categoryData.displayOrder = input.displayOrder;
+      }
+
+      // Mirrors `updateProduct`: even an empty `data` object still performs
+      // the update call as a safe no-op that returns the current row.
+      const updatedCategory = await tx.category.update({
+        where: { id: existing.id },
+        data: categoryData,
+        select: {
+          id: true,
+          menuId: true,
+          status: true,
+          displayOrder: true,
+          imageAssetPath: true,
+        },
+      });
+
+      const translationData: { name?: string; description?: string | null } =
+        {};
+      if (input.name !== undefined) {
+        translationData.name = input.name;
+      }
+      if (input.description !== undefined) {
+        translationData.description = input.description;
+      }
+      if (Object.keys(translationData).length > 0) {
+        await tx.categoryTranslation.updateMany({
+          where: {
+            categoryId: existing.id,
+            locale: restaurant.defaultLocale,
+          },
+          data: translationData,
+        });
+      }
+
+      const translation = await tx.categoryTranslation.findFirstOrThrow({
+        where: { categoryId: existing.id, locale: restaurant.defaultLocale },
+        select: { locale: true, name: true, description: true },
+      });
+
+      return {
+        outcome: 'updated',
+        data: { ...updatedCategory, translation },
+      };
     });
   }
 }

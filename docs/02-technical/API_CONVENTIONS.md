@@ -1833,15 +1833,15 @@ Examples:
 
 `PATCH /api/v1/restaurants/{restaurantId}/products/{productId}`
 
-Menu List/Create and Category List/Create are settled below (#108A/#108B, Day 1 Menu Vertical Slice Batch C). Product List, Create, generic Update, and Availability Update are settled below (#108C, Day 1 Menu Vertical Slice Batch D).
+Menu List/Create/Update/Set-Primary and Category List/Create/Update are settled below (#108A/#108B, Day 1 Menu Vertical Slice Batch C/F). Product List, Create, generic Update, and Availability Update are settled below (#108C, Day 1 Menu Vertical Slice Batch D).
 
 ---
 
-# 108A. Menu List and Create (Settled, Day 1 Menu Vertical Slice Batch C)
+# 108A. Menu List, Create, Update, Set-Primary (Settled, Day 1 Menu Vertical Slice Batch C/F)
 
-`GET`/`POST /api/v1/restaurants/{restaurantId}/menus`.
+`GET`/`POST /api/v1/restaurants/{restaurantId}/menus`, `PATCH .../menus/{menuId}`, `PATCH .../menus/{menuId}/primary`.
 
-Menu is a Restaurant-wide configuration resource -- no `branchId` exists anywhere in the schema (DATABASE_SPEC.md #58), so neither route carries a `BranchAccessGuard`/`BranchManagementAccessGuard`. `GET` requires `menu.view`; `POST` requires `menu.manage`. Guard order: `GET` is `AuthGuard -> RestaurantAccessGuard -> PermissionGuard` (no `CsrfGuard`, read-only, no `AllBranchesRequiredGuard` -- read visibility is governed by `menu.view` alone). `POST` is `AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard` (corrected, AUTH_TENANCY_SPEC.md #63/#65N): creating a Menu is a Restaurant-structural mutation, so `menu.manage` alone is not sufficient authority -- a Branch-scoped Membership (`allBranches = false`) must never gain Restaurant-wide Menu mutation authority merely because its Role holds `menu.manage`, exactly mirroring Create Branch's settled contract (#113A). `AllBranchesRequiredGuard` is reused unchanged; no new guard, no new error code -- a denied Branch-scoped caller receives the identical generic `403 PERMISSION_DENIED` (#38B) a caller simply lacking the Permission would receive. `RestaurantAccessGuard` keeps its existing unchanged behavior (#38A): unknown/inaccessible Restaurant -> `404 RESTAURANT_NOT_FOUND`; `INACTIVE`/`SUSPENDED` -> `409 RESTAURANT_NOT_OPERATIONAL`, both before any Menu query runs.
+Menu is a Restaurant-wide configuration resource -- no `branchId` exists anywhere in the schema (DATABASE_SPEC.md #58), so no route carries a `BranchAccessGuard`/`BranchManagementAccessGuard`. `GET` requires `menu.view`; every mutation (`POST`, generic `PATCH`, Set-Primary `PATCH`) requires `menu.manage`. Guard order: `GET` is `AuthGuard -> RestaurantAccessGuard -> PermissionGuard` (no `CsrfGuard`, read-only, no `AllBranchesRequiredGuard` -- read visibility is governed by `menu.view` alone). Every mutation is `AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard` (AUTH_TENANCY_SPEC.md #63/#65N): each is a Restaurant-structural mutation, so `menu.manage` alone is not sufficient authority -- a Branch-scoped Membership (`allBranches = false`) must never gain Restaurant-wide Menu mutation authority merely because its Role holds `menu.manage`, exactly mirroring Create Branch's settled contract (#113A). `AllBranchesRequiredGuard` is reused unchanged for all three mutation routes; no new guard, no new error code -- a denied Branch-scoped caller receives the identical generic `403 PERMISSION_DENIED` (#38B) a caller simply lacking the Permission would receive. `RestaurantAccessGuard` keeps its existing unchanged behavior (#38A): unknown/inaccessible Restaurant -> `404 RESTAURANT_NOT_FOUND`; `INACTIVE`/`SUSPENDED` -> `409 RESTAURANT_NOT_OPERATIONAL`, both before any Menu query runs.
 
 Create request body, all fields required except `description`:
 
@@ -1859,7 +1859,7 @@ Create request body, all fields required except `description`:
 
 **`isPrimary` is entirely server-controlled**: the first Menu created for a Restaurant becomes `isPrimary = true`; every subsequent one becomes `false`. The database's `menus_one_primary_menu` partial unique index (DATABASE_SPEC.md #58) is the final concurrency guarantee -- two truly concurrent first-Menu requests race an ordinary count-then-insert window; the loser's transaction is retried once (recomputing the count against the winner's now-committed row), which always resolves to `isPrimary = false`. Neither request ever surfaces a raw Prisma/constraint error.
 
-**`isPrimary` and `status` are independent fields (corrected):** `status` is an ordinary client-supplied Create field (`ACTIVE`/`INACTIVE`), never derived from or coupled to `isPrimary`. Consequently a Restaurant may have its primary Menu (`isPrimary = true`) with `status = INACTIVE` -- this is valid, expected state, not a data-integrity violation (MENU_SPEC.md #3). Batch C does not force `status = ACTIVE` for a primary Menu, and no Menu update/activation endpoint exists yet to change it after creation.
+**`isPrimary` and `status` are independent fields (corrected):** `status` is an ordinary client-supplied Create/Update field (`ACTIVE`/`INACTIVE`), never derived from or coupled to `isPrimary`. Consequently a Restaurant may have its primary Menu (`isPrimary = true`) with `status = INACTIVE` -- this is valid, expected state, not a data-integrity violation (MENU_SPEC.md #3). Neither the generic Update nor Set-Primary (below) ever forces `status = ACTIVE` for a primary Menu.
 
 Create success:
 
@@ -1888,13 +1888,17 @@ List success returns every Menu for the authorized Restaurant, each with its own
 
 No pagination, no query parameters -- Batch C treats this as a small V1 administrative collection (#59). Empty result is `200 { "data": [] }`, never `404`/`204`/`null`. No new public error code is introduced.
 
+**Generic Update** (`PATCH .../menus/{menuId}`, settled Batch F): partial configuration update. Writable: `nameInternal`, `name`, `description`, `status`, `displayOrder`. NOT writable through this route: `isPrimary` (dedicated Set-Primary endpoint, below), `restaurantId`, `locale`, `createdAt`, `updatedAt` -- silently stripped by the existing global whitelist `ValidationPipe`. An omitted field is left unchanged; an empty body `{}` is a safe no-op returning the current safe representation. Explicit `null` semantics (mirrors #108C's Product Update): `description: null` explicitly clears `description` -- the one field with a "clear" concept; for every other writable field, explicit `null` is rejected as `400 VALIDATION_ERROR`. `menuId` identity/ownership resolution (malformed/unknown/foreign, all converge on the identical `404 MENU_NOT_FOUND`) happens entirely inside the service, only after the guard chain has already succeeded. Response is the same full safe Menu shape as Create/List.
+
+**Set-Primary** (`PATCH .../menus/{menuId}/primary`, settled Batch F): no client-controlled `isPrimary` field and no meaningful request body -- the Backend alone performs the primary switch. If the target Menu is already primary, this succeeds idempotently with no write at all. Otherwise, within one transaction, the Restaurant's current primary Menu (if any) is unset before the target is set -- this never commits a transient two-primary state, though the database's `menus_one_primary_menu` partial unique index (#58) remains the final concurrency authority regardless. Two concurrent Set-Primary calls targeting different Menus in the same Restaurant can legitimately race on that index; the loser is retried once (the same bounded-retry strategy Create's first-Menu race already established). The database partial unique index remains the final concurrency invariant. A conflict on that specific index is retried once as a bounded contention recovery. Continued contention beyond the bounded retry fails rather than weakening the at-most-one-primary invariant. Target identity uses the identical `404 MENU_NOT_FOUND` existence-hiding contract as generic Update. Response is the same full safe Menu shape.
+
 ---
 
-# 108B. Category List and Create (Settled, Day 1 Menu Vertical Slice Batch C)
+# 108B. Category List, Create, Update (Settled, Day 1 Menu Vertical Slice Batch C/F)
 
-`GET`/`POST /api/v1/restaurants/{restaurantId}/categories`.
+`GET`/`POST /api/v1/restaurants/{restaurantId}/categories`, `PATCH .../categories/{categoryId}`.
 
-Category is also a Restaurant-wide configuration resource -- no `BranchAccessGuard`/`BranchManagementAccessGuard` of any kind, mirroring #108A. Same Permission/guard/CSRF/error contract as Menu List/Create (`menu.view` for `GET`; `menu.manage` + `AllBranchesRequiredGuard` for `POST`, corrected -- a Branch-scoped Membership cannot create a Category for the same Restaurant-structural-mutation reason as Menu Create, above).
+Category is also a Restaurant-wide configuration resource -- no `BranchAccessGuard`/`BranchManagementAccessGuard` of any kind, mirroring #108A. Same Permission/guard/CSRF/error contract as Menu (`menu.view` for `GET`; `menu.manage` + `AllBranchesRequiredGuard` for every mutation -- a Branch-scoped Membership cannot create or update a Category for the same Restaurant-structural-mutation reason as Menu, above).
 
 Create request body, all fields required except `description`:
 
@@ -1936,6 +1940,10 @@ Create success:
 Never returned: `restaurantId`, `createdAt`, `updatedAt`.
 
 List supports one optional query parameter, `?menuId=<uuid>`, kept because the Staff Menu screen needs it. The query always additionally scopes by `restaurantId = authorizedRestaurantId` regardless of whether the filter is present -- a well-formed but foreign-Restaurant `menuId` never leaks existence; it simply matches zero rows, identical to any other non-matching value (no distinguishable 404 for a collection route). Ordered deterministically `displayOrder` ascending then `id` ascending; embeds only each Category's own default-locale translation, never nested Products. Empty result is `200 { "data": [] }`.
+
+**Generic Update** (`PATCH .../categories/{categoryId}`, settled Batch F): partial configuration update. Writable: `menuId`, `name`, `description`, `status`, `displayOrder`. NOT writable through this route: `restaurantId`, `imageAssetPath`, `locale`, `createdAt`, `updatedAt`. An omitted field is left unchanged; an empty body `{}` is a safe no-op. Explicit `null` semantics mirror Menu Update: `description: null` clears it; every other writable field rejects explicit `null` as `400 VALIDATION_ERROR`. `categoryId` identity/ownership resolution (malformed/unknown/foreign, all converge on the identical `404 CATEGORY_NOT_FOUND`) happens entirely inside the service.
+
+**Category move between Menus:** `menuId`, when supplied, moves the Category to another Menu in the same Restaurant -- client-selected resource identity, not Tenant authority. The target Menu is re-resolved the identical Tenant-scoped way as Create (`id = menuId AND restaurantId = authorizedRestaurantId`); an unknown or foreign-Restaurant target produces the identical `404 MENU_NOT_FOUND` and leaves the Category entirely unchanged (checked before any write, inside the same transaction as the rest of the update). Moving a Category only changes its own `menuId` column -- Products remain attached via their own `categoryId` relation and are never rewritten. Response is the same full safe Category shape as Create/List.
 
 Product List, Create, generic Update, and Availability Update are settled below (#108C, Day 1 Menu Vertical Slice Batch D) -- Restaurant-wide Product configuration mutations follow this exact same Restaurant-structural-mutation rule (`menu.manage` + `AllBranchesRequiredGuard`), unless a later endpoint is explicitly Branch-scoped (for example a future `BranchProductOverride` mutation, which would use ordinary Branch-scoped authority instead, matching Table Creation's `BranchManagementAccessGuard` precedent rather than Create Branch's `AllBranchesRequiredGuard` precedent) -- `BranchProductOverride` itself remains unimplemented.
 

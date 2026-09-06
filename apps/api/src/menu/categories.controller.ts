@@ -5,6 +5,8 @@ import {
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Param,
+  Patch,
   Post,
   Query,
   Req,
@@ -22,18 +24,33 @@ import { CategoriesService } from './categories.service';
 import type { CategoryWithTranslation } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { ListCategoriesQueryDto } from './dto/list-categories-query.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
 
 /**
  * Day 1 Menu Vertical Slice, Batch C, settled contract: one stable
  * existence-hiding error for an unknown or foreign-Restaurant `menuId` on
- * Category creation -- never distinguishes "does not exist" from "belongs
- * to another Restaurant" (mirrors the existing `BRANCH_NOT_FOUND`
- * convention).
+ * Category creation/update (Batch F: also the Category-move target Menu) --
+ * never distinguishes "does not exist" from "belongs to another
+ * Restaurant" (mirrors the existing `BRANCH_NOT_FOUND` convention).
  */
 const MENU_NOT_FOUND_RESPONSE = {
   error: {
     code: 'MENU_NOT_FOUND',
     message: 'Menu not found.',
+  },
+};
+
+/**
+ * Day 1 Menu Vertical Slice, Batch F, settled contract: one stable
+ * existence-hiding error for a malformed, unknown, or foreign-Restaurant
+ * `categoryId` on Category Update -- never a distinguishable
+ * `CATEGORY_ACCESS_DENIED`/`CATEGORY_WRONG_RESTAURANT`/`INVALID_CATEGORY_ID`
+ * (mirrors the existing `PRODUCT_NOT_FOUND` convention).
+ */
+const CATEGORY_NOT_FOUND_RESPONSE = {
+  error: {
+    code: 'CATEGORY_NOT_FOUND',
+    message: 'Category not found.',
   },
 };
 
@@ -109,6 +126,50 @@ export class CategoriesController {
       displayOrder: dto.displayOrder,
     });
 
+    if (result.outcome === 'menuNotFound') {
+      throw new NotFoundException(MENU_NOT_FOUND_RESPONSE);
+    }
+
+    return { data: result.data };
+  }
+
+  /**
+   * Partial Category configuration update, including moving a Category to
+   * another same-Restaurant Menu (`menuId`, settled contract #9).
+   * `categoryId` identity/ownership resolution happens entirely inside
+   * `CategoriesService` (malformed/unknown/foreign all converge on the
+   * identical `CATEGORY_NOT_FOUND`); a supplied `menuId` target is
+   * re-resolved the same Tenant-scoped way as Create, and an unknown/
+   * foreign target Menu leaves the Category entirely unchanged.
+   */
+  @Patch(':categoryId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async updateCategory(
+    @Param('categoryId') categoryId: string,
+    @Body() dto: UpdateCategoryDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<CreateCategoryResponseBody> {
+    const result = await this.categoriesService.updateCategory({
+      restaurantId: request.restaurantAccess.restaurantId,
+      categoryId,
+      menuId: dto.menuId,
+      name: dto.name,
+      description: dto.description,
+      status: dto.status,
+      displayOrder: dto.displayOrder,
+    });
+
+    if (result.outcome === 'categoryNotFound') {
+      throw new NotFoundException(CATEGORY_NOT_FOUND_RESPONSE);
+    }
     if (result.outcome === 'menuNotFound') {
       throw new NotFoundException(MENU_NOT_FOUND_RESPONSE);
     }
