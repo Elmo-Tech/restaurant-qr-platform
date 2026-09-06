@@ -205,6 +205,8 @@ Optional metadata may include:
 - Nutrition information
 - Preparation notes for display where appropriate
 
+**Settled (Day 1 Menu Vertical Slice Batch D, API_CONVENTIONS.md #108C):** "Name"/"Description" are `ProductTranslation.name`/`description` (default-locale only, matching Menu/Category); "Base price" is `Product.basePrice`; "Category" is `Product.categoryId`, Tenant-validated against the authorized Restaurant at Create/Update time; "Active state" is `Product.status`; "Availability state" is `Product.availability`; "Display order" is `Product.displayOrder`. "Primary image" (`Product.primaryImageAssetPath`) exists in persistence but is not yet client-writable -- image upload/storage infrastructure remains deferred (DATABASE_SPEC.md #62A). The optional metadata list (dietary/nutrition/allergens) also remains deferred.
+
 ---
 
 # 10. Product Active State
@@ -247,6 +249,8 @@ Initial V1 availability states may include:
 
 Additional temporary states may be introduced later only if useful.
 
+**Settled (Day 1 Menu Vertical Slice Batch D):** `Product.status` (#10) and `Product.availability` are independent persisted fields, never derived from one another -- both `status = INACTIVE` + `availability = AVAILABLE` and `status = ACTIVE` + `availability = SOLD_OUT` are valid, expected combinations. `status` is updated through the generic Product Update endpoint (API_CONVENTIONS.md #108C/#109); `availability` has its own dedicated focused endpoint (#108C/#110) that changes only `availability`.
+
 ---
 
 # 12. Sold Out Behavior
@@ -272,6 +276,8 @@ Every Product has a base price.
 The backend is authoritative for price.
 
 Frontend-displayed prices are informational until validated during Order submission.
+
+**Settled (Day 1 Menu Vertical Slice Batch D, API_CONVENTIONS.md #108C):** the Staff Product Create/Update HTTP contract for `basePrice` is a decimal string (e.g. `"250.00"`), never a JSON number, validated for at most 2 fractional digits and at most 12 integer digits (`Decimal(14,2)`'s representable range) before persistence. Every Product API response serializes `basePrice` as an exact 2-fractional-digit decimal string. This settles the Staff configuration side only -- authoritative Order-submission price validation remains a separate, future concern.
 
 ---
 
@@ -832,6 +838,8 @@ Products shown in public guest interfaces may use a safe public identifier or sl
 Internal sequential IDs should not be exposed as security-sensitive identifiers.
 
 SEO-friendly slugs may be considered where useful.
+
+**Settled (Day 1 Menu Vertical Slice Batch D):** `Product.publicId` (`product-<UUIDv4>`) is server-generated at Create time, generalizing the existing Restaurant/Branch `publicId` convention -- never client-supplied, never derived from the internal `id`. SEO-friendly slugs remain a future consideration, not implemented in Batch D.
 
 ---
 

@@ -1833,7 +1833,7 @@ Examples:
 
 `PATCH /api/v1/restaurants/{restaurantId}/products/{productId}`
 
-Menu List/Create and Category List/Create are settled below (#108A/#108B, Day 1 Menu Vertical Slice Batch C). Product endpoints remain unimplemented (Batch D).
+Menu List/Create and Category List/Create are settled below (#108A/#108B, Day 1 Menu Vertical Slice Batch C). Product List, Create, generic Update, and Availability Update are settled below (#108C, Day 1 Menu Vertical Slice Batch D).
 
 ---
 
@@ -1937,39 +1937,119 @@ Never returned: `restaurantId`, `createdAt`, `updatedAt`.
 
 List supports one optional query parameter, `?menuId=<uuid>`, kept because the Staff Menu screen needs it. The query always additionally scopes by `restaurantId = authorizedRestaurantId` regardless of whether the filter is present -- a well-formed but foreign-Restaurant `menuId` never leaks existence; it simply matches zero rows, identical to any other non-matching value (no distinguishable 404 for a collection route). Ordered deterministically `displayOrder` ascending then `id` ascending; embeds only each Category's own default-locale translation, never nested Products. Empty result is `200 { "data": [] }`.
 
-**Forward rule for Batch D (Product):** The Product persistence schema already exists from Batch B, but Product Staff APIs/backend behavior are not implemented yet. When it is implemented, Restaurant-wide Product configuration mutations (ordinary Create/Update, matching Menu/Category above) must follow this same Restaurant-structural-mutation rule (`menu.manage` + `AllBranchesRequiredGuard`) unless a specific future endpoint is explicitly Branch-scoped (for example a future `BranchProductOverride` mutation, which would use ordinary Branch-scoped authority instead, matching Table Creation's `BranchManagementAccessGuard` precedent rather than Create Branch's `AllBranchesRequiredGuard` precedent). This is a documentation forward-declaration only -- no Product Staff API/backend implementation is added by Batch C.
+Product List, Create, generic Update, and Availability Update are settled below (#108C, Day 1 Menu Vertical Slice Batch D) -- Restaurant-wide Product configuration mutations follow this exact same Restaurant-structural-mutation rule (`menu.manage` + `AllBranchesRequiredGuard`), unless a later endpoint is explicitly Branch-scoped (for example a future `BranchProductOverride` mutation, which would use ordinary Branch-scoped authority instead, matching Table Creation's `BranchManagementAccessGuard` precedent rather than Create Branch's `AllBranchesRequiredGuard` precedent) -- `BranchProductOverride` itself remains unimplemented.
 
 ---
 
-# 109. Product Activation
+# 108C. Product List, Create, Update, Availability Update (Settled, Day 1 Menu Vertical Slice Batch D)
 
-Product lifecycle may be controlled through:
+`GET`/`POST /api/v1/restaurants/{restaurantId}/products`, `PATCH .../products/{productId}`, `PATCH .../products/{productId}/availability`.
 
-PATCH:
+Product is also a Restaurant-wide configuration resource -- no `BranchAccessGuard`/`BranchManagementAccessGuard` of any kind. Same Permission/guard/CSRF/error contract as Menu/Category (`menu.view` for `GET`; `menu.manage` + `AllBranchesRequiredGuard` for every mutation, AUTH_TENANCY_SPEC.md #65N).
 
+**Create** request body, all fields required except `description`:
+
+```
+{
+  "categoryId": "<uuid>",
+  "name": "Classic Burger",
+  "description": "Beef burger",
+  "status": "ACTIVE",
+  "availability": "AVAILABLE",
+  "basePrice": "250.00",
+  "displayOrder": 0,
+  "allowCustomerNotes": true,
+  "featured": false
+}
+```
+
+`categoryId` is client-selected resource identity, **not** Tenant authority: the Backend resolves it with both `id = categoryId` AND `restaurantId = authorizedRestaurantId`. An unknown or foreign-Restaurant `categoryId` produces the identical, existence-hiding `404 CATEGORY_NOT_FOUND` (same contract as #108B's `MENU_NOT_FOUND`):
+
+```
+404 Not Found
+{ "error": { "code": "CATEGORY_NOT_FOUND", "message": "Category not found." } }
+```
+
+`name`/`description` are the default-locale `ProductTranslation` content, created atomically with the `Product` row (exactly as #108A/#108B describe). `publicId` is server-generated (`product-<UUIDv4>`, generalizing the existing Restaurant/Branch `publicId` convention) and globally unique -- never client-supplied. `primaryImageAssetPath` is never client-writable (image upload/storage infrastructure is intentionally deferred, DATABASE_SPEC.md #62A) and is always persisted as `null`. `id`/`restaurantId`/`locale`/`createdAt`/`updatedAt` are never accepted.
+
+**`status` and `availability` are independent fields, never coupled**: `status` (`ACTIVE`/`INACTIVE`) is configuration visibility; `availability` (`AVAILABLE`/`SOLD_OUT`) is orderability. A Product may validly be `status = INACTIVE` with `availability = AVAILABLE`, or `status = ACTIVE` with `availability = SOLD_OUT` -- neither is derived from the other.
+
+**Money contract, security/business critical:** `basePrice` is a decimal string, never a JSON number (API_CONVENTIONS.md #48) -- validated as at most 2 fractional digits, at most 12 integer digits (matching `Decimal(14,2)`'s maximum representable positive value `999999999999.99`), no sign, no scientific notation; any violation is `400 VALIDATION_ERROR` before persistence. The database's `products_base_price_non_negative` CHECK (DATABASE_SPEC.md #141) remains defense-in-depth, not the primary defense. Every Product response (`List`/`Create`/`Update`) always serializes `basePrice` as an exact 2-fractional-digit decimal string (e.g. `"250.00"`, `"10.50"`), via `Prisma.Decimal.toFixed(2)` -- never JavaScript floating-point arithmetic.
+
+Create success:
+
+```
+201 Created
+{
+  "data": {
+    "id": "<productId>",
+    "publicId": "<publicId>",
+    "categoryId": "<categoryId>",
+    "status": "ACTIVE",
+    "availability": "AVAILABLE",
+    "basePrice": "250.00",
+    "primaryImageAssetPath": null,
+    "displayOrder": 0,
+    "allowCustomerNotes": true,
+    "featured": false,
+    "translation": { "locale": "ar", "name": "...", "description": null }
+  }
+}
+```
+
+Never returned: `restaurantId`, `createdAt`, `updatedAt`, or a raw `ProductTranslation` row (`id`/`productId`).
+
+**List** returns every Product for the authorized Restaurant (each with its own default-locale translation, bounded per-Product lookup), ordered deterministically `displayOrder` ascending then `id` ascending. Supports one optional query parameter, `?categoryId=<uuid>`, always combined with `restaurantId = authorizedRestaurantId` -- a well-formed but foreign-Restaurant `categoryId` never leaks existence; it simply matches zero rows. No pagination, no search, no status/availability filter. Embeds only `categoryId`, never nested Category/Menu objects. Empty result is `200 { "data": [] }`.
+
+**Generic Update** (`PATCH .../products/{productId}`, reconciles #109): partial configuration update. Writable: `categoryId`, `name`, `description`, `status`, `basePrice`, `displayOrder`, `allowCustomerNotes`, `featured`. NOT writable through this route: `availability` (dedicated endpoint, below), `publicId`, `restaurantId`, `primaryImageAssetPath`, `locale`, `createdAt`, `updatedAt` -- silently stripped by the existing global whitelist `ValidationPipe`. An omitted field is left unchanged; an empty body `{}` is a safe no-op returning the current safe representation (mirrors #113C's `UpdateBranchDto` convention). Explicit `null` semantics (corrected): `description: null` explicitly clears `description` -- the one field with a "clear" concept. For every other writable field (`categoryId`, `name`, `status`, `basePrice`, `displayOrder`, `allowCustomerNotes`, `featured`), explicit `null` has no meaning and is rejected as `400 VALIDATION_ERROR`, exactly like any other invalid value for that field -- `null` is never silently treated as "omitted." A supplied `categoryId` is re-resolved with `id = categoryId AND restaurantId = authorizedRestaurantId` exactly as Create -- unknown/foreign yields the identical `404 CATEGORY_NOT_FOUND`, and the Product's existing `categoryId` is left untouched. `basePrice`, when supplied, uses the identical decimal-string validation as Create. Response is the same full safe Product shape as Create/List.
+
+**Product identity/ownership existence-hiding**: for both PATCH endpoints, a malformed (not even a well-formed UUID), unknown, or foreign-Restaurant `productId` all converge on the identical:
+
+```
+404 Not Found
+{ "error": { "code": "PRODUCT_NOT_FOUND", "message": "Product not found." } }
+```
+
+Never a distinguishable `PRODUCT_ACCESS_DENIED`/`PRODUCT_WRONG_RESTAURANT`/`INVALID_PRODUCT_ID`. Authorization guards run before this identity lookup.
+
+**Availability Update** (`PATCH .../products/{productId}/availability`, settles #110): body is exactly `{ "availability": "AVAILABLE" | "SOLD_OUT" }`, no other writable field. Changes ONLY `Product.availability` -- never `status`/`basePrice`/`categoryId`/translation/`featured`/`allowCustomerNotes`/`primaryImageAssetPath`. Success is a focused `200 OK`:
+
+```
+{ "data": { "id": "<productId>", "availability": "SOLD_OUT" } }
+```
+
+No `PRODUCT_UNAVAILABLE` error here -- that is a future Guest/Order business-behavior concern, not this Staff configuration endpoint.
+
+No new Audit event, realtime event, or notification infrastructure. Variants, Modifiers, `BranchProductOverride`, Allergens, dietary/nutrition fields, Promotions, and Guest Menu remain unimplemented (DATABASE_SPEC.md #62A).
+
+---
+
+# 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
+
+`Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.
+
+```
+PATCH .../products/{productId}
 {
   "status": "INACTIVE"
 }
-
-because this is configuration state rather than operational state-machine action.
+```
 
 ---
 
-# 110. Product Availability
+# 110. Product Availability (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
-Example:
+The focused availability endpoint is now settled exactly as sketched:
 
 `PATCH /api/v1/restaurants/{restaurantId}/products/{productId}/availability`
 
-Body:
-
+```
 {
   "availability": "SOLD_OUT"
 }
+```
 
-or equivalent focused endpoint.
-
-Exact implementation should optimize Dashboard clarity.
+See #108C for the complete contract (guard chain, `PRODUCT_NOT_FOUND` existence-hiding, and the "changes only `availability`" invariant).
 
 ---
 
