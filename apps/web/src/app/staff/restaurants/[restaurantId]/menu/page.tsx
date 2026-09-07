@@ -1,0 +1,74 @@
+import { redirect } from 'next/navigation';
+import { getAuthSessionState } from '../../../../../lib/auth/session';
+import {
+  canManageMenu,
+  canViewMenu,
+  hasMenuManagePermission,
+} from '../../../../../lib/menu/capabilities';
+import { Alert } from '../../../../../components/ui/Alert';
+import { MenuWorkspace } from './MenuWorkspace';
+
+interface MenuManagementPageProps {
+  params: Promise<{ restaurantId: string }>;
+}
+
+/**
+ * `/staff/restaurants/[restaurantId]/menu` (Batch H, Section 3). Mirrors the
+ * Restaurant landing page's exact session/Membership/operational-status
+ * checks, then additionally requires `menu.view` (UX only -- every real
+ * Menu/Category/Product request still goes through its own
+ * `PermissionGuard`-protected Backend route independently). Safe,
+ * server-validated context is passed into the Client Component workspace;
+ * the workspace itself never re-derives authorization, only capability UX
+ * hints (Section 5).
+ */
+export default async function MenuManagementPage({
+  params,
+}: MenuManagementPageProps) {
+  const { restaurantId } = await params;
+  const sessionState = await getAuthSessionState();
+
+  if (sessionState.status === 'unauthenticated') {
+    redirect('/login');
+  }
+
+  if (sessionState.status === 'error') {
+    return <Alert variant="error">{sessionState.message}</Alert>;
+  }
+
+  const membership = sessionState.context.memberships.find(
+    (candidate) => candidate.restaurant.id === restaurantId,
+  );
+
+  if (!membership) {
+    return <Alert variant="error">Restaurant not found.</Alert>;
+  }
+
+  if (membership.restaurant.status !== 'ACTIVE') {
+    return (
+      <Alert variant="error">
+        This Restaurant is currently{' '}
+        {membership.restaurant.status === 'SUSPENDED' ? 'suspended' : 'inactive'}{' '}
+        and not operational. Contact your Restaurant owner for details.
+      </Alert>
+    );
+  }
+
+  if (!canViewMenu(membership)) {
+    return (
+      <Alert variant="error">
+        You do not have permission to view this Restaurant&apos;s Menu.
+      </Alert>
+    );
+  }
+
+  return (
+    <MenuWorkspace
+      restaurantId={restaurantId}
+      restaurantName={membership.restaurant.name}
+      currencyCode={membership.restaurant.currencyCode}
+      canManage={canManageMenu(membership)}
+      hasMenuManagePermission={hasMenuManagePermission(membership)}
+    />
+  );
+}

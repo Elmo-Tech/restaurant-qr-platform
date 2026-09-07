@@ -1,5 +1,7 @@
+import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../lib/auth/session';
+import { canViewMenu } from '../../../../lib/menu/capabilities';
 import { Alert } from '../../../../components/ui/Alert';
 import { Card } from '../../../../components/ui/Card';
 
@@ -8,18 +10,17 @@ interface RestaurantLandingPageProps {
 }
 
 /**
- * Section 16 proof-of-foundation screen: the URL `restaurantId` is the
- * explicit selected-Restaurant identifier (Section 9), validated here only
- * against the same Backend-authorized `memberships` list every other Staff
- * screen uses -- this is not frontend-invented authorization, it is the
- * Backend's own access decision. Every future feature request against this
- * Restaurant (Menu, Orders, ...) still goes through its own
- * RestaurantAccessGuard-protected endpoint independently.
+ * Section 16 (Batch G) / Section 4 (Batch H) proof-of-foundation screen: the
+ * URL `restaurantId` is the explicit selected-Restaurant identifier
+ * (Section 9), validated here only against the same Backend-authorized
+ * `memberships` list every other Staff screen uses -- this is not
+ * frontend-invented authorization, it is the Backend's own access decision.
+ * Every feature request against this Restaurant (Menu, Orders, ...) still
+ * goes through its own `RestaurantAccessGuard`-protected endpoint
+ * independently.
  *
- * `currencyCode`/`defaultLocale` are intentionally omitted: `GET /auth/me`
- * does not expose them and no Backend Restaurant-details endpoint exists
- * yet (see Batch G review package) -- inventing one was explicitly out of
- * scope for this foundation.
+ * `currencyCode`/`defaultLocale` (Batch G0) are shown as contextual
+ * information only (Section 25) -- no locale editor, no currency formatter.
  *
  * A non-`ACTIVE` Restaurant status (`INACTIVE`/`SUSPENDED`, already exposed
  * by `GET /auth/me`) renders a non-operational state instead of the normal
@@ -61,10 +62,27 @@ export default async function RestaurantLandingPage({
       </div>
 
       {membership.restaurant.status === 'ACTIVE' ? (
-        <Card>
-          <p className="text-sm font-medium text-[#302C29]">Menu Management</p>
-          <p className="mt-1 text-sm text-[#655D56]">Coming next.</p>
-        </Card>
+        canViewMenu(membership) ? (
+          <Link href={`/staff/restaurants/${restaurantId}/menu`}>
+            <Card className="transition-colors hover:border-[#7A5138]">
+              <p className="text-sm font-medium text-[#302C29]">
+                Menu Management
+              </p>
+              <p className="mt-1 text-sm text-[#655D56]">
+                Manage Menus, Categories, and Products.
+              </p>
+            </Card>
+          </Link>
+        ) : (
+          <Card>
+            <p className="text-sm font-medium text-[#302C29]">
+              Menu Management
+            </p>
+            <p className="mt-1 text-sm text-[#655D56]">
+              You do not have permission to view this Restaurant&apos;s Menu.
+            </p>
+          </Card>
+        )
       ) : (
         <Alert variant="error">
           This Restaurant is currently{' '}

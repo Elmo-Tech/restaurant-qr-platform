@@ -50,7 +50,11 @@ export default async function StaffLayout({
           <LogoutButton />
         </div>
       </header>
-      <main className="mx-auto max-w-4xl px-6 py-8">{children}</main>
+      {/* Batch H, Section 7: widened from max-w-4xl -- the Menu Management
+          three-column workspace needs more room than the earlier
+          single-column Staff screens. A small targeted adjustment, not a
+          shell redesign. */}
+      <main className="mx-auto max-w-6xl px-6 py-8">{children}</main>
     </div>
   );
 }
