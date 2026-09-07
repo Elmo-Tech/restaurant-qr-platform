@@ -1,4 +1,15 @@
 import { AuthContextService } from './auth-context.service';
+import { ROLE_PERMISSIONS } from '../permission/role-permissions';
+
+/**
+ * Isolates the one unavoidable `any`-erasure point (a bare `jest.fn()`'s
+ * `.mock.calls` is untyped) behind a single typed helper, rather than
+ * repeating an inline cast at every call site.
+ */
+function firstCallArgs(mockFn: jest.Mock): Record<string, unknown> {
+  const calls = mockFn.mock.calls as unknown[][];
+  return calls[0][0] as Record<string, unknown>;
+}
 
 function buildPrismaMock() {
   return {
@@ -437,6 +448,175 @@ describe('AuthContextService', () => {
       const serialized = JSON.stringify(context);
       expect(serialized).not.toMatch(/passwordHash/i);
       expect(serialized).not.toMatch(/tokenHash/i);
+    });
+  });
+
+  describe('Restaurant safe fields (Batch G0)', () => {
+    it('restaurant includes currencyCode and defaultLocale', async () => {
+      prisma.restaurantMembership.findMany.mockResolvedValue([
+        {
+          id: 'membership-1',
+          role: 'OWNER',
+          allBranches: true,
+          restaurant: {
+            id: 'restaurant-1',
+            name: 'Cairo Bites',
+            status: 'ACTIVE',
+            currencyCode: 'EGP',
+            defaultLocale: 'ar',
+          },
+        },
+      ]);
+
+      const context = await service.getAuthContext('user-1');
+
+      expect(context.memberships[0].restaurant).toMatchObject({
+        currencyCode: 'EGP',
+        defaultLocale: 'ar',
+      });
+    });
+
+    it('currencyCode/defaultLocale remain present regardless of Restaurant operational status', async () => {
+      prisma.restaurantMembership.findMany.mockResolvedValue([
+        {
+          id: 'membership-1',
+          role: 'OWNER',
+          allBranches: true,
+          restaurant: {
+            id: 'restaurant-1',
+            name: 'Cairo Bites',
+            status: 'SUSPENDED',
+            currencyCode: 'EGP',
+            defaultLocale: 'ar',
+          },
+        },
+      ]);
+
+      const context = await service.getAuthContext('user-1');
+
+      expect(context.memberships[0].restaurant).toMatchObject({
+        status: 'SUSPENDED',
+        currencyCode: 'EGP',
+        defaultLocale: 'ar',
+      });
+    });
+
+    it('selects currencyCode/defaultLocale from the Restaurant relation (no second query)', async () => {
+      await service.getAuthContext('user-1');
+
+      const callArgs = firstCallArgs(prisma.restaurantMembership.findMany) as {
+        select: { restaurant: { select: Record<string, unknown> } };
+      };
+
+      expect(callArgs.select.restaurant.select).toMatchObject({
+        currencyCode: true,
+        defaultLocale: true,
+      });
+    });
+  });
+
+  describe('Effective permissions (Batch G0)', () => {
+    function membershipWith(role: string) {
+      return {
+        id: 'membership-1',
+        role,
+        allBranches: true,
+        restaurant: {
+          id: 'restaurant-1',
+          name: 'Cairo Bites',
+          status: 'ACTIVE',
+          currencyCode: 'EGP',
+          defaultLocale: 'ar',
+        },
+      };
+    }
+
+    it('OWNER receives exactly the canonical OWNER effective permission set', async () => {
+      prisma.restaurantMembership.findMany.mockResolvedValue([
+        membershipWith('OWNER'),
+      ]);
+
+      const context = await service.getAuthContext('user-1');
+
+      expect(context.memberships[0].permissions).toEqual([
+        ...ROLE_PERMISSIONS.OWNER,
+      ]);
+    });
+
+    it('MANAGER receives exactly the canonical MANAGER effective permission set', async () => {
+      prisma.restaurantMembership.findMany.mockResolvedValue([
+        membershipWith('MANAGER'),
+      ]);
+
+      const context = await service.getAuthContext('user-1');
+
+      expect(context.memberships[0].permissions).toEqual([
+        ...ROLE_PERMISSIONS.MANAGER,
+      ]);
+    });
+
+    it('a lower role (CASHIER) never receives a MANAGER/OWNER-only permission', async () => {
+      prisma.restaurantMembership.findMany.mockResolvedValue([
+        membershipWith('CASHIER'),
+      ]);
+
+      const context = await service.getAuthContext('user-1');
+
+      expect(context.memberships[0].permissions).toEqual([
+        ...ROLE_PERMISSIONS.CASHIER,
+      ]);
+      // Proves no accidental elevation: a Permission that MANAGER/OWNER have
+      // but CASHIER canonically does not must not leak in.
+      expect(context.memberships[0].permissions).not.toContain(
+        'branches.manage',
+      );
+      expect(context.memberships[0].permissions).not.toContain('users.manage');
+    });
+
+    it('a lower role (WAITER) never receives a MANAGER/OWNER-only permission', async () => {
+      prisma.restaurantMembership.findMany.mockResolvedValue([
+        membershipWith('WAITER'),
+      ]);
+
+      const context = await service.getAuthContext('user-1');
+
+      expect(context.memberships[0].permissions).toEqual([
+        ...ROLE_PERMISSIONS.WAITER,
+      ]);
+      expect(context.memberships[0].permissions).not.toContain('menu.manage');
+      expect(context.memberships[0].permissions).not.toContain('orders.accept');
+    });
+
+    it('permissions and Branch scope both remain correct together (no regression from enrichment)', async () => {
+      prisma.restaurantMembership.findMany.mockResolvedValue([
+        {
+          id: 'membership-1',
+          role: 'WAITER',
+          allBranches: false,
+          restaurant: {
+            id: 'restaurant-1',
+            name: 'Cairo Bites',
+            status: 'ACTIVE',
+            currencyCode: 'EGP',
+            defaultLocale: 'ar',
+          },
+        },
+      ]);
+      prisma.restaurantMembershipBranch.findMany.mockResolvedValue([
+        {
+          restaurantMembershipId: 'membership-1',
+          branch: { id: 'branch-1', name: 'Maadi', status: 'ACTIVE' },
+        },
+      ]);
+
+      const context = await service.getAuthContext('user-1');
+
+      expect(context.memberships[0].permissions).toEqual([
+        ...ROLE_PERMISSIONS.WAITER,
+      ]);
+      expect(context.memberships[0].branches).toEqual([
+        { id: 'branch-1', name: 'Maadi', status: 'ACTIVE' },
+      ]);
     });
   });
 });

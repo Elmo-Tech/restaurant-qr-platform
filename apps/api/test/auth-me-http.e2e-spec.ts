@@ -6,6 +6,7 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import type { AuthContext } from './../src/auth/context/auth-context.service';
+import { ROLE_PERMISSIONS } from './../src/auth/permission/role-permissions';
 import { PrismaService } from './../src/database/prisma.service';
 
 interface MeResponseBody {
@@ -90,14 +91,16 @@ describe('GET /api/v1/auth/me (e2e)', () => {
   async function createRestaurant(
     status: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED' = 'ACTIVE',
     name = 'Cairo Bites',
+    defaultLocale = 'ar',
+    currencyCode = 'EGP',
   ) {
     const restaurant = await prisma.restaurant.create({
       data: {
         publicId: `rest-${randomUUID()}`,
         name,
         status,
-        defaultLocale: 'ar',
-        currencyCode: 'EGP',
+        defaultLocale,
+        currencyCode,
       },
     });
     createdRestaurantIds.push(restaurant.id);
@@ -501,6 +504,90 @@ describe('GET /api/v1/auth/me (e2e)', () => {
       const branchIds = data.memberships[0].branches.map((b) => b.id);
       const expectedOrder = [branchOne.id, branchTwo.id].sort();
       expect(branchIds).toEqual(expectedOrder);
+    });
+  });
+
+  describe('Batch G0: permissions + Restaurant currencyCode/defaultLocale', () => {
+    it('membership.permissions equals the canonical effective set for its Role', async () => {
+      const { id: userId, email } = await createTestUser('ACTIVE');
+      const restaurant = await createRestaurant('ACTIVE');
+      await createMembership({
+        restaurantId: restaurant.id,
+        userId,
+        role: 'MANAGER',
+        allBranches: true,
+      });
+      const cookiePair = await loginAndGetCookie(email);
+
+      const data = await getMeData(cookiePair);
+
+      expect(data.memberships[0].permissions).toEqual([
+        ...ROLE_PERMISSIONS.MANAGER,
+      ]);
+    });
+
+    it('restaurant.currencyCode and restaurant.defaultLocale reflect the real Restaurant row, not a fixed default', async () => {
+      const { id: userId, email } = await createTestUser('ACTIVE');
+      const restaurant = await createRestaurant(
+        'ACTIVE',
+        'Alex Grill',
+        'en',
+        'USD',
+      );
+      await createMembership({
+        restaurantId: restaurant.id,
+        userId,
+        allBranches: true,
+      });
+      const cookiePair = await loginAndGetCookie(email);
+
+      const data = await getMeData(cookiePair);
+
+      expect(data.memberships[0].restaurant).toMatchObject({
+        currencyCode: 'USD',
+        defaultLocale: 'en',
+      });
+    });
+
+    it('the public response exposes only the documented safe Restaurant fields -- no publicId, logoAssetPath, createdAt, or updatedAt', async () => {
+      const { id: userId, email } = await createTestUser('ACTIVE');
+      const restaurant = await createRestaurant('ACTIVE');
+      await createMembership({
+        restaurantId: restaurant.id,
+        userId,
+        allBranches: true,
+      });
+      const cookiePair = await loginAndGetCookie(email);
+
+      const data = await getMeData(cookiePair);
+
+      expect(Object.keys(data.memberships[0].restaurant).sort()).toEqual(
+        ['currencyCode', 'defaultLocale', 'id', 'name', 'status'].sort(),
+      );
+      const serialized = JSON.stringify(data);
+      expect(serialized).not.toContain('logoAssetPath');
+      expect(serialized).not.toContain('publicId');
+      expect(serialized).not.toContain('createdAt');
+      expect(serialized).not.toContain('updatedAt');
+    });
+
+    it('a lower Role (WAITER) never receives a MANAGER/OWNER-only permission over the real HTTP response', async () => {
+      const { id: userId, email } = await createTestUser('ACTIVE');
+      const restaurant = await createRestaurant('ACTIVE');
+      await createMembership({
+        restaurantId: restaurant.id,
+        userId,
+        role: 'WAITER',
+        allBranches: true,
+      });
+      const cookiePair = await loginAndGetCookie(email);
+
+      const data = await getMeData(cookiePair);
+
+      expect(data.memberships[0].permissions).toEqual([
+        ...ROLE_PERMISSIONS.WAITER,
+      ]);
+      expect(data.memberships[0].permissions).not.toContain('menu.manage');
     });
   });
 });

@@ -2472,9 +2472,10 @@ Returns:
 
 - User: `id`, `email`, `preferredLocale`
 - Memberships (only `RestaurantMembershipStatus.ACTIVE`; INVITED/DISABLED are
-  never included): membership `id`, `role`, `allBranches`, `restaurant`
-  (`id`, `name`, `status`), `branches` (`id`, `name`, `status` -- the
-  Membership's authorized Branch scope per #58-60, including INACTIVE
+  never included): membership `id`, `role`, `allBranches`, `permissions`
+  (Batch G0, below), `restaurant` (`id`, `name`, `status`, `currencyCode`,
+  `defaultLocale` -- Batch G0, below), `branches` (`id`, `name`, `status` --
+  the Membership's authorized Branch scope per #58-60, including INACTIVE
   Branches within that scope)
 
 `restaurant.status` and `branch.status` reflect current operational state,
@@ -2482,6 +2483,17 @@ not authorization -- see AUTH_TENANCY_SPEC.md #148A. Memberships and their
 `branches` are ordered by `id` ascending for deterministic output only; this
 ordering has no product meaning (no "current"/"default" Restaurant or
 Branch).
+
+**Batch G0 enrichment:** `permissions` is the Role's canonical effective
+Permission set (`string[]`), read from the same `ROLE_PERMISSIONS` matrix
+`PermissionGuard` enforces against (AUTH_TENANCY_SPEC.md #148B) -- never a
+duplicated matrix. It is advisory frontend context only, for
+hiding/disabling inappropriate controls; Backend guards remain the sole
+authorization authority and re-check current database state on every real
+request regardless of this list. `restaurant.currencyCode` and
+`restaurant.defaultLocale` are the existing safe Restaurant fields, exposed
+here so the Staff frontend does not need a separate Restaurant-details
+request for them.
 
 ---
 

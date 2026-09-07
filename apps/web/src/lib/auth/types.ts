@@ -26,6 +26,8 @@ export interface AuthContextRestaurant {
   id: string;
   name: string;
   status: RestaurantStatus;
+  currencyCode: string;
+  defaultLocale: string;
 }
 
 export interface AuthContextBranch {
@@ -34,10 +36,21 @@ export interface AuthContextBranch {
   status: BranchStatus;
 }
 
+/**
+ * `permissions` (Batch G0) is advisory frontend context only, for
+ * hiding/disabling inappropriate UI controls -- it is not a security
+ * boundary. The Backend re-checks current database state on every real
+ * request and remains the sole authorization authority regardless of what
+ * this list says. `string[]` is intentional here (not a tighter Permission
+ * union): the Backend does not export a shared permission-string type to
+ * this frontend package, and introducing one is out of scope for this small
+ * type-sync batch.
+ */
 export interface AuthContextMembership {
   id: string;
   role: RestaurantMembershipRole;
   allBranches: boolean;
+  permissions: string[];
   restaurant: AuthContextRestaurant;
   branches: AuthContextBranch[];
 }

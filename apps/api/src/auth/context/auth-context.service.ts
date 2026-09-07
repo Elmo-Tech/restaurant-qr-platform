@@ -5,6 +5,8 @@ import type {
   RestaurantMembershipRole,
   RestaurantStatus,
 } from '../../generated/prisma/client';
+import type { Permission } from '../permission/permission';
+import { ROLE_PERMISSIONS } from '../permission/role-permissions';
 
 /** Safe User identity fields (AUTH_TENANCY_SPEC.md #148/#148A). Never passwordHash. */
 export interface AuthContextUser {
@@ -16,12 +18,17 @@ export interface AuthContextUser {
 /**
  * `status` is current operational state, not authorization
  * (AUTH_TENANCY_SPEC.md #148A) -- a non-ACTIVE Restaurant does not remove
- * the Membership that references it.
+ * the Membership that references it. `currencyCode`/`defaultLocale` are the
+ * only other Restaurant fields exposed here (Batch G0) -- both are already
+ * safe, non-secret configuration; no internal timestamps, billing data, or
+ * other Restaurant settings are added.
  */
 export interface AuthContextRestaurant {
   id: string;
   name: string;
   status: RestaurantStatus;
+  currencyCode: string;
+  defaultLocale: string;
 }
 
 /**
@@ -41,11 +48,20 @@ export interface AuthContextBranch {
  * exact authorized Branch scope (AUTH_TENANCY_SPEC.md #58-60): every
  * Restaurant Branch when `allBranches` is true, or exactly the assigned
  * `RestaurantMembershipBranch` rows (possibly empty) when it is false.
+ *
+ * `permissions` (Batch G0) is the Role's canonical effective Permission set,
+ * read directly from `ROLE_PERMISSIONS` -- the exact same source
+ * `PermissionGuard`/`hasPermission` enforce against, never a second matrix.
+ * This is ADVISORY FRONTEND CONTEXT ONLY, for hiding/disabling inappropriate
+ * UI controls -- it grants nothing by itself. Backend guards re-check
+ * current database state on every real request and remain the sole
+ * authorization authority regardless of what a client has cached or sends.
  */
 export interface AuthContextMembership {
   id: string;
   role: RestaurantMembershipRole;
   allBranches: boolean;
+  permissions: Permission[];
   restaurant: AuthContextRestaurant;
   branches: AuthContextBranch[];
 }
@@ -94,7 +110,13 @@ export class AuthContextService {
         role: true,
         allBranches: true,
         restaurant: {
-          select: { id: true, name: true, status: true },
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            currencyCode: true,
+            defaultLocale: true,
+          },
         },
       },
     });
@@ -181,10 +203,16 @@ export class AuthContextService {
         id: membership.id,
         role: membership.role,
         allBranches: membership.allBranches,
+        // Spread into a plain mutable array; ROLE_PERMISSIONS is the sole
+        // canonical source (never recomputed or duplicated here), and its
+        // own authored order is preserved -- no derived business meaning.
+        permissions: [...ROLE_PERMISSIONS[membership.role]],
         restaurant: {
           id: membership.restaurant.id,
           name: membership.restaurant.name,
           status: membership.restaurant.status,
+          currencyCode: membership.restaurant.currencyCode,
+          defaultLocale: membership.restaurant.defaultLocale,
         },
         branches: membership.allBranches
           ? (branchesByRestaurantId.get(membership.restaurant.id) ?? [])

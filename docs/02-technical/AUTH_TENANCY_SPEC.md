@@ -2603,7 +2603,9 @@ Authenticated session endpoint should return safe User context such as:
 - User profile
 - Accessible Restaurant Memberships
 - Role
+- Effective Role Permissions (Batch G0, #148B)
 - Branch scope
+- Restaurant `currencyCode`/`defaultLocale` (Batch G0, #148B)
 - UI Locale preference
 
 Never return:
@@ -2612,6 +2614,31 @@ Never return:
 - session token
 - reset tokens
 - security secrets
+
+---
+
+# 148B. /auth/me Permissions and Restaurant Locale/Currency (Batch G0)
+
+Each Membership in `/auth/me` includes `permissions`: the Role's canonical
+effective Permission set, read directly from the same `ROLE_PERMISSIONS`
+matrix (§49-53) that `PermissionGuard`/`hasPermission` enforce against.
+There is no second, frontend-specific permission matrix -- `AuthContextService`
+imports and reuses the one canonical source.
+
+`permissions` in `/auth/me` are ADVISORY FRONTEND CONTEXT ONLY, for
+hiding/disabling inappropriate UI controls before a request is even made.
+They grant nothing by themselves and must never be treated as an
+authorization decision. `PermissionGuard`, `RestaurantAccessGuard`,
+`BranchAccessGuard`, and `AllBranchesRequiredGuard` all re-check current
+database state on every real request regardless of what a client has cached
+or sends; a forged or stale `permissions` list cannot grant Backend access.
+
+Each Membership's `restaurant` object also includes `currencyCode` and
+`defaultLocale` (DATABASE_SPEC.md #24/#26) -- both already safe, non-secret
+Restaurant configuration, added so the Staff frontend can render prices and
+default language context without a separate Restaurant-details request. No
+other Restaurant field (timestamps, `logoAssetPath`, or any other internal
+configuration) is exposed by this enrichment.
 
 ---
 
