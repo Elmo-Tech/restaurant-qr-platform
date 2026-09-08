@@ -10,9 +10,9 @@ import {
 } from '../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
-import { MenusPanel } from './MenusPanel';
-import { CategoriesPanel } from './CategoriesPanel';
-import { ProductsPanel } from './ProductsPanel';
+import { MenuContextBar } from './MenuContextBar';
+import { CategoryNavigation } from './CategoryNavigation';
+import { ProductList } from './ProductList';
 
 export interface MenuWorkspaceProps {
   restaurantId: string;
@@ -303,33 +303,54 @@ export function MenuWorkspace({
     );
   }
 
+  const selectedCategory = categories?.find((category) => category.id === selectedCategoryId);
+  const selectedMenu = menus?.find((menu) => menu.id === selectedMenuId);
+
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold text-[#1D1A18]">Menu Management</h1>
+    <div className="flex flex-col gap-6">
+      <div>
+        <h1 className="text-lg font-semibold text-[#1D1A18]">Menu Management</h1>
+        <p className="mt-1 text-sm text-[#655D56]">
+          Manage menus, categories, products, pricing and availability.
+        </p>
+      </div>
+
       {!canManage && hasMenuManagePermission ? (
         <Alert variant="info">
           Full Restaurant branch scope is required to manage the Menu.
         </Alert>
       ) : null}
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        <MenusPanel
-          menus={menus}
-          error={menusError}
-          selectedMenuId={selectedMenuId}
-          onSelectMenu={(menuId) => selectMenu(menuId)}
-          onRetry={() => void loadMenus()}
-          canManage={canManage}
-          restaurantId={restaurantId}
-          onCreated={(created) => void loadMenus(created.id)}
-          onUpdated={() => void loadMenus()}
-          onPrimaryChanged={() => void loadMenus()}
-          onMenuNotFound={() => void loadMenus()}
-        />
+
+      <MenuContextBar
+        menus={menus}
+        error={menusError}
+        selectedMenuId={selectedMenuId}
+        onSelectMenu={(menuId) => selectMenu(menuId)}
+        onRetry={() => void loadMenus()}
+        canManage={canManage}
+        restaurantId={restaurantId}
+        onCreated={(created) => void loadMenus(created.id)}
+        onUpdated={() => void loadMenus()}
+        onPrimaryChanged={() => void loadMenus()}
+        onMenuNotFound={() => void loadMenus()}
+      />
+
+      {/* Responsive fix: the Category rail + Product workspace split waits
+          for `xl` (1280px), not `lg` (1024px) -- `lg` is also where the
+          Staff Sidebar itself becomes persistent (RestaurantSidebar.tsx),
+          and the *remaining* content area at exactly that width (viewport
+          minus the ~264px Sidebar and page gutters) is too narrow for the
+          Product table's real minimum content width, which was causing
+          genuine document-level horizontal overflow at ~1024-1150px
+          viewports. Below `xl`, Categories/Products keep using the
+          mobile/tablet chip+card pattern regardless of whether the
+          Sidebar happens to already be persistent. */}
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-[260px_1fr]">
         {/* Section 1C: keying by the selected Menu forces a fresh
-            CategoriesPanel instance (fresh local form state) whenever the
-            Menu changes -- an Edit/Create form left open under the previous
-            Menu cannot survive underneath the new one. */}
-        <CategoriesPanel
+            CategoryNavigation instance (fresh local form state) whenever
+            the Menu changes -- an Edit/Create form left open under the
+            previous Menu cannot survive underneath the new one. */}
+        <CategoryNavigation
           key={`menu-${selectedMenuId ?? 'none'}`}
           restaurantId={restaurantId}
           menuId={selectedMenuId}
@@ -355,10 +376,12 @@ export function MenuWorkspace({
           onMenuNotFound={() => void loadMenus()}
         />
         {/* Section 1C: same reasoning, keyed by the selected Category. */}
-        <ProductsPanel
+        <ProductList
           key={`category-${selectedCategoryId ?? 'none'}`}
           restaurantId={restaurantId}
           categoryId={selectedCategoryId}
+          categoryName={selectedCategory?.translation.name}
+          menuName={selectedMenu?.translation.name}
           products={products}
           error={productsError}
           onRetry={() => {

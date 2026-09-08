@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../lib/auth/session';
 import { Alert } from '../../components/ui/Alert';
 import { Card } from '../../components/ui/Card';
+import { LogoutButton } from './LogoutButton';
 
 /**
  * Restaurant discovery/selection (Section 8): the Backend-authorized
@@ -16,6 +17,13 @@ import { Card } from '../../components/ui/Card';
  * already handles the top-level auth gate, but this page re-derives the
  * same state independently rather than trusting an implicit parent
  * guarantee, and must apply the identical unauthenticated/error distinction.
+ *
+ * UX-1: this page has no Restaurant context yet, so it is deliberately kept
+ * outside the new sidebar workspace shell (Section 9 -- "Do NOT redesign the
+ * full Restaurant-selector experience in UX-1"). It now renders its own
+ * light identity/logout header directly, since that chrome moved out of the
+ * parent `StaffLayout` to avoid a duplicate header once Restaurant-scoped
+ * routes gained their own full shell.
  */
 export default async function StaffHomePage() {
   const sessionState = await getAuthSessionState();
@@ -25,43 +33,60 @@ export default async function StaffHomePage() {
   }
 
   if (sessionState.status === 'error') {
-    return <Alert variant="error">{sessionState.message}</Alert>;
-  }
-
-  const { memberships } = sessionState.context;
-
-  if (memberships.length === 0) {
     return (
-      <Alert variant="info">
-        You do not have access to any Restaurant yet. Contact your Restaurant
-        owner for an invitation.
-      </Alert>
+      <div className="flex min-h-screen items-center justify-center px-4">
+        <Alert variant="error">{sessionState.message}</Alert>
+      </div>
     );
   }
+
+  const { user, memberships } = sessionState.context;
 
   if (memberships.length === 1) {
     redirect(`/staff/restaurants/${memberships[0].restaurant.id}`);
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <h1 className="text-lg font-semibold text-[#1D1A18]">Your Restaurants</h1>
-      <ul className="flex flex-col gap-3">
-        {memberships.map((membership) => (
-          <li key={membership.id}>
-            <Link href={`/staff/restaurants/${membership.restaurant.id}`}>
-              <Card className="transition-colors hover:border-[#7A5138]">
-                <p className="font-medium text-[#1D1A18]">
-                  {membership.restaurant.name}
-                </p>
-                <p className="text-sm text-[#655D56]">
-                  {membership.role} · {membership.restaurant.status}
-                </p>
-              </Card>
-            </Link>
-          </li>
-        ))}
-      </ul>
+    <div className="min-h-screen">
+      <header className="flex items-center justify-between border-b border-[#E5DED6] bg-white px-6 py-3">
+        <span className="text-sm font-semibold text-[#302C29]">
+          Restaurant QR Platform
+        </span>
+        <div className="flex items-center gap-4">
+          <span className="text-sm text-[#655D56]">{user.email}</span>
+          <LogoutButton />
+        </div>
+      </header>
+      <main className="mx-auto max-w-3xl px-6 py-8">
+        {memberships.length === 0 ? (
+          <Alert variant="info">
+            You do not have access to any Restaurant yet. Contact your
+            Restaurant owner for an invitation.
+          </Alert>
+        ) : (
+          <div className="flex flex-col gap-4">
+            <h1 className="text-lg font-semibold text-[#1D1A18]">
+              Your Restaurants
+            </h1>
+            <ul className="flex flex-col gap-3">
+              {memberships.map((membership) => (
+                <li key={membership.id}>
+                  <Link href={`/staff/restaurants/${membership.restaurant.id}`}>
+                    <Card className="transition-colors hover:border-[#7A5138]">
+                      <p className="font-medium text-[#1D1A18]">
+                        {membership.restaurant.name}
+                      </p>
+                      <p className="text-sm text-[#655D56]">
+                        {membership.role} · {membership.restaurant.status}
+                      </p>
+                    </Card>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </main>
     </div>
   );
 }
