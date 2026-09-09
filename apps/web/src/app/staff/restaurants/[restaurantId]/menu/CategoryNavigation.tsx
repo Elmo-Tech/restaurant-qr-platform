@@ -1,6 +1,14 @@
 'use client';
 
-import { useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type FormEvent,
+  type RefObject,
+  type SetStateAction,
+} from 'react';
 import * as menuApi from '../../../../../lib/menu/api';
 import type {
   Category,
@@ -16,7 +24,9 @@ import {
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
+import { Dialog } from '../../../../../components/ui/Dialog';
 import { FormField } from '../../../../../components/ui/FormField';
+import { FormSection } from '../../../../../components/ui/FormSection';
 import { Input } from '../../../../../components/ui/Input';
 import { Select } from '../../../../../components/ui/Select';
 import { Textarea } from '../../../../../components/ui/Textarea';
@@ -71,13 +81,21 @@ function toFormState(category: Category): CategoryFormState {
 /**
  * UX-3, Section 7: Categories become the navigation rail for the selected
  * Menu -- a vertical list on desktop, a horizontally scrollable row of
- * chips on mobile (Section 17), using the same underlying markup with
- * responsive flex classes rather than two separate implementations. All
- * mutation logic below (Create/Edit submit, incl. Move-to-Menu) is carried
- * over unchanged from the former `CategoriesPanel` -- only the presentation
- * changed. Category selection still goes exclusively through the
+ * chips on mobile, using the same underlying markup with responsive flex
+ * classes. Category selection still goes exclusively through the
  * caller-supplied `onSelectCategory` (`MenuWorkspace`'s race-safe
  * `selectCategory`).
+ *
+ * UX-4: Create/Edit Category moved from an inline form beneath the rail
+ * into the shared `Dialog` (originally a right-side Drawer; replaced with
+ * a centered Dialog per the Product Owner's presentation correction --
+ * Section 2/9/10). All mutation logic (Create/Edit submit, including
+ * Move-to-Menu) is unchanged from UX-3 -- only the surrounding
+ * presentation and identity-safety around the editor changed. This
+ * component is remounted whenever the selected Menu changes
+ * (`MenuWorkspace`'s `key={"menu-"+selectedMenuId}`), which already resets
+ * any open Dialog -- an Edit/Create form left open under the previous Menu
+ * cannot survive underneath the new one.
  */
 export function CategoryNavigation({
   restaurantId,
@@ -100,6 +118,7 @@ export function CategoryNavigation({
   const [form, setForm] = useState<CategoryFormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const nameRef = useRef<HTMLInputElement>(null);
 
   function startCreate() {
     setMode('create');
@@ -120,6 +139,31 @@ export function CategoryNavigation({
     setEditingId(null);
     setFormError(null);
   }
+
+  /**
+   * UX-4, Section 12/22: the Category being edited is pinned to
+   * `editingId` when the Dialog opens and never re-derived from
+   * `selectedCategoryId`. The backdrop already blocks the User from
+   * switching Category (or Menu, which would remount this whole
+   * component) while the Dialog is open; this effect only guards the
+   * remaining edge case where the edited Category disappears from a
+   * refreshed `categories` list out from under an open Dialog, closing
+   * it safely rather than risking a submit against a stale target. This
+   * never changes `selectCategory` or any request-generation guard in
+   * `MenuWorkspace`.
+   */
+  useEffect(() => {
+    // `queueMicrotask` here is purely to satisfy eslint-plugin-react-hooks'
+    // `set-state-in-effect` rule (same established pattern as
+    // MenuWorkspace's own mount effect) -- it has nothing to do with the
+    // safety guarantee itself, which is simply "close the Dialog once the
+    // Category it is editing is no longer in the loaded list."
+    if (mode === 'edit' && editingId && categories && !categories.some((category) => category.id === editingId)) {
+      queueMicrotask(() => {
+        cancelForm();
+      });
+    }
+  }, [categories, mode, editingId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -188,12 +232,37 @@ export function CategoryNavigation({
   }
 
   const moveTargets = menus.filter((menu) => menu.id !== menuId);
+  const currentMenuName = menus.find((menu) => menu.id === menuId)?.translation.name ?? '';
+
+  const dialog = (
+    <Dialog
+      open={mode !== 'idle'}
+      title={mode === 'create' ? 'Create Category' : 'Edit Category'}
+      subtitle={currentMenuName || undefined}
+      isSubmitting={isSubmitting}
+      submitLabel={isSubmitting ? 'Saving…' : mode === 'create' ? 'Create Category' : 'Save changes'}
+      onSubmit={handleSubmit}
+      onClose={cancelForm}
+      initialFocusRef={nameRef}
+    >
+      <CategoryFormFields
+        mode={mode === 'idle' ? 'create' : mode}
+        form={form}
+        setForm={setForm}
+        formError={formError}
+        isSubmitting={isSubmitting}
+        currentMenuName={currentMenuName}
+        moveTargets={moveTargets}
+        nameRef={nameRef}
+      />
+    </Dialog>
+  );
 
   return (
     <Card className="flex min-w-0 flex-col gap-3 xl:h-fit">
       <div className="flex items-center justify-between">
         <h2 className="text-sm font-semibold text-[#302C29]">Categories</h2>
-        {canManage && menuId && mode === 'idle' ? (
+        {canManage && menuId ? (
           <button
             type="button"
             onClick={startCreate}
@@ -222,7 +291,7 @@ export function CategoryNavigation({
 
           {categories === null && !error ? <LoadingState label="Loading Categories…" /> : null}
 
-          {categories !== null && categories.length === 0 && mode === 'idle' ? (
+          {categories !== null && categories.length === 0 ? (
             <div className="flex flex-col gap-3">
               <div>
                 <p className="text-sm font-medium text-[#302C29]">No categories in this menu</p>
@@ -285,118 +354,119 @@ export function CategoryNavigation({
         </>
       )}
 
-      {mode !== 'idle' && menuId ? (
-        <CategoryForm
-          mode={mode}
-          form={form}
-          setForm={setForm}
-          formError={formError}
-          isSubmitting={isSubmitting}
-          moveTargets={moveTargets}
-          onSubmit={handleSubmit}
-          onCancel={cancelForm}
-        />
-      ) : null}
+      {dialog}
     </Card>
   );
 }
 
 /**
- * Temporary Create/Edit Category form (UX-3, Section 16): carried over from
- * the former `CategoriesPanel` unchanged in behavior (including the
- * Move-to-Menu select), only repositioned beneath the rail's list instead
- * of a full-width column. UX-4 replaces this with a proper drawer.
+ * Category Dialog form fields (UX-4, Section 9/10/14/15/16/17): the exact
+ * same Backend contract as before (`name`, `description`, `status`,
+ * `displayOrder`, and on Edit `menuId` for the existing Move feature).
+ * On Create, Menu is shown as read-only context (Section 9 -- "Do not
+ * provide a raw UUID field"); on Edit, it is a real Select built only from
+ * the Restaurant's already-loaded Menu list (Section 10/11), identical to
+ * the previous inline form's Move-to-Menu control.
  */
-function CategoryForm({
+function CategoryFormFields({
   mode,
   form,
   setForm,
   formError,
   isSubmitting,
+  currentMenuName,
   moveTargets,
-  onSubmit,
-  onCancel,
+  nameRef,
 }: {
   mode: 'create' | 'edit';
   form: CategoryFormState;
   setForm: Dispatch<SetStateAction<CategoryFormState>>;
   formError: string | null;
   isSubmitting: boolean;
+  currentMenuName: string;
   moveTargets: Menu[];
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onCancel: () => void;
+  nameRef: RefObject<HTMLInputElement | null>;
 }) {
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-3 border-t border-[#E5DED6] pt-3">
-      <p className="text-sm font-medium text-[#302C29]">
-        {mode === 'create' ? 'Create Category' : 'Edit Category'}
-      </p>
+    <div className="flex flex-col gap-6">
       {formError ? <Alert variant="error">{formError}</Alert> : null}
-      <FormField label="Name" htmlFor="category-name">
-        <Input
-          id="category-name"
-          required
-          value={form.name}
-          onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-          disabled={isSubmitting}
-        />
-      </FormField>
-      <FormField label="Description" htmlFor="category-description">
-        <Textarea
-          id="category-description"
-          value={form.description}
-          onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-          disabled={isSubmitting}
-        />
-      </FormField>
-      <FormField label="Status" htmlFor="category-status">
-        <Select
-          id="category-status"
-          value={form.status}
-          onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as CategoryStatus }))}
-          disabled={isSubmitting}
-        >
-          <option value="ACTIVE">ACTIVE</option>
-          <option value="INACTIVE">INACTIVE</option>
-        </Select>
-      </FormField>
-      <FormField label="Display order" htmlFor="category-displayOrder">
-        <Input
-          id="category-displayOrder"
-          type="number"
-          min={0}
-          step={1}
-          required
-          value={form.displayOrder}
-          onChange={(event) => setForm((prev) => ({ ...prev, displayOrder: event.target.value }))}
-          disabled={isSubmitting}
-        />
-      </FormField>
-      {mode === 'edit' && moveTargets.length > 0 ? (
-        <FormField label="Move to Menu" htmlFor="category-move">
+
+      <FormSection title="General">
+        <FormField label="Name" htmlFor="category-name">
+          <Input
+            id="category-name"
+            ref={nameRef}
+            required
+            value={form.name}
+            onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+            disabled={isSubmitting}
+          />
+        </FormField>
+        <FormField label="Description" htmlFor="category-description">
+          <Textarea
+            id="category-description"
+            value={form.description}
+            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+            disabled={isSubmitting}
+          />
+        </FormField>
+        <FormField label="Status" htmlFor="category-status">
           <Select
-            id="category-move"
-            value={form.targetMenuId}
-            onChange={(event) => setForm((prev) => ({ ...prev, targetMenuId: event.target.value }))}
+            id="category-status"
+            value={form.status}
+            onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as CategoryStatus }))}
             disabled={isSubmitting}
           >
-            <option value={KEEP_CURRENT_MENU}>Keep in current Menu</option>
-            {moveTargets.map((menu) => (
-              <option key={menu.id} value={menu.id}>
-                {menu.translation.name}
-              </option>
-            ))}
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
           </Select>
+          {form.status === 'INACTIVE' ? (
+            <p className="mt-1 text-xs text-[#655D56]">Inactive items are hidden from Guest Menu.</p>
+          ) : null}
         </FormField>
-      ) : null}
-      <div className="flex gap-2">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving…' : 'Save'}
-        </Button>
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
-        </Button>
-      </div>
-    </form>
+      </FormSection>
+
+      <FormSection title="Organization">
+        {mode === 'edit' && moveTargets.length > 0 ? (
+          <FormField label="Menu" htmlFor="category-move">
+            <Select
+              id="category-move"
+              value={form.targetMenuId}
+              onChange={(event) => setForm((prev) => ({ ...prev, targetMenuId: event.target.value }))}
+              disabled={isSubmitting}
+            >
+              <option value={KEEP_CURRENT_MENU}>{currentMenuName} (current)</option>
+              {moveTargets.map((menu) => (
+                <option key={menu.id} value={menu.id}>
+                  {menu.translation.name}
+                </option>
+              ))}
+            </Select>
+          </FormField>
+        ) : (
+          <div className="flex flex-col gap-1.5">
+            <span className="text-sm font-medium text-[#302C29]">Menu</span>
+            <p className="rounded-md border border-[#E5DED6] bg-[#F8F5F1] px-3 py-2 text-sm text-[#302C29]">
+              {currentMenuName}
+            </p>
+          </div>
+        )}
+      </FormSection>
+
+      <FormSection title="Advanced">
+        <FormField label="Display order" htmlFor="category-displayOrder">
+          <Input
+            id="category-displayOrder"
+            type="number"
+            min={0}
+            step={1}
+            required
+            value={form.displayOrder}
+            onChange={(event) => setForm((prev) => ({ ...prev, displayOrder: event.target.value }))}
+            disabled={isSubmitting}
+          />
+        </FormField>
+      </FormSection>
+    </div>
   );
 }

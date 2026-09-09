@@ -1,6 +1,14 @@
 'use client';
 
-import { useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
+import {
+  useEffect,
+  useRef,
+  useState,
+  type Dispatch,
+  type FormEvent,
+  type RefObject,
+  type SetStateAction,
+} from 'react';
 import * as menuApi from '../../../../../lib/menu/api';
 import type { Menu, MenuStatus } from '../../../../../lib/menu/types';
 import { ApiError } from '../../../../../lib/api/errors';
@@ -12,7 +20,9 @@ import {
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
+import { Dialog } from '../../../../../components/ui/Dialog';
 import { FormField } from '../../../../../components/ui/FormField';
+import { FormSection } from '../../../../../components/ui/FormSection';
 import { Input } from '../../../../../components/ui/Input';
 import { Select } from '../../../../../components/ui/Select';
 import { Textarea } from '../../../../../components/ui/Textarea';
@@ -79,12 +89,17 @@ function menuOptionLabel(menu: Menu): string {
 /**
  * UX-3, Section 5/6: replaces the previous permanent "Menus" column with a
  * compact context bar -- a Menu selector plus badges/actions for whichever
- * Menu is currently selected. All mutation logic below (Create/Edit
- * submit, Set-Primary) is carried over unchanged from the former
- * `MenusPanel` -- only the surrounding presentation changed. Menu
- * switching still goes exclusively through the caller-supplied
- * `onSelectMenu` (`MenuWorkspace`'s race-safe `selectMenu`), never a new
- * selection path.
+ * Menu is currently selected. Menu switching still goes exclusively
+ * through the caller-supplied `onSelectMenu` (`MenuWorkspace`'s race-safe
+ * `selectMenu`), never a new selection path.
+ *
+ * UX-4: Create/Edit Menu moved from an inline form beneath this bar into
+ * the shared `Dialog` (originally a right-side Drawer; replaced with a
+ * centered Dialog per the Product Owner's presentation correction -- the
+ * Menu/Category forms are short enough that a full-height side panel left
+ * excessive empty space). All mutation logic (Create/Edit submit,
+ * Set-Primary) is unchanged from UX-3 -- only the surrounding
+ * presentation and identity-safety around the editor changed.
  */
 export function MenuContextBar({
   menus,
@@ -106,6 +121,7 @@ export function MenuContextBar({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [primaryPending, setPrimaryPending] = useState(false);
   const [primaryError, setPrimaryError] = useState<string | null>(null);
+  const nameInternalRef = useRef<HTMLInputElement>(null);
 
   const selectedMenu = menus?.find((menu) => menu.id === selectedMenuId) ?? null;
 
@@ -128,6 +144,31 @@ export function MenuContextBar({
     setEditingId(null);
     setFormError(null);
   }
+
+  /**
+   * UX-4, Section 6/22: the Menu being edited is pinned to `editingId` when
+   * the Dialog opens (`startEdit`) and never re-derived from
+   * `selectedMenuId`. The backdrop already blocks the User from changing
+   * Menu selection while the Dialog is open, but if the edited Menu's
+   * identity is ever invalidated from outside (e.g. it disappears from a
+   * refreshed `menus` list), the Dialog closes/resets rather than risking
+   * a submit against a stale target. This never changes
+   * `selectMenu`/`selectCategory` or any request-generation guard in
+   * `MenuWorkspace` -- purely a local safety check on this Dialog's own
+   * `editingId`.
+   */
+  useEffect(() => {
+    // `queueMicrotask` here is purely to satisfy eslint-plugin-react-hooks'
+    // `set-state-in-effect` rule (same established pattern as
+    // MenuWorkspace's own mount effect) -- it has nothing to do with the
+    // safety guarantee itself, which is simply "close the Dialog once the
+    // Menu it is editing is no longer in the loaded list."
+    if (mode === 'edit' && editingId && menus && !menus.some((menu) => menu.id === editingId)) {
+      queueMicrotask(() => {
+        cancelForm();
+      });
+    }
+  }, [menus, mode, editingId]);
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -202,168 +243,174 @@ export function MenuContextBar({
     }
   }
 
+  const dialog = (
+    <Dialog
+      open={mode !== 'idle'}
+      title={mode === 'create' ? 'Create Menu' : 'Edit Menu'}
+      isSubmitting={isSubmitting}
+      submitLabel={isSubmitting ? 'Saving…' : mode === 'create' ? 'Create Menu' : 'Save changes'}
+      onSubmit={handleSubmit}
+      onClose={cancelForm}
+      initialFocusRef={nameInternalRef}
+    >
+      <MenuFormFields
+        form={form}
+        setForm={setForm}
+        formError={formError}
+        isSubmitting={isSubmitting}
+        nameInternalRef={nameInternalRef}
+      />
+    </Dialog>
+  );
+
   if (error) {
     return (
-      <Alert variant="error">
-        <div className="flex items-center justify-between gap-4">
-          <span>{error}</span>
-          <Button variant="secondary" className="px-2 py-1 text-xs" onClick={onRetry}>
-            Retry
-          </Button>
-        </div>
-      </Alert>
+      <>
+        <Alert variant="error">
+          <div className="flex items-center justify-between gap-4">
+            <span>{error}</span>
+            <Button variant="secondary" className="px-2 py-1 text-xs" onClick={onRetry}>
+              Retry
+            </Button>
+          </div>
+        </Alert>
+        {dialog}
+      </>
     );
   }
 
   if (menus === null) {
     return (
-      <Card>
-        <LoadingState label="Loading Menus…" />
-      </Card>
+      <>
+        <Card>
+          <LoadingState label="Loading Menus…" />
+        </Card>
+        {dialog}
+      </>
     );
   }
 
   if (menus.length === 0) {
     return (
-      <Card className="flex flex-col gap-3">
-        <div>
-          <p className="text-sm font-medium text-[#302C29]">No menus yet</p>
-          <p className="mt-1 text-sm text-[#655D56]">
-            Create your first menu to start adding categories and products.
-          </p>
-        </div>
-        {canManage ? (
-          mode === 'idle' ? (
+      <>
+        <Card className="flex flex-col gap-3">
+          <div>
+            <p className="text-sm font-medium text-[#302C29]">No menus yet</p>
+            <p className="mt-1 text-sm text-[#655D56]">
+              Create your first menu to start adding categories and products.
+            </p>
+          </div>
+          {canManage ? (
             <Button className="self-start" onClick={startCreate}>
               <IconPlus className="mr-1.5 h-4 w-4" /> New Menu
             </Button>
-          ) : null
-        ) : null}
-        {mode !== 'idle' ? (
-          <MenuForm
-            mode={mode}
-            form={form}
-            setForm={setForm}
-            formError={formError}
-            isSubmitting={isSubmitting}
-            onSubmit={handleSubmit}
-            onCancel={cancelForm}
-          />
-        ) : null}
-      </Card>
+          ) : null}
+        </Card>
+        {dialog}
+      </>
     );
   }
 
   return (
-    <Card className="flex flex-col gap-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="flex flex-1 flex-col gap-1.5 sm:max-w-sm">
-          <label htmlFor="menu-context-select" className="text-xs font-medium uppercase tracking-wide text-[#AFA397]">
-            Menu
-          </label>
-          <Select
-            id="menu-context-select"
-            value={selectedMenuId ?? ''}
-            onChange={(event) => onSelectMenu(event.target.value)}
-          >
-            {menus.map((menu) => (
-              <option key={menu.id} value={menu.id}>
-                {menuOptionLabel(menu)}
-              </option>
-            ))}
-          </Select>
-        </div>
-
-        {selectedMenu ? (
-          <div className="flex items-center gap-2">
-            {selectedMenu.isPrimary ? <PrimaryBadge /> : null}
-            <StatusBadge active={selectedMenu.status === 'ACTIVE'} />
+    <>
+      <Card className="flex flex-col gap-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="flex flex-1 flex-col gap-1.5 sm:max-w-sm">
+            <label htmlFor="menu-context-select" className="text-xs font-medium uppercase tracking-wide text-[#AFA397]">
+              Menu
+            </label>
+            <Select
+              id="menu-context-select"
+              value={selectedMenuId ?? ''}
+              onChange={(event) => onSelectMenu(event.target.value)}
+            >
+              {menus.map((menu) => (
+                <option key={menu.id} value={menu.id}>
+                  {menuOptionLabel(menu)}
+                </option>
+              ))}
+            </Select>
           </div>
-        ) : null}
 
-        {canManage && selectedMenu && mode === 'idle' ? (
-          <div className="flex flex-wrap items-center gap-2">
-            {!selectedMenu.isPrimary ? (
+          {selectedMenu ? (
+            <div className="flex items-center gap-2">
+              {selectedMenu.isPrimary ? <PrimaryBadge /> : null}
+              <StatusBadge active={selectedMenu.status === 'ACTIVE'} />
+            </div>
+          ) : null}
+
+          {canManage && selectedMenu ? (
+            <div className="flex flex-wrap items-center gap-2">
+              {!selectedMenu.isPrimary ? (
+                <Button
+                  variant="secondary"
+                  className="px-3 py-1.5 text-xs"
+                  disabled={primaryPending}
+                  onClick={() => void handleSetPrimary(selectedMenu)}
+                >
+                  {primaryPending ? 'Setting…' : 'Set as primary'}
+                </Button>
+              ) : null}
               <Button
                 variant="secondary"
                 className="px-3 py-1.5 text-xs"
-                disabled={primaryPending}
-                onClick={() => void handleSetPrimary(selectedMenu)}
+                onClick={() => startEdit(selectedMenu)}
               >
-                {primaryPending ? 'Setting…' : 'Set as primary'}
+                Edit Menu
               </Button>
-            ) : null}
-            <Button
-              variant="secondary"
-              className="px-3 py-1.5 text-xs"
-              onClick={() => startEdit(selectedMenu)}
-            >
-              Edit Menu
-            </Button>
-            <Button className="px-3 py-1.5 text-xs" onClick={startCreate}>
-              <IconPlus className="mr-1 h-3.5 w-3.5" /> New Menu
-            </Button>
-          </div>
-        ) : null}
-      </div>
+              <Button className="px-3 py-1.5 text-xs" onClick={startCreate}>
+                <IconPlus className="mr-1 h-3.5 w-3.5" /> New Menu
+              </Button>
+            </div>
+          ) : null}
+        </div>
 
-      {primaryError ? <Alert variant="error">{primaryError}</Alert> : null}
-
-      {mode !== 'idle' ? (
-        <MenuForm
-          mode={mode}
-          form={form}
-          setForm={setForm}
-          formError={formError}
-          isSubmitting={isSubmitting}
-          onSubmit={handleSubmit}
-          onCancel={cancelForm}
-        />
-      ) : null}
-    </Card>
+        {primaryError ? <Alert variant="error">{primaryError}</Alert> : null}
+      </Card>
+      {dialog}
+    </>
   );
 }
 
 /**
- * Temporary Create/Edit Menu form (UX-3, Section 16): carried over from the
- * former `MenusPanel` unchanged in behavior, only repositioned to render as
- * a card beneath the context bar instead of consuming a permanent column.
- * UX-4 replaces this with a proper drawer.
+ * Menu Dialog form fields (UX-4, Section 5/6/14/15/16/17): the exact same
+ * Backend contract as before (`nameInternal`, `name`, `description`,
+ * `status`, `displayOrder`) presented with clear sections instead of one
+ * flat block. `Primary` is never editable here (Section 5/7) -- it stays
+ * the dedicated `Set as primary` action above.
  */
-function MenuForm({
-  mode,
+function MenuFormFields({
   form,
   setForm,
   formError,
   isSubmitting,
-  onSubmit,
-  onCancel,
+  nameInternalRef,
 }: {
-  mode: 'create' | 'edit';
   form: MenuFormState;
   setForm: Dispatch<SetStateAction<MenuFormState>>;
   formError: string | null;
   isSubmitting: boolean;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onCancel: () => void;
+  nameInternalRef: RefObject<HTMLInputElement | null>;
 }) {
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-3 border-t border-[#E5DED6] pt-4">
-      <p className="text-sm font-medium text-[#302C29]">
-        {mode === 'create' ? 'Create Menu' : 'Edit Menu'}
-      </p>
+    <div className="flex flex-col gap-6">
       {formError ? <Alert variant="error">{formError}</Alert> : null}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+
+      <FormSection title="General">
         <FormField label="Internal name" htmlFor="menu-nameInternal">
           <Input
             id="menu-nameInternal"
+            ref={nameInternalRef}
             required
             value={form.nameInternal}
             onChange={(event) => setForm((prev) => ({ ...prev, nameInternal: event.target.value }))}
             disabled={isSubmitting}
           />
+          <p className="mt-1 text-xs text-[#655D56]">
+            Used internally by Staff and not shown to Guests.
+          </p>
         </FormField>
-        <FormField label="Display name" htmlFor="menu-name">
+        <FormField label="Name" htmlFor="menu-name">
           <Input
             id="menu-name"
             required
@@ -372,16 +419,14 @@ function MenuForm({
             disabled={isSubmitting}
           />
         </FormField>
-      </div>
-      <FormField label="Description" htmlFor="menu-description">
-        <Textarea
-          id="menu-description"
-          value={form.description}
-          onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-          disabled={isSubmitting}
-        />
-      </FormField>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <FormField label="Description" htmlFor="menu-description">
+          <Textarea
+            id="menu-description"
+            value={form.description}
+            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+            disabled={isSubmitting}
+          />
+        </FormField>
         <FormField label="Status" htmlFor="menu-status">
           <Select
             id="menu-status"
@@ -389,10 +434,16 @@ function MenuForm({
             onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as MenuStatus }))}
             disabled={isSubmitting}
           >
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="INACTIVE">INACTIVE</option>
+            <option value="ACTIVE">Active</option>
+            <option value="INACTIVE">Inactive</option>
           </Select>
+          {form.status === 'INACTIVE' ? (
+            <p className="mt-1 text-xs text-[#655D56]">Inactive items are hidden from Guest Menu.</p>
+          ) : null}
         </FormField>
+      </FormSection>
+
+      <FormSection title="Advanced">
         <FormField label="Display order" htmlFor="menu-displayOrder">
           <Input
             id="menu-displayOrder"
@@ -405,15 +456,7 @@ function MenuForm({
             disabled={isSubmitting}
           />
         </FormField>
-      </div>
-      <div className="flex gap-2">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving…' : 'Save'}
-        </Button>
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
-        </Button>
-      </div>
-    </form>
+      </FormSection>
+    </div>
   );
 }
