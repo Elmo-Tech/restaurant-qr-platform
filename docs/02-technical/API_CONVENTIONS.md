@@ -2032,6 +2032,47 @@ No new Audit event, realtime event, or notification infrastructure. Variants, Mo
 
 ---
 
+# 108D. Restaurant Languages (Settled, LOC-2A)
+
+`GET`/`PUT /api/v1/restaurants/{restaurantId}/locales[/{locale}]`.
+
+V1 Platform-supported locales are exactly `en` and `ar` (plain ISO 639-1 codes; regional forms such as `en-US`/`ar-EG` are rejected). Restaurant Language configuration is a Restaurant-wide setting -- no `branchId` exists anywhere in this schema, so no route carries a `BranchAccessGuard`/`BranchManagementAccessGuard`. `GET` requires `restaurant.view`; `PUT` requires `restaurant.manage`. Guard order: `GET` is `AuthGuard -> RestaurantAccessGuard -> PermissionGuard` (no `CsrfGuard`, read-only, no `AllBranchesRequiredGuard`). `PUT` is `AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard` (AUTH_TENANCY_SPEC.md #63/#65N): enabling/disabling a locale is a Restaurant-structural mutation, so `restaurant.manage` alone is not sufficient authority -- a Branch-scoped Membership (`allBranches = false`) must never gain Restaurant-wide Language mutation authority merely because its Role holds `restaurant.manage`, exactly mirroring Menu Create's settled contract (#108A).
+
+`GET` merges the complete Platform locale registry with this Restaurant's actual `RestaurantLocale` rows -- every registry entry appears exactly once, in the registry's fixed order, never only the rows that happen to exist:
+
+```
+200 OK
+{
+  "data": {
+    "defaultLocale": "en",
+    "locales": [
+      { "locale": "en", "isDefault": true, "isActive": true },
+      { "locale": "ar", "isDefault": false, "isActive": false }
+    ]
+  }
+}
+```
+
+`isDefault` is derived from `Restaurant.defaultLocale` (the sole default-locale authority, #145); a locale with no `RestaurantLocale` row is projected as `isActive: false`. This is a pure read -- `GET` never creates, updates, or deletes a row.
+
+`PUT .../locales/{locale}` body is exactly `{ "isActive": true | false }`. `{locale}` is validated against the Platform registry (trim + lowercase, then exact allowlist membership) before it can reach any query; an unsupported value is `400 VALIDATION_ERROR` and never results in a write. Enabling a locale creates-or-reactivates its `RestaurantLocale` row (idempotent if already active); disabling deactivates an existing active row, and is a safe no-op -- never creating a row -- when the locale was never enabled or is already inactive. The Restaurant's current default locale can never be disabled:
+
+```
+409 Conflict
+{ "error": { "code": "DEFAULT_LOCALE_REQUIRED", "message": "The default locale cannot be disabled." } }
+```
+
+Success:
+
+```
+200 OK
+{ "data": { "locale": "ar", "isActive": true } }
+```
+
+Never returned: a raw `RestaurantLocale` `id`/`restaurantId`. Changing `Restaurant.defaultLocale` itself is out of scope in V1 (no endpoint exists for it). Menu/Category/Product Translation endpoints are a separate, not-yet-implemented slice (LOC-2B).
+
+---
+
 # 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
 `Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.

@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { BranchesModule } from './branches/branches.module';
 import { DatabaseModule } from './database/database.module';
 import { MenuModule } from './menu/menu.module';
+import { RestaurantsModule } from './restaurants/restaurants.module';
 import { StaffModule } from './staff/staff.module';
 import { TablesModule } from './tables/tables.module';
 
@@ -31,6 +32,7 @@ const rootEnvFilePath = path.resolve(__dirname, '..', '..', '..', '.env');
     TablesModule,
     StaffModule,
     MenuModule,
+    RestaurantsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
