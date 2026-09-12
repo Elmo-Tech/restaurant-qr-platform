@@ -3,6 +3,9 @@ import { isWellFormedUuid } from '../common/is-uuid';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import type { MenuStatus } from '../generated/prisma/client';
+import { isRestaurantLocaleActive } from './menu-translation.helper';
+import type { TranslationView } from './menu-translation.helper';
+import type { PlatformSupportedLocale } from '../restaurants/platform-locales';
 
 /**
  * Shared bounded-retry cap for both operations that can legitimately race
@@ -122,6 +125,39 @@ export interface SetPrimaryMenuInput {
 export type SetPrimaryMenuResult =
   | { outcome: 'updated'; data: MenuWithTranslation }
   | { outcome: 'menuNotFound' };
+
+export interface AuthorizedMenuEntityScope {
+  restaurantId: string;
+  menuId: string;
+}
+
+export type GetMenuTranslationsResult =
+  { outcome: 'found'; data: TranslationView[] } | { outcome: 'menuNotFound' };
+
+export interface PutMenuTranslationInput {
+  restaurantId: string;
+  menuId: string;
+  locale: PlatformSupportedLocale;
+  name: string;
+  description: string | null;
+}
+
+export type PutMenuTranslationResult =
+  | { outcome: 'updated'; data: TranslationView }
+  | { outcome: 'menuNotFound' }
+  | { outcome: 'localeNotActive' };
+
+export interface DeleteMenuTranslationInput {
+  restaurantId: string;
+  menuId: string;
+  locale: PlatformSupportedLocale;
+}
+
+export type DeleteMenuTranslationResult =
+  | { outcome: 'deleted' }
+  | { outcome: 'menuNotFound' }
+  | { outcome: 'localeNotActive' }
+  | { outcome: 'defaultTranslationRequired' };
 
 /**
  * Day 1 Menu Vertical Slice, Batch C: Menu List and Create.
@@ -265,10 +301,18 @@ export class MenusService {
       // Menu identity + Tenant check together, in one query -- never
       // `findUnique({ id })` followed by a separate ownership comparison,
       // so a foreign-Restaurant Menu can never even be loaded before being
-      // hidden.
+      // hidden. Selects every field the response needs so the no-op branch
+      // below (neither parent nor translation fields supplied) never needs
+      // a second read.
       const existing = await tx.menu.findFirst({
         where: { id: input.menuId, restaurantId: input.restaurantId },
-        select: { id: true },
+        select: {
+          id: true,
+          nameInternal: true,
+          status: true,
+          displayOrder: true,
+          isPrimary: true,
+        },
       });
       if (!existing) {
         return { outcome: 'menuNotFound' };
@@ -293,20 +337,6 @@ export class MenusService {
         menuData.displayOrder = input.displayOrder;
       }
 
-      // Mirrors `updateProduct`: even an empty `data` object still performs
-      // the update call as a safe no-op that returns the current row.
-      const updatedMenu = await tx.menu.update({
-        where: { id: existing.id },
-        data: menuData,
-        select: {
-          id: true,
-          nameInternal: true,
-          status: true,
-          displayOrder: true,
-          isPrimary: true,
-        },
-      });
-
       const translationData: { name?: string; description?: string | null } =
         {};
       if (input.name !== undefined) {
@@ -315,7 +345,48 @@ export class MenusService {
       if (input.description !== undefined) {
         translationData.description = input.description;
       }
-      if (Object.keys(translationData).length > 0) {
+      const hasTranslationChanges = Object.keys(translationData).length > 0;
+
+      // Corrected (LOC-2B code review): Prisma's `@updatedAt` does NOT
+      // refresh for an empty `data: {}` update -- calling `tx.menu.update`
+      // unconditionally, as this code previously did, silently failed to
+      // move `updatedAt` for a translation-only PATCH. A real parent-field
+      // update still moves `updatedAt` on its own (that part was never in
+      // question), so the explicit touch below is needed ONLY when no
+      // parent field is being written but the default-locale translation
+      // content genuinely is -- never both (that would be a redundant
+      // second parent update), and never neither (a fully empty body stays
+      // a true no-op, reusing `existing` with zero writes).
+      let updatedMenu: typeof existing;
+      if (Object.keys(menuData).length > 0) {
+        updatedMenu = await tx.menu.update({
+          where: { id: existing.id },
+          data: menuData,
+          select: {
+            id: true,
+            nameInternal: true,
+            status: true,
+            displayOrder: true,
+            isPrimary: true,
+          },
+        });
+      } else if (hasTranslationChanges) {
+        updatedMenu = await tx.menu.update({
+          where: { id: existing.id },
+          data: { updatedAt: new Date() },
+          select: {
+            id: true,
+            nameInternal: true,
+            status: true,
+            displayOrder: true,
+            isPrimary: true,
+          },
+        });
+      } else {
+        updatedMenu = existing;
+      }
+
+      if (hasTranslationChanges) {
         await tx.menuTranslation.updateMany({
           where: { menuId: existing.id, locale: restaurant.defaultLocale },
           data: translationData,
@@ -438,5 +509,186 @@ export class MenusService {
     // Unreachable in practice (the loop always returns or throws), but
     // keeps the function's control flow explicit for TypeScript.
     throw lastRaceError;
+  }
+
+  /**
+   * LOC-2B (Section 3/4): returns EVERY existing `MenuTranslation` row for
+   * an authorized Menu, raw -- no fallback, no synthesized locales, no
+   * `isActive`/`isDefault`/completion flags, no internal `id`/`menuId`.
+   * A disabled secondary locale's stored translation is still returned
+   * (disabling a language is non-destructive, Section 20) -- only PUT/DELETE
+   * mutation is gated on the locale being active, never this read. Pure
+   * read: never writes.
+   */
+  async getMenuTranslations(
+    scope: AuthorizedMenuEntityScope,
+  ): Promise<GetMenuTranslationsResult> {
+    if (!isWellFormedUuid(scope.menuId)) {
+      return { outcome: 'menuNotFound' };
+    }
+
+    const menu = await this.prisma.menu.findFirst({
+      where: { id: scope.menuId, restaurantId: scope.restaurantId },
+      select: { id: true },
+    });
+    if (!menu) {
+      return { outcome: 'menuNotFound' };
+    }
+
+    const translations = await this.prisma.menuTranslation.findMany({
+      where: { menuId: menu.id },
+      select: { locale: true, name: true, description: true },
+      orderBy: { locale: 'asc' },
+    });
+
+    return { outcome: 'found', data: translations };
+  }
+
+  /**
+   * LOC-2B (Section 6-11): full replacement of one Translation resource.
+   * `input.locale` is already Pipe-validated against the Platform allowlist
+   * by the time it reaches this method, so an unsupported locale can never
+   * reach persistence. The target locale must be ACTIVE for this Restaurant
+   * (Section 8) -- writing the default locale is allowed by policy because
+   * the default locale is always an active supported locale (LOC-2A
+   * invariant), never special-cased here. An exact-match no-op (identical
+   * normalized name/description already stored) returns the existing row
+   * without rewriting it and without touching `Menu.updatedAt` (Section 11);
+   * a real change upserts the Translation and explicitly touches
+   * `Menu.updatedAt` in the same transaction -- never via an empty
+   * `data: {}` update, which does not refresh `@updatedAt` (Section 15).
+   */
+  async putMenuTranslation(
+    input: PutMenuTranslationInput,
+  ): Promise<PutMenuTranslationResult> {
+    if (!isWellFormedUuid(input.menuId)) {
+      return { outcome: 'menuNotFound' };
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const menu = await tx.menu.findFirst({
+        where: { id: input.menuId, restaurantId: input.restaurantId },
+        select: { id: true },
+      });
+      if (!menu) {
+        return { outcome: 'menuNotFound' };
+      }
+
+      const localeActive = await isRestaurantLocaleActive(
+        tx,
+        input.restaurantId,
+        input.locale,
+      );
+      if (!localeActive) {
+        return { outcome: 'localeNotActive' };
+      }
+
+      const existing = await tx.menuTranslation.findUnique({
+        where: { menuId_locale: { menuId: menu.id, locale: input.locale } },
+        select: { name: true, description: true },
+      });
+
+      const isNoOp =
+        existing !== null &&
+        existing.name === input.name &&
+        existing.description === input.description;
+      if (isNoOp) {
+        return {
+          outcome: 'updated',
+          data: {
+            locale: input.locale,
+            name: existing.name,
+            description: existing.description,
+          },
+        };
+      }
+
+      await tx.menuTranslation.upsert({
+        where: { menuId_locale: { menuId: menu.id, locale: input.locale } },
+        create: {
+          menuId: menu.id,
+          locale: input.locale,
+          name: input.name,
+          description: input.description,
+        },
+        update: { name: input.name, description: input.description },
+      });
+
+      // Explicit touch, not an empty `data: {}` update -- see this method's
+      // docstring and Section 15.
+      await tx.menu.update({
+        where: { id: menu.id },
+        data: { updatedAt: new Date() },
+      });
+
+      return {
+        outcome: 'updated',
+        data: {
+          locale: input.locale,
+          name: input.name,
+          description: input.description,
+        },
+      };
+    });
+  }
+
+  /**
+   * LOC-2B (Section 12-14): deletes one Translation resource. The Restaurant's
+   * current default-locale translation can never be deleted, regardless of
+   * whether the row currently exists (checked and rejected BEFORE the
+   * active-locale check or any delete, Section 13). For a non-default
+   * locale, the locale must be ACTIVE (Section 14) -- disabling a language
+   * makes its stored translations un-editable, not deleted; re-enabling
+   * makes them editable again. A missing secondary Translation row is a
+   * safe no-op success (never creates anything); an existing row is deleted
+   * and `Menu.updatedAt` is explicitly touched in the same transaction --
+   * never for the no-op case (Section 16).
+   */
+  async deleteMenuTranslation(
+    input: DeleteMenuTranslationInput,
+  ): Promise<DeleteMenuTranslationResult> {
+    if (!isWellFormedUuid(input.menuId)) {
+      return { outcome: 'menuNotFound' };
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const menu = await tx.menu.findFirst({
+        where: { id: input.menuId, restaurantId: input.restaurantId },
+        select: { id: true },
+      });
+      if (!menu) {
+        return { outcome: 'menuNotFound' };
+      }
+
+      const restaurant = await tx.restaurant.findUniqueOrThrow({
+        where: { id: input.restaurantId },
+        select: { defaultLocale: true },
+      });
+      if (input.locale === restaurant.defaultLocale) {
+        return { outcome: 'defaultTranslationRequired' };
+      }
+
+      const localeActive = await isRestaurantLocaleActive(
+        tx,
+        input.restaurantId,
+        input.locale,
+      );
+      if (!localeActive) {
+        return { outcome: 'localeNotActive' };
+      }
+
+      const deleted = await tx.menuTranslation.deleteMany({
+        where: { menuId: menu.id, locale: input.locale },
+      });
+
+      if (deleted.count > 0) {
+        await tx.menu.update({
+          where: { id: menu.id },
+          data: { updatedAt: new Date() },
+        });
+      }
+
+      return { outcome: 'deleted' };
+    });
   }
 }

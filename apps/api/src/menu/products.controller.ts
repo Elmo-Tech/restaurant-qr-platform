@@ -1,6 +1,8 @@
 import {
   Body,
+  ConflictException,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -8,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -20,10 +23,18 @@ import type { RestaurantAuthorizedRequest } from '../auth/guard/restaurant-autho
 import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
+import { LocaleParamPipe } from '../restaurants/locale-param.pipe';
+import type { PlatformSupportedLocale } from '../restaurants/platform-locales';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ListProductsQueryDto } from './dto/list-products-query.dto';
+import { PutTranslationDto } from './dto/put-translation.dto';
 import { UpdateProductAvailabilityDto } from './dto/update-product-availability.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
+import {
+  DEFAULT_TRANSLATION_REQUIRED_RESPONSE,
+  LOCALE_NOT_ACTIVE_RESPONSE,
+} from './menu-translation.helper';
+import type { TranslationView } from './menu-translation.helper';
 import { ProductsService } from './products.service';
 import type { ProductWithTranslation } from './products.service';
 import type { ProductAvailability } from '../generated/prisma/client';
@@ -65,6 +76,14 @@ interface ProductResponseBody {
 
 interface ProductAvailabilityResponseBody {
   data: { id: string; availability: ProductAvailability };
+}
+
+interface ProductTranslationListResponseBody {
+  data: TranslationView[];
+}
+
+interface ProductTranslationResponseBody {
+  data: TranslationView;
 }
 
 /**
@@ -224,5 +243,105 @@ export class ProductsController {
     }
 
     return { data: result.data };
+  }
+
+  /**
+   * LOC-2B (Section 3-5): returns every existing `ProductTranslation` row
+   * for this Product, raw -- see `MenusController.getMenuTranslations`'s
+   * docstring for the full rationale (identical shape/behavior).
+   */
+  @Get(':productId/translations')
+  @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
+  @RequirePermission(PERMISSIONS.MENU_VIEW)
+  async getProductTranslations(
+    @Param('productId') productId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<ProductTranslationListResponseBody> {
+    const result = await this.productsService.getProductTranslations({
+      restaurantId: request.restaurantAccess.restaurantId,
+      productId,
+    });
+
+    if (result.outcome === 'productNotFound') {
+      throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
+    }
+
+    return { data: result.data };
+  }
+
+  /**
+   * LOC-2B (Section 6-11): full replacement of one Translation resource --
+   * see `MenusController.putMenuTranslation`'s docstring for the full
+   * rationale (identical shape/behavior).
+   */
+  @Put(':productId/translations/:locale')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async putProductTranslation(
+    @Param('productId') productId: string,
+    @Param('locale', LocaleParamPipe) locale: PlatformSupportedLocale,
+    @Body() dto: PutTranslationDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<ProductTranslationResponseBody> {
+    const result = await this.productsService.putProductTranslation({
+      restaurantId: request.restaurantAccess.restaurantId,
+      productId,
+      locale,
+      name: dto.name,
+      description: dto.description ?? null,
+    });
+
+    if (result.outcome === 'productNotFound') {
+      throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'localeNotActive') {
+      throw new ConflictException(LOCALE_NOT_ACTIVE_RESPONSE);
+    }
+
+    return { data: result.data };
+  }
+
+  /**
+   * LOC-2B (Section 12-14): deletes one Translation resource -- see
+   * `MenusController.deleteMenuTranslation`'s docstring for the full
+   * rationale (identical shape/behavior).
+   */
+  @Delete(':productId/translations/:locale')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async deleteProductTranslation(
+    @Param('productId') productId: string,
+    @Param('locale', LocaleParamPipe) locale: PlatformSupportedLocale,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<void> {
+    const result = await this.productsService.deleteProductTranslation({
+      restaurantId: request.restaurantAccess.restaurantId,
+      productId,
+      locale,
+    });
+
+    if (result.outcome === 'productNotFound') {
+      throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'localeNotActive') {
+      throw new ConflictException(LOCALE_NOT_ACTIVE_RESPONSE);
+    }
+    if (result.outcome === 'defaultTranslationRequired') {
+      throw new ConflictException(DEFAULT_TRANSLATION_REQUIRED_RESPONSE);
+    }
   }
 }

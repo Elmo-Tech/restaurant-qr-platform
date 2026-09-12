@@ -1,6 +1,8 @@
 import {
   Body,
+  ConflictException,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -8,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Query,
   Req,
   UseGuards,
@@ -20,11 +23,19 @@ import type { RestaurantAuthorizedRequest } from '../auth/guard/restaurant-autho
 import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
+import { LocaleParamPipe } from '../restaurants/locale-param.pipe';
+import type { PlatformSupportedLocale } from '../restaurants/platform-locales';
 import { CategoriesService } from './categories.service';
 import type { CategoryWithTranslation } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { ListCategoriesQueryDto } from './dto/list-categories-query.dto';
+import { PutTranslationDto } from './dto/put-translation.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
+import {
+  DEFAULT_TRANSLATION_REQUIRED_RESPONSE,
+  LOCALE_NOT_ACTIVE_RESPONSE,
+} from './menu-translation.helper';
+import type { TranslationView } from './menu-translation.helper';
 
 /**
  * Day 1 Menu Vertical Slice, Batch C, settled contract: one stable
@@ -60,6 +71,14 @@ interface CategoryListResponseBody {
 
 interface CreateCategoryResponseBody {
   data: CategoryWithTranslation;
+}
+
+interface CategoryTranslationListResponseBody {
+  data: TranslationView[];
+}
+
+interface CategoryTranslationResponseBody {
+  data: TranslationView;
 }
 
 /**
@@ -175,5 +194,105 @@ export class CategoriesController {
     }
 
     return { data: result.data };
+  }
+
+  /**
+   * LOC-2B (Section 3-5): returns every existing `CategoryTranslation` row
+   * for this Category, raw -- see `MenusController.getMenuTranslations`'s
+   * docstring for the full rationale (identical shape/behavior).
+   */
+  @Get(':categoryId/translations')
+  @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
+  @RequirePermission(PERMISSIONS.MENU_VIEW)
+  async getCategoryTranslations(
+    @Param('categoryId') categoryId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<CategoryTranslationListResponseBody> {
+    const result = await this.categoriesService.getCategoryTranslations({
+      restaurantId: request.restaurantAccess.restaurantId,
+      categoryId,
+    });
+
+    if (result.outcome === 'categoryNotFound') {
+      throw new NotFoundException(CATEGORY_NOT_FOUND_RESPONSE);
+    }
+
+    return { data: result.data };
+  }
+
+  /**
+   * LOC-2B (Section 6-11): full replacement of one Translation resource --
+   * see `MenusController.putMenuTranslation`'s docstring for the full
+   * rationale (identical shape/behavior).
+   */
+  @Put(':categoryId/translations/:locale')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async putCategoryTranslation(
+    @Param('categoryId') categoryId: string,
+    @Param('locale', LocaleParamPipe) locale: PlatformSupportedLocale,
+    @Body() dto: PutTranslationDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<CategoryTranslationResponseBody> {
+    const result = await this.categoriesService.putCategoryTranslation({
+      restaurantId: request.restaurantAccess.restaurantId,
+      categoryId,
+      locale,
+      name: dto.name,
+      description: dto.description ?? null,
+    });
+
+    if (result.outcome === 'categoryNotFound') {
+      throw new NotFoundException(CATEGORY_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'localeNotActive') {
+      throw new ConflictException(LOCALE_NOT_ACTIVE_RESPONSE);
+    }
+
+    return { data: result.data };
+  }
+
+  /**
+   * LOC-2B (Section 12-14): deletes one Translation resource -- see
+   * `MenusController.deleteMenuTranslation`'s docstring for the full
+   * rationale (identical shape/behavior).
+   */
+  @Delete(':categoryId/translations/:locale')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async deleteCategoryTranslation(
+    @Param('categoryId') categoryId: string,
+    @Param('locale', LocaleParamPipe) locale: PlatformSupportedLocale,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<void> {
+    const result = await this.categoriesService.deleteCategoryTranslation({
+      restaurantId: request.restaurantAccess.restaurantId,
+      categoryId,
+      locale,
+    });
+
+    if (result.outcome === 'categoryNotFound') {
+      throw new NotFoundException(CATEGORY_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'localeNotActive') {
+      throw new ConflictException(LOCALE_NOT_ACTIVE_RESPONSE);
+    }
+    if (result.outcome === 'defaultTranslationRequired') {
+      throw new ConflictException(DEFAULT_TRANSLATION_REQUIRED_RESPONSE);
+    }
   }
 }

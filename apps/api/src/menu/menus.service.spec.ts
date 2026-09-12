@@ -44,8 +44,17 @@ function buildPrismaMock() {
   const menuTranslationCreate = jest.fn();
   const menuTranslationUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
   const menuTranslationFindFirstOrThrow = jest.fn();
+  const menuTranslationFindMany = jest.fn().mockResolvedValue([]);
+  const menuTranslationFindUnique = jest.fn().mockResolvedValue(null);
+  const menuTranslationUpsert = jest.fn();
+  const menuTranslationDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
+  const restaurantLocaleFindUnique = jest
+    .fn()
+    .mockResolvedValue({ isActive: true });
 
   const txClient = {
+    restaurant: { findUniqueOrThrow: restaurantFindUniqueOrThrow },
+    restaurantLocale: { findUnique: restaurantLocaleFindUnique },
     menu: {
       count: menuCount,
       create: menuCreate,
@@ -58,6 +67,10 @@ function buildPrismaMock() {
       create: menuTranslationCreate,
       updateMany: menuTranslationUpdateMany,
       findFirstOrThrow: menuTranslationFindFirstOrThrow,
+      findMany: menuTranslationFindMany,
+      findUnique: menuTranslationFindUnique,
+      upsert: menuTranslationUpsert,
+      deleteMany: menuTranslationDeleteMany,
     },
   };
 
@@ -68,10 +81,12 @@ function buildPrismaMock() {
   return {
     prisma: {
       restaurant: { findUniqueOrThrow: restaurantFindUniqueOrThrow },
-      menu: { findMany: menuFindMany },
+      menu: { findMany: menuFindMany, findFirst: menuFindFirst },
+      menuTranslation: { findMany: menuTranslationFindMany },
       $transaction,
     },
     restaurantFindUniqueOrThrow,
+    restaurantLocaleFindUnique,
     menuFindMany,
     menuCount,
     menuCreate,
@@ -82,6 +97,10 @@ function buildPrismaMock() {
     menuTranslationCreate,
     menuTranslationUpdateMany,
     menuTranslationFindFirstOrThrow,
+    menuTranslationFindMany,
+    menuTranslationFindUnique,
+    menuTranslationUpsert,
+    menuTranslationDeleteMany,
     $transaction,
   };
 }
@@ -455,9 +474,9 @@ describe('MenusService', () => {
       });
     });
 
-    it('omitting every field still performs a safe no-op Menu update and returns the current translation, using one transaction', async () => {
+    it('omitting every field is a true no-op -- zero writes, current row returned unchanged (corrected: no longer an empty-data update call)', async () => {
       const mock = buildPrismaMock();
-      mock.menuUpdate.mockResolvedValue({
+      mock.menuFindFirst.mockResolvedValue({
         id: 'menu-1',
         nameInternal: 'Main',
         status: 'ACTIVE',
@@ -471,16 +490,29 @@ describe('MenusService', () => {
       });
       const service = buildService(mock);
 
-      await service.updateMenu({
+      const result = await service.updateMenu({
         restaurantId: RESTAURANT_ID,
         menuId: WELL_FORMED_UUID,
       });
 
-      expect(mock.menuUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({ data: {} }),
-      );
+      expect(mock.menuUpdate).not.toHaveBeenCalled();
       expect(mock.menuTranslationUpdateMany).not.toHaveBeenCalled();
       expect(mock.$transaction).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({
+        outcome: 'updated',
+        data: {
+          id: 'menu-1',
+          nameInternal: 'Main',
+          status: 'ACTIVE',
+          displayOrder: 0,
+          isPrimary: true,
+          translation: {
+            locale: DEFAULT_LOCALE,
+            name: 'الرئيسية',
+            description: null,
+          },
+        },
+      });
     });
   });
 
@@ -665,6 +697,354 @@ describe('MenusService', () => {
         }),
       ).rejects.toThrow(Prisma.PrismaClientKnownRequestError);
       expect(mock.$transaction).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('getMenuTranslations', () => {
+    it('a malformed menuId -> menuNotFound with zero database queries', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      const result = await service.getMenuTranslations({
+        restaurantId: RESTAURANT_ID,
+        menuId: 'not-a-uuid',
+      });
+
+      expect(result).toEqual({ outcome: 'menuNotFound' });
+      expect(mock.menuFindFirst).not.toHaveBeenCalled();
+    });
+
+    it('unknown/foreign menuId -> menuNotFound', async () => {
+      const mock = buildPrismaMock();
+      mock.menuFindFirst.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.getMenuTranslations({
+        restaurantId: RESTAURANT_ID,
+        menuId: WELL_FORMED_UUID,
+      });
+
+      expect(result).toEqual({ outcome: 'menuNotFound' });
+    });
+
+    it('returns every existing translation row, raw, deterministically ordered', async () => {
+      const mock = buildPrismaMock();
+      mock.menuTranslationFindMany.mockResolvedValue([
+        { locale: 'ar', name: 'الرئيسية', description: null },
+        { locale: 'en', name: 'Main Menu', description: 'desc' },
+      ]);
+      const service = buildService(mock);
+
+      const result = await service.getMenuTranslations({
+        restaurantId: RESTAURANT_ID,
+        menuId: WELL_FORMED_UUID,
+      });
+
+      expect(result).toEqual({
+        outcome: 'found',
+        data: [
+          { locale: 'ar', name: 'الرئيسية', description: null },
+          { locale: 'en', name: 'Main Menu', description: 'desc' },
+        ],
+      });
+      expect(mock.menuTranslationFindMany).toHaveBeenCalledWith({
+        where: { menuId: 'menu-1' },
+        select: { locale: true, name: true, description: true },
+        orderBy: { locale: 'asc' },
+      });
+    });
+
+    it('a missing secondary translation is simply absent -- no fallback/synthetic row', async () => {
+      const mock = buildPrismaMock();
+      mock.menuTranslationFindMany.mockResolvedValue([
+        { locale: 'en', name: 'Main Menu', description: null },
+      ]);
+      const service = buildService(mock);
+
+      const result = await service.getMenuTranslations({
+        restaurantId: RESTAURANT_ID,
+        menuId: WELL_FORMED_UUID,
+      });
+
+      expect(result).toEqual({
+        outcome: 'found',
+        data: [{ locale: 'en', name: 'Main Menu', description: null }],
+      });
+    });
+
+    it('never writes', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      await service.getMenuTranslations({
+        restaurantId: RESTAURANT_ID,
+        menuId: WELL_FORMED_UUID,
+      });
+
+      expect(mock.$transaction).not.toHaveBeenCalled();
+      expect(mock.menuTranslationUpsert).not.toHaveBeenCalled();
+      expect(mock.menuTranslationDeleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('putMenuTranslation', () => {
+    const BASE_INPUT = {
+      restaurantId: RESTAURANT_ID,
+      menuId: WELL_FORMED_UUID,
+      locale: 'ar' as const,
+      name: 'الرئيسية',
+      description: null,
+    };
+
+    it('a malformed menuId -> menuNotFound with zero database queries', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      const result = await service.putMenuTranslation({
+        ...BASE_INPUT,
+        menuId: 'not-a-uuid',
+      });
+
+      expect(result).toEqual({ outcome: 'menuNotFound' });
+      expect(mock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('unknown/foreign menuId -> menuNotFound, zero writes', async () => {
+      const mock = buildPrismaMock();
+      mock.menuFindFirst.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.putMenuTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'menuNotFound' });
+      expect(mock.menuTranslationUpsert).not.toHaveBeenCalled();
+    });
+
+    it('inactive locale -> localeNotActive, zero writes', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantLocaleFindUnique.mockResolvedValue({ isActive: false });
+      const service = buildService(mock);
+
+      const result = await service.putMenuTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'localeNotActive' });
+      expect(mock.menuTranslationUpsert).not.toHaveBeenCalled();
+      expect(mock.menuUpdate).not.toHaveBeenCalled();
+    });
+
+    it('missing locale row -> localeNotActive (never active by default), zero writes', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantLocaleFindUnique.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.putMenuTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'localeNotActive' });
+      expect(mock.menuTranslationUpsert).not.toHaveBeenCalled();
+    });
+
+    it('active secondary locale, missing translation -> creates via upsert and touches Menu.updatedAt', async () => {
+      const mock = buildPrismaMock();
+      mock.menuTranslationFindUnique.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.putMenuTranslation(BASE_INPUT);
+
+      expect(result).toEqual({
+        outcome: 'updated',
+        data: { locale: 'ar', name: 'الرئيسية', description: null },
+      });
+      expect(mock.menuTranslationUpsert).toHaveBeenCalledWith({
+        where: { menuId_locale: { menuId: 'menu-1', locale: 'ar' } },
+        create: {
+          menuId: 'menu-1',
+          locale: 'ar',
+          name: 'الرئيسية',
+          description: null,
+        },
+        update: { name: 'الرئيسية', description: null },
+      });
+      expect(mock.menuUpdate).toHaveBeenCalledWith({
+        where: { id: 'menu-1' },
+        data: { updatedAt: expect.any(Date) as Date },
+      });
+    });
+
+    it('active secondary locale, existing DIFFERENT translation -> replaces via upsert and touches Menu.updatedAt', async () => {
+      const mock = buildPrismaMock();
+      mock.menuTranslationFindUnique.mockResolvedValue({
+        name: 'old name',
+        description: null,
+      });
+      const service = buildService(mock);
+
+      const result = await service.putMenuTranslation(BASE_INPUT);
+
+      expect(result).toEqual({
+        outcome: 'updated',
+        data: { locale: 'ar', name: 'الرئيسية', description: null },
+      });
+      expect(mock.menuTranslationUpsert).toHaveBeenCalledTimes(1);
+      expect(mock.menuUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('the default locale can be written (writing the default locale is allowed by policy)', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantFindUniqueOrThrow.mockResolvedValue({
+        defaultLocale: 'en',
+      });
+      mock.menuTranslationFindUnique.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.putMenuTranslation({
+        ...BASE_INPUT,
+        locale: 'en',
+      });
+
+      expect(result.outcome).toBe('updated');
+    });
+
+    it('an exact normalized no-op returns the existing row without rewriting it and without touching Menu.updatedAt', async () => {
+      const mock = buildPrismaMock();
+      mock.menuTranslationFindUnique.mockResolvedValue({
+        name: 'الرئيسية',
+        description: null,
+      });
+      const service = buildService(mock);
+
+      const result = await service.putMenuTranslation(BASE_INPUT);
+
+      expect(result).toEqual({
+        outcome: 'updated',
+        data: { locale: 'ar', name: 'الرئيسية', description: null },
+      });
+      expect(mock.menuTranslationUpsert).not.toHaveBeenCalled();
+      expect(mock.menuUpdate).not.toHaveBeenCalled();
+    });
+
+    it('Tenant-scoped: resolves the Menu by id AND restaurantId together, never id alone', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      await service.putMenuTranslation(BASE_INPUT);
+
+      expect(mock.menuFindFirst).toHaveBeenCalledWith({
+        where: { id: WELL_FORMED_UUID, restaurantId: RESTAURANT_ID },
+        select: { id: true },
+      });
+      expect(mock.restaurantLocaleFindUnique).toHaveBeenCalledWith({
+        where: {
+          restaurantId_locale: { restaurantId: RESTAURANT_ID, locale: 'ar' },
+        },
+        select: { isActive: true },
+      });
+    });
+  });
+
+  describe('deleteMenuTranslation', () => {
+    const BASE_INPUT = {
+      restaurantId: RESTAURANT_ID,
+      menuId: WELL_FORMED_UUID,
+      locale: 'ar' as const,
+    };
+
+    it('a malformed menuId -> menuNotFound with zero database queries', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      const result = await service.deleteMenuTranslation({
+        ...BASE_INPUT,
+        menuId: 'not-a-uuid',
+      });
+
+      expect(result).toEqual({ outcome: 'menuNotFound' });
+      expect(mock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('unknown/foreign menuId -> menuNotFound', async () => {
+      const mock = buildPrismaMock();
+      mock.menuFindFirst.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.deleteMenuTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'menuNotFound' });
+      expect(mock.menuTranslationDeleteMany).not.toHaveBeenCalled();
+    });
+
+    it('the default locale can never be deleted -> defaultTranslationRequired, regardless of row existence, zero writes', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantFindUniqueOrThrow.mockResolvedValue({
+        defaultLocale: 'ar',
+      });
+      const service = buildService(mock);
+
+      const result = await service.deleteMenuTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'defaultTranslationRequired' });
+      expect(mock.menuTranslationDeleteMany).not.toHaveBeenCalled();
+      expect(mock.menuUpdate).not.toHaveBeenCalled();
+    });
+
+    it('an inactive secondary locale -> localeNotActive, zero writes', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantFindUniqueOrThrow.mockResolvedValue({
+        defaultLocale: 'en',
+      });
+      mock.restaurantLocaleFindUnique.mockResolvedValue({ isActive: false });
+      const service = buildService(mock);
+
+      const result = await service.deleteMenuTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'localeNotActive' });
+      expect(mock.menuTranslationDeleteMany).not.toHaveBeenCalled();
+    });
+
+    it('an active secondary locale with an existing row -> deletes it and touches Menu.updatedAt', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantFindUniqueOrThrow.mockResolvedValue({
+        defaultLocale: 'en',
+      });
+      mock.menuTranslationDeleteMany.mockResolvedValue({ count: 1 });
+      const service = buildService(mock);
+
+      const result = await service.deleteMenuTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'deleted' });
+      expect(mock.menuTranslationDeleteMany).toHaveBeenCalledWith({
+        where: { menuId: 'menu-1', locale: 'ar' },
+      });
+      expect(mock.menuUpdate).toHaveBeenCalledWith({
+        where: { id: 'menu-1' },
+        data: { updatedAt: expect.any(Date) as Date },
+      });
+    });
+
+    it('an active secondary locale with NO existing row -> safe 204 no-op, never creates anything, no timestamp touch', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantFindUniqueOrThrow.mockResolvedValue({
+        defaultLocale: 'en',
+      });
+      mock.menuTranslationDeleteMany.mockResolvedValue({ count: 0 });
+      const service = buildService(mock);
+
+      const result = await service.deleteMenuTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'deleted' });
+      expect(mock.menuUpdate).not.toHaveBeenCalled();
+      expect(mock.menuTranslationUpsert).not.toHaveBeenCalled();
+    });
+
+    it('never affects another Restaurant -- scoped by menuId resolved under restaurantId', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      await service.deleteMenuTranslation(BASE_INPUT);
+
+      expect(mock.menuFindFirst).toHaveBeenCalledWith({
+        where: { id: WELL_FORMED_UUID, restaurantId: RESTAURANT_ID },
+        select: { id: true },
+      });
     });
   });
 });

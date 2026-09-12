@@ -1,5 +1,5 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { BranchAccessGuard } from '../auth/guard/branch-access.guard';
 import { BranchManagementAccessGuard } from '../auth/guard/branch-management-access.guard';
@@ -11,6 +11,7 @@ import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { PERMISSIONS } from '../auth/permission/permission';
 import { REQUIRED_PERMISSION_KEY } from '../auth/permission/require-permission.decorator';
 import { CreateMenuDto } from './dto/create-menu.dto';
+import { PutTranslationDto } from './dto/put-translation.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 import { MenusController } from './menus.controller';
 import type { MenuWithTranslation } from './menus.service';
@@ -45,6 +46,9 @@ describe('MenusController', () => {
     createMenu: jest.Mock;
     updateMenu: jest.Mock;
     setPrimaryMenu: jest.Mock;
+    getMenuTranslations: jest.Mock;
+    putMenuTranslation: jest.Mock;
+    deleteMenuTranslation: jest.Mock;
   };
   let controller: MenusController;
 
@@ -53,6 +57,10 @@ describe('MenusController', () => {
   const createHandler = MenusController.prototype.createMenu;
   const updateHandler = MenusController.prototype.updateMenu;
   const setPrimaryHandler = MenusController.prototype.setPrimaryMenu;
+  const getTranslationsHandler = MenusController.prototype.getMenuTranslations;
+  const putTranslationHandler = MenusController.prototype.putMenuTranslation;
+  const deleteTranslationHandler =
+    MenusController.prototype.deleteMenuTranslation;
   /* eslint-enable @typescript-eslint/unbound-method */
 
   beforeEach(() => {
@@ -61,6 +69,9 @@ describe('MenusController', () => {
       createMenu: jest.fn(),
       updateMenu: jest.fn(),
       setPrimaryMenu: jest.fn(),
+      getMenuTranslations: jest.fn(),
+      putMenuTranslation: jest.fn(),
+      deleteMenuTranslation: jest.fn(),
     };
     controller = new MenusController(menusService as never);
   });
@@ -75,6 +86,14 @@ describe('MenusController', () => {
     ]);
     expect(guards).not.toContain(BranchAccessGuard);
     expect(guards).not.toContain(BranchManagementAccessGuard);
+  }
+
+  function expectReadGuardChain(guards: unknown[]) {
+    expect(guards).toEqual([AuthGuard, RestaurantAccessGuard, PermissionGuard]);
+    expect(guards).not.toContain(CsrfGuard);
+    expect(guards).not.toContain(BranchAccessGuard);
+    expect(guards).not.toContain(BranchManagementAccessGuard);
+    expect(guards).not.toContain(AllBranchesRequiredGuard);
   }
 
   describe('GET (list)', () => {
@@ -309,6 +328,266 @@ describe('MenusController', () => {
           error: { code: 'MENU_NOT_FOUND', message: 'Menu not found.' },
         },
       });
+    });
+  });
+
+  describe('GET :menuId/translations', () => {
+    it('declares exactly AuthGuard -> RestaurantAccessGuard -> PermissionGuard, no CSRF/Branch/AllBranches guard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        getTranslationsHandler,
+      ) as unknown[];
+
+      expectReadGuardChain(guards);
+    });
+
+    it('requires exactly menu.view', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        getTranslationsHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_VIEW);
+    });
+
+    it('forwards restaurantId from authorized context and menuId from the route param', async () => {
+      menusService.getMenuTranslations.mockResolvedValue({
+        outcome: 'found',
+        data: [{ locale: 'en', name: 'Main Menu', description: null }],
+      });
+
+      const body = await controller.getMenuTranslations(
+        'menu-1',
+        buildRequest('authorized-restaurant', 'attacker-supplied-value'),
+      );
+
+      expect(menusService.getMenuTranslations).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        menuId: 'menu-1',
+      });
+      expect(body).toEqual({
+        data: [{ locale: 'en', name: 'Main Menu', description: null }],
+      });
+    });
+
+    it('maps menuNotFound to 404 MENU_NOT_FOUND', async () => {
+      menusService.getMenuTranslations.mockResolvedValue({
+        outcome: 'menuNotFound',
+      });
+
+      await expect(
+        controller.getMenuTranslations(
+          'unknown-id',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'MENU_NOT_FOUND', message: 'Menu not found.' },
+        },
+      });
+    });
+  });
+
+  describe('PUT :menuId/translations/:locale', () => {
+    it('declares exactly AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard, no BranchAccessGuard/BranchManagementAccessGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        putTranslationHandler,
+      ) as unknown[];
+
+      expectMutationGuardChain(guards);
+    });
+
+    it('requires exactly menu.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        putTranslationHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_MANAGE);
+    });
+
+    it('forwards restaurantId from authorized context, menuId/locale from route params, and dto fields', async () => {
+      menusService.putMenuTranslation.mockResolvedValue({
+        outcome: 'updated',
+        data: { locale: 'ar', name: 'الرئيسية', description: null },
+      });
+      const dto = new PutTranslationDto();
+      dto.name = 'الرئيسية';
+      dto.description = null;
+
+      const body = await controller.putMenuTranslation(
+        'menu-1',
+        'ar',
+        dto,
+        buildRequest('authorized-restaurant', 'attacker-supplied-value'),
+      );
+
+      expect(menusService.putMenuTranslation).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        menuId: 'menu-1',
+        locale: 'ar',
+        name: 'الرئيسية',
+        description: null,
+      });
+      expect(body).toEqual({
+        data: { locale: 'ar', name: 'الرئيسية', description: null },
+      });
+    });
+
+    it('maps menuNotFound to 404 MENU_NOT_FOUND', async () => {
+      menusService.putMenuTranslation.mockResolvedValue({
+        outcome: 'menuNotFound',
+      });
+
+      await expect(
+        controller.putMenuTranslation(
+          'unknown-id',
+          'ar',
+          new PutTranslationDto(),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'MENU_NOT_FOUND', message: 'Menu not found.' },
+        },
+      });
+    });
+
+    it('maps localeNotActive to 409 LOCALE_NOT_ACTIVE', async () => {
+      menusService.putMenuTranslation.mockResolvedValue({
+        outcome: 'localeNotActive',
+      });
+
+      await expect(
+        controller.putMenuTranslation(
+          'menu-1',
+          'ar',
+          new PutTranslationDto(),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'LOCALE_NOT_ACTIVE',
+            message: 'The locale is not active for this Restaurant.',
+          },
+        },
+      });
+      await expect(
+        controller.putMenuTranslation(
+          'menu-1',
+          'ar',
+          new PutTranslationDto(),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('DELETE :menuId/translations/:locale', () => {
+    it('declares exactly AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard, no BranchAccessGuard/BranchManagementAccessGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        deleteTranslationHandler,
+      ) as unknown[];
+
+      expectMutationGuardChain(guards);
+    });
+
+    it('requires exactly menu.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        deleteTranslationHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_MANAGE);
+    });
+
+    it('forwards restaurantId from authorized context and menuId/locale from route params, returns undefined on success', async () => {
+      menusService.deleteMenuTranslation.mockResolvedValue({
+        outcome: 'deleted',
+      });
+
+      const body = await controller.deleteMenuTranslation(
+        'menu-1',
+        'ar',
+        buildRequest('authorized-restaurant', 'attacker-supplied-value'),
+      );
+
+      expect(menusService.deleteMenuTranslation).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        menuId: 'menu-1',
+        locale: 'ar',
+      });
+      expect(body).toBeUndefined();
+    });
+
+    it('maps menuNotFound to 404 MENU_NOT_FOUND', async () => {
+      menusService.deleteMenuTranslation.mockResolvedValue({
+        outcome: 'menuNotFound',
+      });
+
+      await expect(
+        controller.deleteMenuTranslation(
+          'unknown-id',
+          'ar',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'MENU_NOT_FOUND', message: 'Menu not found.' },
+        },
+      });
+    });
+
+    it('maps localeNotActive to 409 LOCALE_NOT_ACTIVE', async () => {
+      menusService.deleteMenuTranslation.mockResolvedValue({
+        outcome: 'localeNotActive',
+      });
+
+      await expect(
+        controller.deleteMenuTranslation(
+          'menu-1',
+          'ar',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'LOCALE_NOT_ACTIVE',
+            message: 'The locale is not active for this Restaurant.',
+          },
+        },
+      });
+    });
+
+    it('maps defaultTranslationRequired to 409 DEFAULT_TRANSLATION_REQUIRED', async () => {
+      menusService.deleteMenuTranslation.mockResolvedValue({
+        outcome: 'defaultTranslationRequired',
+      });
+
+      await expect(
+        controller.deleteMenuTranslation(
+          'menu-1',
+          'en',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'DEFAULT_TRANSLATION_REQUIRED',
+            message: 'The default locale translation cannot be deleted.',
+          },
+        },
+      });
+      await expect(
+        controller.deleteMenuTranslation(
+          'menu-1',
+          'en',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
     });
   });
 });

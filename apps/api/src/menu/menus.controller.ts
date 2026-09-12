@@ -1,6 +1,8 @@
 import {
   Body,
+  ConflictException,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -8,6 +10,7 @@ import {
   Param,
   Patch,
   Post,
+  Put,
   Req,
   UseGuards,
 } from '@nestjs/common';
@@ -19,8 +22,16 @@ import type { RestaurantAuthorizedRequest } from '../auth/guard/restaurant-autho
 import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
+import { LocaleParamPipe } from '../restaurants/locale-param.pipe';
+import type { PlatformSupportedLocale } from '../restaurants/platform-locales';
 import { CreateMenuDto } from './dto/create-menu.dto';
+import { PutTranslationDto } from './dto/put-translation.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
+import {
+  DEFAULT_TRANSLATION_REQUIRED_RESPONSE,
+  LOCALE_NOT_ACTIVE_RESPONSE,
+} from './menu-translation.helper';
+import type { TranslationView } from './menu-translation.helper';
 import { MenusService } from './menus.service';
 import type { MenuWithTranslation } from './menus.service';
 
@@ -44,6 +55,14 @@ interface MenuListResponseBody {
 
 interface CreateMenuResponseBody {
   data: MenuWithTranslation;
+}
+
+interface MenuTranslationListResponseBody {
+  data: TranslationView[];
+}
+
+interface MenuTranslationResponseBody {
+  data: TranslationView;
 }
 
 /**
@@ -193,5 +212,109 @@ export class MenusController {
     }
 
     return { data: result.data };
+  }
+
+  /**
+   * LOC-2B (Section 3-5): returns every existing `MenuTranslation` row for
+   * this Menu, raw -- no fallback, no synthesized locales, no internal ids.
+   * Read-only: `menu.view`, no `CsrfGuard`/`AllBranchesRequiredGuard`,
+   * identical guard chain to `listMenus`.
+   */
+  @Get(':menuId/translations')
+  @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
+  @RequirePermission(PERMISSIONS.MENU_VIEW)
+  async getMenuTranslations(
+    @Param('menuId') menuId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<MenuTranslationListResponseBody> {
+    const result = await this.menusService.getMenuTranslations({
+      restaurantId: request.restaurantAccess.restaurantId,
+      menuId,
+    });
+
+    if (result.outcome === 'menuNotFound') {
+      throw new NotFoundException(MENU_NOT_FOUND_RESPONSE);
+    }
+
+    return { data: result.data };
+  }
+
+  /**
+   * LOC-2B (Section 6-11): full replacement of one Translation resource.
+   * `:locale` is Pipe-validated against the Platform allowlist before this
+   * handler body ever runs. Restaurant-structural mutation: `menu.manage`
+   * + `AllBranchesRequiredGuard`, identical guard chain to every other Menu
+   * mutation.
+   */
+  @Put(':menuId/translations/:locale')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async putMenuTranslation(
+    @Param('menuId') menuId: string,
+    @Param('locale', LocaleParamPipe) locale: PlatformSupportedLocale,
+    @Body() dto: PutTranslationDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<MenuTranslationResponseBody> {
+    const result = await this.menusService.putMenuTranslation({
+      restaurantId: request.restaurantAccess.restaurantId,
+      menuId,
+      locale,
+      name: dto.name,
+      description: dto.description ?? null,
+    });
+
+    if (result.outcome === 'menuNotFound') {
+      throw new NotFoundException(MENU_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'localeNotActive') {
+      throw new ConflictException(LOCALE_NOT_ACTIVE_RESPONSE);
+    }
+
+    return { data: result.data };
+  }
+
+  /**
+   * LOC-2B (Section 12-14): deletes one Translation resource. The default
+   * locale can never be deleted; a non-default locale must be currently
+   * active; a missing secondary Translation is a safe 204 no-op. Identical
+   * guard chain to Put.
+   */
+  @Delete(':menuId/translations/:locale')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async deleteMenuTranslation(
+    @Param('menuId') menuId: string,
+    @Param('locale', LocaleParamPipe) locale: PlatformSupportedLocale,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<void> {
+    const result = await this.menusService.deleteMenuTranslation({
+      restaurantId: request.restaurantAccess.restaurantId,
+      menuId,
+      locale,
+    });
+
+    if (result.outcome === 'menuNotFound') {
+      throw new NotFoundException(MENU_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'localeNotActive') {
+      throw new ConflictException(LOCALE_NOT_ACTIVE_RESPONSE);
+    }
+    if (result.outcome === 'defaultTranslationRequired') {
+      throw new ConflictException(DEFAULT_TRANSLATION_REQUIRED_RESPONSE);
+    }
   }
 }

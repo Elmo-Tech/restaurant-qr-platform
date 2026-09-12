@@ -19,8 +19,19 @@ function buildPrismaMock() {
     .fn()
     .mockResolvedValue({ count: 1 });
   const categoryTranslationFindFirstOrThrow = jest.fn();
+  const categoryTranslationFindMany = jest.fn().mockResolvedValue([]);
+  const categoryTranslationFindUnique = jest.fn().mockResolvedValue(null);
+  const categoryTranslationUpsert = jest.fn();
+  const categoryTranslationDeleteMany = jest
+    .fn()
+    .mockResolvedValue({ count: 0 });
+  const restaurantLocaleFindUnique = jest
+    .fn()
+    .mockResolvedValue({ isActive: true });
 
   const txClient = {
+    restaurant: { findUniqueOrThrow: restaurantFindUniqueOrThrow },
+    restaurantLocale: { findUnique: restaurantLocaleFindUnique },
     menu: { findFirst: menuFindFirst },
     category: {
       create: categoryCreate,
@@ -31,6 +42,10 @@ function buildPrismaMock() {
       create: categoryTranslationCreate,
       updateMany: categoryTranslationUpdateMany,
       findFirstOrThrow: categoryTranslationFindFirstOrThrow,
+      findMany: categoryTranslationFindMany,
+      findUnique: categoryTranslationFindUnique,
+      upsert: categoryTranslationUpsert,
+      deleteMany: categoryTranslationDeleteMany,
     },
   };
 
@@ -41,10 +56,12 @@ function buildPrismaMock() {
   return {
     prisma: {
       restaurant: { findUniqueOrThrow: restaurantFindUniqueOrThrow },
-      category: { findMany: categoryFindMany },
+      category: { findMany: categoryFindMany, findFirst: categoryFindFirst },
+      categoryTranslation: { findMany: categoryTranslationFindMany },
       $transaction,
     },
     restaurantFindUniqueOrThrow,
+    restaurantLocaleFindUnique,
     categoryFindMany,
     menuFindFirst,
     categoryCreate,
@@ -53,6 +70,10 @@ function buildPrismaMock() {
     categoryTranslationCreate,
     categoryTranslationUpdateMany,
     categoryTranslationFindFirstOrThrow,
+    categoryTranslationFindMany,
+    categoryTranslationFindUnique,
+    categoryTranslationUpsert,
+    categoryTranslationDeleteMany,
     $transaction,
   };
 }
@@ -419,9 +440,9 @@ describe('CategoriesService', () => {
       });
     });
 
-    it('omitting every field still performs a safe no-op Category update and returns the current translation, using one transaction', async () => {
+    it('omitting every field is a true no-op -- zero writes, current row returned unchanged (corrected: no longer an empty-data update call)', async () => {
       const mock = buildPrismaMock();
-      mock.categoryUpdate.mockResolvedValue({
+      mock.categoryFindFirst.mockResolvedValue({
         id: 'category-1',
         menuId: 'menu-1',
         status: 'ACTIVE',
@@ -435,16 +456,365 @@ describe('CategoriesService', () => {
       });
       const service = buildService(mock);
 
-      await service.updateCategory({
+      const result = await service.updateCategory({
         restaurantId: RESTAURANT_ID,
         categoryId: WELL_FORMED_UUID,
       });
 
-      expect(mock.categoryUpdate).toHaveBeenCalledWith(
-        expect.objectContaining({ data: {} }),
-      );
+      expect(mock.categoryUpdate).not.toHaveBeenCalled();
       expect(mock.categoryTranslationUpdateMany).not.toHaveBeenCalled();
       expect(mock.$transaction).toHaveBeenCalledTimes(1);
+      expect(result).toEqual({
+        outcome: 'updated',
+        data: {
+          id: 'category-1',
+          menuId: 'menu-1',
+          status: 'ACTIVE',
+          displayOrder: 0,
+          imageAssetPath: null,
+          translation: {
+            locale: DEFAULT_LOCALE,
+            name: 'المقبلات',
+            description: null,
+          },
+        },
+      });
+    });
+  });
+
+  describe('getCategoryTranslations', () => {
+    it('a malformed categoryId -> categoryNotFound with zero database queries', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      const result = await service.getCategoryTranslations({
+        restaurantId: RESTAURANT_ID,
+        categoryId: 'not-a-uuid',
+      });
+
+      expect(result).toEqual({ outcome: 'categoryNotFound' });
+      expect(mock.categoryFindFirst).not.toHaveBeenCalled();
+    });
+
+    it('unknown/foreign categoryId -> categoryNotFound', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryFindFirst.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.getCategoryTranslations({
+        restaurantId: RESTAURANT_ID,
+        categoryId: WELL_FORMED_UUID,
+      });
+
+      expect(result).toEqual({ outcome: 'categoryNotFound' });
+    });
+
+    it('returns every existing translation row, raw, deterministically ordered', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryTranslationFindMany.mockResolvedValue([
+        { locale: 'ar', name: 'المقبلات', description: null },
+        { locale: 'en', name: 'Appetizers', description: 'desc' },
+      ]);
+      const service = buildService(mock);
+
+      const result = await service.getCategoryTranslations({
+        restaurantId: RESTAURANT_ID,
+        categoryId: WELL_FORMED_UUID,
+      });
+
+      expect(result).toEqual({
+        outcome: 'found',
+        data: [
+          { locale: 'ar', name: 'المقبلات', description: null },
+          { locale: 'en', name: 'Appetizers', description: 'desc' },
+        ],
+      });
+      expect(mock.categoryTranslationFindMany).toHaveBeenCalledWith({
+        where: { categoryId: 'category-1' },
+        select: { locale: true, name: true, description: true },
+        orderBy: { locale: 'asc' },
+      });
+    });
+
+    it('a missing secondary translation is simply absent -- no fallback/synthetic row', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryTranslationFindMany.mockResolvedValue([
+        { locale: 'en', name: 'Appetizers', description: null },
+      ]);
+      const service = buildService(mock);
+
+      const result = await service.getCategoryTranslations({
+        restaurantId: RESTAURANT_ID,
+        categoryId: WELL_FORMED_UUID,
+      });
+
+      expect(result).toEqual({
+        outcome: 'found',
+        data: [{ locale: 'en', name: 'Appetizers', description: null }],
+      });
+    });
+
+    it('never writes', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      await service.getCategoryTranslations({
+        restaurantId: RESTAURANT_ID,
+        categoryId: WELL_FORMED_UUID,
+      });
+
+      expect(mock.$transaction).not.toHaveBeenCalled();
+      expect(mock.categoryTranslationUpsert).not.toHaveBeenCalled();
+      expect(mock.categoryTranslationDeleteMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('putCategoryTranslation', () => {
+    const BASE_INPUT = {
+      restaurantId: RESTAURANT_ID,
+      categoryId: WELL_FORMED_UUID,
+      locale: 'ar' as const,
+      name: 'المقبلات',
+      description: null,
+    };
+
+    it('a malformed categoryId -> categoryNotFound with zero database queries', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      const result = await service.putCategoryTranslation({
+        ...BASE_INPUT,
+        categoryId: 'not-a-uuid',
+      });
+
+      expect(result).toEqual({ outcome: 'categoryNotFound' });
+      expect(mock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('unknown/foreign categoryId -> categoryNotFound, zero writes', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryFindFirst.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.putCategoryTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'categoryNotFound' });
+      expect(mock.categoryTranslationUpsert).not.toHaveBeenCalled();
+    });
+
+    it('inactive locale -> localeNotActive, zero writes', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantLocaleFindUnique.mockResolvedValue({ isActive: false });
+      const service = buildService(mock);
+
+      const result = await service.putCategoryTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'localeNotActive' });
+      expect(mock.categoryTranslationUpsert).not.toHaveBeenCalled();
+      expect(mock.categoryUpdate).not.toHaveBeenCalled();
+    });
+
+    it('active secondary locale, missing translation -> creates via upsert and touches Category.updatedAt', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryTranslationFindUnique.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.putCategoryTranslation(BASE_INPUT);
+
+      expect(result).toEqual({
+        outcome: 'updated',
+        data: { locale: 'ar', name: 'المقبلات', description: null },
+      });
+      expect(mock.categoryTranslationUpsert).toHaveBeenCalledWith({
+        where: {
+          categoryId_locale: { categoryId: 'category-1', locale: 'ar' },
+        },
+        create: {
+          categoryId: 'category-1',
+          locale: 'ar',
+          name: 'المقبلات',
+          description: null,
+        },
+        update: { name: 'المقبلات', description: null },
+      });
+      expect(mock.categoryUpdate).toHaveBeenCalledWith({
+        where: { id: 'category-1' },
+        data: { updatedAt: expect.any(Date) as Date },
+      });
+    });
+
+    it('active secondary locale, existing DIFFERENT translation -> replaces via upsert and touches Category.updatedAt', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryTranslationFindUnique.mockResolvedValue({
+        name: 'old name',
+        description: null,
+      });
+      const service = buildService(mock);
+
+      const result = await service.putCategoryTranslation(BASE_INPUT);
+
+      expect(result.outcome).toBe('updated');
+      expect(mock.categoryTranslationUpsert).toHaveBeenCalledTimes(1);
+      expect(mock.categoryUpdate).toHaveBeenCalledTimes(1);
+    });
+
+    it('the default locale can be written (writing the default locale is allowed by policy)', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantFindUniqueOrThrow.mockResolvedValue({
+        defaultLocale: 'en',
+      });
+      mock.categoryTranslationFindUnique.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.putCategoryTranslation({
+        ...BASE_INPUT,
+        locale: 'en',
+      });
+
+      expect(result.outcome).toBe('updated');
+    });
+
+    it('an exact normalized no-op returns the existing row without rewriting it and without touching Category.updatedAt', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryTranslationFindUnique.mockResolvedValue({
+        name: 'المقبلات',
+        description: null,
+      });
+      const service = buildService(mock);
+
+      const result = await service.putCategoryTranslation(BASE_INPUT);
+
+      expect(result).toEqual({
+        outcome: 'updated',
+        data: { locale: 'ar', name: 'المقبلات', description: null },
+      });
+      expect(mock.categoryTranslationUpsert).not.toHaveBeenCalled();
+      expect(mock.categoryUpdate).not.toHaveBeenCalled();
+    });
+
+    it('Tenant-scoped: resolves the Category by id AND restaurantId together, never id alone', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      await service.putCategoryTranslation(BASE_INPUT);
+
+      expect(mock.categoryFindFirst).toHaveBeenCalledWith({
+        where: { id: WELL_FORMED_UUID, restaurantId: RESTAURANT_ID },
+        select: { id: true },
+      });
+      expect(mock.restaurantLocaleFindUnique).toHaveBeenCalledWith({
+        where: {
+          restaurantId_locale: { restaurantId: RESTAURANT_ID, locale: 'ar' },
+        },
+        select: { isActive: true },
+      });
+    });
+  });
+
+  describe('deleteCategoryTranslation', () => {
+    const BASE_INPUT = {
+      restaurantId: RESTAURANT_ID,
+      categoryId: WELL_FORMED_UUID,
+      locale: 'ar' as const,
+    };
+
+    it('a malformed categoryId -> categoryNotFound with zero database queries', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      const result = await service.deleteCategoryTranslation({
+        ...BASE_INPUT,
+        categoryId: 'not-a-uuid',
+      });
+
+      expect(result).toEqual({ outcome: 'categoryNotFound' });
+      expect(mock.$transaction).not.toHaveBeenCalled();
+    });
+
+    it('unknown/foreign categoryId -> categoryNotFound', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryFindFirst.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.deleteCategoryTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'categoryNotFound' });
+      expect(mock.categoryTranslationDeleteMany).not.toHaveBeenCalled();
+    });
+
+    it('the default locale can never be deleted -> defaultTranslationRequired, regardless of row existence, zero writes', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantFindUniqueOrThrow.mockResolvedValue({
+        defaultLocale: 'ar',
+      });
+      const service = buildService(mock);
+
+      const result = await service.deleteCategoryTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'defaultTranslationRequired' });
+      expect(mock.categoryTranslationDeleteMany).not.toHaveBeenCalled();
+      expect(mock.categoryUpdate).not.toHaveBeenCalled();
+    });
+
+    it('an inactive secondary locale -> localeNotActive, zero writes', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantFindUniqueOrThrow.mockResolvedValue({
+        defaultLocale: 'en',
+      });
+      mock.restaurantLocaleFindUnique.mockResolvedValue({ isActive: false });
+      const service = buildService(mock);
+
+      const result = await service.deleteCategoryTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'localeNotActive' });
+      expect(mock.categoryTranslationDeleteMany).not.toHaveBeenCalled();
+    });
+
+    it('an active secondary locale with an existing row -> deletes it and touches Category.updatedAt', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantFindUniqueOrThrow.mockResolvedValue({
+        defaultLocale: 'en',
+      });
+      mock.categoryTranslationDeleteMany.mockResolvedValue({ count: 1 });
+      const service = buildService(mock);
+
+      const result = await service.deleteCategoryTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'deleted' });
+      expect(mock.categoryTranslationDeleteMany).toHaveBeenCalledWith({
+        where: { categoryId: 'category-1', locale: 'ar' },
+      });
+      expect(mock.categoryUpdate).toHaveBeenCalledWith({
+        where: { id: 'category-1' },
+        data: { updatedAt: expect.any(Date) as Date },
+      });
+    });
+
+    it('an active secondary locale with NO existing row -> safe 204 no-op, never creates anything, no timestamp touch', async () => {
+      const mock = buildPrismaMock();
+      mock.restaurantFindUniqueOrThrow.mockResolvedValue({
+        defaultLocale: 'en',
+      });
+      mock.categoryTranslationDeleteMany.mockResolvedValue({ count: 0 });
+      const service = buildService(mock);
+
+      const result = await service.deleteCategoryTranslation(BASE_INPUT);
+
+      expect(result).toEqual({ outcome: 'deleted' });
+      expect(mock.categoryUpdate).not.toHaveBeenCalled();
+      expect(mock.categoryTranslationUpsert).not.toHaveBeenCalled();
+    });
+
+    it('never affects another Restaurant -- scoped by categoryId resolved under restaurantId', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      await service.deleteCategoryTranslation(BASE_INPUT);
+
+      expect(mock.categoryFindFirst).toHaveBeenCalledWith({
+        where: { id: WELL_FORMED_UUID, restaurantId: RESTAURANT_ID },
+        select: { id: true },
+      });
     });
   });
 });

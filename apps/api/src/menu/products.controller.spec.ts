@@ -1,4 +1,5 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
+import { ConflictException } from '@nestjs/common';
 import { AllBranchesRequiredGuard } from '../auth/guard/all-branches-required.guard';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { BranchAccessGuard } from '../auth/guard/branch-access.guard';
@@ -11,6 +12,7 @@ import { PERMISSIONS } from '../auth/permission/permission';
 import { REQUIRED_PERMISSION_KEY } from '../auth/permission/require-permission.decorator';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ListProductsQueryDto } from './dto/list-products-query.dto';
+import { PutTranslationDto } from './dto/put-translation.dto';
 import { UpdateProductAvailabilityDto } from './dto/update-product-availability.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { ProductsController } from './products.controller';
@@ -51,6 +53,9 @@ describe('ProductsController', () => {
     createProduct: jest.Mock;
     updateProduct: jest.Mock;
     updateAvailability: jest.Mock;
+    getProductTranslations: jest.Mock;
+    putProductTranslation: jest.Mock;
+    deleteProductTranslation: jest.Mock;
   };
   let controller: ProductsController;
 
@@ -60,6 +65,12 @@ describe('ProductsController', () => {
   const updateHandler = ProductsController.prototype.updateProduct;
   const availabilityHandler =
     ProductsController.prototype.updateProductAvailability;
+  const getTranslationsHandler =
+    ProductsController.prototype.getProductTranslations;
+  const putTranslationHandler =
+    ProductsController.prototype.putProductTranslation;
+  const deleteTranslationHandler =
+    ProductsController.prototype.deleteProductTranslation;
   /* eslint-enable @typescript-eslint/unbound-method */
 
   beforeEach(() => {
@@ -68,6 +79,9 @@ describe('ProductsController', () => {
       createProduct: jest.fn(),
       updateProduct: jest.fn(),
       updateAvailability: jest.fn(),
+      getProductTranslations: jest.fn(),
+      putProductTranslation: jest.fn(),
+      deleteProductTranslation: jest.fn(),
     };
     controller = new ProductsController(productsService as never);
   });
@@ -75,6 +89,24 @@ describe('ProductsController', () => {
   function expectNoBranchGuard(guards: unknown[]) {
     expect(guards).not.toContain(BranchAccessGuard);
     expect(guards).not.toContain(BranchManagementAccessGuard);
+  }
+
+  function expectMutationGuardChain(guards: unknown[]) {
+    expect(guards).toEqual([
+      AuthGuard,
+      CsrfGuard,
+      RestaurantAccessGuard,
+      PermissionGuard,
+      AllBranchesRequiredGuard,
+    ]);
+    expectNoBranchGuard(guards);
+  }
+
+  function expectReadGuardChain(guards: unknown[]) {
+    expect(guards).toEqual([AuthGuard, RestaurantAccessGuard, PermissionGuard]);
+    expect(guards).not.toContain(CsrfGuard);
+    expect(guards).not.toContain(AllBranchesRequiredGuard);
+    expectNoBranchGuard(guards);
   }
 
   describe('GET (list)', () => {
@@ -364,6 +396,244 @@ describe('ProductsController', () => {
       ).rejects.toMatchObject({
         response: {
           error: { code: 'PRODUCT_NOT_FOUND', message: 'Product not found.' },
+        },
+      });
+    });
+  });
+
+  describe('GET :productId/translations', () => {
+    it('declares exactly AuthGuard -> RestaurantAccessGuard -> PermissionGuard, no CSRF/Branch/AllBranches guard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        getTranslationsHandler,
+      ) as unknown[];
+
+      expectReadGuardChain(guards);
+    });
+
+    it('requires exactly menu.view', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        getTranslationsHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_VIEW);
+    });
+
+    it('forwards restaurantId from authorized context and productId from the route param', async () => {
+      productsService.getProductTranslations.mockResolvedValue({
+        outcome: 'found',
+        data: [{ locale: 'en', name: 'Burger', description: null }],
+      });
+
+      const body = await controller.getProductTranslations(
+        'product-1',
+        buildRequest('authorized-restaurant', 'attacker-supplied-value'),
+      );
+
+      expect(productsService.getProductTranslations).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        productId: 'product-1',
+      });
+      expect(body).toEqual({
+        data: [{ locale: 'en', name: 'Burger', description: null }],
+      });
+    });
+
+    it('maps productNotFound to 404 PRODUCT_NOT_FOUND', async () => {
+      productsService.getProductTranslations.mockResolvedValue({
+        outcome: 'productNotFound',
+      });
+
+      await expect(
+        controller.getProductTranslations(
+          'unknown-id',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'PRODUCT_NOT_FOUND', message: 'Product not found.' },
+        },
+      });
+    });
+  });
+
+  describe('PUT :productId/translations/:locale', () => {
+    it('declares exactly AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard, no BranchAccessGuard/BranchManagementAccessGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        putTranslationHandler,
+      ) as unknown[];
+
+      expectMutationGuardChain(guards);
+    });
+
+    it('requires exactly menu.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        putTranslationHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_MANAGE);
+    });
+
+    it('forwards restaurantId from authorized context, productId/locale from route params, and dto fields', async () => {
+      productsService.putProductTranslation.mockResolvedValue({
+        outcome: 'updated',
+        data: { locale: 'ar', name: 'برجر', description: null },
+      });
+      const dto = new PutTranslationDto();
+      dto.name = 'برجر';
+      dto.description = null;
+
+      const body = await controller.putProductTranslation(
+        'product-1',
+        'ar',
+        dto,
+        buildRequest('authorized-restaurant', 'attacker-supplied-value'),
+      );
+
+      expect(productsService.putProductTranslation).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        productId: 'product-1',
+        locale: 'ar',
+        name: 'برجر',
+        description: null,
+      });
+      expect(body).toEqual({
+        data: { locale: 'ar', name: 'برجر', description: null },
+      });
+    });
+
+    it('maps productNotFound to 404 PRODUCT_NOT_FOUND', async () => {
+      productsService.putProductTranslation.mockResolvedValue({
+        outcome: 'productNotFound',
+      });
+
+      await expect(
+        controller.putProductTranslation(
+          'unknown-id',
+          'ar',
+          new PutTranslationDto(),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'PRODUCT_NOT_FOUND', message: 'Product not found.' },
+        },
+      });
+    });
+
+    it('maps localeNotActive to 409 LOCALE_NOT_ACTIVE', async () => {
+      productsService.putProductTranslation.mockResolvedValue({
+        outcome: 'localeNotActive',
+      });
+
+      await expect(
+        controller.putProductTranslation(
+          'product-1',
+          'ar',
+          new PutTranslationDto(),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('DELETE :productId/translations/:locale', () => {
+    it('declares exactly AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard, no BranchAccessGuard/BranchManagementAccessGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        deleteTranslationHandler,
+      ) as unknown[];
+
+      expectMutationGuardChain(guards);
+    });
+
+    it('requires exactly menu.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        deleteTranslationHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_MANAGE);
+    });
+
+    it('forwards restaurantId from authorized context and productId/locale from route params, returns undefined on success', async () => {
+      productsService.deleteProductTranslation.mockResolvedValue({
+        outcome: 'deleted',
+      });
+
+      const body = await controller.deleteProductTranslation(
+        'product-1',
+        'ar',
+        buildRequest('authorized-restaurant', 'attacker-supplied-value'),
+      );
+
+      expect(productsService.deleteProductTranslation).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        productId: 'product-1',
+        locale: 'ar',
+      });
+      expect(body).toBeUndefined();
+    });
+
+    it('maps productNotFound to 404 PRODUCT_NOT_FOUND', async () => {
+      productsService.deleteProductTranslation.mockResolvedValue({
+        outcome: 'productNotFound',
+      });
+
+      await expect(
+        controller.deleteProductTranslation(
+          'unknown-id',
+          'ar',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'PRODUCT_NOT_FOUND', message: 'Product not found.' },
+        },
+      });
+    });
+
+    it('maps localeNotActive to 409 LOCALE_NOT_ACTIVE', async () => {
+      productsService.deleteProductTranslation.mockResolvedValue({
+        outcome: 'localeNotActive',
+      });
+
+      await expect(
+        controller.deleteProductTranslation(
+          'product-1',
+          'ar',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'LOCALE_NOT_ACTIVE',
+            message: 'The locale is not active for this Restaurant.',
+          },
+        },
+      });
+    });
+
+    it('maps defaultTranslationRequired to 409 DEFAULT_TRANSLATION_REQUIRED', async () => {
+      productsService.deleteProductTranslation.mockResolvedValue({
+        outcome: 'defaultTranslationRequired',
+      });
+
+      await expect(
+        controller.deleteProductTranslation(
+          'product-1',
+          'en',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'DEFAULT_TRANSLATION_REQUIRED',
+            message: 'The default locale translation cannot be deleted.',
+          },
         },
       });
     });

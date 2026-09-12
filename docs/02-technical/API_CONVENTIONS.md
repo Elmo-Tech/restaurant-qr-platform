@@ -2069,7 +2069,58 @@ Success:
 { "data": { "locale": "ar", "isActive": true } }
 ```
 
-Never returned: a raw `RestaurantLocale` `id`/`restaurantId`. Changing `Restaurant.defaultLocale` itself is out of scope in V1 (no endpoint exists for it). Menu/Category/Product Translation endpoints are a separate, not-yet-implemented slice (LOC-2B).
+Never returned: a raw `RestaurantLocale` `id`/`restaurantId`. Changing `Restaurant.defaultLocale` itself is out of scope in V1 (no endpoint exists for it). Menu/Category/Product Translation endpoints are documented separately (#108E, LOC-2B).
+
+---
+
+# 108E. Menu/Category/Product Translations (Settled, LOC-2B)
+
+`GET`/`PUT`/`DELETE .../translations[/{locale}]`, added as sub-resources under each entity's existing canonical route: `.../menus/{menuId}/translations`, `.../categories/{categoryId}/translations`, `.../products/{productId}/translations`. Identical behavior and contract across all three entities.
+
+`GET` requires `menu.view`, guard order `AuthGuard -> RestaurantAccessGuard -> PermissionGuard` (no `CsrfGuard`/`AllBranchesRequiredGuard`/Branch guards) -- returns every EXISTING `MenuTranslation`/`CategoryTranslation`/`ProductTranslation` row for the entity, raw:
+
+```
+200 OK
+{ "data": [
+  { "locale": "en", "name": "Main Menu", "description": null },
+  { "locale": "ar", "name": "القائمة الرئيسية", "description": null }
+] }
+```
+
+This is raw Staff editing data -- no fallback, no synthesized locale entries, no `isActive`/`isDefault`/completion flags, no internal translation `id` or parent entity id. A missing secondary locale is simply absent from the array. A disabled secondary locale's stored translation is still returned (disabling `RestaurantLocale.isActive` is non-destructive, #108D) -- only mutation is gated on the locale being active, never this read. Pure read: never writes. An unknown/foreign-Restaurant entity id converges on the identical existing `MENU_NOT_FOUND`/`CATEGORY_NOT_FOUND`/`PRODUCT_NOT_FOUND` (#108A/#108B/#108C) -- no separate `*_TRANSLATION_NOT_FOUND` code exists.
+
+`PUT .../translations/{locale}` requires `menu.manage`, guard order `AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard` (Restaurant-structural mutation, identical rationale to #108A's Create/Update). `{locale}` is validated against the Platform registry (LOC-2A's `LocaleParamPipe`) before reaching any query. Body is full replacement:
+
+```
+{ "name": "القائمة الرئيسية", "description": null }
+```
+
+`name` is required (trimmed, must not become empty); `description` is optional/nullable (trimmed, blank normalizes to `null`) -- the identical convention as every Create/Update DTO's `name`/`description` fields. The target locale must be currently ACTIVE for the Restaurant, checked inside the same transaction as the write:
+
+```
+409 Conflict
+{ "error": { "code": "LOCALE_NOT_ACTIVE", "message": "The locale is not active for this Restaurant." } }
+```
+
+Writing the Restaurant's default locale is allowed -- the default locale is always an active supported locale (LOC-2A invariant), never special-cased. An exact-match no-op (identical normalized `name`/`description` already stored) returns the existing row without rewriting it and without moving the parent's `updatedAt`; a real change upserts the row (keyed on the existing `(entityId, locale)` composite unique constraint) and explicitly touches the parent's `updatedAt` in the same transaction. Success:
+
+```
+200 OK
+{ "data": { "locale": "ar", "name": "القائمة الرئيسية", "description": null } }
+```
+
+`DELETE .../translations/{locale}` -- identical guard chain/permission as `PUT`. Success is `204 No Content`, no body. The Restaurant's current default-locale translation can never be deleted, regardless of whether the row currently exists:
+
+```
+409 Conflict
+{ "error": { "code": "DEFAULT_TRANSLATION_REQUIRED", "message": "The default locale translation cannot be deleted." } }
+```
+
+For a non-default locale, the locale must be currently ACTIVE (`409 LOCALE_NOT_ACTIVE` otherwise, identical to `PUT`); an existing row is deleted and the parent's `updatedAt` is explicitly touched; a missing row is a safe `204` no-op that never creates anything and never touches the parent's `updatedAt`. Disabling a Restaurant language never cascades a translation delete -- translations are retained, simply un-editable until the language is re-enabled.
+
+No fallback/`resolvedLocale` metadata is implemented anywhere in this slice -- these are raw Staff editing endpoints. Field-level fallback for the Guest-facing Public Menu is a separate, later slice (Day 2).
+
+Existing generic Update (`PATCH .../menus/{menuId}`, `.../categories/{categoryId}`, `.../products/{productId}`, #108A/#108B/#108C) is corrected in this batch: a translation-only PATCH (no parent field supplied) now explicitly touches the parent's `updatedAt` in the same transaction, rather than relying on Prisma's `@updatedAt` refreshing for an empty `data: {}` update call, which it does not do. No other behavior of the generic Update endpoints changed.
 
 ---
 

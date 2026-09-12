@@ -1,5 +1,5 @@
 import { GUARDS_METADATA } from '@nestjs/common/constants';
-import { NotFoundException } from '@nestjs/common';
+import { ConflictException, NotFoundException } from '@nestjs/common';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { BranchAccessGuard } from '../auth/guard/branch-access.guard';
 import { BranchManagementAccessGuard } from '../auth/guard/branch-management-access.guard';
@@ -14,6 +14,7 @@ import { CategoriesController } from './categories.controller';
 import type { CategoryWithTranslation } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { ListCategoriesQueryDto } from './dto/list-categories-query.dto';
+import { PutTranslationDto } from './dto/put-translation.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 
 function buildRequest(
@@ -45,6 +46,9 @@ describe('CategoriesController', () => {
     listCategories: jest.Mock;
     createCategory: jest.Mock;
     updateCategory: jest.Mock;
+    getCategoryTranslations: jest.Mock;
+    putCategoryTranslation: jest.Mock;
+    deleteCategoryTranslation: jest.Mock;
   };
   let controller: CategoriesController;
 
@@ -52,6 +56,12 @@ describe('CategoriesController', () => {
   const listHandler = CategoriesController.prototype.listCategories;
   const createHandler = CategoriesController.prototype.createCategory;
   const updateHandler = CategoriesController.prototype.updateCategory;
+  const getTranslationsHandler =
+    CategoriesController.prototype.getCategoryTranslations;
+  const putTranslationHandler =
+    CategoriesController.prototype.putCategoryTranslation;
+  const deleteTranslationHandler =
+    CategoriesController.prototype.deleteCategoryTranslation;
   /* eslint-enable @typescript-eslint/unbound-method */
 
   beforeEach(() => {
@@ -59,9 +69,32 @@ describe('CategoriesController', () => {
       listCategories: jest.fn().mockResolvedValue([]),
       createCategory: jest.fn(),
       updateCategory: jest.fn(),
+      getCategoryTranslations: jest.fn(),
+      putCategoryTranslation: jest.fn(),
+      deleteCategoryTranslation: jest.fn(),
     };
     controller = new CategoriesController(categoriesService as never);
   });
+
+  function expectMutationGuardChain(guards: unknown[]) {
+    expect(guards).toEqual([
+      AuthGuard,
+      CsrfGuard,
+      RestaurantAccessGuard,
+      PermissionGuard,
+      AllBranchesRequiredGuard,
+    ]);
+    expect(guards).not.toContain(BranchAccessGuard);
+    expect(guards).not.toContain(BranchManagementAccessGuard);
+  }
+
+  function expectReadGuardChain(guards: unknown[]) {
+    expect(guards).toEqual([AuthGuard, RestaurantAccessGuard, PermissionGuard]);
+    expect(guards).not.toContain(CsrfGuard);
+    expect(guards).not.toContain(BranchAccessGuard);
+    expect(guards).not.toContain(BranchManagementAccessGuard);
+    expect(guards).not.toContain(AllBranchesRequiredGuard);
+  }
 
   describe('GET (list)', () => {
     it('declares exactly AuthGuard -> RestaurantAccessGuard -> PermissionGuard, no CSRF/Branch guard', () => {
@@ -291,6 +324,244 @@ describe('CategoriesController', () => {
       ).rejects.toMatchObject({
         response: {
           error: { code: 'MENU_NOT_FOUND', message: 'Menu not found.' },
+        },
+      });
+    });
+  });
+
+  describe('GET :categoryId/translations', () => {
+    it('declares exactly AuthGuard -> RestaurantAccessGuard -> PermissionGuard, no CSRF/Branch/AllBranches guard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        getTranslationsHandler,
+      ) as unknown[];
+
+      expectReadGuardChain(guards);
+    });
+
+    it('requires exactly menu.view', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        getTranslationsHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_VIEW);
+    });
+
+    it('forwards restaurantId from authorized context and categoryId from the route param', async () => {
+      categoriesService.getCategoryTranslations.mockResolvedValue({
+        outcome: 'found',
+        data: [{ locale: 'en', name: 'Appetizers', description: null }],
+      });
+
+      const body = await controller.getCategoryTranslations(
+        'category-1',
+        buildRequest('authorized-restaurant', 'attacker-supplied-value'),
+      );
+
+      expect(categoriesService.getCategoryTranslations).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        categoryId: 'category-1',
+      });
+      expect(body).toEqual({
+        data: [{ locale: 'en', name: 'Appetizers', description: null }],
+      });
+    });
+
+    it('maps categoryNotFound to 404 CATEGORY_NOT_FOUND', async () => {
+      categoriesService.getCategoryTranslations.mockResolvedValue({
+        outcome: 'categoryNotFound',
+      });
+
+      await expect(
+        controller.getCategoryTranslations(
+          'unknown-id',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'CATEGORY_NOT_FOUND', message: 'Category not found.' },
+        },
+      });
+    });
+  });
+
+  describe('PUT :categoryId/translations/:locale', () => {
+    it('declares exactly AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard, no BranchAccessGuard/BranchManagementAccessGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        putTranslationHandler,
+      ) as unknown[];
+
+      expectMutationGuardChain(guards);
+    });
+
+    it('requires exactly menu.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        putTranslationHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_MANAGE);
+    });
+
+    it('forwards restaurantId from authorized context, categoryId/locale from route params, and dto fields', async () => {
+      categoriesService.putCategoryTranslation.mockResolvedValue({
+        outcome: 'updated',
+        data: { locale: 'ar', name: 'المقبلات', description: null },
+      });
+      const dto = new PutTranslationDto();
+      dto.name = 'المقبلات';
+      dto.description = null;
+
+      const body = await controller.putCategoryTranslation(
+        'category-1',
+        'ar',
+        dto,
+        buildRequest('authorized-restaurant', 'attacker-supplied-value'),
+      );
+
+      expect(categoriesService.putCategoryTranslation).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        categoryId: 'category-1',
+        locale: 'ar',
+        name: 'المقبلات',
+        description: null,
+      });
+      expect(body).toEqual({
+        data: { locale: 'ar', name: 'المقبلات', description: null },
+      });
+    });
+
+    it('maps categoryNotFound to 404 CATEGORY_NOT_FOUND', async () => {
+      categoriesService.putCategoryTranslation.mockResolvedValue({
+        outcome: 'categoryNotFound',
+      });
+
+      await expect(
+        controller.putCategoryTranslation(
+          'unknown-id',
+          'ar',
+          new PutTranslationDto(),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'CATEGORY_NOT_FOUND', message: 'Category not found.' },
+        },
+      });
+    });
+
+    it('maps localeNotActive to 409 LOCALE_NOT_ACTIVE', async () => {
+      categoriesService.putCategoryTranslation.mockResolvedValue({
+        outcome: 'localeNotActive',
+      });
+
+      await expect(
+        controller.putCategoryTranslation(
+          'category-1',
+          'ar',
+          new PutTranslationDto(),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('DELETE :categoryId/translations/:locale', () => {
+    it('declares exactly AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard, no BranchAccessGuard/BranchManagementAccessGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        deleteTranslationHandler,
+      ) as unknown[];
+
+      expectMutationGuardChain(guards);
+    });
+
+    it('requires exactly menu.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        deleteTranslationHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_MANAGE);
+    });
+
+    it('forwards restaurantId from authorized context and categoryId/locale from route params, returns undefined on success', async () => {
+      categoriesService.deleteCategoryTranslation.mockResolvedValue({
+        outcome: 'deleted',
+      });
+
+      const body = await controller.deleteCategoryTranslation(
+        'category-1',
+        'ar',
+        buildRequest('authorized-restaurant', 'attacker-supplied-value'),
+      );
+
+      expect(categoriesService.deleteCategoryTranslation).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        categoryId: 'category-1',
+        locale: 'ar',
+      });
+      expect(body).toBeUndefined();
+    });
+
+    it('maps categoryNotFound to 404 CATEGORY_NOT_FOUND', async () => {
+      categoriesService.deleteCategoryTranslation.mockResolvedValue({
+        outcome: 'categoryNotFound',
+      });
+
+      await expect(
+        controller.deleteCategoryTranslation(
+          'unknown-id',
+          'ar',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'CATEGORY_NOT_FOUND', message: 'Category not found.' },
+        },
+      });
+    });
+
+    it('maps localeNotActive to 409 LOCALE_NOT_ACTIVE', async () => {
+      categoriesService.deleteCategoryTranslation.mockResolvedValue({
+        outcome: 'localeNotActive',
+      });
+
+      await expect(
+        controller.deleteCategoryTranslation(
+          'category-1',
+          'ar',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'LOCALE_NOT_ACTIVE',
+            message: 'The locale is not active for this Restaurant.',
+          },
+        },
+      });
+    });
+
+    it('maps defaultTranslationRequired to 409 DEFAULT_TRANSLATION_REQUIRED', async () => {
+      categoriesService.deleteCategoryTranslation.mockResolvedValue({
+        outcome: 'defaultTranslationRequired',
+      });
+
+      await expect(
+        controller.deleteCategoryTranslation(
+          'category-1',
+          'en',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'DEFAULT_TRANSLATION_REQUIRED',
+            message: 'The default locale translation cannot be deleted.',
+          },
         },
       });
     });
