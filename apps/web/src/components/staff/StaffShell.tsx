@@ -13,15 +13,20 @@ interface StaffShellProps {
   restaurantStatus: RestaurantStatus;
   userEmail: string;
   canViewMenu: boolean;
+  canViewRestaurantSettings: boolean;
   children: ReactNode;
 }
 
 function resolveSection(pathname: string, restaurantId: string): StaffSection {
   const dashboardPath = `/staff/restaurants/${restaurantId}`;
   const menuPath = `${dashboardPath}/menu`;
+  const settingsPath = `${dashboardPath}/settings`;
 
   if (pathname === menuPath || pathname.startsWith(`${menuPath}/`)) {
     return 'menu';
+  }
+  if (pathname === settingsPath || pathname.startsWith(`${settingsPath}/`)) {
+    return 'settings';
   }
   if (pathname === dashboardPath) {
     return 'dashboard';
@@ -43,16 +48,27 @@ export function StaffShell({
   restaurantStatus,
   userEmail,
   canViewMenu,
+  canViewRestaurantSettings,
   children,
 }: StaffShellProps) {
   const pathname = usePathname();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const section = resolveSection(pathname, restaurantId);
 
-  const breadcrumbItems = [
-    { label: restaurantName, href: `/staff/restaurants/${restaurantId}` },
-    { label: section === 'menu' ? 'Menu Management' : 'Dashboard' },
-  ];
+  const breadcrumbItems =
+    section === 'settings'
+      ? [
+          { label: restaurantName, href: `/staff/restaurants/${restaurantId}` },
+          {
+            label: 'Settings',
+            href: `/staff/restaurants/${restaurantId}/settings/languages`,
+          },
+          { label: 'Languages' },
+        ]
+      : [
+          { label: restaurantName, href: `/staff/restaurants/${restaurantId}` },
+          { label: section === 'menu' ? 'Menu Management' : 'Dashboard' },
+        ];
 
   return (
     <div className="flex min-h-screen bg-[#F8F5F1]">
@@ -62,6 +78,7 @@ export function StaffShell({
         restaurantStatus={restaurantStatus}
         currentSection={section}
         canViewMenu={canViewMenu}
+        canViewRestaurantSettings={canViewRestaurantSettings}
         isMobileOpen={isMobileNavOpen}
         onCloseMobile={() => setIsMobileNavOpen(false)}
       />

@@ -11,7 +11,7 @@ import {
   IconStaff,
 } from './icons';
 
-export type StaffSection = 'dashboard' | 'menu' | null;
+export type StaffSection = 'dashboard' | 'menu' | 'settings' | null;
 
 interface ActiveNavItem {
   key: string;
@@ -33,6 +33,7 @@ interface RestaurantSidebarProps {
   restaurantStatus: RestaurantStatus;
   currentSection: StaffSection;
   canViewMenu: boolean;
+  canViewRestaurantSettings: boolean;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
 }
@@ -92,6 +93,7 @@ function SidebarContent({
   restaurantStatus,
   currentSection,
   canViewMenu,
+  canViewRestaurantSettings,
   onNavigate,
 }: {
   restaurantId: string;
@@ -99,6 +101,7 @@ function SidebarContent({
   restaurantStatus: RestaurantStatus;
   currentSection: StaffSection;
   canViewMenu: boolean;
+  canViewRestaurantSettings: boolean;
   onNavigate?: () => void;
 }) {
   return (
@@ -193,14 +196,27 @@ function SidebarContent({
 
         <div className="mt-5 border-t border-[#E5DED6] pt-3">
           <ul>
-            <DisabledRow
-              item={{
-                key: 'settings',
-                label: 'Restaurant Settings',
-                icon: <IconSettings className={ICON_CLASS} />,
-                badge: 'Soon',
-              }}
-            />
+            {canViewRestaurantSettings ? (
+              <ActiveLink
+                item={{
+                  key: 'settings',
+                  label: 'Restaurant Settings',
+                  href: `/staff/restaurants/${restaurantId}/settings/languages`,
+                  icon: <IconSettings className={ICON_CLASS} />,
+                }}
+                isActive={currentSection === 'settings'}
+                onNavigate={onNavigate}
+              />
+            ) : (
+              <DisabledRow
+                item={{
+                  key: 'settings',
+                  label: 'Restaurant Settings',
+                  icon: <IconSettings className={ICON_CLASS} />,
+                  badge: 'No access',
+                }}
+              />
+            )}
           </ul>
         </div>
       </nav>
@@ -209,13 +225,18 @@ function SidebarContent({
 }
 
 /**
- * Restaurant workspace navigation (UX-1, Section 4). Only Dashboard and Menu
- * Management link anywhere -- every other entry is a visibly disabled
- * placeholder, never a link to a route that does not exist (Section 2).
- * `canViewMenu` is UX-only navigation visibility, derived from the same
- * Backend-authorized `permissions` the Menu Management page itself already
- * checks (`lib/menu/capabilities.ts`) -- it does not introduce a new
- * permission model (Section 12).
+ * Restaurant workspace navigation (UX-1, Section 4; LOC-3, Section 4:
+ * Restaurant Settings converted from a disabled placeholder to a real link
+ * now that the Languages route exists). Dashboard, Menu Management, and
+ * Restaurant Settings link somewhere real -- every other entry (Tables &
+ * QR, Orders, Staff & Access) remains a visibly disabled placeholder, never
+ * a link to a route that does not exist (Section 2). `canViewMenu`/
+ * `canViewRestaurantSettings` are UX-only navigation visibility, derived
+ * from the same Backend-authorized `permissions` each page itself already
+ * checks (`lib/menu/capabilities.ts`, `lib/settings/capabilities.ts`) --
+ * this does not introduce a new permission model (Section 12); the
+ * Languages page still independently re-derives and checks this from the
+ * authenticated context regardless of what the Sidebar shows.
  */
 export function RestaurantSidebar({
   restaurantId,
@@ -223,6 +244,7 @@ export function RestaurantSidebar({
   restaurantStatus,
   currentSection,
   canViewMenu,
+  canViewRestaurantSettings,
   isMobileOpen,
   onCloseMobile,
 }: RestaurantSidebarProps) {
@@ -235,6 +257,7 @@ export function RestaurantSidebar({
           restaurantStatus={restaurantStatus}
           currentSection={currentSection}
           canViewMenu={canViewMenu}
+          canViewRestaurantSettings={canViewRestaurantSettings}
         />
       </aside>
 
@@ -262,6 +285,7 @@ export function RestaurantSidebar({
               restaurantStatus={restaurantStatus}
               currentSection={currentSection}
               canViewMenu={canViewMenu}
+              canViewRestaurantSettings={canViewRestaurantSettings}
               onNavigate={onCloseMobile}
             />
           </div>

@@ -3,7 +3,7 @@ import { ApiError } from './errors';
 
 const HTTP_NO_CONTENT = 204;
 
-export type ApiMethod = 'GET' | 'POST' | 'PATCH' | 'DELETE';
+export type ApiMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
 export interface ApiFetchOptions {
   method?: ApiMethod;

@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../lib/auth/session';
 import { canViewMenu } from '../../../../lib/menu/capabilities';
+import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
 import type {
   RestaurantMembershipRole,
   RestaurantStatus,
@@ -258,12 +259,21 @@ export default async function RestaurantLandingPage({
                 icon={<IconStaff className="h-5 w-5" />}
                 disabledReason="Coming soon"
               />
-              <FeatureCard
-                title="Restaurant Settings"
-                description="Configure Restaurant-wide preferences."
-                icon={<IconSettings className="h-5 w-5" />}
-                disabledReason="Coming soon"
-              />
+              {canViewRestaurantSettings(membership) ? (
+                <FeatureCard
+                  title="Restaurant Settings"
+                  description="Configure Restaurant-wide preferences, starting with Languages."
+                  icon={<IconSettings className="h-5 w-5" />}
+                  href={`/staff/restaurants/${restaurantId}/settings/languages`}
+                />
+              ) : (
+                <FeatureCard
+                  title="Restaurant Settings"
+                  description="You do not have permission to view this Restaurant's Settings."
+                  icon={<IconSettings className="h-5 w-5" />}
+                  disabledReason="No access"
+                />
+              )}
             </div>
           </div>
         </>
