@@ -208,6 +208,10 @@ Table 4
 - Ingredient removal
 - Customer notes
 
+Deferred until after the first working version: Product Variants,
+Modifier Groups/Options, Dietary/Allergens/Nutrition. Still in V1 scope,
+not dropped -- sequenced after the initial usable Menu/Product editor.
+
 ---
 
 ## V1 Product Metadata

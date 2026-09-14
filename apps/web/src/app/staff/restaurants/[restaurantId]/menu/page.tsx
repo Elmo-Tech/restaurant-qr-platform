@@ -10,6 +10,8 @@ import { MenuWorkspace } from './MenuWorkspace';
 
 interface MenuManagementPageProps {
   params: Promise<{ restaurantId: string }>;
+  /** FT-1, Section 20: `?menuId=&categoryId=` round-tripped from the Product Editor's "Back to Menu" link to restore the selection the User came from -- purely a UX convenience, never authorization. */
+  searchParams: Promise<{ menuId?: string; categoryId?: string }>;
 }
 
 /**
@@ -24,8 +26,10 @@ interface MenuManagementPageProps {
  */
 export default async function MenuManagementPage({
   params,
+  searchParams,
 }: MenuManagementPageProps) {
   const { restaurantId } = await params;
+  const { menuId: initialMenuId, categoryId: initialCategoryId } = await searchParams;
   const sessionState = await getAuthSessionState();
 
   if (sessionState.status === 'unauthenticated') {
@@ -69,6 +73,8 @@ export default async function MenuManagementPage({
       currencyCode={membership.restaurant.currencyCode}
       canManage={canManageMenu(membership)}
       hasMenuManagePermission={hasMenuManagePermission(membership)}
+      initialMenuId={initialMenuId}
+      initialCategoryId={initialCategoryId}
     />
   );
 }

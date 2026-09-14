@@ -2,7 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import * as menuApi from '../../../../../lib/menu/api';
+import * as settingsApi from '../../../../../lib/settings/api';
 import type { Category, Menu, Product } from '../../../../../lib/menu/types';
+import type { RestaurantLocalesResponse } from '../../../../../lib/settings/types';
 import {
   describeError,
   isUnauthenticatedError,
@@ -22,6 +24,9 @@ export interface MenuWorkspaceProps {
   canManage: boolean;
   /** `menu.manage` alone, regardless of Branch scope -- used only for the explanatory read-only note (Section 24). */
   hasMenuManagePermission: boolean;
+  /** FT-1, Section 20: optional Menu/Category to select on first load, restoring context from the Product Editor's "Back to Menu" link. Ignored if either id no longer matches a loaded Menu/Category. */
+  initialMenuId?: string;
+  initialCategoryId?: string;
 }
 
 function pickInitialMenuId(menus: Menu[]): string | null {
@@ -62,6 +67,8 @@ export function MenuWorkspace({
   currencyCode,
   canManage,
   hasMenuManagePermission,
+  initialMenuId,
+  initialCategoryId,
 }: MenuWorkspaceProps) {
   const [menus, setMenus] = useState<Menu[] | null>(null);
   const [menusError, setMenusError] = useState<string | null>(null);
@@ -75,6 +82,16 @@ export function MenuWorkspace({
 
   const [products, setProducts] = useState<Product[] | null>(null);
   const [productsError, setProductsError] = useState<string | null>(null);
+
+  // Restaurant Languages (FT-1, Section 4): the sole authority for which
+  // secondary-locale translation tabs the Menu/Category editors show. Loaded
+  // once here and passed down -- never hardcoded, and no separate fetch
+  // duplicated in each editor. A load failure simply leaves this `null`,
+  // which the editors treat as "no secondary languages yet" rather than
+  // surfacing a second error banner for a non-critical concern.
+  const [locales, setLocales] = useState<RestaurantLocalesResponse | null>(
+    null,
+  );
 
   const selectedMenuIdRef = useRef<string | null>(null);
   const selectedCategoryIdRef = useRef<string | null>(null);
@@ -229,7 +246,7 @@ export function MenuWorkspace({
    * request.
    */
   const loadMenus = useCallback(
-    async (selectId?: string) => {
+    async (selectId?: string, categorySelectId?: string) => {
       const requestId = ++menusRequestRef.current;
       try {
         const data = await menuApi.listMenus(restaurantId);
@@ -246,7 +263,7 @@ export function MenuWorkspace({
               ? selectedMenuIdRef.current
               : pickInitialMenuId(data);
         if (nextMenuId !== selectedMenuIdRef.current) {
-          selectMenu(nextMenuId);
+          selectMenu(nextMenuId, categorySelectId);
         }
       } catch (error) {
         if (menusRequestRef.current !== requestId) {
@@ -271,9 +288,26 @@ export function MenuWorkspace({
     // not in timing). This is the one-time "fetch on mount" call; every
     // other Menu load already goes through selectMenu/loadMenus explicitly.
     queueMicrotask(() => {
-      void loadMenus();
+      void loadMenus(initialMenuId, initialCategoryId);
     });
+    // `initialMenuId`/`initialCategoryId` are only meaningful for this one
+    // mount-time restore -- intentionally excluded from deps so a later
+    // Restaurant-Language or other prop change never re-triggers Menu
+    // re-selection.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loadMenus]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      settingsApi
+        .getRestaurantLocales(restaurantId)
+        .then(setLocales)
+        .catch(() => {
+          // Non-critical for this workspace: editors simply show only the
+          // default-locale fields until this succeeds on a future render.
+        });
+    });
+  }, [restaurantId]);
 
   function handleCategoryMoved(movedCategory: Category) {
     if (movedCategory.menuId === selectedMenuId) {
@@ -329,6 +363,7 @@ export function MenuWorkspace({
         onRetry={() => void loadMenus()}
         canManage={canManage}
         restaurantId={restaurantId}
+        locales={locales}
         onCreated={(created) => void loadMenus(created.id)}
         onUpdated={() => void loadMenus()}
         onPrimaryChanged={() => void loadMenus()}
@@ -357,6 +392,7 @@ export function MenuWorkspace({
           menus={menus ?? []}
           categories={categories}
           error={categoriesError}
+          locales={locales}
           selectedCategoryId={selectedCategoryId}
           onSelectCategory={(categoryId) => selectCategory(categoryId)}
           onRetry={() => {
@@ -389,20 +425,11 @@ export function MenuWorkspace({
           }}
           canManage={canManage}
           currencyCode={currencyCode}
-          onCreated={() => {
-            if (selectedCategoryId) void loadProducts(selectedCategoryId);
-          }}
-          onUpdated={() => {
-            if (selectedCategoryId) void loadProducts(selectedCategoryId);
-          }}
           onAvailabilityChanged={() => {
             if (selectedCategoryId) void loadProducts(selectedCategoryId);
           }}
           onProductNotFound={() => {
             if (selectedCategoryId) void loadProducts(selectedCategoryId);
-          }}
-          onCategoryNotFound={() => {
-            if (selectedMenuId) void loadCategories(selectedMenuId);
           }}
         />
       </div>

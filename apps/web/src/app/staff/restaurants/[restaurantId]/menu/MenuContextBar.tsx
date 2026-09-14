@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type Dispatch,
@@ -11,6 +12,9 @@ import {
 } from 'react';
 import * as menuApi from '../../../../../lib/menu/api';
 import type { Menu, MenuStatus } from '../../../../../lib/menu/types';
+import type { RestaurantLocalesResponse } from '../../../../../lib/settings/types';
+import { localeDirection, localeLabel } from '../../../../../lib/settings/locale-labels';
+import { useTranslationsEditor } from '../../../../../lib/menu/use-translations-editor';
 import { ApiError } from '../../../../../lib/api/errors';
 import {
   describeError,
@@ -28,6 +32,8 @@ import { Select } from '../../../../../components/ui/Select';
 import { Textarea } from '../../../../../components/ui/Textarea';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { IconPlus } from '../../../../../components/staff/icons';
+import { LanguageTabs, type LanguageTabOption } from '../../../../../components/menu/LanguageTabs';
+import { TranslationFields } from '../../../../../components/menu/TranslationFields';
 import { PrimaryBadge, StatusBadge } from './StatusBadges';
 
 interface MenuContextBarProps {
@@ -38,6 +44,8 @@ interface MenuContextBarProps {
   onRetry: () => void;
   canManage: boolean;
   restaurantId: string;
+  /** Restaurant Languages (FT-1, Section 4) -- sole authority for which secondary-locale tabs render; `null` while loading/unavailable shows default-locale fields only. */
+  locales: RestaurantLocalesResponse | null;
   onCreated: (menu: Menu) => void;
   onUpdated: () => void;
   onPrimaryChanged: () => void;
@@ -69,6 +77,13 @@ function toFormState(menu: Menu): MenuFormState {
     displayOrder: String(menu.displayOrder),
   };
 }
+
+/** One in-progress, not-yet-saved secondary-locale translation typed while creating (FT-1 correction 2, Section 2). */
+interface SecondaryDraft {
+  name: string;
+  description: string;
+}
+type SecondaryDrafts = Record<string, SecondaryDraft>;
 
 /**
  * UX-3 responsive-fix, Section 6: a plain native `<select>` always shows
@@ -109,6 +124,7 @@ export function MenuContextBar({
   onRetry,
   canManage,
   restaurantId,
+  locales,
   onCreated,
   onUpdated,
   onPrimaryChanged,
@@ -121,6 +137,7 @@ export function MenuContextBar({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [primaryPending, setPrimaryPending] = useState(false);
   const [primaryError, setPrimaryError] = useState<string | null>(null);
+  const [secondaryDrafts, setSecondaryDrafts] = useState<SecondaryDrafts>({});
   const nameInternalRef = useRef<HTMLInputElement>(null);
 
   const selectedMenu = menus?.find((menu) => menu.id === selectedMenuId) ?? null;
@@ -130,6 +147,7 @@ export function MenuContextBar({
     setEditingId(null);
     setForm(EMPTY_FORM);
     setFormError(null);
+    setSecondaryDrafts({});
   }
 
   function startEdit(menu: Menu) {
@@ -191,7 +209,44 @@ export function MenuContextBar({
           status: form.status,
           displayOrder,
         });
+
+        // Secondary-locale translations are only created once the Menu
+        // itself exists (FT-1 correction 2, Section 2): PUT each entered
+        // draft now, using the Menu id the create call just returned.
+        // A blank draft is skipped entirely -- never PUT an empty
+        // translation (Section 5).
+        const translationFailures: string[] = [];
+        for (const [locale, draft] of Object.entries(secondaryDrafts)) {
+          if (draft.name.trim() === '') continue;
+          try {
+            await menuApi.putMenuTranslation(restaurantId, created.id, locale, {
+              name: draft.name.trim(),
+              description: draft.description.trim() === '' ? null : draft.description.trim(),
+            });
+          } catch (translationError) {
+            if (isUnauthenticatedError(translationError)) {
+              redirectToLogin();
+              return;
+            }
+            translationFailures.push(localeLabel(locale));
+          }
+        }
+
         onCreated(created);
+
+        if (translationFailures.length > 0) {
+          // The Menu itself was created successfully -- never duplicate-
+          // create it on retry (Section 5). Drop into Edit mode for the
+          // Menu that now exists so the User can retry the failed
+          // translation(s) through the normal per-locale Save flow.
+          setMode('edit');
+          setEditingId(created.id);
+          setForm(toFormState(created));
+          setFormError(
+            `Menu created, but saving the ${translationFailures.join(', ')} translation failed. You can retry below.`,
+          );
+          return;
+        }
       } else if (mode === 'edit' && editingId) {
         await menuApi.updateMenu(restaurantId, editingId, {
           nameInternal: form.nameInternal,
@@ -259,6 +314,11 @@ export function MenuContextBar({
         formError={formError}
         isSubmitting={isSubmitting}
         nameInternalRef={nameInternalRef}
+        restaurantId={restaurantId}
+        entityId={mode === 'edit' ? editingId : null}
+        locales={locales}
+        secondaryDrafts={secondaryDrafts}
+        setSecondaryDrafts={setSecondaryDrafts}
       />
     </Dialog>
   );
@@ -373,11 +433,24 @@ export function MenuContextBar({
 }
 
 /**
- * Menu Dialog form fields (UX-4, Section 5/6/14/15/16/17): the exact same
- * Backend contract as before (`nameInternal`, `name`, `description`,
- * `status`, `displayOrder`) presented with clear sections instead of one
- * flat block. `Primary` is never editable here (Section 5/7) -- it stays
- * the dedicated `Set as primary` action above.
+ * Menu Dialog form fields (UX-4, Section 5/6/14/15/16/17; FT-1, Section 7;
+ * FT-1 correction, Section 3). Structural fields (`nameInternal`, `status`,
+ * `displayOrder`) are always editable here exactly as before. `name`/
+ * `description` are the Restaurant's DEFAULT-locale content, saved through
+ * the same `createMenu`/`updateMenu` call as before -- Language tabs only
+ * control which locale's content is being viewed/edited, they never change
+ * how the surrounding structural form submits. `Primary` is never editable
+ * here (Section 5/7) -- it stays the dedicated `Set as primary` action
+ * above.
+ *
+ * Create and Edit both show the same `[ English ] [ العربية ]` Languages
+ * section for every ACTIVE Restaurant content language (FT-1 correction 2,
+ * Section 1/2) -- Create just cannot save a secondary-locale translation to
+ * the Backend yet (there is no Menu row to attach it to), so it collects
+ * drafts locally in `secondaryDrafts` instead of calling the translation
+ * hook, and the parent's `handleSubmit` PUTs each non-empty draft only
+ * after the Menu itself has been created. Switching tabs while creating
+ * never calls the Backend at all.
  */
 function MenuFormFields({
   form,
@@ -385,12 +458,22 @@ function MenuFormFields({
   formError,
   isSubmitting,
   nameInternalRef,
+  restaurantId,
+  entityId,
+  locales,
+  secondaryDrafts,
+  setSecondaryDrafts,
 }: {
   form: MenuFormState;
   setForm: Dispatch<SetStateAction<MenuFormState>>;
   formError: string | null;
   isSubmitting: boolean;
   nameInternalRef: RefObject<HTMLInputElement | null>;
+  restaurantId: string;
+  entityId: string | null;
+  locales: RestaurantLocalesResponse | null;
+  secondaryDrafts: SecondaryDrafts;
+  setSecondaryDrafts: Dispatch<SetStateAction<SecondaryDrafts>>;
 }) {
   return (
     <div className="flex flex-col gap-6">
@@ -410,23 +493,6 @@ function MenuFormFields({
             Used internally by Staff and not shown to Guests.
           </p>
         </FormField>
-        <FormField label="Name" htmlFor="menu-name">
-          <Input
-            id="menu-name"
-            required
-            value={form.name}
-            onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-            disabled={isSubmitting}
-          />
-        </FormField>
-        <FormField label="Description" htmlFor="menu-description">
-          <Textarea
-            id="menu-description"
-            value={form.description}
-            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-            disabled={isSubmitting}
-          />
-        </FormField>
         <FormField label="Status" htmlFor="menu-status">
           <Select
             id="menu-status"
@@ -443,6 +509,26 @@ function MenuFormFields({
         </FormField>
       </FormSection>
 
+      {entityId === null ? (
+        <MenuCreateLanguages
+          form={form}
+          setForm={setForm}
+          isSubmitting={isSubmitting}
+          locales={locales}
+          secondaryDrafts={secondaryDrafts}
+          setSecondaryDrafts={setSecondaryDrafts}
+        />
+      ) : (
+        <MenuTranslationSection
+          restaurantId={restaurantId}
+          entityId={entityId}
+          locales={locales}
+          form={form}
+          setForm={setForm}
+          isSubmitting={isSubmitting}
+        />
+      )}
+
       <FormSection title="Advanced">
         <FormField label="Display order" htmlFor="menu-displayOrder">
           <Input
@@ -458,5 +544,211 @@ function MenuFormFields({
         </FormField>
       </FormSection>
     </div>
+  );
+}
+
+/**
+ * Create-mode Languages section (FT-1 correction 2, Section 1/2): shows the
+ * same `[ English ] [ العربية ]` tabs as Edit, for every ACTIVE Restaurant
+ * locale -- but since there is no Menu row yet, secondary-locale content is
+ * only ever kept in local `secondaryDrafts` state, never sent to the
+ * Backend here. No GET, no PUT, no DELETE happens while switching tabs or
+ * typing; the parent's `handleSubmit` is the only place a secondary draft
+ * is ever PUT, and only after the Menu itself has been created.
+ */
+function MenuCreateLanguages({
+  form,
+  setForm,
+  isSubmitting,
+  locales,
+  secondaryDrafts,
+  setSecondaryDrafts,
+}: {
+  form: MenuFormState;
+  setForm: Dispatch<SetStateAction<MenuFormState>>;
+  isSubmitting: boolean;
+  locales: RestaurantLocalesResponse | null;
+  secondaryDrafts: SecondaryDrafts;
+  setSecondaryDrafts: Dispatch<SetStateAction<SecondaryDrafts>>;
+}) {
+  const defaultLocale = locales?.defaultLocale ?? null;
+  const secondaryLocales = useMemo(
+    () =>
+      locales?.locales.filter((row) => !row.isDefault && row.isActive).map((row) => row.locale) ?? [],
+    [locales],
+  );
+
+  const [activeLocale, setActiveLocale] = useState<string>('__default__');
+  const isDefaultTab = activeLocale === '__default__';
+  const currentLocale = isDefaultTab ? defaultLocale : activeLocale;
+  const dir = currentLocale ? localeDirection(currentLocale) : 'ltr';
+
+  const tabOptions: LanguageTabOption[] = defaultLocale
+    ? [
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        ...secondaryLocales.map((locale) => ({
+          locale,
+          label: localeLabel(locale),
+          stateLabel: secondaryDrafts[locale]?.name.trim() ? 'Draft entered' : 'Not translated yet',
+        })),
+      ]
+    : [];
+
+  function updateDraft(locale: string, patch: Partial<SecondaryDraft>) {
+    setSecondaryDrafts((prev) => ({
+      ...prev,
+      [locale]: { ...(prev[locale] ?? { name: '', description: '' }), ...patch },
+    }));
+  }
+
+  return (
+    <FormSection title="Languages">
+      <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
+
+      {isDefaultTab ? (
+        <>
+          <FormField label="Name" htmlFor="menu-name">
+            <Input
+              id="menu-name"
+              dir={dir}
+              required
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              disabled={isSubmitting}
+            />
+          </FormField>
+          <FormField label="Description" htmlFor="menu-description">
+            <Textarea
+              id="menu-description"
+              dir={dir}
+              value={form.description}
+              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+              disabled={isSubmitting}
+            />
+          </FormField>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-[#655D56]">Optional -- leave blank to skip this language for now.</p>
+          <FormField label="Name" htmlFor={`menu-create-name-${activeLocale}`}>
+            <Input
+              id={`menu-create-name-${activeLocale}`}
+              dir={dir}
+              value={secondaryDrafts[activeLocale]?.name ?? ''}
+              onChange={(event) => updateDraft(activeLocale, { name: event.target.value })}
+              disabled={isSubmitting}
+            />
+          </FormField>
+          <FormField label="Description" htmlFor={`menu-create-description-${activeLocale}`}>
+            <Textarea
+              id={`menu-create-description-${activeLocale}`}
+              dir={dir}
+              value={secondaryDrafts[activeLocale]?.description ?? ''}
+              onChange={(event) => updateDraft(activeLocale, { description: event.target.value })}
+              disabled={isSubmitting}
+            />
+          </FormField>
+        </>
+      )}
+    </FormSection>
+  );
+}
+
+/**
+ * Edit-only Languages section (FT-1 correction, Section 3): only ever
+ * rendered once `entityId` is non-null, so the translation hook always has
+ * a real Menu to load/save against.
+ */
+function MenuTranslationSection({
+  restaurantId,
+  entityId,
+  locales,
+  form,
+  setForm,
+  isSubmitting,
+}: {
+  restaurantId: string;
+  entityId: string;
+  locales: RestaurantLocalesResponse | null;
+  form: MenuFormState;
+  setForm: Dispatch<SetStateAction<MenuFormState>>;
+  isSubmitting: boolean;
+}) {
+  const defaultLocale = locales?.defaultLocale ?? null;
+  // Memoized: a fresh array identity on every render (e.g. from typing in a
+  // translation field, which re-renders this component via `translations`'
+  // own state) would otherwise make `useTranslationsEditor` see a "new"
+  // `locales` value on every keystroke and re-fetch, wiping out whatever was
+  // just typed before it could be saved.
+  const secondaryLocales = useMemo(
+    () =>
+      locales?.locales.filter((row) => !row.isDefault && row.isActive).map((row) => row.locale) ?? [],
+    [locales],
+  );
+
+  const [activeLocale, setActiveLocale] = useState<string>('__default__');
+
+  const translations = useTranslationsEditor({
+    restaurantId,
+    entityId,
+    locales: secondaryLocales,
+    list: menuApi.getMenuTranslations,
+    put: menuApi.putMenuTranslation,
+    remove: menuApi.deleteMenuTranslation,
+  });
+
+  const isDefaultTab = activeLocale === '__default__';
+  const currentLocale = isDefaultTab ? defaultLocale : activeLocale;
+  const dir = currentLocale ? localeDirection(currentLocale) : 'ltr';
+
+  const tabOptions: LanguageTabOption[] = defaultLocale
+    ? [
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        ...secondaryLocales.map((locale) => ({
+          locale,
+          label: localeLabel(locale),
+          stateLabel: translations.drafts[locale]?.exists ? 'Translated' : 'Not translated yet',
+        })),
+      ]
+    : [];
+
+  return (
+    <FormSection title="Languages">
+      <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
+
+      {isDefaultTab ? (
+        <>
+          <FormField label="Name" htmlFor="menu-name">
+            <Input
+              id="menu-name"
+              dir={dir}
+              required
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              disabled={isSubmitting}
+            />
+          </FormField>
+          <FormField label="Description" htmlFor="menu-description">
+            <Textarea
+              id="menu-description"
+              dir={dir}
+              value={form.description}
+              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+              disabled={isSubmitting}
+            />
+          </FormField>
+        </>
+      ) : (
+        <TranslationFields
+          idPrefix="menu-translation"
+          locale={activeLocale}
+          dir={dir}
+          draft={translations.drafts[activeLocale]}
+          onChange={(patch) => translations.updateDraft(activeLocale, patch)}
+          onSave={() => void translations.save(activeLocale)}
+          onRemove={() => void translations.removeTranslation(activeLocale)}
+        />
+      )}
+    </FormSection>
   );
 }

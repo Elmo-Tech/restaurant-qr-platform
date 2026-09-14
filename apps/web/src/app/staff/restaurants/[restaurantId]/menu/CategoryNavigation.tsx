@@ -2,6 +2,7 @@
 
 import {
   useEffect,
+  useMemo,
   useRef,
   useState,
   type Dispatch,
@@ -15,6 +16,9 @@ import type {
   CategoryStatus,
   Menu,
 } from '../../../../../lib/menu/types';
+import type { RestaurantLocalesResponse } from '../../../../../lib/settings/types';
+import { localeDirection, localeLabel } from '../../../../../lib/settings/locale-labels';
+import { useTranslationsEditor } from '../../../../../lib/menu/use-translations-editor';
 import { ApiError } from '../../../../../lib/api/errors';
 import {
   describeError,
@@ -32,6 +36,8 @@ import { Select } from '../../../../../components/ui/Select';
 import { Textarea } from '../../../../../components/ui/Textarea';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { IconPencil, IconPlus } from '../../../../../components/staff/icons';
+import { LanguageTabs, type LanguageTabOption } from '../../../../../components/menu/LanguageTabs';
+import { TranslationFields } from '../../../../../components/menu/TranslationFields';
 
 const KEEP_CURRENT_MENU = '__keep_current_menu__';
 
@@ -41,6 +47,8 @@ interface CategoryNavigationProps {
   menus: Menu[];
   categories: Category[] | null;
   error: string | null;
+  /** Restaurant Languages (FT-1, Section 4) -- sole authority for which secondary-locale tabs render. */
+  locales: RestaurantLocalesResponse | null;
   selectedCategoryId: string | null;
   onSelectCategory: (categoryId: string) => void;
   onRetry: () => void;
@@ -78,6 +86,13 @@ function toFormState(category: Category): CategoryFormState {
   };
 }
 
+/** One in-progress, not-yet-saved secondary-locale translation typed while creating (FT-1 correction 2, Section 3). */
+interface SecondaryDraft {
+  name: string;
+  description: string;
+}
+type SecondaryDrafts = Record<string, SecondaryDraft>;
+
 /**
  * UX-3, Section 7: Categories become the navigation rail for the selected
  * Menu -- a vertical list on desktop, a horizontally scrollable row of
@@ -103,6 +118,7 @@ export function CategoryNavigation({
   menus,
   categories,
   error,
+  locales,
   selectedCategoryId,
   onSelectCategory,
   onRetry,
@@ -118,6 +134,7 @@ export function CategoryNavigation({
   const [form, setForm] = useState<CategoryFormState>(EMPTY_FORM);
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [secondaryDrafts, setSecondaryDrafts] = useState<SecondaryDrafts>({});
   const nameRef = useRef<HTMLInputElement>(null);
 
   function startCreate() {
@@ -125,6 +142,7 @@ export function CategoryNavigation({
     setEditingId(null);
     setForm(EMPTY_FORM);
     setFormError(null);
+    setSecondaryDrafts({});
   }
 
   function startEdit(category: Category) {
@@ -186,7 +204,45 @@ export function CategoryNavigation({
           status: form.status,
           displayOrder,
         });
+
+        // Secondary-locale translations are only created once the Category
+        // itself exists (FT-1 correction 2, Section 3): PUT each entered
+        // draft now, using the Category id the create call just returned.
+        // A blank draft is skipped entirely -- never PUT an empty
+        // translation (Section 5).
+        const translationFailures: string[] = [];
+        for (const [locale, draft] of Object.entries(secondaryDrafts)) {
+          if (draft.name.trim() === '') continue;
+          try {
+            await menuApi.putCategoryTranslation(restaurantId, created.id, locale, {
+              name: draft.name.trim(),
+              description: draft.description.trim() === '' ? null : draft.description.trim(),
+            });
+          } catch (translationError) {
+            if (isUnauthenticatedError(translationError)) {
+              redirectToLogin();
+              return;
+            }
+            translationFailures.push(localeLabel(locale));
+          }
+        }
+
         onCreated(created);
+
+        if (translationFailures.length > 0) {
+          // The Category itself was created successfully -- never
+          // duplicate-create it on retry (Section 5). Drop into Edit mode
+          // for the Category that now exists so the User can retry the
+          // failed translation(s) through the normal per-locale Save flow.
+          setMode('edit');
+          setEditingId(created.id);
+          setForm(toFormState(created));
+          setFormError(
+            `Category created, but saving the ${translationFailures.join(', ')} translation failed. You can retry below.`,
+          );
+          return;
+        }
+
         setMode('idle');
         setEditingId(null);
       } else if (mode === 'edit' && editingId) {
@@ -254,6 +310,11 @@ export function CategoryNavigation({
         currentMenuName={currentMenuName}
         moveTargets={moveTargets}
         nameRef={nameRef}
+        restaurantId={restaurantId}
+        entityId={mode === 'edit' ? editingId : null}
+        locales={locales}
+        secondaryDrafts={secondaryDrafts}
+        setSecondaryDrafts={setSecondaryDrafts}
       />
     </Dialog>
   );
@@ -377,6 +438,11 @@ function CategoryFormFields({
   currentMenuName,
   moveTargets,
   nameRef,
+  restaurantId,
+  entityId,
+  locales,
+  secondaryDrafts,
+  setSecondaryDrafts,
 }: {
   mode: 'create' | 'edit';
   form: CategoryFormState;
@@ -386,30 +452,17 @@ function CategoryFormFields({
   currentMenuName: string;
   moveTargets: Menu[];
   nameRef: RefObject<HTMLInputElement | null>;
+  restaurantId: string;
+  entityId: string | null;
+  locales: RestaurantLocalesResponse | null;
+  secondaryDrafts: SecondaryDrafts;
+  setSecondaryDrafts: Dispatch<SetStateAction<SecondaryDrafts>>;
 }) {
   return (
     <div className="flex flex-col gap-6">
       {formError ? <Alert variant="error">{formError}</Alert> : null}
 
       <FormSection title="General">
-        <FormField label="Name" htmlFor="category-name">
-          <Input
-            id="category-name"
-            ref={nameRef}
-            required
-            value={form.name}
-            onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-            disabled={isSubmitting}
-          />
-        </FormField>
-        <FormField label="Description" htmlFor="category-description">
-          <Textarea
-            id="category-description"
-            value={form.description}
-            onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-            disabled={isSubmitting}
-          />
-        </FormField>
         <FormField label="Status" htmlFor="category-status">
           <Select
             id="category-status"
@@ -425,6 +478,28 @@ function CategoryFormFields({
           ) : null}
         </FormField>
       </FormSection>
+
+      {entityId === null ? (
+        <CategoryCreateLanguages
+          form={form}
+          setForm={setForm}
+          isSubmitting={isSubmitting}
+          locales={locales}
+          nameRef={nameRef}
+          secondaryDrafts={secondaryDrafts}
+          setSecondaryDrafts={setSecondaryDrafts}
+        />
+      ) : (
+        <CategoryTranslationSection
+          restaurantId={restaurantId}
+          entityId={entityId}
+          locales={locales}
+          form={form}
+          setForm={setForm}
+          isSubmitting={isSubmitting}
+          nameRef={nameRef}
+        />
+      )}
 
       <FormSection title="Organization">
         {mode === 'edit' && moveTargets.length > 0 ? (
@@ -468,5 +543,216 @@ function CategoryFormFields({
         </FormField>
       </FormSection>
     </div>
+  );
+}
+
+/**
+ * Create-mode Languages section (FT-1 correction 2, Section 1/3), mirroring
+ * `MenuContextBar.MenuCreateLanguages` exactly: shows the same
+ * `[ English ] [ العربية ]` tabs as Edit for every ACTIVE Restaurant
+ * locale, but keeps secondary-locale content in local `secondaryDrafts`
+ * only -- no GET/PUT/DELETE happens until the parent's `handleSubmit` PUTs
+ * each non-empty draft after the Category has actually been created.
+ */
+function CategoryCreateLanguages({
+  form,
+  setForm,
+  isSubmitting,
+  locales,
+  nameRef,
+  secondaryDrafts,
+  setSecondaryDrafts,
+}: {
+  form: CategoryFormState;
+  setForm: Dispatch<SetStateAction<CategoryFormState>>;
+  isSubmitting: boolean;
+  locales: RestaurantLocalesResponse | null;
+  nameRef: RefObject<HTMLInputElement | null>;
+  secondaryDrafts: SecondaryDrafts;
+  setSecondaryDrafts: Dispatch<SetStateAction<SecondaryDrafts>>;
+}) {
+  const defaultLocale = locales?.defaultLocale ?? null;
+  const secondaryLocales = useMemo(
+    () =>
+      locales?.locales.filter((row) => !row.isDefault && row.isActive).map((row) => row.locale) ?? [],
+    [locales],
+  );
+
+  const [activeLocale, setActiveLocale] = useState<string>('__default__');
+  const isDefaultTab = activeLocale === '__default__';
+  const currentLocale = isDefaultTab ? defaultLocale : activeLocale;
+  const dir = currentLocale ? localeDirection(currentLocale) : 'ltr';
+
+  const tabOptions: LanguageTabOption[] = defaultLocale
+    ? [
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        ...secondaryLocales.map((locale) => ({
+          locale,
+          label: localeLabel(locale),
+          stateLabel: secondaryDrafts[locale]?.name.trim() ? 'Draft entered' : 'Not translated yet',
+        })),
+      ]
+    : [];
+
+  function updateDraft(locale: string, patch: Partial<SecondaryDraft>) {
+    setSecondaryDrafts((prev) => ({
+      ...prev,
+      [locale]: { ...(prev[locale] ?? { name: '', description: '' }), ...patch },
+    }));
+  }
+
+  return (
+    <FormSection title="Languages">
+      <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
+
+      {isDefaultTab ? (
+        <>
+          <FormField label="Name" htmlFor="category-name">
+            <Input
+              id="category-name"
+              ref={nameRef}
+              dir={dir}
+              required
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              disabled={isSubmitting}
+            />
+          </FormField>
+          <FormField label="Description" htmlFor="category-description">
+            <Textarea
+              id="category-description"
+              dir={dir}
+              value={form.description}
+              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+              disabled={isSubmitting}
+            />
+          </FormField>
+        </>
+      ) : (
+        <>
+          <p className="text-xs text-[#655D56]">Optional -- leave blank to skip this language for now.</p>
+          <FormField label="Name" htmlFor={`category-create-name-${activeLocale}`}>
+            <Input
+              id={`category-create-name-${activeLocale}`}
+              dir={dir}
+              value={secondaryDrafts[activeLocale]?.name ?? ''}
+              onChange={(event) => updateDraft(activeLocale, { name: event.target.value })}
+              disabled={isSubmitting}
+            />
+          </FormField>
+          <FormField label="Description" htmlFor={`category-create-description-${activeLocale}`}>
+            <Textarea
+              id={`category-create-description-${activeLocale}`}
+              dir={dir}
+              value={secondaryDrafts[activeLocale]?.description ?? ''}
+              onChange={(event) => updateDraft(activeLocale, { description: event.target.value })}
+              disabled={isSubmitting}
+            />
+          </FormField>
+        </>
+      )}
+    </FormSection>
+  );
+}
+
+/**
+ * Edit-only Languages section (FT-1 correction, Section 3): only ever
+ * rendered once `entityId` is non-null, mirroring
+ * `MenuContextBar.MenuTranslationSection` exactly. Create shows the same
+ * tabs via `CategoryCreateLanguages` above, backed by local drafts instead
+ * of the translation hook.
+ */
+function CategoryTranslationSection({
+  restaurantId,
+  entityId,
+  locales,
+  form,
+  setForm,
+  isSubmitting,
+  nameRef,
+}: {
+  restaurantId: string;
+  entityId: string;
+  locales: RestaurantLocalesResponse | null;
+  form: CategoryFormState;
+  setForm: Dispatch<SetStateAction<CategoryFormState>>;
+  isSubmitting: boolean;
+  nameRef: RefObject<HTMLInputElement | null>;
+}) {
+  const defaultLocale = locales?.defaultLocale ?? null;
+  // Memoized: see MenuContextBar's identical note -- an unstable array
+  // identity here would make useTranslationsEditor re-fetch (and wipe
+  // in-progress edits) on every keystroke in a translation field.
+  const secondaryLocales = useMemo(
+    () =>
+      locales?.locales.filter((row) => !row.isDefault && row.isActive).map((row) => row.locale) ?? [],
+    [locales],
+  );
+
+  const [activeLocale, setActiveLocale] = useState<string>('__default__');
+
+  const translations = useTranslationsEditor({
+    restaurantId,
+    entityId,
+    locales: secondaryLocales,
+    list: menuApi.getCategoryTranslations,
+    put: menuApi.putCategoryTranslation,
+    remove: menuApi.deleteCategoryTranslation,
+  });
+
+  const isDefaultTab = activeLocale === '__default__';
+  const currentLocale = isDefaultTab ? defaultLocale : activeLocale;
+  const dir = currentLocale ? localeDirection(currentLocale) : 'ltr';
+
+  const tabOptions: LanguageTabOption[] = defaultLocale
+    ? [
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        ...secondaryLocales.map((locale) => ({
+          locale,
+          label: localeLabel(locale),
+          stateLabel: translations.drafts[locale]?.exists ? 'Translated' : 'Not translated yet',
+        })),
+      ]
+    : [];
+
+  return (
+    <FormSection title="Languages">
+      <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
+
+      {isDefaultTab ? (
+        <>
+          <FormField label="Name" htmlFor="category-name">
+            <Input
+              id="category-name"
+              ref={nameRef}
+              dir={dir}
+              required
+              value={form.name}
+              onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
+              disabled={isSubmitting}
+            />
+          </FormField>
+          <FormField label="Description" htmlFor="category-description">
+            <Textarea
+              id="category-description"
+              dir={dir}
+              value={form.description}
+              onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
+              disabled={isSubmitting}
+            />
+          </FormField>
+        </>
+      ) : (
+        <TranslationFields
+          idPrefix="category-translation"
+          locale={activeLocale}
+          dir={dir}
+          draft={translations.drafts[activeLocale]}
+          onChange={(patch) => translations.updateDraft(activeLocale, patch)}
+          onSave={() => void translations.save(activeLocale)}
+          onRemove={() => void translations.removeTranslation(activeLocale)}
+        />
+      )}
+    </FormSection>
   );
 }

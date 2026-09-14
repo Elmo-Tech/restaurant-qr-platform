@@ -2,12 +2,21 @@ import { apiFetch } from '../api/client';
 import type {
   Category,
   CategoryStatus,
+  CategoryTranslation,
   Menu,
   MenuStatus,
+  MenuTranslation,
   Product,
   ProductAvailability,
   ProductStatus,
+  ProductTranslation,
 } from './types';
+
+/** Shared PUT-translation body shape -- identical across Menu/Category/Product (API_CONVENTIONS.md #108E). */
+export interface TranslationInput {
+  name: string;
+  description?: string | null;
+}
 
 /**
  * Thin Menu/Category/Product request layer (Batch H, Section 8): each
@@ -81,12 +90,14 @@ export async function setPrimaryMenu(
   return body.data;
 }
 
+/** `menuId` omitted lists every Category across the whole Restaurant (Backend `ListCategoriesQueryDto`) -- used by the Product Editor route to build one Menu-grouped Category picker. */
 export async function listCategories(
   restaurantId: string,
-  menuId: string,
+  menuId?: string,
 ): Promise<Category[]> {
+  const query = menuId ? `?menuId=${menuId}` : '';
   const body = await apiFetch<{ data: Category[] }>(
-    `${restaurantPath(restaurantId)}/categories?menuId=${menuId}`,
+    `${restaurantPath(restaurantId)}/categories${query}`,
   );
   return body.data;
 }
@@ -130,12 +141,14 @@ export async function updateCategory(
   return body.data;
 }
 
+/** `categoryId` omitted lists every Product across the whole Restaurant (Backend `ListProductsQueryDto`) -- used by the Product Editor route to locate one Product by id without already knowing its Category. */
 export async function listProducts(
   restaurantId: string,
-  categoryId: string,
+  categoryId?: string,
 ): Promise<Product[]> {
+  const query = categoryId ? `?categoryId=${categoryId}` : '';
   const body = await apiFetch<{ data: Product[] }>(
-    `${restaurantPath(restaurantId)}/products?categoryId=${categoryId}`,
+    `${restaurantPath(restaurantId)}/products${query}`,
   );
   return body.data;
 }
@@ -199,4 +212,112 @@ export async function updateProductAvailability(
     body: { availability },
   });
   return body.data;
+}
+
+// Menu translations -- raw editing resources, no fallback logic (Section 5).
+
+export async function getMenuTranslations(
+  restaurantId: string,
+  menuId: string,
+): Promise<MenuTranslation[]> {
+  const body = await apiFetch<{ data: MenuTranslation[] }>(
+    `${restaurantPath(restaurantId)}/menus/${menuId}/translations`,
+  );
+  return body.data;
+}
+
+export async function putMenuTranslation(
+  restaurantId: string,
+  menuId: string,
+  locale: string,
+  input: TranslationInput,
+): Promise<MenuTranslation> {
+  const body = await apiFetch<{ data: MenuTranslation }>(
+    `${restaurantPath(restaurantId)}/menus/${menuId}/translations/${locale}`,
+    { method: 'PUT', body: input },
+  );
+  return body.data;
+}
+
+export async function deleteMenuTranslation(
+  restaurantId: string,
+  menuId: string,
+  locale: string,
+): Promise<void> {
+  await apiFetch<undefined>(
+    `${restaurantPath(restaurantId)}/menus/${menuId}/translations/${locale}`,
+    { method: 'DELETE' },
+  );
+}
+
+// Category translations -- same pattern as Menu translations.
+
+export async function getCategoryTranslations(
+  restaurantId: string,
+  categoryId: string,
+): Promise<CategoryTranslation[]> {
+  const body = await apiFetch<{ data: CategoryTranslation[] }>(
+    `${restaurantPath(restaurantId)}/categories/${categoryId}/translations`,
+  );
+  return body.data;
+}
+
+export async function putCategoryTranslation(
+  restaurantId: string,
+  categoryId: string,
+  locale: string,
+  input: TranslationInput,
+): Promise<CategoryTranslation> {
+  const body = await apiFetch<{ data: CategoryTranslation }>(
+    `${restaurantPath(restaurantId)}/categories/${categoryId}/translations/${locale}`,
+    { method: 'PUT', body: input },
+  );
+  return body.data;
+}
+
+export async function deleteCategoryTranslation(
+  restaurantId: string,
+  categoryId: string,
+  locale: string,
+): Promise<void> {
+  await apiFetch<undefined>(
+    `${restaurantPath(restaurantId)}/categories/${categoryId}/translations/${locale}`,
+    { method: 'DELETE' },
+  );
+}
+
+// Product translations -- same pattern as Menu translations.
+
+export async function getProductTranslations(
+  restaurantId: string,
+  productId: string,
+): Promise<ProductTranslation[]> {
+  const body = await apiFetch<{ data: ProductTranslation[] }>(
+    `${restaurantPath(restaurantId)}/products/${productId}/translations`,
+  );
+  return body.data;
+}
+
+export async function putProductTranslation(
+  restaurantId: string,
+  productId: string,
+  locale: string,
+  input: TranslationInput,
+): Promise<ProductTranslation> {
+  const body = await apiFetch<{ data: ProductTranslation }>(
+    `${restaurantPath(restaurantId)}/products/${productId}/translations/${locale}`,
+    { method: 'PUT', body: input },
+  );
+  return body.data;
+}
+
+export async function deleteProductTranslation(
+  restaurantId: string,
+  productId: string,
+  locale: string,
+): Promise<void> {
+  await apiFetch<undefined>(
+    `${restaurantPath(restaurantId)}/products/${productId}/translations/${locale}`,
+    { method: 'DELETE' },
+  );
 }

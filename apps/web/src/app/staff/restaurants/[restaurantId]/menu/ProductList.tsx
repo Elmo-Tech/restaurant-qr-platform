@@ -1,6 +1,7 @@
 'use client';
 
-import { useMemo, useState, type Dispatch, type FormEvent, type SetStateAction } from 'react';
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import * as menuApi from '../../../../../lib/menu/api';
 import type { Product, ProductStatus } from '../../../../../lib/menu/types';
 import { ApiError } from '../../../../../lib/api/errors';
@@ -12,10 +13,8 @@ import {
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
-import { FormField } from '../../../../../components/ui/FormField';
 import { Input } from '../../../../../components/ui/Input';
 import { Select } from '../../../../../components/ui/Select';
-import { Textarea } from '../../../../../components/ui/Textarea';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
 import {
   IconImage,
@@ -24,9 +23,6 @@ import {
   IconSearch,
 } from '../../../../../components/staff/icons';
 import { AvailabilityBadge, FeaturedBadge, StatusBadge } from './StatusBadges';
-
-/** Mirrors the Backend's accepted decimal-string shape (money-decimal.ts) -- helpful client validation only, never authoritative. */
-const MONEY_DECIMAL_PATTERN = /^(0|[1-9]\d{0,11})(\.\d{1,2})?$/;
 
 type StatusFilter = 'ALL' | ProductStatus;
 type AvailabilityFilter = 'ALL' | 'AVAILABLE' | 'SOLD_OUT';
@@ -41,46 +37,8 @@ interface ProductListProps {
   onRetry: () => void;
   canManage: boolean;
   currencyCode: string;
-  onCreated: () => void;
-  onUpdated: () => void;
   onAvailabilityChanged: () => void;
   onProductNotFound: () => void;
-  onCategoryNotFound: () => void;
-}
-
-interface ProductFormState {
-  name: string;
-  description: string;
-  status: ProductStatus;
-  availability: 'AVAILABLE' | 'SOLD_OUT';
-  basePrice: string;
-  displayOrder: string;
-  allowCustomerNotes: boolean;
-  featured: boolean;
-}
-
-const EMPTY_FORM: ProductFormState = {
-  name: '',
-  description: '',
-  status: 'ACTIVE',
-  availability: 'AVAILABLE',
-  basePrice: '0.00',
-  displayOrder: '0',
-  allowCustomerNotes: false,
-  featured: false,
-};
-
-function toFormState(product: Product): ProductFormState {
-  return {
-    name: product.translation.name,
-    description: product.translation.description ?? '',
-    status: product.status,
-    availability: product.availability,
-    basePrice: product.basePrice,
-    displayOrder: String(product.displayOrder),
-    allowCustomerNotes: product.allowCustomerNotes,
-    featured: product.featured,
-  };
 }
 
 function ProductThumbnail() {
@@ -103,10 +61,15 @@ function matchesSearch(product: Product, query: string): boolean {
  * (mobile) instead of small equal-width cards. Search/Status/Availability
  * filtering (Section 8) operates only on the already-loaded `products`
  * array for the current Category -- purely local `useState`/`useMemo`, no
- * new Backend call. All mutation logic below (Create/Edit submit,
- * availability toggle) is carried over unchanged from the former
- * `ProductsPanel`. `basePrice` is rendered as the exact string the Backend
+ * new Backend call. `basePrice` is rendered as the exact string the Backend
  * returned -- never `Number()`/`parseFloat()` (CLAUDE.md #27).
+ *
+ * FT-1, Section 9: Create/Edit no longer happen inline here -- "Add
+ * Product"/the row edit action are plain links to the dedicated Product
+ * Editor route (`menu/products/new` / `menu/products/[productId]`), which
+ * owns its own fetch/submit lifecycle entirely. The Availability toggle
+ * stays here unchanged, calling the same dedicated `updateProductAvailability`
+ * endpoint it always has.
  */
 export function ProductList({
   restaurantId,
@@ -118,17 +81,9 @@ export function ProductList({
   onRetry,
   canManage,
   currencyCode,
-  onCreated,
-  onUpdated,
   onAvailabilityChanged,
   onProductNotFound,
-  onCategoryNotFound,
 }: ProductListProps) {
-  const [mode, setMode] = useState<'idle' | 'create' | 'edit'>('idle');
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [form, setForm] = useState<ProductFormState>(EMPTY_FORM);
-  const [formError, setFormError] = useState<string | null>(null);
-  const [isSubmitting, setIsSubmitting] = useState(false);
   const [availabilityPendingId, setAvailabilityPendingId] = useState<string | null>(null);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
@@ -145,95 +100,6 @@ export function ProductList({
         (availabilityFilter === 'ALL' || product.availability === availabilityFilter),
     );
   }, [products, searchQuery, statusFilter, availabilityFilter]);
-
-  function startCreate() {
-    setMode('create');
-    setEditingId(null);
-    setForm(EMPTY_FORM);
-    setFormError(null);
-  }
-
-  function startEdit(product: Product) {
-    setMode('edit');
-    setEditingId(product.id);
-    setForm(toFormState(product));
-    setFormError(null);
-  }
-
-  function cancelForm() {
-    setMode('idle');
-    setEditingId(null);
-    setFormError(null);
-  }
-
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (isSubmitting || !categoryId) return;
-
-    const displayOrder = Number(form.displayOrder);
-    if (!Number.isInteger(displayOrder) || displayOrder < 0) {
-      setFormError('Display order must be a whole number of 0 or more.');
-      return;
-    }
-    if (!MONEY_DECIMAL_PATTERN.test(form.basePrice)) {
-      setFormError('Price must be a plain decimal amount with up to 2 decimal places, e.g. 10.50.');
-      return;
-    }
-
-    setIsSubmitting(true);
-    setFormError(null);
-    try {
-      if (mode === 'create') {
-        await menuApi.createProduct(restaurantId, {
-          categoryId,
-          name: form.name,
-          description: form.description.trim() === '' ? null : form.description,
-          status: form.status,
-          availability: form.availability,
-          basePrice: form.basePrice,
-          displayOrder,
-          allowCustomerNotes: form.allowCustomerNotes,
-          featured: form.featured,
-        });
-        onCreated();
-      } else if (mode === 'edit' && editingId) {
-        await menuApi.updateProduct(restaurantId, editingId, {
-          name: form.name,
-          description: form.description.trim() === '' ? null : form.description,
-          status: form.status,
-          basePrice: form.basePrice,
-          displayOrder,
-          allowCustomerNotes: form.allowCustomerNotes,
-          featured: form.featured,
-        });
-        onUpdated();
-      }
-      setMode('idle');
-      setEditingId(null);
-    } catch (submitError) {
-      if (isUnauthenticatedError(submitError)) {
-        redirectToLogin();
-        return;
-      }
-      if (submitError instanceof ApiError) {
-        if (submitError.code === 'PRODUCT_NOT_FOUND') {
-          onProductNotFound();
-          setMode('idle');
-          setEditingId(null);
-          return;
-        }
-        if (submitError.code === 'CATEGORY_NOT_FOUND') {
-          onCategoryNotFound();
-          setMode('idle');
-          setEditingId(null);
-          return;
-        }
-      }
-      setFormError(describeError(submitError));
-    } finally {
-      setIsSubmitting(false);
-    }
-  }
 
   async function handleToggleAvailability(product: Product) {
     if (availabilityPendingId) return;
@@ -271,10 +137,13 @@ export function ProductList({
           <h2 className="text-sm font-semibold text-[#302C29]">Products</h2>
           {subtitle ? <p className="text-xs text-[#655D56]">{subtitle}</p> : null}
         </div>
-        {canManage && categoryId && mode === 'idle' ? (
-          <Button className="px-3 py-1.5 text-xs" onClick={startCreate}>
+        {canManage && categoryId ? (
+          <Link
+            href={`/staff/restaurants/${restaurantId}/menu/products/new?categoryId=${categoryId}`}
+            className="inline-flex items-center justify-center rounded-md bg-[#7A5138] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#634127]"
+          >
             <IconPlus className="mr-1 h-3.5 w-3.5" /> Add Product
-          </Button>
+          </Link>
         ) : null}
       </div>
 
@@ -296,16 +165,19 @@ export function ProductList({
 
           {products === null && !error ? <LoadingState label="Loading Products…" /> : null}
 
-          {products !== null && products.length === 0 && mode === 'idle' ? (
+          {products !== null && products.length === 0 ? (
             <div className="flex flex-col gap-3">
               <div>
                 <p className="text-sm font-medium text-[#302C29]">No products in this category</p>
                 <p className="mt-1 text-sm text-[#655D56]">Add the first product.</p>
               </div>
-              {canManage ? (
-                <Button variant="secondary" className="self-start px-3 py-1.5 text-xs" onClick={startCreate}>
+              {canManage && categoryId ? (
+                <Link
+                  href={`/staff/restaurants/${restaurantId}/menu/products/new?categoryId=${categoryId}`}
+                  className="inline-flex w-fit items-center justify-center rounded-md border border-[#E5DED6] bg-white px-3 py-1.5 text-xs font-medium text-[#302C29] transition-colors hover:bg-[#F8F5F1]"
+                >
                   <IconPlus className="mr-1 h-3.5 w-3.5" /> Add Product
-                </Button>
+                </Link>
               ) : null}
             </div>
           ) : null}
@@ -404,14 +276,13 @@ export function ProductList({
                                     ? 'Mark Sold Out'
                                     : 'Mark Available'}
                               </Button>
-                              <button
-                                type="button"
-                                onClick={() => startEdit(product)}
+                              <Link
+                                href={`/staff/restaurants/${restaurantId}/menu/products/${product.id}?categoryId=${categoryId}`}
                                 aria-label={`Edit ${product.translation.name}`}
                                 className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#AFA397] hover:bg-[#F8F5F1] hover:text-[#7A5138]"
                               >
                                 <IconPencil className="h-4 w-4" />
-                              </button>
+                              </Link>
                             </div>
                           ) : null}
                         </td>
@@ -455,14 +326,13 @@ export function ProductList({
                               ? 'Mark Sold Out'
                               : 'Mark Available'}
                         </Button>
-                        <button
-                          type="button"
-                          onClick={() => startEdit(product)}
+                        <Link
+                          href={`/staff/restaurants/${restaurantId}/menu/products/${product.id}?categoryId=${categoryId}`}
                           aria-label={`Edit ${product.translation.name}`}
                           className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-[#E5DED6] text-[#655D56] hover:bg-[#F8F5F1]"
                         >
                           <IconPencil className="h-4 w-4" />
-                        </button>
+                        </Link>
                       </div>
                     ) : null}
                   </li>
@@ -472,149 +342,6 @@ export function ProductList({
           ) : null}
         </>
       )}
-
-      {mode !== 'idle' && categoryId ? (
-        <ProductForm
-          mode={mode}
-          form={form}
-          setForm={setForm}
-          formError={formError}
-          isSubmitting={isSubmitting}
-          currencyCode={currencyCode}
-          onSubmit={handleSubmit}
-          onCancel={cancelForm}
-        />
-      ) : null}
     </Card>
-  );
-}
-
-/**
- * Temporary Create/Edit Product form (UX-3, Section 16): carried over from
- * the former `ProductsPanel` unchanged in behavior, only repositioned
- * beneath the list instead of a full-width column. A dedicated Product
- * editor page is a later batch, not UX-3.
- */
-function ProductForm({
-  mode,
-  form,
-  setForm,
-  formError,
-  isSubmitting,
-  currencyCode,
-  onSubmit,
-  onCancel,
-}: {
-  mode: 'create' | 'edit';
-  form: ProductFormState;
-  setForm: Dispatch<SetStateAction<ProductFormState>>;
-  formError: string | null;
-  isSubmitting: boolean;
-  currencyCode: string;
-  onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onCancel: () => void;
-}) {
-  return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-3 border-t border-[#E5DED6] pt-4">
-      <p className="text-sm font-medium text-[#302C29]">
-        {mode === 'create' ? 'Create Product' : 'Edit Product'}
-      </p>
-      {formError ? <Alert variant="error">{formError}</Alert> : null}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-        <FormField label="Name" htmlFor="product-name">
-          <Input
-            id="product-name"
-            required
-            value={form.name}
-            onChange={(event) => setForm((prev) => ({ ...prev, name: event.target.value }))}
-            disabled={isSubmitting}
-          />
-        </FormField>
-        <FormField label={`Price (${currencyCode})`} htmlFor="product-basePrice">
-          <Input
-            id="product-basePrice"
-            inputMode="decimal"
-            required
-            value={form.basePrice}
-            onChange={(event) => setForm((prev) => ({ ...prev, basePrice: event.target.value }))}
-            disabled={isSubmitting}
-          />
-        </FormField>
-      </div>
-      <FormField label="Description" htmlFor="product-description">
-        <Textarea
-          id="product-description"
-          value={form.description}
-          onChange={(event) => setForm((prev) => ({ ...prev, description: event.target.value }))}
-          disabled={isSubmitting}
-        />
-      </FormField>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <FormField label="Status" htmlFor="product-status">
-          <Select
-            id="product-status"
-            value={form.status}
-            onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as ProductStatus }))}
-            disabled={isSubmitting}
-          >
-            <option value="ACTIVE">ACTIVE</option>
-            <option value="INACTIVE">INACTIVE</option>
-          </Select>
-        </FormField>
-        {mode === 'create' ? (
-          <FormField label="Availability" htmlFor="product-availability">
-            <Select
-              id="product-availability"
-              value={form.availability}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, availability: event.target.value as 'AVAILABLE' | 'SOLD_OUT' }))
-              }
-              disabled={isSubmitting}
-            >
-              <option value="AVAILABLE">AVAILABLE</option>
-              <option value="SOLD_OUT">SOLD_OUT</option>
-            </Select>
-          </FormField>
-        ) : null}
-        <FormField label="Display order" htmlFor="product-displayOrder">
-          <Input
-            id="product-displayOrder"
-            type="number"
-            min={0}
-            step={1}
-            required
-            value={form.displayOrder}
-            onChange={(event) => setForm((prev) => ({ ...prev, displayOrder: event.target.value }))}
-            disabled={isSubmitting}
-          />
-        </FormField>
-      </div>
-      <label className="flex items-center gap-2 text-sm text-[#302C29]">
-        <input
-          type="checkbox"
-          checked={form.allowCustomerNotes}
-          onChange={(event) => setForm((prev) => ({ ...prev, allowCustomerNotes: event.target.checked }))}
-          disabled={isSubmitting}
-        />
-        Allow customer notes
-      </label>
-      <label className="flex items-center gap-2 text-sm text-[#302C29]">
-        <input
-          type="checkbox"
-          checked={form.featured}
-          onChange={(event) => setForm((prev) => ({ ...prev, featured: event.target.checked }))}
-          disabled={isSubmitting}
-        />
-        Featured
-      </label>
-      <div className="flex gap-2">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? 'Saving…' : 'Save'}
-        </Button>
-        <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
-        </Button>
-      </div>
-    </form>
   );
 }

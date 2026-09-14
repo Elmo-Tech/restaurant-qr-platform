@@ -15,3 +15,16 @@ const LOCALE_LABELS: Record<string, string> = {
 export function localeLabel(locale: string): string {
   return LOCALE_LABELS[locale] ?? locale.toUpperCase();
 }
+
+/**
+ * PRESENTATION-ONLY per-locale text direction (FT-1 correction, Section 4):
+ * an Arabic translation's Name/Description fields render right-to-left
+ * regardless of which locale is the Restaurant's default -- this never
+ * flips the Staff application's own overall layout direction, only the
+ * individual translated-content inputs for a locale whose script is RTL.
+ */
+const RTL_LOCALES = new Set(['ar']);
+
+export function localeDirection(locale: string): 'ltr' | 'rtl' {
+  return RTL_LOCALES.has(locale) ? 'rtl' : 'ltr';
+}
