@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
+import { StorageModule } from '../storage/storage.module';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 import { MenusController } from './menus.controller';
@@ -14,10 +15,12 @@ import { ProductsService } from './products.service';
  * Invitation Creation together). Imports AuthModule for the already-exported
  * AuthGuard/CsrfGuard/RestaurantAccessGuard/PermissionGuard/
  * AllBranchesRequiredGuard -- this module never redefines authentication,
- * Tenant, or Permission policy.
+ * Tenant, or Permission policy. FT-2: imports StorageModule for
+ * `ImageStorageService`, used by `ProductsController`/`CategoriesController`
+ * image upload/remove routes.
  */
 @Module({
-  imports: [DatabaseModule, AuthModule],
+  imports: [DatabaseModule, AuthModule, StorageModule],
   controllers: [MenusController, CategoriesController, ProductsController],
   providers: [MenusService, CategoriesService, ProductsService],
 })

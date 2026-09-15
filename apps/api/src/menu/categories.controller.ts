@@ -13,8 +13,11 @@ import {
   Put,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AllBranchesRequiredGuard } from '../auth/guard/all-branches-required.guard';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { PermissionGuard } from '../auth/guard/permission.guard';
@@ -25,6 +28,12 @@ import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
 import { LocaleParamPipe } from '../restaurants/locale-param.pipe';
 import type { PlatformSupportedLocale } from '../restaurants/platform-locales';
+import { assertValidImageUpload } from '../storage/image-file-validator';
+import {
+  ImageStorageService,
+  MAX_IMAGE_BYTES,
+} from '../storage/image-storage.service';
+import type { UploadedImageFile } from '../storage/uploaded-image-file';
 import { CategoriesService } from './categories.service';
 import type { CategoryWithTranslation } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -81,6 +90,10 @@ interface CategoryTranslationResponseBody {
   data: TranslationView;
 }
 
+interface CategoryImageResponseBody {
+  data: { imageAssetPath: string };
+}
+
 /**
  * Day 1 Menu Vertical Slice, Batch C (corrected): Category List and Create.
  * `GET`/`POST /api/v1/restaurants/{restaurantId}/categories`.
@@ -97,7 +110,10 @@ interface CategoryTranslationResponseBody {
  */
 @Controller('restaurants/:restaurantId/categories')
 export class CategoriesController {
-  constructor(private readonly categoriesService: CategoriesService) {}
+  constructor(
+    private readonly categoriesService: CategoriesService,
+    private readonly imageStorageService: ImageStorageService,
+  ) {}
 
   @Get()
   @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
@@ -194,6 +210,102 @@ export class CategoriesController {
     }
 
     return { data: result.data };
+  }
+
+  /**
+   * FT-2: uploads (or replaces) the Category's one image -- see
+   * `ProductsController.uploadProductImage`'s docstring for the full
+   * rationale (identical shape/behavior/failure handling, including the
+   * pre-write Tenant existence preflight, FT-2 code review blocker).
+   */
+  @Post(':categoryId/image')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  @UseInterceptors(
+    FileInterceptor('image', { limits: { fileSize: MAX_IMAGE_BYTES * 2 } }),
+  )
+  async uploadCategoryImage(
+    @Param('categoryId') categoryId: string,
+    @UploadedFile() file: UploadedImageFile | undefined,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<CategoryImageResponseBody> {
+    assertValidImageUpload(file);
+
+    const categoryExists = await this.categoriesService.categoryExists({
+      restaurantId: request.restaurantAccess.restaurantId,
+      categoryId,
+    });
+    if (!categoryExists) {
+      throw new NotFoundException(CATEGORY_NOT_FOUND_RESPONSE);
+    }
+
+    const saved = await this.imageStorageService.saveImage(
+      file.buffer,
+      file.mimetype,
+    );
+
+    let result;
+    try {
+      result = await this.categoriesService.setCategoryImage({
+        restaurantId: request.restaurantAccess.restaurantId,
+        categoryId,
+        imageAssetPath: saved.assetPath,
+      });
+    } catch (error) {
+      await this.imageStorageService.deleteImageBestEffort(saved.assetPath);
+      throw error;
+    }
+
+    if (result.outcome === 'categoryNotFound') {
+      await this.imageStorageService.deleteImageBestEffort(saved.assetPath);
+      throw new NotFoundException(CATEGORY_NOT_FOUND_RESPONSE);
+    }
+
+    await this.imageStorageService.deleteImageBestEffort(
+      result.previousImageAssetPath,
+    );
+
+    return { data: { imageAssetPath: result.data.imageAssetPath } };
+  }
+
+  /**
+   * FT-2: clears the Category's image -- see
+   * `ProductsController.removeProductImage`'s docstring for the full
+   * rationale (identical shape/behavior).
+   */
+  @Delete(':categoryId/image')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async removeCategoryImage(
+    @Param('categoryId') categoryId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<void> {
+    const result = await this.categoriesService.clearCategoryImage({
+      restaurantId: request.restaurantAccess.restaurantId,
+      categoryId,
+    });
+
+    if (result.outcome === 'categoryNotFound') {
+      throw new NotFoundException(CATEGORY_NOT_FOUND_RESPONSE);
+    }
+
+    await this.imageStorageService.deleteImageBestEffort(
+      result.previousImageAssetPath,
+    );
   }
 
   /**

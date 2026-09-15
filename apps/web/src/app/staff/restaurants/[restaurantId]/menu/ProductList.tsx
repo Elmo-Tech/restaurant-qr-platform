@@ -23,6 +23,7 @@ import {
   IconSearch,
 } from '../../../../../components/staff/icons';
 import { AvailabilityBadge, FeaturedBadge, StatusBadge } from './StatusBadges';
+import { resolveAssetUrl } from '../../../../../lib/media/asset-url';
 
 type StatusFilter = 'ALL' | ProductStatus;
 type AvailabilityFilter = 'ALL' | 'AVAILABLE' | 'SOLD_OUT';
@@ -41,7 +42,19 @@ interface ProductListProps {
   onProductNotFound: () => void;
 }
 
-function ProductThumbnail() {
+/** FT-2, Section 17: shows `Product.primaryImageAssetPath` when present; keeps the existing plain placeholder otherwise -- no thumbnail-heavy redesign. */
+function ProductThumbnail({ imageAssetPath }: { imageAssetPath: string | null }) {
+  const imageUrl = resolveAssetUrl(imageAssetPath);
+  if (imageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable static/local image.
+      <img
+        src={imageUrl}
+        alt=""
+        className="h-10 w-10 flex-shrink-0 rounded-md border border-[#E5DED6] object-cover"
+      />
+    );
+  }
   return (
     <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-[#F1ECE6] text-[#AFA397]">
       <IconImage className="h-5 w-5" />
@@ -238,7 +251,7 @@ export function ProductList({
                       <tr key={product.id} className="border-b border-[#E5DED6] last:border-0">
                         <td className="py-3 pr-4">
                           <div className="flex items-center gap-3">
-                            <ProductThumbnail />
+                            <ProductThumbnail imageAssetPath={product.primaryImageAssetPath} />
                             <div className="min-w-0">
                               <p className="flex items-center gap-2 font-medium text-[#1D1A18]">
                                 <span className="truncate">{product.translation.name}</span>
@@ -297,7 +310,7 @@ export function ProductList({
                 {filteredProducts?.map((product) => (
                   <li key={product.id} className="rounded-md border border-[#E5DED6] bg-white p-3">
                     <div className="flex items-start gap-3">
-                      <ProductThumbnail />
+                      <ProductThumbnail imageAssetPath={product.primaryImageAssetPath} />
                       <div className="min-w-0 flex-1">
                         <p className="flex items-center gap-2 font-medium text-[#1D1A18]">
                           <span className="truncate">{product.translation.name}</span>

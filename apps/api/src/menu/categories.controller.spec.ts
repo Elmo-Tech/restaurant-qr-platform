@@ -46,9 +46,17 @@ describe('CategoriesController', () => {
     listCategories: jest.Mock;
     createCategory: jest.Mock;
     updateCategory: jest.Mock;
+    categoryExists: jest.Mock;
+    setCategoryImage: jest.Mock;
+    clearCategoryImage: jest.Mock;
     getCategoryTranslations: jest.Mock;
     putCategoryTranslation: jest.Mock;
     deleteCategoryTranslation: jest.Mock;
+  };
+  let imageStorageService: {
+    saveImage: jest.Mock;
+    deleteImage: jest.Mock;
+    deleteImageBestEffort: jest.Mock;
   };
   let controller: CategoriesController;
 
@@ -56,6 +64,8 @@ describe('CategoriesController', () => {
   const listHandler = CategoriesController.prototype.listCategories;
   const createHandler = CategoriesController.prototype.createCategory;
   const updateHandler = CategoriesController.prototype.updateCategory;
+  const uploadImageHandler = CategoriesController.prototype.uploadCategoryImage;
+  const removeImageHandler = CategoriesController.prototype.removeCategoryImage;
   const getTranslationsHandler =
     CategoriesController.prototype.getCategoryTranslations;
   const putTranslationHandler =
@@ -69,11 +79,24 @@ describe('CategoriesController', () => {
       listCategories: jest.fn().mockResolvedValue([]),
       createCategory: jest.fn(),
       updateCategory: jest.fn(),
+      categoryExists: jest.fn().mockResolvedValue(true),
+      setCategoryImage: jest.fn(),
+      clearCategoryImage: jest.fn(),
       getCategoryTranslations: jest.fn(),
       putCategoryTranslation: jest.fn(),
       deleteCategoryTranslation: jest.fn(),
     };
-    controller = new CategoriesController(categoriesService as never);
+    imageStorageService = {
+      saveImage: jest
+        .fn()
+        .mockResolvedValue({ assetPath: '/media/new-file.jpg' }),
+      deleteImage: jest.fn().mockResolvedValue(undefined),
+      deleteImageBestEffort: jest.fn().mockResolvedValue(undefined),
+    };
+    controller = new CategoriesController(
+      categoriesService as never,
+      imageStorageService as never,
+    );
   });
 
   function expectMutationGuardChain(guards: unknown[]) {
@@ -324,6 +347,258 @@ describe('CategoriesController', () => {
       ).rejects.toMatchObject({
         response: {
           error: { code: 'MENU_NOT_FOUND', message: 'Menu not found.' },
+        },
+      });
+    });
+  });
+
+  describe('POST :categoryId/image', () => {
+    function buildFile(
+      overrides: Partial<{ mimetype: string; size: number }> = {},
+    ) {
+      return {
+        originalname: 'photo.jpg',
+        mimetype: overrides.mimetype ?? 'image/jpeg',
+        size: overrides.size ?? 1024,
+        // Real JPEG magic bytes (FF D8 FF) -- `assertValidImageUpload` now
+        // sniffs the actual signature, so a valid-upload test must supply a
+        // buffer that genuinely matches its claimed `image/jpeg` mimetype.
+        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]),
+      };
+    }
+
+    it('declares exactly AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        uploadImageHandler,
+      ) as unknown[];
+
+      expectMutationGuardChain(guards);
+    });
+
+    it('requires exactly menu.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        uploadImageHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_MANAGE);
+    });
+
+    it('saves the file, persists the new path, and returns it (valid upload)', async () => {
+      categoriesService.setCategoryImage.mockResolvedValue({
+        outcome: 'updated',
+        data: { id: 'category-1', imageAssetPath: '/media/new-file.jpg' },
+        previousImageAssetPath: null,
+      });
+
+      const body = await controller.uploadCategoryImage(
+        'category-1',
+        buildFile(),
+        buildRequest('authorized-restaurant'),
+      );
+
+      expect(imageStorageService.saveImage).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        'image/jpeg',
+      );
+      expect(categoriesService.setCategoryImage).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        categoryId: 'category-1',
+        imageAssetPath: '/media/new-file.jpg',
+      });
+      expect(body).toEqual({ data: { imageAssetPath: '/media/new-file.jpg' } });
+      // No previous image -- cleanup is still called (it no-ops internally on null).
+      expect(imageStorageService.deleteImageBestEffort).toHaveBeenCalledWith(
+        null,
+      );
+    });
+
+    it('removes the old asset after successfully replacing an existing image', async () => {
+      categoriesService.setCategoryImage.mockResolvedValue({
+        outcome: 'updated',
+        data: { id: 'category-1', imageAssetPath: '/media/new-file.jpg' },
+        previousImageAssetPath: '/media/old-file.jpg',
+      });
+
+      await controller.uploadCategoryImage(
+        'category-1',
+        buildFile(),
+        buildRequest('authorized-restaurant'),
+      );
+
+      expect(imageStorageService.deleteImageBestEffort).toHaveBeenCalledWith(
+        '/media/old-file.jpg',
+      );
+    });
+
+    it('rejects a non-whitelisted MIME type with INVALID_IMAGE_TYPE, without saving anything', async () => {
+      await expect(
+        controller.uploadCategoryImage(
+          'category-1',
+          buildFile({ mimetype: 'application/pdf' }),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'INVALID_IMAGE_TYPE',
+            message: 'Only JPEG, PNG, and WebP images are supported.',
+          },
+        },
+      });
+      expect(imageStorageService.saveImage).not.toHaveBeenCalled();
+    });
+
+    it('rejects a file above 5 MB with IMAGE_TOO_LARGE, without saving anything', async () => {
+      await expect(
+        controller.uploadCategoryImage(
+          'category-1',
+          buildFile({ size: 5 * 1024 * 1024 + 1 }),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'IMAGE_TOO_LARGE',
+            message: 'Image must be 5 MB or smaller.',
+          },
+        },
+      });
+      expect(imageStorageService.saveImage).not.toHaveBeenCalled();
+    });
+
+    it('rejects a missing file with IMAGE_REQUIRED', async () => {
+      await expect(
+        controller.uploadCategoryImage(
+          'category-1',
+          undefined,
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'IMAGE_REQUIRED',
+            message: 'An image file is required.',
+          },
+        },
+      });
+      expect(imageStorageService.saveImage).not.toHaveBeenCalled();
+    });
+
+    it('maps a foreign/unknown Category to 404 CATEGORY_NOT_FOUND WITHOUT ever saving the file (Tenant preflight, FT-2 code review blocker)', async () => {
+      categoriesService.categoryExists.mockResolvedValue(false);
+
+      await expect(
+        controller.uploadCategoryImage(
+          'foreign-category',
+          buildFile(),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'CATEGORY_NOT_FOUND', message: 'Category not found.' },
+        },
+      });
+      expect(categoriesService.categoryExists).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        categoryId: 'foreign-category',
+      });
+      expect(imageStorageService.saveImage).not.toHaveBeenCalled();
+      expect(categoriesService.setCategoryImage).not.toHaveBeenCalled();
+    });
+
+    it('cleans up the just-saved file and maps a foreign/unknown Category to 404 CATEGORY_NOT_FOUND', async () => {
+      categoriesService.setCategoryImage.mockResolvedValue({
+        outcome: 'categoryNotFound',
+      });
+
+      await expect(
+        controller.uploadCategoryImage(
+          'unknown-id',
+          buildFile(),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'CATEGORY_NOT_FOUND', message: 'Category not found.' },
+        },
+      });
+      expect(imageStorageService.deleteImageBestEffort).toHaveBeenCalledWith(
+        '/media/new-file.jpg',
+      );
+    });
+  });
+
+  describe('DELETE :categoryId/image', () => {
+    it('declares exactly AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        removeImageHandler,
+      ) as unknown[];
+
+      expectMutationGuardChain(guards);
+    });
+
+    it('requires exactly menu.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        removeImageHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_MANAGE);
+    });
+
+    it('clears the image and removes the old local asset', async () => {
+      categoriesService.clearCategoryImage.mockResolvedValue({
+        outcome: 'cleared',
+        previousImageAssetPath: '/media/old-file.jpg',
+      });
+
+      const body = await controller.removeCategoryImage(
+        'category-1',
+        buildRequest('authorized-restaurant'),
+      );
+
+      expect(categoriesService.clearCategoryImage).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        categoryId: 'category-1',
+      });
+      expect(imageStorageService.deleteImageBestEffort).toHaveBeenCalledWith(
+        '/media/old-file.jpg',
+      );
+      expect(body).toBeUndefined();
+    });
+
+    it('is idempotent when no image is set (nothing to delete)', async () => {
+      categoriesService.clearCategoryImage.mockResolvedValue({
+        outcome: 'cleared',
+        previousImageAssetPath: null,
+      });
+
+      await controller.removeCategoryImage(
+        'category-1',
+        buildRequest('authorized-restaurant'),
+      );
+
+      expect(imageStorageService.deleteImageBestEffort).toHaveBeenCalledWith(
+        null,
+      );
+    });
+
+    it('maps a foreign/unknown Category to 404 CATEGORY_NOT_FOUND', async () => {
+      categoriesService.clearCategoryImage.mockResolvedValue({
+        outcome: 'categoryNotFound',
+      });
+
+      await expect(
+        controller.removeCategoryImage(
+          'unknown-id',
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'CATEGORY_NOT_FOUND', message: 'Category not found.' },
         },
       });
     });

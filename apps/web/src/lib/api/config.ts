@@ -25,3 +25,12 @@ if (!apiBasePath) {
 }
 
 export const API_BASE_URL = apiUrl + apiBasePath;
+
+/**
+ * The bare API origin, without the versioned `/api/v1` prefix (FT-2,
+ * Section 18) -- Product/Category image assets are served from
+ * `${API_ORIGIN}/media/...`, a static route deliberately mounted outside
+ * the API version prefix (see `apps/api/src/main.ts`), never from
+ * `API_BASE_URL`.
+ */
+export const API_ORIGIN = apiUrl;

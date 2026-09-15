@@ -503,6 +503,180 @@ describe('ProductsService', () => {
     });
   });
 
+  describe('setProductImage', () => {
+    it('a malformed productId -> productNotFound with zero database queries', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      const result = await service.setProductImage({
+        restaurantId: RESTAURANT_ID,
+        productId: 'not-a-uuid',
+        imageAssetPath: '/media/new-file.jpg',
+      });
+
+      expect(result).toEqual({ outcome: 'productNotFound' });
+      expect(mock.productFindFirst).not.toHaveBeenCalled();
+    });
+
+    it('unknown/foreign-Restaurant productId -> productNotFound, no update attempted (Tenant hiding)', async () => {
+      const mock = buildPrismaMock();
+      mock.productFindFirst.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.setProductImage({
+        restaurantId: RESTAURANT_ID,
+        productId: WELL_FORMED_UUID,
+        imageAssetPath: '/media/new-file.jpg',
+      });
+
+      expect(result).toEqual({ outcome: 'productNotFound' });
+      expect(mock.productUpdate).not.toHaveBeenCalled();
+    });
+
+    it('scopes the ownership check by id + restaurantId together, never id alone', async () => {
+      const mock = buildPrismaMock();
+      mock.productUpdate.mockResolvedValue({
+        id: 'product-1',
+        primaryImageAssetPath: '/media/new-file.jpg',
+      });
+      const service = buildService(mock);
+
+      await service.setProductImage({
+        restaurantId: RESTAURANT_ID,
+        productId: WELL_FORMED_UUID,
+        imageAssetPath: '/media/new-file.jpg',
+      });
+
+      expect(mock.productFindFirst).toHaveBeenCalledWith({
+        where: { id: WELL_FORMED_UUID, restaurantId: RESTAURANT_ID },
+        select: { id: true, primaryImageAssetPath: true },
+      });
+    });
+
+    it('persists the new path via Product.update and reports the previous path for cleanup', async () => {
+      const mock = buildPrismaMock();
+      mock.productFindFirst.mockResolvedValue({
+        id: 'product-1',
+        primaryImageAssetPath: '/media/old-file.jpg',
+      });
+      mock.productUpdate.mockResolvedValue({
+        id: 'product-1',
+        primaryImageAssetPath: '/media/new-file.jpg',
+      });
+      const service = buildService(mock);
+
+      const result = await service.setProductImage({
+        restaurantId: RESTAURANT_ID,
+        productId: WELL_FORMED_UUID,
+        imageAssetPath: '/media/new-file.jpg',
+      });
+
+      expect(mock.productUpdate).toHaveBeenCalledWith({
+        where: { id: 'product-1' },
+        data: { primaryImageAssetPath: '/media/new-file.jpg' },
+        select: { id: true, primaryImageAssetPath: true },
+      });
+      expect(result).toEqual({
+        outcome: 'updated',
+        data: { id: 'product-1', primaryImageAssetPath: '/media/new-file.jpg' },
+        previousImageAssetPath: '/media/old-file.jpg',
+      });
+    });
+
+    it('reports null as the previous path when the Product had no image yet', async () => {
+      const mock = buildPrismaMock();
+      mock.productFindFirst.mockResolvedValue({
+        id: 'product-1',
+        primaryImageAssetPath: null,
+      });
+      mock.productUpdate.mockResolvedValue({
+        id: 'product-1',
+        primaryImageAssetPath: '/media/new-file.jpg',
+      });
+      const service = buildService(mock);
+
+      const result = await service.setProductImage({
+        restaurantId: RESTAURANT_ID,
+        productId: WELL_FORMED_UUID,
+        imageAssetPath: '/media/new-file.jpg',
+      });
+
+      expect(result).toMatchObject({ previousImageAssetPath: null });
+    });
+  });
+
+  describe('clearProductImage', () => {
+    it('a malformed productId -> productNotFound with zero database queries', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      const result = await service.clearProductImage({
+        restaurantId: RESTAURANT_ID,
+        productId: 'not-a-uuid',
+      });
+
+      expect(result).toEqual({ outcome: 'productNotFound' });
+      expect(mock.productFindFirst).not.toHaveBeenCalled();
+    });
+
+    it('unknown/foreign-Restaurant productId -> productNotFound (Tenant hiding)', async () => {
+      const mock = buildPrismaMock();
+      mock.productFindFirst.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.clearProductImage({
+        restaurantId: RESTAURANT_ID,
+        productId: WELL_FORMED_UUID,
+      });
+
+      expect(result).toEqual({ outcome: 'productNotFound' });
+      expect(mock.productUpdate).not.toHaveBeenCalled();
+    });
+
+    it('clears primaryImageAssetPath to null and reports the previous path', async () => {
+      const mock = buildPrismaMock();
+      mock.productFindFirst.mockResolvedValue({
+        id: 'product-1',
+        primaryImageAssetPath: '/media/old-file.jpg',
+      });
+      const service = buildService(mock);
+
+      const result = await service.clearProductImage({
+        restaurantId: RESTAURANT_ID,
+        productId: WELL_FORMED_UUID,
+      });
+
+      expect(mock.productUpdate).toHaveBeenCalledWith({
+        where: { id: 'product-1' },
+        data: { primaryImageAssetPath: null },
+      });
+      expect(result).toEqual({
+        outcome: 'cleared',
+        previousImageAssetPath: '/media/old-file.jpg',
+      });
+    });
+
+    it('is idempotent: no write when the image is already null', async () => {
+      const mock = buildPrismaMock();
+      mock.productFindFirst.mockResolvedValue({
+        id: 'product-1',
+        primaryImageAssetPath: null,
+      });
+      const service = buildService(mock);
+
+      const result = await service.clearProductImage({
+        restaurantId: RESTAURANT_ID,
+        productId: WELL_FORMED_UUID,
+      });
+
+      expect(mock.productUpdate).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        outcome: 'cleared',
+        previousImageAssetPath: null,
+      });
+    });
+  });
+
   describe('getProductTranslations', () => {
     it('a malformed productId -> productNotFound with zero database queries', async () => {
       const mock = buildPrismaMock();

@@ -113,6 +113,19 @@ export const envSchema = z
         message:
           'AUTH_COOKIE_SAME_SITE must be "lax" (AUTH_TENANCY_SPEC.md #22 is the only V1-approved policy)',
       }),
+
+    // FT-2: first-working-version local-disk directory for Product/Category
+    // image uploads (`ImageStorageService`), already documented in
+    // `.env.example` but not previously wired into runtime validation.
+    // Relative paths resolve against the API process's own cwd, never
+    // against `__dirname`/`src` (`resolveUploadDir`). Must be replaced or
+    // explicitly confirmed before Production (DEPLOYMENT_ARCHITECTURE.md
+    // #40-44) -- local disk does not survive container replacement.
+    UPLOAD_LOCAL_DIR: z
+      .string()
+      .trim()
+      .min(1, 'UPLOAD_LOCAL_DIR must not be empty')
+      .default('storage/uploads'),
   })
   // Unrelated environment variables (AI, n8n, auth, upload, Docker Postgres
   // credentials, etc.) must be allowed through untouched, not rejected and

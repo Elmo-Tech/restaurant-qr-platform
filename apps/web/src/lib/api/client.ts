@@ -24,6 +24,20 @@ export interface ApiFetchOptions {
  * responses, `undefined` for a `204 No Content`) -- callers destructure the
  * shape they expect. Throws `ApiError` for any non-2xx response.
  */
+async function readApiResponse<TBody>(response: Response): Promise<TBody> {
+  if (response.status === HTTP_NO_CONTENT) {
+    return undefined as TBody;
+  }
+
+  const parsedBody: unknown = await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new ApiError(response.status, parsedBody);
+  }
+
+  return parsedBody as TBody;
+}
+
 export async function apiFetch<TBody = unknown>(
   path: string,
   options: ApiFetchOptions = {},
@@ -38,15 +52,28 @@ export async function apiFetch<TBody = unknown>(
     body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
   });
 
-  if (response.status === HTTP_NO_CONTENT) {
-    return undefined as TBody;
-  }
+  return readApiResponse<TBody>(response);
+}
 
-  const parsedBody: unknown = await response.json().catch(() => null);
+/**
+ * FT-2: the one multipart/form-data transport, used only for Product/
+ * Category image upload -- never the JSON path above. The browser sets its
+ * own `Content-Type: multipart/form-data; boundary=...` header for a
+ * `FormData` body, so this deliberately omits any explicit `Content-Type`
+ * (setting one manually would drop the required boundary and break the
+ * upload). Same `credentials: 'include'`/error-envelope handling as
+ * `apiFetch`.
+ */
+export async function apiFetchFormData<TBody = unknown>(
+  path: string,
+  formData: FormData,
+  method: 'POST' | 'PUT' = 'POST',
+): Promise<TBody> {
+  const response = await fetch(`${API_BASE_URL}${path}`, {
+    method,
+    credentials: 'include',
+    body: formData,
+  });
 
-  if (!response.ok) {
-    throw new ApiError(response.status, parsedBody);
-  }
-
-  return parsedBody as TBody;
+  return readApiResponse<TBody>(response);
 }

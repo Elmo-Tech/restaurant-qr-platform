@@ -35,9 +35,12 @@ import { Input } from '../../../../../components/ui/Input';
 import { Select } from '../../../../../components/ui/Select';
 import { Textarea } from '../../../../../components/ui/Textarea';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
-import { IconPencil, IconPlus } from '../../../../../components/staff/icons';
+import { IconImage, IconPencil, IconPlus } from '../../../../../components/staff/icons';
 import { LanguageTabs, type LanguageTabOption } from '../../../../../components/menu/LanguageTabs';
 import { TranslationFields } from '../../../../../components/menu/TranslationFields';
+import { ImageField } from '../../../../../components/menu/ImageField';
+import { resolveAssetUrl } from '../../../../../lib/media/asset-url';
+import { validateImageFile } from '../../../../../lib/menu/image-validation';
 
 const KEEP_CURRENT_MENU = '__keep_current_menu__';
 
@@ -84,6 +87,26 @@ function toFormState(category: Category): CategoryFormState {
     displayOrder: String(category.displayOrder),
     targetMenuId: KEEP_CURRENT_MENU,
   };
+}
+
+/** FT-2 correction, Section 2: a compact ~36px thumbnail in the Category nav itself -- reuses the existing `resolveAssetUrl` helper and the same clean placeholder icon as `ProductList`'s thumbnail, no larger redesign. */
+function CategoryThumbnail({ imageAssetPath }: { imageAssetPath: string | null }) {
+  const imageUrl = resolveAssetUrl(imageAssetPath);
+  if (imageUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable static/local image.
+      <img
+        src={imageUrl}
+        alt=""
+        className="h-9 w-9 flex-shrink-0 rounded-md border border-[#E5DED6] object-cover"
+      />
+    );
+  }
+  return (
+    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-[#F1ECE6] text-[#AFA397]">
+      <IconImage className="h-4 w-4" />
+    </span>
+  );
 }
 
 /** One in-progress, not-yet-saved secondary-locale translation typed while creating (FT-1 correction 2, Section 3). */
@@ -135,6 +158,10 @@ export function CategoryNavigation({
   const [formError, setFormError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [secondaryDrafts, setSecondaryDrafts] = useState<SecondaryDrafts>({});
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+  const [editingImageAssetPath, setEditingImageAssetPath] = useState<string | null>(null);
+  const [imageUploadBusy, setImageUploadBusy] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
   const nameRef = useRef<HTMLInputElement>(null);
 
   function startCreate() {
@@ -143,6 +170,9 @@ export function CategoryNavigation({
     setForm(EMPTY_FORM);
     setFormError(null);
     setSecondaryDrafts({});
+    setPendingImageFile(null);
+    setEditingImageAssetPath(null);
+    setImageError(null);
   }
 
   function startEdit(category: Category) {
@@ -150,12 +180,106 @@ export function CategoryNavigation({
     setEditingId(category.id);
     setForm(toFormState(category));
     setFormError(null);
+    setPendingImageFile(null);
+    setEditingImageAssetPath(category.imageAssetPath);
+    setImageError(null);
   }
 
   function cancelForm() {
     setMode('idle');
     setEditingId(null);
     setFormError(null);
+    setImageError(null);
+  }
+
+  // FT-2, Section 16: a local object-URL preview only ever exists for a
+  // `pendingImageFile` (Create mode, before the Category exists). Computed
+  // with `useMemo` rather than effect+state (same reasoning as
+  // `ProductEditor`'s identical pattern) -- the effect below only revokes,
+  // never calls setState.
+  const pendingImagePreviewUrl = useMemo(
+    () => (pendingImageFile ? URL.createObjectURL(pendingImageFile) : null),
+    [pendingImageFile],
+  );
+  useEffect(() => {
+    return () => {
+      if (pendingImagePreviewUrl) URL.revokeObjectURL(pendingImagePreviewUrl);
+    };
+  }, [pendingImagePreviewUrl]);
+
+  function handleSelectImageFile(file: File) {
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setImageError(validationError);
+      return;
+    }
+    setImageError(null);
+    if (mode === 'create') {
+      // No Category exists yet -- keep the file locally; `handleSubmit`
+      // uploads it right after Create succeeds (Section 15).
+      setPendingImageFile(file);
+      return;
+    }
+    if (editingId) {
+      void uploadImageNow(editingId, file);
+    }
+  }
+
+  async function uploadImageNow(categoryId: string, file: File) {
+    setImageUploadBusy(true);
+    setImageError(null);
+    try {
+      const result = await menuApi.uploadCategoryImage(restaurantId, categoryId, file);
+      setEditingImageAssetPath(result.imageAssetPath);
+      // FT-2 code review blocker: the Dialog's own `editingImageAssetPath`
+      // is only local preview state -- the Menu Management nav renders
+      // `category.imageAssetPath` straight from the parent's `categories`
+      // list, which never otherwise learns about a replace-image done
+      // entirely inside this Dialog. Reuse the existing `onUpdated` callback
+      // (already wired to `MenuWorkspace`'s narrow `loadCategories` refetch)
+      // so the thumbnail updates immediately, with no page refresh.
+      const original = categories?.find((category) => category.id === categoryId);
+      if (original) {
+        onUpdated({ ...original, imageAssetPath: result.imageAssetPath });
+      }
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setImageError(describeError(error));
+    } finally {
+      setImageUploadBusy(false);
+    }
+  }
+
+  async function handleRemoveImage() {
+    if (mode === 'create') {
+      setPendingImageFile(null);
+      return;
+    }
+    if (!editingId) return;
+    setImageUploadBusy(true);
+    setImageError(null);
+    try {
+      await menuApi.removeCategoryImage(restaurantId, editingId);
+      setEditingImageAssetPath(null);
+      // Same reasoning as `uploadImageNow` above -- the nav thumbnail must
+      // fall back to the placeholder immediately, not only after some
+      // unrelated later refetch.
+      const original = categories?.find((category) => category.id === editingId);
+      if (original) {
+        onUpdated({ ...original, imageAssetPath: null });
+      }
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setImageError(describeError(error));
+    } finally {
+      setImageUploadBusy(false);
+    }
   }
 
   /**
@@ -227,19 +351,48 @@ export function CategoryNavigation({
           }
         }
 
+        // The selected image (if any) is only uploaded once the Category
+        // exists, exactly like a secondary translation (FT-2, Section 15).
+        let uploadedImageAssetPath: string | null = null;
+        let imageUploadFailed = false;
+        if (pendingImageFile) {
+          try {
+            const imageResult = await menuApi.uploadCategoryImage(
+              restaurantId,
+              created.id,
+              pendingImageFile,
+            );
+            uploadedImageAssetPath = imageResult.imageAssetPath;
+          } catch (imageUploadError) {
+            if (isUnauthenticatedError(imageUploadError)) {
+              redirectToLogin();
+              return;
+            }
+            imageUploadFailed = true;
+          }
+        }
+
         onCreated(created);
 
-        if (translationFailures.length > 0) {
+        if (translationFailures.length > 0 || imageUploadFailed) {
           // The Category itself was created successfully -- never
           // duplicate-create it on retry (Section 5). Drop into Edit mode
           // for the Category that now exists so the User can retry the
-          // failed translation(s) through the normal per-locale Save flow.
+          // failed translation(s)/image through their normal independent
+          // Save/Upload flows.
+          const failures: string[] = [];
+          if (translationFailures.length > 0) {
+            failures.push(`saving the ${translationFailures.join(', ')} translation failed`);
+          }
+          if (imageUploadFailed) {
+            failures.push('the image upload failed');
+          }
           setMode('edit');
           setEditingId(created.id);
           setForm(toFormState(created));
-          setFormError(
-            `Category created, but saving the ${translationFailures.join(', ')} translation failed. You can retry below.`,
-          );
+          setEditingImageAssetPath(uploadedImageAssetPath);
+          setPendingImageFile(null);
+          setFormError(`Category created, but ${failures.join(' and ')}. You can retry below.`);
           return;
         }
 
@@ -295,7 +448,7 @@ export function CategoryNavigation({
       open={mode !== 'idle'}
       title={mode === 'create' ? 'Create Category' : 'Edit Category'}
       subtitle={currentMenuName || undefined}
-      isSubmitting={isSubmitting}
+      isSubmitting={isSubmitting || imageUploadBusy}
       submitLabel={isSubmitting ? 'Saving…' : mode === 'create' ? 'Create Category' : 'Save changes'}
       onSubmit={handleSubmit}
       onClose={cancelForm}
@@ -315,6 +468,14 @@ export function CategoryNavigation({
         locales={locales}
         secondaryDrafts={secondaryDrafts}
         setSecondaryDrafts={setSecondaryDrafts}
+        imageUrl={
+          mode === 'create' ? pendingImagePreviewUrl : resolveAssetUrl(editingImageAssetPath)
+        }
+        hasRemovableImage={mode === 'create' ? pendingImageFile !== null : editingImageAssetPath !== null}
+        onSelectImageFile={handleSelectImageFile}
+        onRemoveImage={() => void handleRemoveImage()}
+        imageBusy={imageUploadBusy}
+        imageError={imageError}
       />
     </Dialog>
   );
@@ -385,11 +546,14 @@ export function CategoryNavigation({
                         type="button"
                         onClick={() => onSelectCategory(category.id)}
                         aria-current={isSelected ? 'true' : undefined}
-                        className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-md py-2 pl-2 pr-1 text-left text-sm xl:w-full xl:whitespace-normal ${
+                        className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-md py-1.5 pl-1.5 pr-1 text-left text-sm xl:w-full xl:whitespace-normal ${
                           isSelected ? 'font-medium text-[#1D1A18]' : 'text-[#302C29]'
                         }`}
                       >
-                        <span>{category.translation.name}</span>
+                        <span className="flex min-w-0 items-center gap-2">
+                          <CategoryThumbnail imageAssetPath={category.imageAssetPath} />
+                          <span className="truncate">{category.translation.name}</span>
+                        </span>
                         {category.status === 'INACTIVE' ? (
                           <span className="text-xs text-[#8A8177]">Inactive</span>
                         ) : (
@@ -443,6 +607,12 @@ function CategoryFormFields({
   locales,
   secondaryDrafts,
   setSecondaryDrafts,
+  imageUrl,
+  hasRemovableImage,
+  onSelectImageFile,
+  onRemoveImage,
+  imageBusy,
+  imageError,
 }: {
   mode: 'create' | 'edit';
   form: CategoryFormState;
@@ -457,10 +627,33 @@ function CategoryFormFields({
   locales: RestaurantLocalesResponse | null;
   secondaryDrafts: SecondaryDrafts;
   setSecondaryDrafts: Dispatch<SetStateAction<SecondaryDrafts>>;
+  imageUrl: string | null;
+  hasRemovableImage: boolean;
+  onSelectImageFile: (file: File) => void;
+  onRemoveImage: () => void;
+  imageBusy: boolean;
+  imageError: string | null;
 }) {
   return (
     <div className="flex flex-col gap-6">
       {formError ? <Alert variant="error">{formError}</Alert> : null}
+
+      <FormSection title="Image">
+        <ImageField
+          idPrefix="category"
+          imageUrl={imageUrl}
+          onSelectFile={onSelectImageFile}
+          onRemove={hasRemovableImage ? onRemoveImage : undefined}
+          isBusy={imageBusy || isSubmitting}
+          error={imageError}
+          selectLabel={imageUrl ? 'Replace image' : 'Choose image'}
+          helperText={
+            mode === 'create'
+              ? 'JPEG, PNG, or WebP, up to 5 MB. Uploaded once the Category is created.'
+              : 'JPEG, PNG, or WebP, up to 5 MB.'
+          }
+        />
+      </FormSection>
 
       <FormSection title="General">
         <FormField label="Status" htmlFor="category-status">

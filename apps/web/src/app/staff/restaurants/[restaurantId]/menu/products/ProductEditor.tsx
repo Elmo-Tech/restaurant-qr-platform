@@ -32,6 +32,9 @@ import { Textarea } from '../../../../../../components/ui/Textarea';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
 import { LanguageTabs, type LanguageTabOption } from '../../../../../../components/menu/LanguageTabs';
 import { TranslationFields } from '../../../../../../components/menu/TranslationFields';
+import { ImageField } from '../../../../../../components/menu/ImageField';
+import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
+import { validateImageFile } from '../../../../../../lib/menu/image-validation';
 
 /** Mirrors the Backend's accepted decimal-string shape (money-decimal.ts) -- helpful client validation only, never authoritative (CLAUDE.md #27). */
 const MONEY_DECIMAL_PATTERN = /^(0|[1-9]\d{0,11})(\.\d{1,2})?$/;
@@ -120,6 +123,7 @@ export function ProductEditor({
   const searchParams = useSearchParams();
   const initialCategoryIdParam = searchParams.get('categoryId');
   const translationErrorParam = searchParams.get('translationError');
+  const imageErrorParam = searchParams.get('imageError');
 
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -133,6 +137,10 @@ export function ProductEditor({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [secondaryDrafts, setSecondaryDrafts] = useState<SecondaryDrafts>({});
+
+  const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
+  const [imageUploadBusy, setImageUploadBusy] = useState(false);
+  const [imageError, setImageError] = useState<string | null>(null);
 
   const requestRef = useRef(0);
 
@@ -162,14 +170,22 @@ export function ProductEditor({
         }
         setProduct(found);
         setForm(toFormState(found));
-        if (translationErrorParam) {
+        if (translationErrorParam || imageErrorParam) {
           // Redirected here straight after Create because one or more
-          // secondary-locale translations failed to save (FT-1 correction
-          // 2, Section 5) -- the Product itself is real and already
-          // created, never duplicate-create it; just surface the failure
-          // so the User can retry the translation(s) below.
-          const failedLabels = translationErrorParam.split(',').map(localeLabel).join(', ');
-          setFormError(`Product created, but saving the ${failedLabels} translation failed. You can retry below.`);
+          // secondary-locale translations and/or the image upload failed
+          // to save (FT-1 correction 2 / FT-2, Section 5/14) -- the
+          // Product itself is real and already created, never
+          // duplicate-create it; just surface the failure(s) so the User
+          // can retry below.
+          const failures: string[] = [];
+          if (translationErrorParam) {
+            const failedLabels = translationErrorParam.split(',').map(localeLabel).join(', ');
+            failures.push(`saving the ${failedLabels} translation failed`);
+          }
+          if (imageErrorParam) {
+            failures.push('the image upload failed');
+          }
+          setFormError(`Product created, but ${failures.join(' and ')}. You can retry below.`);
         }
       } else {
         const preselected =
@@ -188,13 +204,88 @@ export function ProductEditor({
       setStatus('error');
       setLoadError(describeError(error));
     }
-  }, [restaurantId, mode, productId, initialCategoryIdParam, translationErrorParam]);
+  }, [restaurantId, mode, productId, initialCategoryIdParam, translationErrorParam, imageErrorParam]);
 
   useEffect(() => {
     queueMicrotask(() => {
       void load();
     });
   }, [load]);
+
+  // FT-2, Section 16: a local object-URL preview only ever exists for a
+  // `pendingImageFile` (Create mode, before the Product exists). Computed
+  // with `useMemo` rather than effect+state, so the URL is available on the
+  // very same render as the file selection; the effect below only revokes
+  // the previous URL once it's no longer used, never calls setState.
+  const pendingImagePreviewUrl = useMemo(
+    () => (pendingImageFile ? URL.createObjectURL(pendingImageFile) : null),
+    [pendingImageFile],
+  );
+  useEffect(() => {
+    return () => {
+      if (pendingImagePreviewUrl) URL.revokeObjectURL(pendingImagePreviewUrl);
+    };
+  }, [pendingImagePreviewUrl]);
+
+  function handleSelectImageFile(file: File) {
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setImageError(validationError);
+      return;
+    }
+    setImageError(null);
+    if (mode === 'create') {
+      // No Product exists yet -- keep the file locally; `handleSubmit`
+      // uploads it right after Create succeeds (Section 14).
+      setPendingImageFile(file);
+      return;
+    }
+    if (productId) {
+      void uploadImageNow(productId, file);
+    }
+  }
+
+  async function uploadImageNow(id: string, file: File) {
+    setImageUploadBusy(true);
+    setImageError(null);
+    try {
+      const result = await menuApi.uploadProductImage(restaurantId, id, file);
+      setProduct((prev) =>
+        prev ? { ...prev, primaryImageAssetPath: result.primaryImageAssetPath } : prev,
+      );
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setImageError(describeError(error));
+    } finally {
+      setImageUploadBusy(false);
+    }
+  }
+
+  async function handleRemoveImage() {
+    if (mode === 'create') {
+      // Nothing persisted yet -- just drop the local selection.
+      setPendingImageFile(null);
+      return;
+    }
+    if (!productId) return;
+    setImageUploadBusy(true);
+    setImageError(null);
+    try {
+      await menuApi.removeProductImage(restaurantId, productId);
+      setProduct((prev) => (prev ? { ...prev, primaryImageAssetPath: null } : prev));
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setImageError(describeError(error));
+    } finally {
+      setImageUploadBusy(false);
+    }
+  }
 
   const categoryGroups = useMemo(() => {
     const byMenu = new Map<string, Category[]>();
@@ -274,15 +365,48 @@ export function ProductEditor({
           }
         }
 
+        // The selected image (if any) is only uploaded once the Product
+        // exists, exactly like a secondary translation (FT-2, Section 14).
+        let imageUploadFailed = false;
+        if (pendingImageFile) {
+          try {
+            await menuApi.uploadProductImage(restaurantId, created.id, pendingImageFile);
+          } catch (imageUploadError) {
+            if (isUnauthenticatedError(imageUploadError)) {
+              redirectToLogin();
+              return;
+            }
+            imageUploadFailed = true;
+          }
+        }
+
         // The Product itself was created successfully either way -- never
-        // duplicate-create it on retry (Section 5). Always redirect to its
-        // Edit route; a partial translation failure is carried over as a
-        // query param so Edit can surface it without hiding that the
-        // Product is real and already saved.
-        const failureQuery =
-          translationFailures.length > 0 ? `&translationError=${translationFailures.join(',')}` : '';
+        // duplicate-create it on retry (Section 5). A partial translation
+        // and/or image failure sends the User to the Product Edit route
+        // (with the failure carried over as query params) so they can
+        // retry there without hiding that the Product is real and already
+        // saved. Full success is the common path and should feel like
+        // "Product created" -- not a silent switch into an Edit screen --
+        // so it returns straight to Menu Management instead (FT-2
+        // correction, Section 1), landing back on the same Menu/Category
+        // the User started from.
+        if (translationFailures.length > 0 || imageUploadFailed) {
+          const failureParams = new URLSearchParams();
+          if (translationFailures.length > 0) {
+            failureParams.set('translationError', translationFailures.join(','));
+          }
+          if (imageUploadFailed) {
+            failureParams.set('imageError', '1');
+          }
+          router.replace(
+            `/staff/restaurants/${restaurantId}/menu/products/${created.id}?categoryId=${created.categoryId}&${failureParams.toString()}`,
+          );
+          return;
+        }
+
+        const targetMenuId = categories.find((category) => category.id === created.categoryId)?.menuId;
         router.replace(
-          `/staff/restaurants/${restaurantId}/menu/products/${created.id}?categoryId=${created.categoryId}${failureQuery}`,
+          `/staff/restaurants/${restaurantId}/menu?menuId=${targetMenuId ?? ''}&categoryId=${created.categoryId}`,
         );
         return;
       }
@@ -373,7 +497,9 @@ export function ProductEditor({
     );
   }
 
-  const isBusy = isSubmitting || !canManage;
+  const isBusy = isSubmitting || !canManage || imageUploadBusy;
+  const displayImageUrl = pendingImagePreviewUrl ?? resolveAssetUrl(product?.primaryImageAssetPath);
+  const hasRemovableImage = mode === 'create' ? pendingImageFile !== null : product?.primaryImageAssetPath != null;
 
   return (
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
@@ -399,6 +525,25 @@ export function ProductEditor({
       ) : null}
 
       {formError ? <Alert variant="error">{formError}</Alert> : null}
+
+      <Card className="flex flex-col gap-6">
+        <FormSection title="Image">
+          <ImageField
+            idPrefix="product"
+            imageUrl={displayImageUrl}
+            onSelectFile={handleSelectImageFile}
+            onRemove={hasRemovableImage ? () => void handleRemoveImage() : undefined}
+            isBusy={imageUploadBusy}
+            error={imageError}
+            selectLabel={displayImageUrl ? 'Replace image' : 'Choose image'}
+            helperText={
+              mode === 'create'
+                ? 'JPEG, PNG, or WebP, up to 5 MB. Uploaded once the Product is created.'
+                : 'JPEG, PNG, or WebP, up to 5 MB.'
+            }
+          />
+        </FormSection>
+      </Card>
 
       <Card className="flex flex-col gap-6">
         {mode === 'create' ? (

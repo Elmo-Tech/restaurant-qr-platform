@@ -53,9 +53,17 @@ describe('ProductsController', () => {
     createProduct: jest.Mock;
     updateProduct: jest.Mock;
     updateAvailability: jest.Mock;
+    productExists: jest.Mock;
+    setProductImage: jest.Mock;
+    clearProductImage: jest.Mock;
     getProductTranslations: jest.Mock;
     putProductTranslation: jest.Mock;
     deleteProductTranslation: jest.Mock;
+  };
+  let imageStorageService: {
+    saveImage: jest.Mock;
+    deleteImage: jest.Mock;
+    deleteImageBestEffort: jest.Mock;
   };
   let controller: ProductsController;
 
@@ -65,6 +73,8 @@ describe('ProductsController', () => {
   const updateHandler = ProductsController.prototype.updateProduct;
   const availabilityHandler =
     ProductsController.prototype.updateProductAvailability;
+  const uploadImageHandler = ProductsController.prototype.uploadProductImage;
+  const removeImageHandler = ProductsController.prototype.removeProductImage;
   const getTranslationsHandler =
     ProductsController.prototype.getProductTranslations;
   const putTranslationHandler =
@@ -79,11 +89,24 @@ describe('ProductsController', () => {
       createProduct: jest.fn(),
       updateProduct: jest.fn(),
       updateAvailability: jest.fn(),
+      productExists: jest.fn().mockResolvedValue(true),
+      setProductImage: jest.fn(),
+      clearProductImage: jest.fn(),
       getProductTranslations: jest.fn(),
       putProductTranslation: jest.fn(),
       deleteProductTranslation: jest.fn(),
     };
-    controller = new ProductsController(productsService as never);
+    imageStorageService = {
+      saveImage: jest
+        .fn()
+        .mockResolvedValue({ assetPath: '/media/new-file.jpg' }),
+      deleteImage: jest.fn().mockResolvedValue(undefined),
+      deleteImageBestEffort: jest.fn().mockResolvedValue(undefined),
+    };
+    controller = new ProductsController(
+      productsService as never,
+      imageStorageService as never,
+    );
   });
 
   function expectNoBranchGuard(guards: unknown[]) {
@@ -391,6 +414,275 @@ describe('ProductsController', () => {
         controller.updateProductAvailability(
           'unknown-id',
           dto,
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'PRODUCT_NOT_FOUND', message: 'Product not found.' },
+        },
+      });
+    });
+  });
+
+  describe('POST :productId/image', () => {
+    function buildFile(
+      overrides: Partial<{ mimetype: string; size: number }> = {},
+    ) {
+      return {
+        originalname: 'photo.jpg',
+        mimetype: overrides.mimetype ?? 'image/jpeg',
+        size: overrides.size ?? 1024,
+        // Real JPEG magic bytes (FF D8 FF) -- `assertValidImageUpload` now
+        // sniffs the actual signature, so a valid-upload test must supply a
+        // buffer that genuinely matches its claimed `image/jpeg` mimetype.
+        buffer: Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]),
+      };
+    }
+
+    it('declares exactly AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        uploadImageHandler,
+      ) as unknown[];
+
+      expectMutationGuardChain(guards);
+    });
+
+    it('requires exactly menu.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        uploadImageHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_MANAGE);
+    });
+
+    it('saves the file, persists the new path, and returns it (valid upload)', async () => {
+      productsService.setProductImage.mockResolvedValue({
+        outcome: 'updated',
+        data: { id: 'product-1', primaryImageAssetPath: '/media/new-file.jpg' },
+        previousImageAssetPath: null,
+      });
+
+      const body = await controller.uploadProductImage(
+        'product-1',
+        buildFile(),
+        buildRequest('authorized-restaurant'),
+      );
+
+      expect(imageStorageService.saveImage).toHaveBeenCalledWith(
+        expect.any(Buffer),
+        'image/jpeg',
+      );
+      expect(productsService.setProductImage).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        productId: 'product-1',
+        imageAssetPath: '/media/new-file.jpg',
+      });
+      expect(body).toEqual({
+        data: { primaryImageAssetPath: '/media/new-file.jpg' },
+      });
+      // No previous image -- cleanup is still called (it no-ops internally on null).
+      expect(imageStorageService.deleteImageBestEffort).toHaveBeenCalledWith(
+        null,
+      );
+    });
+
+    it('removes the old asset after successfully replacing an existing image', async () => {
+      productsService.setProductImage.mockResolvedValue({
+        outcome: 'updated',
+        data: { id: 'product-1', primaryImageAssetPath: '/media/new-file.jpg' },
+        previousImageAssetPath: '/media/old-file.jpg',
+      });
+
+      await controller.uploadProductImage(
+        'product-1',
+        buildFile(),
+        buildRequest('authorized-restaurant'),
+      );
+
+      expect(imageStorageService.deleteImageBestEffort).toHaveBeenCalledWith(
+        '/media/old-file.jpg',
+      );
+    });
+
+    it('rejects a non-whitelisted MIME type with INVALID_IMAGE_TYPE, without saving anything', async () => {
+      await expect(
+        controller.uploadProductImage(
+          'product-1',
+          buildFile({ mimetype: 'application/pdf' }),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'INVALID_IMAGE_TYPE',
+            message: 'Only JPEG, PNG, and WebP images are supported.',
+          },
+        },
+      });
+      expect(imageStorageService.saveImage).not.toHaveBeenCalled();
+    });
+
+    it('rejects a file above 5 MB with IMAGE_TOO_LARGE, without saving anything', async () => {
+      await expect(
+        controller.uploadProductImage(
+          'product-1',
+          buildFile({ size: 5 * 1024 * 1024 + 1 }),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'IMAGE_TOO_LARGE',
+            message: 'Image must be 5 MB or smaller.',
+          },
+        },
+      });
+      expect(imageStorageService.saveImage).not.toHaveBeenCalled();
+    });
+
+    it('rejects a missing file with IMAGE_REQUIRED', async () => {
+      await expect(
+        controller.uploadProductImage(
+          'product-1',
+          undefined,
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'IMAGE_REQUIRED',
+            message: 'An image file is required.',
+          },
+        },
+      });
+      expect(imageStorageService.saveImage).not.toHaveBeenCalled();
+    });
+
+    it('maps a foreign/unknown Product to 404 PRODUCT_NOT_FOUND WITHOUT ever saving the file (Tenant preflight, FT-2 code review blocker)', async () => {
+      productsService.productExists.mockResolvedValue(false);
+
+      await expect(
+        controller.uploadProductImage(
+          'foreign-product',
+          buildFile(),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'PRODUCT_NOT_FOUND', message: 'Product not found.' },
+        },
+      });
+      expect(productsService.productExists).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        productId: 'foreign-product',
+      });
+      expect(imageStorageService.saveImage).not.toHaveBeenCalled();
+      expect(productsService.setProductImage).not.toHaveBeenCalled();
+    });
+
+    it('cleans up the just-saved file and maps a foreign/unknown Product to 404 PRODUCT_NOT_FOUND, never touching the old asset', async () => {
+      productsService.setProductImage.mockResolvedValue({
+        outcome: 'productNotFound',
+      });
+
+      await expect(
+        controller.uploadProductImage(
+          'unknown-id',
+          buildFile(),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toMatchObject({
+        response: {
+          error: { code: 'PRODUCT_NOT_FOUND', message: 'Product not found.' },
+        },
+      });
+      expect(imageStorageService.deleteImageBestEffort).toHaveBeenCalledWith(
+        '/media/new-file.jpg',
+      );
+    });
+
+    it('cleans up the just-saved orphan file if the DB write itself throws', async () => {
+      productsService.setProductImage.mockRejectedValue(new Error('db down'));
+
+      await expect(
+        controller.uploadProductImage(
+          'product-1',
+          buildFile(),
+          buildRequest('authorized-restaurant'),
+        ),
+      ).rejects.toThrow('db down');
+      expect(imageStorageService.deleteImageBestEffort).toHaveBeenCalledWith(
+        '/media/new-file.jpg',
+      );
+    });
+  });
+
+  describe('DELETE :productId/image', () => {
+    it('declares exactly AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        removeImageHandler,
+      ) as unknown[];
+
+      expectMutationGuardChain(guards);
+    });
+
+    it('requires exactly menu.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        removeImageHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.MENU_MANAGE);
+    });
+
+    it('clears the image and removes the old local asset', async () => {
+      productsService.clearProductImage.mockResolvedValue({
+        outcome: 'cleared',
+        previousImageAssetPath: '/media/old-file.jpg',
+      });
+
+      const body = await controller.removeProductImage(
+        'product-1',
+        buildRequest('authorized-restaurant'),
+      );
+
+      expect(productsService.clearProductImage).toHaveBeenCalledWith({
+        restaurantId: 'authorized-restaurant',
+        productId: 'product-1',
+      });
+      expect(imageStorageService.deleteImageBestEffort).toHaveBeenCalledWith(
+        '/media/old-file.jpg',
+      );
+      expect(body).toBeUndefined();
+    });
+
+    it('is idempotent when no image is set (nothing to delete)', async () => {
+      productsService.clearProductImage.mockResolvedValue({
+        outcome: 'cleared',
+        previousImageAssetPath: null,
+      });
+
+      await controller.removeProductImage(
+        'product-1',
+        buildRequest('authorized-restaurant'),
+      );
+
+      expect(imageStorageService.deleteImageBestEffort).toHaveBeenCalledWith(
+        null,
+      );
+    });
+
+    it('maps a foreign/unknown Product to 404 PRODUCT_NOT_FOUND', async () => {
+      productsService.clearProductImage.mockResolvedValue({
+        outcome: 'productNotFound',
+      });
+
+      await expect(
+        controller.removeProductImage(
+          'unknown-id',
           buildRequest('authorized-restaurant'),
         ),
       ).rejects.toMatchObject({

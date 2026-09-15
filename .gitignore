@@ -43,3 +43,7 @@ Thumbs.db
 
 # Docker runtime data
 docker-data/
+
+# FT-2: local-disk Product/Category image uploads (first-working-version
+# storage only, see ImageStorageService) -- never source-controlled.
+apps/api/storage/

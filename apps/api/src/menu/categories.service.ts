@@ -79,6 +79,30 @@ export type UpdateCategoryResult =
   | { outcome: 'categoryNotFound' }
   | { outcome: 'menuNotFound' };
 
+export interface SetCategoryImageInput {
+  restaurantId: string;
+  categoryId: string;
+  imageAssetPath: string;
+}
+
+export type SetCategoryImageResult =
+  | {
+      outcome: 'updated';
+      data: { id: string; imageAssetPath: string };
+      /** The Category's previous image, if any -- the controller deletes this local file only AFTER this DB update has actually succeeded (FT-2, Section 10). */
+      previousImageAssetPath: string | null;
+    }
+  | { outcome: 'categoryNotFound' };
+
+export interface ClearCategoryImageInput {
+  restaurantId: string;
+  categoryId: string;
+}
+
+export type ClearCategoryImageResult =
+  | { outcome: 'cleared'; previousImageAssetPath: string | null }
+  | { outcome: 'categoryNotFound' };
+
 export interface AuthorizedCategoryEntityScope {
   restaurantId: string;
   categoryId: string;
@@ -356,6 +380,97 @@ export class CategoriesService {
         data: { ...updatedCategory, translation },
       };
     });
+  }
+
+  /**
+   * FT-2 code review blocker: a Tenant-scoped existence/ownership preflight
+   * used ONLY to gate whether an uploaded image is even written to disk --
+   * mirrors `ProductsService.productExists` exactly. Called BEFORE
+   * `ImageStorageService.saveImage` so a foreign or unknown Category never
+   * causes a file to be saved at all. `setCategoryImage`/`clearCategoryImage`
+   * keep their own identical scoped lookup for write-time race safety --
+   * this is an additional early gate, not a replacement for it.
+   */
+  async categoryExists(
+    scope: AuthorizedCategoryEntityScope,
+  ): Promise<boolean> {
+    if (!isWellFormedUuid(scope.categoryId)) {
+      return false;
+    }
+
+    const category = await this.prisma.category.findFirst({
+      where: { id: scope.categoryId, restaurantId: scope.restaurantId },
+      select: { id: true },
+    });
+    return category !== null;
+  }
+
+  /**
+   * FT-2: persists a newly-saved local image asset path as the Category's
+   * image, replacing any existing one. Mirrors
+   * `ProductsService.setProductImage` exactly -- never touches the
+   * filesystem itself, only reports the previous path so the controller can
+   * remove that now-replaced local file after this DB write commits
+   * (Section 10).
+   */
+  async setCategoryImage(
+    input: SetCategoryImageInput,
+  ): Promise<SetCategoryImageResult> {
+    if (!isWellFormedUuid(input.categoryId)) {
+      return { outcome: 'categoryNotFound' };
+    }
+
+    const existing = await this.prisma.category.findFirst({
+      where: { id: input.categoryId, restaurantId: input.restaurantId },
+      select: { id: true, imageAssetPath: true },
+    });
+    if (!existing) {
+      return { outcome: 'categoryNotFound' };
+    }
+
+    const updated = await this.prisma.category.update({
+      where: { id: existing.id },
+      data: { imageAssetPath: input.imageAssetPath },
+      select: { id: true, imageAssetPath: true },
+    });
+
+    return {
+      outcome: 'updated',
+      data: { id: updated.id, imageAssetPath: input.imageAssetPath },
+      previousImageAssetPath: existing.imageAssetPath,
+    };
+  }
+
+  /**
+   * FT-2: clears the Category's image. Idempotent -- mirrors
+   * `ProductsService.clearProductImage` exactly.
+   */
+  async clearCategoryImage(
+    input: ClearCategoryImageInput,
+  ): Promise<ClearCategoryImageResult> {
+    if (!isWellFormedUuid(input.categoryId)) {
+      return { outcome: 'categoryNotFound' };
+    }
+
+    const existing = await this.prisma.category.findFirst({
+      where: { id: input.categoryId, restaurantId: input.restaurantId },
+      select: { id: true, imageAssetPath: true },
+    });
+    if (!existing) {
+      return { outcome: 'categoryNotFound' };
+    }
+
+    if (existing.imageAssetPath !== null) {
+      await this.prisma.category.update({
+        where: { id: existing.id },
+        data: { imageAssetPath: null },
+      });
+    }
+
+    return {
+      outcome: 'cleared',
+      previousImageAssetPath: existing.imageAssetPath,
+    };
   }
 
   /**

@@ -194,6 +194,30 @@ export type UpdateProductAvailabilityResult =
     }
   | { outcome: 'productNotFound' };
 
+export interface SetProductImageInput {
+  restaurantId: string;
+  productId: string;
+  imageAssetPath: string;
+}
+
+export type SetProductImageResult =
+  | {
+      outcome: 'updated';
+      data: { id: string; primaryImageAssetPath: string };
+      /** The Product's previous image, if any -- the controller deletes this local file only AFTER this DB update has actually succeeded (FT-2, Section 10). */
+      previousImageAssetPath: string | null;
+    }
+  | { outcome: 'productNotFound' };
+
+export interface ClearProductImageInput {
+  restaurantId: string;
+  productId: string;
+}
+
+export type ClearProductImageResult =
+  | { outcome: 'cleared'; previousImageAssetPath: string | null }
+  | { outcome: 'productNotFound' };
+
 /**
  * Day 1 Menu Vertical Slice, Batch D: Product List, Create, generic Update,
  * and the focused Availability Update. Mirrors the exact `MenusService`/
@@ -456,6 +480,100 @@ export class ProductsService {
     });
 
     return { outcome: 'updated', data: updated };
+  }
+
+  /**
+   * FT-2 code review blocker: a Tenant-scoped existence/ownership preflight
+   * used ONLY to gate whether an uploaded image is even written to disk --
+   * the controller calls this BEFORE `ImageStorageService.saveImage` so a
+   * foreign or unknown Product never causes a file to be saved at all
+   * (previously the file was saved first and only cleaned up after
+   * `setProductImage` separately discovered the Product wasn't authorized).
+   * `setProductImage`/`clearProductImage` keep their own identical scoped
+   * lookup for write-time race safety -- this is an additional early gate,
+   * not a replacement for it.
+   */
+  async productExists(scope: AuthorizedProductEntityScope): Promise<boolean> {
+    if (!isWellFormedUuid(scope.productId)) {
+      return false;
+    }
+
+    const product = await this.prisma.product.findFirst({
+      where: { id: scope.productId, restaurantId: scope.restaurantId },
+      select: { id: true },
+    });
+    return product !== null;
+  }
+
+  /**
+   * FT-2: persists a newly-saved local image asset path as the Product's
+   * primary image, replacing any existing one. This method never touches
+   * the filesystem itself (`ImageStorageService` already saved the new file
+   * before this is called) -- it only reports the previous
+   * `primaryImageAssetPath` so the controller can remove that now-replaced
+   * local file AFTER this DB write has actually committed (Section 10:
+   * never delete the old file first, in case the DB update fails).
+   */
+  async setProductImage(
+    input: SetProductImageInput,
+  ): Promise<SetProductImageResult> {
+    if (!isWellFormedUuid(input.productId)) {
+      return { outcome: 'productNotFound' };
+    }
+
+    const existing = await this.prisma.product.findFirst({
+      where: { id: input.productId, restaurantId: input.restaurantId },
+      select: { id: true, primaryImageAssetPath: true },
+    });
+    if (!existing) {
+      return { outcome: 'productNotFound' };
+    }
+
+    const updated = await this.prisma.product.update({
+      where: { id: existing.id },
+      data: { primaryImageAssetPath: input.imageAssetPath },
+      select: { id: true, primaryImageAssetPath: true },
+    });
+
+    return {
+      outcome: 'updated',
+      data: { id: updated.id, primaryImageAssetPath: input.imageAssetPath },
+      previousImageAssetPath: existing.primaryImageAssetPath,
+    };
+  }
+
+  /**
+   * FT-2: clears the Product's primary image. Idempotent -- if
+   * `primaryImageAssetPath` is already `null`, no write happens, and the
+   * (also `null`) `previousImageAssetPath` tells the controller there is no
+   * local file to remove.
+   */
+  async clearProductImage(
+    input: ClearProductImageInput,
+  ): Promise<ClearProductImageResult> {
+    if (!isWellFormedUuid(input.productId)) {
+      return { outcome: 'productNotFound' };
+    }
+
+    const existing = await this.prisma.product.findFirst({
+      where: { id: input.productId, restaurantId: input.restaurantId },
+      select: { id: true, primaryImageAssetPath: true },
+    });
+    if (!existing) {
+      return { outcome: 'productNotFound' };
+    }
+
+    if (existing.primaryImageAssetPath !== null) {
+      await this.prisma.product.update({
+        where: { id: existing.id },
+        data: { primaryImageAssetPath: null },
+      });
+    }
+
+    return {
+      outcome: 'cleared',
+      previousImageAssetPath: existing.primaryImageAssetPath,
+    };
   }
 
   /**

@@ -13,8 +13,11 @@ import {
   Put,
   Query,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { AllBranchesRequiredGuard } from '../auth/guard/all-branches-required.guard';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { PermissionGuard } from '../auth/guard/permission.guard';
@@ -25,6 +28,12 @@ import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
 import { LocaleParamPipe } from '../restaurants/locale-param.pipe';
 import type { PlatformSupportedLocale } from '../restaurants/platform-locales';
+import { assertValidImageUpload } from '../storage/image-file-validator';
+import {
+  ImageStorageService,
+  MAX_IMAGE_BYTES,
+} from '../storage/image-storage.service';
+import type { UploadedImageFile } from '../storage/uploaded-image-file';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ListProductsQueryDto } from './dto/list-products-query.dto';
 import { PutTranslationDto } from './dto/put-translation.dto';
@@ -86,6 +95,10 @@ interface ProductTranslationResponseBody {
   data: TranslationView;
 }
 
+interface ProductImageResponseBody {
+  data: { primaryImageAssetPath: string };
+}
+
 /**
  * Day 1 Menu Vertical Slice, Batch D: Product List, Create, generic Update,
  * and the focused Availability Update.
@@ -106,7 +119,10 @@ interface ProductTranslationResponseBody {
  */
 @Controller('restaurants/:restaurantId/products')
 export class ProductsController {
-  constructor(private readonly productsService: ProductsService) {}
+  constructor(
+    private readonly productsService: ProductsService,
+    private readonly imageStorageService: ImageStorageService,
+  ) {}
 
   @Get()
   @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
@@ -243,6 +259,110 @@ export class ProductsController {
     }
 
     return { data: result.data };
+  }
+
+  /**
+   * FT-2: uploads (or replaces) the Product's one primary image. The
+   * Product's Tenant-scoped existence is checked BEFORE anything is written
+   * to disk (FT-2 code review blocker) -- a foreign or unknown Product never
+   * causes a file to be saved. `setProductImage` repeats an identical scoped
+   * check for write-time race safety, and on that unlikely race the
+   * just-saved file is still removed so it never becomes an orphan (Section
+   * 10). A pre-existing image is only removed AFTER the DB write actually
+   * succeeds, and that removal is best-effort -- a stale local file left
+   * behind on cleanup failure must never roll back an already-successful
+   * image change.
+   */
+  @Post(':productId/image')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  @UseInterceptors(
+    FileInterceptor('image', { limits: { fileSize: MAX_IMAGE_BYTES * 2 } }),
+  )
+  async uploadProductImage(
+    @Param('productId') productId: string,
+    @UploadedFile() file: UploadedImageFile | undefined,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<ProductImageResponseBody> {
+    assertValidImageUpload(file);
+
+    const productExists = await this.productsService.productExists({
+      restaurantId: request.restaurantAccess.restaurantId,
+      productId,
+    });
+    if (!productExists) {
+      throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
+    }
+
+    const saved = await this.imageStorageService.saveImage(
+      file.buffer,
+      file.mimetype,
+    );
+
+    let result;
+    try {
+      result = await this.productsService.setProductImage({
+        restaurantId: request.restaurantAccess.restaurantId,
+        productId,
+        imageAssetPath: saved.assetPath,
+      });
+    } catch (error) {
+      await this.imageStorageService.deleteImageBestEffort(saved.assetPath);
+      throw error;
+    }
+
+    if (result.outcome === 'productNotFound') {
+      await this.imageStorageService.deleteImageBestEffort(saved.assetPath);
+      throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
+    }
+
+    await this.imageStorageService.deleteImageBestEffort(
+      result.previousImageAssetPath,
+    );
+
+    return {
+      data: { primaryImageAssetPath: result.data.primaryImageAssetPath },
+    };
+  }
+
+  /**
+   * FT-2: clears the Product's primary image. Idempotent -- calling this
+   * when no image is set succeeds without error. The local file (if any) is
+   * removed best-effort only after the DB is already cleared (Section 10).
+   */
+  @Delete(':productId/image')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async removeProductImage(
+    @Param('productId') productId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<void> {
+    const result = await this.productsService.clearProductImage({
+      restaurantId: request.restaurantAccess.restaurantId,
+      productId,
+    });
+
+    if (result.outcome === 'productNotFound') {
+      throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
+    }
+
+    await this.imageStorageService.deleteImageBestEffort(
+      result.previousImageAssetPath,
+    );
   }
 
   /**

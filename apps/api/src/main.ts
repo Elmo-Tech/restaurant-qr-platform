@@ -1,12 +1,17 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import { ConfigService } from '@nestjs/config';
+import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
 import { validationExceptionFactory } from './common/http/validation-exception.factory';
 import type { EnvConfig } from './config/env.schema';
+import {
+  ImageStorageService,
+  MEDIA_PUBLIC_PATH_PREFIX,
+} from './storage/image-storage.service';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get<ConfigService<EnvConfig, true>>(ConfigService);
 
   const host = configService.get('API_HOST', { infer: true });
@@ -16,6 +21,19 @@ async function bootstrap() {
     .replace(/^\/+/, '');
 
   app.setGlobalPrefix(apiPrefix);
+
+  // FT-2, Section 6: uploaded Product/Category images need a stable,
+  // browser-loadable URL for the (future) Guest/Public Menu -- served
+  // read-only via Express's static middleware, deliberately mounted
+  // OUTSIDE the versioned `/api/v1` prefix (this is content delivery, not
+  // an API resource) and with directory listing disabled. The GET route
+  // itself carries no authorization -- the random server-generated filename
+  // is a content-delivery identifier, never an auth credential.
+  app.useStaticAssets(app.get(ImageStorageService).getUploadDir(), {
+    prefix: MEDIA_PUBLIC_PATH_PREFIX,
+    index: false,
+    redirect: false,
+  });
 
   // TECH_STACK.md #28: class-validator/class-transformer DTO validation is
   // authoritative at the API boundary. `whitelist` strips properties not

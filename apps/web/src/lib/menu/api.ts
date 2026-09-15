@@ -1,4 +1,4 @@
-import { apiFetch } from '../api/client';
+import { apiFetch, apiFetchFormData } from '../api/client';
 import type {
   Category,
   CategoryStatus,
@@ -141,6 +141,31 @@ export async function updateCategory(
   return body.data;
 }
 
+/** FT-2: uploads (or replaces) the Category's one image. `field name` must be exactly `image`, matching the Backend's `FileInterceptor('image', ...)`. */
+export async function uploadCategoryImage(
+  restaurantId: string,
+  categoryId: string,
+  file: File,
+): Promise<{ imageAssetPath: string }> {
+  const formData = new FormData();
+  formData.set('image', file);
+  const body = await apiFetchFormData<{ data: { imageAssetPath: string } }>(
+    `${restaurantPath(restaurantId)}/categories/${categoryId}/image`,
+    formData,
+  );
+  return body.data;
+}
+
+export async function removeCategoryImage(
+  restaurantId: string,
+  categoryId: string,
+): Promise<void> {
+  await apiFetch<undefined>(
+    `${restaurantPath(restaurantId)}/categories/${categoryId}/image`,
+    { method: 'DELETE' },
+  );
+}
+
 /** `categoryId` omitted lists every Product across the whole Restaurant (Backend `ListProductsQueryDto`) -- used by the Product Editor route to locate one Product by id without already knowing its Category. */
 export async function listProducts(
   restaurantId: string,
@@ -212,6 +237,31 @@ export async function updateProductAvailability(
     body: { availability },
   });
   return body.data;
+}
+
+/** FT-2: uploads (or replaces) the Product's one primary image. `field name` must be exactly `image`, matching the Backend's `FileInterceptor('image', ...)`. */
+export async function uploadProductImage(
+  restaurantId: string,
+  productId: string,
+  file: File,
+): Promise<{ primaryImageAssetPath: string }> {
+  const formData = new FormData();
+  formData.set('image', file);
+  const body = await apiFetchFormData<{ data: { primaryImageAssetPath: string } }>(
+    `${restaurantPath(restaurantId)}/products/${productId}/image`,
+    formData,
+  );
+  return body.data;
+}
+
+export async function removeProductImage(
+  restaurantId: string,
+  productId: string,
+): Promise<void> {
+  await apiFetch<undefined>(
+    `${restaurantPath(restaurantId)}/products/${productId}/image`,
+    { method: 'DELETE' },
+  );
 }
 
 // Menu translations -- raw editing resources, no fallback logic (Section 5).

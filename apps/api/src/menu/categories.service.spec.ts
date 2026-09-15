@@ -56,7 +56,11 @@ function buildPrismaMock() {
   return {
     prisma: {
       restaurant: { findUniqueOrThrow: restaurantFindUniqueOrThrow },
-      category: { findMany: categoryFindMany, findFirst: categoryFindFirst },
+      category: {
+        findMany: categoryFindMany,
+        findFirst: categoryFindFirst,
+        update: categoryUpdate,
+      },
       categoryTranslation: { findMany: categoryTranslationFindMany },
       $transaction,
     },
@@ -478,6 +482,163 @@ describe('CategoriesService', () => {
             description: null,
           },
         },
+      });
+    });
+  });
+
+  describe('setCategoryImage', () => {
+    it('a malformed categoryId -> categoryNotFound with zero database queries', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      const result = await service.setCategoryImage({
+        restaurantId: RESTAURANT_ID,
+        categoryId: 'not-a-uuid',
+        imageAssetPath: '/media/new-file.jpg',
+      });
+
+      expect(result).toEqual({ outcome: 'categoryNotFound' });
+      expect(mock.categoryFindFirst).not.toHaveBeenCalled();
+    });
+
+    it('unknown/foreign-Restaurant categoryId -> categoryNotFound, no update attempted (Tenant hiding)', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryFindFirst.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.setCategoryImage({
+        restaurantId: RESTAURANT_ID,
+        categoryId: WELL_FORMED_UUID,
+        imageAssetPath: '/media/new-file.jpg',
+      });
+
+      expect(result).toEqual({ outcome: 'categoryNotFound' });
+      expect(mock.categoryUpdate).not.toHaveBeenCalled();
+    });
+
+    it('scopes the ownership check by id + restaurantId together, never id alone', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryFindFirst.mockResolvedValue({
+        id: 'category-1',
+        imageAssetPath: null,
+      });
+      mock.categoryUpdate.mockResolvedValue({
+        id: 'category-1',
+        imageAssetPath: '/media/new-file.jpg',
+      });
+      const service = buildService(mock);
+
+      await service.setCategoryImage({
+        restaurantId: RESTAURANT_ID,
+        categoryId: WELL_FORMED_UUID,
+        imageAssetPath: '/media/new-file.jpg',
+      });
+
+      expect(mock.categoryFindFirst).toHaveBeenCalledWith({
+        where: { id: WELL_FORMED_UUID, restaurantId: RESTAURANT_ID },
+        select: { id: true, imageAssetPath: true },
+      });
+    });
+
+    it('persists the new path via Category.update and reports the previous path for cleanup', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryFindFirst.mockResolvedValue({
+        id: 'category-1',
+        imageAssetPath: '/media/old-file.jpg',
+      });
+      mock.categoryUpdate.mockResolvedValue({
+        id: 'category-1',
+        imageAssetPath: '/media/new-file.jpg',
+      });
+      const service = buildService(mock);
+
+      const result = await service.setCategoryImage({
+        restaurantId: RESTAURANT_ID,
+        categoryId: WELL_FORMED_UUID,
+        imageAssetPath: '/media/new-file.jpg',
+      });
+
+      expect(mock.categoryUpdate).toHaveBeenCalledWith({
+        where: { id: 'category-1' },
+        data: { imageAssetPath: '/media/new-file.jpg' },
+        select: { id: true, imageAssetPath: true },
+      });
+      expect(result).toEqual({
+        outcome: 'updated',
+        data: { id: 'category-1', imageAssetPath: '/media/new-file.jpg' },
+        previousImageAssetPath: '/media/old-file.jpg',
+      });
+    });
+  });
+
+  describe('clearCategoryImage', () => {
+    it('a malformed categoryId -> categoryNotFound with zero database queries', async () => {
+      const mock = buildPrismaMock();
+      const service = buildService(mock);
+
+      const result = await service.clearCategoryImage({
+        restaurantId: RESTAURANT_ID,
+        categoryId: 'not-a-uuid',
+      });
+
+      expect(result).toEqual({ outcome: 'categoryNotFound' });
+      expect(mock.categoryFindFirst).not.toHaveBeenCalled();
+    });
+
+    it('unknown/foreign-Restaurant categoryId -> categoryNotFound (Tenant hiding)', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryFindFirst.mockResolvedValue(null);
+      const service = buildService(mock);
+
+      const result = await service.clearCategoryImage({
+        restaurantId: RESTAURANT_ID,
+        categoryId: WELL_FORMED_UUID,
+      });
+
+      expect(result).toEqual({ outcome: 'categoryNotFound' });
+      expect(mock.categoryUpdate).not.toHaveBeenCalled();
+    });
+
+    it('clears imageAssetPath to null and reports the previous path', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryFindFirst.mockResolvedValue({
+        id: 'category-1',
+        imageAssetPath: '/media/old-file.jpg',
+      });
+      const service = buildService(mock);
+
+      const result = await service.clearCategoryImage({
+        restaurantId: RESTAURANT_ID,
+        categoryId: WELL_FORMED_UUID,
+      });
+
+      expect(mock.categoryUpdate).toHaveBeenCalledWith({
+        where: { id: 'category-1' },
+        data: { imageAssetPath: null },
+      });
+      expect(result).toEqual({
+        outcome: 'cleared',
+        previousImageAssetPath: '/media/old-file.jpg',
+      });
+    });
+
+    it('is idempotent: no write when the image is already null', async () => {
+      const mock = buildPrismaMock();
+      mock.categoryFindFirst.mockResolvedValue({
+        id: 'category-1',
+        imageAssetPath: null,
+      });
+      const service = buildService(mock);
+
+      const result = await service.clearCategoryImage({
+        restaurantId: RESTAURANT_ID,
+        categoryId: WELL_FORMED_UUID,
+      });
+
+      expect(mock.categoryUpdate).not.toHaveBeenCalled();
+      expect(result).toEqual({
+        outcome: 'cleared',
+        previousImageAssetPath: null,
       });
     });
   });
