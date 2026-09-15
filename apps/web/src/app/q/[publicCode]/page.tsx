@@ -1,4 +1,5 @@
 import { getPublicMenu } from '../../../lib/public-menu/api';
+import { getPublicMenuCopy } from '../../../lib/public-menu/copy';
 import { GuestStatusPage } from './GuestStatusPage';
 import { PublicMenuView } from './PublicMenuView';
 
@@ -22,20 +23,21 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
 
   const result = await getPublicMenu(publicCode, lang);
 
-  if (result.outcome === 'notFound') {
+  if (result.outcome === 'notFound' || result.outcome === 'unavailable') {
+    // FT-3B, Section 15: neither outcome carries a Backend-resolved locale
+    // (an unknown/inactive QR has no Restaurant context to resolve one
+    // from) -- the raw `?lang=` the Guest's own URL already carried is the
+    // only locale signal available here, and using it leaks nothing new
+    // about the Restaurant.
+    const copy = getPublicMenuCopy(lang);
+    const dir = lang === 'ar' ? 'rtl' : 'ltr';
     return (
       <GuestStatusPage
-        title="This QR code is no longer active."
-        message="Please ask a member of staff for help."
-      />
-    );
-  }
-
-  if (result.outcome === 'unavailable') {
-    return (
-      <GuestStatusPage
-        title="Menu unavailable"
-        message="This restaurant menu is temporarily unavailable. Please check back soon."
+        title={result.outcome === 'notFound' ? copy.qrNotFoundTitle : copy.menuUnavailableTitle}
+        message={
+          result.outcome === 'notFound' ? copy.qrNotFoundMessage : copy.menuUnavailableMessage
+        }
+        dir={dir}
       />
     );
   }
