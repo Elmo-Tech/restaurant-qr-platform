@@ -1,0 +1,71 @@
+import { redirect } from 'next/navigation';
+import { getAuthSessionState } from '../../../../../lib/auth/session';
+import { canManageTables, canViewTables } from '../../../../../lib/tables/capabilities';
+import { getWebOrigin } from '../../../../../lib/env/web-origin';
+import { Alert } from '../../../../../components/ui/Alert';
+import { TablesWorkspace } from './TablesWorkspace';
+
+interface TablesPageProps {
+  params: Promise<{ restaurantId: string }>;
+}
+
+/**
+ * FT-4: `/staff/restaurants/[restaurantId]/tables`. Mirrors
+ * `MenuManagementPage`'s exact session/Membership/operational-status/
+ * capability checks. `membership.branches` (already returned by `/auth/me`,
+ * scoped to exactly this Membership's authorized Branches -- all of them if
+ * `allBranches`, else only its assigned ones) is passed straight through:
+ * there is no separate Branch List fetch to duplicate data the session
+ * already carries. `webOrigin` is read once here (Server Component only,
+ * never sent to the browser as its own request) and handed down as a plain
+ * prop so the QR panel can build the exact `${webOrigin}/q/{publicCode}`
+ * Guest URL without hardcoding `localhost`.
+ */
+export default async function TablesPage({ params }: TablesPageProps) {
+  const { restaurantId } = await params;
+  const sessionState = await getAuthSessionState();
+
+  if (sessionState.status === 'unauthenticated') {
+    redirect('/login');
+  }
+
+  if (sessionState.status === 'error') {
+    return <Alert variant="error">{sessionState.message}</Alert>;
+  }
+
+  const membership = sessionState.context.memberships.find(
+    (candidate) => candidate.restaurant.id === restaurantId,
+  );
+
+  if (!membership) {
+    return <Alert variant="error">Restaurant not found.</Alert>;
+  }
+
+  if (membership.restaurant.status !== 'ACTIVE') {
+    return (
+      <Alert variant="error">
+        This Restaurant is currently{' '}
+        {membership.restaurant.status === 'SUSPENDED' ? 'suspended' : 'inactive'}{' '}
+        and not operational. Contact your Restaurant owner for details.
+      </Alert>
+    );
+  }
+
+  if (!canViewTables(membership)) {
+    return (
+      <Alert variant="error">
+        You do not have permission to view this Restaurant&apos;s Tables.
+      </Alert>
+    );
+  }
+
+  return (
+    <TablesWorkspace
+      restaurantId={restaurantId}
+      restaurantName={membership.restaurant.name}
+      branches={membership.branches}
+      canManage={canManageTables(membership)}
+      webOrigin={getWebOrigin()}
+    />
+  );
+}
