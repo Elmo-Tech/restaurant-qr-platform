@@ -1,15 +1,35 @@
+'use client';
+
+import { useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import { IconImage } from '../../../components/staff/icons';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import { getPublicMenuCopy, type PublicMenuCopy } from '../../../lib/public-menu/copy';
+import { loadCart, saveCart, type StoredCartItem } from '../../../lib/public-menu/cart-storage';
+import {
+  lineTotalMinorUnits,
+  fromMinorUnits,
+  ZERO_MINOR_UNITS,
+} from '../../../lib/public-menu/money';
+import { submitGuestOrder } from '../../../lib/public-menu/orders-api';
+import {
+  clearPendingAttempt,
+  itemsMatchPendingAttempt,
+  resolveClientRequestId,
+} from '../../../lib/public-menu/pending-order-attempt';
+import { generateUuid } from '../../../lib/public-menu/uuid';
 import type {
+  GuestOrderView,
   PublicMenuCategory,
   PublicMenuData,
   PublicMenuProduct,
 } from '../../../lib/public-menu/types';
+import { CartDrawer, type CartLine } from './CartDrawer';
 
 /** Platform locales stay exactly `en`/`ar` (Section 8) -- no locale-name library needed for two fixed labels. */
 const LOCALE_LABELS: Record<string, string> = { en: 'English', ar: 'العربية' };
+
+const MAX_QUANTITY = 99;
 
 /**
  * The shared page container width (FT-3B, Section 4): full-bleed on mobile
@@ -22,17 +42,21 @@ const LOCALE_LABELS: Record<string, string> = { en: 'English', ar: 'العربي
 const PAGE_CONTAINER = 'mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-10';
 
 /**
- * FT-3/FT-3B: the read-only public Guest Menu -- Restaurant header,
- * language switcher, sticky Category chip nav, and Category/Product
- * sections. A Server Component: the language switcher is plain `<Link>`s
- * that carry `?lang=` (a real navigation, so the resolved language is
- * always shareable/refreshable), and Category selection is a plain anchor
- * jump -- neither needs client-side interactivity, so nothing here is
- * `'use client'`. `dir` is set on this component's own root, not on the
- * document `<html>` (the root layout is shared with Staff) -- everything
- * inside genuinely mirrors for Arabic since no physical-direction utility
- * (`text-left`/`mr-*`/`space-x-*`) is used anywhere below, only `gap` and
- * logical browser bidi/flex behavior.
+ * FT-3/FT-3B/FT-5: the Guest Menu -- Restaurant header, language switcher,
+ * sticky Category chip nav, Category/Product sections, and (Section 3/18,
+ * TABLE QR only) a Cart. Promoted to a Client Component in FT-5 (it was a
+ * Server Component through FT-3B) purely because the Cart needs React
+ * state/localStorage/a browser `fetch` -- Next.js still server-renders a
+ * Client Component's first paint, so this costs nothing visually; it is
+ * required simply because "Add to Cart" cannot exist without client JS.
+ * The language switcher stays plain `<Link>`s carrying `?lang=` (a real
+ * navigation), and Category selection stays a plain anchor jump -- neither
+ * needed client interactivity and both still work identically.
+ *
+ * `dir` is set on this component's own root, not the document `<html>`
+ * (shared with Staff) -- everything inside genuinely mirrors for Arabic
+ * since no physical-direction utility is used, only `gap` and logical
+ * browser bidi/flex behavior.
  */
 export function PublicMenuView({
   data,
@@ -45,6 +69,188 @@ export function PublicMenuView({
   const currency = data.context.restaurant.currencyCode;
   const copy = getPublicMenuCopy(data.locale.resolved);
   const hasCategories = data.menu.categories.length > 0;
+  const canOrder = data.context.qrType === 'TABLE';
+
+  const productById = useMemo(() => {
+    const map = new Map<string, PublicMenuProduct>();
+    for (const category of data.menu.categories) {
+      for (const product of category.products) {
+        map.set(product.id, product);
+      }
+    }
+    return map;
+  }, [data.menu.categories]);
+
+  const [cart, setCart] = useState<StoredCartItem[]>([]);
+  const [hasHydratedCart, setHasHydratedCart] = useState(false);
+  const [isCartOpen, setIsCartOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [submitError, setSubmitError] = useState<string | null>(null);
+  const [confirmedOrder, setConfirmedOrder] = useState<GuestOrderView | null>(null);
+
+  // Section 21: load once on mount (localStorage does not exist during SSR)
+  // and reconcile immediately against the CURRENT Menu response -- a stored
+  // productId the current Menu no longer has at all (deleted/hidden) is
+  // dropped outright, never blindly resubmitted.
+  useEffect(() => {
+    // `queueMicrotask` here is purely to satisfy eslint-plugin-react-hooks'
+    // `set-state-in-effect` rule (same established pattern used elsewhere
+    // in this repo, e.g. `MenuWorkspace`'s mount effect) -- it has nothing
+    // to do with the reconciliation itself, which still runs essentially
+    // immediately on mount.
+    queueMicrotask(() => {
+      const stored = loadCart(publicCode);
+      const reconciled = stored.filter((item) => productById.has(item.productId));
+      setCart(reconciled);
+      if (reconciled.length !== stored.length) {
+        saveCart(publicCode, reconciled);
+      }
+      setHasHydratedCart(true);
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only on mount/publicCode change, not on every productById identity change (that would fight the User's own in-progress edits).
+  }, [publicCode]);
+
+  // FT-5 critical fix: whenever the Cart no longer matches whatever payload
+  // the persisted pending submission attempt (if any) was generated for,
+  // drop that attempt -- the next "Place Order" must get a fresh
+  // `clientRequestId` rather than reusing one that belonged to different
+  // items/quantities (see `pending-order-attempt.ts`). Gated on
+  // `hasHydratedCart` so this never fires against the transient initial
+  // `cart === []` render BEFORE the real persisted Cart has loaded, which
+  // would otherwise wipe out a still-valid pending attempt on every mount.
+  useEffect(() => {
+    if (!hasHydratedCart) return;
+    const items = cart.map((item) => ({ productId: item.productId, quantity: item.quantity }));
+    if (!itemsMatchPendingAttempt(publicCode, items)) {
+      clearPendingAttempt(publicCode);
+    }
+  }, [cart, publicCode, hasHydratedCart]);
+
+  // Every Cart mutation goes through this one helper, which always reads
+  // the LATEST `cart` state (via the functional `setState` form) and
+  // persists the result -- safe even across rapid successive clicks.
+  function updateCart(updater: (prev: StoredCartItem[]) => StoredCartItem[]) {
+    setCart((prev) => {
+      const next = updater(prev);
+      saveCart(publicCode, next);
+      return next;
+    });
+  }
+
+  const quantityByProductId = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const item of cart) map.set(item.productId, item.quantity);
+    return map;
+  }, [cart]);
+
+  function handleAdd(productId: string) {
+    updateCart((prev) => {
+      const current = prev.find((item) => item.productId === productId);
+      if (!current) return [...prev, { productId, quantity: 1 }];
+      return prev.map((item) =>
+        item.productId === productId
+          ? { ...item, quantity: Math.min(item.quantity + 1, MAX_QUANTITY) }
+          : item,
+      );
+    });
+  }
+
+  function handleIncrement(productId: string) {
+    updateCart((prev) =>
+      prev.map((item) =>
+        item.productId === productId
+          ? { ...item, quantity: Math.min(item.quantity + 1, MAX_QUANTITY) }
+          : item,
+      ),
+    );
+  }
+
+  function handleDecrement(productId: string) {
+    updateCart((prev) =>
+      prev
+        .map((item) =>
+          item.productId === productId ? { ...item, quantity: item.quantity - 1 } : item,
+        )
+        .filter((item) => item.quantity > 0),
+    );
+  }
+
+  function handleRemove(productId: string) {
+    updateCart((prev) => prev.filter((item) => item.productId !== productId));
+  }
+
+  const cartLines: CartLine[] = cart
+    .map((item) => {
+      const product = productById.get(item.productId);
+      if (!product) return null;
+      return {
+        productId: item.productId,
+        quantity: item.quantity,
+        name: product.name,
+        unitPrice: product.basePrice,
+        blocked: product.availability === 'SOLD_OUT',
+      };
+    })
+    .filter((line): line is CartLine => line !== null);
+
+  const orderableLines = cartLines.filter((line) => !line.blocked);
+  const hasBlockedLines = cartLines.some((line) => line.blocked);
+  const totalMinorUnits = orderableLines.reduce(
+    (sum, line) => sum + lineTotalMinorUnits(line.unitPrice, line.quantity),
+    ZERO_MINOR_UNITS,
+  );
+  const totalDisplay = fromMinorUnits(totalMinorUnits);
+  const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
+  const canSubmit = cartLines.length > 0 && !hasBlockedLines && !isSubmitting;
+
+  async function handlePlaceOrder() {
+    if (!canSubmit) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    const items = orderableLines.map((line) => ({ productId: line.productId, quantity: line.quantity }));
+    // FT-5 critical fix: reuse the SAME clientRequestId as any still-
+    // pending attempt for this exact Cart payload (a retry after a lost
+    // response, including across a refresh or an EN/AR navigation), or
+    // generate+persist a fresh one -- never a brand-new id on every call,
+    // which would silently defeat the Backend's idempotency guarantee on
+    // the most important case (an ambiguous network failure).
+    const clientRequestId = resolveClientRequestId(publicCode, items, generateUuid);
+    const result = await submitGuestOrder(publicCode, clientRequestId, items);
+    setIsSubmitting(false);
+
+    if (result.outcome === 'success') {
+      setConfirmedOrder(result.data);
+      persistCartCleared();
+      clearPendingAttempt(publicCode);
+      return;
+    }
+    if (result.outcome === 'itemsUnavailable') {
+      setSubmitError(copy.itemsUnavailableError);
+      return;
+    }
+    if (result.outcome === 'notFound') {
+      setSubmitError(copy.orderNotFoundError);
+      return;
+    }
+    // Network/unexpected failure (Section: Backend may have actually
+    // created the Order despite a lost response) -- the pending attempt is
+    // deliberately left in place so an unchanged retry reuses this same
+    // `clientRequestId` above.
+    setSubmitError(copy.orderNetworkError);
+  }
+
+  function persistCartCleared() {
+    setCart([]);
+    saveCart(publicCode, []);
+  }
+
+  function closeCart() {
+    setIsCartOpen(false);
+    if (confirmedOrder) {
+      setConfirmedOrder(null);
+      setSubmitError(null);
+    }
+  }
 
   return (
     <div dir={dir} lang={data.locale.resolved} className="min-h-screen bg-[#F8F5F1] text-[#1D1A18]">
@@ -87,7 +293,7 @@ export function PublicMenuView({
         </div>
       </header>
 
-      <main className={`${PAGE_CONTAINER} pt-6 pb-16`}>
+      <main className={`${PAGE_CONTAINER} pt-6 ${canOrder && cartCount > 0 ? 'pb-28' : 'pb-16'}`}>
         <div className="mb-8 border-b border-[#E5DED6] pb-6">
           <h2 className="text-xl font-bold text-[#1D1A18] sm:text-2xl">{data.menu.name}</h2>
           {data.menu.description ? (
@@ -109,11 +315,50 @@ export function PublicMenuView({
                 category={category}
                 currency={currency}
                 copy={copy}
+                canOrder={canOrder}
+                quantityByProductId={quantityByProductId}
+                onAdd={handleAdd}
+                onIncrement={handleIncrement}
+                onDecrement={handleDecrement}
               />
             ))}
           </div>
         )}
       </main>
+
+      {canOrder && cartCount > 0 ? (
+        <button
+          type="button"
+          onClick={() => setIsCartOpen(true)}
+          className="fixed inset-x-4 bottom-4 z-30 flex items-center justify-between gap-3 rounded-full bg-[#7A5138] px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-[#634127] sm:inset-x-auto sm:end-6 sm:min-w-[280px]"
+        >
+          <span>
+            {copy.viewCart} · {cartCount}
+          </span>
+          <span dir="ltr">
+            {totalDisplay} {currency}
+          </span>
+        </button>
+      ) : null}
+
+      {canOrder && (isCartOpen || confirmedOrder) ? (
+        <CartDrawer
+          copy={copy}
+          currency={currency}
+          dir={dir}
+          lines={cartLines}
+          totalDisplay={totalDisplay}
+          isSubmitting={isSubmitting}
+          canSubmit={canSubmit}
+          submitError={submitError}
+          confirmedOrder={confirmedOrder}
+          onIncrement={handleIncrement}
+          onDecrement={handleDecrement}
+          onRemove={handleRemove}
+          onPlaceOrder={() => void handlePlaceOrder()}
+          onClose={closeCart}
+        />
+      ) : null}
     </div>
   );
 }
@@ -153,10 +398,20 @@ function CategorySection({
   category,
   currency,
   copy,
+  canOrder,
+  quantityByProductId,
+  onAdd,
+  onIncrement,
+  onDecrement,
 }: {
   category: PublicMenuCategory;
   currency: string;
   copy: PublicMenuCopy;
+  canOrder: boolean;
+  quantityByProductId: Map<string, number>;
+  onAdd: (productId: string) => void;
+  onIncrement: (productId: string) => void;
+  onDecrement: (productId: string) => void;
 }) {
   const imageUrl = resolveAssetUrl(category.imageAssetPath);
   return (
@@ -183,7 +438,17 @@ function CategorySection({
       ) : (
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
           {category.products.map((product) => (
-            <ProductCard key={product.id} product={product} currency={currency} copy={copy} />
+            <ProductCard
+              key={product.id}
+              product={product}
+              currency={currency}
+              copy={copy}
+              canOrder={canOrder}
+              quantity={quantityByProductId.get(product.id) ?? 0}
+              onAdd={() => onAdd(product.id)}
+              onIncrement={() => onIncrement(product.id)}
+              onDecrement={() => onDecrement(product.id)}
+            />
           ))}
         </div>
       )}
@@ -195,10 +460,20 @@ function ProductCard({
   product,
   currency,
   copy,
+  canOrder,
+  quantity,
+  onAdd,
+  onIncrement,
+  onDecrement,
 }: {
   product: PublicMenuProduct;
   currency: string;
   copy: PublicMenuCopy;
+  canOrder: boolean;
+  quantity: number;
+  onAdd: () => void;
+  onIncrement: () => void;
+  onDecrement: () => void;
 }) {
   const imageUrl = resolveAssetUrl(product.primaryImageAssetPath);
   const isSoldOut = product.availability === 'SOLD_OUT';
@@ -248,6 +523,45 @@ function ProductCard({
             </span>
           ) : null}
         </div>
+
+        {/* Section 3/18/24: ordering controls exist ONLY for a TABLE QR and
+            an AVAILABLE Product -- a GENERIC QR or a SOLD_OUT Product never
+            renders any Add/quantity control at all. */}
+        {canOrder && !isSoldOut ? (
+          <div className="mt-2">
+            {quantity === 0 ? (
+              <button
+                type="button"
+                onClick={onAdd}
+                className="rounded-full border border-[#7A5138] px-4 py-1.5 text-sm font-semibold text-[#7A5138] transition-colors hover:bg-[#7A5138] hover:text-white"
+              >
+                {copy.add}
+              </button>
+            ) : (
+              <div className="inline-flex items-center gap-3 rounded-full border border-[#E5DED6] bg-[#F8F5F1] px-1 py-1">
+                <button
+                  type="button"
+                  onClick={onDecrement}
+                  aria-label={copy.remove}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#7A5138] shadow-sm"
+                >
+                  −
+                </button>
+                <span className="min-w-[1.5rem] text-center text-sm font-semibold">
+                  {quantity}
+                </span>
+                <button
+                  type="button"
+                  onClick={onIncrement}
+                  aria-label={copy.add}
+                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#7A5138] shadow-sm"
+                >
+                  +
+                </button>
+              </div>
+            )}
+          </div>
+        ) : null}
       </div>
     </article>
   );

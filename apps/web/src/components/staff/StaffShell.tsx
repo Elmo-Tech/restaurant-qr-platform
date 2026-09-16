@@ -14,6 +14,7 @@ interface StaffShellProps {
   userEmail: string;
   canViewMenu: boolean;
   canViewTables: boolean;
+  canViewOrders: boolean;
   canViewRestaurantSettings: boolean;
   children: ReactNode;
 }
@@ -22,6 +23,7 @@ function resolveSection(pathname: string, restaurantId: string): StaffSection {
   const dashboardPath = `/staff/restaurants/${restaurantId}`;
   const menuPath = `${dashboardPath}/menu`;
   const tablesPath = `${dashboardPath}/tables`;
+  const ordersPath = `${dashboardPath}/orders`;
   const settingsPath = `${dashboardPath}/settings`;
 
   if (pathname === menuPath || pathname.startsWith(`${menuPath}/`)) {
@@ -29,6 +31,9 @@ function resolveSection(pathname: string, restaurantId: string): StaffSection {
   }
   if (pathname === tablesPath || pathname.startsWith(`${tablesPath}/`)) {
     return 'tables';
+  }
+  if (pathname === ordersPath || pathname.startsWith(`${ordersPath}/`)) {
+    return 'orders';
   }
   if (pathname === settingsPath || pathname.startsWith(`${settingsPath}/`)) {
     return 'settings';
@@ -54,6 +59,7 @@ export function StaffShell({
   userEmail,
   canViewMenu,
   canViewTables,
+  canViewOrders,
   canViewRestaurantSettings,
   children,
 }: StaffShellProps) {
@@ -79,7 +85,9 @@ export function StaffShell({
                 ? 'Menu Management'
                 : section === 'tables'
                   ? 'Tables & QR'
-                  : 'Dashboard',
+                  : section === 'orders'
+                    ? 'Orders'
+                    : 'Dashboard',
           },
         ];
 
@@ -92,6 +100,7 @@ export function StaffShell({
         currentSection={section}
         canViewMenu={canViewMenu}
         canViewTables={canViewTables}
+        canViewOrders={canViewOrders}
         canViewRestaurantSettings={canViewRestaurantSettings}
         isMobileOpen={isMobileNavOpen}
         onCloseMobile={() => setIsMobileNavOpen(false)}

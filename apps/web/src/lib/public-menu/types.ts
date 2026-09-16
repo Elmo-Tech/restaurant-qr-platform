@@ -43,3 +43,31 @@ export interface PublicMenuData {
     categories: PublicMenuCategory[];
   };
 }
+
+/** Mirrors the Backend's `GuestOrderView` exactly (FT-5) -- the Guest Order confirmation shape. Never restaurantId/branchId/tableId/qrCodeId. */
+export interface GuestOrderItemView {
+  productId: string;
+  name: string;
+  quantity: number;
+  unitPrice: string;
+  lineTotal: string;
+}
+
+export type GuestOrderStatus =
+  | 'PENDING'
+  | 'ACCEPTED'
+  | 'PREPARING'
+  | 'READY'
+  | 'SERVED'
+  | 'REJECTED'
+  | 'CANCELLED';
+
+export interface GuestOrderView {
+  id: string;
+  status: GuestOrderStatus;
+  currencyCode: string;
+  total: string;
+  createdAt: string;
+  table: { number: string };
+  items: GuestOrderItemView[];
+}

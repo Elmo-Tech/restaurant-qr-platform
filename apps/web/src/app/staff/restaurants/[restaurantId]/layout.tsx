@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../lib/auth/session';
 import { canViewMenu } from '../../../../lib/menu/capabilities';
 import { canViewTables } from '../../../../lib/tables/capabilities';
+import { canViewOrders } from '../../../../lib/orders/capabilities';
 import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
 import { Alert } from '../../../../components/ui/Alert';
 import { StaffShell } from '../../../../components/staff/StaffShell';
@@ -64,6 +65,7 @@ export default async function RestaurantWorkspaceLayout({
       userEmail={sessionState.context.user.email}
       canViewMenu={canViewMenu(membership)}
       canViewTables={canViewTables(membership)}
+      canViewOrders={canViewOrders(membership)}
       canViewRestaurantSettings={canViewRestaurantSettings(membership)}
     >
       {children}
