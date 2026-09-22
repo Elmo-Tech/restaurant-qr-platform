@@ -34,6 +34,13 @@ export interface PublicMenuCopy {
   orderNotFoundError: string;
   close: string;
   backToMenu: string;
+  required: string;
+  optional: string;
+  chooseUpTo: string;
+  chooseExactly: string;
+  addToCart: string;
+  cancel: string;
+  selectionRequiredError: string;
 }
 
 const EN_COPY: PublicMenuCopy = {
@@ -66,6 +73,13 @@ const EN_COPY: PublicMenuCopy = {
   orderNotFoundError: 'This QR code is no longer active. Please ask a member of staff for help.',
   close: 'Close',
   backToMenu: 'Back to menu',
+  required: 'Required',
+  optional: 'Optional',
+  chooseUpTo: 'Choose up to',
+  chooseExactly: 'Choose',
+  addToCart: 'Add to cart',
+  cancel: 'Cancel',
+  selectionRequiredError: 'Please complete the required selections above.',
 };
 
 const AR_COPY: PublicMenuCopy = {
@@ -96,6 +110,13 @@ const AR_COPY: PublicMenuCopy = {
   orderNotFoundError: 'رمز QR هذا غير متاح حاليًا. يرجى التواصل مع أحد أفراد طاقم المطعم للمساعدة.',
   close: 'إغلاق',
   backToMenu: 'العودة إلى القائمة',
+  required: 'مطلوب',
+  optional: 'اختياري',
+  chooseUpTo: 'اختر حتى',
+  chooseExactly: 'اختر',
+  addToCart: 'أضف إلى السلة',
+  cancel: 'إلغاء',
+  selectionRequiredError: 'يرجى إكمال الاختيارات المطلوبة أعلاه.',
 };
 
 /**

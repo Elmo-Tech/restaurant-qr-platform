@@ -19,12 +19,20 @@ export interface OrderListItem {
   itemCount: number;
 }
 
+/** FT-6A, mirrors the Backend's `OrderItemModifierView` exactly (ORDER_LIFECYCLE_SPEC.md #41) -- always the value at Order submission time, never re-derived from the live Modifier configuration. */
+export interface OrderItemModifierView {
+  groupName: string;
+  optionName: string;
+  priceAdjustment: string;
+}
+
 export interface OrderItemView {
   productId: string;
   productNameSnapshot: string;
   unitPrice: string;
   quantity: number;
   lineTotal: string;
+  modifiers: OrderItemModifierView[];
 }
 
 /** Mirrors the Backend's `OrderDetail` exactly (FT-5). */

@@ -9,6 +9,14 @@ async function validateBody(body: Record<string, unknown>) {
   return validate(instance);
 }
 
+/** Well-formed, mutually distinct UUIDs -- only the last segment varies. */
+function generateUuids(count: number): string[] {
+  return Array.from(
+    { length: count },
+    (_, index) => `11111111-1111-4111-8111-${String(index).padStart(12, '0')}`,
+  );
+}
+
 describe('CreateGuestOrderDto', () => {
   it('accepts a well-formed body', async () => {
     const errors = await validateBody({
@@ -65,5 +73,55 @@ describe('CreateGuestOrderDto', () => {
       items: [{ productId: 'not-a-uuid', quantity: 1 }],
     });
     expect(errors.some((error) => error.property === 'items')).toBe(true);
+  });
+
+  describe('modifierOptionIds', () => {
+    it('accepts a normal valid UUID array', async () => {
+      const errors = await validateBody({
+        clientRequestId: WELL_FORMED_UUID,
+        items: [
+          {
+            productId: WELL_FORMED_UUID,
+            quantity: 1,
+            modifierOptionIds: generateUuids(3),
+          },
+        ],
+      });
+      expect(errors).toHaveLength(0);
+    });
+
+    it('rejects a malformed option id', async () => {
+      const errors = await validateBody({
+        clientRequestId: WELL_FORMED_UUID,
+        items: [
+          {
+            productId: WELL_FORMED_UUID,
+            quantity: 1,
+            modifierOptionIds: [WELL_FORMED_UUID, 'not-a-uuid'],
+          },
+        ],
+      });
+      expect(errors.some((error) => error.property === 'items')).toBe(true);
+    });
+
+    // FT-6A final blocker fix: there is NO documented global maximum on how
+    // many Modifier Options one line item may select (DATABASE_SPEC.md #74
+    // only bounds minimumSelections/maximumSelections PER Group) -- the
+    // previous `@ArrayMaxSize(20)` was an invented DTO-wide cap that could
+    // reject a completely valid Product configuration. A large-but-valid
+    // array must never fail merely because of its length.
+    it('does NOT reject more than 20 valid UUID entries merely because of array length', async () => {
+      const errors = await validateBody({
+        clientRequestId: WELL_FORMED_UUID,
+        items: [
+          {
+            productId: WELL_FORMED_UUID,
+            quantity: 1,
+            modifierOptionIds: generateUuids(25),
+          },
+        ],
+      });
+      expect(errors).toHaveLength(0);
+    });
   });
 });

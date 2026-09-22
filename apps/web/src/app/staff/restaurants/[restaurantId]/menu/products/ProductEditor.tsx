@@ -35,6 +35,7 @@ import { TranslationFields } from '../../../../../../components/menu/Translation
 import { ImageField } from '../../../../../../components/menu/ImageField';
 import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
 import { validateImageFile } from '../../../../../../lib/menu/image-validation';
+import { ModifiersSection } from './ModifiersSection';
 
 /** Mirrors the Backend's accepted decimal-string shape (money-decimal.ts) -- helpful client validation only, never authoritative (CLAUDE.md #27). */
 const MONEY_DECIMAL_PATTERN = /^(0|[1-9]\d{0,11})(\.\d{1,2})?$/;
@@ -669,6 +670,26 @@ export function ProductEditor({
           </label>
         </FormSection>
       </Card>
+
+      {mode === 'edit' && productId ? (
+        <Card className="flex flex-col gap-6">
+          <ModifiersSection
+            restaurantId={restaurantId}
+            productId={productId}
+            currencyCode={currencyCode}
+            locales={locales}
+            canManage={canManage}
+          />
+        </Card>
+      ) : (
+        <Card className="flex flex-col gap-6">
+          <FormSection title="Modifiers">
+            <p className="text-sm text-[#655D56]">
+              Modifiers (e.g. Size, Extras) can be configured once this Product has been created.
+            </p>
+          </FormSection>
+        </Card>
+      )}
     </form>
   );
 }

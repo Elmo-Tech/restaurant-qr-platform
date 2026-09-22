@@ -6,11 +6,23 @@ import { IconClose } from '../../../components/staff/icons';
 import type { GuestOrderView } from '../../../lib/public-menu/types';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 
+/** FT-6A: one selected Modifier Option shown on a Cart line, e.g. "Size: Large". */
+export interface CartLineSelection {
+  groupName: string;
+  optionName: string;
+  priceAdjustment: string;
+}
+
 export interface CartLine {
+  /** Stable identity for THIS Cart line (productId + selections) -- two lines of the same Product with different selections have different `lineKey`s (FT-6A). */
+  lineKey: string;
   productId: string;
   quantity: number;
+  modifierOptionIds: string[];
   name: string;
+  /** Product.basePrice PLUS every selected Option's priceAdjustment -- display-only, exact via BigInt minor units, never authoritative. */
   unitPrice: string;
+  selections: CartLineSelection[];
   /** SOLD_OUT since being added to the Cart -- Section 21: stays visible, blocks submit until removed. */
   blocked: boolean;
 }
@@ -25,9 +37,9 @@ export interface CartDrawerProps {
   canSubmit: boolean;
   submitError: string | null;
   confirmedOrder: GuestOrderView | null;
-  onIncrement: (productId: string) => void;
-  onDecrement: (productId: string) => void;
-  onRemove: (productId: string) => void;
+  onIncrement: (lineKey: string) => void;
+  onDecrement: (lineKey: string) => void;
+  onRemove: (lineKey: string) => void;
   onPlaceOrder: () => void;
   onClose: () => void;
 }
@@ -112,10 +124,19 @@ export function CartDrawer({
                 ) : (
                   <ul className="flex flex-col gap-4">
                     {lines.map((line) => (
-                      <li key={line.productId} className="flex items-start justify-between gap-3">
+                      <li key={line.lineKey} className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-medium text-[#1D1A18]">{line.name}</p>
-                          <p className="text-xs text-[#655D56]">
+                          {line.selections.length > 0 ? (
+                            <ul className="mt-0.5 flex flex-col text-xs text-[#655D56]">
+                              {line.selections.map((selection, index) => (
+                                <li key={index}>
+                                  {selection.groupName}: {selection.optionName}
+                                </li>
+                              ))}
+                            </ul>
+                          ) : null}
+                          <p className="mt-0.5 text-xs text-[#655D56]">
                             <bdi dir="ltr">
                               {line.unitPrice} {currency}
                             </bdi>
@@ -129,7 +150,7 @@ export function CartDrawer({
                         {line.blocked ? (
                           <button
                             type="button"
-                            onClick={() => onRemove(line.productId)}
+                            onClick={() => onRemove(line.lineKey)}
                             className="rounded-full border border-[#E5DED6] px-3 py-1 text-xs font-medium text-[#8A3B24] hover:bg-[#F6E4DE]"
                           >
                             {copy.remove}
@@ -139,7 +160,7 @@ export function CartDrawer({
                             <div className="inline-flex items-center gap-2 rounded-full border border-[#E5DED6] bg-[#F8F5F1] px-1 py-1">
                               <button
                                 type="button"
-                                onClick={() => onDecrement(line.productId)}
+                                onClick={() => onDecrement(line.lineKey)}
                                 aria-label={copy.remove}
                                 className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#7A5138] shadow-sm"
                               >
@@ -150,7 +171,7 @@ export function CartDrawer({
                               </span>
                               <button
                                 type="button"
-                                onClick={() => onIncrement(line.productId)}
+                                onClick={() => onIncrement(line.lineKey)}
                                 aria-label={copy.add}
                                 className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#7A5138] shadow-sm"
                               >

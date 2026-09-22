@@ -6,6 +6,8 @@ import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 import { MenusController } from './menus.controller';
 import { MenusService } from './menus.service';
+import { ModifiersController } from './modifiers.controller';
+import { ModifiersService } from './modifiers.service';
 import { ProductsController } from './products.controller';
 import { ProductsService } from './products.service';
 
@@ -21,7 +23,12 @@ import { ProductsService } from './products.service';
  */
 @Module({
   imports: [DatabaseModule, AuthModule, StorageModule],
-  controllers: [MenusController, CategoriesController, ProductsController],
-  providers: [MenusService, CategoriesService, ProductsService],
+  controllers: [
+    MenusController,
+    CategoriesController,
+    ProductsController,
+    ModifiersController,
+  ],
+  providers: [MenusService, CategoriesService, ProductsService, ModifiersService],
 })
 export class MenuModule {}

@@ -5,6 +5,8 @@ import type { GuestOrderView } from './types';
 export interface SubmitGuestOrderItem {
   productId: string;
   quantity: number;
+  /** Selected Modifier Option IDENTITY only -- never a price/name (CRITICAL MONEY RULE, CLAUDE.md #27). */
+  modifierOptionIds: string[];
 }
 
 export type SubmitGuestOrderResult =

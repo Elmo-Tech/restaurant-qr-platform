@@ -52,6 +52,17 @@ function buildCategoryRow(overrides: Partial<Record<string, unknown>> = {}) {
           { locale: 'en', name: 'Cheeseburger', description: 'Beef, cheddar, pickles.' },
           { locale: 'ar', name: 'تشيز برجر', description: null },
         ],
+        modifierGroups: [] as {
+          id: string;
+          minimumSelections: number;
+          maximumSelections: number;
+          translations: { locale: string; name: string; helperText: string | null }[];
+          options: {
+            id: string;
+            priceAdjustment: { toFixed(digits: number): string };
+            translations: { locale: string; name: string }[];
+          }[];
+        }[],
       },
     ],
     ...overrides,
@@ -239,6 +250,7 @@ describe('PublicMenuService.getPublicMenu', () => {
             availability: 'SOLD_OUT',
             featured: false,
             translations: [{ locale: 'en', name: 'Fries', description: null }],
+            modifierGroups: [],
           },
         ],
       }),

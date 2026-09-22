@@ -15,6 +15,22 @@ export interface PublicMenuLocale {
 
 export type PublicProductAvailability = 'AVAILABLE' | 'SOLD_OUT';
 
+/** FT-6A: mirrors the Backend's `PublicMenuModifierOption` exactly -- `priceAdjustment` is the authoritative decimal string, never run through Number()/parseFloat() (CLAUDE.md #27). Only ever ACTIVE options for an ACTIVE Group are ever included here. */
+export interface PublicMenuModifierOption {
+  id: string;
+  name: string;
+  priceAdjustment: string;
+}
+
+export interface PublicMenuModifierGroup {
+  id: string;
+  name: string;
+  helperText: string | null;
+  minimumSelections: number;
+  maximumSelections: number;
+  options: PublicMenuModifierOption[];
+}
+
 export interface PublicMenuProduct {
   id: string;
   name: string;
@@ -23,6 +39,7 @@ export interface PublicMenuProduct {
   primaryImageAssetPath: string | null;
   availability: PublicProductAvailability;
   featured: boolean;
+  modifierGroups: PublicMenuModifierGroup[];
 }
 
 export interface PublicMenuCategory {
@@ -44,13 +61,20 @@ export interface PublicMenuData {
   };
 }
 
-/** Mirrors the Backend's `GuestOrderView` exactly (FT-5) -- the Guest Order confirmation shape. Never restaurantId/branchId/tableId/qrCodeId. */
+/** Mirrors the Backend's `GuestOrderView` exactly (FT-5, extended FT-6A). Never restaurantId/branchId/tableId/qrCodeId. */
+export interface GuestOrderItemModifierView {
+  groupName: string;
+  optionName: string;
+  priceAdjustment: string;
+}
+
 export interface GuestOrderItemView {
   productId: string;
   name: string;
   quantity: number;
   unitPrice: string;
   lineTotal: string;
+  modifiers: GuestOrderItemModifierView[];
 }
 
 export type GuestOrderStatus =

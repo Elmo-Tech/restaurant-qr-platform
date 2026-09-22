@@ -6,6 +6,10 @@ import type {
   Menu,
   MenuStatus,
   MenuTranslation,
+  ModifierGroup,
+  ModifierGroupStatus,
+  ModifierOption,
+  ModifierOptionStatus,
   Product,
   ProductAvailability,
   ProductStatus,
@@ -368,6 +372,214 @@ export async function deleteProductTranslation(
 ): Promise<void> {
   await apiFetch<undefined>(
     `${restaurantPath(restaurantId)}/products/${productId}/translations/${locale}`,
+    { method: 'DELETE' },
+  );
+}
+
+/**
+ * FT-6A: Modifier Group/Option request layer, nested under Product exactly
+ * like `translations` above. `name`/`helperText` write the Restaurant's
+ * default-locale translation row directly (V1 scope, mirrors
+ * `CreateProductInput.name`) -- there is no locale parameter here.
+ */
+function modifierGroupsPath(restaurantId: string, productId: string): string {
+  return `${restaurantPath(restaurantId)}/products/${productId}/modifier-groups`;
+}
+
+export async function listModifierGroups(
+  restaurantId: string,
+  productId: string,
+): Promise<ModifierGroup[]> {
+  const body = await apiFetch<{ data: ModifierGroup[] }>(
+    modifierGroupsPath(restaurantId, productId),
+  );
+  return body.data;
+}
+
+export interface CreateModifierGroupInput {
+  name: string;
+  helperText?: string | null;
+  status: ModifierGroupStatus;
+  minimumSelections: number;
+  maximumSelections: number;
+  displayOrder: number;
+}
+
+export async function createModifierGroup(
+  restaurantId: string,
+  productId: string,
+  input: CreateModifierGroupInput,
+): Promise<ModifierGroup> {
+  const body = await apiFetch<{ data: ModifierGroup }>(
+    modifierGroupsPath(restaurantId, productId),
+    { method: 'POST', body: input },
+  );
+  return body.data;
+}
+
+export interface UpdateModifierGroupInput {
+  name?: string;
+  helperText?: string | null;
+  status?: ModifierGroupStatus;
+  minimumSelections?: number;
+  maximumSelections?: number;
+  displayOrder?: number;
+}
+
+export async function updateModifierGroup(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+  input: UpdateModifierGroupInput,
+): Promise<ModifierGroup> {
+  const body = await apiFetch<{ data: ModifierGroup }>(
+    `${modifierGroupsPath(restaurantId, productId)}/${groupId}`,
+    { method: 'PATCH', body: input },
+  );
+  return body.data;
+}
+
+export interface CreateModifierOptionInput {
+  name: string;
+  status: ModifierOptionStatus;
+  priceAdjustment: string;
+  displayOrder: number;
+}
+
+export async function createModifierOption(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+  input: CreateModifierOptionInput,
+): Promise<ModifierOption> {
+  const body = await apiFetch<{ data: ModifierOption }>(
+    `${modifierGroupsPath(restaurantId, productId)}/${groupId}/options`,
+    { method: 'POST', body: input },
+  );
+  return body.data;
+}
+
+export interface UpdateModifierOptionInput {
+  name?: string;
+  status?: ModifierOptionStatus;
+  priceAdjustment?: string;
+  displayOrder?: number;
+}
+
+export async function updateModifierOption(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+  optionId: string,
+  input: UpdateModifierOptionInput,
+): Promise<ModifierOption> {
+  const body = await apiFetch<{ data: ModifierOption }>(
+    `${modifierGroupsPath(restaurantId, productId)}/${groupId}/options/${optionId}`,
+    { method: 'PATCH', body: input },
+  );
+  return body.data;
+}
+
+/**
+ * FT-6A closeout: Modifier Group/Option secondary-locale translation
+ * requests, mirroring `getProductTranslations`/`putProductTranslation`/
+ * `deleteProductTranslation` above exactly. `ModifierGroupTranslation`'s
+ * second field is `helperText` (not `description`); `ModifierOptionTranslation`
+ * has `name` only.
+ */
+export interface ModifierGroupTranslationRow {
+  locale: string;
+  name: string;
+  helperText: string | null;
+}
+
+export interface ModifierGroupTranslationInput {
+  name: string;
+  helperText?: string | null;
+}
+
+export async function getModifierGroupTranslations(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+): Promise<ModifierGroupTranslationRow[]> {
+  const body = await apiFetch<{ data: ModifierGroupTranslationRow[] }>(
+    `${modifierGroupsPath(restaurantId, productId)}/${groupId}/translations`,
+  );
+  return body.data;
+}
+
+export async function putModifierGroupTranslation(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+  locale: string,
+  input: ModifierGroupTranslationInput,
+): Promise<ModifierGroupTranslationRow> {
+  const body = await apiFetch<{ data: ModifierGroupTranslationRow }>(
+    `${modifierGroupsPath(restaurantId, productId)}/${groupId}/translations/${locale}`,
+    { method: 'PUT', body: input },
+  );
+  return body.data;
+}
+
+export async function deleteModifierGroupTranslation(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+  locale: string,
+): Promise<void> {
+  await apiFetch<undefined>(
+    `${modifierGroupsPath(restaurantId, productId)}/${groupId}/translations/${locale}`,
+    { method: 'DELETE' },
+  );
+}
+
+export interface ModifierOptionTranslationRow {
+  locale: string;
+  name: string;
+}
+
+export interface ModifierOptionTranslationInput {
+  name: string;
+}
+
+export async function getModifierOptionTranslations(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+  optionId: string,
+): Promise<ModifierOptionTranslationRow[]> {
+  const body = await apiFetch<{ data: ModifierOptionTranslationRow[] }>(
+    `${modifierGroupsPath(restaurantId, productId)}/${groupId}/options/${optionId}/translations`,
+  );
+  return body.data;
+}
+
+export async function putModifierOptionTranslation(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+  optionId: string,
+  locale: string,
+  input: ModifierOptionTranslationInput,
+): Promise<ModifierOptionTranslationRow> {
+  const body = await apiFetch<{ data: ModifierOptionTranslationRow }>(
+    `${modifierGroupsPath(restaurantId, productId)}/${groupId}/options/${optionId}/translations/${locale}`,
+    { method: 'PUT', body: input },
+  );
+  return body.data;
+}
+
+export async function deleteModifierOptionTranslation(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+  optionId: string,
+  locale: string,
+): Promise<void> {
+  await apiFetch<undefined>(
+    `${modifierGroupsPath(restaurantId, productId)}/${groupId}/options/${optionId}/translations/${locale}`,
     { method: 'DELETE' },
   );
 }

@@ -19,6 +19,8 @@
 export interface PendingOrderItem {
   productId: string;
   quantity: number;
+  /** FT-6A: part of the payload identity -- a Cart mutation that only changes selected Options (not productId/quantity) must still count as "changed", generating a fresh id rather than reusing a stale one. */
+  modifierOptionIds: string[];
 }
 
 export interface PendingOrderAttempt {
@@ -30,28 +32,45 @@ function storageKey(publicCode: string): string {
   return `qr-cart-pending:${publicCode}`;
 }
 
-/** Deterministic canonical form for comparison -- sorted by `productId` so item ORDER never causes a false "changed" result. */
+/** Deterministic canonical form for comparison -- sorted by `productId`+selection key so item ORDER never causes a false "changed" result. Two lines sharing a `productId` but with DIFFERENT `modifierOptionIds` are kept as separate entries and sorted by their full line identity (FT-6A: Cart identity includes selections, not only productId). */
 function canonicalizeItems(items: PendingOrderItem[]): PendingOrderItem[] {
   return items
-    .map((item) => ({ productId: item.productId, quantity: item.quantity }))
-    .sort((a, b) => a.productId.localeCompare(b.productId));
+    .map((item) => ({
+      productId: item.productId,
+      quantity: item.quantity,
+      modifierOptionIds: [...item.modifierOptionIds].sort(),
+    }))
+    .sort((a, b) =>
+      `${a.productId}::${a.modifierOptionIds.join(',')}`.localeCompare(
+        `${b.productId}::${b.modifierOptionIds.join(',')}`,
+      ),
+    );
 }
 
 function itemsEqual(a: PendingOrderItem[], b: PendingOrderItem[]): boolean {
   const canonicalA = canonicalizeItems(a);
   const canonicalB = canonicalizeItems(b);
   if (canonicalA.length !== canonicalB.length) return false;
-  return canonicalA.every(
-    (item, index) =>
-      item.productId === canonicalB[index].productId &&
-      item.quantity === canonicalB[index].quantity,
-  );
+  return canonicalA.every((item, index) => {
+    const other = canonicalB[index];
+    return (
+      item.productId === other.productId &&
+      item.quantity === other.quantity &&
+      item.modifierOptionIds.length === other.modifierOptionIds.length &&
+      item.modifierOptionIds.every((id, i) => id === other.modifierOptionIds[i])
+    );
+  });
 }
 
 function isPendingOrderItem(value: unknown): value is PendingOrderItem {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Partial<PendingOrderItem>;
-  return typeof candidate.productId === 'string' && Number.isInteger(candidate.quantity);
+  return (
+    typeof candidate.productId === 'string' &&
+    Number.isInteger(candidate.quantity) &&
+    Array.isArray(candidate.modifierOptionIds) &&
+    candidate.modifierOptionIds.every((id) => typeof id === 'string')
+  );
 }
 
 function isPendingOrderAttempt(value: unknown): value is PendingOrderAttempt {

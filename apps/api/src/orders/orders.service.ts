@@ -19,12 +19,20 @@ export interface OrderListItem {
   itemCount: number;
 }
 
+/** FT-6A: one selected Modifier Option snapshot (ORDER_LIFECYCLE_SPEC.md #41) -- always the value at Order submission time, never re-derived from the live (possibly since-changed) Modifier configuration. */
+export interface OrderItemModifierView {
+  groupName: string;
+  optionName: string;
+  priceAdjustment: string;
+}
+
 export interface OrderItemView {
   productId: string;
   productNameSnapshot: string;
   unitPrice: string;
   quantity: number;
   lineTotal: string;
+  modifiers: OrderItemModifierView[];
 }
 
 /** Safe Staff-facing Order Detail shape (Section 26). Includes every item snapshot -- List deliberately does not. */
@@ -81,6 +89,14 @@ const ORDER_ITEM_VIEW_SELECT = {
   unitPrice: true,
   quantity: true,
   lineTotal: true,
+  modifiers: {
+    select: {
+      modifierGroupNameSnapshot: true,
+      modifierOptionNameSnapshot: true,
+      priceAdjustmentSnapshot: true,
+    },
+    orderBy: { displayOrder: 'asc' },
+  },
 } as const;
 
 function toOrderItemView(item: {
@@ -89,6 +105,11 @@ function toOrderItemView(item: {
   unitPrice: { toFixed(digits: number): string };
   quantity: number;
   lineTotal: { toFixed(digits: number): string };
+  modifiers: {
+    modifierGroupNameSnapshot: string;
+    modifierOptionNameSnapshot: string;
+    priceAdjustmentSnapshot: { toFixed(digits: number): string };
+  }[];
 }): OrderItemView {
   return {
     productId: item.productId,
@@ -96,6 +117,11 @@ function toOrderItemView(item: {
     unitPrice: formatMoney(item.unitPrice),
     quantity: item.quantity,
     lineTotal: formatMoney(item.lineTotal),
+    modifiers: item.modifiers.map((modifier) => ({
+      groupName: modifier.modifierGroupNameSnapshot,
+      optionName: modifier.modifierOptionNameSnapshot,
+      priceAdjustment: formatMoney(modifier.priceAdjustmentSnapshot),
+    })),
   };
 }
 

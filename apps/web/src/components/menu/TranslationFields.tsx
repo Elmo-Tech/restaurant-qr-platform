@@ -22,6 +22,10 @@ export interface TranslationFieldsProps {
   onChange: (patch: Partial<Pick<TranslationFieldsDraft, 'name' | 'description'>>) => void;
   onSave: () => void;
   onRemove: () => void;
+  /** FT-6A closeout: the second field's label, e.g. "Helper text" for a Modifier Group (`ModifierGroupTranslation.helperText`) -- defaults to "Description" (Menu/Category/Product's own field name). Purely a label; the underlying draft field stays `description` either way, so `useTranslationsEditor` needs no changes. */
+  secondFieldLabel?: string;
+  /** FT-6A closeout: a Modifier Option Translation has no second content field at all (DATABASE_SPEC.md #77) -- hides the field entirely rather than showing an always-empty, never-persisted input. */
+  hideSecondField?: boolean;
 }
 
 /**
@@ -42,6 +46,8 @@ export function TranslationFields({
   onChange,
   onSave,
   onRemove,
+  secondFieldLabel = 'Description',
+  hideSecondField = false,
 }: TranslationFieldsProps) {
   const name = draft?.name ?? '';
   const description = draft?.description ?? '';
@@ -64,15 +70,17 @@ export function TranslationFields({
           disabled={isBusy}
         />
       </FormField>
-      <FormField label="Description" htmlFor={`${idPrefix}-description-${locale}`}>
-        <Textarea
-          id={`${idPrefix}-description-${locale}`}
-          dir={dir}
-          value={description}
-          onChange={(event) => onChange({ description: event.target.value })}
-          disabled={isBusy}
-        />
-      </FormField>
+      {!hideSecondField ? (
+        <FormField label={secondFieldLabel} htmlFor={`${idPrefix}-description-${locale}`}>
+          <Textarea
+            id={`${idPrefix}-description-${locale}`}
+            dir={dir}
+            value={description}
+            onChange={(event) => onChange({ description: event.target.value })}
+            disabled={isBusy}
+          />
+        </FormField>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="secondary" className="px-3 py-1.5 text-xs" disabled={isBusy} onClick={onSave}>
           {isSaving ? 'Saving…' : 'Save translation'}

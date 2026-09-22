@@ -6,6 +6,8 @@ import type { OrderStatus } from '../generated/prisma/client';
 export interface CreateGuestOrderItemInput {
   productId: string;
   quantity: number;
+  /** Option IDENTITY only -- never a price/name (CRITICAL MONEY RULE). Omitted/undefined is normalized to no selections. */
+  modifierOptionIds?: string[];
 }
 
 export interface CreateGuestOrderInput {
@@ -14,12 +16,19 @@ export interface CreateGuestOrderInput {
   items: CreateGuestOrderItemInput[];
 }
 
+export interface GuestOrderItemModifierView {
+  groupName: string;
+  optionName: string;
+  priceAdjustment: string;
+}
+
 export interface GuestOrderItemView {
   productId: string;
   name: string;
   quantity: number;
   unitPrice: string;
   lineTotal: string;
+  modifiers: GuestOrderItemModifierView[];
 }
 
 /** Safe Guest-facing Order confirmation shape (Section 22) -- never restaurantId/branchId/tableId/qrCodeId, only what a confirmation screen needs to render. */
@@ -52,6 +61,11 @@ interface OrderViewRow {
     unitPrice: Prisma.Decimal;
     quantity: number;
     lineTotal: Prisma.Decimal;
+    modifiers: {
+      modifierGroupNameSnapshot: string;
+      modifierOptionNameSnapshot: string;
+      priceAdjustmentSnapshot: Prisma.Decimal;
+    }[];
   }[];
 }
 
@@ -69,6 +83,14 @@ const ORDER_VIEW_SELECT = {
       unitPrice: true,
       quantity: true,
       lineTotal: true,
+      modifiers: {
+        select: {
+          modifierGroupNameSnapshot: true,
+          modifierOptionNameSnapshot: true,
+          priceAdjustmentSnapshot: true,
+        },
+        orderBy: { displayOrder: 'asc' },
+      },
     },
   },
 } satisfies Prisma.OrderSelect;
@@ -90,6 +112,11 @@ function toGuestOrderView(order: OrderViewRow): GuestOrderView {
       quantity: item.quantity,
       unitPrice: item.unitPrice.toFixed(2),
       lineTotal: item.lineTotal.toFixed(2),
+      modifiers: item.modifiers.map((modifier) => ({
+        groupName: modifier.modifierGroupNameSnapshot,
+        optionName: modifier.modifierOptionNameSnapshot,
+        priceAdjustment: modifier.priceAdjustmentSnapshot.toFixed(2),
+      })),
     })),
   };
 }
@@ -149,8 +176,27 @@ export class PublicOrdersService {
 
   async createOrder(input: CreateGuestOrderInput): Promise<CreateGuestOrderResult> {
     const productIds = input.items.map((item) => item.productId);
-    if (new Set(productIds).size !== productIds.length) {
+
+    // FT-6A: line identity is (productId + its exact set of selected
+    // Modifier Options), NOT productId alone -- "Burger + Cheese" and
+    // "Burger + Bacon" are two genuinely distinct lines (Cart identity
+    // requirement) and must both be accepted; only a true repeat of the
+    // SAME Product with the SAME selections in two items is a duplicate.
+    const lineKeys = input.items.map((item) => {
+      const optionIds = item.modifierOptionIds ?? [];
+      return `${item.productId}::${[...optionIds].sort().join(',')}`;
+    });
+    if (new Set(lineKeys).size !== lineKeys.length) {
       return { outcome: 'duplicateItems' };
+    }
+    // A duplicate modifierOptionId within one line item is rejected before
+    // any DB work, exactly like the line-identity check above -- never
+    // silently deduplicated.
+    for (const item of input.items) {
+      const optionIds = item.modifierOptionIds ?? [];
+      if (new Set(optionIds).size !== optionIds.length) {
+        return { outcome: 'duplicateItems' };
+      }
     }
 
     // Section 3/5: ordering works ONLY from an ACTIVE TABLE QR whose Table
@@ -240,6 +286,38 @@ export class PublicOrdersService {
               select: { name: true },
               take: 1,
             },
+            // FT-6A: only ACTIVE Groups/Options are ever authoritative for
+            // a submission -- a Group/Option deactivated since the Guest
+            // loaded the Menu is treated exactly like a foreign/unknown id
+            // below (CRITICAL MONEY RULE: re-resolved fresh here, never
+            // trusted from the request).
+            modifierGroups: {
+              where: { status: 'ACTIVE' },
+              select: {
+                id: true,
+                minimumSelections: true,
+                maximumSelections: true,
+                displayOrder: true,
+                translations: {
+                  where: { locale: defaultLocale },
+                  select: { name: true },
+                  take: 1,
+                },
+                options: {
+                  where: { status: 'ACTIVE' },
+                  select: {
+                    id: true,
+                    priceAdjustment: true,
+                    displayOrder: true,
+                    translations: {
+                      where: { locale: defaultLocale },
+                      select: { name: true },
+                      take: 1,
+                    },
+                  },
+                },
+              },
+            },
           },
         });
 
@@ -262,16 +340,111 @@ export class PublicOrdersService {
             // does.
             throw new ItemsUnavailableError();
           }
+
+          // FT-6A CRITICAL MONEY RULE: every selected modifierOptionId is
+          // re-resolved against this Product's OWN currently-ACTIVE
+          // Modifier Groups/Options -- an id that is unknown, belongs to a
+          // different Product, or whose Group/Option has since been
+          // deactivated all converge on the identical whole-order
+          // `itemsUnavailable` rejection (Section: "guest-safe unavailable/
+          // config-changed error", never a distinguishable reason).
+          const optionLookup = new Map<
+            string,
+            {
+              group: (typeof product.modifierGroups)[number];
+              option: (typeof product.modifierGroups)[number]['options'][number];
+            }
+          >();
+          for (const group of product.modifierGroups) {
+            for (const option of group.options) {
+              optionLookup.set(option.id, { group, option });
+            }
+          }
+
+          interface Selection {
+            groupId: string;
+            groupDisplayOrder: number;
+            optionId: string;
+            optionDisplayOrder: number;
+            groupNameSnapshot: string;
+            optionNameSnapshot: string;
+            priceAdjustment: Prisma.Decimal;
+          }
+
+          const selections: Selection[] = [];
+          const selectedCountByGroup = new Map<string, number>();
+          for (const optionId of item.modifierOptionIds ?? []) {
+            const found = optionLookup.get(optionId);
+            if (!found) {
+              throw new ItemsUnavailableError();
+            }
+            const { group, option } = found;
+            const groupNameSnapshot = group.translations[0]?.name;
+            const optionNameSnapshot = option.translations[0]?.name;
+            if (groupNameSnapshot === undefined || optionNameSnapshot === undefined) {
+              // Defensive only -- see productNameSnapshot check above.
+              throw new ItemsUnavailableError();
+            }
+            selections.push({
+              groupId: group.id,
+              groupDisplayOrder: group.displayOrder,
+              optionId: option.id,
+              optionDisplayOrder: option.displayOrder,
+              groupNameSnapshot,
+              optionNameSnapshot,
+              priceAdjustment: option.priceAdjustment,
+            });
+            selectedCountByGroup.set(group.id, (selectedCountByGroup.get(group.id) ?? 0) + 1);
+          }
+
+          // Every ACTIVE Group belonging to this Product must have its
+          // selection count within [minimumSelections, maximumSelections]
+          // -- including a required Group (minimumSelections >= 1) with
+          // ZERO selections, which must fail here, not silently pass.
+          for (const group of product.modifierGroups) {
+            const count = selectedCountByGroup.get(group.id) ?? 0;
+            if (count < group.minimumSelections || count > group.maximumSelections) {
+              throw new ItemsUnavailableError();
+            }
+          }
+
+          // Stable Group-then-Option presentation order, independent of
+          // the order the Guest happened to submit ids in.
+          selections.sort(
+            (a, b) =>
+              a.groupDisplayOrder - b.groupDisplayOrder ||
+              a.optionDisplayOrder - b.optionDisplayOrder,
+          );
+
           // Section 8: exact Decimal arithmetic, never Number/parseFloat.
+          // `unitPrice` keeps its established meaning -- Product.basePrice
+          // alone (ORDER_LIFECYCLE_SPEC.md #42's "Base item price"); Modifier
+          // adjustments are summed separately into `lineTotal` and preserved
+          // individually via the OrderItemModifier snapshot rows below.
           const unitPrice = product.basePrice;
-          const lineTotal = unitPrice.times(item.quantity);
+          const modifiersTotal = selections.reduce(
+            (sum, selection) => sum.plus(selection.priceAdjustment),
+            new Prisma.Decimal(0),
+          );
+          const lineTotal = unitPrice.plus(modifiersTotal).times(item.quantity);
           total = total.plus(lineTotal);
+
           return {
             productId: item.productId,
             productNameSnapshot,
             unitPrice,
             quantity: item.quantity,
             lineTotal,
+            modifiers: {
+              create: selections.map((selection, index) => ({
+                modifierGroupId: selection.groupId,
+                modifierOptionId: selection.optionId,
+                modifierGroupNameSnapshot: selection.groupNameSnapshot,
+                modifierOptionNameSnapshot: selection.optionNameSnapshot,
+                priceAdjustmentSnapshot: selection.priceAdjustment,
+                displayOrder: index,
+              })),
+            },
           };
         });
 

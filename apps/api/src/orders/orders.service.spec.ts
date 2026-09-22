@@ -26,6 +26,7 @@ const SAMPLE_ORDER_ROW = {
       unitPrice: decimal('100.00'),
       quantity: 1,
       lineTotal: decimal('100.00'),
+      modifiers: [],
     },
   ],
 };
@@ -233,6 +234,7 @@ describe('OrdersService.getOrderDetail', () => {
             unitPrice: '100.00',
             quantity: 1,
             lineTotal: '100.00',
+            modifiers: [],
           },
         ],
       },

@@ -20,6 +20,19 @@ const PRODUCT_ROW = {
   id: 'product-1',
   basePrice: decimal('100.00'),
   translations: [{ name: 'Burger' }],
+  modifierGroups: [] as {
+    id: string;
+    minimumSelections: number;
+    maximumSelections: number;
+    displayOrder: number;
+    translations: { name: string }[];
+    options: {
+      id: string;
+      priceAdjustment: Prisma.Decimal;
+      displayOrder: number;
+      translations: { name: string }[];
+    }[];
+  }[],
 };
 
 const CREATED_ORDER_ROW = {
@@ -36,6 +49,11 @@ const CREATED_ORDER_ROW = {
       unitPrice: decimal('100.00'),
       quantity: 1,
       lineTotal: decimal('100.00'),
+      modifiers: [] as {
+        modifierGroupNameSnapshot: string;
+        modifierOptionNameSnapshot: string;
+        priceAdjustmentSnapshot: Prisma.Decimal;
+      }[],
     },
   ],
 };
@@ -300,6 +318,7 @@ describe('PublicOrdersService.createOrder', () => {
             quantity: 1,
             unitPrice: '100.00',
             lineTotal: '100.00',
+            modifiers: [],
           },
         ],
       },
@@ -434,5 +453,384 @@ describe('PublicOrdersService.createOrder', () => {
 
       await expect(service.createOrder(VALID_INPUT)).rejects.toBe(unexpected);
     });
+  });
+});
+
+describe('PublicOrdersService.createOrder -- Modifiers (FT-6A)', () => {
+  const SIZE_GROUP_ID = 'group-size';
+  const SIZE_SMALL_ID = 'option-size-small';
+  const SIZE_LARGE_ID = 'option-size-large';
+  const EXTRAS_GROUP_ID = 'group-extras';
+  const EXTRAS_CHEESE_ID = 'option-extras-cheese';
+  const EXTRAS_BACON_ID = 'option-extras-bacon';
+
+  /**
+   * A Product with a REQUIRED single-select Group ("Size", minimum=1/
+   * maximum=1) and an OPTIONAL multi-select Group ("Extras", minimum=0/
+   * maximum=2) -- matches the batch's one required smoke-flow shape.
+   * `productFindMany` in the real service only ever returns ACTIVE Groups/
+   * Options (the query's own `where: { status: 'ACTIVE' }`) -- an option id
+   * that is unknown, belongs to a different Product, or has since become
+   * inactive are therefore indistinguishable at this mock boundary, exactly
+   * as they are in the real implementation (all converge on the same
+   * `itemsUnavailable` outcome).
+   */
+  const PRODUCT_WITH_MODIFIERS_ROW = {
+    id: 'product-1',
+    basePrice: decimal('100.00'),
+    translations: [{ name: 'Burger' }],
+    modifierGroups: [
+      {
+        id: SIZE_GROUP_ID,
+        minimumSelections: 1,
+        maximumSelections: 1,
+        displayOrder: 0,
+        translations: [{ name: 'Size' }],
+        options: [
+          {
+            id: SIZE_SMALL_ID,
+            priceAdjustment: decimal('0.00'),
+            displayOrder: 0,
+            translations: [{ name: 'Small' }],
+          },
+          {
+            id: SIZE_LARGE_ID,
+            priceAdjustment: decimal('20.00'),
+            displayOrder: 1,
+            translations: [{ name: 'Large' }],
+          },
+        ],
+      },
+      {
+        id: EXTRAS_GROUP_ID,
+        minimumSelections: 0,
+        maximumSelections: 2,
+        displayOrder: 1,
+        translations: [{ name: 'Extras' }],
+        options: [
+          {
+            id: EXTRAS_CHEESE_ID,
+            priceAdjustment: decimal('10.00'),
+            displayOrder: 0,
+            translations: [{ name: 'Cheese' }],
+          },
+          {
+            id: EXTRAS_BACON_ID,
+            priceAdjustment: decimal('15.00'),
+            displayOrder: 1,
+            translations: [{ name: 'Bacon' }],
+          },
+        ],
+      },
+    ],
+  };
+
+  it('rejects the whole Order when a modifierOptionId is unknown/foreign (never belonged to any Product)', async () => {
+    const mock = buildPrismaMock();
+    mock.productFindMany.mockResolvedValue([PRODUCT_WITH_MODIFIERS_ROW]);
+    const service = buildService(mock);
+
+    const result = await service.createOrder({
+      ...VALID_INPUT,
+      items: [
+        {
+          productId: 'product-1',
+          quantity: 1,
+          modifierOptionIds: ['11111111-1111-4111-8111-000000000099'],
+        },
+      ],
+    });
+
+    expect(result).toEqual({ outcome: 'itemsUnavailable' });
+  });
+
+  it('rejects the whole Order when a modifierOptionId belongs to a Group on a DIFFERENT Product', async () => {
+    const mock = buildPrismaMock();
+    mock.productFindMany.mockResolvedValue([PRODUCT_WITH_MODIFIERS_ROW]);
+    const service = buildService(mock);
+
+    // Well-formed, real-looking id, but it is never part of `product-1`'s
+    // own resolved modifierGroups -- resolved fresh per-Product, exactly
+    // like it would be for an Option that genuinely belongs elsewhere.
+    const result = await service.createOrder({
+      ...VALID_INPUT,
+      items: [
+        {
+          productId: 'product-1',
+          quantity: 1,
+          modifierOptionIds: ['22222222-2222-4222-8222-000000000001'],
+        },
+      ],
+    });
+
+    expect(result).toEqual({ outcome: 'itemsUnavailable' });
+  });
+
+  it('rejects the whole Order when a REQUIRED Group (minimumSelections >= 1) has zero selections', async () => {
+    const mock = buildPrismaMock();
+    mock.productFindMany.mockResolvedValue([PRODUCT_WITH_MODIFIERS_ROW]);
+    const service = buildService(mock);
+
+    const result = await service.createOrder({
+      ...VALID_INPUT,
+      // Only the optional Extras Group is selected -- the required Size
+      // Group is left with zero selections.
+      items: [{ productId: 'product-1', quantity: 1, modifierOptionIds: [EXTRAS_CHEESE_ID] }],
+    });
+
+    expect(result).toEqual({ outcome: 'itemsUnavailable' });
+  });
+
+  it('rejects the whole Order when a Group receives MORE selections than its maximumSelections', async () => {
+    const mock = buildPrismaMock();
+    mock.productFindMany.mockResolvedValue([PRODUCT_WITH_MODIFIERS_ROW]);
+    const service = buildService(mock);
+
+    const result = await service.createOrder({
+      ...VALID_INPUT,
+      // Size only allows maximumSelections=1 -- selecting both options
+      // violates it even though neither id is individually invalid.
+      items: [
+        {
+          productId: 'product-1',
+          quantity: 1,
+          modifierOptionIds: [SIZE_SMALL_ID, SIZE_LARGE_ID],
+        },
+      ],
+    });
+
+    expect(result).toEqual({ outcome: 'itemsUnavailable' });
+  });
+
+  it('rejects (duplicateItems) a repeated modifierOptionId within the same line item, before any DB work', async () => {
+    const mock = buildPrismaMock();
+    mock.productFindMany.mockResolvedValue([PRODUCT_WITH_MODIFIERS_ROW]);
+    const service = buildService(mock);
+
+    const result = await service.createOrder({
+      ...VALID_INPUT,
+      items: [
+        {
+          productId: 'product-1',
+          quantity: 1,
+          modifierOptionIds: [SIZE_LARGE_ID, SIZE_LARGE_ID],
+        },
+      ],
+    });
+
+    expect(result).toEqual({ outcome: 'duplicateItems' });
+    expect(mock.transaction).not.toHaveBeenCalled();
+  });
+
+  it('rejects the whole Order when a selected Option is no longer ACTIVE (already excluded by the ACTIVE-only query)', async () => {
+    const mock = buildPrismaMock();
+    // Simulates Bacon having been deactivated since the Guest loaded the
+    // Menu -- the real `where: { status: 'ACTIVE' }` filter would simply
+    // omit it from the resolved Product, exactly like this mock.
+    mock.productFindMany.mockResolvedValue([
+      {
+        ...PRODUCT_WITH_MODIFIERS_ROW,
+        modifierGroups: [
+          PRODUCT_WITH_MODIFIERS_ROW.modifierGroups[0],
+          { ...PRODUCT_WITH_MODIFIERS_ROW.modifierGroups[1], options: [] },
+        ],
+      },
+    ]);
+    const service = buildService(mock);
+
+    const result = await service.createOrder({
+      ...VALID_INPUT,
+      items: [
+        {
+          productId: 'product-1',
+          quantity: 1,
+          modifierOptionIds: [SIZE_SMALL_ID, EXTRAS_BACON_ID],
+        },
+      ],
+    });
+
+    expect(result).toEqual({ outcome: 'itemsUnavailable' });
+  });
+
+  it('computes the exact line total via Decimal, including every selected modifier priceAdjustment', async () => {
+    const mock = buildPrismaMock();
+    mock.productFindMany.mockResolvedValue([PRODUCT_WITH_MODIFIERS_ROW]);
+    const service = buildService(mock);
+
+    await service.createOrder({
+      ...VALID_INPUT,
+      items: [
+        {
+          productId: 'product-1',
+          quantity: 2,
+          modifierOptionIds: [SIZE_LARGE_ID, EXTRAS_CHEESE_ID, EXTRAS_BACON_ID],
+        },
+      ],
+    });
+
+    const createArgs = mock.orderCreate.mock.calls[0][0] as {
+      data: { totalAmount: { toFixed(digits: number): string }; items: { create: { unitPrice: { toFixed(digits: number): string }; lineTotal: { toFixed(digits: number): string } }[] } };
+    };
+    const [item] = createArgs.data.items.create;
+    // unitPrice keeps its established meaning -- Product.basePrice ALONE,
+    // never inflated by modifier adjustments.
+    expect(item.unitPrice.toFixed(2)).toBe('100.00');
+    // (100.00 base + 20.00 Large + 10.00 Cheese + 15.00 Bacon) * 2 = 290.00
+    expect(item.lineTotal.toFixed(2)).toBe('290.00');
+    expect(createArgs.data.totalAmount.toFixed(2)).toBe('290.00');
+  });
+
+  it('creates OrderItemModifier snapshot rows with resolved names/price, ordered by Group-then-Option displayOrder', async () => {
+    const mock = buildPrismaMock();
+    mock.productFindMany.mockResolvedValue([PRODUCT_WITH_MODIFIERS_ROW]);
+    const service = buildService(mock);
+
+    await service.createOrder({
+      ...VALID_INPUT,
+      // Submitted out of display order on purpose -- the persisted
+      // snapshot order must reflect the Menu's own Group/Option
+      // displayOrder, never Guest submission order.
+      items: [
+        {
+          productId: 'product-1',
+          quantity: 1,
+          modifierOptionIds: [EXTRAS_BACON_ID, SIZE_LARGE_ID],
+        },
+      ],
+    });
+
+    const createArgs = mock.orderCreate.mock.calls[0][0] as {
+      data: {
+        items: {
+          create: {
+            modifiers: {
+              create: {
+                modifierGroupId: string;
+                modifierOptionId: string;
+                modifierGroupNameSnapshot: string;
+                modifierOptionNameSnapshot: string;
+                priceAdjustmentSnapshot: { toFixed(digits: number): string };
+                displayOrder: number;
+              }[];
+            };
+          }[];
+        };
+      };
+    };
+    const [item] = createArgs.data.items.create;
+
+    expect(item.modifiers.create).toHaveLength(2);
+    expect(item.modifiers.create[0]).toMatchObject({
+      modifierGroupId: SIZE_GROUP_ID,
+      modifierOptionId: SIZE_LARGE_ID,
+      modifierGroupNameSnapshot: 'Size',
+      modifierOptionNameSnapshot: 'Large',
+      displayOrder: 0,
+    });
+    expect(item.modifiers.create[0].priceAdjustmentSnapshot.toFixed(2)).toBe('20.00');
+    expect(item.modifiers.create[1]).toMatchObject({
+      modifierGroupId: EXTRAS_GROUP_ID,
+      modifierOptionId: EXTRAS_BACON_ID,
+      modifierGroupNameSnapshot: 'Extras',
+      modifierOptionNameSnapshot: 'Bacon',
+      displayOrder: 1,
+    });
+    expect(item.modifiers.create[1].priceAdjustmentSnapshot.toFixed(2)).toBe('15.00');
+  });
+
+  it('creates the Order, its Item, and every modifier snapshot atomically inside one transaction', async () => {
+    const mock = buildPrismaMock();
+    mock.productFindMany.mockResolvedValue([PRODUCT_WITH_MODIFIERS_ROW]);
+    const service = buildService(mock);
+
+    await service.createOrder({
+      ...VALID_INPUT,
+      items: [{ productId: 'product-1', quantity: 1, modifierOptionIds: [SIZE_SMALL_ID] }],
+    });
+
+    // One `$transaction` call, one nested `order.create` whose `items.create`
+    // already embeds `modifiers.create` -- never a separate write for the
+    // modifier snapshot rows outside this same atomic call.
+    expect(mock.transaction).toHaveBeenCalledTimes(1);
+    expect(mock.orderCreate).toHaveBeenCalledTimes(1);
+  });
+
+  it('accepts the SAME Product twice with DIFFERENT modifier selections as two distinct lines, never as a duplicate', async () => {
+    const mock = buildPrismaMock();
+    mock.productFindMany.mockResolvedValue([PRODUCT_WITH_MODIFIERS_ROW]);
+    const service = buildService(mock);
+
+    const result = await service.createOrder({
+      ...VALID_INPUT,
+      items: [
+        { productId: 'product-1', quantity: 1, modifierOptionIds: [SIZE_SMALL_ID] },
+        { productId: 'product-1', quantity: 1, modifierOptionIds: [SIZE_LARGE_ID] },
+      ],
+    });
+
+    expect(result.outcome).toBe('created');
+    const createArgs = mock.orderCreate.mock.calls[0][0] as {
+      data: { items: { create: unknown[] } };
+    };
+    expect(createArgs.data.items.create).toHaveLength(2);
+  });
+
+  it('idempotent retry with modifierOptionIds present still short-circuits on the fast path, never re-validating modifiers', async () => {
+    const mock = buildPrismaMock();
+    mock.orderFindFirst.mockResolvedValue(CREATED_ORDER_ROW);
+    const service = buildService(mock);
+
+    const result = await service.createOrder({
+      ...VALID_INPUT,
+      items: [{ productId: 'product-1', quantity: 1, modifierOptionIds: [SIZE_LARGE_ID] }],
+    });
+
+    expect(result.outcome).toBe('created');
+    expect(mock.transaction).not.toHaveBeenCalled();
+  });
+
+  // FT-6A final blocker fix: the DTO no longer imposes an invented
+  // total-selection cap -- the Product's own active Modifier configuration
+  // (minimumSelections/maximumSelections PER Group) remains the sole
+  // authority. A Group that legitimately allows more than 20 selections
+  // must succeed, never rejected by a coincidental array-length limit.
+  it('accepts more than 20 selected options when the Group configuration actually allows it', async () => {
+    const manyOptions = Array.from({ length: 25 }, (_, index) => ({
+      id: `option-extra-${index}`,
+      priceAdjustment: decimal('1.00'),
+      displayOrder: index,
+      translations: [{ name: `Extra ${index}` }],
+    }));
+    const productWithLargeGroup = {
+      id: 'product-1',
+      basePrice: decimal('100.00'),
+      translations: [{ name: 'Burger' }],
+      modifierGroups: [
+        {
+          id: 'group-many-extras',
+          minimumSelections: 0,
+          maximumSelections: 25,
+          displayOrder: 0,
+          translations: [{ name: 'Extras' }],
+          options: manyOptions,
+        },
+      ],
+    };
+    const mock = buildPrismaMock();
+    mock.productFindMany.mockResolvedValue([productWithLargeGroup]);
+    const service = buildService(mock);
+
+    const result = await service.createOrder({
+      ...VALID_INPUT,
+      items: [
+        {
+          productId: 'product-1',
+          quantity: 1,
+          modifierOptionIds: manyOptions.map((option) => option.id),
+        },
+      ],
+    });
+
+    expect(result.outcome).toBe('created');
   });
 });

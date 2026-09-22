@@ -31,6 +31,21 @@ export interface PublicMenuLocale {
   available: string[];
 }
 
+export interface PublicMenuModifierOption {
+  id: string;
+  name: string;
+  priceAdjustment: string;
+}
+
+export interface PublicMenuModifierGroup {
+  id: string;
+  name: string;
+  helperText: string | null;
+  minimumSelections: number;
+  maximumSelections: number;
+  options: PublicMenuModifierOption[];
+}
+
 export interface PublicMenuProduct {
   id: string;
   name: string;
@@ -39,6 +54,7 @@ export interface PublicMenuProduct {
   primaryImageAssetPath: string | null;
   availability: ProductAvailability;
   featured: boolean;
+  modifierGroups: PublicMenuModifierGroup[];
 }
 
 export interface PublicMenuCategory {
@@ -191,6 +207,35 @@ export class PublicMenuService {
               where: { locale: { in: localesToLoad } },
               select: { locale: true, name: true, description: true },
             },
+            // FT-6A: only ACTIVE Groups/Options are ever offered to a
+            // Guest -- an INACTIVE (deactivated) Group or Option is hidden
+            // entirely, never shown disabled (mirrors Category/Product
+            // status filtering above).
+            modifierGroups: {
+              where: { status: 'ACTIVE' },
+              orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+              select: {
+                id: true,
+                minimumSelections: true,
+                maximumSelections: true,
+                translations: {
+                  where: { locale: { in: localesToLoad } },
+                  select: { locale: true, name: true, helperText: true },
+                },
+                options: {
+                  where: { status: 'ACTIVE' },
+                  orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+                  select: {
+                    id: true,
+                    priceAdjustment: true,
+                    translations: {
+                      where: { locale: { in: localesToLoad } },
+                      select: { locale: true, name: true },
+                    },
+                  },
+                },
+              },
+            },
           },
         },
       },
@@ -214,6 +259,51 @@ export class PublicMenuService {
           productDefault,
         );
 
+        const modifierGroups: PublicMenuModifierGroup[] = [];
+        for (const group of product.modifierGroups) {
+          // `resolvePublicField`/`pickRow` are typed against the
+          // Menu/Category/Product `{locale, name, description}` shape --
+          // ModifierGroupTranslation's third field is `helperText`, so it is
+          // adapted to that shape here rather than duplicating the same
+          // field-level fallback algorithm a second time.
+          const groupRows: PublicTranslatableRow[] = group.translations.map(
+            (row) => ({ locale: row.locale, name: row.name, description: row.helperText }),
+          );
+          const groupDefault = pickRow(groupRows, defaultLocale);
+          if (!groupDefault) continue; // Defensive only -- see class docstring.
+          const groupFields = resolvePublicField(
+            pickRow(groupRows, resolved),
+            groupDefault,
+          );
+
+          const options: PublicMenuModifierOption[] = [];
+          for (const option of group.options) {
+            const optionRows: PublicTranslatableRow[] = option.translations.map(
+              (row) => ({ locale: row.locale, name: row.name, description: null }),
+            );
+            const optionDefault = pickRow(optionRows, defaultLocale);
+            if (!optionDefault) continue; // Defensive only.
+            const optionFields = resolvePublicField(
+              pickRow(optionRows, resolved),
+              optionDefault,
+            );
+            options.push({
+              id: option.id,
+              name: optionFields.name,
+              priceAdjustment: option.priceAdjustment.toFixed(2),
+            });
+          }
+
+          modifierGroups.push({
+            id: group.id,
+            name: groupFields.name,
+            helperText: groupFields.description,
+            minimumSelections: group.minimumSelections,
+            maximumSelections: group.maximumSelections,
+            options,
+          });
+        }
+
         // SOLD_OUT Products stay visible (Section 6) -- `availability` is
         // never used as a visibility filter, only `status` is (already
         // applied in the query's `where` above).
@@ -228,6 +318,7 @@ export class PublicMenuService {
           primaryImageAssetPath: product.primaryImageAssetPath,
           availability: product.availability,
           featured: product.featured,
+          modifierGroups,
         });
       }
 

@@ -111,6 +111,19 @@ export function OrderDetailDialog({
                       <p className="text-xs text-[#655D56]">
                         {item.quantity} × {item.unitPrice} {order.currencyCode}
                       </p>
+                      {/* FT-6A, ORDER_LIFECYCLE_SPEC.md #41: the exact
+                          Modifier selections snapshotted at submission time
+                          -- never re-derived from the live (possibly
+                          since-changed) Modifier configuration. */}
+                      {item.modifiers.length > 0 ? (
+                        <ul className="mt-1 flex flex-col text-xs text-[#655D56]">
+                          {item.modifiers.map((modifier, modifierIndex) => (
+                            <li key={modifierIndex}>
+                              {modifier.groupName}: {modifier.optionName}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : null}
                     </div>
                     <p className="flex-shrink-0 text-sm font-semibold text-[#302C29]">
                       {item.lineTotal} {order.currencyCode}

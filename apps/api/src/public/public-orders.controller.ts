@@ -32,7 +32,8 @@ const ORDER_ITEM_UNAVAILABLE_RESPONSE = {
 const DUPLICATE_ITEMS_RESPONSE = {
   error: {
     code: 'VALIDATION_ERROR',
-    message: 'Each product may appear only once in items.',
+    message:
+      'Each product/modifier-selection combination may appear only once in items, and modifierOptionIds must not repeat within one item.',
   },
 };
 
@@ -74,6 +75,7 @@ export class PublicOrdersController {
       items: dto.items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
+        modifierOptionIds: item.modifierOptionIds ?? [],
       })),
     });
 

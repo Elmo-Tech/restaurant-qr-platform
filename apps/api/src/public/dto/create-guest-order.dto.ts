@@ -12,7 +12,9 @@ import { Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
+  IsArray,
   IsInt,
+  IsOptional,
   IsUUID,
   Max,
   Min,
@@ -20,11 +22,16 @@ import {
 } from 'class-validator';
 
 /**
- * FT-5, Section 4/7: exactly `productId` + `quantity` -- no unit price, no
- * totals, no Order status, ever accepted from the Guest browser (Section
- * 4). `quantity` is a whole number 1..99 (Section 7); anything outside
- * that range or non-integer fails DTO validation before the service ever
- * runs.
+ * FT-5, Section 4/7 (extended FT-6A): exactly `productId` + `quantity` +
+ * `modifierOptionIds` -- no unit price, no totals, no Order status, no
+ * modifier name/priceAdjustment, ever accepted from the Guest browser
+ * (CRITICAL MONEY RULE: the Guest submits option IDENTITY only; the Backend
+ * re-resolves every selection's authoritative price -- see
+ * `PublicOrdersService.createOrder`). `quantity` is a whole number 1..99
+ * (Section 7); anything outside that range or non-integer fails DTO
+ * validation before the service ever runs. `modifierOptionIds` is optional
+ * (a Product with no Modifier Groups omits it entirely) -- the service
+ * normalizes an omitted array to empty.
  */
 export class CreateGuestOrderItemDto {
   @IsUUID('all', { message: 'productId must be a well-formed UUID' })
@@ -34,6 +41,22 @@ export class CreateGuestOrderItemDto {
   @Min(1, { message: 'quantity must be at least 1' })
   @Max(99, { message: 'quantity must be at most 99' })
   quantity!: number;
+
+  // No `@ArrayMaxSize` here, deliberately: there is no documented global cap
+  // on how many Modifier Options one line item may select (DATABASE_SPEC.md
+  // #74 only constrains minimumSelections/maximumSelections PER Group, with
+  // no repo-wide ceiling on total Groups or Options per Product). The
+  // authoritative bound is the Product's actual active Modifier
+  // configuration, enforced by `PublicOrdersService` at submission time --
+  // an invented DTO-wide limit here could reject a completely valid
+  // selection before that domain validation ever runs.
+  @IsOptional()
+  @IsArray()
+  @IsUUID('all', {
+    each: true,
+    message: 'modifierOptionIds must contain only well-formed UUIDs',
+  })
+  modifierOptionIds?: string[];
 }
 
 /**

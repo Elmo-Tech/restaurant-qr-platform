@@ -139,16 +139,18 @@ model Restaurant {
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
-  locales     RestaurantLocale[]
-  branches    Branch[]
-  memberships RestaurantMembership[]
-  invitations RestaurantInvitation[]
-  tables      Table[]
-  qrCodes     QrCode[]
-  menus       Menu[]
-  categories  Category[]
-  products    Product[]
-  orders      Order[]
+  locales         RestaurantLocale[]
+  branches        Branch[]
+  memberships     RestaurantMembership[]
+  invitations     RestaurantInvitation[]
+  tables          Table[]
+  qrCodes         QrCode[]
+  menus           Menu[]
+  categories      Category[]
+  products        Product[]
+  orders          Order[]
+  modifierGroups  ModifierGroup[]
+  modifierOptions ModifierOption[]
 
   @@map("restaurants")
 }
@@ -320,10 +322,11 @@ model Product {
   // Product.restaurantId == Category.restaurantId is a cross-row Tenant
   // invariant enforced by Batch D application write logic and Tenant-scoped
   // read queries, never trusted from categoryId alone (mirrors #61A).
-  restaurant   Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
-  category     Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
-  translations ProductTranslation[]
-  orderItems   OrderItem[]
+  restaurant     Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  category       Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
+  translations   ProductTranslation[]
+  orderItems     OrderItem[]
+  modifierGroups ModifierGroup[]
 
   @@index([restaurantId])
   @@index([categoryId])
@@ -343,6 +346,120 @@ model ProductTranslation {
 
   @@unique([productId, locale])
   @@map("product_translations")
+}
+
+// -----------------------------------------------------------------------------
+// Modifier Group / Option (FT-6A; DATABASE_SPEC.md #72-79, MENU_SPEC.md
+// #25-28/#32/#58/#78-79). V1: a Modifier Group belongs to exactly one
+// Product (DATABASE_SPEC.md #72's "V1 preferred simple ownership") -- no
+// cross-Product reuse. Extras and Ingredient Removal are both plain Modifier
+// Groups/Options (#78-79), never separate entities. Status is ACTIVE/
+// INACTIVE, mirroring Category/Product -- Groups/Options are never
+// hard-deleted so a historical Order's snapshot (OrderItemModifier, below)
+// never loses its referenced row (#58).
+// -----------------------------------------------------------------------------
+
+enum ModifierGroupStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("modifier_group_status")
+}
+
+enum ModifierOptionStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("modifier_option_status")
+}
+
+model ModifierGroup {
+  id                String              @id @default(uuid()) @db.Uuid
+  restaurantId      String              @map("restaurant_id") @db.Uuid
+  productId         String              @map("product_id") @db.Uuid
+  // No database default, mirrors Product.status -- an explicit
+  // application-layer choice at creation time.
+  status            ModifierGroupStatus
+  // Selection rules (MENU_SPEC.md #26, DATABASE_SPEC.md #74): required =
+  // minimumSelections >= 1, optional = 0, single-select = maximumSelections
+  // = 1, multi-select = maximumSelections > 1. No separate `required`
+  // boolean or `selectionType` enum -- these two integers alone express
+  // every V1 rule without redundant fields that could drift out of sync.
+  minimumSelections Int                 @map("minimum_selections")
+  maximumSelections Int                 @map("maximum_selections")
+  displayOrder      Int                 @map("display_order")
+  createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Restrict, not Cascade -- a Modifier Group is a substantive business
+  // entity (like Product itself), never a pure translation row. It must
+  // never be destructively removed in a way that could break a historical
+  // Order's OrderItemModifier snapshot (#58); the only supported removal
+  // path is the `status` field.
+  restaurant         Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  product            Product                    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  translations       ModifierGroupTranslation[]
+  options            ModifierOption[]
+  orderItemModifiers OrderItemModifier[]
+
+  @@index([restaurantId])
+  @@index([productId])
+  @@map("modifier_groups")
+}
+
+model ModifierGroupTranslation {
+  id              String  @id @default(uuid()) @db.Uuid
+  modifierGroupId String  @map("modifier_group_id") @db.Uuid
+  locale          String
+  name            String
+  helperText      String? @map("helper_text")
+
+  // Pure translation child of ModifierGroup -- Cascade, same rationale as
+  // ProductTranslation/CategoryTranslation.
+  modifierGroup ModifierGroup @relation(fields: [modifierGroupId], references: [id], onDelete: Cascade)
+
+  @@unique([modifierGroupId, locale])
+  @@map("modifier_group_translations")
+}
+
+model ModifierOption {
+  id              String               @id @default(uuid()) @db.Uuid
+  restaurantId    String               @map("restaurant_id") @db.Uuid
+  modifierGroupId String               @map("modifier_group_id") @db.Uuid
+  status          ModifierOptionStatus
+  // Fixed-precision money (CLAUDE.md #27) -- never Float/Double. May be
+  // zero (Ingredient Removal options, MENU_SPEC.md #79) or positive
+  // (Extras, #78); no CHECK constraint restricting sign is documented.
+  priceAdjustment Decimal              @map("price_adjustment") @db.Decimal(14, 2)
+  displayOrder    Int                  @map("display_order")
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Restrict, same rationale as ModifierGroup -- an Option must survive
+  // regardless of later Group/Option lifecycle changes so historical
+  // OrderItemModifier rows never lose their reference.
+  restaurant         Restaurant                  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  modifierGroup      ModifierGroup               @relation(fields: [modifierGroupId], references: [id], onDelete: Restrict)
+  translations       ModifierOptionTranslation[]
+  orderItemModifiers OrderItemModifier[]
+
+  @@index([restaurantId])
+  @@index([modifierGroupId])
+  @@map("modifier_options")
+}
+
+model ModifierOptionTranslation {
+  id               String @id @default(uuid()) @db.Uuid
+  modifierOptionId String @map("modifier_option_id") @db.Uuid
+  locale           String
+  name             String
+
+  // Pure translation child of ModifierOption -- Cascade, same rationale as
+  // ModifierGroupTranslation.
+  modifierOption ModifierOption @relation(fields: [modifierOptionId], references: [id], onDelete: Cascade)
+
+  @@unique([modifierOptionId, locale])
+  @@map("modifier_option_translations")
 }
 
 // -----------------------------------------------------------------------------
@@ -421,11 +538,11 @@ model QrCode {
 // -----------------------------------------------------------------------------
 
 model Order {
-  id           String   @id @default(uuid()) @db.Uuid
-  restaurantId String   @map("restaurant_id") @db.Uuid
-  branchId     String   @map("branch_id") @db.Uuid
-  tableId      String   @map("table_id") @db.Uuid
-  qrCodeId     String   @map("qr_code_id") @db.Uuid
+  id              String      @id @default(uuid()) @db.Uuid
+  restaurantId    String      @map("restaurant_id") @db.Uuid
+  branchId        String      @map("branch_id") @db.Uuid
+  tableId         String      @map("table_id") @db.Uuid
+  qrCodeId        String      @map("qr_code_id") @db.Uuid
   // Guest-generated idempotency key (Section 11/14): one UUID per genuine
   // submission attempt from the browser. `clientRequestId` is client-
   // controlled -- UUID randomness is not itself an authorization/integrity
@@ -440,13 +557,13 @@ model Order {
   // Snapshot of Restaurant.currencyCode at submission time (Section 9) --
   // never re-derived from the current Restaurant row when displaying a
   // historical Order.
-  currencyCode String   @map("currency_code") @db.Char(3)
+  currencyCode    String      @map("currency_code") @db.Char(3)
   // Exact authoritative sum of every OrderItem.lineTotal, computed
   // server-side only (Section 8) -- never trusted from the client, never
   // Float/Double.
-  totalAmount  Decimal  @map("total_amount") @db.Decimal(14, 2)
-  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+  totalAmount     Decimal     @map("total_amount") @db.Decimal(14, 2)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
   // Restrict everywhere (never Cascade): an Order is historical Tenant data,
   // exactly like every other Tenant-owned row in this schema -- its parent
@@ -466,30 +583,67 @@ model Order {
 }
 
 model OrderItem {
-  id        String  @id @default(uuid()) @db.Uuid
-  orderId   String  @map("order_id") @db.Uuid
-  productId String  @map("product_id") @db.Uuid
+  id                  String   @id @default(uuid()) @db.Uuid
+  orderId             String   @map("order_id") @db.Uuid
+  productId           String   @map("product_id") @db.Uuid
   // Section 9/ORDER_LIFECYCLE_SPEC.md #39: the Restaurant default-locale
   // Product name at submission time -- a later Product rename must never
   // rewrite historical Order meaning.
-  productNameSnapshot String  @map("product_name_snapshot")
+  productNameSnapshot String   @map("product_name_snapshot")
   // Product.basePrice at submission time (Section 8) -- same exact
   // Decimal(14,2) shape as Product itself, never Float/Double.
-  unitPrice           Decimal @map("unit_price") @db.Decimal(14, 2)
+  unitPrice           Decimal  @map("unit_price") @db.Decimal(14, 2)
   quantity            Int
   // unitPrice * quantity, computed server-side only.
-  lineTotal           Decimal @map("line_total") @db.Decimal(14, 2)
+  lineTotal           Decimal  @map("line_total") @db.Decimal(14, 2)
   createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
 
-  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  order     Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
   // Restrict, mirroring every other Product foreign key in this schema --
   // never Cascade: a historical OrderItem must survive regardless of the
   // referenced Product's own lifecycle.
-  product Product @relation(fields: [productId], references: [id], onDelete: Restrict)
+  product   Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
+  modifiers OrderItemModifier[]
 
   @@index([orderId])
   @@index([productId])
   @@map("order_items")
+}
+
+/**
+ * FT-6A; ORDER_LIFECYCLE_SPEC.md #41 "Modifier Snapshot": one row per
+ * selected Modifier Option on one OrderItem, capturing the Group/Option
+ * names and the Option's priceAdjustment exactly as they were at submission
+ * time. A later rename, price change, or deactivation of the live
+ * ModifierGroup/ModifierOption must never alter what a historical Order
+ * displays -- mirrors OrderItem's own productNameSnapshot/unitPrice
+ * pattern. `displayOrder` preserves the Group-then-Option presentation
+ * order from submission time, independent of any later reordering in the
+ * live configuration.
+ */
+model OrderItemModifier {
+  id                         String   @id @default(uuid()) @db.Uuid
+  orderItemId                String   @map("order_item_id") @db.Uuid
+  modifierGroupId            String   @map("modifier_group_id") @db.Uuid
+  modifierOptionId           String   @map("modifier_option_id") @db.Uuid
+  modifierGroupNameSnapshot  String   @map("modifier_group_name_snapshot")
+  modifierOptionNameSnapshot String   @map("modifier_option_name_snapshot")
+  priceAdjustmentSnapshot    Decimal  @map("price_adjustment_snapshot") @db.Decimal(14, 2)
+  displayOrder               Int      @map("display_order")
+  createdAt                  DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  // Pure structural child of OrderItem -- Cascade, same rationale as
+  // ProductTranslation being a pure child of Product.
+  orderItem      OrderItem      @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  // Restrict, mirroring OrderItem.productId -- the live row must survive so
+  // long as any historical snapshot references it.
+  modifierGroup  ModifierGroup  @relation(fields: [modifierGroupId], references: [id], onDelete: Restrict)
+  modifierOption ModifierOption @relation(fields: [modifierOptionId], references: [id], onDelete: Restrict)
+
+  @@index([orderItemId])
+  @@index([modifierGroupId])
+  @@index([modifierOptionId])
+  @@map("order_item_modifiers")
 }
 
 // -----------------------------------------------------------------------------

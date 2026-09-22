@@ -31,7 +31,7 @@ describe('PublicOrdersController', () => {
     expect(publicOrdersService.createOrder).toHaveBeenCalledWith({
       publicCode: 'code-1',
       clientRequestId: 'req-1',
-      items: [{ productId: 'product-1', quantity: 2 }],
+      items: [{ productId: 'product-1', quantity: 2, modifierOptionIds: [] }],
     });
   });
 
