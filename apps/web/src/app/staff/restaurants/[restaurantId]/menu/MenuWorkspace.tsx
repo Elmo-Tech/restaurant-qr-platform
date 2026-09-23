@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { MenuSectionTabs } from './MenuSectionTabs';
 import * as menuApi from '../../../../../lib/menu/api';
 import * as settingsApi from '../../../../../lib/settings/api';
 import type { Category, Menu, Product } from '../../../../../lib/menu/types';
@@ -348,6 +349,8 @@ export function MenuWorkspace({
           Manage menus, categories, products, pricing and availability.
         </p>
       </div>
+
+      <MenuSectionTabs restaurantId={restaurantId} active="products" />
 
       {!canManage && hasMenuManagePermission ? (
         <Alert variant="info">

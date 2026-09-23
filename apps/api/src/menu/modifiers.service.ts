@@ -20,6 +20,19 @@ export interface ModifierOptionView {
   name: string;
   priceAdjustment: string;
   displayOrder: number;
+  // FT-6B: null for a Custom Option (unchanged FT-6A shape). When present,
+  // identifies the ModifierPresetOption this Option was created from --
+  // Staff UI uses it to render "Based on preset" / offer "Reset to preset".
+  sourcePresetOptionId: string | null;
+  // FT-6B: true once Staff has overridden THIS Product's price away from
+  // the linked Preset Option's current default -- always false for a
+  // Custom Option (there is nothing to override).
+  priceIsOverridden: boolean;
+  // FT-6B closeout, Section 4 (historical safety): true only when this
+  // Option has NEVER been snapshotted into a historical OrderItemModifier
+  // row -- Staff UI shows "Delete" only when this is true, otherwise only
+  // "Deactivate" (never a silently-substituted action).
+  canDelete: boolean;
 }
 
 export interface ModifierGroupView {
@@ -31,6 +44,16 @@ export interface ModifierGroupView {
   maximumSelections: number;
   displayOrder: number;
   options: ModifierOptionView[];
+  // FT-6B: null for a Group created via "Create Custom" -- present when
+  // created via "Use Preset", identifying the source ModifierPreset.
+  sourcePresetId: string | null;
+  // FT-6B closeout, Section 4 (historical safety): true only when NEITHER
+  // this Group NOR any of its Options has ever been snapshotted into a
+  // historical OrderItemModifier row. Staff UI's "Delete"/"Remove from
+  // Product" actions are only ever offered when this is true; the Backend
+  // enforces the same rule again server-side regardless of what the UI
+  // shows.
+  canDelete: boolean;
 }
 
 export interface AuthorizedProductScope {
@@ -103,6 +126,52 @@ export type UpdateModifierOptionResult =
   | { outcome: 'productNotFound' }
   | { outcome: 'groupNotFound' }
   | { outcome: 'optionNotFound' };
+
+export interface ApplyPresetToProductInput extends AuthorizedProductScope {
+  presetId: string;
+}
+
+export type ApplyPresetToProductResult =
+  | { outcome: 'created'; data: ModifierGroupView }
+  | { outcome: 'productNotFound' }
+  | { outcome: 'presetNotFound' }
+  | { outcome: 'alreadyApplied' };
+
+/**
+ * FT-6B closeout, Section 3/4: "Delete" for a Custom Group/Option -- hard
+ * DELETE, but ONLY when it has never been snapshotted into a historical
+ * Order (`canDelete`/`hasHistoricalReferences` below). Never falls back to
+ * deactivating instead -- if the safety check fails, the caller (Staff UI)
+ * simply should not have offered this action in the first place; the
+ * `hasHistoricalReferences` outcome is a server-side backstop, not a
+ * silently-substituted behavior.
+ */
+export type DeleteModifierGroupResult =
+  | { outcome: 'deleted' }
+  | { outcome: 'productNotFound' }
+  | { outcome: 'groupNotFound' }
+  | { outcome: 'hasHistoricalReferences' };
+
+export type DeleteModifierOptionResult =
+  | { outcome: 'deleted' }
+  | { outcome: 'productNotFound' }
+  | { outcome: 'groupNotFound' }
+  | { outcome: 'optionNotFound' }
+  | { outcome: 'hasHistoricalReferences' };
+
+/**
+ * FT-6B closeout, Section 3/4: "Remove from Product" for a Preset-linked
+ * Group -- ADAPTIVE, unlike plain Delete: hard-deletes when safe, or
+ * deactivates (keeping history intact) when the Group/its Options have
+ * historical Order references. Always succeeds in SOME form from the
+ * Staff's point of view ("stop using this preset on this Product"),
+ * whichever is safe.
+ */
+export type RemoveModifierGroupFromProductResult =
+  | { outcome: 'deleted' }
+  | { outcome: 'deactivated'; data: ModifierGroupView }
+  | { outcome: 'productNotFound' }
+  | { outcome: 'groupNotFound' };
 
 /** FT-6A closeout: mirrors `TranslationView` (Menu/Category/Product) exactly, except the second content field is `helperText`, matching `ModifierGroupTranslation`'s own schema field name. */
 export interface ModifierGroupTranslationView {
@@ -180,6 +249,8 @@ const OPTION_SAFE_SELECT = {
   status: true,
   priceAdjustment: true,
   displayOrder: true,
+  sourcePresetOptionId: true,
+  priceIsOverridden: true,
 } as const;
 
 const GROUP_SAFE_SELECT = {
@@ -188,21 +259,56 @@ const GROUP_SAFE_SELECT = {
   minimumSelections: true,
   maximumSelections: true,
   displayOrder: true,
+  sourcePresetId: true,
 } as const;
 
 /**
- * FT-6A (closeout: full EN/AR localization added): Staff configuration of
- * Modifier Groups/Options on a Product. Mirrors `ProductsService`'s exact
- * conventions -- Tenant-scoped identity resolution (foreign/unknown
- * Product/Group/Option all converge on their respective `*NotFound`
- * outcome, never a distinguishable reason), atomic parent+translation
- * writes. Create/Update write the Restaurant's default-locale translation
- * directly (mirrors `CreateProductDto.name`); every other active locale is
- * managed through the dedicated `get/put/deleteModifier{Group,Option}
- * Translation` methods below, exactly like Menu/Category/Product's own
- * `translations/:locale` resource. Deletion is never a hard DELETE -- only
- * the `status` field, mirroring Product/Category (DATABASE_SPEC.md #58
- * "must not be destructively removed in a way that breaks history").
+ * FT-6B closeout, Section 4: has this Group ever been snapshotted into a
+ * historical Order? Every `OrderItemModifier` row always carries BOTH
+ * `modifierGroupId` AND `modifierOptionId` together (see
+ * `PublicOrdersService.createOrder`), so checking the Group alone also
+ * guarantees none of its Options have been referenced either. Accepts
+ * either the top-level `PrismaService` or an open `$transaction` client --
+ * both expose the same `orderItemModifier.count` shape.
+ */
+async function groupHasHistoricalReferences(
+  client: { orderItemModifier: { count: (args: { where: { modifierGroupId: string } }) => Promise<number> } },
+  groupId: string,
+): Promise<boolean> {
+  const count = await client.orderItemModifier.count({ where: { modifierGroupId: groupId } });
+  return count > 0;
+}
+
+/** FT-6B closeout, Section 3/5: has this ONE Option ever been snapshotted into a historical Order? */
+async function optionHasHistoricalReferences(
+  client: { orderItemModifier: { count: (args: { where: { modifierOptionId: string } }) => Promise<number> } },
+  optionId: string,
+): Promise<boolean> {
+  const count = await client.orderItemModifier.count({ where: { modifierOptionId: optionId } });
+  return count > 0;
+}
+
+/** Prisma's "Foreign key constraint violated" error (P2003) -- the true concurrency-safety backstop when a historical-reference check races against a concurrent Order creation between the check and the delete itself (mirrors the repo's established P2002-matching idempotency pattern in `public-orders.service.ts`). */
+function isForeignKeyConstraintError(error: unknown): boolean {
+  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003';
+}
+
+/**
+ * FT-6A (closeout: full EN/AR localization added); FT-6B (Preset linking +
+ * closeout: Delete/"Remove from Product" when historically safe): Staff
+ * configuration of Modifier Groups/Options on a Product. Mirrors
+ * `ProductsService`'s exact conventions -- Tenant-scoped identity
+ * resolution (foreign/unknown Product/Group/Option all converge on their
+ * respective `*NotFound` outcome, never a distinguishable reason), atomic
+ * parent+translation writes. Create/Update write the Restaurant's
+ * default-locale translation directly (mirrors `CreateProductDto.name`);
+ * every other active locale is managed through the dedicated
+ * `get/put/deleteModifier{Group,Option}Translation` methods below, exactly
+ * like Menu/Category/Product's own `translations/:locale` resource.
+ * `status`-only deactivation (Product/Category's convention, DATABASE_SPEC.md
+ * #58) remains the default; a genuine hard DELETE is offered ONLY when
+ * `canDelete` (no historical Order reference) is true -- see
+ * `deleteModifierGroup`/`deleteModifierOption`/`removeModifierGroupFromProduct`.
  */
 @Injectable()
 export class ModifiersService {
@@ -255,9 +361,22 @@ export class ModifiersService {
       },
     });
 
+    const withDeleteFlags = await Promise.all(
+      groups.map(async (group) => ({
+        ...group,
+        canDelete: !(await groupHasHistoricalReferences(this.prisma, group.id)),
+        options: await Promise.all(
+          group.options.map(async (option) => ({
+            ...option,
+            canDelete: !(await optionHasHistoricalReferences(this.prisma, option.id)),
+          })),
+        ),
+      })),
+    );
+
     return {
       outcome: 'found',
-      data: groups.map((group) => this.toGroupView(group)),
+      data: withDeleteFlags.map((group) => this.toGroupView(group)),
     };
   }
 
@@ -287,6 +406,8 @@ export class ModifiersService {
           minimumSelections: input.minimumSelections,
           maximumSelections: input.maximumSelections,
           displayOrder: input.displayOrder,
+          // "Create Custom" (FT-6A, unchanged) -- never linked to a Preset.
+          sourcePresetId: null,
         },
         select: GROUP_SAFE_SELECT,
       });
@@ -301,7 +422,7 @@ export class ModifiersService {
         select: { name: true, helperText: true },
       });
 
-      return { ...created, translations: [translation], options: [] };
+      return { ...created, translations: [translation], options: [], canDelete: true };
     });
 
     return { outcome: 'created', data: this.toGroupView(group) };
@@ -398,9 +519,22 @@ export class ModifiersService {
         },
       });
 
+      const groupCanDelete = !(await groupHasHistoricalReferences(tx, existing.id));
+      const optionsWithDeleteFlags = await Promise.all(
+        options.map(async (option) => ({
+          ...option,
+          canDelete: !(await optionHasHistoricalReferences(tx, option.id)),
+        })),
+      );
+
       return {
         outcome: 'updated',
-        data: this.toGroupView({ ...updatedGroup, translations: [translation], options }),
+        data: this.toGroupView({
+          ...updatedGroup,
+          translations: [translation],
+          options: optionsWithDeleteFlags,
+          canDelete: groupCanDelete,
+        }),
       };
     });
   }
@@ -441,6 +575,10 @@ export class ModifiersService {
           status: input.status,
           priceAdjustment: new Prisma.Decimal(input.priceAdjustment),
           displayOrder: input.displayOrder,
+          // "Create Custom" (FT-6A, unchanged) -- never linked to a Preset
+          // Option, so there is nothing to ever override.
+          sourcePresetOptionId: null,
+          priceIsOverridden: false,
         },
         select: OPTION_SAFE_SELECT,
       });
@@ -454,7 +592,7 @@ export class ModifiersService {
         select: { name: true },
       });
 
-      return { ...created, translations: [translation] };
+      return { ...created, translations: [translation], canDelete: true };
     });
 
     return { outcome: 'created', data: this.toOptionView(option) };
@@ -504,10 +642,19 @@ export class ModifiersService {
         status?: ModifierOptionStatus;
         priceAdjustment?: Prisma.Decimal;
         displayOrder?: number;
+        priceIsOverridden?: boolean;
       } = {};
       if (input.status !== undefined) optionData.status = input.status;
       if (input.priceAdjustment !== undefined) {
         optionData.priceAdjustment = new Prisma.Decimal(input.priceAdjustment);
+        // FT-6B, Section 5: manually editing the price of a Preset-linked
+        // Option IS the override action -- from this point on, a Preset
+        // price sync (Section 7) must skip this row until "Reset to
+        // preset" explicitly clears the flag. A Custom Option (no source
+        // link) has nothing to override, so this never applies to it.
+        if (existing.sourcePresetOptionId !== null) {
+          optionData.priceIsOverridden = true;
+        }
       }
       if (input.displayOrder !== undefined) optionData.displayOrder = input.displayOrder;
 
@@ -542,10 +689,11 @@ export class ModifiersService {
         where: { modifierOptionId: existing.id, locale: restaurant.defaultLocale },
         select: { name: true },
       });
+      const canDelete = !(await optionHasHistoricalReferences(tx, existing.id));
 
       return {
         outcome: 'updated',
-        data: this.toOptionView({ ...updatedOption, translations: [translation] }),
+        data: this.toOptionView({ ...updatedOption, translations: [translation], canDelete }),
       };
     });
   }
@@ -867,6 +1015,9 @@ export class ModifiersService {
     status: ModifierOptionStatus;
     priceAdjustment: Prisma.Decimal;
     displayOrder: number;
+    sourcePresetOptionId: string | null;
+    priceIsOverridden: boolean;
+    canDelete: boolean;
     translations: { name: string }[];
   }): ModifierOptionView {
     return {
@@ -875,6 +1026,9 @@ export class ModifiersService {
       name: option.translations[0]?.name ?? '',
       priceAdjustment: formatMoney(option.priceAdjustment),
       displayOrder: option.displayOrder,
+      sourcePresetOptionId: option.sourcePresetOptionId,
+      priceIsOverridden: option.priceIsOverridden,
+      canDelete: option.canDelete,
     };
   }
 
@@ -884,12 +1038,17 @@ export class ModifiersService {
     minimumSelections: number;
     maximumSelections: number;
     displayOrder: number;
+    sourcePresetId: string | null;
+    canDelete: boolean;
     translations: { name: string; helperText: string | null }[];
     options: {
       id: string;
       status: ModifierOptionStatus;
       priceAdjustment: Prisma.Decimal;
       displayOrder: number;
+      sourcePresetOptionId: string | null;
+      priceIsOverridden: boolean;
+      canDelete: boolean;
       translations: { name: string }[];
     }[];
   }): ModifierGroupView {
@@ -902,6 +1061,419 @@ export class ModifiersService {
       maximumSelections: group.maximumSelections,
       displayOrder: group.displayOrder,
       options: group.options.map((option) => this.toOptionView(option)),
+      sourcePresetId: group.sourcePresetId,
+      canDelete: group.canDelete,
     };
+  }
+
+  /**
+   * FT-6B, Section 2/4: attaches a Restaurant-scoped Modifier Preset to a
+   * Product by COPYING its current Group/Option/translation values into
+   * real, independent `ModifierGroup`/`ModifierOption` rows (Section 3 --
+   * Presets are never read directly by Public Menu/Cart/PublicOrdersService).
+   * The `@@unique([productId, sourcePresetId])` constraint is the true
+   * concurrency-safe guard against double-attachment; the pre-check here is
+   * just a fast, friendly path.
+   */
+  async applyPresetToProduct(
+    input: ApplyPresetToProductInput,
+  ): Promise<ApplyPresetToProductResult> {
+    const product = await this.findProduct(input);
+    if (!product) {
+      return { outcome: 'productNotFound' };
+    }
+    if (!isWellFormedUuid(input.presetId)) {
+      return { outcome: 'presetNotFound' };
+    }
+
+    const preset = await this.prisma.modifierPreset.findFirst({
+      where: { id: input.presetId, restaurantId: input.restaurantId },
+      select: {
+        id: true,
+        minimumSelections: true,
+        maximumSelections: true,
+        translations: { select: { locale: true, name: true, helperText: true } },
+        options: {
+          orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            status: true,
+            priceAdjustment: true,
+            displayOrder: true,
+            translations: { select: { locale: true, name: true } },
+          },
+        },
+      },
+    });
+    if (!preset) {
+      return { outcome: 'presetNotFound' };
+    }
+
+    const alreadyApplied = await this.prisma.modifierGroup.findFirst({
+      where: { productId: product.id, sourcePresetId: preset.id },
+      select: { id: true },
+    });
+    if (alreadyApplied) {
+      return { outcome: 'alreadyApplied' };
+    }
+
+    const existingGroupCount = await this.prisma.modifierGroup.count({
+      where: { productId: product.id, restaurantId: input.restaurantId },
+    });
+
+    try {
+      const group = await this.prisma.$transaction(async (tx) => {
+        const created = await tx.modifierGroup.create({
+          data: {
+            restaurantId: input.restaurantId,
+            productId: product.id,
+            status: 'ACTIVE',
+            minimumSelections: preset.minimumSelections,
+            maximumSelections: preset.maximumSelections,
+            displayOrder: existingGroupCount,
+            sourcePresetId: preset.id,
+          },
+          select: GROUP_SAFE_SELECT,
+        });
+
+        if (preset.translations.length > 0) {
+          await tx.modifierGroupTranslation.createMany({
+            data: preset.translations.map((translation) => ({
+              modifierGroupId: created.id,
+              locale: translation.locale,
+              name: translation.name,
+              helperText: translation.helperText,
+            })),
+          });
+        }
+
+        const options = [];
+        for (const presetOption of preset.options) {
+          const createdOption = await tx.modifierOption.create({
+            data: {
+              restaurantId: input.restaurantId,
+              modifierGroupId: created.id,
+              status: presetOption.status,
+              priceAdjustment: presetOption.priceAdjustment,
+              displayOrder: presetOption.displayOrder,
+              sourcePresetOptionId: presetOption.id,
+              priceIsOverridden: false,
+            },
+            select: OPTION_SAFE_SELECT,
+          });
+
+          if (presetOption.translations.length > 0) {
+            await tx.modifierOptionTranslation.createMany({
+              data: presetOption.translations.map((translation) => ({
+                modifierOptionId: createdOption.id,
+                locale: translation.locale,
+                name: translation.name,
+              })),
+            });
+          }
+
+          const optionTranslations = await tx.modifierOptionTranslation.findMany({
+            where: { modifierOptionId: createdOption.id },
+            select: { name: true },
+            take: 1,
+          });
+          options.push({ ...createdOption, translations: optionTranslations, canDelete: true });
+        }
+
+        const groupTranslations = await tx.modifierGroupTranslation.findMany({
+          where: { modifierGroupId: created.id },
+          select: { name: true, helperText: true },
+          take: 1,
+        });
+
+        return { ...created, translations: groupTranslations, options, canDelete: true };
+      });
+
+      return { outcome: 'created', data: this.toGroupView(group) };
+    } catch (error) {
+      // A genuine race (two concurrent "Use Preset" clicks) hits the
+      // `@@unique([productId, sourcePresetId])` constraint the pre-check
+      // above could not fully rule out -- converges to the same friendly
+      // outcome rather than a raw 500.
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2002'
+      ) {
+        return { outcome: 'alreadyApplied' };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * FT-6B, Section 5 ("Reset to preset"): re-adopts the linked Preset
+   * Option's CURRENT price and clears the override flag. A no-op (still
+   * `updated`) if the Option was never linked to a Preset or was never
+   * overridden in the first place.
+   */
+  async resetModifierOptionPrice(
+    scope: AuthorizedOptionScope,
+  ): Promise<UpdateModifierOptionResult> {
+    const product = await this.findProduct(scope);
+    if (!product) {
+      return { outcome: 'productNotFound' };
+    }
+    if (!isWellFormedUuid(scope.groupId)) {
+      return { outcome: 'groupNotFound' };
+    }
+    const group = await this.prisma.modifierGroup.findFirst({
+      where: { id: scope.groupId, productId: product.id, restaurantId: scope.restaurantId },
+      select: { id: true },
+    });
+    if (!group) {
+      return { outcome: 'groupNotFound' };
+    }
+    if (!isWellFormedUuid(scope.optionId)) {
+      return { outcome: 'optionNotFound' };
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const existing = await tx.modifierOption.findFirst({
+        where: { id: scope.optionId, modifierGroupId: group.id, restaurantId: scope.restaurantId },
+        select: { ...OPTION_SAFE_SELECT, sourcePresetOptionId: true },
+      });
+      if (!existing) {
+        return { outcome: 'optionNotFound' };
+      }
+
+      let updatedOption = existing;
+      if (existing.sourcePresetOptionId) {
+        const presetOption = await tx.modifierPresetOption.findUnique({
+          where: { id: existing.sourcePresetOptionId },
+          select: { priceAdjustment: true },
+        });
+        if (presetOption) {
+          updatedOption = await tx.modifierOption.update({
+            where: { id: existing.id },
+            data: { priceAdjustment: presetOption.priceAdjustment, priceIsOverridden: false },
+            select: OPTION_SAFE_SELECT,
+          });
+        }
+      }
+
+      const restaurant = await tx.restaurant.findUniqueOrThrow({
+        where: { id: scope.restaurantId },
+        select: { defaultLocale: true },
+      });
+      const translation = await tx.modifierOptionTranslation.findFirstOrThrow({
+        where: { modifierOptionId: existing.id, locale: restaurant.defaultLocale },
+        select: { name: true },
+      });
+      const canDelete = !(await optionHasHistoricalReferences(tx, existing.id));
+
+      return {
+        outcome: 'updated',
+        data: this.toOptionView({ ...updatedOption, translations: [translation], canDelete }),
+      };
+    });
+  }
+
+  /**
+   * FT-6B closeout, Section 3/4: "Delete" for a Custom Modifier Group --
+   * hard DELETE, but ONLY when NEITHER it NOR any of its Options has ever
+   * been snapshotted into a historical Order. The check runs again inside
+   * the same transaction as the delete itself (never trust a stale read),
+   * and a genuine concurrent race that slips past it still cannot corrupt
+   * history: `OrderItemModifier`'s own `Restrict` foreign keys make the
+   * delete itself fail (P2003) rather than silently succeed, which this
+   * converges to the same safe `hasHistoricalReferences` outcome.
+   */
+  async deleteModifierGroup(scope: AuthorizedGroupScope): Promise<DeleteModifierGroupResult> {
+    const product = await this.findProduct(scope);
+    if (!product) {
+      return { outcome: 'productNotFound' };
+    }
+    if (!isWellFormedUuid(scope.groupId)) {
+      return { outcome: 'groupNotFound' };
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const group = await tx.modifierGroup.findFirst({
+          where: { id: scope.groupId, productId: product.id, restaurantId: scope.restaurantId },
+          select: { id: true },
+        });
+        if (!group) {
+          return { outcome: 'groupNotFound' };
+        }
+
+        if (await groupHasHistoricalReferences(tx, group.id)) {
+          return { outcome: 'hasHistoricalReferences' };
+        }
+
+        await tx.modifierOption.deleteMany({ where: { modifierGroupId: group.id } });
+        await tx.modifierGroup.delete({ where: { id: group.id } });
+
+        return { outcome: 'deleted' };
+      });
+    } catch (error) {
+      if (isForeignKeyConstraintError(error)) {
+        return { outcome: 'hasHistoricalReferences' };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * FT-6B closeout, Section 3/4/6: "Delete" for a Custom Modifier Option --
+   * same historical-safety rule as `deleteModifierGroup`, scoped to one
+   * Option. Deleting a Custom Option out of an otherwise Preset-linked
+   * Group is exactly this same action (Section 3: only the OPTION's own
+   * link, not its parent Group's, determines "Custom" here).
+   */
+  async deleteModifierOption(scope: AuthorizedOptionScope): Promise<DeleteModifierOptionResult> {
+    const product = await this.findProduct(scope);
+    if (!product) {
+      return { outcome: 'productNotFound' };
+    }
+    if (!isWellFormedUuid(scope.groupId)) {
+      return { outcome: 'groupNotFound' };
+    }
+    const group = await this.prisma.modifierGroup.findFirst({
+      where: { id: scope.groupId, productId: product.id, restaurantId: scope.restaurantId },
+      select: { id: true },
+    });
+    if (!group) {
+      return { outcome: 'groupNotFound' };
+    }
+    if (!isWellFormedUuid(scope.optionId)) {
+      return { outcome: 'optionNotFound' };
+    }
+
+    try {
+      return await this.prisma.$transaction(async (tx) => {
+        const option = await tx.modifierOption.findFirst({
+          where: { id: scope.optionId, modifierGroupId: group.id, restaurantId: scope.restaurantId },
+          select: { id: true },
+        });
+        if (!option) {
+          return { outcome: 'optionNotFound' };
+        }
+
+        if (await optionHasHistoricalReferences(tx, option.id)) {
+          return { outcome: 'hasHistoricalReferences' };
+        }
+
+        await tx.modifierOption.delete({ where: { id: option.id } });
+
+        return { outcome: 'deleted' };
+      });
+    } catch (error) {
+      if (isForeignKeyConstraintError(error)) {
+        return { outcome: 'hasHistoricalReferences' };
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * FT-6B closeout, Section 3/4: "Remove from Product" for a Preset-linked
+   * Modifier Group -- ADAPTIVE. When historically safe, behaves exactly
+   * like `deleteModifierGroup` (hard DELETE). When NOT safe, falls back to
+   * deactivating the Product-local Group (`status: 'INACTIVE'`) instead --
+   * it disappears from the Guest Menu, but every historical Order's
+   * `OrderItemModifier` snapshot is left completely untouched. This is the
+   * ONE action allowed to substitute deactivate-for-delete; plain
+   * `deleteModifierGroup`/`deleteModifierOption` never do.
+   */
+  async removeModifierGroupFromProduct(
+    scope: AuthorizedGroupScope,
+  ): Promise<RemoveModifierGroupFromProductResult> {
+    const product = await this.findProduct(scope);
+    if (!product) {
+      return { outcome: 'productNotFound' };
+    }
+    if (!isWellFormedUuid(scope.groupId)) {
+      return { outcome: 'groupNotFound' };
+    }
+
+    const deactivate = async (groupId: string): Promise<RemoveModifierGroupFromProductResult> => {
+      return this.prisma.$transaction(async (tx) => {
+        const restaurant = await tx.restaurant.findUniqueOrThrow({
+          where: { id: scope.restaurantId },
+          select: { defaultLocale: true },
+        });
+        const updated = await tx.modifierGroup.update({
+          where: { id: groupId },
+          data: { status: 'INACTIVE' },
+          select: GROUP_SAFE_SELECT,
+        });
+        const translation = await tx.modifierGroupTranslation.findFirstOrThrow({
+          where: { modifierGroupId: updated.id, locale: restaurant.defaultLocale },
+          select: { name: true, helperText: true },
+        });
+        const options = await tx.modifierOption.findMany({
+          where: { modifierGroupId: updated.id },
+          orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+          select: {
+            ...OPTION_SAFE_SELECT,
+            translations: {
+              where: { locale: restaurant.defaultLocale },
+              select: { name: true },
+              take: 1,
+            },
+          },
+        });
+        const optionsWithDeleteFlags = await Promise.all(
+          options.map(async (option) => ({
+            ...option,
+            canDelete: !(await optionHasHistoricalReferences(tx, option.id)),
+          })),
+        );
+        return {
+          outcome: 'deactivated' as const,
+          data: this.toGroupView({
+            ...updated,
+            translations: [translation],
+            options: optionsWithDeleteFlags,
+            canDelete: false,
+          }),
+        };
+      });
+    };
+
+    try {
+      const outcome = await this.prisma.$transaction(async (tx) => {
+        const group = await tx.modifierGroup.findFirst({
+          where: { id: scope.groupId, productId: product.id, restaurantId: scope.restaurantId },
+          select: { id: true },
+        });
+        if (!group) {
+          return { outcome: 'groupNotFound' as const };
+        }
+        if (await groupHasHistoricalReferences(tx, group.id)) {
+          return { outcome: 'needsDeactivate' as const, groupId: group.id };
+        }
+        await tx.modifierOption.deleteMany({ where: { modifierGroupId: group.id } });
+        await tx.modifierGroup.delete({ where: { id: group.id } });
+        return { outcome: 'deleted' as const };
+      });
+
+      if (outcome.outcome === 'groupNotFound') {
+        return { outcome: 'groupNotFound' };
+      }
+      if (outcome.outcome === 'deleted') {
+        return { outcome: 'deleted' };
+      }
+      // 'needsDeactivate' -- a separate transaction, since the first one
+      // intentionally made no writes once history was detected.
+      return await deactivate(outcome.groupId);
+    } catch (error) {
+      if (isForeignKeyConstraintError(error)) {
+        // A genuine race: an Order referencing this Group landed between
+        // the check and the delete -- fall back to deactivate rather than
+        // surfacing a raw constraint error to Staff. Safe to use the raw
+        // `scope.groupId` here: a P2003 could only occur deleting a row
+        // that genuinely existed (and was already ownership-verified by
+        // the same scoped query above) in the first place.
+        return await deactivate(scope.groupId);
+      }
+      throw error;
+    }
   }
 }

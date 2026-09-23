@@ -6,6 +6,8 @@ import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
 import { MenusController } from './menus.controller';
 import { MenusService } from './menus.service';
+import { ModifierPresetsController } from './modifier-presets.controller';
+import { ModifierPresetsService } from './modifier-presets.service';
 import { ModifiersController } from './modifiers.controller';
 import { ModifiersService } from './modifiers.service';
 import { ProductsController } from './products.controller';
@@ -28,7 +30,14 @@ import { ProductsService } from './products.service';
     CategoriesController,
     ProductsController,
     ModifiersController,
+    ModifierPresetsController,
   ],
-  providers: [MenusService, CategoriesService, ProductsService, ModifiersService],
+  providers: [
+    MenusService,
+    CategoriesService,
+    ProductsService,
+    ModifiersService,
+    ModifierPresetsService,
+  ],
 })
 export class MenuModule {}

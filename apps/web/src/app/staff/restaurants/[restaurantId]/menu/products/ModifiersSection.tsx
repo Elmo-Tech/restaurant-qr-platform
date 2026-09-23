@@ -1,12 +1,13 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import * as menuApi from '../../../../../../lib/menu/api';
 import type {
   ModifierGroup,
   ModifierGroupStatus,
   ModifierOption,
   ModifierOptionStatus,
+  ModifierPreset,
 } from '../../../../../../lib/menu/types';
 import type { RestaurantLocalesResponse } from '../../../../../../lib/settings/types';
 import { localeDirection, localeLabel } from '../../../../../../lib/settings/locale-labels';
@@ -16,11 +17,13 @@ import {
   isUnauthenticatedError,
   redirectToLogin,
 } from '../../../../../../lib/menu/error-message';
+import { ApiError } from '../../../../../../lib/api/errors';
 import { Alert } from '../../../../../../components/ui/Alert';
 import { Button } from '../../../../../../components/ui/Button';
 import { FormField } from '../../../../../../components/ui/FormField';
 import { FormSection } from '../../../../../../components/ui/FormSection';
 import { Input } from '../../../../../../components/ui/Input';
+import { Select } from '../../../../../../components/ui/Select';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
 import { LanguageTabs, type LanguageTabOption } from '../../../../../../components/menu/LanguageTabs';
 import { TranslationFields } from '../../../../../../components/menu/TranslationFields';
@@ -38,18 +41,19 @@ export interface ModifiersSectionProps {
 }
 
 /**
- * FT-6A (closeout: full EN/AR localization added): a clean "Modifiers"
+ * FT-6A (closeout: full EN/AR localization added); FT-6B (Preset library +
+ * per-Product price override, nested-<form> bug fixed): a clean "Modifiers"
  * section on the Product Editor -- create/edit Modifier Groups and their
  * Options, deactivate rather than hard-delete (DATABASE_SPEC.md #58:
  * history must never break). Only rendered in Edit mode (Groups nest under
  * an existing `productId`, exactly like `ProductTranslationSection`).
- * Every active Restaurant locale is editable via the same `LanguageTabs` +
- * `useTranslationsEditor` + `TranslationFields` combination Product/Menu/
- * Category already use -- the default locale's name/helperText live on the
- * always-visible non-translatable form (submitted through the generic
- * update call, exactly like `ProductTranslationSection`'s "Default" tab
- * reusing the main form's own state); every OTHER active locale goes
- * through the dedicated `putModifier{Group,Option}Translation` endpoint.
+ *
+ * IMPORTANT: this whole section renders INSIDE `ProductEditor`'s own outer
+ * `<form onSubmit={handleSubmit}>` (Section 1) -- every interactive element
+ * here MUST be `type="button"` with an explicit `onClick`, never a nested
+ * `<form>`/`type="submit"` of its own (invalid HTML: "<form> cannot be a
+ * descendant of <form>", and Chrome/React would otherwise submit/reload the
+ * WHOLE Product Editor on a Modifier action).
  */
 export function ModifiersSection({
   restaurantId,
@@ -61,7 +65,7 @@ export function ModifiersSection({
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [groups, setGroups] = useState<ModifierGroup[]>([]);
-  const [isAddingGroup, setIsAddingGroup] = useState(false);
+  const [addMode, setAddMode] = useState<'none' | 'choose' | 'preset' | 'custom'>('none');
 
   const load = useCallback(async () => {
     setStatus('loading');
@@ -108,6 +112,10 @@ export function ModifiersSection({
     );
   }
 
+  const alreadyAppliedPresetIds = new Set(
+    groups.map((group) => group.sourcePresetId).filter((id): id is string => id !== null),
+  );
+
   return (
     <FormSection title="Modifiers">
       <p className="text-xs text-[#655D56]">
@@ -116,7 +124,7 @@ export function ModifiersSection({
         affecting past Orders.
       </p>
 
-      {groups.length === 0 && !isAddingGroup ? (
+      {groups.length === 0 && addMode === 'none' ? (
         <p className="text-sm text-[#655D56]">No Modifier Groups yet.</p>
       ) : null}
 
@@ -147,32 +155,203 @@ export function ModifiersSection({
                 ),
               )
             }
+            onGroupRemoved={(groupId) => setGroups((prev) => prev.filter((g) => g.id !== groupId))}
+            onOptionRemoved={(groupId, optionId) =>
+              setGroups((prev) =>
+                prev.map((g) =>
+                  g.id === groupId ? { ...g, options: g.options.filter((o) => o.id !== optionId) } : g,
+                ),
+              )
+            }
           />
         ))}
       </div>
 
-      {isAddingGroup ? (
+      {addMode === 'none' ? (
+        <Button type="button" variant="secondary" disabled={!canManage} onClick={() => setAddMode('choose')}>
+          + Add Modifier
+        </Button>
+      ) : null}
+
+      {addMode === 'choose' ? (
+        <div className="flex flex-wrap gap-2 rounded-md border border-[#E5DED6] p-3">
+          <Button type="button" variant="secondary" onClick={() => setAddMode('preset')}>
+            Use Preset
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => setAddMode('custom')}>
+            Create Custom
+          </Button>
+          <Button type="button" variant="secondary" onClick={() => setAddMode('none')}>
+            Cancel
+          </Button>
+        </div>
+      ) : null}
+
+      {addMode === 'preset' ? (
+        <UsePresetPicker
+          restaurantId={restaurantId}
+          productId={productId}
+          alreadyAppliedPresetIds={alreadyAppliedPresetIds}
+          onCancel={() => setAddMode('none')}
+          onApplied={(group) => {
+            setGroups((prev) => [...prev, group]);
+            setAddMode('none');
+          }}
+        />
+      ) : null}
+
+      {addMode === 'custom' ? (
         <NewModifierGroupForm
           restaurantId={restaurantId}
           productId={productId}
           nextDisplayOrder={groups.length}
-          onCancel={() => setIsAddingGroup(false)}
+          onCancel={() => setAddMode('none')}
           onCreated={(group) => {
             setGroups((prev) => [...prev, group]);
-            setIsAddingGroup(false);
+            setAddMode('none');
           }}
         />
-      ) : (
+      ) : null}
+    </FormSection>
+  );
+}
+
+/**
+ * FT-6B, Section 2/4 "Use Preset": lists the Restaurant's own active
+ * Presets, letting Staff attach one to this Product. A Preset already
+ * attached to this Product is disabled in the list rather than hidden --
+ * Staff can see AT A GLANCE which presets are already in use here (Section
+ * 4: "Prevent accidentally attaching the same Preset twice").
+ */
+function UsePresetPicker({
+  restaurantId,
+  productId,
+  alreadyAppliedPresetIds,
+  onCancel,
+  onApplied,
+}: {
+  restaurantId: string;
+  productId: string;
+  alreadyAppliedPresetIds: Set<string>;
+  onCancel: () => void;
+  onApplied: (group: ModifierGroup) => void;
+}) {
+  const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
+  const [error, setError] = useState<string | null>(null);
+  const [presets, setPresets] = useState<ModifierPreset[]>([]);
+  const [selectedPresetId, setSelectedPresetId] = useState('');
+  const [isApplying, setIsApplying] = useState(false);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void (async () => {
+        setStatus('loading');
+        setError(null);
+        try {
+          const data = await menuApi.listModifierPresets(restaurantId);
+          setPresets(data);
+          const firstAvailable = data.find((preset) => !alreadyAppliedPresetIds.has(preset.id));
+          setSelectedPresetId(firstAvailable?.id ?? '');
+          setStatus('loaded');
+        } catch (err) {
+          if (isUnauthenticatedError(err)) {
+            redirectToLogin();
+            return;
+          }
+          setStatus('error');
+          setError(describeError(err));
+        }
+      })();
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only on mount; alreadyAppliedPresetIds identity changes every parent render.
+  }, [restaurantId]);
+
+  async function handleApply() {
+    if (selectedPresetId === '') return;
+    setIsApplying(true);
+    setError(null);
+    try {
+      const group = await menuApi.applyModifierPreset(restaurantId, productId, selectedPresetId);
+      onApplied(group);
+    } catch (err) {
+      if (isUnauthenticatedError(err)) {
+        redirectToLogin();
+        return;
+      }
+      if (err instanceof ApiError && err.code === 'MODIFIER_PRESET_ALREADY_APPLIED') {
+        setError('This preset is already attached to this Product.');
+        return;
+      }
+      setError(describeError(err));
+    } finally {
+      setIsApplying(false);
+    }
+  }
+
+  if (status === 'loading') {
+    return (
+      <div className="rounded-md border border-[#E5DED6] p-4">
+        <LoadingState label="Loading presets…" />
+      </div>
+    );
+  }
+
+  if (status === 'error') {
+    return (
+      <div className="rounded-md border border-[#E5DED6] p-4">
+        <Alert variant="error">{error}</Alert>
+        <Button type="button" variant="secondary" onClick={onCancel}>
+          Close
+        </Button>
+      </div>
+    );
+  }
+
+  if (presets.length === 0) {
+    return (
+      <div className="flex flex-col gap-3 rounded-md border border-[#E5DED6] p-4">
+        <p className="text-sm text-[#655D56]">
+          No presets exist yet in the Modifier Library. Create one from Menu Management → Modifier
+          Library.
+        </p>
+        <Button type="button" variant="secondary" onClick={onCancel}>
+          Close
+        </Button>
+      </div>
+    );
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md border border-[#E5DED6] p-4">
+      {error ? <Alert variant="error">{error}</Alert> : null}
+      <FormField label="Preset" htmlFor="use-preset-select">
+        <Select
+          id="use-preset-select"
+          value={selectedPresetId}
+          onChange={(e) => setSelectedPresetId(e.target.value)}
+          disabled={isApplying}
+        >
+          {presets.map((preset) => (
+            <option key={preset.id} value={preset.id} disabled={alreadyAppliedPresetIds.has(preset.id)}>
+              {preset.name}
+              {alreadyAppliedPresetIds.has(preset.id) ? ' (already attached)' : ''}
+            </option>
+          ))}
+        </Select>
+      </FormField>
+      <div className="flex gap-2">
         <Button
           type="button"
-          variant="secondary"
-          disabled={!canManage}
-          onClick={() => setIsAddingGroup(true)}
+          disabled={isApplying || selectedPresetId === '' || alreadyAppliedPresetIds.has(selectedPresetId)}
+          onClick={() => void handleApply()}
         >
-          Add Modifier Group
+          {isApplying ? 'Applying…' : 'Apply Preset'}
         </Button>
-      )}
-    </FormSection>
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={isApplying}>
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -186,6 +365,8 @@ function ModifierGroupCard({
   onGroupChanged,
   onOptionCreated,
   onOptionChanged,
+  onGroupRemoved,
+  onOptionRemoved,
 }: {
   restaurantId: string;
   productId: string;
@@ -196,6 +377,8 @@ function ModifierGroupCard({
   onGroupChanged: (group: ModifierGroup) => void;
   onOptionCreated: (groupId: string, option: ModifierOption) => void;
   onOptionChanged: (groupId: string, option: ModifierOption) => void;
+  onGroupRemoved: (groupId: string) => void;
+  onOptionRemoved: (groupId: string, optionId: string) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isAddingOption, setIsAddingOption] = useState(false);
@@ -222,12 +405,60 @@ function ModifierGroupCard({
     }
   }
 
+  async function handleDelete() {
+    if (!window.confirm(`Delete "${group.name}"? This cannot be undone.`)) {
+      return;
+    }
+    setIsBusy(true);
+    setError(null);
+    try {
+      await menuApi.deleteModifierGroup(restaurantId, productId, group.id);
+      onGroupRemoved(group.id);
+    } catch (err) {
+      if (isUnauthenticatedError(err)) {
+        redirectToLogin();
+        return;
+      }
+      setError(describeError(err));
+      setIsBusy(false);
+    }
+  }
+
+  async function handleRemoveFromProduct() {
+    if (!window.confirm(`Remove "${group.name}" from this Product?`)) {
+      return;
+    }
+    setIsBusy(true);
+    setError(null);
+    try {
+      const result = await menuApi.removeModifierGroupFromProduct(restaurantId, productId, group.id);
+      if (result === null) {
+        onGroupRemoved(group.id);
+      } else {
+        onGroupChanged(result);
+        setIsBusy(false);
+      }
+    } catch (err) {
+      if (isUnauthenticatedError(err)) {
+        redirectToLogin();
+        return;
+      }
+      setError(describeError(err));
+      setIsBusy(false);
+    }
+  }
+
   return (
     <div className="rounded-md border border-[#E5DED6] p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
             <h3 className="text-sm font-semibold text-[#1D1A18]">{group.name}</h3>
+            {group.sourcePresetId ? (
+              <span className="rounded-full bg-[#EEF3EE] px-2 py-0.5 text-xs text-[#2F6B4F]">
+                Based on preset
+              </span>
+            ) : null}
             {group.status === 'INACTIVE' ? (
               <span className="rounded-full bg-[#F1EDE7] px-2 py-0.5 text-xs text-[#655D56]">
                 Inactive
@@ -243,22 +474,49 @@ function ModifierGroupCard({
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={!canManage}
-            onClick={() => setIsEditing((prev) => !prev)}
-          >
-            {isEditing ? 'Close' : 'Edit'}
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            disabled={!canManage || isBusy}
-            onClick={() => void toggleStatus()}
-          >
-            {group.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
-          </Button>
+          {group.sourcePresetId ? (
+            // Preset-linked: name/helperText/min-max/translations sync from
+            // the Modifier Library and are not locally editable, and
+            // deactivating in place would be misleading -- "Remove from
+            // Product" is the only V1 way to stop using the Preset here.
+            <Button
+              type="button"
+              variant="danger"
+              disabled={!canManage || isBusy}
+              onClick={() => void handleRemoveFromProduct()}
+            >
+              Remove from Product
+            </Button>
+          ) : (
+            <>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!canManage}
+                onClick={() => setIsEditing((prev) => !prev)}
+              >
+                {isEditing ? 'Close' : 'Edit'}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={!canManage || isBusy}
+                onClick={() => void toggleStatus()}
+              >
+                {group.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+              </Button>
+              {group.canDelete ? (
+                <Button
+                  type="button"
+                  variant="danger"
+                  disabled={!canManage || isBusy}
+                  onClick={() => void handleDelete()}
+                >
+                  Delete
+                </Button>
+              ) : null}
+            </>
+          )}
         </div>
       </div>
 
@@ -268,7 +526,7 @@ function ModifierGroupCard({
         </div>
       ) : null}
 
-      {isEditing ? (
+      {isEditing && !group.sourcePresetId ? (
         <div className="mt-3">
           <EditModifierGroupForm
             restaurantId={restaurantId}
@@ -296,6 +554,7 @@ function ModifierGroupCard({
             canManage={canManage}
             locales={locales}
             onChanged={(updated) => onOptionChanged(group.id, updated)}
+            onRemoved={(optionId) => onOptionRemoved(group.id, optionId)}
           />
         ))}
       </div>
@@ -339,6 +598,7 @@ function ModifierOptionRow({
   canManage,
   locales,
   onChanged,
+  onRemoved,
 }: {
   restaurantId: string;
   productId: string;
@@ -348,10 +608,30 @@ function ModifierOptionRow({
   canManage: boolean;
   locales: RestaurantLocalesResponse | null;
   onChanged: (option: ModifierOption) => void;
+  onRemoved: (optionId: string) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  async function handleDelete() {
+    if (!window.confirm(`Delete "${option.name}"? This cannot be undone.`)) {
+      return;
+    }
+    setIsBusy(true);
+    setError(null);
+    try {
+      await menuApi.deleteModifierOption(restaurantId, productId, groupId, option.id);
+      onRemoved(option.id);
+    } catch (err) {
+      if (isUnauthenticatedError(err)) {
+        redirectToLogin();
+        return;
+      }
+      setError(describeError(err));
+      setIsBusy(false);
+    }
+  }
 
   async function toggleStatus() {
     setIsBusy(true);
@@ -377,7 +657,42 @@ function ModifierOptionRow({
     }
   }
 
+  async function resetPrice() {
+    setIsBusy(true);
+    setError(null);
+    try {
+      const updated = await menuApi.resetModifierOptionPrice(restaurantId, productId, groupId, option.id);
+      onChanged(updated);
+    } catch (err) {
+      if (isUnauthenticatedError(err)) {
+        redirectToLogin();
+        return;
+      }
+      setError(describeError(err));
+    } finally {
+      setIsBusy(false);
+    }
+  }
+
   if (isEditing) {
+    if (option.sourcePresetOptionId) {
+      // Preset-linked: name and translations are owned by the Modifier
+      // Library and must not be edited here -- only the Product-specific
+      // price override is a legitimate local action for this Option.
+      return (
+        <EditLinkedOptionPriceForm
+          restaurantId={restaurantId}
+          productId={productId}
+          groupId={groupId}
+          option={option}
+          onSaved={(updated) => {
+            onChanged(updated);
+            setIsEditing(false);
+          }}
+          onCancel={() => setIsEditing(false)}
+        />
+      );
+    }
     return (
       <EditModifierOptionForm
         restaurantId={restaurantId}
@@ -396,17 +711,29 @@ function ModifierOptionRow({
 
   return (
     <div className="flex items-center justify-between gap-4 rounded-md bg-[#F8F5F1] px-3 py-2">
-      <div className="flex items-center gap-2 text-sm text-[#302C29]">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-[#302C29]">
         <span>{option.name}</span>
         <span className="text-[#655D56]">
           {option.priceAdjustment === '0.00' ? '+0.00' : `+${option.priceAdjustment}`} {currencyCode}
         </span>
+        {option.priceIsOverridden ? (
+          <span className="rounded-full bg-[#FBF0DE] px-2 py-0.5 text-xs text-[#8A5138]">
+            Overridden for this Product
+          </span>
+        ) : option.sourcePresetOptionId ? (
+          <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#655D56]">Default</span>
+        ) : null}
         {option.status === 'INACTIVE' ? (
           <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#655D56]">Inactive</span>
         ) : null}
       </div>
-      <div className="flex shrink-0 gap-2">
+      <div className="flex shrink-0 flex-wrap items-center gap-2">
         {error ? <Alert variant="error">{error}</Alert> : null}
+        {option.priceIsOverridden ? (
+          <Button type="button" variant="secondary" disabled={!canManage || isBusy} onClick={() => void resetPrice()}>
+            Reset to preset
+          </Button>
+        ) : null}
         <Button type="button" variant="secondary" disabled={!canManage} onClick={() => setIsEditing(true)}>
           Edit
         </Button>
@@ -418,6 +745,16 @@ function ModifierOptionRow({
         >
           {option.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
         </Button>
+        {!option.sourcePresetOptionId && option.canDelete ? (
+          <Button
+            type="button"
+            variant="danger"
+            disabled={!canManage || isBusy}
+            onClick={() => void handleDelete()}
+          >
+            Delete
+          </Button>
+        ) : null}
       </div>
     </div>
   );
@@ -443,8 +780,7 @@ function NewModifierGroupForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSave() {
     if (name.trim() === '') {
       setError('Name is required.');
       return;
@@ -488,7 +824,7 @@ function NewModifierGroupForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="rounded-md border border-[#E5DED6] p-4 flex flex-col gap-3">
+    <div className="rounded-md border border-[#E5DED6] p-4 flex flex-col gap-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
       <FormField label="Name" htmlFor="new-group-name">
         <Input id="new-group-name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSubmitting} />
@@ -526,14 +862,14 @@ function NewModifierGroupForm({
         </FormField>
       </div>
       <div className="flex gap-2">
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
           {isSubmitting ? 'Saving…' : 'Add Group'}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
           Cancel
         </Button>
       </div>
-    </form>
+    </div>
   );
 }
 
@@ -616,8 +952,7 @@ function EditModifierGroupForm({
       ]
     : [];
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSave() {
     if (name.trim() === '') {
       setError('Name is required.');
       return;
@@ -659,7 +994,7 @@ function EditModifierGroupForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-md bg-[#F8F5F1] p-3">
+    <div className="flex flex-col gap-3 rounded-md bg-[#F8F5F1] p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
 
       <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
@@ -723,14 +1058,14 @@ function EditModifierGroupForm({
         </FormField>
       </div>
       <div className="flex gap-2">
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
           {isSubmitting ? 'Saving…' : 'Save'}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
           Cancel
         </Button>
       </div>
-    </form>
+    </div>
   );
 }
 
@@ -754,8 +1089,7 @@ function NewModifierOptionForm({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSave() {
     if (name.trim() === '') {
       setError('Name is required.');
       return;
@@ -787,7 +1121,7 @@ function NewModifierOptionForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-md bg-[#F8F5F1] p-3">
+    <div className="flex flex-col gap-3 rounded-md bg-[#F8F5F1] p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
       <div className="grid grid-cols-2 gap-3">
         <FormField label="Name" htmlFor="new-option-name">
@@ -809,14 +1143,92 @@ function NewModifierOptionForm({
         </FormField>
       </div>
       <div className="flex gap-2">
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
           {isSubmitting ? 'Saving…' : 'Add Option'}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
           Cancel
         </Button>
       </div>
-    </form>
+    </div>
+  );
+}
+
+/**
+ * FT-6B semantics cleanup: the ONLY Product-local action offered for a
+ * preset-linked Option -- overriding its price for this Product. Name and
+ * translations are owned by the Modifier Library and are deliberately not
+ * editable here (`EditModifierOptionForm` remains for Custom Options only).
+ */
+function EditLinkedOptionPriceForm({
+  restaurantId,
+  productId,
+  groupId,
+  option,
+  onSaved,
+  onCancel,
+}: {
+  restaurantId: string;
+  productId: string;
+  groupId: string;
+  option: ModifierOption;
+  onSaved: (option: ModifierOption) => void;
+  onCancel: () => void;
+}) {
+  const [priceAdjustment, setPriceAdjustment] = useState(option.priceAdjustment);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handleSave() {
+    if (!MONEY_DECIMAL_PATTERN.test(priceAdjustment)) {
+      setError('Price adjustment must be a non-negative decimal amount, e.g. 10.00.');
+      return;
+    }
+
+    setIsSubmitting(true);
+    setError(null);
+    try {
+      const updated = await menuApi.updateModifierOption(restaurantId, productId, groupId, option.id, {
+        priceAdjustment,
+      });
+      onSaved(updated);
+    } catch (err) {
+      if (isUnauthenticatedError(err)) {
+        redirectToLogin();
+        return;
+      }
+      setError(describeError(err));
+    } finally {
+      setIsSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-3 rounded-md bg-white p-3">
+      {error ? <Alert variant="error">{error}</Alert> : null}
+      <p className="text-xs text-[#655D56]">
+        Changing the price here overrides it for THIS Product only -- the preset&apos;s own default
+        price (and every other Product using it) is unaffected. This Option&apos;s name and
+        translations are managed in Menu Management → Modifier Library.
+      </p>
+      <FormField label="Price adjustment" htmlFor={`edit-linked-option-price-${option.id}`}>
+        <Input
+          id={`edit-linked-option-price-${option.id}`}
+          inputMode="decimal"
+          value={priceAdjustment}
+          onChange={(e) => setPriceAdjustment(e.target.value)}
+          disabled={isSubmitting}
+        />
+      </FormField>
+      <div className="flex gap-2">
+        <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
+          {isSubmitting ? 'Saving…' : 'Save'}
+        </Button>
+        <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
+          Cancel
+        </Button>
+      </div>
+    </div>
   );
 }
 
@@ -895,8 +1307,7 @@ function EditModifierOptionForm({
       ]
     : [];
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  async function handleSave() {
     if (name.trim() === '') {
       setError('Name is required.');
       return;
@@ -926,7 +1337,7 @@ function EditModifierOptionForm({
   }
 
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-3 rounded-md bg-white p-3">
+    <div className="flex flex-col gap-3 rounded-md bg-white p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
 
       <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
@@ -965,13 +1376,13 @@ function EditModifierOptionForm({
         </FormField>
       </div>
       <div className="flex gap-2">
-        <Button type="submit" disabled={isSubmitting}>
+        <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
           {isSubmitting ? 'Saving…' : 'Save'}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
           Cancel
         </Button>
       </div>
-    </form>
+    </div>
   );
 }

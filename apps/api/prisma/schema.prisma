@@ -139,18 +139,20 @@ model Restaurant {
   createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
-  locales         RestaurantLocale[]
-  branches        Branch[]
-  memberships     RestaurantMembership[]
-  invitations     RestaurantInvitation[]
-  tables          Table[]
-  qrCodes         QrCode[]
-  menus           Menu[]
-  categories      Category[]
-  products        Product[]
-  orders          Order[]
-  modifierGroups  ModifierGroup[]
-  modifierOptions ModifierOption[]
+  locales               RestaurantLocale[]
+  branches              Branch[]
+  memberships           RestaurantMembership[]
+  invitations           RestaurantInvitation[]
+  tables                Table[]
+  qrCodes               QrCode[]
+  menus                 Menu[]
+  categories            Category[]
+  products              Product[]
+  orders                Order[]
+  modifierGroups        ModifierGroup[]
+  modifierOptions       ModifierOption[]
+  modifierPresets       ModifierPreset[]
+  modifierPresetOptions ModifierPresetOption[]
 
   @@map("restaurants")
 }
@@ -390,6 +392,15 @@ model ModifierGroup {
   displayOrder      Int                 @map("display_order")
   createdAt         DateTime            @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+  // FT-6B: set only when this Group was created via "Use Preset" -- null
+  // for a Group created via "Create Custom" (FT-6A behavior, unchanged).
+  // This Group row (and its Options below) remain the ONE runtime
+  // authority Public Menu/Cart/PublicOrdersService/OrderItemModifier ever
+  // read (Section 3: presets are a Staff-side authoring convenience, never
+  // a second pricing/ordering entity). SetNull, not Restrict: an optional
+  // soft link -- if the source Preset were ever removed, the linked Group
+  // simply detaches and keeps its last-synced values, never blocked.
+  sourcePresetId    String?             @map("source_preset_id") @db.Uuid
 
   // Restrict, not Cascade -- a Modifier Group is a substantive business
   // entity (like Product itself), never a pure translation row. It must
@@ -398,12 +409,19 @@ model ModifierGroup {
   // path is the `status` field.
   restaurant         Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   product            Product                    @relation(fields: [productId], references: [id], onDelete: Restrict)
+  sourcePreset       ModifierPreset?            @relation(fields: [sourcePresetId], references: [id], onDelete: SetNull)
   translations       ModifierGroupTranslation[]
   options            ModifierOption[]
   orderItemModifiers OrderItemModifier[]
 
+  // Prevents accidentally attaching the SAME Preset twice to the SAME
+  // Product (FT-6B, Section 2/4) -- Postgres treats each NULL
+  // `sourcePresetId` as distinct, so any number of Custom (non-Preset)
+  // Groups on one Product remain unaffected by this constraint.
+  @@unique([productId, sourcePresetId])
   @@index([restaurantId])
   @@index([productId])
+  @@index([sourcePresetId])
   @@map("modifier_groups")
 }
 
@@ -423,28 +441,44 @@ model ModifierGroupTranslation {
 }
 
 model ModifierOption {
-  id              String               @id @default(uuid()) @db.Uuid
-  restaurantId    String               @map("restaurant_id") @db.Uuid
-  modifierGroupId String               @map("modifier_group_id") @db.Uuid
-  status          ModifierOptionStatus
+  id                   String               @id @default(uuid()) @db.Uuid
+  restaurantId         String               @map("restaurant_id") @db.Uuid
+  modifierGroupId      String               @map("modifier_group_id") @db.Uuid
+  status               ModifierOptionStatus
   // Fixed-precision money (CLAUDE.md #27) -- never Float/Double. May be
   // zero (Ingredient Removal options, MENU_SPEC.md #79) or positive
   // (Extras, #78); no CHECK constraint restricting sign is documented.
-  priceAdjustment Decimal              @map("price_adjustment") @db.Decimal(14, 2)
-  displayOrder    Int                  @map("display_order")
-  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+  // FT-6B: this remains the ONE authoritative runtime price PublicOrdersService
+  // reads (Section 5/9) -- a Preset's own default price is copied HERE at
+  // apply-time and re-synced here on Preset change; the client is never the
+  // pricing authority.
+  priceAdjustment      Decimal              @map("price_adjustment") @db.Decimal(14, 2)
+  displayOrder         Int                  @map("display_order")
+  createdAt            DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+  // FT-6B: set only when this Option was created via "Use Preset" -- null
+  // for a Custom Option (unchanged FT-6A behavior).
+  sourcePresetOptionId String?              @map("source_preset_option_id") @db.Uuid
+  // True once Staff has explicitly overridden this ONE Product's price away
+  // from the linked Preset Option's current default (Section 5) -- while
+  // true, a Preset-wide price sync (Section 7) skips this row entirely.
+  // No database default (mirrors every other business-meaning column in
+  // this schema) -- always explicitly set `false` at creation time by
+  // application code, `true` only by the explicit override action.
+  priceIsOverridden    Boolean              @map("price_is_overridden")
 
   // Restrict, same rationale as ModifierGroup -- an Option must survive
   // regardless of later Group/Option lifecycle changes so historical
   // OrderItemModifier rows never lose their reference.
   restaurant         Restaurant                  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   modifierGroup      ModifierGroup               @relation(fields: [modifierGroupId], references: [id], onDelete: Restrict)
+  sourcePresetOption ModifierPresetOption?       @relation(fields: [sourcePresetOptionId], references: [id], onDelete: SetNull)
   translations       ModifierOptionTranslation[]
   orderItemModifiers OrderItemModifier[]
 
   @@index([restaurantId])
   @@index([modifierGroupId])
+  @@index([sourcePresetOptionId])
   @@map("modifier_options")
 }
 
@@ -460,6 +494,104 @@ model ModifierOptionTranslation {
 
   @@unique([modifierOptionId, locale])
   @@map("modifier_option_translations")
+}
+
+// -----------------------------------------------------------------------------
+// Modifier Preset (FT-6B): a reusable, Restaurant-scoped Modifier Group
+// TEMPLATE (e.g. "Standard Size") that Staff can attach to many Products at
+// once instead of hand-building the same Group/Options repeatedly. A Preset
+// is authoring convenience ONLY -- it is never read by Public Menu, Cart,
+// PublicOrdersService, or OrderItemModifier. Applying a Preset to a Product
+// COPIES its current values into real, independent `ModifierGroup`/
+// `ModifierOption` rows (linked back via `sourcePresetId`/
+// `sourcePresetOptionId` above) -- those Product-local rows remain the one
+// runtime authority, unchanged from FT-6A. Same translation-table and
+// status-only-deactivation conventions as every other Menu entity.
+// -----------------------------------------------------------------------------
+
+enum ModifierPresetStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("modifier_preset_status")
+}
+
+enum ModifierPresetOptionStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("modifier_preset_option_status")
+}
+
+model ModifierPreset {
+  id                String               @id @default(uuid()) @db.Uuid
+  restaurantId      String               @map("restaurant_id") @db.Uuid
+  // No database default, mirrors ModifierGroup.status.
+  status            ModifierPresetStatus
+  minimumSelections Int                  @map("minimum_selections")
+  maximumSelections Int                  @map("maximum_selections")
+  displayOrder      Int                  @map("display_order")
+  createdAt         DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant   Restaurant                  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  translations ModifierPresetTranslation[]
+  options      ModifierPresetOption[]
+  // Every Product-local ModifierGroup created via "Use Preset" from this
+  // Preset -- Section 7's sync propagates this Preset's own field changes
+  // to every row in this list.
+  linkedGroups ModifierGroup[]
+
+  @@index([restaurantId])
+  @@map("modifier_presets")
+}
+
+model ModifierPresetTranslation {
+  id               String  @id @default(uuid()) @db.Uuid
+  modifierPresetId String  @map("modifier_preset_id") @db.Uuid
+  locale           String
+  name             String
+  helperText       String? @map("helper_text")
+
+  modifierPreset ModifierPreset @relation(fields: [modifierPresetId], references: [id], onDelete: Cascade)
+
+  @@unique([modifierPresetId, locale])
+  @@map("modifier_preset_translations")
+}
+
+model ModifierPresetOption {
+  id               String                     @id @default(uuid()) @db.Uuid
+  restaurantId     String                     @map("restaurant_id") @db.Uuid
+  modifierPresetId String                     @map("modifier_preset_id") @db.Uuid
+  status           ModifierPresetOptionStatus
+  priceAdjustment  Decimal                    @map("price_adjustment") @db.Decimal(14, 2)
+  displayOrder     Int                        @map("display_order")
+  createdAt        DateTime                   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime                   @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant     Restaurant                        @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  modifierPreset ModifierPreset                    @relation(fields: [modifierPresetId], references: [id], onDelete: Restrict)
+  translations   ModifierPresetOptionTranslation[]
+  // Every Product-local ModifierOption created from this Preset Option --
+  // Section 7's price sync updates every row here EXCEPT ones with
+  // `priceIsOverridden = true`.
+  linkedOptions  ModifierOption[]
+
+  @@index([restaurantId])
+  @@index([modifierPresetId])
+  @@map("modifier_preset_options")
+}
+
+model ModifierPresetOptionTranslation {
+  id                     String @id @default(uuid()) @db.Uuid
+  modifierPresetOptionId String @map("modifier_preset_option_id") @db.Uuid
+  locale                 String
+  name                   String
+
+  modifierPresetOption ModifierPresetOption @relation(fields: [modifierPresetOptionId], references: [id], onDelete: Cascade)
+
+  @@unique([modifierPresetOptionId, locale])
+  @@map("modifier_preset_option_translations")
 }
 
 // -----------------------------------------------------------------------------

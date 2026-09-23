@@ -125,6 +125,7 @@ export function ProductEditor({
   const initialCategoryIdParam = searchParams.get('categoryId');
   const translationErrorParam = searchParams.get('translationError');
   const imageErrorParam = searchParams.get('imageError');
+  const createdParam = searchParams.get('created');
 
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -187,6 +188,14 @@ export function ProductEditor({
             failures.push('the image upload failed');
           }
           setFormError(`Product created, but ${failures.join(' and ')}. You can retry below.`);
+        } else if (createdParam) {
+          // FT-6B, Section 8: a fully successful Create now lands here
+          // directly (see `handleSubmit` below) rather than back on Menu
+          // Management -- this explicit notice keeps that redirect from
+          // feeling like a silent, unexplained screen switch (the original
+          // FT-2 correction's concern), while letting Staff configure
+          // Modifiers/Presets immediately without a second navigation.
+          setSaveNotice('Product created. You can configure Modifiers below.');
         }
       } else {
         const preselected =
@@ -205,7 +214,15 @@ export function ProductEditor({
       setStatus('error');
       setLoadError(describeError(error));
     }
-  }, [restaurantId, mode, productId, initialCategoryIdParam, translationErrorParam, imageErrorParam]);
+  }, [
+    restaurantId,
+    mode,
+    productId,
+    initialCategoryIdParam,
+    translationErrorParam,
+    imageErrorParam,
+    createdParam,
+  ]);
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -386,28 +403,28 @@ export function ProductEditor({
         // and/or image failure sends the User to the Product Edit route
         // (with the failure carried over as query params) so they can
         // retry there without hiding that the Product is real and already
-        // saved. Full success is the common path and should feel like
-        // "Product created" -- not a silent switch into an Edit screen --
-        // so it returns straight to Menu Management instead (FT-2
-        // correction, Section 1), landing back on the same Menu/Category
-        // the User started from.
-        if (translationFailures.length > 0 || imageUploadFailed) {
-          const failureParams = new URLSearchParams();
-          if (translationFailures.length > 0) {
-            failureParams.set('translationError', translationFailures.join(','));
-          }
-          if (imageUploadFailed) {
-            failureParams.set('imageError', '1');
-          }
-          router.replace(
-            `/staff/restaurants/${restaurantId}/menu/products/${created.id}?categoryId=${created.categoryId}&${failureParams.toString()}`,
-          );
-          return;
+        // saved.
+        //
+        // FT-6B, Section 8: full success ALSO now lands on the Product
+        // Edit route (revising the earlier FT-2 correction that returned
+        // to Menu Management instead) -- Modifiers/Presets can only be
+        // configured once the Product exists, so redirecting straight to
+        // Edit lets Staff do that immediately without a second navigation.
+        // The `created=1` param drives an explicit "Product created"
+        // notice (above) so this still reads as an intentional landing,
+        // never a silent, unexplained screen switch.
+        const failureParams = new URLSearchParams();
+        if (translationFailures.length > 0) {
+          failureParams.set('translationError', translationFailures.join(','));
         }
-
-        const targetMenuId = categories.find((category) => category.id === created.categoryId)?.menuId;
+        if (imageUploadFailed) {
+          failureParams.set('imageError', '1');
+        }
+        if (failureParams.size === 0) {
+          failureParams.set('created', '1');
+        }
         router.replace(
-          `/staff/restaurants/${restaurantId}/menu?menuId=${targetMenuId ?? ''}&categoryId=${created.categoryId}`,
+          `/staff/restaurants/${restaurantId}/menu/products/${created.id}?categoryId=${created.categoryId}&${failureParams.toString()}`,
         );
         return;
       }
@@ -516,7 +533,7 @@ export function ProductEditor({
         <div className="flex items-center gap-2">
           {saveNotice ? <span className="text-sm text-[#2F6B4F]">{saveNotice}</span> : null}
           <Button type="submit" disabled={isBusy}>
-            {isSubmitting ? 'Saving…' : mode === 'create' ? 'Create Product' : 'Save changes'}
+            {isSubmitting ? 'Saving…' : mode === 'create' ? 'Create & Continue' : 'Save changes'}
           </Button>
         </div>
       </div>
@@ -685,7 +702,8 @@ export function ProductEditor({
         <Card className="flex flex-col gap-6">
           <FormSection title="Modifiers">
             <p className="text-sm text-[#655D56]">
-              Modifiers (e.g. Size, Extras) can be configured once this Product has been created.
+              Create the Product first. You&apos;ll continue directly to its Edit page where you can
+              configure Modifiers and apply Modifier Library presets.
             </p>
           </FormSection>
         </Card>

@@ -25,6 +25,7 @@ import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
 import { LocaleParamPipe } from '../restaurants/locale-param.pipe';
 import type { PlatformSupportedLocale } from '../restaurants/platform-locales';
+import { ApplyModifierPresetDto } from './dto/apply-modifier-preset.dto';
 import { CreateModifierGroupDto } from './dto/create-modifier-group.dto';
 import { CreateModifierOptionDto } from './dto/create-modifier-option.dto';
 import { PutModifierGroupTranslationDto } from './dto/put-modifier-group-translation.dto';
@@ -56,6 +57,21 @@ const INVALID_SELECTION_RANGE_RESPONSE = {
   error: {
     code: 'MODIFIER_INVALID_SELECTION_RANGE',
     message: 'maximumSelections must be greater than or equal to minimumSelections.',
+  },
+};
+const PRESET_NOT_FOUND_RESPONSE = {
+  error: { code: 'MODIFIER_PRESET_NOT_FOUND', message: 'Modifier preset not found.' },
+};
+const PRESET_ALREADY_APPLIED_RESPONSE = {
+  error: {
+    code: 'MODIFIER_PRESET_ALREADY_APPLIED',
+    message: 'This preset is already attached to this Product.',
+  },
+};
+const HAS_HISTORICAL_REFERENCES_RESPONSE = {
+  error: {
+    code: 'MODIFIER_HAS_HISTORICAL_REFERENCES',
+    message: 'This has already been used in a historical Order and cannot be deleted. Deactivate it instead.',
   },
 };
 
@@ -140,6 +156,40 @@ export class ModifiersController {
     return { data: result.data };
   }
 
+  /**
+   * FT-6B, Section 2/4 "Use Preset": attaches a Restaurant-scoped Modifier
+   * Preset to this Product by copying its current values into a real,
+   * independent Modifier Group/Options (never a second pricing entity --
+   * Section 3). Registered as a literal `apply-preset` segment directly
+   * under the base `modifier-groups` path, so it never collides with
+   * `:groupId`-parameterized routes below.
+   */
+  @Post('apply-preset')
+  @HttpCode(HttpStatus.CREATED)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async applyModifierPreset(
+    @Param('productId') productId: string,
+    @Body() dto: ApplyModifierPresetDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<ModifierGroupResponseBody> {
+    const result = await this.modifiersService.applyPresetToProduct({
+      restaurantId: request.restaurantAccess.restaurantId,
+      productId,
+      presetId: dto.presetId,
+    });
+    if (result.outcome === 'productNotFound') {
+      throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'presetNotFound') {
+      throw new NotFoundException(PRESET_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'alreadyApplied') {
+      throw new ConflictException(PRESET_ALREADY_APPLIED_RESPONSE);
+    }
+    return { data: result.data };
+  }
+
   @Patch(':groupId')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
@@ -169,6 +219,70 @@ export class ModifiersController {
     }
     if (result.outcome === 'invalidSelectionRange') {
       throw new BadRequestException(INVALID_SELECTION_RANGE_RESPONSE);
+    }
+    return { data: result.data };
+  }
+
+  /**
+   * FT-6B closeout, Section 3/4/6: "Delete" for a Custom Modifier Group --
+   * hard DELETE, ONLY when it has never been referenced by a historical
+   * Order (`ModifierGroupView.canDelete`). Never falls back to
+   * deactivating -- the Staff UI simply should not offer this action when
+   * `canDelete` is false; this is the server-side backstop.
+   */
+  @Delete(':groupId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async deleteModifierGroup(
+    @Param('productId') productId: string,
+    @Param('groupId') groupId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<void> {
+    const result = await this.modifiersService.deleteModifierGroup({
+      restaurantId: request.restaurantAccess.restaurantId,
+      productId,
+      groupId,
+    });
+    if (result.outcome === 'productNotFound') {
+      throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'groupNotFound') {
+      throw new NotFoundException(GROUP_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'hasHistoricalReferences') {
+      throw new ConflictException(HAS_HISTORICAL_REFERENCES_RESPONSE);
+    }
+  }
+
+  /**
+   * FT-6B closeout, Section 3/4: "Remove from Product" for a Preset-linked
+   * Modifier Group -- ADAPTIVE: hard-deletes when historically safe, or
+   * deactivates (preserving history) otherwise. Registered as a literal
+   * `remove` segment, mirroring `apply-preset`'s own convention.
+   */
+  @Post(':groupId/remove')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async removeModifierGroupFromProduct(
+    @Param('productId') productId: string,
+    @Param('groupId') groupId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: ModifierGroupView | null }> {
+    const result = await this.modifiersService.removeModifierGroupFromProduct({
+      restaurantId: request.restaurantAccess.restaurantId,
+      productId,
+      groupId,
+    });
+    if (result.outcome === 'productNotFound') {
+      throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'groupNotFound') {
+      throw new NotFoundException(GROUP_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'deleted') {
+      return { data: null };
     }
     return { data: result.data };
   }
@@ -221,6 +335,78 @@ export class ModifiersController {
       status: dto.status,
       priceAdjustment: dto.priceAdjustment,
       displayOrder: dto.displayOrder,
+    });
+    if (result.outcome === 'productNotFound') {
+      throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'groupNotFound') {
+      throw new NotFoundException(GROUP_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'optionNotFound') {
+      throw new NotFoundException(OPTION_NOT_FOUND_RESPONSE);
+    }
+    return { data: result.data };
+  }
+
+  /**
+   * FT-6B closeout, Section 3/4/6: "Delete" for a Custom Modifier Option --
+   * hard DELETE, ONLY when it has never been referenced by a historical
+   * Order (`ModifierOptionView.canDelete`). Applies equally to a Custom
+   * Option added inside an otherwise Preset-linked Group -- only the
+   * OPTION's own link determines this, never its parent Group's.
+   */
+  @Delete(':groupId/options/:optionId')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async deleteModifierOption(
+    @Param('productId') productId: string,
+    @Param('groupId') groupId: string,
+    @Param('optionId') optionId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<void> {
+    const result = await this.modifiersService.deleteModifierOption({
+      restaurantId: request.restaurantAccess.restaurantId,
+      productId,
+      groupId,
+      optionId,
+    });
+    if (result.outcome === 'productNotFound') {
+      throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'groupNotFound') {
+      throw new NotFoundException(GROUP_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'optionNotFound') {
+      throw new NotFoundException(OPTION_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'hasHistoricalReferences') {
+      throw new ConflictException(HAS_HISTORICAL_REFERENCES_RESPONSE);
+    }
+  }
+
+  /**
+   * FT-6B, Section 5 "Reset to preset": re-adopts the linked Preset
+   * Option's CURRENT price for this Product and clears the override flag.
+   * A dedicated action rather than overloading `PATCH .../options/:optionId`
+   * -- the target price is looked up server-side, never client-supplied
+   * (Section 5: "Do not allow the client to become the pricing authority").
+   */
+  @Post(':groupId/options/:optionId/reset-price')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async resetModifierOptionPrice(
+    @Param('productId') productId: string,
+    @Param('groupId') groupId: string,
+    @Param('optionId') optionId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<ModifierOptionResponseBody> {
+    const result = await this.modifiersService.resetModifierOptionPrice({
+      restaurantId: request.restaurantAccess.restaurantId,
+      productId,
+      groupId,
+      optionId,
     });
     if (result.outcome === 'productNotFound') {
       throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);

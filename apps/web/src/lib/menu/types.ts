@@ -61,7 +61,7 @@ export interface Product {
   translation: ProductTranslation;
 }
 
-/** FT-6A: mirrors `apps/api/src/menu/modifiers.service.ts`'s safe response shapes. V1 scope: default-locale name/helperText only -- secondary-locale Modifier translation editing is not implemented in this batch. */
+/** FT-6A (closeout: EN/AR editing added; FT-6B: Preset linking added): mirrors `apps/api/src/menu/modifiers.service.ts`'s safe response shapes. */
 export type ModifierGroupStatus = 'ACTIVE' | 'INACTIVE';
 export type ModifierOptionStatus = 'ACTIVE' | 'INACTIVE';
 
@@ -72,6 +72,12 @@ export interface ModifierOption {
   name: string;
   priceAdjustment: string;
   displayOrder: number;
+  /** FT-6B: null for a Custom Option; identifies the source `ModifierPresetOption` when created via "Use Preset". */
+  sourcePresetOptionId: string | null;
+  /** FT-6B: true once Staff has overridden this Product's price away from the linked Preset Option's current default. */
+  priceIsOverridden: boolean;
+  /** FT-6B closeout: true only when this Option has never been snapshotted into a historical Order -- "Delete" is offered only when true. */
+  canDelete: boolean;
 }
 
 /** `minimumSelections`/`maximumSelections` alone express required/optional/single/multi-select -- required = minimumSelections >= 1, optional = 0, single-select = maximumSelections = 1, multi-select = maximumSelections > 1. */
@@ -84,4 +90,35 @@ export interface ModifierGroup {
   maximumSelections: number;
   displayOrder: number;
   options: ModifierOption[];
+  /** FT-6B: null for a Group created via "Create Custom"; identifies the source `ModifierPreset` when created via "Use Preset". */
+  sourcePresetId: string | null;
+  /** FT-6B closeout: true only when NEITHER this Group NOR any of its Options has ever been snapshotted into a historical Order -- "Delete"/"Remove from Product" are offered only when true. */
+  canDelete: boolean;
+}
+
+/** FT-6B: mirrors `apps/api/src/menu/modifier-presets.service.ts`'s safe response shapes -- a Restaurant-scoped reusable Modifier Group TEMPLATE. Never read by the Guest Menu/Cart/Orders (Staff authoring convenience only). */
+export type ModifierPresetStatus = 'ACTIVE' | 'INACTIVE';
+export type ModifierPresetOptionStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface ModifierPresetOption {
+  id: string;
+  status: ModifierPresetOptionStatus;
+  name: string;
+  priceAdjustment: string;
+  displayOrder: number;
+  /** FT-6B closeout: true only when no Product-local Option currently links to this one -- "Delete" is offered only when true. */
+  canDelete: boolean;
+}
+
+export interface ModifierPreset {
+  id: string;
+  status: ModifierPresetStatus;
+  name: string;
+  helperText: string | null;
+  minimumSelections: number;
+  maximumSelections: number;
+  displayOrder: number;
+  options: ModifierPresetOption[];
+  /** FT-6B closeout: true only when no Product currently uses this Preset -- "Delete" is offered only when true. */
+  canDelete: boolean;
 }

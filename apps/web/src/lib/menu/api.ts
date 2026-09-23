@@ -10,6 +10,10 @@ import type {
   ModifierGroupStatus,
   ModifierOption,
   ModifierOptionStatus,
+  ModifierPreset,
+  ModifierPresetOption,
+  ModifierPresetOptionStatus,
+  ModifierPresetStatus,
   Product,
   ProductAvailability,
   ProductStatus,
@@ -481,6 +485,58 @@ export async function updateModifierOption(
 }
 
 /**
+ * FT-6B closeout, Section 3/4: "Delete" for a Custom Modifier Group -- hard
+ * DELETE, only ever offered by the UI when `ModifierGroup.canDelete` is
+ * true (no historical Order reference). The Backend rejects it again
+ * regardless (409 `MODIFIER_HAS_HISTORICAL_REFERENCES`).
+ */
+export async function deleteModifierGroup(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+): Promise<void> {
+  await apiFetch<undefined>(`${modifierGroupsPath(restaurantId, productId)}/${groupId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * FT-6B closeout, Section 3/4: "Remove from Product" for a Preset-linked
+ * Modifier Group -- ADAPTIVE: hard-deletes when historically safe
+ * (`data: null`), or deactivates the Group instead when not (`data` holds
+ * the now-INACTIVE Group).
+ */
+export async function removeModifierGroupFromProduct(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+): Promise<ModifierGroup | null> {
+  const body = await apiFetch<{ data: ModifierGroup | null }>(
+    `${modifierGroupsPath(restaurantId, productId)}/${groupId}/remove`,
+    { method: 'POST' },
+  );
+  return body.data;
+}
+
+/**
+ * FT-6B closeout, Section 3/4/6: "Delete" for a Custom Modifier Option --
+ * same historical-safety rule as `deleteModifierGroup`, scoped to one
+ * Option (applies equally to a Custom Option inside an otherwise
+ * Preset-linked Group).
+ */
+export async function deleteModifierOption(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+  optionId: string,
+): Promise<void> {
+  await apiFetch<undefined>(
+    `${modifierGroupsPath(restaurantId, productId)}/${groupId}/options/${optionId}`,
+    { method: 'DELETE' },
+  );
+}
+
+/**
  * FT-6A closeout: Modifier Group/Option secondary-locale translation
  * requests, mirroring `getProductTranslations`/`putProductTranslation`/
  * `deleteProductTranslation` above exactly. `ModifierGroupTranslation`'s
@@ -580,6 +636,248 @@ export async function deleteModifierOptionTranslation(
 ): Promise<void> {
   await apiFetch<undefined>(
     `${modifierGroupsPath(restaurantId, productId)}/${groupId}/options/${optionId}/translations/${locale}`,
+    { method: 'DELETE' },
+  );
+}
+
+/**
+ * FT-6B: "Use Preset" -- attaches a Restaurant-scoped Modifier Preset to
+ * this Product by copying its current values into a real, independent
+ * Modifier Group/Options (never a second pricing entity).
+ */
+export async function applyModifierPreset(
+  restaurantId: string,
+  productId: string,
+  presetId: string,
+): Promise<ModifierGroup> {
+  const body = await apiFetch<{ data: ModifierGroup }>(
+    `${modifierGroupsPath(restaurantId, productId)}/apply-preset`,
+    { method: 'POST', body: { presetId } },
+  );
+  return body.data;
+}
+
+/**
+ * FT-6B, "Reset to preset": re-adopts the linked Preset Option's CURRENT
+ * price for this Product and clears the override flag. The target price is
+ * resolved server-side -- never client-supplied.
+ */
+export async function resetModifierOptionPrice(
+  restaurantId: string,
+  productId: string,
+  groupId: string,
+  optionId: string,
+): Promise<ModifierOption> {
+  const body = await apiFetch<{ data: ModifierOption }>(
+    `${modifierGroupsPath(restaurantId, productId)}/${groupId}/options/${optionId}/reset-price`,
+    { method: 'POST' },
+  );
+  return body.data;
+}
+
+/**
+ * FT-6B: the Restaurant-scoped Modifier Preset library request layer,
+ * mirroring the Modifier Group/Option functions above exactly -- Presets
+ * nest directly under `restaurants/:restaurantId`, never under a Product.
+ */
+function modifierPresetsPath(restaurantId: string): string {
+  return `${restaurantPath(restaurantId)}/modifier-presets`;
+}
+
+export async function listModifierPresets(restaurantId: string): Promise<ModifierPreset[]> {
+  const body = await apiFetch<{ data: ModifierPreset[] }>(modifierPresetsPath(restaurantId));
+  return body.data;
+}
+
+export interface CreateModifierPresetInput {
+  name: string;
+  helperText?: string | null;
+  status: ModifierPresetStatus;
+  minimumSelections: number;
+  maximumSelections: number;
+  displayOrder: number;
+}
+
+export async function createModifierPreset(
+  restaurantId: string,
+  input: CreateModifierPresetInput,
+): Promise<ModifierPreset> {
+  const body = await apiFetch<{ data: ModifierPreset }>(modifierPresetsPath(restaurantId), {
+    method: 'POST',
+    body: input,
+  });
+  return body.data;
+}
+
+export interface UpdateModifierPresetInput {
+  name?: string;
+  helperText?: string | null;
+  status?: ModifierPresetStatus;
+  minimumSelections?: number;
+  maximumSelections?: number;
+  displayOrder?: number;
+}
+
+export async function updateModifierPreset(
+  restaurantId: string,
+  presetId: string,
+  input: UpdateModifierPresetInput,
+): Promise<ModifierPreset> {
+  const body = await apiFetch<{ data: ModifierPreset }>(
+    `${modifierPresetsPath(restaurantId)}/${presetId}`,
+    { method: 'PATCH', body: input },
+  );
+  return body.data;
+}
+
+/**
+ * FT-6B closeout, Section 5: "Delete" a Preset -- hard DELETE, only ever
+ * offered by the UI when `ModifierPreset.canDelete` is true (not currently
+ * attached to any Product). Never cascades into Product-local Groups.
+ */
+export async function deleteModifierPreset(restaurantId: string, presetId: string): Promise<void> {
+  await apiFetch<undefined>(`${modifierPresetsPath(restaurantId)}/${presetId}`, { method: 'DELETE' });
+}
+
+export interface CreateModifierPresetOptionInput {
+  name: string;
+  status: ModifierPresetOptionStatus;
+  priceAdjustment: string;
+  displayOrder: number;
+}
+
+export async function createModifierPresetOption(
+  restaurantId: string,
+  presetId: string,
+  input: CreateModifierPresetOptionInput,
+): Promise<ModifierPresetOption> {
+  const body = await apiFetch<{ data: ModifierPresetOption }>(
+    `${modifierPresetsPath(restaurantId)}/${presetId}/options`,
+    { method: 'POST', body: input },
+  );
+  return body.data;
+}
+
+export interface UpdateModifierPresetOptionInput {
+  name?: string;
+  status?: ModifierPresetOptionStatus;
+  priceAdjustment?: string;
+  displayOrder?: number;
+}
+
+export async function updateModifierPresetOption(
+  restaurantId: string,
+  presetId: string,
+  presetOptionId: string,
+  input: UpdateModifierPresetOptionInput,
+): Promise<ModifierPresetOption> {
+  const body = await apiFetch<{ data: ModifierPresetOption }>(
+    `${modifierPresetsPath(restaurantId)}/${presetId}/options/${presetOptionId}`,
+    { method: 'PATCH', body: input },
+  );
+  return body.data;
+}
+
+/**
+ * FT-6B closeout, Section 5: "Delete" a Preset Option -- same
+ * "unreferenced only" rule as `deleteModifierPreset`.
+ */
+export async function deleteModifierPresetOption(
+  restaurantId: string,
+  presetId: string,
+  presetOptionId: string,
+): Promise<void> {
+  await apiFetch<undefined>(`${modifierPresetsPath(restaurantId)}/${presetId}/options/${presetOptionId}`, {
+    method: 'DELETE',
+  });
+}
+
+export interface ModifierPresetTranslationRow {
+  locale: string;
+  name: string;
+  helperText: string | null;
+}
+
+export interface ModifierPresetTranslationInput {
+  name: string;
+  helperText?: string | null;
+}
+
+export async function getModifierPresetTranslations(
+  restaurantId: string,
+  presetId: string,
+): Promise<ModifierPresetTranslationRow[]> {
+  const body = await apiFetch<{ data: ModifierPresetTranslationRow[] }>(
+    `${modifierPresetsPath(restaurantId)}/${presetId}/translations`,
+  );
+  return body.data;
+}
+
+export async function putModifierPresetTranslation(
+  restaurantId: string,
+  presetId: string,
+  locale: string,
+  input: ModifierPresetTranslationInput,
+): Promise<ModifierPresetTranslationRow> {
+  const body = await apiFetch<{ data: ModifierPresetTranslationRow }>(
+    `${modifierPresetsPath(restaurantId)}/${presetId}/translations/${locale}`,
+    { method: 'PUT', body: input },
+  );
+  return body.data;
+}
+
+export async function deleteModifierPresetTranslation(
+  restaurantId: string,
+  presetId: string,
+  locale: string,
+): Promise<void> {
+  await apiFetch<undefined>(`${modifierPresetsPath(restaurantId)}/${presetId}/translations/${locale}`, {
+    method: 'DELETE',
+  });
+}
+
+export interface ModifierPresetOptionTranslationRow {
+  locale: string;
+  name: string;
+}
+
+export interface ModifierPresetOptionTranslationInput {
+  name: string;
+}
+
+export async function getModifierPresetOptionTranslations(
+  restaurantId: string,
+  presetId: string,
+  presetOptionId: string,
+): Promise<ModifierPresetOptionTranslationRow[]> {
+  const body = await apiFetch<{ data: ModifierPresetOptionTranslationRow[] }>(
+    `${modifierPresetsPath(restaurantId)}/${presetId}/options/${presetOptionId}/translations`,
+  );
+  return body.data;
+}
+
+export async function putModifierPresetOptionTranslation(
+  restaurantId: string,
+  presetId: string,
+  presetOptionId: string,
+  locale: string,
+  input: ModifierPresetOptionTranslationInput,
+): Promise<ModifierPresetOptionTranslationRow> {
+  const body = await apiFetch<{ data: ModifierPresetOptionTranslationRow }>(
+    `${modifierPresetsPath(restaurantId)}/${presetId}/options/${presetOptionId}/translations/${locale}`,
+    { method: 'PUT', body: input },
+  );
+  return body.data;
+}
+
+export async function deleteModifierPresetOptionTranslation(
+  restaurantId: string,
+  presetId: string,
+  presetOptionId: string,
+  locale: string,
+): Promise<void> {
+  await apiFetch<undefined>(
+    `${modifierPresetsPath(restaurantId)}/${presetId}/options/${presetOptionId}/translations/${locale}`,
     { method: 'DELETE' },
   );
 }
