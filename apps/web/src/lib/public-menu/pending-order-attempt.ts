@@ -23,9 +23,56 @@ export interface PendingOrderItem {
   modifierOptionIds: string[];
 }
 
+/**
+ * FT-7: the Pickup checkout state that is part of one submission's identity
+ * (GENERIC QR only; always `null` for a TABLE QR, whose behavior stays
+ * exactly FT-5). A changed Branch/name/phone/notes must never reuse a
+ * previous attempt's `clientRequestId`. Values are compared trimmed.
+ */
+export interface PendingOrderCheckout {
+  branchId: string | null;
+  customerName: string;
+  customerPhone: string;
+  customerNotes: string;
+}
+
 export interface PendingOrderAttempt {
   clientRequestId: string;
   items: PendingOrderItem[];
+  checkout: PendingOrderCheckout | null;
+}
+
+function normalizeCheckout(checkout: PendingOrderCheckout | null): PendingOrderCheckout | null {
+  if (checkout === null) return null;
+  return {
+    branchId: checkout.branchId,
+    customerName: checkout.customerName.trim(),
+    customerPhone: checkout.customerPhone.trim(),
+    customerNotes: checkout.customerNotes.trim(),
+  };
+}
+
+function checkoutEqual(a: PendingOrderCheckout | null, b: PendingOrderCheckout | null): boolean {
+  const left = normalizeCheckout(a);
+  const right = normalizeCheckout(b);
+  if (left === null || right === null) return left === right;
+  return (
+    left.branchId === right.branchId &&
+    left.customerName === right.customerName &&
+    left.customerPhone === right.customerPhone &&
+    left.customerNotes === right.customerNotes
+  );
+}
+
+function isPendingCheckout(value: unknown): value is PendingOrderCheckout {
+  if (typeof value !== 'object' || value === null) return false;
+  const candidate = value as Partial<PendingOrderCheckout>;
+  return (
+    (candidate.branchId === null || typeof candidate.branchId === 'string') &&
+    typeof candidate.customerName === 'string' &&
+    typeof candidate.customerPhone === 'string' &&
+    typeof candidate.customerNotes === 'string'
+  );
 }
 
 function storageKey(publicCode: string): string {
@@ -79,7 +126,8 @@ function isPendingOrderAttempt(value: unknown): value is PendingOrderAttempt {
   return (
     typeof candidate.clientRequestId === 'string' &&
     Array.isArray(candidate.items) &&
-    candidate.items.every(isPendingOrderItem)
+    candidate.items.every(isPendingOrderItem) &&
+    (candidate.checkout === null || isPendingCheckout(candidate.checkout))
   );
 }
 
@@ -89,6 +137,10 @@ export function loadPendingAttempt(publicCode: string): PendingOrderAttempt | nu
     const raw = window.localStorage.getItem(storageKey(publicCode));
     if (!raw) return null;
     const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed === 'object' && parsed !== null && !('checkout' in parsed)) {
+      // A pre-FT-7 stored attempt has no checkout state: it was a TABLE attempt.
+      (parsed as { checkout: null }).checkout = null;
+    }
     return isPendingOrderAttempt(parsed) ? parsed : null;
   } catch {
     return null;
@@ -116,13 +168,18 @@ export function clearPendingAttempt(publicCode: string): void {
   }
 }
 
-/** True when a persisted pending attempt exists AND its items exactly match `items` (canonicalized) -- a pure read, never generates or persists anything. */
-export function itemsMatchPendingAttempt(
+/** True when a persisted pending attempt exists AND its items AND Pickup checkout state (`null` for TABLE) exactly match -- a pure read, never generates or persists anything. */
+export function payloadMatchesPendingAttempt(
   publicCode: string,
   items: PendingOrderItem[],
+  checkout: PendingOrderCheckout | null,
 ): boolean {
   const existing = loadPendingAttempt(publicCode);
-  return existing !== null && itemsEqual(existing.items, items);
+  return (
+    existing !== null &&
+    itemsEqual(existing.items, items) &&
+    checkoutEqual(existing.checkout, checkout)
+  );
 }
 
 /**
@@ -138,13 +195,18 @@ export function itemsMatchPendingAttempt(
 export function resolveClientRequestId(
   publicCode: string,
   items: PendingOrderItem[],
+  checkout: PendingOrderCheckout | null,
   generateId: () => string,
 ): string {
   const existing = loadPendingAttempt(publicCode);
-  if (existing && itemsEqual(existing.items, items)) {
+  if (existing && itemsEqual(existing.items, items) && checkoutEqual(existing.checkout, checkout)) {
     return existing.clientRequestId;
   }
   const clientRequestId = generateId();
-  savePendingAttempt(publicCode, { clientRequestId, items: canonicalizeItems(items) });
+  savePendingAttempt(publicCode, {
+    clientRequestId,
+    items: canonicalizeItems(items),
+    checkout: normalizeCheckout(checkout),
+  });
   return clientRequestId;
 }

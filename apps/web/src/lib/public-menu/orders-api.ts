@@ -9,10 +9,21 @@ export interface SubmitGuestOrderItem {
   modifierOptionIds: string[];
 }
 
+/** FT-7: Pickup-only checkout fields; omitted entirely for a TABLE QR. */
+export interface SubmitPickupCheckout {
+  branchId: string | null;
+  customerName: string;
+  customerPhone: string;
+  customerNotes: string;
+}
+
 export type SubmitGuestOrderResult =
   | { outcome: 'success'; data: GuestOrderView }
   | { outcome: 'itemsUnavailable' }
   | { outcome: 'notFound' }
+  | { outcome: 'pickupDetailsRequired' }
+  | { outcome: 'pickupBranchInvalid' }
+  | { outcome: 'pickupUnavailable' }
   | { outcome: 'networkError' };
 
 /**
@@ -28,17 +39,41 @@ export async function submitGuestOrder(
   publicCode: string,
   clientRequestId: string,
   items: SubmitGuestOrderItem[],
+  pickup: SubmitPickupCheckout | null = null,
 ): Promise<SubmitGuestOrderResult> {
   try {
     const body = await apiFetch<{ data: GuestOrderView }>(
       `/public/qr/${encodeURIComponent(publicCode)}/orders`,
-      { method: 'POST', body: { clientRequestId, items } },
+      {
+        method: 'POST',
+        body: {
+          clientRequestId,
+          items,
+          ...(pickup
+            ? {
+                ...(pickup.branchId ? { branchId: pickup.branchId } : {}),
+                customerName: pickup.customerName.trim(),
+                customerPhone: pickup.customerPhone.trim(),
+                ...(pickup.customerNotes.trim() ? { customerNotes: pickup.customerNotes.trim() } : {}),
+              }
+            : {}),
+        },
+      },
     );
     return { outcome: 'success', data: body.data };
   } catch (error) {
     if (error instanceof ApiError) {
       if (error.code === 'ORDER_ITEM_UNAVAILABLE') {
         return { outcome: 'itemsUnavailable' };
+      }
+      if (error.code === 'PICKUP_CUSTOMER_DETAILS_REQUIRED') {
+        return { outcome: 'pickupDetailsRequired' };
+      }
+      if (error.code === 'PICKUP_BRANCH_REQUIRED' || error.code === 'PICKUP_BRANCH_INVALID') {
+        return { outcome: 'pickupBranchInvalid' };
+      }
+      if (error.code === 'PICKUP_UNAVAILABLE') {
+        return { outcome: 'pickupUnavailable' };
       }
       if (error.code === 'QR_NOT_FOUND') {
         return { outcome: 'notFound' };

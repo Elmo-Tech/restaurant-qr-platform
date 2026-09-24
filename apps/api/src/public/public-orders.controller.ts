@@ -37,6 +37,36 @@ const DUPLICATE_ITEMS_RESPONSE = {
   },
 };
 
+/** FT-7: a GENERIC QR (Pickup) checkout is missing customer name and/or phone. */
+const CUSTOMER_DETAILS_REQUIRED_RESPONSE = {
+  error: {
+    code: 'PICKUP_CUSTOMER_DETAILS_REQUIRED',
+    message: 'Name and phone are required for a pickup order.',
+  },
+};
+
+const PICKUP_BRANCH_REQUIRED_RESPONSE = {
+  error: {
+    code: 'PICKUP_BRANCH_REQUIRED',
+    message: 'Please choose a pickup branch.',
+  },
+};
+
+/** One indistinguishable response for an unknown, foreign, or INACTIVE Branch -- never reveals which. */
+const PICKUP_BRANCH_INVALID_RESPONSE = {
+  error: {
+    code: 'PICKUP_BRANCH_INVALID',
+    message: 'The selected pickup branch is not available.',
+  },
+};
+
+const PICKUP_UNAVAILABLE_RESPONSE = {
+  error: {
+    code: 'PICKUP_UNAVAILABLE',
+    message: 'Pickup ordering is not available right now.',
+  },
+};
+
 interface GuestOrderResponseBody {
   data: GuestOrderView;
 }
@@ -77,8 +107,24 @@ export class PublicOrdersController {
         quantity: item.quantity,
         modifierOptionIds: item.modifierOptionIds ?? [],
       })),
+      branchId: dto.branchId,
+      customerName: dto.customerName,
+      customerPhone: dto.customerPhone,
+      customerNotes: dto.customerNotes,
     });
 
+    if (result.outcome === 'customerDetailsRequired') {
+      throw new BadRequestException(CUSTOMER_DETAILS_REQUIRED_RESPONSE);
+    }
+    if (result.outcome === 'branchRequired') {
+      throw new BadRequestException(PICKUP_BRANCH_REQUIRED_RESPONSE);
+    }
+    if (result.outcome === 'branchInvalid') {
+      throw new BadRequestException(PICKUP_BRANCH_INVALID_RESPONSE);
+    }
+    if (result.outcome === 'pickupUnavailable') {
+      throw new ConflictException(PICKUP_UNAVAILABLE_RESPONSE);
+    }
     if (result.outcome === 'qrNotFound') {
       throw new NotFoundException(QR_NOT_FOUND_RESPONSE);
     }

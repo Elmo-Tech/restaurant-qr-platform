@@ -41,6 +41,18 @@ export interface PublicMenuCopy {
   addToCart: string;
   cancel: string;
   selectionRequiredError: string;
+  pickup: string;
+  pickupFrom: string;
+  chooseBranch: string;
+  customerName: string;
+  customerPhone: string;
+  customerNotes: string;
+  placePickupOrder: string;
+  pickupOrderSent: string;
+  pickupOrderPending: string;
+  pickupUnavailable: string;
+  pickupDetailsRequiredError: string;
+  pickupBranchError: string;
 }
 
 const EN_COPY: PublicMenuCopy = {
@@ -80,6 +92,18 @@ const EN_COPY: PublicMenuCopy = {
   addToCart: 'Add to cart',
   cancel: 'Cancel',
   selectionRequiredError: 'Please complete the required selections above.',
+  pickup: 'Pickup',
+  pickupFrom: 'Pickup from',
+  chooseBranch: 'Choose a branch',
+  customerName: 'Name',
+  customerPhone: 'Phone',
+  customerNotes: 'Notes (optional)',
+  placePickupOrder: 'Place pickup order',
+  pickupOrderSent: 'Pickup order sent',
+  pickupOrderPending: 'Waiting for the restaurant to accept your pickup order.',
+  pickupUnavailable: 'Pickup ordering is not available right now. You can still browse the menu.',
+  pickupDetailsRequiredError: 'Please enter your name and phone number.',
+  pickupBranchError: 'Please choose a valid pickup branch.',
 };
 
 const AR_COPY: PublicMenuCopy = {
@@ -117,6 +141,18 @@ const AR_COPY: PublicMenuCopy = {
   addToCart: 'أضف إلى السلة',
   cancel: 'إلغاء',
   selectionRequiredError: 'يرجى إكمال الاختيارات المطلوبة أعلاه.',
+  pickup: 'استلام من الفرع',
+  pickupFrom: 'الاستلام من',
+  chooseBranch: 'اختر الفرع',
+  customerName: 'الاسم',
+  customerPhone: 'رقم الهاتف',
+  customerNotes: 'ملاحظات (اختياري)',
+  placePickupOrder: 'إرسال طلب الاستلام',
+  pickupOrderSent: 'تم إرسال طلب الاستلام',
+  pickupOrderPending: 'في انتظار موافقة المطعم على طلب الاستلام.',
+  pickupUnavailable: 'الطلب للاستلام غير متاح حاليًا. يمكنك تصفح القائمة.',
+  pickupDetailsRequiredError: 'يرجى إدخال اسمك ورقم هاتفك.',
+  pickupBranchError: 'يرجى اختيار فرع صالح للاستلام.',
 };
 
 /**

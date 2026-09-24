@@ -4,6 +4,8 @@ export interface PublicMenuContext {
   restaurant: { name: string; currencyCode: string };
   branch: { name: string } | null;
   table: { number: string } | null;
+  /** FT-7: GENERIC QR only (null for TABLE) -- the ACTIVE Branches eligible for Pickup. Empty = Pickup unavailable. */
+  pickupBranches: { id: string; name: string }[] | null;
 }
 
 export interface PublicMenuLocale {
@@ -92,6 +94,11 @@ export interface GuestOrderView {
   currencyCode: string;
   total: string;
   createdAt: string;
-  table: { number: string };
+  /** FT-7: DINE_IN (TABLE QR) or PICKUP (GENERIC QR). */
+  type: 'DINE_IN' | 'PICKUP';
+  /** Null for a PICKUP Order. */
+  table: { number: string } | null;
+  /** FT-7: PICKUP only -- the safe Branch display name. */
+  pickupBranch: { name: string } | null;
   items: GuestOrderItemView[];
 }

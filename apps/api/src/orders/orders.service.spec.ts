@@ -13,6 +13,10 @@ const SAMPLE_ORDER_ROW = {
   id: WELL_FORMED_UUID,
   createdAt: new Date('2026-01-01T00:00:00Z'),
   status: 'PENDING' as const,
+  type: 'DINE_IN' as const,
+  customerNameSnapshot: null,
+  customerPhoneSnapshot: null,
+  customerNotesSnapshot: null,
   branchId: BRANCH_ID,
   currencyCode: 'EGP',
   totalAmount: decimal('100.00'),
@@ -152,6 +156,7 @@ describe('OrdersService.listOrders', () => {
         id: WELL_FORMED_UUID,
         createdAt: new Date(),
         status: 'PENDING',
+        type: 'DINE_IN',
         currencyCode: 'EGP',
         totalAmount: decimal('310.00'),
         branch: { id: BRANCH_ID, name: 'Main Branch' },
@@ -222,9 +227,11 @@ describe('OrdersService.getOrderDetail', () => {
         id: WELL_FORMED_UUID,
         createdAt: SAMPLE_ORDER_ROW.createdAt,
         status: 'PENDING',
+        type: 'DINE_IN',
         restaurant: { id: RESTAURANT_ID, name: 'Elmo Bistro' },
         branch: { id: BRANCH_ID, name: 'Main Branch' },
         table: { id: 'table-1', tableNumber: '7' },
+        customer: null,
         currencyCode: 'EGP',
         totalAmount: '100.00',
         items: [
@@ -239,6 +246,85 @@ describe('OrdersService.getOrderDetail', () => {
         ],
       },
     });
+  });
+});
+
+describe('OrdersService -- PICKUP Orders (FT-7)', () => {
+  const PICKUP_ROW = {
+    ...SAMPLE_ORDER_ROW,
+    type: 'PICKUP' as const,
+    table: null,
+    customerNameSnapshot: 'Sara Ali',
+    customerPhoneSnapshot: '+20 100 000 0000',
+    customerNotesSnapshot: 'No onions',
+  };
+
+  it('list rows expose type and a null table for a PICKUP Order', async () => {
+    const mocks = buildMocks();
+    mocks.orderFindMany.mockResolvedValue([
+      {
+        id: WELL_FORMED_UUID,
+        createdAt: new Date(),
+        status: 'PENDING',
+        type: 'PICKUP',
+        customerNameSnapshot: 'Sara Ali',
+        customerPhoneSnapshot: '+20 100 000 0000',
+        currencyCode: 'EGP',
+        totalAmount: decimal('100.00'),
+        branch: { id: BRANCH_ID, name: 'Main Branch' },
+        table: null,
+        _count: { items: 1 },
+      },
+    ]);
+    const service = buildService(mocks);
+
+    const result = await service.listOrders(ALL_BRANCHES_SCOPE, {});
+
+    expect(result[0]).toMatchObject({
+      type: 'PICKUP',
+      table: null,
+      customer: { name: 'Sara Ali', phone: '+20 100 000 0000' },
+    });
+  });
+
+  it('detail exposes the PICKUP customer snapshots, Branch, and a null table', async () => {
+    const mocks = buildMocks();
+    mocks.orderFindFirst.mockResolvedValue(PICKUP_ROW);
+    const service = buildService(mocks);
+
+    const result = await service.getOrderDetail(ALL_BRANCHES_SCOPE, WELL_FORMED_UUID);
+
+    expect(result).toMatchObject({
+      outcome: 'found',
+      data: {
+        type: 'PICKUP',
+        table: null,
+        branch: { id: BRANCH_ID, name: 'Main Branch' },
+        customer: { name: 'Sara Ali', phone: '+20 100 000 0000', notes: 'No onions' },
+      },
+    });
+  });
+
+  it('a scoped Staff Membership cannot read a PICKUP Order of a Branch outside its scope (converges on notFound)', async () => {
+    const mocks = buildMocks();
+    mocks.orderFindFirst.mockResolvedValue(PICKUP_ROW);
+    mocks.resolveBranchManagementAccess.mockResolvedValue({ outcome: 'accessDenied' });
+    const service = buildService(mocks);
+
+    const result = await service.getOrderDetail(SCOPED_SCOPE, WELL_FORMED_UUID);
+
+    expect(result).toEqual({ outcome: 'notFound' });
+  });
+
+  it('list still restricts a scoped Membership to its assigned Branches (PICKUP Orders included)', async () => {
+    const mocks = buildMocks();
+    mocks.restaurantMembershipBranchFindMany.mockResolvedValue([{ branchId: BRANCH_ID }]);
+    const service = buildService(mocks);
+
+    await service.listOrders(SCOPED_SCOPE, {});
+
+    const args = mocks.orderFindMany.mock.calls[0][0];
+    expect(args.where.branchId).toEqual({ in: [BRANCH_ID] });
   });
 });
 

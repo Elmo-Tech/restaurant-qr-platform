@@ -27,6 +27,20 @@ export interface CartLine {
   blocked: boolean;
 }
 
+/** FT-7: Pickup checkout state + handlers (GENERIC QR only; the drawer receives null for a TABLE QR and renders exactly as before). */
+export interface PickupCheckoutProps {
+  branches: { id: string; name: string }[];
+  /** The resolved Branch: the single ACTIVE Branch automatically, or the Guest's choice among several. */
+  branchId: string | null;
+  customerName: string;
+  customerPhone: string;
+  customerNotes: string;
+  onBranchChange: (branchId: string | null) => void;
+  onNameChange: (value: string) => void;
+  onPhoneChange: (value: string) => void;
+  onNotesChange: (value: string) => void;
+}
+
 export interface CartDrawerProps {
   copy: PublicMenuCopy;
   currency: string;
@@ -37,6 +51,7 @@ export interface CartDrawerProps {
   canSubmit: boolean;
   submitError: string | null;
   confirmedOrder: GuestOrderView | null;
+  pickup: PickupCheckoutProps | null;
   onIncrement: (lineKey: string) => void;
   onDecrement: (lineKey: string) => void;
   onRemove: (lineKey: string) => void;
@@ -63,6 +78,7 @@ export function CartDrawer({
   canSubmit,
   submitError,
   confirmedOrder,
+  pickup,
   onIncrement,
   onDecrement,
   onRemove,
@@ -71,17 +87,27 @@ export function CartDrawer({
 }: CartDrawerProps) {
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
+  // `onClose` is a fresh function on every parent render (every keystroke in
+  // the Pickup fields re-renders the parent), so it must NOT be an effect
+  // dependency: doing so re-ran the focus call below on each keystroke and
+  // pulled focus off the input onto the close button. Keep the latest
+  // handler in a ref instead, and focus the close button once on mount only.
+  const onCloseRef = useRef(onClose);
+  useEffect(() => {
+    onCloseRef.current = onClose;
+  });
+
   useEffect(() => {
     closeButtonRef.current?.focus();
     function handleKeyDown(event: KeyboardEvent) {
       if (event.key === 'Escape') {
         event.preventDefault();
-        onClose();
+        onCloseRef.current();
       }
     }
     document.addEventListener('keydown', handleKeyDown);
     return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [onClose]);
+  }, []);
 
   return (
     <div className="fixed inset-0 z-50" dir={dir}>
@@ -95,7 +121,11 @@ export function CartDrawer({
         >
           <div className="flex flex-shrink-0 items-center justify-between gap-4 border-b border-[#E5DED6] px-5 py-4">
             <h2 id="cart-drawer-title" className="text-base font-semibold text-[#1D1A18]">
-              {confirmedOrder ? copy.orderSent : copy.yourOrder}
+              {confirmedOrder
+                ? confirmedOrder.type === 'PICKUP'
+                  ? copy.pickupOrderSent
+                  : copy.orderSent
+                : copy.yourOrder}
             </h2>
             <button
               ref={closeButtonRef}
@@ -184,6 +214,10 @@ export function CartDrawer({
                     ))}
                   </ul>
                 )}
+
+                {pickup && lines.length > 0 ? (
+                  <PickupCheckoutForm copy={copy} pickup={pickup} disabled={isSubmitting} />
+                ) : null}
               </>
             )}
           </div>
@@ -202,7 +236,11 @@ export function CartDrawer({
                 onClick={onPlaceOrder}
                 className="w-full rounded-full bg-[#7A5138] px-4 py-3 text-sm font-semibold text-white transition-colors hover:bg-[#634127] disabled:cursor-not-allowed disabled:bg-[#AFA397]"
               >
-                {isSubmitting ? copy.placingOrder : copy.placeOrder}
+                {isSubmitting
+                  ? copy.placingOrder
+                  : pickup
+                    ? copy.placePickupOrder
+                    : copy.placeOrder}
               </button>
             </div>
           ) : (
@@ -233,16 +271,106 @@ function ConfirmationView({
 }) {
   return (
     <div className="flex flex-col items-center gap-2 py-4 text-center">
-      <p className="text-lg font-bold text-[#1D1A18]">{copy.orderSent}</p>
-      <p className="text-sm text-[#8A5138]">
-        {copy.table} {order.table.number}
+      <p className="text-lg font-bold text-[#1D1A18]">
+        {order.type === 'PICKUP' ? copy.pickupOrderSent : copy.orderSent}
       </p>
+      {order.table ? (
+        <p className="text-sm text-[#8A5138]">
+          {copy.table} {order.table.number}
+        </p>
+      ) : null}
+      {order.pickupBranch ? (
+        <p className="text-sm text-[#8A5138]">
+          {copy.pickupFrom}: {order.pickupBranch.name}
+        </p>
+      ) : null}
       <p className="text-2xl font-bold text-[#302C29]">
         <bdi dir="ltr">
           {order.total} {currency}
         </bdi>
       </p>
-      <p className="mt-2 text-sm text-[#655D56]">{copy.orderStatusPending}</p>
+      <p className="mt-2 text-sm text-[#655D56]">
+        {order.type === 'PICKUP' ? copy.pickupOrderPending : copy.orderStatusPending}
+      </p>
+    </div>
+  );
+}
+
+const FIELD_CLASS =
+  'w-full rounded-md border border-[#E5DED6] bg-white px-3 py-2 text-sm text-[#1D1A18] focus:border-[#7A5138] focus:outline-none disabled:bg-[#F8F5F1]';
+
+/** FT-7: Pickup checkout fields -- branch (read-only when only one ACTIVE Branch exists), name, phone, optional notes. */
+function PickupCheckoutForm({
+  copy,
+  pickup,
+  disabled,
+}: {
+  copy: PublicMenuCopy;
+  pickup: PickupCheckoutProps;
+  disabled: boolean;
+}) {
+  const singleBranch = pickup.branches.length === 1 ? pickup.branches[0] : null;
+  return (
+    <div className="mt-6 flex flex-col gap-3 border-t border-[#E5DED6] pt-5">
+      {singleBranch ? (
+        <div>
+          <p className="text-xs font-medium text-[#655D56]">{copy.pickupFrom}</p>
+          <p className="mt-0.5 text-sm font-semibold text-[#1D1A18]">{singleBranch.name}</p>
+        </div>
+      ) : (
+        <label className="flex flex-col gap-1 text-xs font-medium text-[#655D56]">
+          <span>{copy.pickupFrom} *</span>
+          <select
+            value={pickup.branchId ?? ''}
+            disabled={disabled}
+            onChange={(event) => pickup.onBranchChange(event.target.value || null)}
+            className={FIELD_CLASS}
+          >
+            <option value="">{copy.chooseBranch}</option>
+            {pickup.branches.map((branch) => (
+              <option key={branch.id} value={branch.id}>
+                {branch.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      <label className="flex flex-col gap-1 text-xs font-medium text-[#655D56]">
+        <span>{copy.customerName} *</span>
+        <input
+          type="text"
+          value={pickup.customerName}
+          maxLength={100}
+          autoComplete="name"
+          disabled={disabled}
+          onChange={(event) => pickup.onNameChange(event.target.value)}
+          className={FIELD_CLASS}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-medium text-[#655D56]">
+        <span>{copy.customerPhone} *</span>
+        <input
+          type="tel"
+          dir="ltr"
+          value={pickup.customerPhone}
+          maxLength={30}
+          autoComplete="tel"
+          disabled={disabled}
+          onChange={(event) => pickup.onPhoneChange(event.target.value)}
+          className={FIELD_CLASS}
+        />
+      </label>
+      <label className="flex flex-col gap-1 text-xs font-medium text-[#655D56]">
+        <span>{copy.customerNotes}</span>
+        <textarea
+          value={pickup.customerNotes}
+          maxLength={500}
+          rows={2}
+          disabled={disabled}
+          onChange={(event) => pickup.onNotesChange(event.target.value)}
+          className={FIELD_CLASS}
+        />
+      </label>
     </div>
   );
 }

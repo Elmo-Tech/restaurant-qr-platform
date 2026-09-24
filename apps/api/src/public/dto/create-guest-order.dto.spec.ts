@@ -125,3 +125,42 @@ describe('CreateGuestOrderDto', () => {
     });
   });
 });
+
+describe('CreateGuestOrderDto -- Pickup fields (FT-7)', () => {
+  const base = {
+    clientRequestId: WELL_FORMED_UUID,
+    items: [{ productId: WELL_FORMED_UUID, quantity: 1 }],
+  };
+
+  it('accepts a body with no Pickup fields at all (TABLE QR orders)', async () => {
+    expect(await validateBody(base)).toHaveLength(0);
+  });
+
+  it('accepts and trims Pickup name/phone/notes', async () => {
+    const instance = plainToInstance(CreateGuestOrderDto, {
+      ...base,
+      branchId: WELL_FORMED_UUID,
+      customerName: '  Sara Ali  ',
+      customerPhone: ' +20 100 000 0000 ',
+      customerNotes: '  No onions ',
+    });
+    expect(await validate(instance)).toHaveLength(0);
+    expect(instance.customerName).toBe('Sara Ali');
+    expect(instance.customerPhone).toBe('+20 100 000 0000');
+    expect(instance.customerNotes).toBe('No onions');
+  });
+
+  it('rejects a malformed branchId', async () => {
+    const errors = await validateBody({ ...base, branchId: 'nope' });
+    expect(errors.some((error) => error.property === 'branchId')).toBe(true);
+  });
+
+  it.each([
+    ['customerName', 101],
+    ['customerPhone', 31],
+    ['customerNotes', 501],
+  ])('rejects %s longer than its maximum', async (field, length) => {
+    const errors = await validateBody({ ...base, [field]: 'x'.repeat(length) });
+    expect(errors.some((error) => error.property === field)).toBe(true);
+  });
+});

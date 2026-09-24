@@ -1,9 +1,21 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import * as ordersApi from '../../../../../lib/orders/api';
-import type { OrderDetail, OrderListItem, OrderStatus } from '../../../../../lib/orders/types';
+import type {
+  OrderDetail,
+  OrderListItem,
+  OrderStatus,
+  OrderType,
+} from '../../../../../lib/orders/types';
 import { getAvailableTransitions } from '../../../../../lib/orders/transitions';
+import {
+  ORDERS_VIEW_LABELS,
+  countByView,
+  filterOrders,
+  statusesForView,
+  type OrdersView,
+} from '../../../../../lib/orders/order-views';
 import type { AuthContextBranch } from '../../../../../lib/auth/types';
 import {
   describeError,
@@ -14,14 +26,14 @@ import { ApiError } from '../../../../../lib/api/errors';
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
-import { FormField } from '../../../../../components/ui/FormField';
-import { Select } from '../../../../../components/ui/Select';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
+import { OrderCard } from './OrderCard';
 import { OrderDetailDialog } from './OrderDetailDialog';
-import { StatusBadge } from './StatusBadge';
+import { ALL_BRANCHES, OrdersFilterBar } from './OrdersFilterBar';
+import { orderTypeLabel } from './OrderTypeBadge';
 
 const POLL_INTERVAL_MS = 10_000;
-const ALL_BRANCHES = '__all__';
+const VIEWS: readonly OrdersView[] = ['active', 'completed', 'all'];
 
 export interface OrdersWorkspaceProps {
   restaurantId: string;
@@ -31,17 +43,30 @@ export interface OrdersWorkspaceProps {
 }
 
 /**
- * FT-5: the Staff Orders workspace. Section 27: no WebSocket/SSE
- * infrastructure -- a manual Refresh button plus a lightweight ~10s poll
- * while the tab is visible (paused via `document.visibilityState` so a
- * backgrounded tab does not keep hammering the Backend). `requestRef`
+ * FT-5/FT-7B: the Staff Orders workspace. Section 27 (FT-5): no
+ * WebSocket/SSE infrastructure -- a manual Refresh button plus a lightweight
+ * ~10s poll while the tab is visible (paused via `document.visibilityState`
+ * so a backgrounded tab does not keep hammering the Backend). `requestRef`
  * guards against a stale response landing after a newer refresh/filter
  * change already started (mirrors `TablesWorkspace`'s identical pattern).
+ *
+ * FT-7B: Active / Completed / All views, plus Order type, status, and search
+ * filters, are applied CLIENT-SIDE over the already-loaded Orders (no API or
+ * pagination change). Only the Branch filter stays a server-side query
+ * parameter, exactly as before. All filter state lives here, so a background
+ * poll replaces only the Orders data and never resets a filter, the selected
+ * tab, or an open Order.
  */
 export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersWorkspaceProps) {
   const [branchFilter, setBranchFilter] = useState<string>(ALL_BRANCHES);
   const [orders, setOrders] = useState<OrderListItem[] | null>(null);
   const [ordersError, setOrdersError] = useState<string | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const [view, setView] = useState<OrdersView>('active');
+  const [typeFilter, setTypeFilter] = useState<OrderType | null>(null);
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | null>(null);
+  const [search, setSearch] = useState('');
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [orderDetail, setOrderDetail] = useState<OrderDetail | null>(null);
@@ -53,6 +78,7 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
 
   const loadOrders = useCallback(async () => {
     const requestId = ++requestRef.current;
+    setIsRefreshing(true);
     try {
       const list = await ordersApi.listOrders(restaurantId, {
         branchId: branchFilter === ALL_BRANCHES ? undefined : branchFilter,
@@ -67,6 +93,8 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
         return;
       }
       setOrdersError(describeError(error));
+    } finally {
+      if (requestRef.current === requestId) setIsRefreshing(false);
     }
   }, [restaurantId, branchFilter]);
 
@@ -146,36 +174,104 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
     }
   }
 
+  function changeView(next: OrdersView) {
+    setView(next);
+    // A status that does not belong to the new view can never match -- clear it.
+    if (statusFilter !== null && !statusesForView(next).includes(statusFilter)) {
+      setStatusFilter(null);
+    }
+  }
+
+  function clearFilters() {
+    setTypeFilter(null);
+    setStatusFilter(null);
+    setSearch('');
+    setBranchFilter(ALL_BRANCHES);
+  }
+
+  const hasActiveFilters =
+    typeFilter !== null ||
+    statusFilter !== null ||
+    search.trim() !== '' ||
+    branchFilter !== ALL_BRANCHES;
+
+  const counts = useMemo(() => countByView(orders ?? []), [orders]);
+  const visibleOrders = useMemo(
+    () =>
+      filterOrders(orders ?? [], { view, type: typeFilter, status: statusFilter, search }),
+    [orders, view, typeFilter, statusFilter, search],
+  );
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-xl font-semibold text-[#1D1A18]">Orders</h1>
-          <p className="mt-1 text-sm text-[#655D56]">Manage incoming table orders.</p>
+          <p className="mt-1 text-sm text-[#655D56]">
+            Incoming table and pickup orders, newest first.
+          </p>
         </div>
-        <Button variant="secondary" onClick={() => void loadOrders()}>
-          Refresh
-        </Button>
+        <div className="flex items-center gap-3">
+          {isRefreshing && orders !== null ? (
+            <span role="status" className="text-xs text-[#8A8177]">
+              Updating…
+            </span>
+          ) : null}
+          <Button variant="secondary" disabled={isRefreshing} onClick={() => void loadOrders()}>
+            Refresh
+          </Button>
+        </div>
       </div>
 
-      {branches.length > 1 ? (
-        <div className="max-w-xs">
-          <FormField label="Branch" htmlFor="orders-branch-filter">
-            <Select
-              id="orders-branch-filter"
-              value={branchFilter}
-              onChange={(event) => setBranchFilter(event.target.value)}
+      <div
+        role="tablist"
+        aria-label="Order views"
+        className="flex flex-wrap gap-1 border-b border-[#E5DED6]"
+      >
+        {VIEWS.map((option) => {
+          const selected = option === view;
+          return (
+            <button
+              key={option}
+              type="button"
+              role="tab"
+              aria-selected={selected}
+              onClick={() => changeView(option)}
+              className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
+                selected
+                  ? 'border-[#7A5138] text-[#7A5138]'
+                  : 'border-transparent text-[#655D56] hover:text-[#302C29]'
+              }`}
             >
-              <option value={ALL_BRANCHES}>All Branches</option>
-              {branches.map((branch) => (
-                <option key={branch.id} value={branch.id}>
-                  {branch.name}
-                </option>
-              ))}
-            </Select>
-          </FormField>
-        </div>
-      ) : null}
+              {ORDERS_VIEW_LABELS[option]}
+              {orders !== null ? (
+                <span
+                  className={`rounded-full px-2 py-0.5 text-xs ${
+                    selected ? 'bg-[#7A5138] text-white' : 'bg-[#F1ECE6] text-[#655D56]'
+                  }`}
+                >
+                  {counts[option]}
+                </span>
+              ) : null}
+            </button>
+          );
+        })}
+      </div>
+
+      <OrdersFilterBar
+        type={typeFilter}
+        status={statusFilter}
+        statusOptions={statusesForView(view)}
+        search={search}
+        branchId={branchFilter}
+        branches={branches}
+        hasActiveFilters={hasActiveFilters}
+        onTypeChange={setTypeFilter}
+        onStatusChange={setStatusFilter}
+        onSearchChange={setSearch}
+        onBranchChange={setBranchFilter}
+        onClear={clearFilters}
+      />
 
       {ordersError ? (
         <Alert variant="error">
@@ -190,18 +286,19 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
 
       {orders === null && !ordersError ? <LoadingState label="Loading Orders…" /> : null}
 
-      {orders !== null && orders.length === 0 ? (
-        <Card className="flex flex-col items-center gap-2 py-10 text-center">
-          <p className="text-sm font-medium text-[#302C29]">No orders yet</p>
-          <p className="text-sm text-[#655D56]">
-            Orders placed by guests scanning a Table QR will appear here.
-          </p>
-        </Card>
+      {orders !== null && visibleOrders.length === 0 ? (
+        <EmptyState
+          view={view}
+          typeFilter={typeFilter}
+          hasActiveFilters={hasActiveFilters}
+          hasAnyOrders={orders.length > 0}
+          onClear={clearFilters}
+        />
       ) : null}
 
-      {orders !== null && orders.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {orders.map((order) => (
+      {visibleOrders.length > 0 ? (
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+          {visibleOrders.map((order) => (
             <OrderCard key={order.id} order={order} onOpen={() => void openOrder(order.id)} />
           ))}
         </div>
@@ -236,34 +333,49 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
   );
 }
 
-function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () => void }) {
-  const createdAt = new Date(order.createdAt);
+function EmptyState({
+  view,
+  typeFilter,
+  hasActiveFilters,
+  hasAnyOrders,
+  onClear,
+}: {
+  view: OrdersView;
+  typeFilter: OrderType | null;
+  hasActiveFilters: boolean;
+  hasAnyOrders: boolean;
+  onClear: () => void;
+}) {
+  let title: string;
+  let hint: string;
+
+  if (hasActiveFilters) {
+    title = typeFilter
+      ? `No ${orderTypeLabel(typeFilter)} orders match these filters`
+      : 'No orders match these filters';
+    hint = 'Try a different search, status, or branch.';
+  } else if (view === 'active') {
+    title = 'No active orders';
+    hint = hasAnyOrders
+      ? 'Everything placed so far has been completed. New orders appear here automatically.'
+      : 'New table and pickup orders appear here automatically.';
+  } else if (view === 'completed') {
+    title = 'No completed orders yet';
+    hint = 'Served, rejected and cancelled orders will show up here.';
+  } else {
+    title = 'No orders yet';
+    hint = 'Orders placed by guests (table or pickup) will appear here.';
+  }
+
   return (
-    <Card className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p className="truncate text-base font-semibold text-[#1D1A18]">
-            Table {order.table.tableNumber}
-          </p>
-          <p className="text-xs text-[#655D56]">
-            {order.branch.name} · {createdAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-          </p>
-        </div>
-        <StatusBadge status={order.status} />
-      </div>
-
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-[#655D56]">
-          {order.itemCount} item{order.itemCount === 1 ? '' : 's'}
-        </span>
-        <span className="font-semibold text-[#302C29]">
-          {order.totalAmount} {order.currencyCode}
-        </span>
-      </div>
-
-      <Button variant="secondary" className="justify-center" onClick={onOpen}>
-        View details
-      </Button>
+    <Card className="flex flex-col items-center gap-2 py-12 text-center">
+      <p className="text-sm font-semibold text-[#302C29]">{title}</p>
+      <p className="max-w-sm text-sm text-[#655D56]">{hint}</p>
+      {hasActiveFilters ? (
+        <Button variant="secondary" className="mt-2" onClick={onClear}>
+          Clear filters
+        </Button>
+      ) : null}
     </Card>
   );
 }

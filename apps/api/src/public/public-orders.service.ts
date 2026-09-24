@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
-import type { OrderStatus } from '../generated/prisma/client';
+import type { OrderStatus, OrderType } from '../generated/prisma/client';
 
 export interface CreateGuestOrderItemInput {
   productId: string;
@@ -14,6 +14,12 @@ export interface CreateGuestOrderInput {
   publicCode: string;
   clientRequestId: string;
   items: CreateGuestOrderItemInput[];
+  /** FT-7, GENERIC QR (Pickup) only: the Guest's chosen Pickup Branch. Never authority -- always re-validated against the Restaurant's ACTIVE Branches. Ignored entirely for a TABLE QR. */
+  branchId?: string;
+  /** FT-7, GENERIC QR (Pickup) only -- required there, ignored for a TABLE QR. Already DTO-trimmed. */
+  customerName?: string;
+  customerPhone?: string;
+  customerNotes?: string;
 }
 
 export interface GuestOrderItemModifierView {
@@ -38,7 +44,12 @@ export interface GuestOrderView {
   currencyCode: string;
   total: string;
   createdAt: string;
-  table: { number: string };
+  /** FT-7: DINE_IN or PICKUP -- derived from the QR type server-side, never client-chosen. */
+  type: OrderType;
+  /** Null for a PICKUP Order. */
+  table: { number: string } | null;
+  /** FT-7: only the safe public Branch display name, PICKUP only (null for DINE_IN). */
+  pickupBranch: { name: string } | null;
   items: GuestOrderItemView[];
 }
 
@@ -46,7 +57,15 @@ export type CreateGuestOrderResult =
   | { outcome: 'created'; data: GuestOrderView }
   | { outcome: 'qrNotFound' }
   | { outcome: 'itemsUnavailable' }
-  | { outcome: 'duplicateItems' };
+  | { outcome: 'duplicateItems' }
+  /** FT-7: GENERIC QR checkout without a non-empty customer name AND phone. */
+  | { outcome: 'customerDetailsRequired' }
+  /** FT-7: GENERIC QR, more than one ACTIVE Branch, and no branchId supplied. */
+  | { outcome: 'branchRequired' }
+  /** FT-7: supplied branchId is unknown, foreign, or INACTIVE -- deliberately one indistinguishable outcome. */
+  | { outcome: 'branchInvalid' }
+  /** FT-7: GENERIC QR whose Restaurant has zero ACTIVE Branches. */
+  | { outcome: 'pickupUnavailable' };
 
 interface OrderViewRow {
   id: string;
@@ -54,7 +73,9 @@ interface OrderViewRow {
   currencyCode: string;
   totalAmount: Prisma.Decimal;
   createdAt: Date;
-  table: { tableNumber: string };
+  type: OrderType;
+  table: { tableNumber: string } | null;
+  branch: { name: string };
   items: {
     productId: string;
     productNameSnapshot: string;
@@ -75,7 +96,9 @@ const ORDER_VIEW_SELECT = {
   currencyCode: true,
   totalAmount: true,
   createdAt: true,
+  type: true,
   table: { select: { tableNumber: true } },
+  branch: { select: { name: true } },
   items: {
     select: {
       productId: true,
@@ -105,7 +128,9 @@ function toGuestOrderView(order: OrderViewRow): GuestOrderView {
     // digit money contract.
     total: order.totalAmount.toFixed(2),
     createdAt: order.createdAt.toISOString(),
-    table: { number: order.table.tableNumber },
+    type: order.type,
+    table: order.table ? { number: order.table.tableNumber } : null,
+    pickupBranch: order.type === 'PICKUP' ? { name: order.branch.name } : null,
     items: order.items.map((item) => ({
       productId: item.productId,
       name: item.productNameSnapshot,
@@ -132,17 +157,15 @@ class ItemsUnavailableError extends Error {}
 
 /**
  * The real Postgres unique-index name behind
- * `@@unique([qrCodeId, clientRequestId])` on `Order` -- named after the
- * exact same `<table>_<col1>_<col2>_key` convention Prisma already used for
- * `tables_branch_id_table_number_key`, confirmed against a real duplicate
- * insert during this batch's own implementation. FT-5 critical fix: this
- * was originally `orders_restaurant_id_client_request_id_key` -- too broad
- * a scope, since `clientRequestId` is client-controlled and two different
- * TABLE QRs in the same Restaurant may legitimately reuse the same value
- * (see `apps/api/prisma/migrations/20260916101622_scope_order_idempotency_to_qr`).
+ * `@@unique([qrCodeId, branchId, clientRequestId])` on `Order`, following
+ * the `<table>_<col1>_<col2>_..._key` convention Prisma already used for
+ * `tables_branch_id_table_number_key`. FT-5 critical fix scoped it to the QR
+ * (originally `orders_restaurant_id_client_request_id_key`, too broad);
+ * FT-7 adds `branchId` because one GENERIC QR serves every Pickup Branch of
+ * a Restaurant (see `apps/api/prisma/migrations/20260923150000_add_order_pickup_type`).
  */
 const CLIENT_REQUEST_ID_UNIQUE_CONSTRAINT =
-  'orders_qr_code_id_client_request_id_key';
+  'orders_qr_code_id_branch_id_client_request_id_key';
 
 function isClientRequestIdConflict(error: unknown): boolean {
   if (!(error instanceof Prisma.PrismaClientKnownRequestError)) {
@@ -163,7 +186,9 @@ function isClientRequestIdConflict(error: unknown): boolean {
 }
 
 /**
- * FT-5: Guest Order creation from an ACTIVE TABLE QR only (Section 3). Every
+ * FT-5/FT-7: Guest Order creation from an ACTIVE QR -- a TABLE QR creates a
+ * DINE_IN Order (FT-5, unchanged), a GENERIC QR creates a PICKUP Order
+ * (FT-7). The QR type alone decides which. Every
  * authoritative fact -- Tenant/Branch/Table identity, which Products are
  * actually orderable right now, unit price, line totals, the Order total --
  * is resolved fresh from the database inside one transaction; nothing from
@@ -221,23 +246,70 @@ export class PublicOrdersService {
       },
     });
 
-    if (
-      !qr ||
-      qr.status !== 'ACTIVE' ||
-      qr.type !== 'TABLE' ||
-      qr.restaurant.status !== 'ACTIVE' ||
-      !qr.branchId ||
-      !qr.tableId ||
-      !qr.table ||
-      qr.table.status !== 'ACTIVE'
-    ) {
+    if (!qr || qr.status !== 'ACTIVE' || qr.restaurant.status !== 'ACTIVE') {
       return { outcome: 'qrNotFound' };
     }
     const restaurantId = qr.restaurantId;
-    const branchId = qr.branchId;
-    const tableId = qr.tableId;
     const defaultLocale = qr.restaurant.defaultLocale;
     const currencyCode = qr.restaurant.currencyCode;
+
+    // FT-7: the QR type -- never anything in the request body -- decides the
+    // Order type and where Branch/Table authority comes from.
+    let orderType: OrderType;
+    let branchId: string;
+    let tableId: string | null;
+    let customerName: string | null = null;
+    let customerPhone: string | null = null;
+    let customerNotes: string | null = null;
+
+    if (qr.type === 'TABLE') {
+      // DINE_IN, exactly as FT-5: Branch/Table come from the QR/Table only.
+      // Any `branchId`/customer field a client sent is IGNORED here, never
+      // read -- a TABLE QR cannot be turned into a Pickup Order or have its
+      // Branch overridden.
+      if (
+        !qr.branchId ||
+        !qr.tableId ||
+        !qr.table ||
+        qr.table.status !== 'ACTIVE'
+      ) {
+        return { outcome: 'qrNotFound' };
+      }
+      orderType = 'DINE_IN';
+      branchId = qr.branchId;
+      tableId = qr.tableId;
+    } else {
+      // GENERIC QR -> PICKUP (no Table). Customer name + phone are required.
+      customerName = input.customerName?.trim() || null;
+      customerPhone = input.customerPhone?.trim() || null;
+      customerNotes = input.customerNotes?.trim() || null;
+      if (!customerName || !customerPhone) {
+        return { outcome: 'customerDetailsRequired' };
+      }
+
+      // Pickup Branch authority: only an ACTIVE Branch of THIS QR's own
+      // Restaurant is ever eligible; a client-supplied branchId is checked
+      // against that server-resolved set, never trusted.
+      const activeBranches = await this.prisma.branch.findMany({
+        where: { restaurantId, status: 'ACTIVE' },
+        select: { id: true },
+      });
+      if (activeBranches.length === 0) {
+        return { outcome: 'pickupUnavailable' };
+      }
+      if (input.branchId) {
+        if (!activeBranches.some((branch) => branch.id === input.branchId)) {
+          return { outcome: 'branchInvalid' };
+        }
+        branchId = input.branchId;
+      } else if (activeBranches.length === 1) {
+        branchId = activeBranches[0].id;
+      } else {
+        return { outcome: 'branchRequired' };
+      }
+      orderType = 'PICKUP';
+      tableId = null;
+    }
 
     // Section 11/23 idempotency fast path: a genuine retry with the same
     // clientRequestId for the SAME resolved QR returns the ORIGINAL Order,
@@ -247,8 +319,12 @@ export class PublicOrdersService {
     // the same Restaurant may legitimately submit the same value, and a
     // request from one Table must never resolve to another Table's Order
     // merely because they share a Restaurant and a client-chosen id.
+    // FT-7: also scoped by the resolved `branchId` -- one GENERIC QR serves
+    // every Pickup Branch, so the same client id for two different Branches
+    // must stay two different Orders. For a TABLE QR, `branchId` is fixed by
+    // the Table, so this changes nothing there.
     const existing = await this.prisma.order.findFirst({
-      where: { qrCodeId: qr.id, clientRequestId: input.clientRequestId },
+      where: { qrCodeId: qr.id, branchId, clientRequestId: input.clientRequestId },
       select: ORDER_VIEW_SELECT,
     });
     if (existing) {
@@ -456,6 +532,10 @@ export class PublicOrdersService {
             qrCodeId: qr.id,
             clientRequestId: input.clientRequestId,
             status: 'PENDING',
+            type: orderType,
+            customerNameSnapshot: customerName,
+            customerPhoneSnapshot: customerPhone,
+            customerNotesSnapshot: customerNotes,
             currencyCode,
             totalAmount: total,
             items: { create: itemsData },
@@ -476,7 +556,7 @@ export class PublicOrdersService {
         // error. Scoped by `qrCodeId` (same rationale as the fast path
         // above) -- never returns a different Table's winning Order.
         const winner = await this.prisma.order.findFirst({
-          where: { qrCodeId: qr.id, clientRequestId: input.clientRequestId },
+          where: { qrCodeId: qr.id, branchId, clientRequestId: input.clientRequestId },
           select: ORDER_VIEW_SELECT,
         });
         if (winner) {

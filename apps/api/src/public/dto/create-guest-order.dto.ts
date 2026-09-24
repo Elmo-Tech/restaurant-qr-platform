@@ -8,18 +8,24 @@
 // belongs here, at the actual point of need, rather than as a global Jest
 // `setupFiles` change affecting every test in the repo.
 import 'reflect-metadata';
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
   IsInt,
   IsOptional,
+  IsString,
   IsUUID,
   Max,
+  MaxLength,
   Min,
   ValidateNested,
 } from 'class-validator';
+
+function trim(value: unknown): unknown {
+  return typeof value === 'string' ? value.trim() : value;
+}
 
 /**
  * FT-5, Section 4/7 (extended FT-6A): exactly `productId` + `quantity` +
@@ -75,4 +81,33 @@ export class CreateGuestOrderDto {
   @ArrayMinSize(1, { message: 'items must not be empty' })
   @ArrayMaxSize(50, { message: 'items must contain at most 50 line items' })
   items!: CreateGuestOrderItemDto[];
+
+  // FT-7: Pickup-only fields. Optional at the DTO level because the SAME
+  // payload serves both QR types -- whether they are REQUIRED (GENERIC QR ->
+  // PICKUP) or IGNORED (TABLE QR -> DINE_IN, whose Branch/Table authority is
+  // the QR itself) depends on the QR type resolved server-side, so
+  // `PublicOrdersService` applies that rule, never these decorators. There
+  // is deliberately no `type`/`orderType` field: the QR type alone decides
+  // the Order type.
+  @IsOptional()
+  @IsUUID('all', { message: 'branchId must be a well-formed UUID' })
+  branchId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trim(value))
+  @IsString()
+  @MaxLength(100, { message: 'customerName must be at most 100 characters' })
+  customerName?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trim(value))
+  @IsString()
+  @MaxLength(30, { message: 'customerPhone must be at most 30 characters' })
+  customerPhone?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trim(value))
+  @IsString()
+  @MaxLength(500, { message: 'customerNotes must be at most 500 characters' })
+  customerNotes?: string;
 }

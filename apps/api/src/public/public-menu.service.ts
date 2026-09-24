@@ -22,6 +22,14 @@ export interface PublicMenuContext {
   restaurant: { name: string; currencyCode: string };
   branch: { name: string } | null;
   table: { number: string } | null;
+  /**
+   * FT-7: GENERIC QR only (null for TABLE) -- the Restaurant's ACTIVE
+   * Branches eligible for Pickup, exposing only the Branch id (the same
+   * raw-id convention this response already uses for Category/Product/
+   * Modifier ids) and its display name. An empty array means Pickup is
+   * unavailable. Order creation re-validates whatever id the Guest picks.
+   */
+  pickupBranches: { id: string; name: string }[] | null;
 }
 
 export interface PublicMenuLocale {
@@ -331,6 +339,15 @@ export class PublicMenuService {
       });
     }
 
+    const pickupBranches =
+      qr.type === 'GENERIC'
+        ? await this.prisma.branch.findMany({
+            where: { restaurantId: qr.restaurantId, status: 'ACTIVE' },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            select: { id: true, name: true },
+          })
+        : null;
+
     return {
       outcome: 'found',
       data: {
@@ -342,6 +359,7 @@ export class PublicMenuService {
           },
           branch: qr.branch ? { name: qr.branch.name } : null,
           table: qr.table ? { number: qr.table.tableNumber } : null,
+          pickupBranches,
         },
         locale: {
           requested,

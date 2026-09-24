@@ -128,3 +128,23 @@ export function IconSearch({ className }: IconProps) {
     </svg>
   );
 }
+
+/** FT-7B: a simple table (tabletop + legs) -- the Dine in Order type icon. */
+export function IconTable({ className }: IconProps) {
+  return (
+    <svg {...BASE_PROPS} className={className} aria-hidden="true">
+      <rect x="3.5" y="6" width="17" height="4" rx="1.25" />
+      <path d="M6.5 10v8.5M17.5 10v8.5" />
+    </svg>
+  );
+}
+
+/** FT-7B: a shopping/takeaway bag -- the Pickup Order type icon. */
+export function IconBag({ className }: IconProps) {
+  return (
+    <svg {...BASE_PROPS} className={className} aria-hidden="true">
+      <path d="M5.5 8h13l-1 11.5a1 1 0 0 1-1 .9H7.5a1 1 0 0 1-1-.9L5.5 8z" />
+      <path d="M9 8V6.5a3 3 0 0 1 6 0V8" />
+    </svg>
+  );
+}

@@ -76,6 +76,7 @@ function buildPrismaMock() {
     .mockResolvedValue([{ locale: 'en' }, { locale: 'ar' }]);
   const menuFindFirst = jest.fn().mockResolvedValue(MENU_ROW);
   const categoryFindMany = jest.fn().mockResolvedValue([buildCategoryRow()]);
+  const branchFindMany = jest.fn().mockResolvedValue([{ id: 'branch-a', name: 'Downtown' }]);
 
   // Deliberately ONLY find*/findFirst/findMany methods exist on this mock --
   // no create/update/upsert/delete/$transaction of any kind (Section 10/25:
@@ -89,11 +90,13 @@ function buildPrismaMock() {
       restaurantLocale: { findMany: restaurantLocaleFindMany },
       menu: { findFirst: menuFindFirst },
       category: { findMany: categoryFindMany },
+      branch: { findMany: branchFindMany },
     },
     qrCodeFindUnique,
     restaurantLocaleFindMany,
     menuFindFirst,
     categoryFindMany,
+    branchFindMany,
   };
 }
 
@@ -167,6 +170,7 @@ describe('PublicMenuService.getPublicMenu', () => {
       restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP' },
       branch: { name: 'Downtown Branch' },
       table: { number: '12' },
+      pickupBranches: null,
     });
   });
 
@@ -187,7 +191,30 @@ describe('PublicMenuService.getPublicMenu', () => {
       restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP' },
       branch: null,
       table: null,
+      pickupBranches: [{ id: 'branch-a', name: 'Downtown' }],
     });
+    // FT-7: only the Restaurant's ACTIVE Branches, only id + display name.
+    expect(mock.branchFindMany.mock.calls[0][0]).toMatchObject({
+      where: { restaurantId: 'restaurant-1', status: 'ACTIVE' },
+      select: { id: true, name: true },
+    });
+  });
+
+  it('a TABLE QR exposes no pickupBranches and never queries Branches (FT-7)', async () => {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue(TABLE_QR_ROW);
+    const service = buildService(mock);
+
+    const result = await service.getPublicMenu({
+      publicCode: 'table-qr',
+      explicitLang: null,
+      acceptLanguageHeader: null,
+    });
+
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    expect(result.data.context.pickupBranches).toBeNull();
+    expect(mock.branchFindMany).not.toHaveBeenCalled();
   });
 
   it('returns menuNotAvailable when there is no ACTIVE primary Menu', async () => {

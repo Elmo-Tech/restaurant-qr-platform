@@ -41,7 +41,9 @@ const CREATED_ORDER_ROW = {
   currencyCode: 'EGP',
   totalAmount: decimal('100.00'),
   createdAt: new Date('2026-01-01T00:00:00Z'),
-  table: { tableNumber: '7' },
+  type: 'DINE_IN' as const,
+  table: { tableNumber: '7' } as { tableNumber: string } | null,
+  branch: { name: 'Main Branch' },
   items: [
     {
       productId: 'product-1',
@@ -64,6 +66,7 @@ function buildPrismaMock() {
   const menuFindFirst = jest.fn().mockResolvedValue({ id: 'menu-1' });
   const productFindMany = jest.fn().mockResolvedValue([PRODUCT_ROW]);
   const orderCreate = jest.fn().mockResolvedValue(CREATED_ORDER_ROW);
+  const branchFindMany = jest.fn().mockResolvedValue([{ id: 'branch-1' }]);
 
   const txClient = {
     menu: { findFirst: menuFindFirst },
@@ -78,6 +81,7 @@ function buildPrismaMock() {
     prisma: {
       qrCode: { findUnique: qrCodeFindUnique },
       order: { findFirst: orderFindFirst },
+      branch: { findMany: branchFindMany },
       $transaction: transaction,
     },
     qrCodeFindUnique,
@@ -85,6 +89,7 @@ function buildPrismaMock() {
     menuFindFirst,
     productFindMany,
     orderCreate,
+    branchFindMany,
     transaction,
   };
 }
@@ -121,21 +126,6 @@ describe('PublicOrdersService.createOrder', () => {
     expect(result).toEqual({ outcome: 'qrNotFound' });
   });
 
-  it('rejects a GENERIC QR (Section 3: ordering is TABLE QR only)', async () => {
-    const mock = buildPrismaMock();
-    mock.qrCodeFindUnique.mockResolvedValue({
-      ...TABLE_QR_ROW,
-      type: 'GENERIC',
-      branchId: null,
-      tableId: null,
-      table: null,
-    });
-    const service = buildService(mock);
-
-    const result = await service.createOrder(VALID_INPUT);
-
-    expect(result).toEqual({ outcome: 'qrNotFound' });
-  });
 
   it('rejects an INACTIVE Table', async () => {
     const mock = buildPrismaMock();
@@ -310,7 +300,9 @@ describe('PublicOrdersService.createOrder', () => {
         currencyCode: 'EGP',
         total: '100.00',
         createdAt: '2026-01-01T00:00:00.000Z',
+        type: 'DINE_IN',
         table: { number: '7' },
+        pickupBranch: null,
         items: [
           {
             productId: 'product-1',
@@ -338,7 +330,7 @@ describe('PublicOrdersService.createOrder', () => {
       expect(mock.orderCreate).not.toHaveBeenCalled();
     });
 
-    it('scopes the idempotency fast-path lookup by qrCodeId AND clientRequestId, NOT restaurantId alone (FT-5 critical fix)', async () => {
+    it('scopes the idempotency fast-path lookup by qrCodeId + branchId + clientRequestId, NOT restaurantId alone (FT-5 critical fix, FT-7 branch scope)', async () => {
       const mock = buildPrismaMock();
       const service = buildService(mock);
 
@@ -346,7 +338,11 @@ describe('PublicOrdersService.createOrder', () => {
 
       expect(mock.orderFindFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { qrCodeId: TABLE_QR_ROW.id, clientRequestId: VALID_INPUT.clientRequestId },
+          where: {
+            qrCodeId: TABLE_QR_ROW.id,
+            branchId: 'branch-1',
+            clientRequestId: VALID_INPUT.clientRequestId,
+          },
         }),
       );
       // The broad, incorrect scope must never be used.
@@ -381,7 +377,11 @@ describe('PublicOrdersService.createOrder', () => {
 
       expect(mock.orderFindFirst).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { qrCodeId: 'qr-2', clientRequestId: VALID_INPUT.clientRequestId },
+          where: {
+            qrCodeId: 'qr-2',
+            branchId: 'branch-1',
+            clientRequestId: VALID_INPUT.clientRequestId,
+          },
         }),
       );
       expect(mock.transaction).toHaveBeenCalledTimes(1);
@@ -407,7 +407,7 @@ describe('PublicOrdersService.createOrder', () => {
             // The real Postgres unique-index name for
             // `@@unique([qrCodeId, clientRequestId])` (FT-5 critical fix --
             // was `orders_restaurant_id_client_request_id_key`).
-            constraint: { index: 'orders_qr_code_id_client_request_id_key' },
+            constraint: { index: 'orders_qr_code_id_branch_id_client_request_id_key' },
           },
         },
       };
@@ -423,7 +423,11 @@ describe('PublicOrdersService.createOrder', () => {
       expect(mock.orderFindFirst).toHaveBeenNthCalledWith(
         2,
         expect.objectContaining({
-          where: { qrCodeId: TABLE_QR_ROW.id, clientRequestId: VALID_INPUT.clientRequestId },
+          where: {
+            qrCodeId: TABLE_QR_ROW.id,
+            branchId: 'branch-1',
+            clientRequestId: VALID_INPUT.clientRequestId,
+          },
         }),
       );
     });

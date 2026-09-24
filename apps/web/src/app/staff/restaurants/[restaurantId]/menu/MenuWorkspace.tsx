@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { OpenGuestMenuButton } from '../../../../../components/menu/OpenGuestMenuButton';
 import { MenuSectionTabs } from './MenuSectionTabs';
 import * as menuApi from '../../../../../lib/menu/api';
 import * as settingsApi from '../../../../../lib/settings/api';
@@ -343,11 +344,14 @@ export function MenuWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-lg font-semibold text-[#1D1A18]">Menu Management</h1>
-        <p className="mt-1 text-sm text-[#655D56]">
-          Manage menus, categories, products, pricing and availability.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-lg font-semibold text-[#1D1A18]">Menu Management</h1>
+          <p className="mt-1 text-sm text-[#655D56]">
+            Manage menus, categories, products, pricing and availability.
+          </p>
+        </div>
+        <OpenGuestMenuButton restaurantId={restaurantId} />
       </div>
 
       <MenuSectionTabs restaurantId={restaurantId} active="products" />

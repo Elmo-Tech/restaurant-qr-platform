@@ -4,7 +4,7 @@ import { PrismaService } from '../database/prisma.service';
 import { BranchAccessService } from '../auth/context/branch-access.service';
 import type { RestaurantAccessContext } from '../auth/context/restaurant-access.service';
 import { hasPermission } from '../auth/permission/has-permission';
-import type { OrderStatus, RestaurantMembershipRole } from '../generated/prisma/client';
+import type { OrderStatus, OrderType, RestaurantMembershipRole } from '../generated/prisma/client';
 import { findOrderTransitionRule } from './order-transitions';
 
 /** Safe Staff-facing Order List row (Section 16/17). Never internal FK ids beyond what Staff needs to render/navigate, never Guest-only fields. */
@@ -12,8 +12,13 @@ export interface OrderListItem {
   id: string;
   createdAt: Date;
   status: OrderStatus;
+  /** FT-7: DINE_IN or PICKUP. */
+  type: OrderType;
   branch: { id: string; name: string };
-  table: { id: string; tableNumber: string };
+  /** Null for a PICKUP Order. */
+  table: { id: string; tableNumber: string } | null;
+  /** PICKUP only (null for DINE_IN): the card's primary identity and client-side search. Notes stay Detail-only. */
+  customer: { name: string; phone: string } | null;
   currencyCode: string;
   totalAmount: string;
   itemCount: number;
@@ -40,9 +45,14 @@ export interface OrderDetail {
   id: string;
   createdAt: Date;
   status: OrderStatus;
+  /** FT-7: DINE_IN or PICKUP. */
+  type: OrderType;
   restaurant: { id: string; name: string };
   branch: { id: string; name: string };
-  table: { id: string; tableNumber: string };
+  /** Null for a PICKUP Order. */
+  table: { id: string; tableNumber: string } | null;
+  /** FT-7: PICKUP-only customer snapshots (null for DINE_IN); notes null when not provided. */
+  customer: { name: string; phone: string; notes: string | null } | null;
   currencyCode: string;
   totalAmount: string;
   items: OrderItemView[];
@@ -186,6 +196,9 @@ export class OrdersService {
         id: true,
         createdAt: true,
         status: true,
+        type: true,
+        customerNameSnapshot: true,
+        customerPhoneSnapshot: true,
         currencyCode: true,
         totalAmount: true,
         branch: { select: { id: true, name: true } },
@@ -198,8 +211,15 @@ export class OrdersService {
       id: order.id,
       createdAt: order.createdAt,
       status: order.status,
+      type: order.type,
       branch: order.branch,
       table: order.table,
+      customer:
+        order.type === 'PICKUP' &&
+        order.customerNameSnapshot !== null &&
+        order.customerPhoneSnapshot !== null
+          ? { name: order.customerNameSnapshot, phone: order.customerPhoneSnapshot }
+          : null,
       currencyCode: order.currencyCode,
       totalAmount: formatMoney(order.totalAmount),
       itemCount: order._count.items,
@@ -220,6 +240,10 @@ export class OrdersService {
         id: true,
         createdAt: true,
         status: true,
+        type: true,
+        customerNameSnapshot: true,
+        customerPhoneSnapshot: true,
+        customerNotesSnapshot: true,
         branchId: true,
         currencyCode: true,
         totalAmount: true,
@@ -244,9 +268,20 @@ export class OrdersService {
         id: order.id,
         createdAt: order.createdAt,
         status: order.status,
+        type: order.type,
         restaurant: order.restaurant,
         branch: order.branch,
         table: order.table,
+        customer:
+          order.type === 'PICKUP' &&
+          order.customerNameSnapshot !== null &&
+          order.customerPhoneSnapshot !== null
+            ? {
+                name: order.customerNameSnapshot,
+                phone: order.customerPhoneSnapshot,
+                notes: order.customerNotesSnapshot,
+              }
+            : null,
         currencyCode: order.currencyCode,
         totalAmount: formatMoney(order.totalAmount),
         items: order.items.map(toOrderItemView),

@@ -9,6 +9,7 @@ import type {
   RestaurantStatus,
 } from '../../../../lib/auth/types';
 import { Alert } from '../../../../components/ui/Alert';
+import { OpenGuestMenuButton } from '../../../../components/menu/OpenGuestMenuButton';
 import {
   IconArrowRight,
   IconMenu,
@@ -194,11 +195,16 @@ export default async function RestaurantLandingPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <div>
-        <h1 className="text-xl font-semibold text-[#1D1A18]">Dashboard</h1>
-        <p className="mt-1 text-sm text-[#655D56]">
-          Manage {restaurant.name}&apos;s restaurant setup and operations.
-        </p>
+      <div className="flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-semibold text-[#1D1A18]">Dashboard</h1>
+          <p className="mt-1 text-sm text-[#655D56]">
+            Manage {restaurant.name}&apos;s restaurant setup and operations.
+          </p>
+        </div>
+        {restaurant.status === 'ACTIVE' && canViewMenu(membership) ? (
+          <OpenGuestMenuButton restaurantId={restaurantId} />
+        ) : null}
       </div>
 
       {restaurant.status !== 'ACTIVE' ? (

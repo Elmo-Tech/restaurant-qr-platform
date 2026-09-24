@@ -8,12 +8,18 @@ export type OrderStatus =
   | 'CANCELLED';
 
 /** Mirrors the Backend's `OrderListItem` exactly (FT-5). Never full item snapshots -- Detail alone carries those. */
+export type OrderType = 'DINE_IN' | 'PICKUP';
+
 export interface OrderListItem {
   id: string;
   createdAt: string;
   status: OrderStatus;
+  type: OrderType;
   branch: { id: string; name: string };
-  table: { id: string; tableNumber: string };
+  /** Null for a PICKUP Order. */
+  table: { id: string; tableNumber: string } | null;
+  /** PICKUP only (null for DINE_IN). */
+  customer: { name: string; phone: string } | null;
   currencyCode: string;
   totalAmount: string;
   itemCount: number;
@@ -40,9 +46,13 @@ export interface OrderDetail {
   id: string;
   createdAt: string;
   status: OrderStatus;
+  type: OrderType;
   restaurant: { id: string; name: string };
   branch: { id: string; name: string };
-  table: { id: string; tableNumber: string };
+  /** Null for a PICKUP Order. */
+  table: { id: string; tableNumber: string } | null;
+  /** PICKUP only (null for DINE_IN). */
+  customer: { name: string; phone: string; notes: string | null } | null;
   currencyCode: string;
   totalAmount: string;
   items: OrderItemView[];

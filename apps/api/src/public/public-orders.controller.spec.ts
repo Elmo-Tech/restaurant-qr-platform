@@ -7,7 +7,9 @@ const SAMPLE_DATA: GuestOrderView = {
   currencyCode: 'EGP',
   total: '100.00',
   createdAt: '2026-01-01T00:00:00.000Z',
+  type: 'DINE_IN',
   table: { number: '7' },
+  pickupBranch: null,
   items: [],
 };
 

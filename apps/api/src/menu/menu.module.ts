@@ -4,6 +4,8 @@ import { DatabaseModule } from '../database/database.module';
 import { StorageModule } from '../storage/storage.module';
 import { CategoriesController } from './categories.controller';
 import { CategoriesService } from './categories.service';
+import { GuestMenuLinkController } from './guest-menu-link.controller';
+import { GuestMenuLinkService } from './guest-menu-link.service';
 import { MenusController } from './menus.controller';
 import { MenusService } from './menus.service';
 import { ModifierPresetsController } from './modifier-presets.controller';
@@ -31,6 +33,7 @@ import { ProductsService } from './products.service';
     ProductsController,
     ModifiersController,
     ModifierPresetsController,
+    GuestMenuLinkController,
   ],
   providers: [
     MenusService,
@@ -38,6 +41,7 @@ import { ProductsService } from './products.service';
     ProductsService,
     ModifiersService,
     ModifierPresetsService,
+    GuestMenuLinkService,
   ],
 })
 export class MenuModule {}

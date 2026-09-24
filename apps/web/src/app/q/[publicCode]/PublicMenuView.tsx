@@ -20,8 +20,9 @@ import {
 import { submitGuestOrder } from '../../../lib/public-menu/orders-api';
 import {
   clearPendingAttempt,
-  itemsMatchPendingAttempt,
+  payloadMatchesPendingAttempt,
   resolveClientRequestId,
+  type PendingOrderCheckout,
 } from '../../../lib/public-menu/pending-order-attempt';
 import { generateUuid } from '../../../lib/public-menu/uuid';
 import type {
@@ -76,7 +77,14 @@ export function PublicMenuView({
   const currency = data.context.restaurant.currencyCode;
   const copy = getPublicMenuCopy(data.locale.resolved);
   const hasCategories = data.menu.categories.length > 0;
-  const canOrder = data.context.qrType === 'TABLE';
+  // FT-7: a TABLE QR orders exactly as before (DINE_IN); a GENERIC QR orders
+  // for Pickup, but only while at least one Branch is eligible.
+  const isPickup = data.context.qrType === 'GENERIC';
+  const pickupBranches = useMemo(
+    () => data.context.pickupBranches ?? [],
+    [data.context.pickupBranches],
+  );
+  const canOrder = !isPickup || pickupBranches.length > 0;
 
   const productById = useMemo(() => {
     const map = new Map<string, PublicMenuProduct>();
@@ -94,6 +102,22 @@ export function PublicMenuView({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<GuestOrderView | null>(null);
+  // FT-7 Pickup checkout state -- kept here (not inside the Cart drawer) so it
+  // survives closing/reopening the drawer and a failed submission.
+  const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
+  const [customerName, setCustomerName] = useState('');
+  const [customerPhone, setCustomerPhone] = useState('');
+  const [customerNotes, setCustomerNotes] = useState('');
+  // One ACTIVE Branch auto-resolves; several require the Guest's own choice.
+  const resolvedBranchId =
+    pickupBranches.length === 1
+      ? pickupBranches[0].id
+      : pickupBranches.some((branch) => branch.id === selectedBranchId)
+        ? selectedBranchId
+        : null;
+  const checkout: PendingOrderCheckout | null = isPickup
+    ? { branchId: resolvedBranchId, customerName, customerPhone, customerNotes }
+    : null;
   // FT-6A: the Product currently open in the "choose your options" dialog --
   // null means no dialog is open. A Product with Modifier Groups never adds
   // directly from its card; it always opens this dialog first (Section:
@@ -140,10 +164,22 @@ export function PublicMenuView({
       quantity: item.quantity,
       modifierOptionIds: item.modifierOptionIds,
     }));
-    if (!itemsMatchPendingAttempt(publicCode, items)) {
+    const currentCheckout: PendingOrderCheckout | null = isPickup
+      ? { branchId: resolvedBranchId, customerName, customerPhone, customerNotes }
+      : null;
+    if (!payloadMatchesPendingAttempt(publicCode, items, currentCheckout)) {
       clearPendingAttempt(publicCode);
     }
-  }, [cart, publicCode, hasHydratedCart]);
+  }, [
+    cart,
+    publicCode,
+    hasHydratedCart,
+    isPickup,
+    resolvedBranchId,
+    customerName,
+    customerPhone,
+    customerNotes,
+  ]);
 
   // Every Cart mutation goes through this one helper, which always reads
   // the LATEST `cart` state (via the functional `setState` form) and
@@ -278,7 +314,11 @@ export function PublicMenuView({
   );
   const totalDisplay = fromMinorUnits(totalMinorUnits);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const canSubmit = cartLines.length > 0 && !hasBlockedLines && !isSubmitting;
+  const pickupDetailsComplete =
+    !isPickup ||
+    (resolvedBranchId !== null && customerName.trim() !== '' && customerPhone.trim() !== '');
+  const canSubmit =
+    cartLines.length > 0 && !hasBlockedLines && !isSubmitting && pickupDetailsComplete;
 
   async function handlePlaceOrder() {
     if (!canSubmit) return;
@@ -295,8 +335,8 @@ export function PublicMenuView({
     // generate+persist a fresh one -- never a brand-new id on every call,
     // which would silently defeat the Backend's idempotency guarantee on
     // the most important case (an ambiguous network failure).
-    const clientRequestId = resolveClientRequestId(publicCode, items, generateUuid);
-    const result = await submitGuestOrder(publicCode, clientRequestId, items);
+    const clientRequestId = resolveClientRequestId(publicCode, items, checkout, generateUuid);
+    const result = await submitGuestOrder(publicCode, clientRequestId, items, checkout);
     setIsSubmitting(false);
 
     if (result.outcome === 'success') {
@@ -311,6 +351,18 @@ export function PublicMenuView({
     }
     if (result.outcome === 'notFound') {
       setSubmitError(copy.orderNotFoundError);
+      return;
+    }
+    if (result.outcome === 'pickupDetailsRequired') {
+      setSubmitError(copy.pickupDetailsRequiredError);
+      return;
+    }
+    if (result.outcome === 'pickupBranchInvalid') {
+      setSubmitError(copy.pickupBranchError);
+      return;
+    }
+    if (result.outcome === 'pickupUnavailable') {
+      setSubmitError(copy.pickupUnavailable);
       return;
     }
     // Network/unexpected failure (Section: Backend may have actually
@@ -384,6 +436,12 @@ export function PublicMenuView({
           ) : null}
         </div>
 
+        {isPickup && pickupBranches.length === 0 ? (
+          <p className="mb-6 rounded-md border border-[#E5DED6] bg-white px-4 py-3 text-sm text-[#655D56]">
+            {copy.pickupUnavailable}
+          </p>
+        ) : null}
+
         {!hasCategories ? (
           <p className="rounded-md border border-[#E5DED6] bg-white px-4 py-6 text-center text-sm text-[#655D56]">
             {copy.noItemsInMenu}
@@ -433,6 +491,21 @@ export function PublicMenuView({
           canSubmit={canSubmit}
           submitError={submitError}
           confirmedOrder={confirmedOrder}
+          pickup={
+            isPickup
+              ? {
+                  branches: pickupBranches,
+                  branchId: resolvedBranchId,
+                  customerName,
+                  customerPhone,
+                  customerNotes,
+                  onBranchChange: setSelectedBranchId,
+                  onNameChange: setCustomerName,
+                  onPhoneChange: setCustomerPhone,
+                  onNotesChange: setCustomerNotes,
+                }
+              : null
+          }
           onIncrement={handleIncrement}
           onDecrement={handleDecrement}
           onRemove={handleRemove}
