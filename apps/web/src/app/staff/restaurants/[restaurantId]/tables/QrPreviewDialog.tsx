@@ -9,7 +9,8 @@ import { IconClose } from '../../../../../components/staff/icons';
 export interface QrPreviewTarget {
   restaurantName: string;
   branchName: string | null;
-  tableNumber: string;
+  /** `null` for the Restaurant-wide Generic QR (Pickup & Delivery), which has no Table. */
+  tableNumber: string | null;
   publicCode: string;
 }
 
@@ -79,7 +80,14 @@ export function QrPreviewDialog({
     return () => document.removeEventListener('keydown', handleKeyDown);
   }, [onClose]);
 
-  const filename = `${sanitizeFilenameSegment(target.restaurantName)}-table-${sanitizeFilenameSegment(target.tableNumber)}-qr.png`;
+  // The Generic QR has no Table: its own subject, title and filename.
+  const subject = target.tableNumber !== null ? `Table ${target.tableNumber}` : 'Pickup & Delivery';
+  const title = target.tableNumber !== null ? `Table ${target.tableNumber} QR` : 'Restaurant QR';
+  const altText = `QR code linking to the guest menu for ${target.tableNumber !== null ? subject : 'the Restaurant'}`;
+  const filename =
+    target.tableNumber !== null
+      ? `${sanitizeFilenameSegment(target.restaurantName)}-table-${sanitizeFilenameSegment(target.tableNumber)}-qr.png`
+      : `${sanitizeFilenameSegment(target.restaurantName)}-restaurant-qr.png`;
 
   return (
     <>
@@ -123,12 +131,12 @@ export function QrPreviewDialog({
       >
         <p className="text-base font-semibold text-[#1D1A18]">{target.restaurantName}</p>
         {target.branchName ? <p className="text-sm text-[#655D56]">{target.branchName}</p> : null}
-        <p className="text-sm text-[#8A5138]">Table {target.tableNumber}</p>
+        <p className="text-sm text-[#8A5138]">{subject}</p>
         {dataUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- a client-generated data: URL, not a static/optimizable asset.
           <img
             src={dataUrl}
-            alt={`QR code linking to the guest menu for Table ${target.tableNumber}`}
+            alt={altText}
             className="h-64 w-64"
           />
         ) : null}
@@ -153,7 +161,7 @@ export function QrPreviewDialog({
             <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-[#E5DED6] px-5 py-4">
               <div className="min-w-0">
                 <h2 id="qr-dialog-title" className="text-base font-semibold text-[#1D1A18]">
-                  Table {target.tableNumber} QR
+                  {title}
                 </h2>
                 <p className="mt-0.5 truncate text-sm text-[#655D56]">
                   {target.restaurantName}
@@ -179,13 +187,13 @@ export function QrPreviewDialog({
                 {target.branchName ? (
                   <p className="-mt-2 text-xs text-[#655D56]">{target.branchName}</p>
                 ) : null}
-                <p className="-mt-1 text-xs text-[#8A5138]">Table {target.tableNumber}</p>
+                <p className="-mt-1 text-xs text-[#8A5138]">{subject}</p>
 
                 {dataUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- a client-generated data: URL, not a static/optimizable asset.
                   <img
                     src={dataUrl}
-                    alt={`QR code linking to the guest menu for Table ${target.tableNumber}`}
+                    alt={altText}
                     className="h-56 w-56 rounded-md border border-[#E5DED6] p-2"
                   />
                 ) : !error ? (

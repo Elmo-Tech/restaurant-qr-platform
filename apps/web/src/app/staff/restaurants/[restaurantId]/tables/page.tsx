@@ -1,6 +1,10 @@
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../lib/auth/session';
-import { canManageTables, canViewTables } from '../../../../../lib/tables/capabilities';
+import {
+  canManageGenericQr,
+  canManageTables,
+  canViewTables,
+} from '../../../../../lib/tables/capabilities';
 import { getWebOrigin } from '../../../../../lib/env/web-origin';
 import { Alert } from '../../../../../components/ui/Alert';
 import { TablesWorkspace } from './TablesWorkspace';
@@ -65,6 +69,7 @@ export default async function TablesPage({ params }: TablesPageProps) {
       restaurantName={membership.restaurant.name}
       branches={membership.branches}
       canManage={canManageTables(membership)}
+      canManageGenericQr={canManageGenericQr(membership)}
       webOrigin={getWebOrigin()}
     />
   );

@@ -9,6 +9,7 @@ import {
   Param,
   Post,
 } from '@nestjs/common';
+import { RATE_LIMIT_GROUPS, RateLimitGroup } from '../common/rate-limit/rate-limit-group';
 import { CreateGuestOrderDto } from './dto/create-guest-order.dto';
 import { PublicOrdersService } from './public-orders.service';
 import type { GuestOrderView } from './public-orders.service';
@@ -127,6 +128,8 @@ export class PublicOrdersController {
 
   @Post(':publicCode/orders')
   @HttpCode(HttpStatus.CREATED)
+  // FT-9: unauthenticated order creation -- counted by the tighter publicOrder throttler (per client IP).
+  @RateLimitGroup(RATE_LIMIT_GROUPS.PUBLIC_ORDER)
   async createOrder(
     @Param('publicCode') publicCode: string,
     @Body() dto: CreateGuestOrderDto,

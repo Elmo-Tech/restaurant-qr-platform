@@ -10,6 +10,9 @@ import { DatabaseModule } from './database/database.module';
 import { MenuModule } from './menu/menu.module';
 import { OrdersModule } from './orders/orders.module';
 import { DeliveryModule } from './delivery/delivery.module';
+import { RateLimitModule } from './common/rate-limit/rate-limit.module';
+import { HealthModule } from './health/health.module';
+import { QrModule } from './qr/qr.module';
 import { PublicModule } from './public/public.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
 import { StaffModule } from './staff/staff.module';
@@ -37,6 +40,9 @@ const rootEnvFilePath = path.resolve(__dirname, '..', '..', '..', '.env');
     MenuModule,
     OrdersModule,
     DeliveryModule,
+    QrModule,
+    RateLimitModule,
+    HealthModule,
     PublicModule,
     RestaurantsModule,
   ],

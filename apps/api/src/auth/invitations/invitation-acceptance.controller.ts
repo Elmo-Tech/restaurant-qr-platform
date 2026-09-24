@@ -7,6 +7,7 @@ import {
   NotFoundException,
   Post,
 } from '@nestjs/common';
+import { RATE_LIMIT_GROUPS, RateLimitGroup } from '../../common/rate-limit/rate-limit-group';
 import { AcceptStaffInvitationDto } from './accept-staff-invitation.dto';
 import { InvitationAcceptanceService } from './invitation-acceptance.service';
 
@@ -75,6 +76,8 @@ export class InvitationAcceptanceController {
   ) {}
 
   @Post('accept')
+  // FT-9: an unauthenticated credential-setting endpoint -- same tighter limit as login.
+  @RateLimitGroup(RATE_LIMIT_GROUPS.LOGIN)
   @HttpCode(HttpStatus.NO_CONTENT)
   async accept(@Body() dto: AcceptStaffInvitationDto): Promise<void> {
     const result = await this.invitationAcceptanceService.acceptInvitation({

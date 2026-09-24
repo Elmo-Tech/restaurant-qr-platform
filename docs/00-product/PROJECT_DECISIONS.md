@@ -717,6 +717,31 @@ Feedback from real usage should influence V2 priorities.
 
 ---
 
+### DEC-034 — V1 Release Scope Realignment (FT-9)
+
+**Status:** Accepted
+
+The implemented product is the accepted V1: Menu/Categories/Products, EN/AR
+Guest experience, Modifier Library, Tables + QR (including the Restaurant-wide
+Generic QR), Dine-in, Pickup and Delivery orders, Delivery Zones, the Staff
+Orders workspace with receipt printing, and Restaurant Settings (Languages,
+Delivery).
+
+The following items from the original Pilot MVP plan are explicitly **V1.1 or
+later**: Table Sessions, Order Rounds, Service Requests, Kitchen View,
+Promotions, the AI Restaurant Assistant, Analytics, the integration
+foundation, realtime sockets, Product Variants, Dietary/Allergens/Nutrition.
+
+**Delivery** (deferred in the original plan) is now part of V1, in the minimal
+zone-based form described in `VERSION_ROADMAP.md`.
+
+**Reason:** the team delivered the ordering product in vertical slices, and the
+lean scope reaches a real restaurant sooner. **Impact:** `VERSION_ROADMAP.md`
+carries the authoritative "V1 Accepted Release Scope" section; the detailed
+domain specs for the deferred items remain valid as the design for V1.1.
+
+---
+
 ## Change Policy
 
 Accepted decisions are treated as active project rules.

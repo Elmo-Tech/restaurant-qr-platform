@@ -10,6 +10,7 @@ import {
 import { ConfigService } from '@nestjs/config';
 import type { Response } from 'express';
 import type { EnvConfig } from '../../config/env.schema';
+import { RATE_LIMIT_GROUPS, RateLimitGroup } from '../../common/rate-limit/rate-limit-group';
 import { LoginDto } from './dto/login.dto';
 import { LoginService } from './login.service';
 
@@ -48,6 +49,8 @@ export class LoginController {
   ) {}
 
   @Post('login')
+  // FT-9: login attempts are counted by the tighter login throttler (per client IP).
+  @RateLimitGroup(RATE_LIMIT_GROUPS.LOGIN)
   @HttpCode(HttpStatus.OK)
   async login(
     @Body() dto: LoginDto,

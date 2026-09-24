@@ -288,6 +288,8 @@ Contains Table Session, Order lifecycle, Menu, QR, Promotions, and International
 
 Contains Technology stack, System architecture, Database, Authentication and tenancy, API conventions, Realtime, Security, and Deployment architecture.
 
+For running the application (environment, provisioning a Restaurant, health checks, rate limiting, logs) see `docs/02-technical/OPERATIONS_RUNBOOK.md`; a production environment template is `.env.production.example`.
+
 ## UI / UX
 
 `docs/03-ui-ux/`

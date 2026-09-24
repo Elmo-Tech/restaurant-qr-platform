@@ -26,3 +26,13 @@ export function canViewTables(membership: AuthContextMembership): boolean {
 export function canManageTables(membership: AuthContextMembership): boolean {
   return membership.permissions.includes(TABLES_MANAGE);
 }
+
+/**
+ * FT-9: the Restaurant-wide Generic QR belongs to the whole Restaurant, not
+ * to any Branch, so the Backend requires `tables.manage` AND full Restaurant
+ * branch scope (`AllBranchesRequiredGuard`) to create or change it -- unlike
+ * per-Branch Table management. UX hint only; the Backend guards are authoritative.
+ */
+export function canManageGenericQr(membership: AuthContextMembership): boolean {
+  return membership.permissions.includes(TABLES_MANAGE) && membership.allBranches === true;
+}

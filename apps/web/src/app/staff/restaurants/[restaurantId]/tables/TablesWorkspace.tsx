@@ -18,6 +18,7 @@ import { Input } from '../../../../../components/ui/Input';
 import { Select } from '../../../../../components/ui/Select';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { IconPencil, IconPlus, IconQr } from '../../../../../components/staff/icons';
+import { GenericQrCard } from './GenericQrCard';
 import { QrPreviewDialog } from './QrPreviewDialog';
 
 export interface TablesWorkspaceProps {
@@ -27,6 +28,8 @@ export interface TablesWorkspaceProps {
   branches: AuthContextBranch[];
   /** `tables.manage`, Branch-scoped (Section 5/6) -- Table management is authorized per-assigned-Branch on the Backend, unlike Menu's Restaurant-wide `allBranches` requirement. */
   canManage: boolean;
+  /** FT-9: `tables.manage` AND full Restaurant branch scope -- the Restaurant-wide Generic QR is not Branch-scoped. */
+  canManageGenericQr: boolean;
   webOrigin: string;
 }
 
@@ -54,6 +57,7 @@ export function TablesWorkspace({
   restaurantName,
   branches,
   canManage,
+  canManageGenericQr,
   webOrigin,
 }: TablesWorkspaceProps) {
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(
@@ -233,6 +237,13 @@ export function TablesWorkspace({
           </Button>
         ) : null}
       </div>
+
+      <GenericQrCard
+        restaurantId={restaurantId}
+        restaurantName={restaurantName}
+        canManage={canManageGenericQr}
+        webOrigin={webOrigin}
+      />
 
       {branches.length === 0 ? (
         <Alert variant="error">

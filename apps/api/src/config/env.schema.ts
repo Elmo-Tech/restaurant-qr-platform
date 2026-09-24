@@ -126,6 +126,38 @@ export const envSchema = z
       .trim()
       .min(1, 'UPLOAD_LOCAL_DIR must not be empty')
       .default('storage/uploads'),
+
+    // FT-9: application-level rate limiting (in-memory, per API process --
+    // no Redis/distributed store in V1). Defaults are generous enough for
+    // a restaurant's shared Wi-Fi/NAT; the reverse proxy adds its own
+    // limits at deployment. `RATE_LIMIT_ENABLED=false` is for tests/local only.
+    RATE_LIMIT_ENABLED: z
+      .enum(['true', 'false'], { message: 'RATE_LIMIT_ENABLED must be "true" or "false"' })
+      .default('true')
+      .transform((value) => value === 'true'),
+    RATE_LIMIT_WINDOW_SECONDS: z.coerce
+      .number({ message: 'RATE_LIMIT_WINDOW_SECONDS must be a number' })
+      .int()
+      .min(1)
+      .max(3600)
+      .default(60),
+    // Every route, per client IP, per window.
+    RATE_LIMIT_DEFAULT_LIMIT: z.coerce.number().int().min(1).default(300),
+    // Staff login attempts, per client IP, per window.
+    RATE_LIMIT_LOGIN_LIMIT: z.coerce.number().int().min(1).default(10),
+    // Public Guest order creation, per client IP, per window.
+    RATE_LIMIT_PUBLIC_ORDER_LIMIT: z.coerce.number().int().min(1).default(30),
+
+    // FT-9: how many reverse-proxy hops to trust for the client IP
+    // (`X-Forwarded-For`). 0 = trust none (direct connection, the local-dev
+    // default). Set to 1 behind Nginx, otherwise every client shares the
+    // proxy's IP for rate limiting.
+    TRUST_PROXY_HOPS: z.coerce
+      .number({ message: 'TRUST_PROXY_HOPS must be a number' })
+      .int()
+      .min(0)
+      .max(5)
+      .default(0),
   })
   // Unrelated environment variables (AI, n8n, auth, upload, Docker Postgres
   // credentials, etc.) must be allowed through untouched, not rejected and

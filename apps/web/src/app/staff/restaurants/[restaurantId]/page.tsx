@@ -3,6 +3,8 @@ import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../lib/auth/session';
 import { canViewMenu } from '../../../../lib/menu/capabilities';
+import { canViewOrders } from '../../../../lib/orders/capabilities';
+import { canViewTables } from '../../../../lib/tables/capabilities';
 import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
 import type {
   RestaurantMembershipRole,
@@ -249,15 +251,19 @@ export default async function RestaurantLandingPage({
               )}
               <FeatureCard
                 title="Tables & QR"
-                description="Manage dining tables and printable QR codes."
+                description="Manage dining tables, table QR codes and the Restaurant QR for Pickup and Delivery."
                 icon={<IconQr className="h-5 w-5" />}
-                disabledReason="Coming soon"
+                {...(canViewTables(membership)
+                  ? { href: `/staff/restaurants/${restaurantId}/tables` }
+                  : { disabledReason: 'No access' })}
               />
               <FeatureCard
                 title="Orders"
                 description="Track and manage incoming Guest orders."
                 icon={<IconOrders className="h-5 w-5" />}
-                disabledReason="Coming soon"
+                {...(canViewOrders(membership)
+                  ? { href: `/staff/restaurants/${restaurantId}/orders` }
+                  : { disabledReason: 'No access' })}
               />
               <FeatureCard
                 title="Staff & Access"
@@ -268,7 +274,7 @@ export default async function RestaurantLandingPage({
               {canViewRestaurantSettings(membership) ? (
                 <FeatureCard
                   title="Restaurant Settings"
-                  description="Configure Restaurant-wide preferences, starting with Languages."
+                  description="Configure restaurant languages and delivery areas."
                   icon={<IconSettings className="h-5 w-5" />}
                   href={`/staff/restaurants/${restaurantId}/settings/languages`}
                 />

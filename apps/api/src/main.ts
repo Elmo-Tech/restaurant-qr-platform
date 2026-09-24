@@ -1,8 +1,10 @@
 import { ValidationPipe } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
+import helmet from 'helmet';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
 import { AppModule } from './app.module';
+import { requestContextMiddleware } from './common/http/request-context.middleware';
 import { validationExceptionFactory } from './common/http/validation-exception.factory';
 import type { EnvConfig } from './config/env.schema';
 import {
@@ -20,7 +22,30 @@ async function bootstrap() {
     .get('API_PREFIX', { infer: true })
     .replace(/^\/+/, '');
 
-  app.setGlobalPrefix(apiPrefix);
+  // FT-9: /health and /ready live OUTSIDE the versioned API prefix so a
+  // load balancer/uptime monitor has a stable, unprefixed path.
+  app.setGlobalPrefix(apiPrefix, { exclude: ['health', 'ready'] });
+
+  // FT-9: how many reverse-proxy hops to trust for the client IP. 0 (the
+  // default) trusts none. Behind Nginx set TRUST_PROXY_HOPS=1, or every
+  // client would share the proxy's IP for rate limiting.
+  const trustProxyHops = configService.get('TRUST_PROXY_HOPS', { infer: true });
+  if (trustProxyHops > 0) {
+    app.set('trust proxy', trustProxyHops);
+  }
+
+  // FT-9: request id + one access-log line per request (no bodies, cookies,
+  // Authorization, or concrete URLs -- see the middleware).
+  app.use(requestContextMiddleware);
+
+  // FT-9: standard security headers. crossOriginResourcePolicy is relaxed
+  // to cross-origin on purpose: uploaded Product/Category images are served
+  // from this API origin to the Guest Menu on the Web origin, and Helmet's
+  // default (same-origin) would make browsers refuse them. No custom CSP:
+  // Helmet's default CSP suits a JSON API, and the Web app (Next.js) sets
+  // its own headers.
+  app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
+
 
   // FT-2, Section 6: uploaded Product/Category images need a stable,
   // browser-loadable URL for the (future) Guest/Public Menu -- served

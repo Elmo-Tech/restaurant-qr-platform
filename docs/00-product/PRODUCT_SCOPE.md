@@ -15,6 +15,12 @@ This document must be reviewed before adding any major feature.
 
 ---
 
+> **Scope note (FT-9):** the accepted V1 release scope is defined in
+> `VERSION_ROADMAP.md` ("V1 Accepted Release Scope") and `PROJECT_DECISIONS.md`
+> (DEC-034). Table Sessions, Order Rounds, Service Requests, the Kitchen View,
+> Promotions, the AI Assistant and Analytics described below are **V1.1 or
+> later**; Delivery orders are **in** V1 in a minimal zone-based form.
+
 # 1. Product Scope
 
 The Restaurant QR Platform is a multi-tenant SaaS product focused on QR-based restaurant and cafe guest experiences.

@@ -61,6 +61,59 @@ Introduce advanced AI, automation, experimentation, and enterprise capabilities.
 
 ---
 
+# V1 Accepted Release Scope (FT-9 alignment)
+
+> **This section wins.** The detailed "Version 1 — Pilot MVP" sections below
+> are the ORIGINAL Pilot MVP plan. During delivery the team built a leaner,
+> production-oriented V1 around the ordering journey. Where the original plan
+> and this section differ, this section is the accepted V1 scope.
+
+## In V1 (implemented and accepted)
+
+- Multi-tenant Restaurants, Branches, Staff login (email/password, DB-backed
+  sessions, CSRF), roles and permissions, tenant and branch isolation
+- Menu, Categories, Products, product images
+- EN / AR Guest experience with RTL, and EN / AR translated menu content
+- Modifier Library, custom Modifiers, per-Product price overrides
+- Tables and Table QR; the Restaurant-wide Generic QR (Restaurant QR)
+- Public Guest Menu with cart and server-validated ordering
+- Order types: **Dine-in** (Table QR), **Pickup** and **Delivery** (Generic QR)
+- Delivery Zones with fee and minimum order, per Branch
+- Staff Orders workspace: Active / Completed / All, filters, search, the
+  order lifecycle (Delivery adds Out for delivery), Print Order / Receipt
+- Restaurant Settings: Languages and Delivery
+- Operability: rate limiting, security headers, health/readiness, request
+  correlation, an Operations provisioning command
+
+## Deferred to V1.1 / later (were in the original Pilot MVP plan)
+
+| Item | Now |
+|---|---|
+| Table Sessions and Order Rounds (Dine-in orders are standalone Orders) | V1.1 |
+| Service Requests (Call Waiter / Request Bill) | V1.1 (first candidate) |
+| Kitchen View (Staff use the Orders workspace with the kitchen permissions) | V1.1 |
+| Promotions | V1.1 / later |
+| AI Restaurant Assistant Beta and n8n orchestration | V1.1 / later |
+| Analytics and QR scan tracking | V1.1 |
+| Integration foundation (webhooks, API credentials, integration logs) | V1.1 / later |
+| Realtime (Socket.IO); Staff Orders poll every ~10 seconds | V1.1 |
+| Product Variants, Dietary, Allergens, Nutrition metadata | V1.1 |
+| Online payments, discounts, coupons | V2 or later |
+| Driver management, maps/GPS, distance-based fees, scheduled orders | later |
+| Staff & Access UI, Branch management UI, General settings, Branding | next release batches |
+| Per-Branch product availability (Branch Product Override) | V1.1 |
+| Object storage / CDN for images (V1 uses local disk on one server) | V1.1 |
+
+## Order types — updated
+
+The original text below says "Delivery is deferred". That is **superseded**:
+V1 supports Dine-in, Pickup and Delivery. Delivery is deliberately minimal:
+named zones per Branch with a fee and a minimum order, an address entered by
+the guest, and the existing lifecycle plus one extra step (Out for delivery).
+It has no maps, GPS, driver assignment, live tracking or scheduling.
+
+---
+
 # Version 1 — Pilot MVP
 
 ## Version Objective
