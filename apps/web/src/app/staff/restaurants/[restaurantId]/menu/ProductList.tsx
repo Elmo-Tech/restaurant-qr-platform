@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 import * as menuApi from '../../../../../lib/menu/api';
 import type { Product, ProductStatus } from '../../../../../lib/menu/types';
 import { ApiError } from '../../../../../lib/api/errors';
@@ -97,6 +98,7 @@ export function ProductList({
   onAvailabilityChanged,
   onProductNotFound,
 }: ProductListProps) {
+  const { t } = useStaffI18n();
   const [availabilityPendingId, setAvailabilityPendingId] = useState<string | null>(null);
   const [availabilityError, setAvailabilityError] = useState<string | null>(null);
 
@@ -147,21 +149,25 @@ export function ProductList({
     <Card className="flex min-w-0 flex-col gap-4">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <h2 className="text-sm font-semibold text-[#302C29]">Products</h2>
-          {subtitle ? <p className="text-xs text-[#655D56]">{subtitle}</p> : null}
+          <h2 className="text-sm font-semibold text-[#302C29]">{t('menu.products.title')}</h2>
+          {subtitle ? (
+            <p dir="auto" className="text-start text-xs text-[#655D56]">
+              {subtitle}
+            </p>
+          ) : null}
         </div>
         {canManage && categoryId ? (
           <Link
             href={`/staff/restaurants/${restaurantId}/menu/products/new?categoryId=${categoryId}`}
             className="inline-flex items-center justify-center rounded-md bg-[#7A5138] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#634127]"
           >
-            <IconPlus className="mr-1 h-3.5 w-3.5" /> Add Product
+            <IconPlus className="me-1 h-3.5 w-3.5" /> {t('menu.products.add')}
           </Link>
         ) : null}
       </div>
 
       {!categoryId ? (
-        <p className="text-sm text-[#655D56]">Select a Category to see its Products.</p>
+        <p className="text-sm text-[#655D56]">{t('menu.products.selectCategory')}</p>
       ) : (
         <>
           {error ? (
@@ -169,27 +175,27 @@ export function ProductList({
               <div className="flex items-center justify-between gap-4">
                 <span>{error}</span>
                 <Button variant="secondary" className="px-2 py-1 text-xs" onClick={onRetry}>
-                  Retry
+                  {t('common.retry')}
                 </Button>
               </div>
             </Alert>
           ) : null}
           {availabilityError ? <Alert variant="error">{availabilityError}</Alert> : null}
 
-          {products === null && !error ? <LoadingState label="Loading Products…" /> : null}
+          {products === null && !error ? <LoadingState label={t('menu.products.loading')} /> : null}
 
           {products !== null && products.length === 0 ? (
             <div className="flex flex-col gap-3">
               <div>
-                <p className="text-sm font-medium text-[#302C29]">No products in this category</p>
-                <p className="mt-1 text-sm text-[#655D56]">Add the first product.</p>
+                <p className="text-sm font-medium text-[#302C29]">{t('menu.products.emptyTitle')}</p>
+                <p className="mt-1 text-sm text-[#655D56]">{t('menu.products.emptyHint')}</p>
               </div>
               {canManage && categoryId ? (
                 <Link
                   href={`/staff/restaurants/${restaurantId}/menu/products/new?categoryId=${categoryId}`}
                   className="inline-flex w-fit items-center justify-center rounded-md border border-[#E5DED6] bg-white px-3 py-1.5 text-xs font-medium text-[#302C29] transition-colors hover:bg-[#F8F5F1]"
                 >
-                  <IconPlus className="mr-1 h-3.5 w-3.5" /> Add Product
+                  <IconPlus className="me-1 h-3.5 w-3.5" /> {t('menu.products.add')}
                 </Link>
               ) : null}
             </div>
@@ -199,62 +205,64 @@ export function ProductList({
             <>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <div className="relative flex-1 sm:max-w-xs">
-                  <IconSearch className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#AFA397]" />
+                  <IconSearch className="pointer-events-none absolute start-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#AFA397]" />
                   <Input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
-                    placeholder="Search products…"
-                    className="pl-8"
-                    aria-label="Search products"
+                    placeholder={t('menu.products.searchPlaceholder')}
+                    className="ps-8"
+                    aria-label={t('menu.products.searchAria')}
                   />
                 </div>
                 <Select
                   value={statusFilter}
                   onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}
                   className="sm:w-36"
-                  aria-label="Filter by status"
+                  aria-label={t('menu.products.filterStatus')}
                 >
-                  <option value="ALL">All statuses</option>
-                  <option value="ACTIVE">Active</option>
-                  <option value="INACTIVE">Inactive</option>
+                  <option value="ALL">{t('menu.products.allStatuses')}</option>
+                  <option value="ACTIVE">{t('common.active')}</option>
+                  <option value="INACTIVE">{t('common.inactive')}</option>
                 </Select>
                 <Select
                   value={availabilityFilter}
                   onChange={(event) => setAvailabilityFilter(event.target.value as AvailabilityFilter)}
                   className="sm:w-40"
-                  aria-label="Filter by availability"
+                  aria-label={t('menu.products.filterAvailability')}
                 >
-                  <option value="ALL">All availability</option>
-                  <option value="AVAILABLE">Available</option>
-                  <option value="SOLD_OUT">Sold out</option>
+                  <option value="ALL">{t('menu.products.allAvailability')}</option>
+                  <option value="AVAILABLE">{t('menu.badge.available')}</option>
+                  <option value="SOLD_OUT">{t('menu.badge.soldOut')}</option>
                 </Select>
               </div>
 
               {filteredProducts && filteredProducts.length === 0 ? (
-                <p className="text-sm text-[#655D56]">No products match the current filters.</p>
+                <p className="text-sm text-[#655D56]">{t('menu.products.noMatch')}</p>
               ) : null}
 
               {/* Desktop: table-like list (Section 9). */}
               <div className="hidden overflow-x-auto xl:block">
                 <table className="w-full border-collapse text-sm">
                   <thead>
-                    <tr className="border-b border-[#E5DED6] text-left text-xs font-medium uppercase tracking-wide text-[#AFA397]">
-                      <th className="py-2 pr-4 font-medium">Product</th>
-                      <th className="py-2 pr-4 font-medium">Price</th>
-                      <th className="py-2 pr-4 font-medium">Availability</th>
-                      <th className="py-2 pr-4 font-medium">Status</th>
-                      <th className="py-2 pl-4 text-right font-medium">Actions</th>
+                    <tr className="border-b border-[#E5DED6] text-start text-xs font-medium uppercase tracking-wide text-[#AFA397]">
+                      <th className="py-2 pe-4 font-medium">{t('menu.products.col.product')}</th>
+                      <th className="py-2 pe-4 font-medium">{t('menu.products.col.price')}</th>
+                      <th className="py-2 pe-4 font-medium">{t('menu.products.col.availability')}</th>
+                      <th className="py-2 pe-4 font-medium">{t('menu.products.col.status')}</th>
+                      <th className="py-2 ps-4 text-end font-medium">{t('menu.products.col.actions')}</th>
                     </tr>
                   </thead>
                   <tbody>
                     {filteredProducts?.map((product) => (
                       <tr key={product.id} className="border-b border-[#E5DED6] last:border-0">
-                        <td className="py-3 pr-4">
+                        <td className="py-3 pe-4">
                           <div className="flex items-center gap-3">
                             <ProductThumbnail imageAssetPath={product.primaryImageAssetPath} />
                             <div className="min-w-0">
                               <p className="flex items-center gap-2 font-medium text-[#1D1A18]">
-                                <span className="truncate">{product.translation.name}</span>
+                                <span dir="auto" className="truncate">
+                                  {product.translation.name}
+                                </span>
                                 {product.featured ? <FeaturedBadge /> : null}
                               </p>
                               {product.translation.description ? (
@@ -265,16 +273,18 @@ export function ProductList({
                             </div>
                           </div>
                         </td>
-                        <td className="py-3 pr-4 whitespace-nowrap text-[#302C29]">
-                          {product.basePrice} {currencyCode}
+                        <td className="py-3 pe-4 whitespace-nowrap text-[#302C29]">
+                          <bdi dir="ltr">
+                            {product.basePrice} {currencyCode}
+                          </bdi>
                         </td>
-                        <td className="py-3 pr-4">
+                        <td className="py-3 pe-4">
                           <AvailabilityBadge availability={product.availability} />
                         </td>
-                        <td className="py-3 pr-4">
+                        <td className="py-3 pe-4">
                           <StatusBadge active={product.status === 'ACTIVE'} />
                         </td>
-                        <td className="py-3 pl-4">
+                        <td className="py-3 ps-4">
                           {canManage ? (
                             <div className="flex items-center justify-end gap-1">
                               <Button
@@ -284,14 +294,14 @@ export function ProductList({
                                 onClick={() => void handleToggleAvailability(product)}
                               >
                                 {availabilityPendingId === product.id
-                                  ? 'Updating…'
+                                  ? t('menu.products.updating')
                                   : product.availability === 'AVAILABLE'
-                                    ? 'Mark Sold Out'
-                                    : 'Mark Available'}
+                                    ? t('menu.products.markSoldOut')
+                                    : t('menu.products.markAvailable')}
                               </Button>
                               <Link
                                 href={`/staff/restaurants/${restaurantId}/menu/products/${product.id}?categoryId=${categoryId}`}
-                                aria-label={`Edit ${product.translation.name}`}
+                                aria-label={t('menu.products.editAria', { name: product.translation.name })}
                                 className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#AFA397] hover:bg-[#F8F5F1] hover:text-[#7A5138]"
                               >
                                 <IconPencil className="h-4 w-4" />
@@ -313,11 +323,13 @@ export function ProductList({
                       <ProductThumbnail imageAssetPath={product.primaryImageAssetPath} />
                       <div className="min-w-0 flex-1">
                         <p className="flex items-center gap-2 font-medium text-[#1D1A18]">
-                          <span className="truncate">{product.translation.name}</span>
+                          <span dir="auto" className="truncate">{product.translation.name}</span>
                           {product.featured ? <FeaturedBadge /> : null}
                         </p>
                         <p className="mt-0.5 text-sm text-[#302C29]">
-                          {product.basePrice} {currencyCode}
+                          <bdi dir="ltr">
+                            {product.basePrice} {currencyCode}
+                          </bdi>
                         </p>
                         <div className="mt-1.5 flex items-center gap-1.5">
                           <AvailabilityBadge availability={product.availability} />
@@ -334,14 +346,14 @@ export function ProductList({
                           onClick={() => void handleToggleAvailability(product)}
                         >
                           {availabilityPendingId === product.id
-                            ? 'Updating…'
+                            ? t('menu.products.updating')
                             : product.availability === 'AVAILABLE'
-                              ? 'Mark Sold Out'
-                              : 'Mark Available'}
+                              ? t('menu.products.markSoldOut')
+                              : t('menu.products.markAvailable')}
                         </Button>
                         <Link
                           href={`/staff/restaurants/${restaurantId}/menu/products/${product.id}?categoryId=${categoryId}`}
-                          aria-label={`Edit ${product.translation.name}`}
+                          aria-label={t('menu.products.editAria', { name: product.translation.name })}
                           className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-[#E5DED6] text-[#655D56] hover:bg-[#F8F5F1]"
                         >
                           <IconPencil className="h-4 w-4" />

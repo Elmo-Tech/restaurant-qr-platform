@@ -1,10 +1,14 @@
+'use client';
+
 import Link from 'next/link';
+import { useStaffI18n } from '../../../../../lib/i18n/client';
+import type { MessageKey } from '../../../../../lib/i18n/messages';
 
 export type SettingsSection = 'languages' | 'delivery';
 
-const TABS: { key: SettingsSection; label: string; path: string }[] = [
-  { key: 'languages', label: 'Languages', path: 'languages' },
-  { key: 'delivery', label: 'Delivery', path: 'delivery' },
+const TABS: { key: SettingsSection; label: MessageKey; path: string }[] = [
+  { key: 'languages', label: 'settings.tab.languages', path: 'languages' },
+  { key: 'delivery', label: 'settings.tab.delivery', path: 'delivery' },
 ];
 
 /**
@@ -21,6 +25,7 @@ export function SettingsTabs({
   restaurantId: string;
   active: SettingsSection;
 }) {
+  const { t } = useStaffI18n();
   return (
     <div className="flex flex-wrap items-center gap-1 border-b border-[#E5DED6]">
       {TABS.map((tab) => {
@@ -36,7 +41,7 @@ export function SettingsTabs({
                 : 'border-transparent text-[#655D56] hover:text-[#302C29]'
             }`}
           >
-            {tab.label}
+            {t(tab.label)}
           </Link>
         );
       })}

@@ -1,3 +1,6 @@
+'use client';
+
+import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import type { RestaurantLocaleRow } from '../../../../../../lib/settings/types';
 import { localeLabel } from '../../../../../../lib/settings/locale-labels';
 import { Button } from '../../../../../../components/ui/Button';
@@ -9,14 +12,16 @@ import { Button } from '../../../../../../components/ui/Button';
  * how each feature folder already owns its own small display badges.
  */
 function DefaultBadge() {
+  const { t } = useStaffI18n();
   return (
     <span className="inline-flex items-center rounded-full bg-[#7A5138]/10 px-2 py-0.5 text-xs font-medium text-[#7A5138]">
-      Default
+      {t('settings.languages.default')}
     </span>
   );
 }
 
 function ActiveStateBadge({ active }: { active: boolean }) {
+  const { t } = useStaffI18n();
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -25,7 +30,7 @@ function ActiveStateBadge({ active }: { active: boolean }) {
           : 'bg-[#8A8177]/10 text-[#8A8177]'
       }`}
     >
-      {active ? 'Active' : 'Inactive'}
+      {active ? t('common.active') : t('common.inactive')}
     </span>
   );
 }
@@ -54,14 +59,17 @@ export function LanguageRow({
   isPending,
   onToggle,
 }: LanguageRowProps) {
+  const { t } = useStaffI18n();
   const label = localeLabel(row.locale);
 
   return (
     <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#E5DED6] bg-white px-4 py-3.5">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-sm font-semibold text-[#1D1A18]">{label}</span>
-          <span className="text-xs uppercase tracking-wide text-[#AFA397]">
+          <span lang={row.locale} className="text-sm font-semibold text-[#1D1A18]">
+            {label}
+          </span>
+          <span dir="ltr" className="text-xs uppercase tracking-wide text-[#AFA397]">
             {row.locale}
           </span>
           {row.isDefault ? <DefaultBadge /> : null}
@@ -69,10 +77,10 @@ export function LanguageRow({
         </div>
         <p className="mt-1 text-xs text-[#655D56]">
           {row.isDefault
-            ? "The default language is always active and cannot be disabled."
+            ? t('settings.languages.defaultNote')
             : row.isActive
-              ? 'Staff can add translations in this language.'
-              : 'Not available for editing until re-enabled.'}
+              ? t('settings.languages.activeNote')
+              : t('settings.languages.inactiveNote')}
         </p>
       </div>
 
@@ -82,10 +90,17 @@ export function LanguageRow({
           variant={row.isActive ? 'secondary' : 'primary'}
           disabled={isPending}
           onClick={() => onToggle(row.locale, !row.isActive)}
-          aria-label={`${row.isActive ? 'Disable' : 'Enable'} ${label}`}
+          aria-label={t(
+            row.isActive ? 'settings.languages.disableAria' : 'settings.languages.enableAria',
+            { language: label },
+          )}
           className="flex-shrink-0"
         >
-          {isPending ? 'Working…' : row.isActive ? 'Disable' : 'Enable'}
+          {isPending
+            ? t('settings.languages.working')
+            : row.isActive
+              ? t('settings.languages.disable')
+              : t('settings.languages.enable')}
         </Button>
       ) : null}
     </div>

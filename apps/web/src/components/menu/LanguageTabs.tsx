@@ -1,3 +1,7 @@
+'use client';
+
+import { useStaffI18n } from '../../lib/i18n/client';
+
 export interface LanguageTabOption {
   locale: string;
   label: string;
@@ -19,10 +23,13 @@ export interface LanguageTabsProps {
  * conveyed by color alone.
  */
 export function LanguageTabs({ options, activeLocale, onSelect }: LanguageTabsProps) {
+  const { t } = useStaffI18n();
   if (options.length < 2) return null;
 
   return (
-    <div className="flex flex-wrap gap-2">
+    <div className="flex flex-col gap-1.5">
+      <p className="text-xs font-medium text-[#655D56]">{t('menu.content.languageLabel')}</p>
+      <div role="group" aria-label={t('menu.content.languageLabel')} className="flex flex-wrap gap-2">
       {options.map((option) => {
         const isActive = option.locale === activeLocale;
         return (
@@ -31,17 +38,20 @@ export function LanguageTabs({ options, activeLocale, onSelect }: LanguageTabsPr
             type="button"
             aria-pressed={isActive}
             onClick={() => onSelect(option.locale)}
-            className={`rounded-lg border px-3 py-1.5 text-left text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#7A5138] focus-visible:ring-offset-1 ${
+            className={`rounded-lg border px-3 py-1.5 text-start text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#7A5138] focus-visible:ring-offset-1 ${
               isActive
                 ? 'border-[#7A5138] bg-[#7A5138]/10 text-[#7A5138]'
                 : 'border-[#E5DED6] bg-white text-[#655D56] hover:border-[#AFA397]'
             }`}
           >
-            <span className="block font-medium">{option.label}</span>
+            <span lang={option.locale === '__default__' ? undefined : option.locale} className="block font-medium">
+              {option.label}
+            </span>
             <span className="block text-xs opacity-80">{option.stateLabel}</span>
           </button>
         );
       })}
+      </div>
     </div>
   );
 }

@@ -10,6 +10,7 @@ import {
   type RefObject,
   type SetStateAction,
 } from 'react';
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 import * as menuApi from '../../../../../lib/menu/api';
 import type { Menu, MenuStatus } from '../../../../../lib/menu/types';
 import type { RestaurantLocalesResponse } from '../../../../../lib/settings/types';
@@ -130,6 +131,7 @@ export function MenuContextBar({
   onPrimaryChanged,
   onMenuNotFound,
 }: MenuContextBarProps) {
+  const { t } = useStaffI18n();
   const [mode, setMode] = useState<'idle' | 'create' | 'edit'>('idle');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<MenuFormState>(EMPTY_FORM);
@@ -194,7 +196,7 @@ export function MenuContextBar({
 
     const displayOrder = Number(form.displayOrder);
     if (!Number.isInteger(displayOrder) || displayOrder < 0) {
-      setFormError('Display order must be a whole number of 0 or more.');
+      setFormError(t('menu.form.displayOrderInvalid'));
       return;
     }
 
@@ -242,9 +244,7 @@ export function MenuContextBar({
           setMode('edit');
           setEditingId(created.id);
           setForm(toFormState(created));
-          setFormError(
-            `Menu created, but saving the ${translationFailures.join(', ')} translation failed. You can retry below.`,
-          );
+          setFormError(t('menu.menus.createdPartial', { languages: translationFailures.join(', ') }));
           return;
         }
       } else if (mode === 'edit' && editingId) {
@@ -301,9 +301,15 @@ export function MenuContextBar({
   const dialog = (
     <Dialog
       open={mode !== 'idle'}
-      title={mode === 'create' ? 'Create Menu' : 'Edit Menu'}
+      title={mode === 'create' ? t('menu.menus.create') : t('menu.menus.edit')}
       isSubmitting={isSubmitting}
-      submitLabel={isSubmitting ? 'Saving…' : mode === 'create' ? 'Create Menu' : 'Save changes'}
+      submitLabel={
+        isSubmitting
+          ? t('common.saving')
+          : mode === 'create'
+            ? t('menu.menus.create')
+            : t('menu.form.saveChanges')
+      }
       onSubmit={handleSubmit}
       onClose={cancelForm}
       initialFocusRef={nameInternalRef}
@@ -330,7 +336,7 @@ export function MenuContextBar({
           <div className="flex items-center justify-between gap-4">
             <span>{error}</span>
             <Button variant="secondary" className="px-2 py-1 text-xs" onClick={onRetry}>
-              Retry
+              {t('common.retry')}
             </Button>
           </div>
         </Alert>
@@ -343,7 +349,7 @@ export function MenuContextBar({
     return (
       <>
         <Card>
-          <LoadingState label="Loading Menus…" />
+          <LoadingState label={t('menu.menus.loading')} />
         </Card>
         {dialog}
       </>
@@ -355,14 +361,12 @@ export function MenuContextBar({
       <>
         <Card className="flex flex-col gap-3">
           <div>
-            <p className="text-sm font-medium text-[#302C29]">No menus yet</p>
-            <p className="mt-1 text-sm text-[#655D56]">
-              Create your first menu to start adding categories and products.
-            </p>
+            <p className="text-sm font-medium text-[#302C29]">{t('menu.menus.emptyTitle')}</p>
+            <p className="mt-1 text-sm text-[#655D56]">{t('menu.menus.emptyHint')}</p>
           </div>
           {canManage ? (
             <Button className="self-start" onClick={startCreate}>
-              <IconPlus className="mr-1.5 h-4 w-4" /> New Menu
+              <IconPlus className="me-1.5 h-4 w-4" /> {t('menu.menus.new')}
             </Button>
           ) : null}
         </Card>
@@ -377,7 +381,7 @@ export function MenuContextBar({
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-1 flex-col gap-1.5 sm:max-w-sm">
             <label htmlFor="menu-context-select" className="text-xs font-medium uppercase tracking-wide text-[#AFA397]">
-              Menu
+              {t('menu.menus.label')}
             </label>
             <Select
               id="menu-context-select"
@@ -408,7 +412,7 @@ export function MenuContextBar({
                   disabled={primaryPending}
                   onClick={() => void handleSetPrimary(selectedMenu)}
                 >
-                  {primaryPending ? 'Setting…' : 'Set as primary'}
+                  {primaryPending ? t('menu.menus.settingPrimary') : t('menu.menus.setPrimary')}
                 </Button>
               ) : null}
               <Button
@@ -416,10 +420,10 @@ export function MenuContextBar({
                 className="px-3 py-1.5 text-xs"
                 onClick={() => startEdit(selectedMenu)}
               >
-                Edit Menu
+                {t('menu.menus.edit')}
               </Button>
               <Button className="px-3 py-1.5 text-xs" onClick={startCreate}>
-                <IconPlus className="mr-1 h-3.5 w-3.5" /> New Menu
+                <IconPlus className="me-1 h-3.5 w-3.5" /> {t('menu.menus.new')}
               </Button>
             </div>
           ) : null}
@@ -475,12 +479,13 @@ function MenuFormFields({
   secondaryDrafts: SecondaryDrafts;
   setSecondaryDrafts: Dispatch<SetStateAction<SecondaryDrafts>>;
 }) {
+  const { t } = useStaffI18n();
   return (
     <div className="flex flex-col gap-6">
       {formError ? <Alert variant="error">{formError}</Alert> : null}
 
-      <FormSection title="General">
-        <FormField label="Internal name" htmlFor="menu-nameInternal">
+      <FormSection title={t('menu.form.general')}>
+        <FormField label={t('menu.form.internalName')} htmlFor="menu-nameInternal">
           <Input
             id="menu-nameInternal"
             ref={nameInternalRef}
@@ -489,22 +494,20 @@ function MenuFormFields({
             onChange={(event) => setForm((prev) => ({ ...prev, nameInternal: event.target.value }))}
             disabled={isSubmitting}
           />
-          <p className="mt-1 text-xs text-[#655D56]">
-            Used internally by Staff and not shown to Guests.
-          </p>
+          <p className="mt-1 text-xs text-[#655D56]">{t('menu.form.internalNameHint')}</p>
         </FormField>
-        <FormField label="Status" htmlFor="menu-status">
+        <FormField label={t('menu.form.status')} htmlFor="menu-status">
           <Select
             id="menu-status"
             value={form.status}
             onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as MenuStatus }))}
             disabled={isSubmitting}
           >
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
+            <option value="ACTIVE">{t('common.active')}</option>
+            <option value="INACTIVE">{t('common.inactive')}</option>
           </Select>
           {form.status === 'INACTIVE' ? (
-            <p className="mt-1 text-xs text-[#655D56]">Inactive items are hidden from Guest Menu.</p>
+            <p className="mt-1 text-xs text-[#655D56]">{t('menu.form.inactiveHint')}</p>
           ) : null}
         </FormField>
       </FormSection>
@@ -529,8 +532,8 @@ function MenuFormFields({
         />
       )}
 
-      <FormSection title="Advanced">
-        <FormField label="Display order" htmlFor="menu-displayOrder">
+      <FormSection title={t('menu.form.advanced')}>
+        <FormField label={t('menu.form.displayOrder')} htmlFor="menu-displayOrder">
           <Input
             id="menu-displayOrder"
             type="number"
@@ -571,6 +574,7 @@ function MenuCreateLanguages({
   secondaryDrafts: SecondaryDrafts;
   setSecondaryDrafts: Dispatch<SetStateAction<SecondaryDrafts>>;
 }) {
+  const { t } = useStaffI18n();
   const defaultLocale = locales?.defaultLocale ?? null;
   const secondaryLocales = useMemo(
     () =>
@@ -585,11 +589,11 @@ function MenuCreateLanguages({
 
   const tabOptions: LanguageTabOption[] = defaultLocale
     ? [
-        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: t('menu.content.default') },
         ...secondaryLocales.map((locale) => ({
           locale,
           label: localeLabel(locale),
-          stateLabel: secondaryDrafts[locale]?.name.trim() ? 'Draft entered' : 'Not translated yet',
+          stateLabel: secondaryDrafts[locale]?.name.trim() ? t('menu.content.draftEntered') : t('menu.content.notTranslated'),
         })),
       ]
     : [];
@@ -602,12 +606,12 @@ function MenuCreateLanguages({
   }
 
   return (
-    <FormSection title="Languages">
+    <FormSection title={t('menu.form.contentLanguages')}>
       <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
 
       {isDefaultTab ? (
         <>
-          <FormField label="Name" htmlFor="menu-name">
+          <FormField label={t('menu.tr.name')} htmlFor="menu-name">
             <Input
               id="menu-name"
               dir={dir}
@@ -617,7 +621,7 @@ function MenuCreateLanguages({
               disabled={isSubmitting}
             />
           </FormField>
-          <FormField label="Description" htmlFor="menu-description">
+          <FormField label={t('menu.tr.description')} htmlFor="menu-description">
             <Textarea
               id="menu-description"
               dir={dir}
@@ -629,8 +633,8 @@ function MenuCreateLanguages({
         </>
       ) : (
         <>
-          <p className="text-xs text-[#655D56]">Optional -- leave blank to skip this language for now.</p>
-          <FormField label="Name" htmlFor={`menu-create-name-${activeLocale}`}>
+          <p className="text-xs text-[#655D56]">{t('menu.form.optionalLanguage')}</p>
+          <FormField label={t('menu.tr.name')} htmlFor={`menu-create-name-${activeLocale}`}>
             <Input
               id={`menu-create-name-${activeLocale}`}
               dir={dir}
@@ -639,7 +643,7 @@ function MenuCreateLanguages({
               disabled={isSubmitting}
             />
           </FormField>
-          <FormField label="Description" htmlFor={`menu-create-description-${activeLocale}`}>
+          <FormField label={t('menu.tr.description')} htmlFor={`menu-create-description-${activeLocale}`}>
             <Textarea
               id={`menu-create-description-${activeLocale}`}
               dir={dir}
@@ -674,6 +678,7 @@ function MenuTranslationSection({
   setForm: Dispatch<SetStateAction<MenuFormState>>;
   isSubmitting: boolean;
 }) {
+  const { t } = useStaffI18n();
   const defaultLocale = locales?.defaultLocale ?? null;
   // Memoized: a fresh array identity on every render (e.g. from typing in a
   // translation field, which re-renders this component via `translations`'
@@ -703,22 +708,22 @@ function MenuTranslationSection({
 
   const tabOptions: LanguageTabOption[] = defaultLocale
     ? [
-        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: t('menu.content.default') },
         ...secondaryLocales.map((locale) => ({
           locale,
           label: localeLabel(locale),
-          stateLabel: translations.drafts[locale]?.exists ? 'Translated' : 'Not translated yet',
+          stateLabel: translations.drafts[locale]?.exists ? t('menu.content.translated') : t('menu.content.notTranslated'),
         })),
       ]
     : [];
 
   return (
-    <FormSection title="Languages">
+    <FormSection title={t('menu.form.contentLanguages')}>
       <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
 
       {isDefaultTab ? (
         <>
-          <FormField label="Name" htmlFor="menu-name">
+          <FormField label={t('menu.tr.name')} htmlFor="menu-name">
             <Input
               id="menu-name"
               dir={dir}
@@ -728,7 +733,7 @@ function MenuTranslationSection({
               disabled={isSubmitting}
             />
           </FormField>
-          <FormField label="Description" htmlFor="menu-description">
+          <FormField label={t('menu.tr.description')} htmlFor="menu-description">
             <Textarea
               id="menu-description"
               dir={dir}

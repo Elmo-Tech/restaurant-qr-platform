@@ -1,3 +1,6 @@
+'use client';
+
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 import type { ProductAvailability } from '../../../../../lib/menu/types';
 
 /**
@@ -9,6 +12,7 @@ import type { ProductAvailability } from '../../../../../lib/menu/types';
  */
 
 export function StatusBadge({ active }: { active: boolean }) {
+  const { t } = useStaffI18n();
   return (
     <span
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
@@ -17,7 +21,7 @@ export function StatusBadge({ active }: { active: boolean }) {
           : 'bg-[#8A8177]/10 text-[#8A8177]'
       }`}
     >
-      {active ? 'Active' : 'Inactive'}
+      {active ? t('common.active') : t('common.inactive')}
     </span>
   );
 }
@@ -27,6 +31,7 @@ export function AvailabilityBadge({
 }: {
   availability: ProductAvailability;
 }) {
+  const { t } = useStaffI18n();
   const isAvailable = availability === 'AVAILABLE';
   return (
     <span
@@ -36,23 +41,25 @@ export function AvailabilityBadge({
           : 'bg-[#B3261E]/10 text-[#B3261E]'
       }`}
     >
-      {isAvailable ? 'Available' : 'Sold out'}
+      {isAvailable ? t('menu.badge.available') : t('menu.badge.soldOut')}
     </span>
   );
 }
 
 export function FeaturedBadge() {
+  const { t } = useStaffI18n();
   return (
     <span className="inline-flex items-center rounded-full bg-[#C89B6D]/20 px-2 py-0.5 text-xs font-medium text-[#7A5138]">
-      Featured
+      {t('menu.badge.featured')}
     </span>
   );
 }
 
 export function PrimaryBadge() {
+  const { t } = useStaffI18n();
   return (
     <span className="inline-flex items-center rounded-full bg-[#7A5138]/10 px-2 py-0.5 text-xs font-medium text-[#7A5138]">
-      Primary
+      {t('menu.badge.primary')}
     </span>
   );
 }

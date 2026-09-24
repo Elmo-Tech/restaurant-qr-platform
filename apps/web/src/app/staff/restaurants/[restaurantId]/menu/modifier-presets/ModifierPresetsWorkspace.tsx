@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import * as menuApi from '../../../../../../lib/menu/api';
 import type {
   ModifierPreset,
@@ -54,6 +55,7 @@ export function ModifierPresetsWorkspace({
   canManage,
   hasMenuManagePermission,
 }: ModifierPresetsWorkspaceProps) {
+  const { t } = useStaffI18n();
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [presets, setPresets] = useState<ModifierPreset[]>([]);
@@ -93,36 +95,32 @@ export function ModifierPresetsWorkspace({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-lg font-semibold text-[#1D1A18]">Modifier Library</h1>
-        <p className="mt-1 text-sm text-[#655D56]">
-          Reusable Modifier Group templates (e.g. &quot;Standard Size&quot;) Staff can attach to many
-          Products from each Product&apos;s Modifiers section. Editing a preset here updates every
-          Product using it, except a price a Product has overridden for itself.
-        </p>
+        <h1 className="text-lg font-semibold text-[#1D1A18]">{t('presets.title')}</h1>
+        <p className="mt-1 text-sm text-[#655D56]">{t('presets.subtitle')}</p>
       </div>
 
       <MenuSectionTabs restaurantId={restaurantId} active="modifier-library" />
 
       {!canManage && hasMenuManagePermission ? (
-        <Alert variant="info">Full Restaurant branch scope is required to manage Modifier Presets.</Alert>
+        <Alert variant="info">{t('presets.needsFullScope')}</Alert>
       ) : null}
 
       {status === 'loading' ? (
         <Card>
-          <LoadingState label="Loading modifier presets…" />
+          <LoadingState label={t('presets.loading')} />
         </Card>
       ) : status === 'error' ? (
         <Card className="flex flex-col gap-3">
           <Alert variant="error">{error}</Alert>
           <Button variant="secondary" onClick={() => void load()}>
-            Retry
+            {t('common.retry')}
           </Button>
         </Card>
       ) : (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
           <Card className="flex flex-col gap-2">
             {presets.length === 0 ? (
-              <p className="text-sm text-[#655D56]">No presets yet.</p>
+              <p className="text-sm text-[#655D56]">{t('presets.none')}</p>
             ) : (
               <ul className="flex flex-col gap-1">
                 {presets.map((preset) => (
@@ -133,14 +131,14 @@ export function ModifierPresetsWorkspace({
                         setSelectedPresetId(preset.id);
                         setIsCreating(false);
                       }}
-                      className={`w-full rounded-md px-3 py-2 text-left text-sm ${
+                      className={`w-full rounded-md px-3 py-2 text-start text-sm ${
                         selectedPresetId === preset.id
                           ? 'bg-[#7A5138] text-white'
                           : 'text-[#302C29] hover:bg-[#F8F5F1]'
                       }`}
                     >
-                      {preset.name}
-                      {preset.status === 'INACTIVE' ? ' (inactive)' : ''}
+                      <bdi dir="auto">{preset.name}</bdi>
+                      {preset.status === 'INACTIVE' ? t('presets.inactiveSuffix') : ''}
                     </button>
                   </li>
                 ))}
@@ -155,7 +153,7 @@ export function ModifierPresetsWorkspace({
                 setSelectedPresetId(null);
               }}
             >
-              + New Preset
+              {t('presets.new')}
             </Button>
           </Card>
 
@@ -219,7 +217,7 @@ export function ModifierPresetsWorkspace({
                 }
               />
             ) : (
-              <p className="text-sm text-[#655D56]">Select a preset, or create a new one.</p>
+              <p className="text-sm text-[#655D56]">{t('presets.selectHint')}</p>
             )}
           </Card>
         </div>
@@ -239,6 +237,7 @@ function NewPresetForm({
   onCancel: () => void;
   onCreated: (preset: ModifierPreset) => void;
 }) {
+  const { t } = useStaffI18n();
   const [name, setName] = useState('');
   const [helperText, setHelperText] = useState('');
   const [minimumSelections, setMinimumSelections] = useState('0');
@@ -248,21 +247,21 @@ function NewPresetForm({
 
   async function handleSave() {
     if (name.trim() === '') {
-      setError('Name is required.');
+      setError(t('menu.tr.nameRequired'));
       return;
     }
     const minimum = Number(minimumSelections);
     const maximum = Number(maximumSelections);
     if (!Number.isInteger(minimum) || minimum < 0) {
-      setError('Minimum selections must be a whole number of 0 or more.');
+      setError(t('mod.err.minInvalid'));
       return;
     }
     if (!Number.isInteger(maximum) || maximum < 1) {
-      setError('Maximum selections must be a whole number of 1 or more.');
+      setError(t('mod.err.maxInvalid'));
       return;
     }
     if (maximum < minimum) {
-      setError('Maximum selections must be at least the minimum.');
+      setError(t('mod.err.maxLessThanMin'));
       return;
     }
 
@@ -291,12 +290,12 @@ function NewPresetForm({
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold text-[#1D1A18]">New Preset</h2>
+      <h2 className="text-sm font-semibold text-[#1D1A18]">{t('presets.newTitle')}</h2>
       {error ? <Alert variant="error">{error}</Alert> : null}
-      <FormField label="Name" htmlFor="new-preset-name">
+      <FormField label={t('menu.tr.name')} htmlFor="new-preset-name">
         <Input id="new-preset-name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSubmitting} />
       </FormField>
-      <FormField label="Helper text (optional)" htmlFor="new-preset-helper">
+      <FormField label={t('mod.helperOptional')} htmlFor="new-preset-helper">
         <Input
           id="new-preset-helper"
           value={helperText}
@@ -305,7 +304,7 @@ function NewPresetForm({
         />
       </FormField>
       <div className="grid grid-cols-2 gap-3">
-        <FormField label="Minimum selections" htmlFor="new-preset-min">
+        <FormField label={t('mod.minSelections')} htmlFor="new-preset-min">
           <Input
             id="new-preset-min"
             type="number"
@@ -316,7 +315,7 @@ function NewPresetForm({
             disabled={isSubmitting}
           />
         </FormField>
-        <FormField label="Maximum selections" htmlFor="new-preset-max">
+        <FormField label={t('mod.maxSelections')} htmlFor="new-preset-max">
           <Input
             id="new-preset-max"
             type="number"
@@ -330,10 +329,10 @@ function NewPresetForm({
       </div>
       <div className="flex gap-2">
         <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
-          {isSubmitting ? 'Saving…' : 'Create Preset'}
+          {isSubmitting ? t('common.saving') : t('presets.create')}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>
@@ -363,6 +362,7 @@ function PresetDetail({
   onPresetRemoved: (presetId: string) => void;
   onOptionRemoved: (optionId: string) => void;
 }) {
+  const { t } = useStaffI18n();
   const [name, setName] = useState(preset.name);
   const [helperText, setHelperText] = useState(preset.helperText ?? '');
   const [minimumSelections, setMinimumSelections] = useState(String(preset.minimumSelections));
@@ -416,32 +416,32 @@ function PresetDetail({
 
   const tabOptions: LanguageTabOption[] = defaultLocale
     ? [
-        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: t('menu.content.default') },
         ...secondaryLocales.map((locale) => ({
           locale,
           label: localeLabel(locale),
-          stateLabel: translations.drafts[locale]?.exists ? 'Translated' : 'Not translated yet',
+          stateLabel: translations.drafts[locale]?.exists ? t('menu.content.translated') : t('menu.content.notTranslated'),
         })),
       ]
     : [];
 
   async function handleSave() {
     if (name.trim() === '') {
-      setError('Name is required.');
+      setError(t('menu.tr.nameRequired'));
       return;
     }
     const minimum = Number(minimumSelections);
     const maximum = Number(maximumSelections);
     if (!Number.isInteger(minimum) || minimum < 0) {
-      setError('Minimum selections must be a whole number of 0 or more.');
+      setError(t('mod.err.minInvalid'));
       return;
     }
     if (!Number.isInteger(maximum) || maximum < 1) {
-      setError('Maximum selections must be a whole number of 1 or more.');
+      setError(t('mod.err.maxInvalid'));
       return;
     }
     if (maximum < minimum) {
-      setError('Maximum selections must be at least the minimum.');
+      setError(t('mod.err.maxLessThanMin'));
       return;
     }
 
@@ -485,7 +485,7 @@ function PresetDetail({
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Delete "${preset.name}" from the Modifier Library? This cannot be undone.`)) {
+    if (!window.confirm(t('presets.confirmDelete', { name: preset.name }))) {
       return;
     }
     setIsBusy(true);
@@ -506,7 +506,9 @@ function PresetDetail({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="text-sm font-semibold text-[#1D1A18]">{preset.name}</h2>
+        <h2 dir="auto" className="text-start text-sm font-semibold text-[#1D1A18]">
+          {preset.name}
+        </h2>
         <div className="flex shrink-0 gap-2">
           <Button
             type="button"
@@ -514,11 +516,11 @@ function PresetDetail({
             disabled={!canManage || isBusy}
             onClick={() => void toggleStatus()}
           >
-            {preset.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+            {preset.status === 'ACTIVE' ? t('common.deactivate') : t('common.activate')}
           </Button>
           {preset.canDelete ? (
             <Button type="button" variant="danger" disabled={!canManage || isBusy} onClick={() => void handleDelete()}>
-              Delete
+              {t('common.delete')}
             </Button>
           ) : null}
         </div>
@@ -530,7 +532,7 @@ function PresetDetail({
 
       {isDefaultTab ? (
         <>
-          <FormField label="Name" htmlFor={`preset-name-${preset.id}`}>
+          <FormField label={t('menu.tr.name')} htmlFor={`preset-name-${preset.id}`}>
             <Input
               id={`preset-name-${preset.id}`}
               dir={dir}
@@ -539,7 +541,7 @@ function PresetDetail({
               disabled={isSubmitting || !canManage}
             />
           </FormField>
-          <FormField label="Helper text (optional)" htmlFor={`preset-helper-${preset.id}`}>
+          <FormField label={t('mod.helperOptional')} htmlFor={`preset-helper-${preset.id}`}>
             <Input
               id={`preset-helper-${preset.id}`}
               dir={dir}
@@ -555,7 +557,7 @@ function PresetDetail({
           locale={activeLocale}
           dir={dir}
           draft={translations.drafts[activeLocale]}
-          secondFieldLabel="Helper text"
+          secondFieldLabel={t('mod.helperText')}
           onChange={(patch) => translations.updateDraft(activeLocale, patch)}
           onSave={() => void translations.save(activeLocale)}
           onRemove={() => void translations.removeTranslation(activeLocale)}
@@ -563,7 +565,7 @@ function PresetDetail({
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <FormField label="Minimum selections" htmlFor={`preset-min-${preset.id}`}>
+        <FormField label={t('mod.minSelections')} htmlFor={`preset-min-${preset.id}`}>
           <Input
             id={`preset-min-${preset.id}`}
             type="number"
@@ -574,7 +576,7 @@ function PresetDetail({
             disabled={isSubmitting || !canManage}
           />
         </FormField>
-        <FormField label="Maximum selections" htmlFor={`preset-max-${preset.id}`}>
+        <FormField label={t('mod.maxSelections')} htmlFor={`preset-max-${preset.id}`}>
           <Input
             id={`preset-max-${preset.id}`}
             type="number"
@@ -588,12 +590,12 @@ function PresetDetail({
       </div>
       <div>
         <Button type="button" disabled={isSubmitting || !canManage} onClick={() => void handleSave()}>
-          {isSubmitting ? 'Saving…' : 'Save'}
+          {isSubmitting ? t('common.saving') : t('common.save')}
         </Button>
       </div>
 
       <div className="border-t border-[#E5DED6] pt-4">
-        <h3 className="mb-2 text-sm font-semibold text-[#1D1A18]">Options</h3>
+        <h3 className="mb-2 text-sm font-semibold text-[#1D1A18]">{t('presets.options')}</h3>
         <div className="flex flex-col gap-2">
           {preset.options.map((option) => (
             <PresetOptionRow
@@ -626,7 +628,7 @@ function PresetDetail({
         ) : (
           <div className="mt-3">
             <Button type="button" variant="secondary" disabled={!canManage} onClick={() => setIsAddingOption(true)}>
-              Add Option
+              {t('mod.addOption')}
             </Button>
           </div>
         )}
@@ -654,12 +656,13 @@ function PresetOptionRow({
   onChanged: (option: ModifierPresetOption) => void;
   onRemoved: (optionId: string) => void;
 }) {
+  const { t } = useStaffI18n();
   const [isEditing, setIsEditing] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleDelete() {
-    if (!window.confirm(`Delete "${option.name}"? This cannot be undone.`)) {
+    if (!window.confirm(t('mod.confirmDelete', { name: option.name }))) {
       return;
     }
     setIsBusy(true);
@@ -716,25 +719,27 @@ function PresetOptionRow({
   return (
     <div className="flex items-center justify-between gap-4 rounded-md bg-[#F8F5F1] px-3 py-2">
       <div className="flex items-center gap-2 text-sm text-[#302C29]">
-        <span>{option.name}</span>
-        <span className="text-[#655D56]">
+        <span dir="auto">{option.name}</span>
+        <bdi dir="ltr" className="text-[#655D56]">
           {option.priceAdjustment === '0.00' ? '+0.00' : `+${option.priceAdjustment}`} {currencyCode}
-        </span>
+        </bdi>
         {option.status === 'INACTIVE' ? (
-          <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#655D56]">Inactive</span>
+          <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#655D56]">
+            {t('common.inactive')}
+          </span>
         ) : null}
       </div>
       <div className="flex shrink-0 gap-2">
         {error ? <Alert variant="error">{error}</Alert> : null}
         <Button type="button" variant="secondary" disabled={!canManage} onClick={() => setIsEditing(true)}>
-          Edit
+          {t('common.edit')}
         </Button>
         <Button type="button" variant="secondary" disabled={!canManage || isBusy} onClick={() => void toggleStatus()}>
-          {option.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+          {option.status === 'ACTIVE' ? t('common.deactivate') : t('common.activate')}
         </Button>
         {option.canDelete ? (
           <Button type="button" variant="danger" disabled={!canManage || isBusy} onClick={() => void handleDelete()}>
-            Delete
+            {t('common.delete')}
           </Button>
         ) : null}
       </div>
@@ -755,6 +760,7 @@ function NewPresetOptionForm({
   onCancel: () => void;
   onCreated: (option: ModifierPresetOption) => void;
 }) {
+  const { t } = useStaffI18n();
   const [name, setName] = useState('');
   const [priceAdjustment, setPriceAdjustment] = useState('0.00');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -762,11 +768,11 @@ function NewPresetOptionForm({
 
   async function handleSave() {
     if (name.trim() === '') {
-      setError('Name is required.');
+      setError(t('menu.tr.nameRequired'));
       return;
     }
     if (!MONEY_DECIMAL_PATTERN.test(priceAdjustment)) {
-      setError('Price adjustment must be a non-negative decimal amount, e.g. 10.00.');
+      setError(t('mod.err.priceInvalid'));
       return;
     }
 
@@ -795,7 +801,7 @@ function NewPresetOptionForm({
     <div className="flex flex-col gap-3 rounded-md bg-[#F8F5F1] p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
       <div className="grid grid-cols-2 gap-3">
-        <FormField label="Name" htmlFor="new-preset-option-name">
+        <FormField label={t('menu.tr.name')} htmlFor="new-preset-option-name">
           <Input
             id="new-preset-option-name"
             value={name}
@@ -803,10 +809,11 @@ function NewPresetOptionForm({
             disabled={isSubmitting}
           />
         </FormField>
-        <FormField label="Price adjustment" htmlFor="new-preset-option-price">
+        <FormField label={t('mod.priceAdjustment')} htmlFor="new-preset-option-price">
           <Input
             id="new-preset-option-price"
             inputMode="decimal"
+            dir="ltr"
             value={priceAdjustment}
             onChange={(e) => setPriceAdjustment(e.target.value)}
             disabled={isSubmitting}
@@ -815,10 +822,10 @@ function NewPresetOptionForm({
       </div>
       <div className="flex gap-2">
         <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
-          {isSubmitting ? 'Saving…' : 'Add Option'}
+          {isSubmitting ? t('common.saving') : t('mod.addOption')}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>
@@ -840,6 +847,7 @@ function EditPresetOptionForm({
   onSaved: (option: ModifierPresetOption) => void;
   onCancel: () => void;
 }) {
+  const { t } = useStaffI18n();
   const [name, setName] = useState(option.name);
   const [priceAdjustment, setPriceAdjustment] = useState(option.priceAdjustment);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -889,22 +897,22 @@ function EditPresetOptionForm({
 
   const tabOptions: LanguageTabOption[] = defaultLocale
     ? [
-        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: t('menu.content.default') },
         ...secondaryLocales.map((locale) => ({
           locale,
           label: localeLabel(locale),
-          stateLabel: translations.drafts[locale]?.exists ? 'Translated' : 'Not translated yet',
+          stateLabel: translations.drafts[locale]?.exists ? t('menu.content.translated') : t('menu.content.notTranslated'),
         })),
       ]
     : [];
 
   async function handleSave() {
     if (name.trim() === '') {
-      setError('Name is required.');
+      setError(t('menu.tr.nameRequired'));
       return;
     }
     if (!MONEY_DECIMAL_PATTERN.test(priceAdjustment)) {
-      setError('Price adjustment must be a non-negative decimal amount, e.g. 10.00.');
+      setError(t('mod.err.priceInvalid'));
       return;
     }
 
@@ -933,7 +941,7 @@ function EditPresetOptionForm({
       <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
       <div className="grid grid-cols-2 gap-3">
         {isDefaultTab ? (
-          <FormField label="Name" htmlFor={`preset-option-name-${option.id}`}>
+          <FormField label={t('menu.tr.name')} htmlFor={`preset-option-name-${option.id}`}>
             <Input
               id={`preset-option-name-${option.id}`}
               dir={dir}
@@ -954,10 +962,11 @@ function EditPresetOptionForm({
             onRemove={() => void translations.removeTranslation(activeLocale)}
           />
         )}
-        <FormField label="Price adjustment" htmlFor={`preset-option-price-${option.id}`}>
+        <FormField label={t('mod.priceAdjustment')} htmlFor={`preset-option-price-${option.id}`}>
           <Input
             id={`preset-option-price-${option.id}`}
             inputMode="decimal"
+            dir="ltr"
             value={priceAdjustment}
             onChange={(e) => setPriceAdjustment(e.target.value)}
             disabled={isSubmitting}
@@ -966,10 +975,10 @@ function EditPresetOptionForm({
       </div>
       <div className="flex gap-2">
         <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
-          {isSubmitting ? 'Saving…' : 'Save'}
+          {isSubmitting ? t('common.saving') : t('common.save')}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>

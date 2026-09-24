@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import * as deliveryApi from '../../../../../../lib/delivery/api';
 import type {
   DeliveryBranch,
@@ -44,6 +45,7 @@ export function DeliveryWorkspace({
   canManage,
   hasRestaurantManagePermission: hasManagePermission,
 }: DeliveryWorkspaceProps) {
+  const { t } = useStaffI18n();
   const [branches, setBranches] = useState<DeliveryBranch[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -97,41 +99,34 @@ export function DeliveryWorkspace({
   return (
     <div className="flex flex-col gap-6">
       <div>
-        <h1 className="text-lg font-semibold text-[#1D1A18]">Restaurant Settings</h1>
-        <p className="mt-1 text-sm text-[#655D56]">
-          Delivery areas, fees and minimum orders for each branch.
-        </p>
+        <h1 className="text-lg font-semibold text-[#1D1A18]">{t('settings.title')}</h1>
+        <p className="mt-1 text-sm text-[#655D56]">{t('settings.delivery.subtitle')}</p>
       </div>
 
       <SettingsTabs restaurantId={restaurantId} active="delivery" />
 
       {!canManage && hasManagePermission ? (
-        <Alert variant="info">
-          Full Restaurant branch scope is required to change Delivery settings.
-        </Alert>
+        <Alert variant="info">{t('settings.delivery.needsFullScope')}</Alert>
       ) : null}
 
-      <p className="text-sm text-[#655D56]">
-        Guests can order Delivery from a branch only while the branch is active and has at least one
-        active delivery area.
-      </p>
+      <p className="text-sm text-[#655D56]">{t('settings.delivery.rule')}</p>
 
       {error ? (
         <Alert variant="error">
           <div className="flex items-center justify-between gap-4">
             <span>{error}</span>
             <Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => void load()}>
-              Retry
+              {t('common.retry')}
             </Button>
           </div>
         </Alert>
       ) : null}
 
-      {branches === null && !error ? <LoadingState label="Loading delivery settings…" /> : null}
+      {branches === null && !error ? <LoadingState label={t('settings.delivery.loading')} /> : null}
 
       {branches !== null && branches.length === 0 ? (
         <Card className="py-8 text-center text-sm text-[#655D56]">
-          No branches available for delivery settings.
+          {t('settings.delivery.noBranches')}
         </Card>
       ) : null}
 
@@ -168,6 +163,7 @@ function BranchCard({
   onZoneCreated: (zone: DeliveryZone) => void;
   onZoneDeleted: (zoneId: string) => void;
 }) {
+  const { t } = useStaffI18n();
   const [isAdding, setIsAdding] = useState(false);
   const activeZones = branch.zones.filter((zone) => zone.status === 'ACTIVE').length;
   const offered = branch.status === 'ACTIVE' && activeZones > 0;
@@ -176,10 +172,12 @@ function BranchCard({
     <Card className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 className="text-base font-semibold text-[#1D1A18]">{branch.name}</h2>
+          <h2 dir="auto" className="text-base font-semibold text-[#1D1A18]">
+            {branch.name}
+          </h2>
           {branch.status === 'INACTIVE' ? (
             <span className="rounded-full bg-[#F1EDE7] px-2 py-0.5 text-xs text-[#655D56]">
-              Branch inactive
+              {t('settings.delivery.branchInactive')}
             </span>
           ) : null}
         </div>
@@ -188,12 +186,12 @@ function BranchCard({
             offered ? 'bg-[#DDF1DF] text-[#1E6B25]' : 'bg-[#F1EDE7] text-[#655D56]'
           }`}
         >
-          {offered ? 'Delivery available' : 'Delivery not offered'}
+          {offered ? t('settings.delivery.available') : t('settings.delivery.notOffered')}
         </span>
       </div>
 
       {branch.zones.length === 0 ? (
-        <p className="text-sm text-[#655D56]">No delivery areas yet.</p>
+        <p className="text-sm text-[#655D56]">{t('settings.delivery.noAreas')}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {branch.zones.map((zone) => (
@@ -213,7 +211,7 @@ function BranchCard({
       {isAdding ? (
         <ZoneForm
           currencyCode={currencyCode}
-          submitLabel="Add area"
+          submitLabel={t('settings.delivery.addAreaSubmit')}
           onCancel={() => setIsAdding(false)}
           onSubmit={async (values) => {
             const created = await deliveryApi.createDeliveryZone(restaurantId, branch.id, values);
@@ -224,7 +222,7 @@ function BranchCard({
       ) : (
         <div>
           <Button variant="secondary" disabled={!canManage} onClick={() => setIsAdding(true)}>
-            + Add delivery area
+            {t('settings.delivery.addArea')}
           </Button>
         </div>
       )}
@@ -247,6 +245,7 @@ function ZoneRow({
   onChanged: (zone: DeliveryZone) => void;
   onDeleted: (zoneId: string) => void;
 }) {
+  const { t } = useStaffI18n();
   const [isEditing, setIsEditing] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -262,7 +261,7 @@ function ZoneRow({
         return;
       }
       if (err instanceof ApiError && err.code === 'DELIVERY_ZONE_HAS_ORDERS') {
-        setError('This area has orders and cannot be deleted. Deactivate it instead.');
+        setError(t('settings.delivery.hasOrders'));
       } else {
         setError(describeError(err));
       }
@@ -277,7 +276,7 @@ function ZoneRow({
         <ZoneForm
           currencyCode={currencyCode}
           initial={zone}
-          submitLabel="Save"
+          submitLabel={t('common.save')}
           onCancel={() => setIsEditing(false)}
           onSubmit={async (values) => {
             const updated = await deliveryApi.updateDeliveryZone(restaurantId, zone.id, values);
@@ -289,30 +288,30 @@ function ZoneRow({
     );
   }
 
-  const minimum = zone.minimumOrder === '0.00' ? 'No minimum' : `Minimum ${zone.minimumOrder} ${currencyCode}`;
+  const minimum =
+    zone.minimumOrder === '0.00'
+      ? t('settings.delivery.noMinimum')
+      : t('settings.delivery.minimum', { amount: zone.minimumOrder, currency: currencyCode });
 
   return (
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-[#F8F5F1] px-3 py-2.5">
       <div className="min-w-0">
         <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-[#1D1A18]">
-          {zone.name}
+          <bdi dir="auto">{zone.name}</bdi>
           {zone.status === 'INACTIVE' ? (
             <span className="rounded-full bg-white px-2 py-0.5 text-xs font-normal text-[#655D56]">
-              Inactive
+              {t('settings.delivery.inactive')}
             </span>
           ) : null}
         </p>
         <p className="text-xs text-[#655D56]">
-          <bdi dir="ltr">
-            {zone.deliveryFee} {currencyCode}
-          </bdi>{' '}
-          delivery · {minimum}
+          {t('settings.delivery.feeLine', { fee: zone.deliveryFee, currency: currencyCode })} · {minimum}
         </p>
         {error ? <p className="mt-1 text-xs text-[#A4231B]">{error}</p> : null}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="secondary" disabled={!canManage || isBusy} onClick={() => setIsEditing(true)}>
-          Edit
+          {t('common.edit')}
         </Button>
         <Button
           variant="secondary"
@@ -326,21 +325,21 @@ function ZoneRow({
             })
           }
         >
-          {zone.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+          {zone.status === 'ACTIVE' ? t('common.deactivate') : t('common.activate')}
         </Button>
         {zone.canDelete ? (
           <Button
             variant="danger"
             disabled={!canManage || isBusy}
             onClick={() => {
-              if (!window.confirm(`Delete "${zone.name}"? This cannot be undone.`)) return;
+              if (!window.confirm(t('settings.delivery.confirmDelete', { name: zone.name }))) return;
               void run(async () => {
                 await deliveryApi.deleteDeliveryZone(restaurantId, zone.id);
                 onDeleted(zone.id);
               });
             }}
           >
-            Delete
+            {t('common.delete')}
           </Button>
         ) : null}
       </div>
@@ -361,6 +360,7 @@ function ZoneForm({
   onCancel: () => void;
   onSubmit: (values: { name: string; deliveryFee: string; minimumOrder: string }) => Promise<void>;
 }) {
+  const { t } = useStaffI18n();
   const [name, setName] = useState(initial?.name ?? '');
   const [deliveryFee, setDeliveryFee] = useState(initial?.deliveryFee ?? '0.00');
   const [minimumOrder, setMinimumOrder] = useState(initial?.minimumOrder ?? '0.00');
@@ -369,11 +369,11 @@ function ZoneForm({
 
   async function handleSubmit() {
     if (name.trim() === '') {
-      setError('Area name is required.');
+      setError(t('settings.delivery.nameRequired'));
       return;
     }
     if (!MONEY_PATTERN.test(deliveryFee) || !MONEY_PATTERN.test(minimumOrder)) {
-      setError('Fee and minimum must be non-negative amounts, e.g. 25.00.');
+      setError(t('settings.delivery.amountsInvalid'));
       return;
     }
     setIsSubmitting(true);
@@ -394,29 +394,32 @@ function ZoneForm({
     <div className="flex flex-col gap-3 rounded-md border border-[#E5DED6] bg-white p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <FormField label="Area name" htmlFor="zone-name">
+        <FormField label={t('settings.delivery.areaName')} htmlFor="zone-name">
           <Input
             id="zone-name"
             value={name}
+            dir="auto"
             maxLength={100}
-            placeholder="e.g. University District"
+            placeholder={t('settings.delivery.areaNamePlaceholder')}
             disabled={isSubmitting}
             onChange={(e) => setName(e.target.value)}
           />
         </FormField>
-        <FormField label={`Delivery fee (${currencyCode})`} htmlFor="zone-fee">
+        <FormField label={t('settings.delivery.fee', { currency: currencyCode })} htmlFor="zone-fee">
           <Input
             id="zone-fee"
             inputMode="decimal"
+            dir="ltr"
             value={deliveryFee}
             disabled={isSubmitting}
             onChange={(e) => setDeliveryFee(e.target.value)}
           />
         </FormField>
-        <FormField label={`Minimum order (${currencyCode})`} htmlFor="zone-minimum">
+        <FormField label={t('settings.delivery.minimumOrder', { currency: currencyCode })} htmlFor="zone-minimum">
           <Input
             id="zone-minimum"
             inputMode="decimal"
+            dir="ltr"
             value={minimumOrder}
             disabled={isSubmitting}
             onChange={(e) => setMinimumOrder(e.target.value)}
@@ -425,10 +428,10 @@ function ZoneForm({
       </div>
       <div className="flex gap-2">
         <Button disabled={isSubmitting} onClick={() => void handleSubmit()}>
-          {isSubmitting ? 'Saving…' : submitLabel}
+          {isSubmitting ? t('common.saving') : submitLabel}
         </Button>
         <Button variant="secondary" disabled={isSubmitting} onClick={onCancel}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>

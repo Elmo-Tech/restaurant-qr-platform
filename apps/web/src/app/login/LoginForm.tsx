@@ -9,6 +9,8 @@ import { Button } from '../../components/ui/Button';
 import { FormField } from '../../components/ui/FormField';
 import { Input } from '../../components/ui/Input';
 import { Card } from '../../components/ui/Card';
+import { useStaffI18n } from '../../lib/i18n/client';
+import { messages, type MessageKey } from '../../lib/i18n/messages';
 
 interface LoginResponse {
   data: { userId: string };
@@ -22,6 +24,7 @@ interface LoginResponse {
  */
 export function LoginForm() {
   const router = useRouter();
+  const { t } = useStaffI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,9 +45,10 @@ export function LoginForm() {
       router.push('/staff');
     } catch (error) {
       if (error instanceof ApiError) {
-        setErrorMessage(error.message);
+        const key = `error.${error.code}`;
+        setErrorMessage(key in messages.en ? t(key as MessageKey) : error.message);
       } else {
-        setErrorMessage('Unable to reach the server. Please try again.');
+        setErrorMessage(t('error.network'));
       }
       setIsSubmitting(false);
     }
@@ -55,7 +59,7 @@ export function LoginForm() {
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
         {errorMessage ? <Alert variant="error">{errorMessage}</Alert> : null}
 
-        <FormField label="Email" htmlFor="email">
+        <FormField label={t('auth.email')} htmlFor="email">
           <Input
             id="email"
             name="email"
@@ -68,7 +72,7 @@ export function LoginForm() {
           />
         </FormField>
 
-        <FormField label="Password" htmlFor="password">
+        <FormField label={t('auth.password')} htmlFor="password">
           <Input
             id="password"
             name="password"
@@ -82,7 +86,7 @@ export function LoginForm() {
         </FormField>
 
         <Button type="submit" disabled={isSubmitting} className="mt-2 w-full">
-          {isSubmitting ? 'Signing in…' : 'Sign in'}
+          {isSubmitting ? t('auth.signingIn') : t('auth.signIn')}
         </Button>
       </form>
     </Card>

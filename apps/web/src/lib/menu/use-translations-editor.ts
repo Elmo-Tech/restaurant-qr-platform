@@ -6,6 +6,7 @@ import {
   isUnauthenticatedError,
   redirectToLogin,
 } from './error-message';
+import { useStaffI18n } from '../i18n/client';
 import type { TranslationInput } from './api';
 
 export interface TranslationRow {
@@ -78,6 +79,7 @@ export function useTranslationsEditor({
   put,
   remove,
 }: UseTranslationsEditorArgs) {
+  const { t } = useStaffI18n();
   const [status, setStatus] = useState<'idle' | 'loading' | 'loaded' | 'error'>(
     'idle',
   );
@@ -165,7 +167,7 @@ export function useTranslationsEditor({
     if (name === '') {
       setDrafts((prev) => ({
         ...prev,
-        [locale]: { ...draft, error: 'Name is required.' },
+        [locale]: { ...draft, error: t('menu.tr.nameRequired') },
       }));
       return;
     }

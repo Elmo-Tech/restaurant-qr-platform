@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import * as menuApi from '../../../../../../lib/menu/api';
 import type {
   ModifierGroup,
@@ -62,6 +63,7 @@ export function ModifiersSection({
   canManage,
   locales,
 }: ModifiersSectionProps) {
+  const { t } = useStaffI18n();
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [groups, setGroups] = useState<ModifierGroup[]>([]);
@@ -95,18 +97,18 @@ export function ModifiersSection({
 
   if (status === 'loading') {
     return (
-      <FormSection title="Modifiers">
-        <LoadingState label="Loading modifiers…" />
+      <FormSection title={t('mod.title')}>
+        <LoadingState label={t('mod.loading')} />
       </FormSection>
     );
   }
 
   if (status === 'error') {
     return (
-      <FormSection title="Modifiers">
+      <FormSection title={t('mod.title')}>
         <Alert variant="error">{error}</Alert>
         <Button type="button" variant="secondary" onClick={() => void load()}>
-          Retry
+          {t('common.retry')}
         </Button>
       </FormSection>
     );
@@ -117,15 +119,11 @@ export function ModifiersSection({
   );
 
   return (
-    <FormSection title="Modifiers">
-      <p className="text-xs text-[#655D56]">
-        Required or optional choices Guests select before adding this Product to their Cart
-        (e.g. Size, Extras). Deactivating a Group/Option hides it from the Guest Menu without
-        affecting past Orders.
-      </p>
+    <FormSection title={t('mod.title')}>
+      <p className="text-xs text-[#655D56]">{t('mod.intro')}</p>
 
       {groups.length === 0 && addMode === 'none' ? (
-        <p className="text-sm text-[#655D56]">No Modifier Groups yet.</p>
+        <p className="text-sm text-[#655D56]">{t('mod.noGroups')}</p>
       ) : null}
 
       <div className="flex flex-col gap-4">
@@ -169,20 +167,20 @@ export function ModifiersSection({
 
       {addMode === 'none' ? (
         <Button type="button" variant="secondary" disabled={!canManage} onClick={() => setAddMode('choose')}>
-          + Add Modifier
+          {t('mod.add')}
         </Button>
       ) : null}
 
       {addMode === 'choose' ? (
         <div className="flex flex-wrap gap-2 rounded-md border border-[#E5DED6] p-3">
           <Button type="button" variant="secondary" onClick={() => setAddMode('preset')}>
-            Use Preset
+            {t('mod.usePreset')}
           </Button>
           <Button type="button" variant="secondary" onClick={() => setAddMode('custom')}>
-            Create Custom
+            {t('mod.createCustom')}
           </Button>
           <Button type="button" variant="secondary" onClick={() => setAddMode('none')}>
-            Cancel
+            {t('common.cancel')}
           </Button>
         </div>
       ) : null}
@@ -236,6 +234,7 @@ function UsePresetPicker({
   onCancel: () => void;
   onApplied: (group: ModifierGroup) => void;
 }) {
+  const { t } = useStaffI18n();
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [presets, setPresets] = useState<ModifierPreset[]>([]);
@@ -279,7 +278,7 @@ function UsePresetPicker({
         return;
       }
       if (err instanceof ApiError && err.code === 'MODIFIER_PRESET_ALREADY_APPLIED') {
-        setError('This preset is already attached to this Product.');
+        setError(t('mod.preset.alreadyAttached'));
         return;
       }
       setError(describeError(err));
@@ -291,7 +290,7 @@ function UsePresetPicker({
   if (status === 'loading') {
     return (
       <div className="rounded-md border border-[#E5DED6] p-4">
-        <LoadingState label="Loading presets…" />
+        <LoadingState label={t('mod.preset.loading')} />
       </div>
     );
   }
@@ -301,7 +300,7 @@ function UsePresetPicker({
       <div className="rounded-md border border-[#E5DED6] p-4">
         <Alert variant="error">{error}</Alert>
         <Button type="button" variant="secondary" onClick={onCancel}>
-          Close
+          {t('common.close')}
         </Button>
       </div>
     );
@@ -310,12 +309,9 @@ function UsePresetPicker({
   if (presets.length === 0) {
     return (
       <div className="flex flex-col gap-3 rounded-md border border-[#E5DED6] p-4">
-        <p className="text-sm text-[#655D56]">
-          No presets exist yet in the Modifier Library. Create one from Menu Management → Modifier
-          Library.
-        </p>
+        <p className="text-sm text-[#655D56]">{t('mod.preset.none')}</p>
         <Button type="button" variant="secondary" onClick={onCancel}>
-          Close
+          {t('common.close')}
         </Button>
       </div>
     );
@@ -324,7 +320,7 @@ function UsePresetPicker({
   return (
     <div className="flex flex-col gap-3 rounded-md border border-[#E5DED6] p-4">
       {error ? <Alert variant="error">{error}</Alert> : null}
-      <FormField label="Preset" htmlFor="use-preset-select">
+      <FormField label={t('mod.preset.label')} htmlFor="use-preset-select">
         <Select
           id="use-preset-select"
           value={selectedPresetId}
@@ -334,7 +330,7 @@ function UsePresetPicker({
           {presets.map((preset) => (
             <option key={preset.id} value={preset.id} disabled={alreadyAppliedPresetIds.has(preset.id)}>
               {preset.name}
-              {alreadyAppliedPresetIds.has(preset.id) ? ' (already attached)' : ''}
+              {alreadyAppliedPresetIds.has(preset.id) ? t('mod.preset.attachedSuffix') : ''}
             </option>
           ))}
         </Select>
@@ -345,10 +341,10 @@ function UsePresetPicker({
           disabled={isApplying || selectedPresetId === '' || alreadyAppliedPresetIds.has(selectedPresetId)}
           onClick={() => void handleApply()}
         >
-          {isApplying ? 'Applying…' : 'Apply Preset'}
+          {isApplying ? t('mod.preset.applying') : t('mod.preset.apply')}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isApplying}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>
@@ -380,6 +376,7 @@ function ModifierGroupCard({
   onGroupRemoved: (groupId: string) => void;
   onOptionRemoved: (groupId: string, optionId: string) => void;
 }) {
+  const { t } = useStaffI18n();
   const [isEditing, setIsEditing] = useState(false);
   const [isAddingOption, setIsAddingOption] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
@@ -406,7 +403,7 @@ function ModifierGroupCard({
   }
 
   async function handleDelete() {
-    if (!window.confirm(`Delete "${group.name}"? This cannot be undone.`)) {
+    if (!window.confirm(t('mod.confirmDelete', { name: group.name }))) {
       return;
     }
     setIsBusy(true);
@@ -425,7 +422,7 @@ function ModifierGroupCard({
   }
 
   async function handleRemoveFromProduct() {
-    if (!window.confirm(`Remove "${group.name}" from this Product?`)) {
+    if (!window.confirm(t('mod.confirmRemove', { name: group.name }))) {
       return;
     }
     setIsBusy(true);
@@ -453,24 +450,31 @@ function ModifierGroupCard({
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h3 className="text-sm font-semibold text-[#1D1A18]">{group.name}</h3>
+            <h3 dir="auto" className="text-start text-sm font-semibold text-[#1D1A18]">
+              {group.name}
+            </h3>
             {group.sourcePresetId ? (
               <span className="rounded-full bg-[#EEF3EE] px-2 py-0.5 text-xs text-[#2F6B4F]">
-                Based on preset
+                {t('mod.basedOnPreset')}
               </span>
             ) : null}
             {group.status === 'INACTIVE' ? (
               <span className="rounded-full bg-[#F1EDE7] px-2 py-0.5 text-xs text-[#655D56]">
-                Inactive
+                {t('common.inactive')}
               </span>
             ) : null}
           </div>
           {group.helperText ? (
-            <p className="text-xs text-[#655D56]">{group.helperText}</p>
+            <p dir="auto" className="text-start text-xs text-[#655D56]">
+              {group.helperText}
+            </p>
           ) : null}
           <p className="mt-1 text-xs text-[#655D56]">
-            {group.minimumSelections === 0 ? 'Optional' : 'Required'} · min {group.minimumSelections} ·
-            max {group.maximumSelections}
+            {t('mod.selectionRange', {
+              kind: group.minimumSelections === 0 ? t('mod.optional') : t('mod.required'),
+              min: group.minimumSelections,
+              max: group.maximumSelections,
+            })}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
@@ -485,7 +489,7 @@ function ModifierGroupCard({
               disabled={!canManage || isBusy}
               onClick={() => void handleRemoveFromProduct()}
             >
-              Remove from Product
+              {t('mod.removeFromProduct')}
             </Button>
           ) : (
             <>
@@ -495,7 +499,7 @@ function ModifierGroupCard({
                 disabled={!canManage}
                 onClick={() => setIsEditing((prev) => !prev)}
               >
-                {isEditing ? 'Close' : 'Edit'}
+                {isEditing ? t('common.close') : t('common.edit')}
               </Button>
               <Button
                 type="button"
@@ -503,7 +507,7 @@ function ModifierGroupCard({
                 disabled={!canManage || isBusy}
                 onClick={() => void toggleStatus()}
               >
-                {group.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                {group.status === 'ACTIVE' ? t('common.deactivate') : t('common.activate')}
               </Button>
               {group.canDelete ? (
                 <Button
@@ -512,7 +516,7 @@ function ModifierGroupCard({
                   disabled={!canManage || isBusy}
                   onClick={() => void handleDelete()}
                 >
-                  Delete
+                  {t('common.delete')}
                 </Button>
               ) : null}
             </>
@@ -581,7 +585,7 @@ function ModifierGroupCard({
             disabled={!canManage}
             onClick={() => setIsAddingOption(true)}
           >
-            Add Option
+            {t('mod.addOption')}
           </Button>
         </div>
       )}
@@ -610,12 +614,13 @@ function ModifierOptionRow({
   onChanged: (option: ModifierOption) => void;
   onRemoved: (optionId: string) => void;
 }) {
+  const { t } = useStaffI18n();
   const [isEditing, setIsEditing] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleDelete() {
-    if (!window.confirm(`Delete "${option.name}"? This cannot be undone.`)) {
+    if (!window.confirm(t('mod.confirmDelete', { name: option.name }))) {
       return;
     }
     setIsBusy(true);
@@ -712,30 +717,34 @@ function ModifierOptionRow({
   return (
     <div className="flex items-center justify-between gap-4 rounded-md bg-[#F8F5F1] px-3 py-2">
       <div className="flex flex-wrap items-center gap-2 text-sm text-[#302C29]">
-        <span>{option.name}</span>
-        <span className="text-[#655D56]">
+        <span dir="auto">{option.name}</span>
+        <bdi dir="ltr" className="text-[#655D56]">
           {option.priceAdjustment === '0.00' ? '+0.00' : `+${option.priceAdjustment}`} {currencyCode}
-        </span>
+        </bdi>
         {option.priceIsOverridden ? (
           <span className="rounded-full bg-[#FBF0DE] px-2 py-0.5 text-xs text-[#8A5138]">
-            Overridden for this Product
+            {t('mod.overridden')}
           </span>
         ) : option.sourcePresetOptionId ? (
-          <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#655D56]">Default</span>
+          <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#655D56]">
+            {t('menu.content.default')}
+          </span>
         ) : null}
         {option.status === 'INACTIVE' ? (
-          <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#655D56]">Inactive</span>
+          <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#655D56]">
+            {t('common.inactive')}
+          </span>
         ) : null}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
         {error ? <Alert variant="error">{error}</Alert> : null}
         {option.priceIsOverridden ? (
           <Button type="button" variant="secondary" disabled={!canManage || isBusy} onClick={() => void resetPrice()}>
-            Reset to preset
+            {t('mod.resetToPreset')}
           </Button>
         ) : null}
         <Button type="button" variant="secondary" disabled={!canManage} onClick={() => setIsEditing(true)}>
-          Edit
+          {t('common.edit')}
         </Button>
         <Button
           type="button"
@@ -743,7 +752,7 @@ function ModifierOptionRow({
           disabled={!canManage || isBusy}
           onClick={() => void toggleStatus()}
         >
-          {option.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+          {option.status === 'ACTIVE' ? t('common.deactivate') : t('common.activate')}
         </Button>
         {!option.sourcePresetOptionId && option.canDelete ? (
           <Button
@@ -752,7 +761,7 @@ function ModifierOptionRow({
             disabled={!canManage || isBusy}
             onClick={() => void handleDelete()}
           >
-            Delete
+            {t('common.delete')}
           </Button>
         ) : null}
       </div>
@@ -773,6 +782,7 @@ function NewModifierGroupForm({
   onCancel: () => void;
   onCreated: (group: ModifierGroup) => void;
 }) {
+  const { t } = useStaffI18n();
   const [name, setName] = useState('');
   const [helperText, setHelperText] = useState('');
   const [minimumSelections, setMinimumSelections] = useState('0');
@@ -782,21 +792,21 @@ function NewModifierGroupForm({
 
   async function handleSave() {
     if (name.trim() === '') {
-      setError('Name is required.');
+      setError(t('menu.tr.nameRequired'));
       return;
     }
     const minimum = Number(minimumSelections);
     const maximum = Number(maximumSelections);
     if (!Number.isInteger(minimum) || minimum < 0) {
-      setError('Minimum selections must be a whole number of 0 or more.');
+      setError(t('mod.err.minInvalid'));
       return;
     }
     if (!Number.isInteger(maximum) || maximum < 1) {
-      setError('Maximum selections must be a whole number of 1 or more.');
+      setError(t('mod.err.maxInvalid'));
       return;
     }
     if (maximum < minimum) {
-      setError('Maximum selections must be at least the minimum.');
+      setError(t('mod.err.maxLessThanMin'));
       return;
     }
 
@@ -826,10 +836,10 @@ function NewModifierGroupForm({
   return (
     <div className="rounded-md border border-[#E5DED6] p-4 flex flex-col gap-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
-      <FormField label="Name" htmlFor="new-group-name">
+      <FormField label={t('menu.tr.name')} htmlFor="new-group-name">
         <Input id="new-group-name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSubmitting} />
       </FormField>
-      <FormField label="Helper text (optional)" htmlFor="new-group-helper">
+      <FormField label={t('mod.helperOptional')} htmlFor="new-group-helper">
         <Input
           id="new-group-helper"
           value={helperText}
@@ -838,7 +848,7 @@ function NewModifierGroupForm({
         />
       </FormField>
       <div className="grid grid-cols-2 gap-3">
-        <FormField label="Minimum selections" htmlFor="new-group-min">
+        <FormField label={t('mod.minSelections')} htmlFor="new-group-min">
           <Input
             id="new-group-min"
             type="number"
@@ -849,7 +859,7 @@ function NewModifierGroupForm({
             disabled={isSubmitting}
           />
         </FormField>
-        <FormField label="Maximum selections" htmlFor="new-group-max">
+        <FormField label={t('mod.maxSelections')} htmlFor="new-group-max">
           <Input
             id="new-group-max"
             type="number"
@@ -863,10 +873,10 @@ function NewModifierGroupForm({
       </div>
       <div className="flex gap-2">
         <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
-          {isSubmitting ? 'Saving…' : 'Add Group'}
+          {isSubmitting ? t('common.saving') : t('mod.addGroup')}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>
@@ -888,6 +898,7 @@ function EditModifierGroupForm({
   onSaved: (group: ModifierGroup) => void;
   onCancel: () => void;
 }) {
+  const { t } = useStaffI18n();
   const [name, setName] = useState(group.name);
   const [helperText, setHelperText] = useState(group.helperText ?? '');
   const [minimumSelections, setMinimumSelections] = useState(String(group.minimumSelections));
@@ -943,32 +954,32 @@ function EditModifierGroupForm({
 
   const tabOptions: LanguageTabOption[] = defaultLocale
     ? [
-        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: t('menu.content.default') },
         ...secondaryLocales.map((locale) => ({
           locale,
           label: localeLabel(locale),
-          stateLabel: translations.drafts[locale]?.exists ? 'Translated' : 'Not translated yet',
+          stateLabel: translations.drafts[locale]?.exists ? t('menu.content.translated') : t('menu.content.notTranslated'),
         })),
       ]
     : [];
 
   async function handleSave() {
     if (name.trim() === '') {
-      setError('Name is required.');
+      setError(t('menu.tr.nameRequired'));
       return;
     }
     const minimum = Number(minimumSelections);
     const maximum = Number(maximumSelections);
     if (!Number.isInteger(minimum) || minimum < 0) {
-      setError('Minimum selections must be a whole number of 0 or more.');
+      setError(t('mod.err.minInvalid'));
       return;
     }
     if (!Number.isInteger(maximum) || maximum < 1) {
-      setError('Maximum selections must be a whole number of 1 or more.');
+      setError(t('mod.err.maxInvalid'));
       return;
     }
     if (maximum < minimum) {
-      setError('Maximum selections must be at least the minimum.');
+      setError(t('mod.err.maxLessThanMin'));
       return;
     }
 
@@ -1001,7 +1012,7 @@ function EditModifierGroupForm({
 
       {isDefaultTab ? (
         <>
-          <FormField label="Name" htmlFor={`edit-group-name-${group.id}`}>
+          <FormField label={t('menu.tr.name')} htmlFor={`edit-group-name-${group.id}`}>
             <Input
               id={`edit-group-name-${group.id}`}
               dir={dir}
@@ -1010,7 +1021,7 @@ function EditModifierGroupForm({
               disabled={isSubmitting}
             />
           </FormField>
-          <FormField label="Helper text (optional)" htmlFor={`edit-group-helper-${group.id}`}>
+          <FormField label={t('mod.helperOptional')} htmlFor={`edit-group-helper-${group.id}`}>
             <Input
               id={`edit-group-helper-${group.id}`}
               dir={dir}
@@ -1026,7 +1037,7 @@ function EditModifierGroupForm({
           locale={activeLocale}
           dir={dir}
           draft={translations.drafts[activeLocale]}
-          secondFieldLabel="Helper text"
+          secondFieldLabel={t('mod.helperText')}
           onChange={(patch) => translations.updateDraft(activeLocale, patch)}
           onSave={() => void translations.save(activeLocale)}
           onRemove={() => void translations.removeTranslation(activeLocale)}
@@ -1034,7 +1045,7 @@ function EditModifierGroupForm({
       )}
 
       <div className="grid grid-cols-2 gap-3">
-        <FormField label="Minimum selections" htmlFor={`edit-group-min-${group.id}`}>
+        <FormField label={t('mod.minSelections')} htmlFor={`edit-group-min-${group.id}`}>
           <Input
             id={`edit-group-min-${group.id}`}
             type="number"
@@ -1045,7 +1056,7 @@ function EditModifierGroupForm({
             disabled={isSubmitting}
           />
         </FormField>
-        <FormField label="Maximum selections" htmlFor={`edit-group-max-${group.id}`}>
+        <FormField label={t('mod.maxSelections')} htmlFor={`edit-group-max-${group.id}`}>
           <Input
             id={`edit-group-max-${group.id}`}
             type="number"
@@ -1059,10 +1070,10 @@ function EditModifierGroupForm({
       </div>
       <div className="flex gap-2">
         <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
-          {isSubmitting ? 'Saving…' : 'Save'}
+          {isSubmitting ? t('common.saving') : t('common.save')}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>
@@ -1084,6 +1095,7 @@ function NewModifierOptionForm({
   onCancel: () => void;
   onCreated: (option: ModifierOption) => void;
 }) {
+  const { t } = useStaffI18n();
   const [name, setName] = useState('');
   const [priceAdjustment, setPriceAdjustment] = useState('0.00');
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1091,11 +1103,11 @@ function NewModifierOptionForm({
 
   async function handleSave() {
     if (name.trim() === '') {
-      setError('Name is required.');
+      setError(t('menu.tr.nameRequired'));
       return;
     }
     if (!MONEY_DECIMAL_PATTERN.test(priceAdjustment)) {
-      setError('Price adjustment must be a non-negative decimal amount, e.g. 10.00.');
+      setError(t('mod.err.priceInvalid'));
       return;
     }
 
@@ -1124,7 +1136,7 @@ function NewModifierOptionForm({
     <div className="flex flex-col gap-3 rounded-md bg-[#F8F5F1] p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
       <div className="grid grid-cols-2 gap-3">
-        <FormField label="Name" htmlFor="new-option-name">
+        <FormField label={t('menu.tr.name')} htmlFor="new-option-name">
           <Input
             id="new-option-name"
             value={name}
@@ -1132,10 +1144,11 @@ function NewModifierOptionForm({
             disabled={isSubmitting}
           />
         </FormField>
-        <FormField label="Price adjustment" htmlFor="new-option-price">
+        <FormField label={t('mod.priceAdjustment')} htmlFor="new-option-price">
           <Input
             id="new-option-price"
             inputMode="decimal"
+            dir="ltr"
             value={priceAdjustment}
             onChange={(e) => setPriceAdjustment(e.target.value)}
             disabled={isSubmitting}
@@ -1144,10 +1157,10 @@ function NewModifierOptionForm({
       </div>
       <div className="flex gap-2">
         <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
-          {isSubmitting ? 'Saving…' : 'Add Option'}
+          {isSubmitting ? t('common.saving') : t('mod.addOption')}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>
@@ -1175,13 +1188,14 @@ function EditLinkedOptionPriceForm({
   onSaved: (option: ModifierOption) => void;
   onCancel: () => void;
 }) {
+  const { t } = useStaffI18n();
   const [priceAdjustment, setPriceAdjustment] = useState(option.priceAdjustment);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSave() {
     if (!MONEY_DECIMAL_PATTERN.test(priceAdjustment)) {
-      setError('Price adjustment must be a non-negative decimal amount, e.g. 10.00.');
+      setError(t('mod.err.priceInvalid'));
       return;
     }
 
@@ -1206,15 +1220,12 @@ function EditLinkedOptionPriceForm({
   return (
     <div className="flex flex-col gap-3 rounded-md bg-white p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
-      <p className="text-xs text-[#655D56]">
-        Changing the price here overrides it for THIS Product only -- the preset&apos;s own default
-        price (and every other Product using it) is unaffected. This Option&apos;s name and
-        translations are managed in Menu Management → Modifier Library.
-      </p>
-      <FormField label="Price adjustment" htmlFor={`edit-linked-option-price-${option.id}`}>
+      <p className="text-xs text-[#655D56]">{t('mod.linkedPriceNote')}</p>
+      <FormField label={t('mod.priceAdjustment')} htmlFor={`edit-linked-option-price-${option.id}`}>
         <Input
           id={`edit-linked-option-price-${option.id}`}
           inputMode="decimal"
+            dir="ltr"
           value={priceAdjustment}
           onChange={(e) => setPriceAdjustment(e.target.value)}
           disabled={isSubmitting}
@@ -1222,10 +1233,10 @@ function EditLinkedOptionPriceForm({
       </FormField>
       <div className="flex gap-2">
         <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
-          {isSubmitting ? 'Saving…' : 'Save'}
+          {isSubmitting ? t('common.saving') : t('common.save')}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>
@@ -1249,6 +1260,7 @@ function EditModifierOptionForm({
   onSaved: (option: ModifierOption) => void;
   onCancel: () => void;
 }) {
+  const { t } = useStaffI18n();
   const [name, setName] = useState(option.name);
   const [priceAdjustment, setPriceAdjustment] = useState(option.priceAdjustment);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -1298,22 +1310,22 @@ function EditModifierOptionForm({
 
   const tabOptions: LanguageTabOption[] = defaultLocale
     ? [
-        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: t('menu.content.default') },
         ...secondaryLocales.map((locale) => ({
           locale,
           label: localeLabel(locale),
-          stateLabel: translations.drafts[locale]?.exists ? 'Translated' : 'Not translated yet',
+          stateLabel: translations.drafts[locale]?.exists ? t('menu.content.translated') : t('menu.content.notTranslated'),
         })),
       ]
     : [];
 
   async function handleSave() {
     if (name.trim() === '') {
-      setError('Name is required.');
+      setError(t('menu.tr.nameRequired'));
       return;
     }
     if (!MONEY_DECIMAL_PATTERN.test(priceAdjustment)) {
-      setError('Price adjustment must be a non-negative decimal amount, e.g. 10.00.');
+      setError(t('mod.err.priceInvalid'));
       return;
     }
 
@@ -1344,7 +1356,7 @@ function EditModifierOptionForm({
 
       <div className="grid grid-cols-2 gap-3">
         {isDefaultTab ? (
-          <FormField label="Name" htmlFor={`edit-option-name-${option.id}`}>
+          <FormField label={t('menu.tr.name')} htmlFor={`edit-option-name-${option.id}`}>
             <Input
               id={`edit-option-name-${option.id}`}
               dir={dir}
@@ -1365,10 +1377,11 @@ function EditModifierOptionForm({
             onRemove={() => void translations.removeTranslation(activeLocale)}
           />
         )}
-        <FormField label="Price adjustment" htmlFor={`edit-option-price-${option.id}`}>
+        <FormField label={t('mod.priceAdjustment')} htmlFor={`edit-option-price-${option.id}`}>
           <Input
             id={`edit-option-price-${option.id}`}
             inputMode="decimal"
+            dir="ltr"
             value={priceAdjustment}
             onChange={(e) => setPriceAdjustment(e.target.value)}
             disabled={isSubmitting}
@@ -1377,10 +1390,10 @@ function EditModifierOptionForm({
       </div>
       <div className="flex gap-2">
         <Button type="button" disabled={isSubmitting} onClick={() => void handleSave()}>
-          {isSubmitting ? 'Saving…' : 'Save'}
+          {isSubmitting ? t('common.saving') : t('common.save')}
         </Button>
         <Button type="button" variant="secondary" onClick={onCancel} disabled={isSubmitting}>
-          Cancel
+          {t('common.cancel')}
         </Button>
       </div>
     </div>

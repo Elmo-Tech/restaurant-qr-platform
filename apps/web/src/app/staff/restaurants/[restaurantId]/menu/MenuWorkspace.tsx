@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { OpenGuestMenuButton } from '../../../../../components/menu/OpenGuestMenuButton';
 import { MenuSectionTabs } from './MenuSectionTabs';
 import * as menuApi from '../../../../../lib/menu/api';
@@ -72,6 +73,7 @@ export function MenuWorkspace({
   initialMenuId,
   initialCategoryId,
 }: MenuWorkspaceProps) {
+  const { t } = useStaffI18n();
   const [menus, setMenus] = useState<Menu[] | null>(null);
   const [menusError, setMenusError] = useState<string | null>(null);
   const [selectedMenuId, setSelectedMenuId] = useState<string | null>(null);
@@ -332,7 +334,7 @@ export function MenuWorkspace({
             className="px-2 py-1 text-xs"
             onClick={() => void loadMenus()}
           >
-            Retry
+            {t('common.retry')}
           </Button>
         </div>
       </Alert>
@@ -346,10 +348,8 @@ export function MenuWorkspace({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-lg font-semibold text-[#1D1A18]">Menu Management</h1>
-          <p className="mt-1 text-sm text-[#655D56]">
-            Manage menus, categories, products, pricing and availability.
-          </p>
+          <h1 className="text-lg font-semibold text-[#1D1A18]">{t('menu.title')}</h1>
+          <p className="mt-1 text-sm text-[#655D56]">{t('menu.subtitle')}</p>
         </div>
         <OpenGuestMenuButton restaurantId={restaurantId} />
       </div>
@@ -357,9 +357,7 @@ export function MenuWorkspace({
       <MenuSectionTabs restaurantId={restaurantId} active="products" />
 
       {!canManage && hasMenuManagePermission ? (
-        <Alert variant="info">
-          Full Restaurant branch scope is required to manage the Menu.
-        </Alert>
+        <Alert variant="info">{t('menu.needsFullScope')}</Alert>
       ) : null}
 
       <MenuContextBar

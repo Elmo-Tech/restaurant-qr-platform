@@ -1,1 +1,6 @@
 @import "tailwindcss";
+
+/* FT-10A: Latin text in IBM Plex Sans, Arabic glyphs in IBM Plex Sans Arabic. */
+body {
+  font-family: var(--font-plex-sans), var(--font-plex-sans-arabic), system-ui, sans-serif;
+}

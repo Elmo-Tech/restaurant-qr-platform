@@ -10,6 +10,7 @@ import {
   type RefObject,
   type SetStateAction,
 } from 'react';
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 import * as menuApi from '../../../../../lib/menu/api';
 import type {
   Category,
@@ -152,6 +153,7 @@ export function CategoryNavigation({
   onCategoryNotFound,
   onMenuNotFound,
 }: CategoryNavigationProps) {
+  const { t } = useStaffI18n();
   const [mode, setMode] = useState<'idle' | 'create' | 'edit'>('idle');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CategoryFormState>(EMPTY_FORM);
@@ -313,7 +315,7 @@ export function CategoryNavigation({
 
     const displayOrder = Number(form.displayOrder);
     if (!Number.isInteger(displayOrder) || displayOrder < 0) {
-      setFormError('Display order must be a whole number of 0 or more.');
+      setFormError(t('menu.form.displayOrderInvalid'));
       return;
     }
 
@@ -382,17 +384,19 @@ export function CategoryNavigation({
           // Save/Upload flows.
           const failures: string[] = [];
           if (translationFailures.length > 0) {
-            failures.push(`saving the ${translationFailures.join(', ')} translation failed`);
+            failures.push(t('menu.categories.failTranslation', { languages: translationFailures.join(', ') }));
           }
           if (imageUploadFailed) {
-            failures.push('the image upload failed');
+            failures.push(t('menu.categories.failImage'));
           }
           setMode('edit');
           setEditingId(created.id);
           setForm(toFormState(created));
           setEditingImageAssetPath(uploadedImageAssetPath);
           setPendingImageFile(null);
-          setFormError(`Category created, but ${failures.join(' and ')}. You can retry below.`);
+          setFormError(
+            t('menu.categories.createdPartial', { problems: failures.join(t('menu.form.and')) }),
+          );
           return;
         }
 
@@ -446,10 +450,16 @@ export function CategoryNavigation({
   const dialog = (
     <Dialog
       open={mode !== 'idle'}
-      title={mode === 'create' ? 'Create Category' : 'Edit Category'}
+      title={mode === 'create' ? t('menu.categories.create') : t('menu.categories.edit')}
       subtitle={currentMenuName || undefined}
       isSubmitting={isSubmitting || imageUploadBusy}
-      submitLabel={isSubmitting ? 'Saving…' : mode === 'create' ? 'Create Category' : 'Save changes'}
+      submitLabel={
+        isSubmitting
+          ? t('common.saving')
+          : mode === 'create'
+            ? t('menu.categories.create')
+            : t('menu.form.saveChanges')
+      }
       onSubmit={handleSubmit}
       onClose={cancelForm}
       initialFocusRef={nameRef}
@@ -483,12 +493,12 @@ export function CategoryNavigation({
   return (
     <Card className="flex min-w-0 flex-col gap-3 xl:h-fit">
       <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[#302C29]">Categories</h2>
+        <h2 className="text-sm font-semibold text-[#302C29]">{t('menu.categories.title')}</h2>
         {canManage && menuId ? (
           <button
             type="button"
             onClick={startCreate}
-            aria-label="Add Category"
+            aria-label={t('menu.categories.add')}
             className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#7A5138] hover:bg-[#F8F5F1]"
           >
             <IconPlus className="h-4 w-4" />
@@ -497,7 +507,7 @@ export function CategoryNavigation({
       </div>
 
       {!menuId ? (
-        <p className="text-sm text-[#655D56]">Select a Menu to see its Categories.</p>
+        <p className="text-sm text-[#655D56]">{t('menu.categories.selectMenu')}</p>
       ) : (
         <>
           {error ? (
@@ -505,25 +515,23 @@ export function CategoryNavigation({
               <div className="flex items-center justify-between gap-4">
                 <span>{error}</span>
                 <Button variant="secondary" className="px-2 py-1 text-xs" onClick={onRetry}>
-                  Retry
+                  {t('common.retry')}
                 </Button>
               </div>
             </Alert>
           ) : null}
 
-          {categories === null && !error ? <LoadingState label="Loading Categories…" /> : null}
+          {categories === null && !error ? <LoadingState label={t('menu.categories.loading')} /> : null}
 
           {categories !== null && categories.length === 0 ? (
             <div className="flex flex-col gap-3">
               <div>
-                <p className="text-sm font-medium text-[#302C29]">No categories in this menu</p>
-                <p className="mt-1 text-sm text-[#655D56]">
-                  Create a category before adding products.
-                </p>
+                <p className="text-sm font-medium text-[#302C29]">{t('menu.categories.emptyTitle')}</p>
+                <p className="mt-1 text-sm text-[#655D56]">{t('menu.categories.emptyHint')}</p>
               </div>
               {canManage ? (
                 <Button variant="secondary" className="self-start px-3 py-1.5 text-xs" onClick={startCreate}>
-                  <IconPlus className="mr-1 h-3.5 w-3.5" /> Add Category
+                  <IconPlus className="me-1 h-3.5 w-3.5" /> {t('menu.categories.add')}
                 </Button>
               ) : null}
             </div>
@@ -546,25 +554,27 @@ export function CategoryNavigation({
                         type="button"
                         onClick={() => onSelectCategory(category.id)}
                         aria-current={isSelected ? 'true' : undefined}
-                        className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-md py-1.5 pl-1.5 pr-1 text-left text-sm xl:w-full xl:whitespace-normal ${
+                        className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-md py-1.5 ps-1.5 pe-1 text-start text-sm xl:w-full xl:whitespace-normal ${
                           isSelected ? 'font-medium text-[#1D1A18]' : 'text-[#302C29]'
                         }`}
                       >
                         <span className="flex min-w-0 items-center gap-2">
                           <CategoryThumbnail imageAssetPath={category.imageAssetPath} />
-                          <span className="truncate">{category.translation.name}</span>
+                          <span dir="auto" className="truncate">
+                            {category.translation.name}
+                          </span>
                         </span>
                         {category.status === 'INACTIVE' ? (
-                          <span className="text-xs text-[#8A8177]">Inactive</span>
+                          <span className="text-xs text-[#8A8177]">{t('common.inactive')}</span>
                         ) : (
-                          <span className="hidden text-xs text-[#AFA397] xl:inline">Active</span>
+                          <span className="hidden text-xs text-[#AFA397] xl:inline">{t('common.active')}</span>
                         )}
                       </button>
                       {canManage ? (
                         <button
                           type="button"
                           onClick={() => startEdit(category)}
-                          aria-label={`Edit ${category.translation.name}`}
+                          aria-label={t('menu.products.editAria', { name: category.translation.name })}
                           className="inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-[#AFA397] hover:bg-white hover:text-[#7A5138] xl:opacity-0 xl:group-hover:opacity-100"
                         >
                           <IconPencil className="h-3.5 w-3.5" />
@@ -634,11 +644,12 @@ function CategoryFormFields({
   imageBusy: boolean;
   imageError: string | null;
 }) {
+  const { t } = useStaffI18n();
   return (
     <div className="flex flex-col gap-6">
       {formError ? <Alert variant="error">{formError}</Alert> : null}
 
-      <FormSection title="Image">
+      <FormSection title={t('menu.form.image')}>
         <ImageField
           idPrefix="category"
           imageUrl={imageUrl}
@@ -646,28 +657,28 @@ function CategoryFormFields({
           onRemove={hasRemovableImage ? onRemoveImage : undefined}
           isBusy={imageBusy || isSubmitting}
           error={imageError}
-          selectLabel={imageUrl ? 'Replace image' : 'Choose image'}
+          selectLabel={imageUrl ? t('menu.form.replaceImage') : t('menu.form.chooseImage')}
           helperText={
             mode === 'create'
-              ? 'JPEG, PNG, or WebP, up to 5 MB. Uploaded once the Category is created.'
-              : 'JPEG, PNG, or WebP, up to 5 MB.'
+              ? t('menu.categories.imageHintCreate')
+              : t('menu.form.imageHint')
           }
         />
       </FormSection>
 
-      <FormSection title="General">
-        <FormField label="Status" htmlFor="category-status">
+      <FormSection title={t('menu.form.general')}>
+        <FormField label={t('menu.form.status')} htmlFor="category-status">
           <Select
             id="category-status"
             value={form.status}
             onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as CategoryStatus }))}
             disabled={isSubmitting}
           >
-            <option value="ACTIVE">Active</option>
-            <option value="INACTIVE">Inactive</option>
+            <option value="ACTIVE">{t('common.active')}</option>
+            <option value="INACTIVE">{t('common.inactive')}</option>
           </Select>
           {form.status === 'INACTIVE' ? (
-            <p className="mt-1 text-xs text-[#655D56]">Inactive items are hidden from Guest Menu.</p>
+            <p className="mt-1 text-xs text-[#655D56]">{t('menu.form.inactiveHint')}</p>
           ) : null}
         </FormField>
       </FormSection>
@@ -694,16 +705,18 @@ function CategoryFormFields({
         />
       )}
 
-      <FormSection title="Organization">
+      <FormSection title={t('menu.form.organization')}>
         {mode === 'edit' && moveTargets.length > 0 ? (
-          <FormField label="Menu" htmlFor="category-move">
+          <FormField label={t('menu.menus.label')} htmlFor="category-move">
             <Select
               id="category-move"
               value={form.targetMenuId}
               onChange={(event) => setForm((prev) => ({ ...prev, targetMenuId: event.target.value }))}
               disabled={isSubmitting}
             >
-              <option value={KEEP_CURRENT_MENU}>{currentMenuName} (current)</option>
+              <option value={KEEP_CURRENT_MENU}>
+                {t('menu.categories.currentMenu', { name: currentMenuName })}
+              </option>
               {moveTargets.map((menu) => (
                 <option key={menu.id} value={menu.id}>
                   {menu.translation.name}
@@ -713,7 +726,7 @@ function CategoryFormFields({
           </FormField>
         ) : (
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-[#302C29]">Menu</span>
+            <span className="text-sm font-medium text-[#302C29]">{t('menu.menus.label')}</span>
             <p className="rounded-md border border-[#E5DED6] bg-[#F8F5F1] px-3 py-2 text-sm text-[#302C29]">
               {currentMenuName}
             </p>
@@ -721,8 +734,8 @@ function CategoryFormFields({
         )}
       </FormSection>
 
-      <FormSection title="Advanced">
-        <FormField label="Display order" htmlFor="category-displayOrder">
+      <FormSection title={t('menu.form.advanced')}>
+        <FormField label={t('menu.form.displayOrder')} htmlFor="category-displayOrder">
           <Input
             id="category-displayOrder"
             type="number"
@@ -764,6 +777,7 @@ function CategoryCreateLanguages({
   secondaryDrafts: SecondaryDrafts;
   setSecondaryDrafts: Dispatch<SetStateAction<SecondaryDrafts>>;
 }) {
+  const { t } = useStaffI18n();
   const defaultLocale = locales?.defaultLocale ?? null;
   const secondaryLocales = useMemo(
     () =>
@@ -778,11 +792,11 @@ function CategoryCreateLanguages({
 
   const tabOptions: LanguageTabOption[] = defaultLocale
     ? [
-        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: t('menu.content.default') },
         ...secondaryLocales.map((locale) => ({
           locale,
           label: localeLabel(locale),
-          stateLabel: secondaryDrafts[locale]?.name.trim() ? 'Draft entered' : 'Not translated yet',
+          stateLabel: secondaryDrafts[locale]?.name.trim() ? t('menu.content.draftEntered') : t('menu.content.notTranslated'),
         })),
       ]
     : [];
@@ -795,12 +809,12 @@ function CategoryCreateLanguages({
   }
 
   return (
-    <FormSection title="Languages">
+    <FormSection title={t('menu.form.contentLanguages')}>
       <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
 
       {isDefaultTab ? (
         <>
-          <FormField label="Name" htmlFor="category-name">
+          <FormField label={t('menu.tr.name')} htmlFor="category-name">
             <Input
               id="category-name"
               ref={nameRef}
@@ -811,7 +825,7 @@ function CategoryCreateLanguages({
               disabled={isSubmitting}
             />
           </FormField>
-          <FormField label="Description" htmlFor="category-description">
+          <FormField label={t('menu.tr.description')} htmlFor="category-description">
             <Textarea
               id="category-description"
               dir={dir}
@@ -823,8 +837,8 @@ function CategoryCreateLanguages({
         </>
       ) : (
         <>
-          <p className="text-xs text-[#655D56]">Optional -- leave blank to skip this language for now.</p>
-          <FormField label="Name" htmlFor={`category-create-name-${activeLocale}`}>
+          <p className="text-xs text-[#655D56]">{t('menu.form.optionalLanguage')}</p>
+          <FormField label={t('menu.tr.name')} htmlFor={`category-create-name-${activeLocale}`}>
             <Input
               id={`category-create-name-${activeLocale}`}
               dir={dir}
@@ -833,7 +847,7 @@ function CategoryCreateLanguages({
               disabled={isSubmitting}
             />
           </FormField>
-          <FormField label="Description" htmlFor={`category-create-description-${activeLocale}`}>
+          <FormField label={t('menu.tr.description')} htmlFor={`category-create-description-${activeLocale}`}>
             <Textarea
               id={`category-create-description-${activeLocale}`}
               dir={dir}
@@ -872,6 +886,7 @@ function CategoryTranslationSection({
   isSubmitting: boolean;
   nameRef: RefObject<HTMLInputElement | null>;
 }) {
+  const { t } = useStaffI18n();
   const defaultLocale = locales?.defaultLocale ?? null;
   // Memoized: see MenuContextBar's identical note -- an unstable array
   // identity here would make useTranslationsEditor re-fetch (and wipe
@@ -899,22 +914,22 @@ function CategoryTranslationSection({
 
   const tabOptions: LanguageTabOption[] = defaultLocale
     ? [
-        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: t('menu.content.default') },
         ...secondaryLocales.map((locale) => ({
           locale,
           label: localeLabel(locale),
-          stateLabel: translations.drafts[locale]?.exists ? 'Translated' : 'Not translated yet',
+          stateLabel: translations.drafts[locale]?.exists ? t('menu.content.translated') : t('menu.content.notTranslated'),
         })),
       ]
     : [];
 
   return (
-    <FormSection title="Languages">
+    <FormSection title={t('menu.form.contentLanguages')}>
       <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
 
       {isDefaultTab ? (
         <>
-          <FormField label="Name" htmlFor="category-name">
+          <FormField label={t('menu.tr.name')} htmlFor="category-name">
             <Input
               id="category-name"
               ref={nameRef}
@@ -925,7 +940,7 @@ function CategoryTranslationSection({
               disabled={isSubmitting}
             />
           </FormField>
-          <FormField label="Description" htmlFor="category-description">
+          <FormField label={t('menu.tr.description')} htmlFor="category-description">
             <Textarea
               id="category-description"
               dir={dir}

@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import * as settingsApi from '../../../../../../lib/settings/api';
 import type { RestaurantLocalesResponse } from '../../../../../../lib/settings/types';
 import {
@@ -42,6 +43,7 @@ export function LanguagesWorkspace({
   canManage,
   hasRestaurantManagePermission,
 }: LanguagesWorkspaceProps) {
+  const { t } = useStaffI18n();
   const [data, setData] = useState<RestaurantLocalesResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingLocale, setPendingLocale] = useState<string | null>(null);
@@ -129,31 +131,25 @@ export function LanguagesWorkspace({
     <div className="flex flex-col gap-6">
       <div>
         <h1 className="text-lg font-semibold text-[#1D1A18]">
-          Restaurant Settings
+          {t('settings.title')}
         </h1>
-        <p className="mt-1 text-sm text-[#655D56]">
-          Manage configuration for this restaurant.
-        </p>
+        <p className="mt-1 text-sm text-[#655D56]">{t('settings.subtitle')}</p>
       </div>
 
       <SettingsTabs restaurantId={restaurantId} active="languages" />
 
       <div className="flex flex-col gap-5">
         <div>
-          <h2 className="text-base font-semibold text-[#1D1A18]">Languages</h2>
-          <p className="mt-1 text-sm text-[#655D56]">
-            Choose which languages your menu content can be translated into.
-          </p>
+          <h2 className="text-base font-semibold text-[#1D1A18]">
+            {t('settings.languages.heading')}
+          </h2>
+          <p className="mt-1 text-sm text-[#655D56]">{t('settings.languages.description')}</p>
         </div>
 
         {!canManage && hasRestaurantManagePermission ? (
-          <Alert variant="info">
-            Full Restaurant branch scope is required to manage Languages.
-          </Alert>
+          <Alert variant="info">{t('settings.languages.needsFullScope')}</Alert>
         ) : !canManage ? (
-          <Alert variant="info">
-            You have view-only access to Restaurant Settings.
-          </Alert>
+          <Alert variant="info">{t('settings.languages.viewOnly')}</Alert>
         ) : null}
 
         {loadError && !data ? (
@@ -165,12 +161,12 @@ export function LanguagesWorkspace({
                 className="px-2 py-1 text-xs"
                 onClick={() => void loadLocales()}
               >
-                Retry
+                {t('common.retry')}
               </Button>
             </div>
           </Alert>
         ) : !data ? (
-          <LoadingState label="Loading languages…" />
+          <LoadingState label={t('settings.languages.loading')} />
         ) : (
           <>
             <div className="flex flex-col gap-3">
@@ -189,11 +185,7 @@ export function LanguagesWorkspace({
               <Alert variant="error">{mutationError.message}</Alert>
             ) : null}
 
-            <p className="text-xs text-[#655D56]">
-              Disabling a language hides it from editing for now. Existing
-              translations are kept and become available again if you
-              re-enable it.
-            </p>
+            <p className="text-xs text-[#655D56]">{t('settings.languages.disableNote')}</p>
           </>
         )}
       </div>

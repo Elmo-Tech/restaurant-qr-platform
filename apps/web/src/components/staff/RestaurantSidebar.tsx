@@ -10,6 +10,7 @@ import {
   IconSettings,
   IconStaff,
 } from './icons';
+import { useStaffI18n } from '../../lib/i18n/client';
 
 export type StaffSection = 'dashboard' | 'menu' | 'tables' | 'orders' | 'settings' | null;
 
@@ -24,7 +25,7 @@ interface DisabledNavItem {
   key: string;
   label: string;
   icon: ReactNode;
-  badge: 'Soon' | 'No access';
+  badge: string;
 }
 
 interface RestaurantSidebarProps {
@@ -110,6 +111,7 @@ function SidebarContent({
   canViewRestaurantSettings: boolean;
   onNavigate?: () => void;
 }) {
+  const { t } = useStaffI18n();
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 px-5 py-5">
@@ -117,20 +119,20 @@ function SidebarContent({
           R
         </span>
         <span className="text-sm font-semibold leading-tight text-[#1D1A18]">
-          Restaurant QR Platform
+          {t('shell.productName')}
         </span>
       </div>
 
       <div className="px-5 pb-4">
         <p className="text-[11px] font-medium uppercase tracking-wide text-[#AFA397]">
-          Restaurant
+          {t('shell.restaurant')}
         </p>
-        <p className="mt-1 truncate text-sm font-medium text-[#302C29]">
+        <p dir="auto" className="mt-1 truncate text-sm font-medium text-[#302C29]">
           {restaurantName}
         </p>
         {restaurantStatus !== 'ACTIVE' ? (
           <span className="mt-1 inline-block rounded-full bg-[#B3261E]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#B3261E]">
-            {restaurantStatus === 'SUSPENDED' ? 'Suspended' : 'Inactive'}
+            {restaurantStatus === 'SUSPENDED' ? t('common.suspended') : t('common.inactive')}
           </span>
         ) : null}
       </div>
@@ -140,7 +142,7 @@ function SidebarContent({
           <ActiveLink
             item={{
               key: 'dashboard',
-              label: 'Dashboard',
+              label: t('nav.dashboard'),
               href: `/staff/restaurants/${restaurantId}`,
               icon: <IconDashboard className={ICON_CLASS} />,
             }}
@@ -151,7 +153,7 @@ function SidebarContent({
             <ActiveLink
               item={{
                 key: 'menu',
-                label: 'Menu Management',
+                label: t('nav.menu'),
                 href: `/staff/restaurants/${restaurantId}/menu`,
                 icon: <IconMenu className={ICON_CLASS} />,
               }}
@@ -162,9 +164,9 @@ function SidebarContent({
             <DisabledRow
               item={{
                 key: 'menu',
-                label: 'Menu Management',
+                label: t('nav.menu'),
                 icon: <IconMenu className={ICON_CLASS} />,
-                badge: 'No access',
+                badge: t('common.noAccess'),
               }}
             />
           )}
@@ -172,7 +174,7 @@ function SidebarContent({
             <ActiveLink
               item={{
                 key: 'tables',
-                label: 'Tables & QR',
+                label: t('nav.tables'),
                 href: `/staff/restaurants/${restaurantId}/tables`,
                 icon: <IconQr className={ICON_CLASS} />,
               }}
@@ -183,9 +185,9 @@ function SidebarContent({
             <DisabledRow
               item={{
                 key: 'tables',
-                label: 'Tables & QR',
+                label: t('nav.tables'),
                 icon: <IconQr className={ICON_CLASS} />,
-                badge: 'No access',
+                badge: t('common.noAccess'),
               }}
             />
           )}
@@ -193,7 +195,7 @@ function SidebarContent({
             <ActiveLink
               item={{
                 key: 'orders',
-                label: 'Orders',
+                label: t('nav.orders'),
                 href: `/staff/restaurants/${restaurantId}/orders`,
                 icon: <IconOrders className={ICON_CLASS} />,
               }}
@@ -204,24 +206,24 @@ function SidebarContent({
             <DisabledRow
               item={{
                 key: 'orders',
-                label: 'Orders',
+                label: t('nav.orders'),
                 icon: <IconOrders className={ICON_CLASS} />,
-                badge: 'No access',
+                badge: t('common.noAccess'),
               }}
             />
           )}
         </ul>
 
         <p className="mb-1 mt-5 px-3 text-[11px] font-medium uppercase tracking-wide text-[#AFA397]">
-          Coming soon
+          {t('nav.comingSoonSection')}
         </p>
         <ul className="flex flex-col gap-0.5">
           <DisabledRow
             item={{
               key: 'staff',
-              label: 'Staff & Access',
+              label: t('nav.staff'),
               icon: <IconStaff className={ICON_CLASS} />,
-              badge: 'Soon',
+              badge: t('common.soon'),
             }}
           />
         </ul>
@@ -232,7 +234,7 @@ function SidebarContent({
               <ActiveLink
                 item={{
                   key: 'settings',
-                  label: 'Restaurant Settings',
+                  label: t('nav.settings'),
                   href: `/staff/restaurants/${restaurantId}/settings/languages`,
                   icon: <IconSettings className={ICON_CLASS} />,
                 }}
@@ -243,9 +245,9 @@ function SidebarContent({
               <DisabledRow
                 item={{
                   key: 'settings',
-                  label: 'Restaurant Settings',
+                  label: t('nav.settings'),
                   icon: <IconSettings className={ICON_CLASS} />,
-                  badge: 'No access',
+                  badge: t('common.noAccess'),
                 }}
               />
             )}
@@ -286,9 +288,10 @@ export function RestaurantSidebar({
   isMobileOpen,
   onCloseMobile,
 }: RestaurantSidebarProps) {
+  const { t } = useStaffI18n();
   return (
     <>
-      <aside className="hidden w-64 flex-shrink-0 border-r border-[#E5DED6] bg-white lg:flex lg:flex-col">
+      <aside className="hidden w-64 flex-shrink-0 border-e border-[#E5DED6] bg-white lg:flex lg:flex-col">
         <SidebarContent
           restaurantId={restaurantId}
           restaurantName={restaurantName}
@@ -308,12 +311,12 @@ export function RestaurantSidebar({
             onClick={onCloseMobile}
             aria-hidden="true"
           />
-          <div className="absolute inset-y-0 left-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl">
+          <div className="absolute inset-y-0 start-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl">
             <div className="flex justify-end px-3 pt-3">
               <button
                 type="button"
                 onClick={onCloseMobile}
-                aria-label="Close navigation"
+                aria-label={t('shell.closeNavigation')}
                 className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#655D56] hover:bg-[#F8F5F1]"
               >
                 <IconClose className="h-5 w-5" />

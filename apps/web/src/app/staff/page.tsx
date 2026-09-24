@@ -4,6 +4,8 @@ import { getAuthSessionState } from '../../lib/auth/session';
 import { Alert } from '../../components/ui/Alert';
 import { Card } from '../../components/ui/Card';
 import { LogoutButton } from './LogoutButton';
+import { StaffLanguageSwitcher } from '../../components/staff/StaffLanguageSwitcher';
+import { getStaffI18n } from '../../lib/i18n/server';
 
 /**
  * Restaurant discovery/selection (Section 8): the Backend-authorized
@@ -26,7 +28,7 @@ import { LogoutButton } from './LogoutButton';
  * routes gained their own full shell.
  */
 export default async function StaffHomePage() {
-  const sessionState = await getAuthSessionState();
+  const [sessionState, { t }] = await Promise.all([getAuthSessionState(), getStaffI18n()]);
 
   if (sessionState.status === 'unauthenticated') {
     redirect('/login');
@@ -50,34 +52,39 @@ export default async function StaffHomePage() {
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-[#E5DED6] bg-white px-6 py-3">
         <span className="text-sm font-semibold text-[#302C29]">
-          Restaurant QR Platform
+          {t('shell.productName')}
         </span>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-[#655D56]">{user.email}</span>
+          <StaffLanguageSwitcher />
+          <span dir="ltr" className="text-sm text-[#655D56]">{user.email}</span>
           <LogoutButton />
         </div>
       </header>
       <main className="mx-auto max-w-3xl px-6 py-8">
         {memberships.length === 0 ? (
           <Alert variant="info">
-            You do not have access to any Restaurant yet. Contact your
-            Restaurant owner for an invitation.
+            {t('guard.noRestaurants')}
           </Alert>
         ) : (
           <div className="flex flex-col gap-4">
             <h1 className="text-lg font-semibold text-[#1D1A18]">
-              Your Restaurants
+              {t('staffHome.yourRestaurants')}
             </h1>
             <ul className="flex flex-col gap-3">
               {memberships.map((membership) => (
                 <li key={membership.id}>
                   <Link href={`/staff/restaurants/${membership.restaurant.id}`}>
                     <Card className="transition-colors hover:border-[#7A5138]">
-                      <p className="font-medium text-[#1D1A18]">
+                      <p dir="auto" className="font-medium text-[#1D1A18]">
                         {membership.restaurant.name}
                       </p>
                       <p className="text-sm text-[#655D56]">
-                        {membership.role} · {membership.restaurant.status}
+                        {t(`role.${membership.role}` as const)} ·{' '}
+                        {membership.restaurant.status === 'ACTIVE'
+                          ? t('common.active')
+                          : membership.restaurant.status === 'SUSPENDED'
+                            ? t('common.suspended')
+                            : t('common.inactive')}
                       </p>
                     </Card>
                   </Link>

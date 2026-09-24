@@ -1,26 +1,28 @@
 'use client';
 
 import { useEffect, useRef } from 'react';
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
 import { IconClose } from '../../../../../components/staff/icons';
 import type { OrderDetail, OrderStatus } from '../../../../../lib/orders/types';
 import type { OrderTransitionOption } from '../../../../../lib/orders/transitions';
+import type { MessageKey } from '../../../../../lib/i18n/messages';
 import { formatOrderTime } from '../../../../../lib/orders/order-views';
 import { OrderReceipt } from './OrderReceipt';
 import { OrderTypeBadge } from './OrderTypeBadge';
 import { StatusBadge } from './StatusBadge';
 
-const TRANSITION_LABELS: Record<OrderStatus, string> = {
-  PENDING: 'Reopen',
-  ACCEPTED: 'Accept',
-  PREPARING: 'Start preparing',
-  READY: 'Mark ready',
-  OUT_FOR_DELIVERY: 'Out for delivery',
-  SERVED: 'Mark served',
-  REJECTED: 'Reject',
-  CANCELLED: 'Cancel',
-};
+const TRANSITION_KEYS = {
+  PENDING: 'orders.action.reopen',
+  ACCEPTED: 'orders.action.accept',
+  PREPARING: 'orders.action.startPreparing',
+  READY: 'orders.action.markReady',
+  OUT_FOR_DELIVERY: 'orders.action.outForDelivery',
+  SERVED: 'orders.action.markServed',
+  REJECTED: 'orders.action.reject',
+  CANCELLED: 'orders.action.cancel',
+} as const satisfies Record<OrderStatus, MessageKey>;
 
 function isDestructive(status: OrderStatus): boolean {
   return status === 'REJECTED' || status === 'CANCELLED';
@@ -52,6 +54,7 @@ export function OrderDetailDialog({
   onTransition: (to: OrderStatus) => void;
   onClose: () => void;
 }) {
+  const { t, formatDateTime, formatTime, formatDayMonth } = useStaffI18n();
   const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   // `onClose` is a fresh function on every parent render, and the parent
@@ -78,20 +81,20 @@ export function OrderDetailDialog({
   const isPickup = order.type === 'PICKUP';
   const isDelivery = order.type === 'DELIVERY';
   const identity = isPickup
-    ? (order.customer?.name ?? 'Pickup order')
+    ? (order.customer?.name ?? t('orders.detail.pickupOrder'))
     : isDelivery
-      ? (order.customer?.name ?? 'Delivery order')
-      : `Table ${order.table?.tableNumber ?? '—'}`;
+      ? (order.customer?.name ?? t('orders.detail.deliveryOrder'))
+      : t('orders.card.table', { number: order.table?.tableNumber ?? '—' });
 
-  const destructiveTransitions = availableTransitions.filter((t) => isDestructive(t.to));
-  const forwardTransitions = availableTransitions.filter((t) => !isDestructive(t.to));
+  const destructiveTransitions = availableTransitions.filter((option) => isDestructive(option.to));
+  const forwardTransitions = availableTransitions.filter((option) => !isDestructive(option.to));
 
   // The stored statuses never change with the order type; only the wording
   // does: Pickup "Mark picked up", Delivery "Out for delivery" / "Mark delivered".
   function transitionLabel(to: OrderStatus): string {
-    if (to === 'SERVED' && isPickup) return 'Mark picked up';
-    if (to === 'SERVED' && isDelivery) return 'Mark delivered';
-    return TRANSITION_LABELS[to];
+    if (to === 'SERVED' && isPickup) return t('orders.action.markPickedUp');
+    if (to === 'SERVED' && isDelivery) return t('orders.action.markDelivered');
+    return t(TRANSITION_KEYS[to]);
   }
   const showFee = isDelivery;
 
@@ -116,20 +119,27 @@ export function OrderDetailDialog({
               </div>
               <h2
                 id="order-detail-title"
-                className="mt-2 truncate text-xl font-semibold text-[#1D1A18]"
+                dir="auto"
+                className="mt-2 truncate text-start text-xl font-semibold text-[#1D1A18]"
               >
                 {identity}
               </h2>
               <p className="mt-0.5 text-sm text-[#655D56]">
-                {order.branch.name} · {formatOrderTime(order.createdAt)} ·{' '}
-                {new Date(order.createdAt).toLocaleString()}
+                <bdi dir="auto">{order.branch.name}</bdi> ·{' '}
+                {formatOrderTime(order.createdAt, {
+                  t,
+                  tMinutes: (count) => t('orders.time.minutesAgo', { count }),
+                  formatTime,
+                  formatDayMonth,
+                })}{' '}
+                · <bdi dir="ltr">{formatDateTime(order.createdAt)}</bdi>
               </p>
             </div>
             <button
               ref={closeButtonRef}
               type="button"
               onClick={onClose}
-              aria-label="Close"
+              aria-label={t('common.close')}
               className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-[#655D56] hover:bg-[#F8F5F1]"
             >
               <IconClose className="h-4 w-4" />
@@ -145,27 +155,27 @@ export function OrderDetailDialog({
                   id="pickup-details-title"
                   className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#4B2E86]"
                 >
-                  Pickup details
+                  {t('orders.detail.pickupDetails')}
                 </h3>
                 <dl className="flex flex-col gap-1.5 text-sm text-[#302C29]">
                   <div className="flex justify-between gap-4">
-                    <dt className="text-[#655D56]">Branch</dt>
-                    <dd className="text-end font-medium">{order.branch.name}</dd>
+                    <dt className="text-[#655D56]">{t('orders.detail.branch')}</dt>
+                    <dd dir="auto" className="text-end font-medium">{order.branch.name}</dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="text-[#655D56]">Customer</dt>
-                    <dd className="text-end font-medium">{order.customer.name}</dd>
+                    <dt className="text-[#655D56]">{t('orders.detail.customer')}</dt>
+                    <dd dir="auto" className="text-end font-medium">{order.customer.name}</dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="text-[#655D56]">Phone</dt>
+                    <dt className="text-[#655D56]">{t('orders.detail.phone')}</dt>
                     <dd dir="ltr" className="text-end font-medium">
                       {order.customer.phone}
                     </dd>
                   </div>
                   {order.customer.notes ? (
                     <div className="flex justify-between gap-4">
-                      <dt className="text-[#655D56]">Notes</dt>
-                      <dd className="text-end">{order.customer.notes}</dd>
+                      <dt className="text-[#655D56]">{t('orders.detail.notes')}</dt>
+                      <dd dir="auto" className="text-end">{order.customer.notes}</dd>
                     </div>
                   ) : null}
                 </dl>
@@ -178,59 +188,59 @@ export function OrderDetailDialog({
                   id="delivery-details-title"
                   className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#1D5F5A]"
                 >
-                  Delivery details
+                  {t('orders.detail.deliveryDetails')}
                 </h3>
                 <dl className="flex flex-col gap-1.5 text-sm text-[#302C29]">
                   <div className="flex justify-between gap-4">
-                    <dt className="text-[#655D56]">Branch</dt>
-                    <dd className="text-end font-medium">{order.branch.name}</dd>
+                    <dt className="text-[#655D56]">{t('orders.detail.branch')}</dt>
+                    <dd dir="auto" className="text-end font-medium">{order.branch.name}</dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="text-[#655D56]">Customer</dt>
-                    <dd className="text-end font-medium">{order.customer.name}</dd>
+                    <dt className="text-[#655D56]">{t('orders.detail.customer')}</dt>
+                    <dd dir="auto" className="text-end font-medium">{order.customer.name}</dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="text-[#655D56]">Phone</dt>
+                    <dt className="text-[#655D56]">{t('orders.detail.phone')}</dt>
                     <dd dir="ltr" className="text-end font-medium">
                       {order.customer.phone}
                     </dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="text-[#655D56]">Delivery area</dt>
-                    <dd className="text-end font-medium">{order.delivery.zoneName}</dd>
+                    <dt className="text-[#655D56]">{t('orders.detail.deliveryArea')}</dt>
+                    <dd dir="auto" className="text-end font-medium">{order.delivery.zoneName}</dd>
                   </div>
                   <div className="flex justify-between gap-4">
-                    <dt className="text-[#655D56]">Address</dt>
-                    <dd className="text-end font-medium">{order.delivery.address}</dd>
+                    <dt className="text-[#655D56]">{t('orders.detail.address')}</dt>
+                    <dd dir="auto" className="text-end font-medium">{order.delivery.address}</dd>
                   </div>
                   {order.delivery.building ? (
                     <div className="flex justify-between gap-4">
-                      <dt className="text-[#655D56]">Building</dt>
-                      <dd className="text-end">{order.delivery.building}</dd>
+                      <dt className="text-[#655D56]">{t('orders.detail.building')}</dt>
+                      <dd dir="auto" className="text-end">{order.delivery.building}</dd>
                     </div>
                   ) : null}
                   {order.delivery.floor ? (
                     <div className="flex justify-between gap-4">
-                      <dt className="text-[#655D56]">Floor</dt>
-                      <dd className="text-end">{order.delivery.floor}</dd>
+                      <dt className="text-[#655D56]">{t('orders.detail.floor')}</dt>
+                      <dd dir="auto" className="text-end">{order.delivery.floor}</dd>
                     </div>
                   ) : null}
                   {order.delivery.apartment ? (
                     <div className="flex justify-between gap-4">
-                      <dt className="text-[#655D56]">Apartment</dt>
-                      <dd className="text-end">{order.delivery.apartment}</dd>
+                      <dt className="text-[#655D56]">{t('orders.detail.apartment')}</dt>
+                      <dd dir="auto" className="text-end">{order.delivery.apartment}</dd>
                     </div>
                   ) : null}
                   {order.delivery.landmark ? (
                     <div className="flex justify-between gap-4">
-                      <dt className="text-[#655D56]">Landmark</dt>
-                      <dd className="text-end">{order.delivery.landmark}</dd>
+                      <dt className="text-[#655D56]">{t('orders.detail.landmark')}</dt>
+                      <dd dir="auto" className="text-end">{order.delivery.landmark}</dd>
                     </div>
                   ) : null}
                   {order.customer.notes ? (
                     <div className="flex justify-between gap-4">
-                      <dt className="text-[#655D56]">Notes</dt>
-                      <dd className="text-end">{order.customer.notes}</dd>
+                      <dt className="text-[#655D56]">{t('orders.detail.notes')}</dt>
+                      <dd dir="auto" className="text-end">{order.customer.notes}</dd>
                     </div>
                   ) : null}
                 </dl>
@@ -242,7 +252,7 @@ export function OrderDetailDialog({
                 id="order-items-title"
                 className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#8A8177]"
               >
-                Items
+                {t('orders.detail.items')}
               </h3>
               <ul className="flex flex-col divide-y divide-[#EDE7DF] rounded-lg border border-[#E5DED6]">
                 {order.items.map((item, index) => (
@@ -255,7 +265,7 @@ export function OrderDetailDialog({
                         {item.quantity}×
                       </span>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[#1D1A18]">
+                        <p dir="auto" className="text-start text-sm font-semibold text-[#1D1A18]">
                           {item.productNameSnapshot}
                         </p>
                         {/* FT-6A, ORDER_LIFECYCLE_SPEC.md #41: the exact
@@ -266,21 +276,26 @@ export function OrderDetailDialog({
                           <ul className="mt-1 flex flex-col gap-0.5 text-xs text-[#655D56]">
                             {item.modifiers.map((modifier, modifierIndex) => (
                               <li key={modifierIndex}>
-                                {modifier.groupName}: {modifier.optionName}
-                                {modifier.priceAdjustment !== '0.00'
-                                  ? ` (+${modifier.priceAdjustment})`
-                                  : ''}
+                                <bdi dir="auto">{modifier.groupName}</bdi>:{' '}
+                                <bdi dir="auto">{modifier.optionName}</bdi>
+                                {modifier.priceAdjustment !== '0.00' ? (
+                                  <bdi dir="ltr"> (+{modifier.priceAdjustment})</bdi>
+                                ) : null}
                               </li>
                             ))}
                           </ul>
                         ) : null}
                         <p className="mt-1 text-xs text-[#8A8177]">
-                          {item.unitPrice} {order.currencyCode} each
+                          <bdi dir="ltr">
+                            {t('orders.detail.each', { price: item.unitPrice, currency: order.currencyCode })}
+                          </bdi>
                         </p>
                       </div>
                     </div>
                     <p className="flex-shrink-0 text-sm font-semibold text-[#302C29]">
-                      {item.lineTotal} {order.currencyCode}
+                      <bdi dir="ltr">
+                        {item.lineTotal} {order.currencyCode}
+                      </bdi>
                     </p>
                   </li>
                 ))}
@@ -291,24 +306,24 @@ export function OrderDetailDialog({
               {showFee ? (
                 <>
                   <div className="flex items-baseline justify-between text-sm text-[#655D56]">
-                    <span>Subtotal</span>
-                    <span>
+                    <span>{t('orders.detail.subtotal')}</span>
+                    <bdi dir="ltr">
                       {order.subtotalAmount} {order.currencyCode}
-                    </span>
+                    </bdi>
                   </div>
                   <div className="flex items-baseline justify-between text-sm text-[#655D56]">
-                    <span>Delivery fee</span>
-                    <span>
+                    <span>{t('orders.detail.deliveryFee')}</span>
+                    <bdi dir="ltr">
                       {order.deliveryFee} {order.currencyCode}
-                    </span>
+                    </bdi>
                   </div>
                 </>
               ) : null}
               <div className="flex items-baseline justify-between">
-                <span className="text-sm font-semibold text-[#655D56]">Total</span>
-                <span className="text-2xl font-bold text-[#1D1A18]">
+                <span className="text-sm font-semibold text-[#655D56]">{t('orders.detail.total')}</span>
+                <bdi dir="ltr" className="text-2xl font-bold text-[#1D1A18]">
                   {order.totalAmount} {order.currencyCode}
-                </span>
+                </bdi>
               </div>
             </div>
           </div>
@@ -317,7 +332,7 @@ export function OrderDetailDialog({
               <div className="flex flex-wrap items-center gap-2">
                 {/* Secondary utility, always available: every type and status, no lifecycle permission needed. Only opens the browser print dialog -- never closes the dialog or touches the Order. */}
                 <Button type="button" variant="secondary" onClick={() => window.print()}>
-                  Print
+                  {t('orders.detail.print')}
                 </Button>
                 {destructiveTransitions.map((transition) => (
                   <Button

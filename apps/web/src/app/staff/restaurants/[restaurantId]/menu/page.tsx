@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../lib/auth/session';
+import { getStaffI18n } from '../../../../../lib/i18n/server';
 import {
   canManageMenu,
   canViewMenu,
@@ -30,6 +31,7 @@ export default async function MenuManagementPage({
 }: MenuManagementPageProps) {
   const { restaurantId } = await params;
   const { menuId: initialMenuId, categoryId: initialCategoryId } = await searchParams;
+  const { t } = await getStaffI18n();
   const sessionState = await getAuthSessionState();
 
   if (sessionState.status === 'unauthenticated') {
@@ -45,24 +47,24 @@ export default async function MenuManagementPage({
   );
 
   if (!membership) {
-    return <Alert variant="error">Restaurant not found.</Alert>;
+    return <Alert variant="error">{t('guard.restaurantNotFound')}</Alert>;
   }
 
   if (membership.restaurant.status !== 'ACTIVE') {
     return (
       <Alert variant="error">
-        This Restaurant is currently{' '}
-        {membership.restaurant.status === 'SUSPENDED' ? 'suspended' : 'inactive'}{' '}
-        and not operational. Contact your Restaurant owner for details.
+        {t('guard.notOperational', {
+          state: t(
+            membership.restaurant.status === 'SUSPENDED' ? 'guard.state.suspended' : 'guard.state.inactive',
+          ),
+        })}
       </Alert>
     );
   }
 
   if (!canViewMenu(membership)) {
     return (
-      <Alert variant="error">
-        You do not have permission to view this Restaurant&apos;s Menu.
-      </Alert>
+      <Alert variant="error">{t('guard.noPermission.menu')}</Alert>
     );
   }
 

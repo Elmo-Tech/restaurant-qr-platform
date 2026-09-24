@@ -1,4 +1,6 @@
 import { ApiError } from '../api/errors';
+import { messages, type MessageKey } from '../i18n/messages';
+import { createTranslator, currentClientLocale } from '../i18n/translate';
 
 const HTTP_UNAUTHENTICATED = 401;
 
@@ -9,10 +11,14 @@ const HTTP_UNAUTHENTICATED = 401;
  * never a raw stack trace or error object.
  */
 export function describeError(error: unknown): string {
+  const { t } = createTranslator(currentClientLocale());
   if (error instanceof ApiError) {
-    return error.message;
+    // FT-10A: a known stable error code is shown in the Staff UI language; an
+    // unmapped code falls back to the Backend's own (English) message.
+    const key = `error.${error.code}`;
+    return key in messages.en ? t(key as MessageKey) : error.message;
   }
-  return 'Unable to reach the server. Please try again.';
+  return t('error.network');
 }
 
 /**

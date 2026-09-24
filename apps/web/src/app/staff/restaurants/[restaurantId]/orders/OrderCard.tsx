@@ -1,3 +1,4 @@
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 import type { OrderListItem } from '../../../../../lib/orders/types';
 import { formatOrderTime, isCompletedStatus } from '../../../../../lib/orders/order-views';
 import { OrderTypeBadge } from './OrderTypeBadge';
@@ -11,13 +12,22 @@ import { StatusBadge, statusAccentClass } from './StatusBadge';
  * are visually quieter than Active ones.
  */
 export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () => void }) {
+  const { t, tp, formatTime, formatDayMonth } = useStaffI18n();
   const completed = isCompletedStatus(order.status);
   const isReady = order.status === 'READY';
-  const identity = order.customer ? order.customer.name : `Table ${order.table?.tableNumber ?? '—'}`;
+  const identity = order.customer
+    ? order.customer.name
+    : t('orders.card.table', { number: order.table?.tableNumber ?? '—' });
+  const time = formatOrderTime(order.createdAt, {
+    t,
+    tMinutes: (count) => t('orders.time.minutesAgo', { count }),
+    formatTime,
+    formatDayMonth,
+  });
 
   return (
     <article
-      className={`flex flex-col gap-3 rounded-lg border border-l-4 border-[#E5DED6] p-4 shadow-sm ${statusAccentClass(order.status)} ${
+      className={`flex flex-col gap-3 rounded-lg border border-s-4 border-[#E5DED6] p-4 shadow-sm ${statusAccentClass(order.status)} ${
         completed ? 'opacity-80' : ''
       }`}
     >
@@ -28,7 +38,8 @@ export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () 
 
       <div className="min-w-0">
         <h3
-          className={`truncate text-lg font-semibold ${completed ? 'text-[#655D56]' : 'text-[#1D1A18]'}`}
+          dir="auto"
+          className={`truncate text-start text-lg font-semibold ${completed ? 'text-[#655D56]' : 'text-[#1D1A18]'}`}
         >
           {identity}
         </h3>
@@ -38,17 +49,23 @@ export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () 
           </p>
         ) : null}
         <p className="mt-0.5 text-xs text-[#8A8177]">
-          {order.deliveryZoneName ? `${order.deliveryZoneName} · ` : ''}
-          {order.branch.name} · {formatOrderTime(order.createdAt)}
+          {order.deliveryZoneName ? (
+            <>
+              <bdi dir="auto">{order.deliveryZoneName}</bdi> ·{' '}
+            </>
+          ) : null}
+          <bdi dir="auto">{order.branch.name}</bdi> · {time}
         </p>
       </div>
 
       <div className="flex items-center justify-between border-t border-[#EDE7DF] pt-3 text-sm">
         <span className="text-[#655D56]">
-          {order.itemCount} item{order.itemCount === 1 ? '' : 's'}
+          {tp('common.items', order.itemCount)}
         </span>
         <span className={`font-semibold ${completed ? 'text-[#655D56]' : 'text-[#1D1A18]'}`}>
-          {order.totalAmount} {order.currencyCode}
+          <bdi dir="ltr">
+            {order.totalAmount} {order.currencyCode}
+          </bdi>
         </span>
       </div>
 
@@ -61,7 +78,7 @@ export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () 
             : 'border border-[#E5DED6] bg-white text-[#302C29] hover:bg-[#F8F5F1]'
         }`}
       >
-        View order
+        {t('orders.card.view')}
       </button>
     </article>
   );

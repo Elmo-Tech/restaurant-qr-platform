@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../../../lib/auth/session';
+import { getStaffI18n } from '../../../../../../../lib/i18n/server';
 import { canManageMenu, canViewMenu } from '../../../../../../../lib/menu/capabilities';
 import { Alert } from '../../../../../../../components/ui/Alert';
 import { ProductEditor } from '../ProductEditor';
@@ -15,6 +16,7 @@ interface EditProductPageProps {
  */
 export default async function EditProductPage({ params }: EditProductPageProps) {
   const { restaurantId, productId } = await params;
+  const { t } = await getStaffI18n();
   const sessionState = await getAuthSessionState();
 
   if (sessionState.status === 'unauthenticated') {
@@ -30,24 +32,24 @@ export default async function EditProductPage({ params }: EditProductPageProps) 
   );
 
   if (!membership) {
-    return <Alert variant="error">Restaurant not found.</Alert>;
+    return <Alert variant="error">{t('guard.restaurantNotFound')}</Alert>;
   }
 
   if (membership.restaurant.status !== 'ACTIVE') {
     return (
       <Alert variant="error">
-        This Restaurant is currently{' '}
-        {membership.restaurant.status === 'SUSPENDED' ? 'suspended' : 'inactive'}{' '}
-        and not operational. Contact your Restaurant owner for details.
+        {t('guard.notOperational', {
+          state: t(
+            membership.restaurant.status === 'SUSPENDED' ? 'guard.state.suspended' : 'guard.state.inactive',
+          ),
+        })}
       </Alert>
     );
   }
 
   if (!canViewMenu(membership) || !canManageMenu(membership)) {
     return (
-      <Alert variant="error">
-        You do not have permission to manage this Restaurant&apos;s Menu.
-      </Alert>
+      <Alert variant="error">{t('guard.noPermission.menuManage')}</Alert>
     );
   }
 

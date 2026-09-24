@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 import * as qrApi from '../../../../../lib/qr/api';
 import type { GenericQr } from '../../../../../lib/qr/api';
 import {
@@ -34,6 +35,7 @@ export function GenericQrCard({
   canManage: boolean;
   webOrigin: string;
 }) {
+  const { t } = useStaffI18n();
   const [qr, setQr] = useState<GenericQr | null | undefined>(undefined);
   const [error, setError] = useState<string | null>(null);
   const [isBusy, setIsBusy] = useState(false);
@@ -85,10 +87,9 @@ export function GenericQrCard({
             <IconQr className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="text-base font-semibold text-[#1D1A18]">Restaurant QR</h2>
+            <h2 className="text-base font-semibold text-[#1D1A18]">{t('tables.generic.title')}</h2>
             <p className="mt-0.5 max-w-xl text-sm text-[#655D56]">
-              For Pickup and Delivery: one QR for the whole restaurant, opening your current menu.
-              Table QRs below are for Dine-in.
+              {t('tables.generic.description')}
             </p>
           </div>
         </div>
@@ -98,7 +99,7 @@ export function GenericQrCard({
               isActive ? 'bg-[#DDF1DF] text-[#1E6B25]' : 'bg-[#F1EDE7] text-[#655D56]'
             }`}
           >
-            {isActive ? 'Active' : 'Inactive'}
+            {isActive ? t('common.active') : t('common.inactive')}
           </span>
         ) : null}
       </div>
@@ -108,31 +109,27 @@ export function GenericQrCard({
           <div className="flex items-center justify-between gap-4">
             <span>{error}</span>
             <Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => void load()}>
-              Retry
+              {t('common.retry')}
             </Button>
           </div>
         </Alert>
       ) : null}
 
       {qr === undefined && !error ? (
-        <p className="text-sm text-[#655D56]">Loading…</p>
+        <p className="text-sm text-[#655D56]">{t('common.loading')}</p>
       ) : null}
 
       {qr === null ? (
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-[#655D56]">
-            This restaurant doesn&apos;t have a Restaurant QR yet.
-          </p>
+          <p className="text-sm text-[#655D56]">{t('tables.generic.none')}</p>
           <Button
             disabled={!canManage || isBusy}
             onClick={() => void run(() => qrApi.createGenericQr(restaurantId))}
           >
-            {isBusy ? 'Creating…' : 'Create Restaurant QR'}
+            {isBusy ? t('tables.generic.creating') : t('tables.generic.create')}
           </Button>
           {!canManage ? (
-            <p className="text-xs text-[#8A8177]">
-              An Owner with full restaurant access can create it.
-            </p>
+            <p className="text-xs text-[#8A8177]">{t('tables.generic.ownerOnly')}</p>
           ) : null}
         </div>
       ) : null}
@@ -140,13 +137,10 @@ export function GenericQrCard({
       {qr && guestUrl ? (
         <>
           {!isActive ? (
-            <Alert variant="info">
-              This QR is inactive: scanning a printed copy currently shows &quot;QR code is no
-              longer active&quot;. Reactivate it to accept Pickup and Delivery orders again.
-            </Alert>
+            <Alert variant="info">{t('tables.generic.inactiveNotice')}</Alert>
           ) : null}
           <div className="flex flex-wrap items-center gap-2">
-            <Button onClick={() => setShowPreview(true)}>View, download &amp; print</Button>
+            <Button onClick={() => setShowPreview(true)}>{t('tables.generic.viewPrint')}</Button>
             {isActive ? (
               <a
                 href={guestUrl}
@@ -154,7 +148,7 @@ export function GenericQrCard({
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center rounded-md border border-[#E5DED6] bg-white px-4 py-2 text-sm font-medium text-[#302C29] transition-colors hover:bg-[#F8F5F1]"
               >
-                Open Guest Menu
+                {t('tables.generic.openGuestMenu')}
               </a>
             ) : null}
             <Button
@@ -163,16 +157,14 @@ export function GenericQrCard({
               onClick={() => {
                 if (
                   isActive &&
-                  !window.confirm(
-                    'Deactivate the Restaurant QR? Printed copies will stop working for guests until you reactivate it.',
-                  )
+                  !window.confirm(t('tables.generic.confirmDeactivate'))
                 ) {
                   return;
                 }
                 void run(() => qrApi.setGenericQrStatus(restaurantId, isActive ? 'INACTIVE' : 'ACTIVE'));
               }}
             >
-              {isActive ? 'Deactivate' : 'Activate'}
+              {isActive ? t('common.deactivate') : t('common.activate')}
             </Button>
           </div>
         </>

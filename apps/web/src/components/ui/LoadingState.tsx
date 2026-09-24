@@ -1,8 +1,14 @@
+'use client';
+
+import { useStaffI18n } from '../../lib/i18n/client';
+
 export interface LoadingStateProps {
   label?: string;
 }
 
-export function LoadingState({ label = 'Loading…' }: LoadingStateProps) {
+/** Staff-only spinner; the default label follows the Staff UI language. */
+export function LoadingState({ label }: LoadingStateProps) {
+  const { t } = useStaffI18n();
   return (
     <div
       role="status"
@@ -12,7 +18,7 @@ export function LoadingState({ label = 'Loading…' }: LoadingStateProps) {
         aria-hidden="true"
         className="h-4 w-4 animate-spin rounded-full border-2 border-[#E5DED6] border-t-[#7A5138]"
       />
-      {label}
+      {label ?? t('common.loading')}
     </div>
   );
 }

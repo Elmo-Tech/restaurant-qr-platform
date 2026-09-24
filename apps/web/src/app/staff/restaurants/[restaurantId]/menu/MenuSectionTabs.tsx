@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 
 export type MenuSection = 'products' | 'modifier-library';
 
@@ -20,18 +21,19 @@ export function MenuSectionTabs({
   restaurantId: string;
   active: MenuSection;
 }) {
+  const { t } = useStaffI18n();
   const tabs: { key: MenuSection; label: string; href: string }[] = [
-    { key: 'products', label: 'Menu & Products', href: `/staff/restaurants/${restaurantId}/menu` },
+    { key: 'products', label: t('menu.section.products'), href: `/staff/restaurants/${restaurantId}/menu` },
     {
       key: 'modifier-library',
-      label: 'Modifier Library',
+      label: t('menu.section.library'),
       href: `/staff/restaurants/${restaurantId}/menu/modifier-presets`,
     },
   ];
 
   return (
     <nav
-      aria-label="Menu Management sections"
+      aria-label={t('menu.section.aria')}
       className="flex flex-wrap gap-1 border-b border-[#E5DED6]"
     >
       {tabs.map((tab) => {

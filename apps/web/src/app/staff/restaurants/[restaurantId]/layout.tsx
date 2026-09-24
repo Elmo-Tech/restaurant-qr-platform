@@ -7,6 +7,7 @@ import { canViewOrders } from '../../../../lib/orders/capabilities';
 import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
 import { Alert } from '../../../../components/ui/Alert';
 import { StaffShell } from '../../../../components/staff/StaffShell';
+import { getStaffI18n } from '../../../../lib/i18n/server';
 
 interface RestaurantWorkspaceLayoutProps {
   params: Promise<{ restaurantId: string }>;
@@ -31,7 +32,7 @@ export default async function RestaurantWorkspaceLayout({
   children,
 }: RestaurantWorkspaceLayoutProps) {
   const { restaurantId } = await params;
-  const sessionState = await getAuthSessionState();
+  const [sessionState, { t }] = await Promise.all([getAuthSessionState(), getStaffI18n()]);
 
   if (sessionState.status === 'unauthenticated') {
     redirect('/login');
@@ -52,7 +53,7 @@ export default async function RestaurantWorkspaceLayout({
   if (!membership) {
     return (
       <div className="mx-auto max-w-3xl px-6 py-8">
-        <Alert variant="error">Restaurant not found.</Alert>
+        <Alert variant="error">{t('guard.restaurantNotFound')}</Alert>
       </div>
     );
   }

@@ -6,6 +6,7 @@ import { apiFetch } from '../../lib/api/client';
 import { ApiError } from '../../lib/api/errors';
 import { Alert } from '../../components/ui/Alert';
 import { Button } from '../../components/ui/Button';
+import { useStaffI18n } from '../../lib/i18n/client';
 
 const HTTP_UNAUTHENTICATED = 401;
 
@@ -26,6 +27,7 @@ const HTTP_UNAUTHENTICATED = 401;
  */
 export function LogoutButton() {
   const router = useRouter();
+  const { t } = useStaffI18n();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -49,7 +51,7 @@ export function LogoutButton() {
       setErrorMessage(
         error instanceof ApiError
           ? error.message
-          : 'Unable to reach the server. Please try again.',
+          : t('error.network'),
       );
       setIsSubmitting(false);
     }
@@ -58,10 +60,10 @@ export function LogoutButton() {
   return (
     <div className="relative">
       <Button variant="secondary" onClick={handleLogout} disabled={isSubmitting}>
-        {isSubmitting ? 'Signing out…' : 'Log out'}
+        {isSubmitting ? t('shell.signingOut') : t('shell.logout')}
       </Button>
       {errorMessage ? (
-        <div className="absolute right-0 top-full z-10 mt-2 w-64">
+        <div className="absolute end-0 top-full z-10 mt-2 w-64">
           <Alert variant="error">{errorMessage}</Alert>
         </div>
       ) : null}

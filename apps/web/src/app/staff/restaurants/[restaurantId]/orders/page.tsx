@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../lib/auth/session';
+import { getStaffI18n } from '../../../../../lib/i18n/server';
 import { canViewOrders } from '../../../../../lib/orders/capabilities';
 import { Alert } from '../../../../../components/ui/Alert';
 import { OrdersWorkspace } from './OrdersWorkspace';
@@ -19,6 +20,7 @@ interface OrdersPageProps {
  */
 export default async function OrdersPage({ params }: OrdersPageProps) {
   const { restaurantId } = await params;
+  const { t } = await getStaffI18n();
   const sessionState = await getAuthSessionState();
 
   if (sessionState.status === 'unauthenticated') {
@@ -34,24 +36,24 @@ export default async function OrdersPage({ params }: OrdersPageProps) {
   );
 
   if (!membership) {
-    return <Alert variant="error">Restaurant not found.</Alert>;
+    return <Alert variant="error">{t('guard.restaurantNotFound')}</Alert>;
   }
 
   if (membership.restaurant.status !== 'ACTIVE') {
     return (
       <Alert variant="error">
-        This Restaurant is currently{' '}
-        {membership.restaurant.status === 'SUSPENDED' ? 'suspended' : 'inactive'}{' '}
-        and not operational. Contact your Restaurant owner for details.
+        {t('guard.notOperational', {
+          state: t(
+            membership.restaurant.status === 'SUSPENDED' ? 'guard.state.suspended' : 'guard.state.inactive',
+          ),
+        })}
       </Alert>
     );
   }
 
   if (!canViewOrders(membership)) {
     return (
-      <Alert variant="error">
-        You do not have permission to view this Restaurant&apos;s Orders.
-      </Alert>
+      <Alert variant="error">{t('guard.noPermission.orders')}</Alert>
     );
   }
 

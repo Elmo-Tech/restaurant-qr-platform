@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import QRCode from 'qrcode';
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { Button } from '../../../../../components/ui/Button';
 import { Alert } from '../../../../../components/ui/Alert';
 import { IconClose } from '../../../../../components/staff/icons';
@@ -48,6 +49,7 @@ export function QrPreviewDialog({
   guestUrl: string;
   onClose: () => void;
 }) {
+  const { t } = useStaffI18n();
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [dataUrl, setDataUrl] = useState<string | null>(null);
@@ -60,12 +62,12 @@ export function QrPreviewDialog({
         if (!cancelled) setDataUrl(url);
       })
       .catch(() => {
-        if (!cancelled) setError('Could not generate the QR code.');
+        if (!cancelled) setError(t('tables.qr.generateError'));
       });
     return () => {
       cancelled = true;
     };
-  }, [guestUrl]);
+  }, [guestUrl, t]);
 
   useEffect(() => {
     closeButtonRef.current?.focus();
@@ -81,9 +83,18 @@ export function QrPreviewDialog({
   }, [onClose]);
 
   // The Generic QR has no Table: its own subject, title and filename.
-  const subject = target.tableNumber !== null ? `Table ${target.tableNumber}` : 'Pickup & Delivery';
-  const title = target.tableNumber !== null ? `Table ${target.tableNumber} QR` : 'Restaurant QR';
-  const altText = `QR code linking to the guest menu for ${target.tableNumber !== null ? subject : 'the Restaurant'}`;
+  const subject =
+    target.tableNumber !== null
+      ? t('tables.qr.subject.table', { number: target.tableNumber })
+      : t('tables.qr.subject.restaurant');
+  const title =
+    target.tableNumber !== null
+      ? t('tables.qr.title.table', { number: target.tableNumber })
+      : t('tables.qr.title.restaurant');
+  const altText =
+    target.tableNumber !== null
+      ? t('tables.qr.alt.table', { number: target.tableNumber })
+      : t('tables.qr.alt.restaurant');
   const filename =
     target.tableNumber !== null
       ? `${sanitizeFilenameSegment(target.restaurantName)}-table-${sanitizeFilenameSegment(target.tableNumber)}-qr.png`
@@ -129,9 +140,17 @@ export function QrPreviewDialog({
         id="qr-print-section"
         className="hidden print:fixed print:inset-0 print:z-[100] print:flex print:flex-col print:items-center print:justify-center print:gap-3 print:bg-white print:text-center"
       >
-        <p className="text-base font-semibold text-[#1D1A18]">{target.restaurantName}</p>
-        {target.branchName ? <p className="text-sm text-[#655D56]">{target.branchName}</p> : null}
-        <p className="text-sm text-[#8A5138]">{subject}</p>
+        <p dir="auto" className="text-base font-semibold text-[#1D1A18]">
+          {target.restaurantName}
+        </p>
+        {target.branchName ? (
+          <p dir="auto" className="text-sm text-[#655D56]">
+            {target.branchName}
+          </p>
+        ) : null}
+        <p dir="auto" className="text-sm text-[#8A5138]">
+          {subject}
+        </p>
         {dataUrl ? (
           // eslint-disable-next-line @next/next/no-img-element -- a client-generated data: URL, not a static/optimizable asset.
           <img
@@ -140,7 +159,7 @@ export function QrPreviewDialog({
             className="h-64 w-64"
           />
         ) : null}
-        <p className="text-sm text-[#655D56]">Scan to view our menu</p>
+        <p className="text-sm text-[#655D56]">{t('tables.qr.scan')}</p>
       </div>
 
       <div className="fixed inset-0 z-50 print:hidden">
@@ -164,15 +183,20 @@ export function QrPreviewDialog({
                   {title}
                 </h2>
                 <p className="mt-0.5 truncate text-sm text-[#655D56]">
-                  {target.restaurantName}
-                  {target.branchName ? ` · ${target.branchName}` : ''}
+                  <bdi dir="auto">{target.restaurantName}</bdi>
+                  {target.branchName ? (
+                    <>
+                      {' · '}
+                      <bdi dir="auto">{target.branchName}</bdi>
+                    </>
+                  ) : null}
                 </p>
               </div>
               <button
                 ref={closeButtonRef}
                 type="button"
                 onClick={onClose}
-                aria-label="Close"
+                aria-label={t('common.close')}
                 className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-[#655D56] hover:bg-[#F8F5F1]"
               >
                 <IconClose className="h-4 w-4" />
@@ -183,11 +207,17 @@ export function QrPreviewDialog({
               {error ? <Alert variant="error">{error}</Alert> : null}
 
               <div className="flex w-full flex-col items-center gap-3 text-center">
-                <p className="text-sm font-semibold text-[#1D1A18]">{target.restaurantName}</p>
+                <p dir="auto" className="text-sm font-semibold text-[#1D1A18]">
+                  {target.restaurantName}
+                </p>
                 {target.branchName ? (
-                  <p className="-mt-2 text-xs text-[#655D56]">{target.branchName}</p>
+                  <p dir="auto" className="-mt-2 text-xs text-[#655D56]">
+                    {target.branchName}
+                  </p>
                 ) : null}
-                <p className="-mt-1 text-xs text-[#8A5138]">{subject}</p>
+                <p dir="auto" className="-mt-1 text-xs text-[#8A5138]">
+                  {subject}
+                </p>
 
                 {dataUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- a client-generated data: URL, not a static/optimizable asset.
@@ -198,14 +228,14 @@ export function QrPreviewDialog({
                   />
                 ) : !error ? (
                   <div className="flex h-56 w-56 items-center justify-center rounded-md border border-dashed border-[#E5DED6] text-xs text-[#AFA397]">
-                    Generating…
+                    {t('tables.qr.generating')}
                   </div>
                 ) : null}
 
-                <p className="text-xs text-[#655D56]">Scan to view our menu</p>
+                <p className="text-xs text-[#655D56]">{t('tables.qr.scan')}</p>
               </div>
 
-              <p className="w-full break-all rounded-md bg-[#F8F5F1] px-3 py-2 text-center text-xs text-[#655D56]">
+              <p dir="ltr" className="w-full break-all rounded-md bg-[#F8F5F1] px-3 py-2 text-center text-xs text-[#655D56]">
                 {guestUrl}
               </p>
             </div>
@@ -222,7 +252,7 @@ export function QrPreviewDialog({
                   if (dataUrl) window.print();
                 }}
               >
-                Print
+                {t('tables.qr.print')}
               </Button>
               {dataUrl ? (
                 <a
@@ -230,7 +260,7 @@ export function QrPreviewDialog({
                   download={filename}
                   className="inline-flex items-center justify-center rounded-md border border-[#E5DED6] bg-white px-4 py-2 text-sm font-medium text-[#302C29] transition-colors hover:bg-[#F8F5F1]"
                 >
-                  Download QR
+                  {t('tables.qr.download')}
                 </a>
               ) : null}
               <a
@@ -239,7 +269,7 @@ export function QrPreviewDialog({
                 rel="noreferrer"
                 className="inline-flex items-center justify-center rounded-md bg-[#7A5138] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#634127]"
               >
-                Open menu
+                {t('tables.qr.openMenu')}
               </a>
             </div>
           </div>

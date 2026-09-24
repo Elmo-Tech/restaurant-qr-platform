@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 import * as tablesApi from '../../../../../lib/tables/api';
 import type { TableRow } from '../../../../../lib/tables/types';
 import type { AuthContextBranch } from '../../../../../lib/auth/types';
@@ -60,6 +61,7 @@ export function TablesWorkspace({
   canManageGenericQr,
   webOrigin,
 }: TablesWorkspaceProps) {
+  const { t } = useStaffI18n();
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(
     branches[0]?.id ?? null,
   );
@@ -149,7 +151,7 @@ export function TablesWorkspace({
 
     const tableNumber = form.tableNumber.trim();
     if (tableNumber === '') {
-      setFormError('Table number is required.');
+      setFormError(t('tables.numberRequired'));
       return;
     }
 
@@ -197,17 +199,23 @@ export function TablesWorkspace({
   const dialog = (
     <Dialog
       open={mode !== 'idle'}
-      title={mode === 'create' ? 'New Table' : 'Edit Table'}
+      title={mode === 'create' ? t('tables.new') : t('tables.edit')}
       subtitle={selectedBranch?.name}
       isSubmitting={isSubmitting}
-      submitLabel={isSubmitting ? 'Saving…' : mode === 'create' ? 'Create Table' : 'Save changes'}
+      submitLabel={
+        isSubmitting
+          ? t('common.saving')
+          : mode === 'create'
+            ? t('tables.create')
+            : t('tables.saveChanges')
+      }
       onSubmit={handleSubmit}
       onClose={cancelForm}
       initialFocusRef={tableNumberRef}
     >
       <div className="flex flex-col gap-4">
         {formError ? <Alert variant="error">{formError}</Alert> : null}
-        <FormField label="Table number" htmlFor="table-number">
+        <FormField label={t('tables.numberLabel')} htmlFor="table-number">
           <Input
             id="table-number"
             ref={tableNumberRef}
@@ -215,7 +223,8 @@ export function TablesWorkspace({
             value={form.tableNumber}
             onChange={(event) => setForm({ tableNumber: event.target.value })}
             disabled={isSubmitting}
-            placeholder="e.g. 12, A1, VIP-2"
+            placeholder={t('tables.numberPlaceholder')}
+            dir="auto"
           />
         </FormField>
       </div>
@@ -226,14 +235,12 @@ export function TablesWorkspace({
     <div className="flex flex-col gap-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-[#1D1A18]">Tables & QR</h1>
-          <p className="mt-1 text-sm text-[#655D56]">
-            Manage restaurant tables and guest QR codes.
-          </p>
+          <h1 className="text-xl font-semibold text-[#1D1A18]">{t('tables.title')}</h1>
+          <p className="mt-1 text-sm text-[#655D56]">{t('tables.subtitle')}</p>
         </div>
         {canManage && selectedBranchId ? (
           <Button onClick={startCreate}>
-            <IconPlus className="mr-1.5 h-4 w-4" /> New Table
+            <IconPlus className="me-1.5 h-4 w-4" /> {t('tables.new')}
           </Button>
         ) : null}
       </div>
@@ -247,13 +254,13 @@ export function TablesWorkspace({
 
       {branches.length === 0 ? (
         <Alert variant="error">
-          No Branch is available for your account yet. Ask an Owner to assign you to a Branch.
+          {t('guard.noBranch')}
         </Alert>
       ) : (
         <>
           {branches.length > 1 ? (
             <div className="max-w-xs">
-              <FormField label="Branch" htmlFor="branch-select">
+              <FormField label={t('tables.branch')} htmlFor="branch-select">
                 <Select
                   id="branch-select"
                   value={selectedBranchId ?? ''}
@@ -278,23 +285,21 @@ export function TablesWorkspace({
                   className="px-2 py-1 text-xs"
                   onClick={() => selectedBranchId && void loadTables(selectedBranchId)}
                 >
-                  Retry
+                  {t('common.retry')}
                 </Button>
               </div>
             </Alert>
           ) : null}
 
-          {tables === null && !tablesError ? <LoadingState label="Loading Tables…" /> : null}
+          {tables === null && !tablesError ? <LoadingState label={t('tables.loading')} /> : null}
 
           {tables !== null && tables.length === 0 ? (
             <Card className="flex flex-col items-center gap-2 py-10 text-center">
-              <p className="text-sm font-medium text-[#302C29]">No tables yet</p>
-              <p className="text-sm text-[#655D56]">
-                Create your first table to generate a guest QR code.
-              </p>
+              <p className="text-sm font-medium text-[#302C29]">{t('tables.empty.title')}</p>
+              <p className="text-sm text-[#655D56]">{t('tables.empty.hint')}</p>
               {canManage ? (
                 <Button className="mt-2" onClick={startCreate}>
-                  <IconPlus className="mr-1.5 h-4 w-4" /> New Table
+                  <IconPlus className="me-1.5 h-4 w-4" /> {t('tables.new')}
                 </Button>
               ) : null}
             </Card>
@@ -348,22 +353,27 @@ function TableCard({
   onEdit: () => void;
   onViewQr: () => void;
 }) {
+  const { t } = useStaffI18n();
   const hasActiveQr = table.qr !== null && table.qr.status === 'ACTIVE';
 
   return (
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="truncate text-base font-semibold text-[#1D1A18]">
-            Table {table.tableNumber}
+          <p dir="auto" className="truncate text-start text-base font-semibold text-[#1D1A18]">
+            {t('tables.card.title', { number: table.tableNumber })}
           </p>
-          {branchName ? <p className="text-xs text-[#655D56]">{branchName}</p> : null}
+          {branchName ? (
+            <p dir="auto" className="text-start text-xs text-[#655D56]">
+              {branchName}
+            </p>
+          ) : null}
         </div>
         {canManage ? (
           <button
             type="button"
             onClick={onEdit}
-            aria-label={`Edit Table ${table.tableNumber}`}
+            aria-label={t('tables.card.editAria', { number: table.tableNumber })}
             className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[#AFA397] hover:bg-[#F8F5F1] hover:text-[#7A5138]"
           >
             <IconPencil className="h-3.5 w-3.5" />
@@ -379,25 +389,23 @@ function TableCard({
               : 'bg-[#F1ECE6] text-[#8A8177]'
           }`}
         >
-          {table.status === 'ACTIVE' ? 'Active' : 'Inactive'}
+          {table.status === 'ACTIVE' ? t('common.active') : t('common.inactive')}
         </span>
         <span
           className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
             hasActiveQr ? 'bg-[#F1ECE6] text-[#7A5138]' : 'bg-[#F1ECE6] text-[#AFA397]'
           }`}
         >
-          {hasActiveQr ? 'Active QR' : 'No active QR'}
+          {hasActiveQr ? t('tables.card.activeQr') : t('tables.card.noActiveQr')}
         </span>
       </div>
 
       {hasActiveQr ? (
         <Button variant="secondary" className="mt-1 justify-center" onClick={onViewQr}>
-          <IconQr className="mr-1.5 h-4 w-4" /> View QR
+          <IconQr className="me-1.5 h-4 w-4" /> {t('tables.card.viewQr')}
         </Button>
       ) : (
-        <p className="mt-1 text-xs text-[#AFA397]">
-          No active QR for this Table yet.
-        </p>
+        <p className="mt-1 text-xs text-[#AFA397]">{t('tables.card.noQrHint')}</p>
       )}
     </Card>
   );

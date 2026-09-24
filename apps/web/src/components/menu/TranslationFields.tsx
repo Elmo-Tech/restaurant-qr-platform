@@ -1,3 +1,6 @@
+'use client';
+
+import { useStaffI18n } from '../../lib/i18n/client';
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/Button';
 import { FormField } from '../ui/FormField';
@@ -46,9 +49,10 @@ export function TranslationFields({
   onChange,
   onSave,
   onRemove,
-  secondFieldLabel = 'Description',
+  secondFieldLabel,
   hideSecondField = false,
 }: TranslationFieldsProps) {
+  const { t } = useStaffI18n();
   const name = draft?.name ?? '';
   const description = draft?.description ?? '';
   const exists = draft?.exists ?? false;
@@ -60,8 +64,8 @@ export function TranslationFields({
   return (
     <div className="flex flex-col gap-4">
       {error ? <Alert variant="error">{error}</Alert> : null}
-      {!exists ? <p className="text-xs text-[#655D56]">Not translated yet.</p> : null}
-      <FormField label="Name" htmlFor={`${idPrefix}-name-${locale}`}>
+      {!exists ? <p className="text-xs text-[#655D56]">{t('menu.tr.notTranslatedYet')}</p> : null}
+      <FormField label={t('menu.tr.name')} htmlFor={`${idPrefix}-name-${locale}`}>
         <Input
           id={`${idPrefix}-name-${locale}`}
           dir={dir}
@@ -71,7 +75,7 @@ export function TranslationFields({
         />
       </FormField>
       {!hideSecondField ? (
-        <FormField label={secondFieldLabel} htmlFor={`${idPrefix}-description-${locale}`}>
+        <FormField label={secondFieldLabel ?? t('menu.tr.description')} htmlFor={`${idPrefix}-description-${locale}`}>
           <Textarea
             id={`${idPrefix}-description-${locale}`}
             dir={dir}
@@ -83,11 +87,11 @@ export function TranslationFields({
       ) : null}
       <div className="flex flex-wrap items-center gap-2">
         <Button type="button" variant="secondary" className="px-3 py-1.5 text-xs" disabled={isBusy} onClick={onSave}>
-          {isSaving ? 'Saving…' : 'Save translation'}
+          {isSaving ? t('common.saving') : t('menu.tr.save')}
         </Button>
         {exists ? (
           <Button type="button" variant="danger" className="px-3 py-1.5 text-xs" disabled={isBusy} onClick={onRemove}>
-            {isRemoving ? 'Removing…' : 'Remove translation'}
+            {isRemoving ? t('menu.tr.removing') : t('menu.tr.remove')}
           </Button>
         ) : null}
       </div>

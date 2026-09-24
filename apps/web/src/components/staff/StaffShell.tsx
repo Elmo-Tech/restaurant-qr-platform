@@ -6,6 +6,7 @@ import type { RestaurantStatus } from '../../lib/auth/types';
 import { RestaurantSidebar, type StaffSection } from './RestaurantSidebar';
 import { StaffTopbar } from './StaffTopbar';
 import { Breadcrumbs } from './Breadcrumbs';
+import { useStaffI18n } from '../../lib/i18n/client';
 
 interface StaffShellProps {
   restaurantId: string;
@@ -64,6 +65,7 @@ export function StaffShell({
   children,
 }: StaffShellProps) {
   const pathname = usePathname();
+  const { t } = useStaffI18n();
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const section = resolveSection(pathname, restaurantId);
 
@@ -72,22 +74,26 @@ export function StaffShell({
       ? [
           { label: restaurantName, href: `/staff/restaurants/${restaurantId}` },
           {
-            label: 'Settings',
+            label: t('nav.settingsShort'),
             href: `/staff/restaurants/${restaurantId}/settings/languages`,
           },
-          { label: 'Languages' },
+          {
+            label: pathname.includes('/settings/delivery')
+              ? t('settings.tab.delivery')
+              : t('settings.tab.languages'),
+          },
         ]
       : [
           { label: restaurantName, href: `/staff/restaurants/${restaurantId}` },
           {
             label:
               section === 'menu'
-                ? 'Menu Management'
+                ? t('nav.menu')
                 : section === 'tables'
-                  ? 'Tables & QR'
+                  ? t('nav.tables')
                   : section === 'orders'
-                    ? 'Orders'
-                    : 'Dashboard',
+                    ? t('nav.orders')
+                    : t('nav.dashboard'),
           },
         ];
 

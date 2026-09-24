@@ -10,6 +10,7 @@ import {
 } from 'react';
 import { IconClose } from '../staff/icons';
 import { Button } from './Button';
+import { useStaffI18n } from '../../lib/i18n/client';
 
 export interface DialogProps {
   open: boolean;
@@ -66,6 +67,7 @@ export function Dialog({
   initialFocusRef,
   children,
 }: DialogProps) {
+  const { t } = useStaffI18n();
   const panelRef = useRef<HTMLDivElement>(null);
   const previouslyFocused = useRef<HTMLElement | null>(null);
   const [isVisible, setIsVisible] = useState(false);
@@ -156,14 +158,14 @@ export function Dialog({
                 {title}
               </h2>
               {subtitle ? (
-                <p className="mt-0.5 truncate text-sm text-[#655D56]">{subtitle}</p>
+                <p dir="auto" className="mt-0.5 truncate text-sm text-[#655D56]">{subtitle}</p>
               ) : null}
             </div>
             <button
               type="button"
               onClick={requestClose}
               disabled={isSubmitting}
-              aria-label="Close"
+              aria-label={t('common.close')}
               className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-[#655D56] hover:bg-[#F8F5F1] disabled:cursor-not-allowed disabled:opacity-50"
             >
               <IconClose className="h-4 w-4" />
@@ -174,7 +176,7 @@ export function Dialog({
             <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
             <div className="flex flex-shrink-0 items-center justify-end gap-2 border-t border-[#E5DED6] px-5 py-4 sm:px-6">
               <Button type="button" variant="secondary" onClick={requestClose} disabled={isSubmitting}>
-                Cancel
+                {t('common.cancel')}
               </Button>
               <Button type="submit" disabled={isSubmitting}>
                 {submitLabel}

@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { useStaffI18n } from '../../lib/i18n/client';
 
 export interface BreadcrumbItem {
   label: string;
@@ -13,8 +14,9 @@ export interface BreadcrumbItem {
  * supplied by the caller.
  */
 export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
+  const { t } = useStaffI18n();
   return (
-    <nav aria-label="Breadcrumb" className="min-w-0">
+    <nav aria-label={t('shell.breadcrumb')} className="min-w-0">
       <ol className="flex min-w-0 items-center gap-1.5 text-sm">
         {items.map((item, index) => {
           const isLast = index === items.length - 1;
@@ -25,7 +27,7 @@ export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                   href={item.href}
                   className="truncate text-[#655D56] transition-colors hover:text-[#302C29]"
                 >
-                  {item.label}
+                  <bdi dir="auto">{item.label}</bdi>
                 </Link>
               ) : (
                 <span
@@ -38,7 +40,7 @@ export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                 </span>
               )}
               {!isLast ? (
-                <span className="text-[#AFA397]" aria-hidden="true">
+                <span className="text-[#AFA397] rtl:-scale-x-100" aria-hidden="true">
                   /
                 </span>
               ) : null}

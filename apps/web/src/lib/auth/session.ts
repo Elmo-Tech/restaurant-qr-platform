@@ -1,4 +1,5 @@
 import { serverApiGet } from '../api/server-fetch';
+import { getStaffI18n } from '../i18n/server';
 import type { AuthContext } from './types';
 
 const HTTP_UNAUTHENTICATED = 401;
@@ -36,9 +37,10 @@ export async function getAuthSessionState(): Promise<AuthSessionState> {
     return { status: 'unauthenticated' };
   }
 
+  const { t } = await getStaffI18n();
   return {
     status: 'error',
     httpStatus: result.status ?? undefined,
-    message: 'Unable to verify your session right now. Please try again shortly.',
+    message: t('guard.sessionError'),
   };
 }

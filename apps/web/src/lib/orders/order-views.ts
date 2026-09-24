@@ -13,12 +13,6 @@ export const ACTIVE_STATUSES: readonly OrderStatus[] = [
 export const COMPLETED_STATUSES: readonly OrderStatus[] = ['SERVED', 'REJECTED', 'CANCELLED'];
 export const ALL_STATUSES: readonly OrderStatus[] = [...ACTIVE_STATUSES, ...COMPLETED_STATUSES];
 
-export const ORDERS_VIEW_LABELS: Record<OrdersView, string> = {
-  active: 'Active',
-  completed: 'Completed',
-  all: 'All',
-};
-
 export function statusesForView(view: OrdersView): readonly OrderStatus[] {
   if (view === 'active') return ACTIVE_STATUSES;
   if (view === 'completed') return COMPLETED_STATUSES;
@@ -77,16 +71,22 @@ export function countByView(orders: OrderListItem[]): Record<OrdersView, number>
   return { active, completed, all: orders.length };
 }
 
-/** Compact, staff-friendly time: "Just now", "12 min ago" within the hour; otherwise the clock time (with the date when not today). */
-export function formatOrderTime(isoDate: string, now: Date = new Date()): string {
+/** What `formatOrderTime` needs from the Staff i18n context (kept structural so this stays a plain helper). */
+export interface OrderTimeI18n {
+  t: (key: 'orders.time.justNow') => string;
+  tMinutes: (count: number) => string;
+  formatTime: (value: string | Date) => string;
+  formatDayMonth: (value: string | Date) => string;
+}
+
+/** Compact, staff-friendly time: "Just now", "12 min ago" within the hour; otherwise the clock time (with the date when not today), in the Staff UI language. */
+export function formatOrderTime(isoDate: string, i18n: OrderTimeI18n, now: Date = new Date()): string {
   const created = new Date(isoDate);
   const diffMinutes = Math.floor((now.getTime() - created.getTime()) / 60_000);
-  if (diffMinutes < 1) return 'Just now';
-  if (diffMinutes < 60) return `${diffMinutes} min ago`;
+  if (diffMinutes < 1) return i18n.t('orders.time.justNow');
+  if (diffMinutes < 60) return i18n.tMinutes(diffMinutes);
 
-  const time = created.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+  const time = i18n.formatTime(created);
   const sameDay = created.toDateString() === now.toDateString();
-  return sameDay
-    ? time
-    : `${created.toLocaleDateString([], { day: 'numeric', month: 'short' })}, ${time}`;
+  return sameDay ? time : `${i18n.formatDayMonth(created)}, ${time}`;
 }

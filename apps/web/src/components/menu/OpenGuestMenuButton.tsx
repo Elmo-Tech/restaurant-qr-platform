@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { getGuestMenuPublicCode } from '../../lib/guest-menu/api';
+import { useStaffI18n } from '../../lib/i18n/client';
 
 type LinkState = { status: 'loading' } | { status: 'ready'; publicCode: string | null } | { status: 'error' };
 
@@ -16,6 +17,7 @@ const BASE_CLASS =
  * primary ACTIVE Menu; this does not link to any individual Menu.
  */
 export function OpenGuestMenuButton({ restaurantId }: { restaurantId: string }) {
+  const { t } = useStaffI18n();
   const [state, setState] = useState<LinkState>({ status: 'loading' });
 
   useEffect(() => {
@@ -40,7 +42,7 @@ export function OpenGuestMenuButton({ restaurantId }: { restaurantId: string }) 
         rel="noopener noreferrer"
         className={`${BASE_CLASS} hover:bg-[#F8F5F1]`}
       >
-        Open Guest Menu
+        {t('guestMenu.open')}
       </a>
     );
   }
@@ -49,8 +51,8 @@ export function OpenGuestMenuButton({ restaurantId }: { restaurantId: string }) 
     state.status === 'loading'
       ? undefined
       : state.status === 'error'
-        ? 'Could not load the Guest Menu link.'
-        : 'No active QR code for this restaurant yet.';
+        ? t('guestMenu.loadError')
+        : t('guestMenu.noQr');
 
   return (
     <div className="flex flex-col items-start gap-1">
@@ -59,7 +61,7 @@ export function OpenGuestMenuButton({ restaurantId }: { restaurantId: string }) 
         disabled
         className={`${BASE_CLASS} cursor-not-allowed text-[#AFA397]`}
       >
-        Open Guest Menu
+        {t('guestMenu.open')}
       </button>
       {hint ? <p className="text-xs text-[#655D56]">{hint}</p> : null}
     </div>

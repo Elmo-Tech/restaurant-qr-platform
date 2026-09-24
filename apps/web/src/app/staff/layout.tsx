@@ -2,6 +2,8 @@ import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../lib/auth/session';
 import { Alert } from '../../components/ui/Alert';
+import { StaffI18nProvider } from '../../lib/i18n/client';
+import { getStaffLocale } from '../../lib/i18n/server';
 
 /**
  * Protected Staff auth gate (Section 7/14). This is a UX/navigation
@@ -29,19 +31,28 @@ export default async function StaffLayout({
 }: {
   children: ReactNode;
 }) {
-  const sessionState = await getAuthSessionState();
+  const [sessionState, locale] = await Promise.all([getAuthSessionState(), getStaffLocale()]);
 
   if (sessionState.status === 'unauthenticated') {
     redirect('/login');
   }
 
+  // FT-10A: every /staff route renders inside the Staff i18n provider (locale
+  // from the saved preference or the browser), which also sets lang/dir.
   if (sessionState.status === 'error') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-[#F8F5F1] px-4">
+      <StaffI18nProvider
+        locale={locale}
+        className="flex min-h-screen items-center justify-center bg-[#F8F5F1] px-4"
+      >
         <Alert variant="error">{sessionState.message}</Alert>
-      </div>
+      </StaffI18nProvider>
     );
   }
 
-  return <div className="min-h-screen bg-[#F8F5F1]">{children}</div>;
+  return (
+    <StaffI18nProvider locale={locale} className="min-h-screen bg-[#F8F5F1]">
+      {children}
+    </StaffI18nProvider>
+  );
 }

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import * as menuApi from '../../../../../../lib/menu/api';
 import * as settingsApi from '../../../../../../lib/settings/api';
 import type {
@@ -120,6 +121,7 @@ export function ProductEditor({
   mode,
   productId,
 }: ProductEditorProps) {
+  const { t } = useStaffI18n();
   const router = useRouter();
   const searchParams = useSearchParams();
   const initialCategoryIdParam = searchParams.get('categoryId');
@@ -167,7 +169,7 @@ export function ProductEditor({
         const found = productsData.find((candidate) => candidate.id === productId);
         if (!found) {
           setStatus('error');
-          setLoadError('Product not found.');
+          setLoadError(t('product.notFound'));
           return;
         }
         setProduct(found);
@@ -182,12 +184,14 @@ export function ProductEditor({
           const failures: string[] = [];
           if (translationErrorParam) {
             const failedLabels = translationErrorParam.split(',').map(localeLabel).join(', ');
-            failures.push(`saving the ${failedLabels} translation failed`);
+            failures.push(t('product.failTranslation', { languages: failedLabels }));
           }
           if (imageErrorParam) {
-            failures.push('the image upload failed');
+            failures.push(t('product.failImage'));
           }
-          setFormError(`Product created, but ${failures.join(' and ')}. You can retry below.`);
+          setFormError(
+            t('product.createdPartial', { problems: failures.join(t('menu.form.and')) }),
+          );
         } else if (createdParam) {
           // FT-6B, Section 8: a fully successful Create now lands here
           // directly (see `handleSubmit` below) rather than back on Menu
@@ -195,7 +199,7 @@ export function ProductEditor({
           // feeling like a silent, unexplained screen switch (the original
           // FT-2 correction's concern), while letting Staff configure
           // Modifiers/Presets immediately without a second navigation.
-          setSaveNotice('Product created. You can configure Modifiers below.');
+          setSaveNotice(t('product.createdNotice'));
         }
       } else {
         const preselected =
@@ -222,6 +226,7 @@ export function ProductEditor({
     translationErrorParam,
     imageErrorParam,
     createdParam,
+    t,
   ]);
 
   useEffect(() => {
@@ -327,20 +332,20 @@ export function ProductEditor({
     if (isSubmitting) return;
 
     if (form.categoryId === '') {
-      setFormError('Category is required.');
+      setFormError(t('product.categoryRequired'));
       return;
     }
     if (form.name.trim() === '') {
-      setFormError('Name is required.');
+      setFormError(t('menu.tr.nameRequired'));
       return;
     }
     const displayOrder = Number(form.displayOrder);
     if (!Number.isInteger(displayOrder) || displayOrder < 0) {
-      setFormError('Display order must be a whole number of 0 or more.');
+      setFormError(t('menu.form.displayOrderInvalid'));
       return;
     }
     if (!MONEY_DECIMAL_PATTERN.test(form.basePrice)) {
-      setFormError('Price must be a plain decimal amount with up to 2 decimal places, e.g. 10.50.');
+      setFormError(t('product.priceInvalid'));
       return;
     }
 
@@ -465,8 +470,8 @@ export function ProductEditor({
       setForm(toFormState(finalProduct));
       setSaveNotice(
         availabilityWarning
-          ? `Product saved, but updating availability failed: ${availabilityWarning}`
-          : 'Saved.',
+          ? t('product.availabilityFailed', { reason: availabilityWarning })
+          : t('product.saved'),
       );
     } catch (submitError) {
       if (isUnauthenticatedError(submitError)) {
@@ -475,11 +480,11 @@ export function ProductEditor({
       }
       if (submitError instanceof ApiError) {
         if (submitError.code === 'PRODUCT_NOT_FOUND') {
-          setFormError('This Product no longer exists.');
+          setFormError(t('product.gone'));
           return;
         }
         if (submitError.code === 'CATEGORY_NOT_FOUND') {
-          setFormError('The selected Category no longer exists.');
+          setFormError(t('product.categoryGone'));
           return;
         }
       }
@@ -492,7 +497,7 @@ export function ProductEditor({
   if (status === 'loading') {
     return (
       <Card>
-        <LoadingState label="Loading Product…" />
+        <LoadingState label={t('product.loading')} />
       </Card>
     );
   }
@@ -503,11 +508,11 @@ export function ProductEditor({
         <Alert variant="error">{loadError}</Alert>
         <div className="flex gap-2">
           <Button variant="secondary" onClick={() => void load()}>
-            Retry
+            {t('common.retry')}
           </Button>
           <Link href={`/staff/restaurants/${restaurantId}/menu`}>
             <Button variant="secondary" type="button">
-              Back to Menu
+              {t('product.backToMenu')}
             </Button>
           </Link>
         </div>
@@ -524,28 +529,39 @@ export function ProductEditor({
       <div className="flex items-center justify-between gap-4">
         <div>
           <Link href={backHref} className="text-sm text-[#7A5138] hover:underline">
-            ← Back to Menu
+            <span aria-hidden="true" className="inline-block rtl:rotate-180">
+              ←
+            </span>{' '}
+            {t('product.backToMenu')}
           </Link>
           <h1 className="mt-1 text-lg font-semibold text-[#1D1A18]">
-            {mode === 'create' ? 'Create Product' : `Edit ${product?.translation.name ?? 'Product'}`}
+            {mode === 'create'
+              ? t('product.createTitle')
+              : t('product.editTitle', {
+                  name: `\u2068${product?.translation.name ?? t('product.fallbackName')}\u2069`,
+                })}
           </h1>
         </div>
         <div className="flex items-center gap-2">
           {saveNotice ? <span className="text-sm text-[#2F6B4F]">{saveNotice}</span> : null}
           <Button type="submit" disabled={isBusy}>
-            {isSubmitting ? 'Saving…' : mode === 'create' ? 'Create & Continue' : 'Save changes'}
+            {isSubmitting
+              ? t('common.saving')
+              : mode === 'create'
+                ? t('product.createContinue')
+                : t('menu.form.saveChanges')}
           </Button>
         </div>
       </div>
 
       {!canManage ? (
-        <Alert variant="info">You do not have permission to manage this Restaurant&apos;s Menu.</Alert>
+        <Alert variant="info">{t('guard.noPermission.menuManage')}</Alert>
       ) : null}
 
       {formError ? <Alert variant="error">{formError}</Alert> : null}
 
       <Card className="flex flex-col gap-6">
-        <FormSection title="Image">
+        <FormSection title={t('menu.form.image')}>
           <ImageField
             idPrefix="product"
             imageUrl={displayImageUrl}
@@ -553,11 +569,11 @@ export function ProductEditor({
             onRemove={hasRemovableImage ? () => void handleRemoveImage() : undefined}
             isBusy={imageUploadBusy}
             error={imageError}
-            selectLabel={displayImageUrl ? 'Replace image' : 'Choose image'}
+            selectLabel={displayImageUrl ? t('menu.form.replaceImage') : t('menu.form.chooseImage')}
             helperText={
               mode === 'create'
-                ? 'JPEG, PNG, or WebP, up to 5 MB. Uploaded once the Product is created.'
-                : 'JPEG, PNG, or WebP, up to 5 MB.'
+                ? t('product.imageHintCreate')
+                : t('menu.form.imageHint')
             }
           />
         </FormSection>
@@ -586,11 +602,12 @@ export function ProductEditor({
       </Card>
 
       <Card className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <FormSection title="Pricing">
-          <FormField label={`Price (${currencyCode})`} htmlFor="product-basePrice">
+        <FormSection title={t('product.section.pricing')}>
+          <FormField label={t('product.price', { currency: currencyCode })} htmlFor="product-basePrice">
             <Input
               id="product-basePrice"
               inputMode="decimal"
+              dir="ltr"
               required
               value={form.basePrice}
               onChange={(event) => setForm((prev) => ({ ...prev, basePrice: event.target.value }))}
@@ -599,22 +616,22 @@ export function ProductEditor({
           </FormField>
         </FormSection>
 
-        <FormSection title="Availability">
-          <FormField label="Status" htmlFor="product-status">
+        <FormSection title={t('product.section.availability')}>
+          <FormField label={t('menu.form.status')} htmlFor="product-status">
             <Select
               id="product-status"
               value={form.status}
               onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as ProductStatus }))}
               disabled={isBusy}
             >
-              <option value="ACTIVE">Active</option>
-              <option value="INACTIVE">Inactive</option>
+              <option value="ACTIVE">{t('common.active')}</option>
+              <option value="INACTIVE">{t('common.inactive')}</option>
             </Select>
             {form.status === 'INACTIVE' ? (
-              <p className="mt-1 text-xs text-[#655D56]">Inactive Products are hidden from the Guest Menu.</p>
+              <p className="mt-1 text-xs text-[#655D56]">{t('product.inactiveHint')}</p>
             ) : null}
           </FormField>
-          <FormField label="Availability" htmlFor="product-availability">
+          <FormField label={t('product.availability')} htmlFor="product-availability">
             <Select
               id="product-availability"
               value={form.availability}
@@ -623,16 +640,16 @@ export function ProductEditor({
               }
               disabled={isBusy}
             >
-              <option value="AVAILABLE">Available</option>
-              <option value="SOLD_OUT">Sold out</option>
+              <option value="AVAILABLE">{t('menu.badge.available')}</option>
+              <option value="SOLD_OUT">{t('menu.badge.soldOut')}</option>
             </Select>
           </FormField>
         </FormSection>
       </Card>
 
       <Card className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <FormSection title="Menu placement">
-          <FormField label="Category" htmlFor="product-category">
+        <FormSection title={t('product.section.placement')}>
+          <FormField label={t('product.category')} htmlFor="product-category">
             <Select
               id="product-category"
               required
@@ -640,7 +657,7 @@ export function ProductEditor({
               onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
               disabled={isBusy}
             >
-              {form.categoryId === '' ? <option value="">Select a category…</option> : null}
+              {form.categoryId === '' ? <option value="">{t('product.selectCategory')}</option> : null}
               {categoryGroups.map((group) => (
                 <optgroup key={group.menu.id} label={group.menu.translation.name}>
                   {group.categories.map((category) => (
@@ -652,7 +669,7 @@ export function ProductEditor({
               ))}
             </Select>
           </FormField>
-          <FormField label="Display order" htmlFor="product-displayOrder">
+          <FormField label={t('menu.form.displayOrder')} htmlFor="product-displayOrder">
             <Input
               id="product-displayOrder"
               type="number"
@@ -666,7 +683,7 @@ export function ProductEditor({
           </FormField>
         </FormSection>
 
-        <FormSection title="Customer options">
+        <FormSection title={t('product.section.customer')}>
           <label className="flex items-center gap-2 text-sm text-[#302C29]">
             <input
               type="checkbox"
@@ -674,7 +691,7 @@ export function ProductEditor({
               onChange={(event) => setForm((prev) => ({ ...prev, allowCustomerNotes: event.target.checked }))}
               disabled={isBusy}
             />
-            Allow customer notes
+            {t('product.allowNotes')}
           </label>
           <label className="flex items-center gap-2 text-sm text-[#302C29]">
             <input
@@ -683,7 +700,7 @@ export function ProductEditor({
               onChange={(event) => setForm((prev) => ({ ...prev, featured: event.target.checked }))}
               disabled={isBusy}
             />
-            Featured
+            {t('menu.badge.featured')}
           </label>
         </FormSection>
       </Card>
@@ -700,11 +717,8 @@ export function ProductEditor({
         </Card>
       ) : (
         <Card className="flex flex-col gap-6">
-          <FormSection title="Modifiers">
-            <p className="text-sm text-[#655D56]">
-              Create the Product first. You&apos;ll continue directly to its Edit page where you can
-              configure Modifiers and apply Modifier Library presets.
-            </p>
+          <FormSection title={t('mod.title')}>
+            <p className="text-sm text-[#655D56]">{t('product.modifiersCreateFirst')}</p>
           </FormSection>
         </Card>
       )}
@@ -736,6 +750,7 @@ function ProductCreateLanguages({
   secondaryDrafts: SecondaryDrafts;
   setSecondaryDrafts: (updater: (prev: SecondaryDrafts) => SecondaryDrafts) => void;
 }) {
+  const { t } = useStaffI18n();
   const defaultLocale = locales?.defaultLocale ?? null;
   const secondaryLocales = useMemo(
     () =>
@@ -750,11 +765,11 @@ function ProductCreateLanguages({
 
   const tabOptions: LanguageTabOption[] = defaultLocale
     ? [
-        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: t('menu.content.default') },
         ...secondaryLocales.map((locale) => ({
           locale,
           label: localeLabel(locale),
-          stateLabel: secondaryDrafts[locale]?.name.trim() ? 'Draft entered' : 'Not translated yet',
+          stateLabel: secondaryDrafts[locale]?.name.trim() ? t('menu.content.draftEntered') : t('menu.content.notTranslated'),
         })),
       ]
     : [];
@@ -767,12 +782,12 @@ function ProductCreateLanguages({
   }
 
   return (
-    <FormSection title="Languages">
+    <FormSection title={t('menu.form.contentLanguages')}>
       <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
 
       {isDefaultTab ? (
         <>
-          <FormField label="Name" htmlFor="product-name">
+          <FormField label={t('menu.tr.name')} htmlFor="product-name">
             <Input
               id="product-name"
               dir={dir}
@@ -782,7 +797,7 @@ function ProductCreateLanguages({
               disabled={isBusy}
             />
           </FormField>
-          <FormField label="Description" htmlFor="product-description">
+          <FormField label={t('menu.tr.description')} htmlFor="product-description">
             <Textarea
               id="product-description"
               dir={dir}
@@ -794,8 +809,8 @@ function ProductCreateLanguages({
         </>
       ) : (
         <>
-          <p className="text-xs text-[#655D56]">Optional -- leave blank to skip this language for now.</p>
-          <FormField label="Name" htmlFor={`product-create-name-${activeLocale}`}>
+          <p className="text-xs text-[#655D56]">{t('menu.form.optionalLanguage')}</p>
+          <FormField label={t('menu.tr.name')} htmlFor={`product-create-name-${activeLocale}`}>
             <Input
               id={`product-create-name-${activeLocale}`}
               dir={dir}
@@ -804,7 +819,7 @@ function ProductCreateLanguages({
               disabled={isBusy}
             />
           </FormField>
-          <FormField label="Description" htmlFor={`product-create-description-${activeLocale}`}>
+          <FormField label={t('menu.tr.description')} htmlFor={`product-create-description-${activeLocale}`}>
             <Textarea
               id={`product-create-description-${activeLocale}`}
               dir={dir}
@@ -841,6 +856,7 @@ function ProductTranslationSection({
   setForm: (updater: (prev: ProductFormState) => ProductFormState) => void;
   isBusy: boolean;
 }) {
+  const { t } = useStaffI18n();
   const defaultLocale = locales?.defaultLocale ?? null;
   // Memoized: see MenuContextBar's identical note -- an unstable array
   // identity here would make useTranslationsEditor re-fetch (and wipe
@@ -868,22 +884,22 @@ function ProductTranslationSection({
 
   const tabOptions: LanguageTabOption[] = defaultLocale
     ? [
-        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: 'Default' },
+        { locale: '__default__', label: localeLabel(defaultLocale), stateLabel: t('menu.content.default') },
         ...secondaryLocales.map((locale) => ({
           locale,
           label: localeLabel(locale),
-          stateLabel: translations.drafts[locale]?.exists ? 'Translated' : 'Not translated yet',
+          stateLabel: translations.drafts[locale]?.exists ? t('menu.content.translated') : t('menu.content.notTranslated'),
         })),
       ]
     : [];
 
   return (
-    <FormSection title="Languages">
+    <FormSection title={t('menu.form.contentLanguages')}>
       <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
 
       {isDefaultTab ? (
         <>
-          <FormField label="Name" htmlFor="product-name">
+          <FormField label={t('menu.tr.name')} htmlFor="product-name">
             <Input
               id="product-name"
               dir={dir}
@@ -893,7 +909,7 @@ function ProductTranslationSection({
               disabled={isBusy}
             />
           </FormField>
-          <FormField label="Description" htmlFor="product-description">
+          <FormField label={t('menu.tr.description')} htmlFor="product-description">
             <Textarea
               id="product-description"
               dir={dir}

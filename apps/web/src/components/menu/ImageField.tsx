@@ -1,4 +1,7 @@
+'use client';
+
 import { useRef } from 'react';
+import { useStaffI18n } from '../../lib/i18n/client';
 import { Alert } from '../ui/Alert';
 import { Button } from '../ui/Button';
 import { IconImage } from '../staff/icons';
@@ -34,9 +37,10 @@ export function ImageField({
   isBusy,
   error,
   selectLabel,
-  removeLabel = 'Remove image',
+  removeLabel,
   helperText,
 }: ImageFieldProps) {
+  const { t } = useStaffI18n();
   const inputRef = useRef<HTMLInputElement>(null);
 
   return (
@@ -64,7 +68,7 @@ export function ImageField({
               disabled={isBusy}
               onClick={() => inputRef.current?.click()}
             >
-              {isBusy ? 'Uploading…' : selectLabel}
+              {isBusy ? t('menu.image.uploading') : selectLabel}
             </Button>
             {onRemove ? (
               <Button
@@ -74,7 +78,7 @@ export function ImageField({
                 disabled={isBusy}
                 onClick={onRemove}
               >
-                {removeLabel}
+                {removeLabel ?? t('menu.image.remove')}
               </Button>
             ) : null}
           </div>

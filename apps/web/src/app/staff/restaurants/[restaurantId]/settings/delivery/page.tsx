@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../../lib/auth/session';
+import { getStaffI18n } from '../../../../../../lib/i18n/server';
 import {
   canManageLanguages,
   canViewRestaurantSettings,
@@ -21,6 +22,7 @@ interface DeliverySettingsPageProps {
  */
 export default async function DeliverySettingsPage({ params }: DeliverySettingsPageProps) {
   const { restaurantId } = await params;
+  const { t } = await getStaffI18n();
   const sessionState = await getAuthSessionState();
 
   if (sessionState.status === 'unauthenticated') {
@@ -36,7 +38,7 @@ export default async function DeliverySettingsPage({ params }: DeliverySettingsP
   );
 
   if (!membership) {
-    return <Alert variant="error">Restaurant not found.</Alert>;
+    return <Alert variant="error">{t('guard.restaurantNotFound')}</Alert>;
   }
 
   if (membership.restaurant.status !== 'ACTIVE') {
@@ -51,9 +53,7 @@ export default async function DeliverySettingsPage({ params }: DeliverySettingsP
 
   if (!canViewRestaurantSettings(membership)) {
     return (
-      <Alert variant="error">
-        You do not have permission to view this Restaurant&apos;s Settings.
-      </Alert>
+      <Alert variant="error">{t('guard.noPermission.settings')}</Alert>
     );
   }
 

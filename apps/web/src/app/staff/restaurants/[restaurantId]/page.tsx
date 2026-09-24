@@ -6,11 +6,9 @@ import { canViewMenu } from '../../../../lib/menu/capabilities';
 import { canViewOrders } from '../../../../lib/orders/capabilities';
 import { canViewTables } from '../../../../lib/tables/capabilities';
 import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
-import type {
-  RestaurantMembershipRole,
-  RestaurantStatus,
-} from '../../../../lib/auth/types';
+import type { RestaurantStatus } from '../../../../lib/auth/types';
 import { Alert } from '../../../../components/ui/Alert';
+import { getStaffI18n } from '../../../../lib/i18n/server';
 import { OpenGuestMenuButton } from '../../../../components/menu/OpenGuestMenuButton';
 import {
   IconArrowRight,
@@ -25,37 +23,18 @@ interface RestaurantLandingPageProps {
   params: Promise<{ restaurantId: string }>;
 }
 
-const LOCALE_LABELS: Record<string, string> = {
-  en: 'English',
-  ar: 'Arabic',
-};
-
-function localeLabel(locale: string): string {
-  return LOCALE_LABELS[locale] ?? locale.toUpperCase();
-}
-
-function roleLabel(role: RestaurantMembershipRole): string {
-  return role.charAt(0) + role.slice(1).toLowerCase();
-}
-
 const STATUS_BADGE_STYLES: Record<RestaurantStatus, string> = {
   ACTIVE: 'bg-[#2F6B4F]/10 text-[#2F6B4F]',
   INACTIVE: 'bg-[#8A8177]/10 text-[#8A8177]',
   SUSPENDED: 'bg-[#B3261E]/10 text-[#B3261E]',
 };
 
-const STATUS_BADGE_LABELS: Record<RestaurantStatus, string> = {
-  ACTIVE: 'Active',
-  INACTIVE: 'Inactive',
-  SUSPENDED: 'Suspended',
-};
-
-function StatusBadge({ status }: { status: RestaurantStatus }) {
+function StatusBadge({ status, label }: { status: RestaurantStatus; label: string }) {
   return (
     <span
       className={`inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${STATUS_BADGE_STYLES[status]}`}
     >
-      {STATUS_BADGE_LABELS[status]}
+      {label}
     </span>
   );
 }
@@ -119,9 +98,9 @@ function FeatureCard({
         ) : (
           <span
             aria-hidden="true"
-            className="text-[#AFA397] transition-transform group-hover:translate-x-0.5 group-hover:text-[#7A5138]"
+            className="text-[#AFA397] transition-transform group-hover:translate-x-0.5 group-hover:text-[#7A5138] rtl:group-hover:-translate-x-0.5"
           >
-            <IconArrowRight className="h-5 w-5" />
+            <IconArrowRight className="h-5 w-5 rtl:rotate-180" />
           </span>
         )}
       </div>
@@ -175,7 +154,7 @@ export default async function RestaurantLandingPage({
   params,
 }: RestaurantLandingPageProps) {
   const { restaurantId } = await params;
-  const sessionState = await getAuthSessionState();
+  const [sessionState, { t }] = await Promise.all([getAuthSessionState(), getStaffI18n()]);
 
   if (sessionState.status === 'unauthenticated') {
     redirect('/login');
@@ -190,18 +169,30 @@ export default async function RestaurantLandingPage({
   );
 
   if (!membership) {
-    return <Alert variant="error">Restaurant not found.</Alert>;
+    return <Alert variant="error">{t('guard.restaurantNotFound')}</Alert>;
   }
 
   const { restaurant, role } = membership;
+  const statusLabel =
+    restaurant.status === 'ACTIVE'
+      ? t('common.active')
+      : restaurant.status === 'SUSPENDED'
+        ? t('common.suspended')
+        : t('common.inactive');
+  const languageLabel =
+    restaurant.defaultLocale === 'ar'
+      ? t('dashboard.language.ar')
+      : restaurant.defaultLocale === 'en'
+        ? t('dashboard.language.en')
+        : restaurant.defaultLocale.toUpperCase();
 
   return (
     <div className="flex flex-col gap-8">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-[#1D1A18]">Dashboard</h1>
+          <h1 className="text-xl font-semibold text-[#1D1A18]">{t('dashboard.title')}</h1>
           <p className="mt-1 text-sm text-[#655D56]">
-            Manage {restaurant.name}&apos;s restaurant setup and operations.
+            {t('dashboard.subtitle', { name: restaurant.name })}
           </p>
         </div>
         {restaurant.status === 'ACTIVE' && canViewMenu(membership) ? (
@@ -211,79 +202,81 @@ export default async function RestaurantLandingPage({
 
       {restaurant.status !== 'ACTIVE' ? (
         <Alert variant="error">
-          This Restaurant is currently{' '}
-          {restaurant.status === 'SUSPENDED' ? 'suspended' : 'inactive'} and
-          not operational. Contact your Restaurant owner for details.
+          {t('guard.notOperational', {
+            state: restaurant.status === 'SUSPENDED' ? t('guard.state.suspended') : t('guard.state.inactive'),
+          })}
         </Alert>
       ) : (
         <>
           <div className="grid grid-cols-2 gap-6 rounded-lg border border-[#E5DED6] bg-white p-5 sm:grid-cols-4">
-            <ContextFact label="Status">
-              <StatusBadge status={restaurant.status} />
+            <ContextFact label={t('dashboard.fact.status')}>
+              <StatusBadge status={restaurant.status} label={statusLabel} />
             </ContextFact>
-            <ContextFact label="Currency">{restaurant.currencyCode}</ContextFact>
-            <ContextFact label="Default language">
-              {localeLabel(restaurant.defaultLocale)} · {restaurant.defaultLocale}
+            <ContextFact label={t('dashboard.fact.currency')}>
+              <bdi dir="ltr">{restaurant.currencyCode}</bdi>
             </ContextFact>
-            <ContextFact label="Your access">{roleLabel(role)}</ContextFact>
+            <ContextFact label={t('dashboard.fact.defaultLanguage')}>
+              {languageLabel} · <bdi dir="ltr">{restaurant.defaultLocale}</bdi>
+            </ContextFact>
+            <ContextFact label={t('dashboard.fact.access')}>{t(`role.${role}` as const)}</ContextFact>
           </div>
 
           <div>
             <h2 className="text-sm font-semibold text-[#302C29]">
-              Restaurant Management
+              {t('dashboard.management')}
             </h2>
             <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {canViewMenu(membership) ? (
                 <FeatureCard
-                  title="Menu Management"
-                  description="Manage menus, categories, products, pricing and availability."
+                  title={t('dashboard.card.menu.title')}
+                  description={t('dashboard.card.menu.description')}
                   icon={<IconMenu className="h-5 w-5" />}
                   href={`/staff/restaurants/${restaurantId}/menu`}
                   emphasize
                 />
               ) : (
                 <FeatureCard
-                  title="Menu Management"
-                  description="You do not have permission to view this Restaurant's Menu."
+                  title={t('dashboard.card.menu.title')}
+                  description={t('dashboard.card.menu.noAccess')}
                   icon={<IconMenu className="h-5 w-5" />}
-                  disabledReason="No access"
+                  disabledReason={t('common.noAccess')}
                 />
               )}
               <FeatureCard
-                title="Tables & QR"
-                description="Manage dining tables, table QR codes and the Restaurant QR for Pickup and Delivery."
+                title={t('dashboard.card.tables.title')}
+                description={t('dashboard.card.tables.description')}
                 icon={<IconQr className="h-5 w-5" />}
                 {...(canViewTables(membership)
                   ? { href: `/staff/restaurants/${restaurantId}/tables` }
-                  : { disabledReason: 'No access' })}
+                  : { disabledReason: t('common.noAccess') })}
               />
               <FeatureCard
-                title="Orders"
-                description="Track and manage incoming Guest orders."
+                title={t('dashboard.card.orders.title')}
+                description={t('dashboard.card.orders.description')}
                 icon={<IconOrders className="h-5 w-5" />}
                 {...(canViewOrders(membership)
                   ? { href: `/staff/restaurants/${restaurantId}/orders` }
-                  : { disabledReason: 'No access' })}
+                  : { disabledReason: t('common.noAccess') })}
               />
               <FeatureCard
-                title="Staff & Access"
-                description="Invite Staff and manage Roles and Branch access."
+                title={t('dashboard.card.staff.title')}
+                description={t('dashboard.card.staff.description')}
                 icon={<IconStaff className="h-5 w-5" />}
-                disabledReason="Coming soon"
+                disabledReason={t('common.comingSoon')}
               />
               {canViewRestaurantSettings(membership) ? (
                 <FeatureCard
-                  title="Restaurant Settings"
-                  description="Configure restaurant languages and delivery areas."
+                  title={t('dashboard.card.settings.title')}
+                  description={t('dashboard.card.settings.description')}
                   icon={<IconSettings className="h-5 w-5" />}
                   href={`/staff/restaurants/${restaurantId}/settings/languages`}
                 />
               ) : (
                 <FeatureCard
-                  title="Restaurant Settings"
-                  description="You do not have permission to view this Restaurant's Settings."
+                  title={t('dashboard.card.settings.title')}
+                  description={t('dashboard.card.settings.noAccess')}
                   icon={<IconSettings className="h-5 w-5" />}
-                  disabledReason="No access"
+                  disabledReason={t('common.noAccess')}
                 />
               )}
             </div>

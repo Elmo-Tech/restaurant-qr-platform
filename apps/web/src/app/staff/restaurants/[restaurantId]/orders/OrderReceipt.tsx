@@ -1,6 +1,7 @@
 'use client';
 
 import type { ReactNode } from 'react';
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { createPortal } from 'react-dom';
 import type { OrderDetail } from '../../../../../lib/orders/types';
 import { orderStatusLabel } from './StatusBadge';
@@ -40,6 +41,7 @@ function Num({ children }: { children: ReactNode }) {
 }
 
 export function OrderReceipt({ order }: { order: OrderDetail }) {
+  const { t, formatDateTime } = useStaffI18n();
   if (typeof document === 'undefined') return null;
 
   const isDelivery = order.type === 'DELIVERY';
@@ -76,10 +78,10 @@ export function OrderReceipt({ order }: { order: OrderDetail }) {
         <Divider />
 
         <section className="text-center">
-          <p className="text-[16px] font-bold uppercase">{orderTypeLabel(order.type)}</p>
+          <p className="text-[16px] font-bold uppercase">{orderTypeLabel(t, order.type)}</p>
           {isDineIn && order.table ? (
             <p className="text-[16px] font-bold">
-              Table <Text>{order.table.tableNumber}</Text>
+              {t('orders.receipt.table')} <Text>{order.table.tableNumber}</Text>
             </p>
           ) : null}
         </section>
@@ -87,36 +89,36 @@ export function OrderReceipt({ order }: { order: OrderDetail }) {
         <Divider />
 
         <dl className="flex flex-col gap-0.5">
-          <Row label="Date" value={<Num>{new Date(order.createdAt).toLocaleString()}</Num>} />
-          <Row label="Status" value={orderStatusLabel(order.status, order.type)} />
+          <Row label={t('orders.receipt.date')} value={<Num>{formatDateTime(order.createdAt)}</Num>} />
+          <Row label={t('orders.receipt.status')} value={orderStatusLabel(t, order.status, order.type)} />
         </dl>
 
         {order.customer ? (
           <>
             <Divider />
             <dl className="flex flex-col gap-0.5">
-              <Row label="Customer" value={<Text>{order.customer.name}</Text>} />
-              <Row label="Phone" value={<Num>{order.customer.phone}</Num>} />
+              <Row label={t('orders.receipt.customer')} value={<Text>{order.customer.name}</Text>} />
+              <Row label={t('orders.receipt.phone')} value={<Num>{order.customer.phone}</Num>} />
               {isDelivery && order.delivery ? (
                 <>
-                  <Row label="Area" value={<Text>{order.delivery.zoneName}</Text>} />
-                  <Row label="Address" value={<Text>{order.delivery.address}</Text>} />
+                  <Row label={t('orders.receipt.area')} value={<Text>{order.delivery.zoneName}</Text>} />
+                  <Row label={t('orders.receipt.address')} value={<Text>{order.delivery.address}</Text>} />
                   {order.delivery.building ? (
-                    <Row label="Building" value={<Text>{order.delivery.building}</Text>} />
+                    <Row label={t('orders.receipt.building')} value={<Text>{order.delivery.building}</Text>} />
                   ) : null}
                   {order.delivery.floor ? (
-                    <Row label="Floor" value={<Text>{order.delivery.floor}</Text>} />
+                    <Row label={t('orders.receipt.floor')} value={<Text>{order.delivery.floor}</Text>} />
                   ) : null}
                   {order.delivery.apartment ? (
-                    <Row label="Apartment" value={<Text>{order.delivery.apartment}</Text>} />
+                    <Row label={t('orders.receipt.apartment')} value={<Text>{order.delivery.apartment}</Text>} />
                   ) : null}
                   {order.delivery.landmark ? (
-                    <Row label="Landmark" value={<Text>{order.delivery.landmark}</Text>} />
+                    <Row label={t('orders.receipt.landmark')} value={<Text>{order.delivery.landmark}</Text>} />
                   ) : null}
                 </>
               ) : null}
               {order.customer.notes ? (
-                <Row label="Notes" value={<Text>{order.customer.notes}</Text>} />
+                <Row label={t('orders.receipt.notes')} value={<Text>{order.customer.notes}</Text>} />
               ) : null}
             </dl>
           </>
@@ -137,7 +139,7 @@ export function OrderReceipt({ order }: { order: OrderDetail }) {
               </div>
               <div className="ps-3">
                 <p>
-                  {money(item.unitPrice)} each
+                  {money(item.unitPrice)} {t('orders.receipt.each')}
                 </p>
                 {item.modifiers.map((modifier, modifierIndex) => (
                   <p key={modifierIndex} className="flex justify-between gap-2">
@@ -161,19 +163,19 @@ export function OrderReceipt({ order }: { order: OrderDetail }) {
         <dl className="flex flex-col gap-0.5">
           {isDelivery ? (
             <>
-              <Row label="Subtotal" value={money(order.subtotalAmount)} />
-              <Row label="Delivery fee" value={money(order.deliveryFee)} />
+              <Row label={t('orders.receipt.subtotal')} value={money(order.subtotalAmount)} />
+              <Row label={t('orders.receipt.deliveryFee')} value={money(order.deliveryFee)} />
             </>
           ) : null}
           <div className="flex items-baseline justify-between gap-2 pt-1 text-[16px] font-bold">
-            <dt>TOTAL</dt>
+            <dt>{t('orders.receipt.total')}</dt>
             <dd>{money(order.totalAmount)}</dd>
           </div>
         </dl>
 
         <Divider />
         <p className="text-center text-[10px]">
-          Printed <Num>{new Date().toLocaleString()}</Num>
+          {t('orders.receipt.printed')} <Num>{formatDateTime(new Date())}</Num>
         </p>
       </div>
     </div>,

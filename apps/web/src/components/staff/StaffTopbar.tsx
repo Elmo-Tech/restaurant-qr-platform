@@ -1,6 +1,8 @@
 import type { ReactNode } from 'react';
 import { LogoutButton } from '../../app/staff/LogoutButton';
 import { IconHamburger } from './icons';
+import { StaffLanguageSwitcher } from './StaffLanguageSwitcher';
+import { useStaffI18n } from '../../lib/i18n/client';
 
 interface StaffTopbarProps {
   onOpenMobileNav: () => void;
@@ -21,6 +23,7 @@ export function StaffTopbar({
   userEmail,
   breadcrumb,
 }: StaffTopbarProps) {
+  const { t } = useStaffI18n();
   const initial = userEmail.charAt(0).toUpperCase();
 
   return (
@@ -29,19 +32,20 @@ export function StaffTopbar({
         <button
           type="button"
           onClick={onOpenMobileNav}
-          className="-ml-1 inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-[#655D56] hover:bg-[#F8F5F1] lg:hidden"
-          aria-label="Open navigation"
+          className="-ms-1 inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-[#655D56] hover:bg-[#F8F5F1] lg:hidden"
+          aria-label={t('shell.openNavigation')}
         >
           <IconHamburger className="h-5 w-5" />
         </button>
         <div className="min-w-0">{breadcrumb}</div>
       </div>
       <div className="flex flex-shrink-0 items-center gap-3">
+        <StaffLanguageSwitcher />
         <div className="hidden items-center gap-2 sm:flex">
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#7A5138]/10 text-xs font-semibold text-[#7A5138]">
             {initial}
           </span>
-          <span className="max-w-[160px] truncate text-sm text-[#655D56]">
+          <span dir="ltr" className="max-w-[160px] truncate text-sm text-[#655D56]">
             {userEmail}
           </span>
         </div>

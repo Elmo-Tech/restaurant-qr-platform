@@ -1,0 +1,121 @@
+import { defineMessages } from './define';
+
+/**
+ * FT-10A: Menu Management shell -- workspace, section tabs, badges, product
+ * list, and the components shared by every content editor (translation
+ * fields, content-language tabs, image field, image validation).
+ *
+ * Wording note: "content language" always means the language a Menu / Category /
+ * Product is WRITTEN in for guests. It is unrelated to the Staff UI language
+ * (the switcher in the top bar).
+ */
+export const menuMessages = defineMessages({
+  en: {
+    'menu.title': 'Menu Management',
+    'menu.subtitle': 'Manage menus, categories, products, pricing and availability.',
+    'menu.needsFullScope': 'Full Restaurant branch scope is required to manage the Menu.',
+    'menu.section.aria': 'Menu Management sections',
+    'menu.section.products': 'Menu & Products',
+    'menu.section.library': 'Modifier Library',
+
+    'menu.badge.available': 'Available',
+    'menu.badge.soldOut': 'Sold out',
+    'menu.badge.featured': 'Featured',
+    'menu.badge.primary': 'Primary',
+
+    'menu.products.title': 'Products',
+    'menu.products.selectCategory': 'Select a Category to see its Products.',
+    'menu.products.loading': 'Loading Products…',
+    'menu.products.emptyTitle': 'No products in this category',
+    'menu.products.emptyHint': 'Add the first product.',
+    'menu.products.add': 'Add Product',
+    'menu.products.searchPlaceholder': 'Search products…',
+    'menu.products.searchAria': 'Search products',
+    'menu.products.filterStatus': 'Filter by status',
+    'menu.products.allStatuses': 'All statuses',
+    'menu.products.filterAvailability': 'Filter by availability',
+    'menu.products.allAvailability': 'All availability',
+    'menu.products.noMatch': 'No products match the current filters.',
+    'menu.products.col.product': 'Product',
+    'menu.products.col.price': 'Price',
+    'menu.products.col.availability': 'Availability',
+    'menu.products.col.status': 'Status',
+    'menu.products.col.actions': 'Actions',
+    'menu.products.updating': 'Updating…',
+    'menu.products.markSoldOut': 'Mark Sold Out',
+    'menu.products.markAvailable': 'Mark Available',
+    'menu.products.editAria': 'Edit {name}',
+
+    'menu.content.languageLabel': 'Content language (what guests read)',
+    'menu.content.default': 'Default',
+    'menu.content.translated': 'Translated',
+    'menu.content.notTranslated': 'Not translated yet',
+    'menu.content.draftEntered': 'Draft entered',
+    'menu.tr.notTranslatedYet': 'Not translated yet.',
+    'menu.tr.name': 'Name',
+    'menu.tr.description': 'Description',
+    'menu.tr.save': 'Save translation',
+    'menu.tr.remove': 'Remove translation',
+    'menu.tr.removing': 'Removing…',
+    'menu.tr.nameRequired': 'Name is required.',
+
+    'menu.image.uploading': 'Uploading…',
+    'menu.image.remove': 'Remove image',
+    'menu.image.typeError': 'Only JPEG, PNG, and WebP images are supported.',
+    'menu.image.sizeError': 'Image must be 5 MB or smaller.',
+  },
+  ar: {
+    'menu.title': 'إدارة القائمة',
+    'menu.subtitle': 'إدارة القوائم والأقسام والمنتجات والأسعار والتوفر.',
+    'menu.needsFullScope': 'إدارة القائمة تتطلب صلاحية على جميع فروع المطعم.',
+    'menu.section.aria': 'أقسام إدارة القائمة',
+    'menu.section.products': 'القائمة والمنتجات',
+    'menu.section.library': 'مكتبة الإضافات',
+
+    'menu.badge.available': 'متوفر',
+    'menu.badge.soldOut': 'نفد',
+    'menu.badge.featured': 'مميز',
+    'menu.badge.primary': 'الرئيسية',
+
+    'menu.products.title': 'المنتجات',
+    'menu.products.selectCategory': 'اختر قسمًا لعرض منتجاته.',
+    'menu.products.loading': 'جارٍ تحميل المنتجات…',
+    'menu.products.emptyTitle': 'لا توجد منتجات في هذا القسم',
+    'menu.products.emptyHint': 'أضف أول منتج.',
+    'menu.products.add': 'إضافة منتج',
+    'menu.products.searchPlaceholder': 'ابحث في المنتجات…',
+    'menu.products.searchAria': 'البحث في المنتجات',
+    'menu.products.filterStatus': 'تصفية حسب الحالة',
+    'menu.products.allStatuses': 'كل الحالات',
+    'menu.products.filterAvailability': 'تصفية حسب التوفر',
+    'menu.products.allAvailability': 'كل حالات التوفر',
+    'menu.products.noMatch': 'لا توجد منتجات تطابق التصفية الحالية.',
+    'menu.products.col.product': 'المنتج',
+    'menu.products.col.price': 'السعر',
+    'menu.products.col.availability': 'التوفر',
+    'menu.products.col.status': 'الحالة',
+    'menu.products.col.actions': 'الإجراءات',
+    'menu.products.updating': 'جارٍ التحديث…',
+    'menu.products.markSoldOut': 'تحديد كنافد',
+    'menu.products.markAvailable': 'تحديد كمتوفر',
+    'menu.products.editAria': 'تعديل {name}',
+
+    'menu.content.languageLabel': 'لغة المحتوى (ما يقرؤه الضيوف)',
+    'menu.content.default': 'الافتراضية',
+    'menu.content.translated': 'مترجم',
+    'menu.content.notTranslated': 'لم تتم الترجمة بعد',
+    'menu.content.draftEntered': 'تم إدخال مسودة',
+    'menu.tr.notTranslatedYet': 'لم تتم الترجمة بعد.',
+    'menu.tr.name': 'الاسم',
+    'menu.tr.description': 'الوصف',
+    'menu.tr.save': 'حفظ الترجمة',
+    'menu.tr.remove': 'حذف الترجمة',
+    'menu.tr.removing': 'جارٍ الحذف…',
+    'menu.tr.nameRequired': 'الاسم مطلوب.',
+
+    'menu.image.uploading': 'جارٍ الرفع…',
+    'menu.image.remove': 'إزالة الصورة',
+    'menu.image.typeError': 'يُدعم فقط صور JPEG وPNG وWebP.',
+    'menu.image.sizeError': 'يجب ألا يتجاوز حجم الصورة 5 ميجابايت.',
+  },
+});

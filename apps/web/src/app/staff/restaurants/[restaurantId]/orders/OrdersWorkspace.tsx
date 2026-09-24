@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useStaffI18n } from '../../../../../lib/i18n/client';
 import * as ordersApi from '../../../../../lib/orders/api';
 import type {
   OrderDetail,
@@ -10,7 +11,6 @@ import type {
 } from '../../../../../lib/orders/types';
 import { getAvailableTransitions } from '../../../../../lib/orders/transitions';
 import {
-  ORDERS_VIEW_LABELS,
   countByView,
   filterOrders,
   statusesForView,
@@ -58,6 +58,7 @@ export interface OrdersWorkspaceProps {
  * tab, or an open Order.
  */
 export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersWorkspaceProps) {
+  const { t } = useStaffI18n();
   const [branchFilter, setBranchFilter] = useState<string>(ALL_BRANCHES);
   const [orders, setOrders] = useState<OrderListItem[] | null>(null);
   const [ordersError, setOrdersError] = useState<string | null>(null);
@@ -163,7 +164,7 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
         // Section 14: someone else already changed it -- refresh the
         // detail + list so the Staff member sees the real current state
         // rather than retrying blindly against stale data.
-        setTransitionError('This order was already updated. Showing the latest state.');
+        setTransitionError(t('orders.transitionStale'));
         void openOrder(orderDetail.id);
         void loadOrders();
         return;
@@ -206,26 +207,24 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold text-[#1D1A18]">Orders</h1>
-          <p className="mt-1 text-sm text-[#655D56]">
-            Incoming orders, newest first.
-          </p>
+          <h1 className="text-xl font-semibold text-[#1D1A18]">{t('orders.title')}</h1>
+          <p className="mt-1 text-sm text-[#655D56]">{t('orders.subtitle')}</p>
         </div>
         <div className="flex items-center gap-3">
           {isRefreshing && orders !== null ? (
             <span role="status" className="text-xs text-[#8A8177]">
-              Updating…
+              {t('orders.updating')}
             </span>
           ) : null}
           <Button variant="secondary" disabled={isRefreshing} onClick={() => void loadOrders()}>
-            Refresh
+            {t('common.refresh')}
           </Button>
         </div>
       </div>
 
       <div
         role="tablist"
-        aria-label="Order views"
+        aria-label={t('orders.viewsLabel')}
         className="flex flex-wrap gap-1 border-b border-[#E5DED6]"
       >
         {VIEWS.map((option) => {
@@ -243,7 +242,7 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
                   : 'border-transparent text-[#655D56] hover:text-[#302C29]'
               }`}
             >
-              {ORDERS_VIEW_LABELS[option]}
+              {t(`orders.view.${option}` as const)}
               {orders !== null ? (
                 <span
                   className={`rounded-full px-2 py-0.5 text-xs ${
@@ -278,13 +277,13 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
           <div className="flex items-center justify-between gap-4">
             <span>{ordersError}</span>
             <Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => void loadOrders()}>
-              Retry
+              {t('common.retry')}
             </Button>
           </div>
         </Alert>
       ) : null}
 
-      {orders === null && !ordersError ? <LoadingState label="Loading Orders…" /> : null}
+      {orders === null && !ordersError ? <LoadingState label={t('orders.loading')} /> : null}
 
       {orders !== null && visibleOrders.length === 0 ? (
         <EmptyState
@@ -310,7 +309,7 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
             <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
               <Alert variant="error">{detailError}</Alert>
               <Button variant="secondary" className="mt-4" onClick={closeDetail}>
-                Close
+                {t('common.close')}
               </Button>
             </div>
           </div>
@@ -325,7 +324,7 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
           />
         ) : (
           <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
-            <LoadingState label="Loading order…" />
+            <LoadingState label={t('orders.loadingOne')} />
           </div>
         )
       ) : null}
@@ -346,25 +345,24 @@ function EmptyState({
   hasAnyOrders: boolean;
   onClear: () => void;
 }) {
+  const { t } = useStaffI18n();
   let title: string;
   let hint: string;
 
   if (hasActiveFilters) {
     title = typeFilter
-      ? `No ${orderTypeLabel(typeFilter)} orders match these filters`
-      : 'No orders match these filters';
-    hint = 'Try a different search, status, or branch.';
+      ? t('orders.empty.filteredType', { type: orderTypeLabel(t, typeFilter) })
+      : t('orders.empty.filtered');
+    hint = t('orders.empty.filteredHint');
   } else if (view === 'active') {
-    title = 'No active orders';
-    hint = hasAnyOrders
-      ? 'Everything placed so far has been completed. New orders appear here automatically.'
-      : 'New orders appear here automatically.';
+    title = t('orders.empty.active');
+    hint = hasAnyOrders ? t('orders.empty.activeHintDone') : t('orders.empty.activeHint');
   } else if (view === 'completed') {
-    title = 'No completed orders yet';
-    hint = 'Served, rejected and cancelled orders will show up here.';
+    title = t('orders.empty.completed');
+    hint = t('orders.empty.completedHint');
   } else {
-    title = 'No orders yet';
-    hint = 'Orders placed by guests will appear here.';
+    title = t('orders.empty.all');
+    hint = t('orders.empty.allHint');
   }
 
   return (
@@ -373,7 +371,7 @@ function EmptyState({
       <p className="max-w-sm text-sm text-[#655D56]">{hint}</p>
       {hasActiveFilters ? (
         <Button variant="secondary" className="mt-2" onClick={onClear}>
-          Clear filters
+          {t('orders.filter.clear')}
         </Button>
       ) : null}
     </Card>

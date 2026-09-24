@@ -1,14 +1,23 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans } from "next/font/google";
+import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
 
 // DESIGN_SYSTEM.md #24: IBM Plex Sans is the approved V1 Latin typeface.
-// Only the Latin subset/weights this foundation actually uses are loaded --
-// Arabic font loading and full weight scale are deferred to whichever batch
-// first needs them (Section 3: do not over-engineer this foundation).
+// FT-10A: its Arabic companion (IBM Plex Sans Arabic) is loaded as the
+// fallback for Arabic glyphs, so Arabic Staff and Guest text is set in a
+// matching professional face instead of whatever system font happens to be
+// installed. Both are exposed as CSS variables and combined on <body> in
+// globals.css (Latin glyphs still render in Plex Sans exactly as before).
 const ibmPlexSans = IBM_Plex_Sans({
   subsets: ["latin"],
   weight: ["400", "500", "600"],
+  variable: "--font-plex-sans",
+});
+
+const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
+  subsets: ["arabic"],
+  weight: ["400", "500", "600"],
+  variable: "--font-plex-sans-arabic",
 });
 
 export const metadata: Metadata = {
@@ -19,7 +28,9 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
-      <body className={`${ibmPlexSans.className} bg-[#FCFBF9] text-[#1D1A18]`}>
+      <body
+        className={`${ibmPlexSans.variable} ${ibmPlexSansArabic.variable} bg-[#FCFBF9] text-[#1D1A18]`}
+      >
         {children}
       </body>
     </html>
