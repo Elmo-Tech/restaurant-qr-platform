@@ -8,6 +8,7 @@ const ALL_STATUSES: OrderStatus[] = [
   'ACCEPTED',
   'PREPARING',
   'READY',
+  'OUT_FOR_DELIVERY',
   'SERVED',
   'REJECTED',
   'CANCELLED',
@@ -23,7 +24,7 @@ describe('findOrderTransitionRule', () => {
     ['PREPARING', 'CANCELLED', PERMISSIONS.ORDERS_CANCEL],
     ['READY', 'SERVED', PERMISSIONS.ORDERS_MARK_SERVED],
   ] as const)('allows %s -> %s, requiring %s', (from, to, permission) => {
-    expect(findOrderTransitionRule(from, to)).toEqual({ to, permission });
+    expect(findOrderTransitionRule(from, to, 'DINE_IN')).toEqual({ to, permission });
   });
 
   it.each([
@@ -40,13 +41,13 @@ describe('findOrderTransitionRule', () => {
     ['READY', 'PREPARING'],
     ['READY', 'CANCELLED'],
   ] as const)('rejects invalid transition %s -> %s', (from, to) => {
-    expect(findOrderTransitionRule(from, to)).toBeNull();
+    expect(findOrderTransitionRule(from, to, 'DINE_IN')).toBeNull();
   });
 
   it('rejects every terminal status transitioning anywhere at all', () => {
     for (const terminal of ['SERVED', 'REJECTED', 'CANCELLED'] as const) {
       for (const to of ALL_STATUSES) {
-        expect(findOrderTransitionRule(terminal, to)).toBeNull();
+        expect(findOrderTransitionRule(terminal, to, 'DINE_IN')).toBeNull();
       }
     }
   });
@@ -63,7 +64,7 @@ describe('findOrderTransitionRule', () => {
       ['READY', 'SERVED'],
     ];
     for (const [from, to] of transitions) {
-      const rule = findOrderTransitionRule(from, to);
+      const rule = findOrderTransitionRule(from, to, 'DINE_IN');
       expect(rule).not.toBeNull();
       expect(roles.some((role) => hasPermission(role, rule!.permission))).toBe(true);
     }

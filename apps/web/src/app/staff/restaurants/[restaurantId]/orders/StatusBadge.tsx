@@ -1,4 +1,4 @@
-import type { OrderStatus } from '../../../../../lib/orders/types';
+import type { OrderStatus, OrderType } from '../../../../../lib/orders/types';
 
 /**
  * FT-7B: the ONE Order status visual system, shared by the list cards and the
@@ -44,6 +44,14 @@ const STATUS_STYLES: Record<OrderStatus, StatusStyle> = {
     // to spot Orders waiting to be handed over at a glance.
     accent: 'border-l-[6px] border-l-[#2E9D3A] bg-[#F3FAF4] ring-1 ring-[#BFE2C4]',
   },
+  OUT_FOR_DELIVERY: {
+    label: 'Out for delivery',
+    badge: 'bg-[#E3F1F0] text-[#1D5F5A] border-[#A9D2CE] font-semibold',
+    dot: 'bg-[#2A8C84]',
+    // Active and in motion: teal accent + a light ring so it reads apart from
+    // the blue Accepted and green Ready cards.
+    accent: 'border-l-[#2A8C84] bg-[#F4FAF9]',
+  },
   SERVED: {
     label: 'Served',
     badge: 'bg-[#F1EDE7] text-[#6F665E] border-[#DDD5CB]',
@@ -69,6 +77,7 @@ export const STATUS_LABELS: Record<OrderStatus, string> = {
   ACCEPTED: STATUS_STYLES.ACCEPTED.label,
   PREPARING: STATUS_STYLES.PREPARING.label,
   READY: STATUS_STYLES.READY.label,
+  OUT_FOR_DELIVERY: STATUS_STYLES.OUT_FOR_DELIVERY.label,
   SERVED: STATUS_STYLES.SERVED.label,
   REJECTED: STATUS_STYLES.REJECTED.label,
   CANCELLED: STATUS_STYLES.CANCELLED.label,
@@ -79,15 +88,21 @@ export function statusAccentClass(status: OrderStatus): string {
   return STATUS_STYLES[status].accent;
 }
 
+/** The Staff-facing status wording. The stored terminal status stays SERVED; a Delivery Order simply reads "Delivered". Shared by the badge and the printed receipt. */
+export function orderStatusLabel(status: OrderStatus, type?: OrderType): string {
+  return status === 'SERVED' && type === 'DELIVERY' ? 'Delivered' : STATUS_STYLES[status].label;
+}
+
 /** The one shared Order status pill -- text label + colored dot, used identically by cards and the detail dialog. */
-export function StatusBadge({ status }: { status: OrderStatus }) {
+export function StatusBadge({ status, type }: { status: OrderStatus; type?: OrderType }) {
   const style = STATUS_STYLES[status];
+  const label = orderStatusLabel(status, type);
   return (
     <span
       className={`inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium uppercase tracking-wide ${style.badge}`}
     >
       <span aria-hidden="true" className={`h-1.5 w-1.5 rounded-full ${style.dot}`} />
-      {style.label}
+      {label}
     </span>
   );
 }

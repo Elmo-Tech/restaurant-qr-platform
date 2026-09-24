@@ -22,7 +22,7 @@ export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () 
       }`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <StatusBadge status={order.status} />
+        <StatusBadge status={order.status} type={order.type} />
         <OrderTypeBadge type={order.type} />
       </div>
 
@@ -38,6 +38,7 @@ export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () 
           </p>
         ) : null}
         <p className="mt-0.5 text-xs text-[#8A8177]">
+          {order.deliveryZoneName ? `${order.deliveryZoneName} · ` : ''}
           {order.branch.name} · {formatOrderTime(order.createdAt)}
         </p>
       </div>

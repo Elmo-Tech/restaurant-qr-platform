@@ -7,6 +7,7 @@ import { IconClose } from '../../../../../components/staff/icons';
 import type { OrderDetail, OrderStatus } from '../../../../../lib/orders/types';
 import type { OrderTransitionOption } from '../../../../../lib/orders/transitions';
 import { formatOrderTime } from '../../../../../lib/orders/order-views';
+import { OrderReceipt } from './OrderReceipt';
 import { OrderTypeBadge } from './OrderTypeBadge';
 import { StatusBadge } from './StatusBadge';
 
@@ -15,6 +16,7 @@ const TRANSITION_LABELS: Record<OrderStatus, string> = {
   ACCEPTED: 'Accept',
   PREPARING: 'Start preparing',
   READY: 'Mark ready',
+  OUT_FOR_DELIVERY: 'Out for delivery',
   SERVED: 'Mark served',
   REJECTED: 'Reject',
   CANCELLED: 'Cancel',
@@ -74,19 +76,30 @@ export function OrderDetailDialog({
   }, []);
 
   const isPickup = order.type === 'PICKUP';
+  const isDelivery = order.type === 'DELIVERY';
   const identity = isPickup
     ? (order.customer?.name ?? 'Pickup order')
-    : `Table ${order.table?.tableNumber ?? '—'}`;
+    : isDelivery
+      ? (order.customer?.name ?? 'Delivery order')
+      : `Table ${order.table?.tableNumber ?? '—'}`;
 
   const destructiveTransitions = availableTransitions.filter((t) => isDestructive(t.to));
   const forwardTransitions = availableTransitions.filter((t) => !isDestructive(t.to));
 
+  // The stored statuses never change with the order type; only the wording
+  // does: Pickup "Mark picked up", Delivery "Out for delivery" / "Mark delivered".
   function transitionLabel(to: OrderStatus): string {
-    return to === 'SERVED' && isPickup ? 'Mark picked up' : TRANSITION_LABELS[to];
+    if (to === 'SERVED' && isPickup) return 'Mark picked up';
+    if (to === 'SERVED' && isDelivery) return 'Mark delivered';
+    return TRANSITION_LABELS[to];
   }
+  const showFee = isDelivery;
 
   return (
-    <div className="fixed inset-0 z-50">
+    <>
+    {/* Print-only receipt, portalled to <body> (see OrderReceipt): never nested under the print:hidden dialog. */}
+    <OrderReceipt order={order} />
+    <div className="fixed inset-0 z-50 print:hidden">
       <div className="absolute inset-0 bg-black/40" onClick={onClose} aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-0 sm:p-6">
         <div
@@ -98,7 +111,7 @@ export function OrderDetailDialog({
           <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-[#E5DED6] px-5 py-4">
             <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-2">
-                <StatusBadge status={order.status} />
+                <StatusBadge status={order.status} type={order.type} />
                 <OrderTypeBadge type={order.type} />
               </div>
               <h2
@@ -159,6 +172,71 @@ export function OrderDetailDialog({
               </section>
             ) : null}
 
+            {isDelivery && order.customer && order.delivery ? (
+              <section aria-labelledby="delivery-details-title" className="rounded-lg bg-[#E9F5F4]/70 px-4 py-3">
+                <h3
+                  id="delivery-details-title"
+                  className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#1D5F5A]"
+                >
+                  Delivery details
+                </h3>
+                <dl className="flex flex-col gap-1.5 text-sm text-[#302C29]">
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-[#655D56]">Branch</dt>
+                    <dd className="text-end font-medium">{order.branch.name}</dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-[#655D56]">Customer</dt>
+                    <dd className="text-end font-medium">{order.customer.name}</dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-[#655D56]">Phone</dt>
+                    <dd dir="ltr" className="text-end font-medium">
+                      {order.customer.phone}
+                    </dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-[#655D56]">Delivery area</dt>
+                    <dd className="text-end font-medium">{order.delivery.zoneName}</dd>
+                  </div>
+                  <div className="flex justify-between gap-4">
+                    <dt className="text-[#655D56]">Address</dt>
+                    <dd className="text-end font-medium">{order.delivery.address}</dd>
+                  </div>
+                  {order.delivery.building ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-[#655D56]">Building</dt>
+                      <dd className="text-end">{order.delivery.building}</dd>
+                    </div>
+                  ) : null}
+                  {order.delivery.floor ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-[#655D56]">Floor</dt>
+                      <dd className="text-end">{order.delivery.floor}</dd>
+                    </div>
+                  ) : null}
+                  {order.delivery.apartment ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-[#655D56]">Apartment</dt>
+                      <dd className="text-end">{order.delivery.apartment}</dd>
+                    </div>
+                  ) : null}
+                  {order.delivery.landmark ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-[#655D56]">Landmark</dt>
+                      <dd className="text-end">{order.delivery.landmark}</dd>
+                    </div>
+                  ) : null}
+                  {order.customer.notes ? (
+                    <div className="flex justify-between gap-4">
+                      <dt className="text-[#655D56]">Notes</dt>
+                      <dd className="text-end">{order.customer.notes}</dd>
+                    </div>
+                  ) : null}
+                </dl>
+              </section>
+            ) : null}
+
             <section aria-labelledby="order-items-title">
               <h3
                 id="order-items-title"
@@ -209,17 +287,38 @@ export function OrderDetailDialog({
               </ul>
             </section>
 
-            <div className="flex items-baseline justify-between rounded-lg bg-[#F8F5F1] px-4 py-3">
-              <span className="text-sm font-semibold text-[#655D56]">Total</span>
-              <span className="text-2xl font-bold text-[#1D1A18]">
-                {order.totalAmount} {order.currencyCode}
-              </span>
+            <div className="flex flex-col gap-2 rounded-lg bg-[#F8F5F1] px-4 py-3">
+              {showFee ? (
+                <>
+                  <div className="flex items-baseline justify-between text-sm text-[#655D56]">
+                    <span>Subtotal</span>
+                    <span>
+                      {order.subtotalAmount} {order.currencyCode}
+                    </span>
+                  </div>
+                  <div className="flex items-baseline justify-between text-sm text-[#655D56]">
+                    <span>Delivery fee</span>
+                    <span>
+                      {order.deliveryFee} {order.currencyCode}
+                    </span>
+                  </div>
+                </>
+              ) : null}
+              <div className="flex items-baseline justify-between">
+                <span className="text-sm font-semibold text-[#655D56]">Total</span>
+                <span className="text-2xl font-bold text-[#1D1A18]">
+                  {order.totalAmount} {order.currencyCode}
+                </span>
+              </div>
             </div>
           </div>
 
-          {availableTransitions.length > 0 ? (
-            <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#E5DED6] px-5 py-4">
+          <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-t border-[#E5DED6] px-5 py-4">
               <div className="flex flex-wrap items-center gap-2">
+                {/* Secondary utility, always available: every type and status, no lifecycle permission needed. Only opens the browser print dialog -- never closes the dialog or touches the Order. */}
+                <Button type="button" variant="secondary" onClick={() => window.print()}>
+                  Print
+                </Button>
                 {destructiveTransitions.map((transition) => (
                   <Button
                     key={transition.to}
@@ -248,9 +347,9 @@ export function OrderDetailDialog({
                 ))}
               </div>
             </div>
-          ) : null}
         </div>
       </div>
     </div>
+    </>
   );
 }

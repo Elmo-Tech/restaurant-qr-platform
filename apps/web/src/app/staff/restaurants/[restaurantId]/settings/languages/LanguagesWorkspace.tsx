@@ -136,7 +136,7 @@ export function LanguagesWorkspace({
         </p>
       </div>
 
-      <SettingsTabs restaurantId={restaurantId} />
+      <SettingsTabs restaurantId={restaurantId} active="languages" />
 
       <div className="flex flex-col gap-5">
         <div>

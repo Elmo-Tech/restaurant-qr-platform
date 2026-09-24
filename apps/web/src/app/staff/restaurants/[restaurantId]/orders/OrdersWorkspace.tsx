@@ -208,7 +208,7 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
         <div>
           <h1 className="text-xl font-semibold text-[#1D1A18]">Orders</h1>
           <p className="mt-1 text-sm text-[#655D56]">
-            Incoming table and pickup orders, newest first.
+            Incoming orders, newest first.
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -317,7 +317,7 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
         ) : orderDetail ? (
           <OrderDetailDialog
             order={orderDetail}
-            availableTransitions={getAvailableTransitions(orderDetail.status, permissions)}
+            availableTransitions={getAvailableTransitions(orderDetail.status, permissions, orderDetail.type)}
             isTransitioning={isTransitioning}
             transitionError={transitionError}
             onTransition={(to) => void handleTransition(to)}
@@ -358,13 +358,13 @@ function EmptyState({
     title = 'No active orders';
     hint = hasAnyOrders
       ? 'Everything placed so far has been completed. New orders appear here automatically.'
-      : 'New table and pickup orders appear here automatically.';
+      : 'New orders appear here automatically.';
   } else if (view === 'completed') {
     title = 'No completed orders yet';
     hint = 'Served, rejected and cancelled orders will show up here.';
   } else {
     title = 'No orders yet';
-    hint = 'Orders placed by guests (table or pickup) will appear here.';
+    hint = 'Orders placed by guests will appear here.';
   }
 
   return (

@@ -67,6 +67,38 @@ const PICKUP_UNAVAILABLE_RESPONSE = {
   },
 };
 
+const DELIVERY_DETAILS_REQUIRED_RESPONSE = {
+  error: {
+    code: 'DELIVERY_DETAILS_REQUIRED',
+    message: 'Name, phone and delivery address are required for a delivery order.',
+  },
+};
+
+const DELIVERY_UNAVAILABLE_RESPONSE = {
+  error: {
+    code: 'DELIVERY_UNAVAILABLE',
+    message: 'Delivery ordering is not available right now.',
+  },
+};
+
+/** One indistinguishable response for a missing, unknown, foreign, INACTIVE, or wrong-Branch delivery zone. */
+const DELIVERY_ZONE_INVALID_RESPONSE = {
+  error: {
+    code: 'DELIVERY_ZONE_INVALID',
+    message: 'The selected delivery area is not available.',
+  },
+};
+
+function minimumOrderNotMetResponse(zoneName: string, minimumOrder: string) {
+  return {
+    error: {
+      code: 'DELIVERY_MINIMUM_NOT_MET',
+      message: 'The order is below the minimum for this delivery area.',
+      details: { zoneName, minimumOrder },
+    },
+  };
+}
+
 interface GuestOrderResponseBody {
   data: GuestOrderView;
 }
@@ -111,6 +143,13 @@ export class PublicOrdersController {
       customerName: dto.customerName,
       customerPhone: dto.customerPhone,
       customerNotes: dto.customerNotes,
+      fulfillment: dto.fulfillment,
+      deliveryZoneId: dto.deliveryZoneId,
+      deliveryAddress: dto.deliveryAddress,
+      deliveryBuilding: dto.deliveryBuilding,
+      deliveryFloor: dto.deliveryFloor,
+      deliveryApartment: dto.deliveryApartment,
+      deliveryLandmark: dto.deliveryLandmark,
     });
 
     if (result.outcome === 'customerDetailsRequired') {
@@ -121,6 +160,20 @@ export class PublicOrdersController {
     }
     if (result.outcome === 'branchInvalid') {
       throw new BadRequestException(PICKUP_BRANCH_INVALID_RESPONSE);
+    }
+    if (result.outcome === 'deliveryDetailsRequired') {
+      throw new BadRequestException(DELIVERY_DETAILS_REQUIRED_RESPONSE);
+    }
+    if (result.outcome === 'deliveryZoneInvalid') {
+      throw new BadRequestException(DELIVERY_ZONE_INVALID_RESPONSE);
+    }
+    if (result.outcome === 'deliveryUnavailable') {
+      throw new ConflictException(DELIVERY_UNAVAILABLE_RESPONSE);
+    }
+    if (result.outcome === 'minimumOrderNotMet') {
+      throw new BadRequestException(
+        minimumOrderNotMetResponse(result.zoneName, result.minimumOrder),
+      );
     }
     if (result.outcome === 'pickupUnavailable') {
       throw new ConflictException(PICKUP_UNAVAILABLE_RESPONSE);

@@ -42,6 +42,9 @@ const CREATED_ORDER_ROW = {
   totalAmount: decimal('100.00'),
   createdAt: new Date('2026-01-01T00:00:00Z'),
   type: 'DINE_IN' as const,
+  subtotalAmount: decimal('100.00'),
+  deliveryFeeAmount: decimal('0.00'),
+  deliveryZoneNameSnapshot: null as string | null,
   table: { tableNumber: '7' } as { tableNumber: string } | null,
   branch: { name: 'Main Branch' },
   items: [
@@ -303,6 +306,9 @@ describe('PublicOrdersService.createOrder', () => {
         type: 'DINE_IN',
         table: { number: '7' },
         pickupBranch: null,
+        delivery: null,
+        subtotal: '100.00',
+        deliveryFee: '0.00',
         items: [
           {
             productId: 'product-1',

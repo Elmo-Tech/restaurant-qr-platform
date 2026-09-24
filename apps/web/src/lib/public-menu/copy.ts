@@ -53,6 +53,27 @@ export interface PublicMenuCopy {
   pickupUnavailable: string;
   pickupDetailsRequiredError: string;
   pickupBranchError: string;
+  fulfillment: string;
+  delivery: string;
+  deliveryFrom: string;
+  deliveryArea: string;
+  chooseDeliveryArea: string;
+  deliveryAddress: string;
+  deliveryBuilding: string;
+  deliveryFloor: string;
+  deliveryApartment: string;
+  deliveryLandmark: string;
+  subtotal: string;
+  deliveryFee: string;
+  minimumOrderLabel: string;
+  minimumOrderMessage: (zone: string, amount: string, currency: string) => string;
+  placeDeliveryOrder: string;
+  deliveryOrderSent: string;
+  deliveryOrderPending: string;
+  deliveryUnavailable: string;
+  deliveryDetailsRequiredError: string;
+  deliveryAreaError: string;
+  deliveryTo: string;
 }
 
 const EN_COPY: PublicMenuCopy = {
@@ -104,6 +125,28 @@ const EN_COPY: PublicMenuCopy = {
   pickupUnavailable: 'Pickup ordering is not available right now. You can still browse the menu.',
   pickupDetailsRequiredError: 'Please enter your name and phone number.',
   pickupBranchError: 'Please choose a valid pickup branch.',
+  fulfillment: 'How would you like your order?',
+  delivery: 'Delivery',
+  deliveryFrom: 'Delivery from',
+  deliveryArea: 'Delivery area',
+  chooseDeliveryArea: 'Choose your area',
+  deliveryAddress: 'Address',
+  deliveryBuilding: 'Building (optional)',
+  deliveryFloor: 'Floor (optional)',
+  deliveryApartment: 'Apartment (optional)',
+  deliveryLandmark: 'Landmark (optional)',
+  subtotal: 'Subtotal',
+  deliveryFee: 'Delivery',
+  minimumOrderLabel: 'minimum',
+  minimumOrderMessage: (zone, amount, currency) =>
+    `Minimum order for ${zone} is ${amount} ${currency}.`,
+  placeDeliveryOrder: 'Place delivery order',
+  deliveryOrderSent: 'Delivery order sent',
+  deliveryOrderPending: 'Waiting for the restaurant to accept your delivery order.',
+  deliveryUnavailable: 'Delivery is not available right now.',
+  deliveryDetailsRequiredError: 'Please enter your name, phone number and address.',
+  deliveryAreaError: 'Please choose a valid delivery area.',
+  deliveryTo: 'Delivering to',
 };
 
 const AR_COPY: PublicMenuCopy = {
@@ -153,6 +196,28 @@ const AR_COPY: PublicMenuCopy = {
   pickupUnavailable: 'الطلب للاستلام غير متاح حاليًا. يمكنك تصفح القائمة.',
   pickupDetailsRequiredError: 'يرجى إدخال اسمك ورقم هاتفك.',
   pickupBranchError: 'يرجى اختيار فرع صالح للاستلام.',
+  fulfillment: 'كيف تريد استلام طلبك؟',
+  delivery: 'توصيل',
+  deliveryFrom: 'التوصيل من',
+  deliveryArea: 'منطقة التوصيل',
+  chooseDeliveryArea: 'اختر منطقتك',
+  deliveryAddress: 'العنوان',
+  deliveryBuilding: 'المبنى (اختياري)',
+  deliveryFloor: 'الطابق (اختياري)',
+  deliveryApartment: 'الشقة (اختياري)',
+  deliveryLandmark: 'علامة مميزة (اختياري)',
+  subtotal: 'المجموع الفرعي',
+  deliveryFee: 'التوصيل',
+  minimumOrderLabel: 'الحد الأدنى',
+  minimumOrderMessage: (zone, amount, currency) =>
+    `الحد الأدنى للطلب في منطقة ${zone} هو ${amount} ${currency}.`,
+  placeDeliveryOrder: 'إرسال طلب التوصيل',
+  deliveryOrderSent: 'تم إرسال طلب التوصيل',
+  deliveryOrderPending: 'في انتظار موافقة المطعم على طلب التوصيل.',
+  deliveryUnavailable: 'التوصيل غير متاح حاليًا.',
+  deliveryDetailsRequiredError: 'يرجى إدخال اسمك ورقم هاتفك وعنوانك.',
+  deliveryAreaError: 'يرجى اختيار منطقة توصيل صالحة.',
+  deliveryTo: 'التوصيل إلى',
 };
 
 /**

@@ -13,6 +13,7 @@ import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -110,4 +111,49 @@ export class CreateGuestOrderDto {
   @IsString()
   @MaxLength(500, { message: 'customerNotes must be at most 500 characters' })
   customerNotes?: string;
+
+  // FT-8: for a GENERIC QR the Guest may choose ONLY the fulfillment MODE.
+  // Any other value (DINE_IN, DELIVERY spellings, ...) fails validation --
+  // the Order type itself is always derived server-side. Omitted means
+  // PICKUP (keeps FT-7 payloads working). Ignored for a TABLE QR.
+  @IsOptional()
+  @IsIn(['PICKUP', 'DELIVERY'], { message: 'fulfillment must be PICKUP or DELIVERY' })
+  fulfillment?: 'PICKUP' | 'DELIVERY';
+
+  // FT-8 DELIVERY-only fields. Requiredness (address, zone) is applied by
+  // the service for DELIVERY only; the zone's fee/minimum are NEVER
+  // accepted from the client.
+  @IsOptional()
+  @IsUUID('all', { message: 'deliveryZoneId must be a well-formed UUID' })
+  deliveryZoneId?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trim(value))
+  @IsString()
+  @MaxLength(300, { message: 'deliveryAddress must be at most 300 characters' })
+  deliveryAddress?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trim(value))
+  @IsString()
+  @MaxLength(50, { message: 'deliveryBuilding must be at most 50 characters' })
+  deliveryBuilding?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trim(value))
+  @IsString()
+  @MaxLength(30, { message: 'deliveryFloor must be at most 30 characters' })
+  deliveryFloor?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trim(value))
+  @IsString()
+  @MaxLength(30, { message: 'deliveryApartment must be at most 30 characters' })
+  deliveryApartment?: string;
+
+  @IsOptional()
+  @Transform(({ value }) => trim(value))
+  @IsString()
+  @MaxLength(150, { message: 'deliveryLandmark must be at most 150 characters' })
+  deliveryLandmark?: string;
 }

@@ -11,10 +11,18 @@ export interface SubmitGuestOrderItem {
 
 /** FT-7: Pickup-only checkout fields; omitted entirely for a TABLE QR. */
 export interface SubmitPickupCheckout {
+  fulfillment: 'PICKUP' | 'DELIVERY';
   branchId: string | null;
   customerName: string;
   customerPhone: string;
   customerNotes: string;
+  /** FT-8, DELIVERY only: zone IDENTITY and address text -- never a fee/minimum/total (the Backend resolves those). */
+  deliveryZoneId: string | null;
+  deliveryAddress: string;
+  deliveryBuilding: string;
+  deliveryFloor: string;
+  deliveryApartment: string;
+  deliveryLandmark: string;
 }
 
 export type SubmitGuestOrderResult =
@@ -24,6 +32,10 @@ export type SubmitGuestOrderResult =
   | { outcome: 'pickupDetailsRequired' }
   | { outcome: 'pickupBranchInvalid' }
   | { outcome: 'pickupUnavailable' }
+  | { outcome: 'deliveryDetailsRequired' }
+  | { outcome: 'deliveryZoneInvalid' }
+  | { outcome: 'deliveryUnavailable' }
+  | { outcome: 'minimumNotMet'; zoneName: string | null; minimumOrder: string | null }
   | { outcome: 'networkError' };
 
 /**
@@ -51,10 +63,21 @@ export async function submitGuestOrder(
           items,
           ...(pickup
             ? {
+                fulfillment: pickup.fulfillment,
                 ...(pickup.branchId ? { branchId: pickup.branchId } : {}),
                 customerName: pickup.customerName.trim(),
                 customerPhone: pickup.customerPhone.trim(),
                 ...(pickup.customerNotes.trim() ? { customerNotes: pickup.customerNotes.trim() } : {}),
+                ...(pickup.fulfillment === 'DELIVERY'
+                  ? {
+                      ...(pickup.deliveryZoneId ? { deliveryZoneId: pickup.deliveryZoneId } : {}),
+                      deliveryAddress: pickup.deliveryAddress.trim(),
+                      ...(pickup.deliveryBuilding.trim() ? { deliveryBuilding: pickup.deliveryBuilding.trim() } : {}),
+                      ...(pickup.deliveryFloor.trim() ? { deliveryFloor: pickup.deliveryFloor.trim() } : {}),
+                      ...(pickup.deliveryApartment.trim() ? { deliveryApartment: pickup.deliveryApartment.trim() } : {}),
+                      ...(pickup.deliveryLandmark.trim() ? { deliveryLandmark: pickup.deliveryLandmark.trim() } : {}),
+                    }
+                  : {}),
               }
             : {}),
         },
@@ -71,6 +94,23 @@ export async function submitGuestOrder(
       }
       if (error.code === 'PICKUP_BRANCH_REQUIRED' || error.code === 'PICKUP_BRANCH_INVALID') {
         return { outcome: 'pickupBranchInvalid' };
+      }
+      if (error.code === 'DELIVERY_DETAILS_REQUIRED') {
+        return { outcome: 'deliveryDetailsRequired' };
+      }
+      if (error.code === 'DELIVERY_ZONE_INVALID') {
+        return { outcome: 'deliveryZoneInvalid' };
+      }
+      if (error.code === 'DELIVERY_UNAVAILABLE') {
+        return { outcome: 'deliveryUnavailable' };
+      }
+      if (error.code === 'DELIVERY_MINIMUM_NOT_MET') {
+        const details = (error.details ?? {}) as { zoneName?: unknown; minimumOrder?: unknown };
+        return {
+          outcome: 'minimumNotMet',
+          zoneName: typeof details.zoneName === 'string' ? details.zoneName : null,
+          minimumOrder: typeof details.minimumOrder === 'string' ? details.minimumOrder : null,
+        };
       }
       if (error.code === 'PICKUP_UNAVAILABLE') {
         return { outcome: 'pickupUnavailable' };

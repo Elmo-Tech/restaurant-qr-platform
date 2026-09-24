@@ -8,6 +8,7 @@ const SAMPLE_DATA: PublicMenuData = {
     branch: null,
     table: null,
     pickupBranches: [],
+    deliveryBranches: [],
   },
   locale: { requested: null, resolved: 'en', default: 'en', available: ['en', 'ar'] },
   menu: { id: 'menu-1', name: 'Main Menu', description: null, categories: [] },

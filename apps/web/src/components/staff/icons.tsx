@@ -148,3 +148,15 @@ export function IconBag({ className }: IconProps) {
     </svg>
   );
 }
+
+/** FT-8: a delivery truck -- the Delivery Order type icon. */
+export function IconTruck({ className }: IconProps) {
+  return (
+    <svg {...BASE_PROPS} className={className} aria-hidden="true">
+      <path d="M3 6.5h10v9H3z" />
+      <path d="M13 9.5h4l3 3v3h-7z" />
+      <circle cx="7" cy="17.5" r="1.75" />
+      <circle cx="16.5" cy="17.5" r="1.75" />
+    </svg>
+  );
+}

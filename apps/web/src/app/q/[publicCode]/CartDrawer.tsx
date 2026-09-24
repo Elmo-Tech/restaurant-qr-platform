@@ -27,20 +27,46 @@ export interface CartLine {
   blocked: boolean;
 }
 
-/** FT-7: Pickup checkout state + handlers (GENERIC QR only; the drawer receives null for a TABLE QR and renders exactly as before). */
-export interface PickupCheckoutProps {
-  branches: { id: string; name: string }[];
-  /** The resolved Branch: the single ACTIVE Branch automatically, or the Guest's choice among several. */
-  branchId: string | null;
-  customerName: string;
-  customerPhone: string;
-  customerNotes: string;
-  onBranchChange: (branchId: string | null) => void;
-  onNameChange: (value: string) => void;
-  onPhoneChange: (value: string) => void;
-  onNotesChange: (value: string) => void;
-}
+/** The free-text checkout fields, keyed for one shared change handler. */
+export type CheckoutFieldKey =
+  | 'customerName'
+  | 'customerPhone'
+  | 'customerNotes'
+  | 'deliveryAddress'
+  | 'deliveryBuilding'
+  | 'deliveryFloor'
+  | 'deliveryApartment'
+  | 'deliveryLandmark';
 
+/**
+ * FT-7/FT-8: GENERIC QR checkout state + handlers (Pickup or Delivery). The
+ * drawer receives null for a TABLE QR and renders exactly as before. Every
+ * money value here is display-only -- the Backend resolves the zone fee,
+ * minimum and total itself on submit.
+ */
+export interface CheckoutFormProps {
+  fulfillment: 'PICKUP' | 'DELIVERY';
+  pickupAvailable: boolean;
+  deliveryAvailable: boolean;
+  onFulfillmentChange: (next: 'PICKUP' | 'DELIVERY') => void;
+  /** The Branches eligible for the CURRENT mode (Pickup: ACTIVE; Delivery: ACTIVE with an ACTIVE zone). */
+  branches: { id: string; name: string }[];
+  /** The resolved Branch: the only eligible one automatically, or the Guest's choice among several. */
+  branchId: string | null;
+  onBranchChange: (branchId: string | null) => void;
+  /** Delivery only: the resolved Branch's ACTIVE zones. */
+  zones: { id: string; name: string; deliveryFee: string; minimumOrder: string }[];
+  zoneId: string | null;
+  onZoneChange: (zoneId: string | null) => void;
+  fields: Record<CheckoutFieldKey, string>;
+  onFieldChange: (key: CheckoutFieldKey, value: string) => void;
+  subtotalDisplay: string;
+  /** Delivery only, once a zone is chosen. */
+  deliveryFeeDisplay: string | null;
+  grandTotalDisplay: string;
+  /** Delivery only: shown when the items subtotal is below the chosen zone's minimum. */
+  minimumMessage: string | null;
+}
 export interface CartDrawerProps {
   copy: PublicMenuCopy;
   currency: string;
@@ -51,7 +77,7 @@ export interface CartDrawerProps {
   canSubmit: boolean;
   submitError: string | null;
   confirmedOrder: GuestOrderView | null;
-  pickup: PickupCheckoutProps | null;
+  checkout: CheckoutFormProps | null;
   onIncrement: (lineKey: string) => void;
   onDecrement: (lineKey: string) => void;
   onRemove: (lineKey: string) => void;
@@ -78,7 +104,7 @@ export function CartDrawer({
   canSubmit,
   submitError,
   confirmedOrder,
-  pickup,
+  checkout,
   onIncrement,
   onDecrement,
   onRemove,
@@ -124,7 +150,9 @@ export function CartDrawer({
               {confirmedOrder
                 ? confirmedOrder.type === 'PICKUP'
                   ? copy.pickupOrderSent
-                  : copy.orderSent
+                  : confirmedOrder.type === 'DELIVERY'
+                    ? copy.deliveryOrderSent
+                    : copy.orderSent
                 : copy.yourOrder}
             </h2>
             <button
@@ -215,8 +243,13 @@ export function CartDrawer({
                   </ul>
                 )}
 
-                {pickup && lines.length > 0 ? (
-                  <PickupCheckoutForm copy={copy} pickup={pickup} disabled={isSubmitting} />
+                {checkout && lines.length > 0 ? (
+                  <CheckoutForm
+                    copy={copy}
+                    currency={currency}
+                    checkout={checkout}
+                    disabled={isSubmitting}
+                  />
                 ) : null}
               </>
             )}
@@ -224,10 +257,26 @@ export function CartDrawer({
 
           {!confirmedOrder ? (
             <div className="flex flex-shrink-0 flex-col gap-3 border-t border-[#E5DED6] px-5 py-4">
-              <div className="flex items-center justify-between text-sm font-semibold text-[#302C29]">
+              {checkout && checkout.deliveryFeeDisplay !== null ? (
+                <div className="flex flex-col gap-1 text-sm text-[#655D56]">
+                  <div className="flex items-center justify-between">
+                    <span>{copy.subtotal}</span>
+                    <bdi dir="ltr">
+                      {checkout.subtotalDisplay} {currency}
+                    </bdi>
+                  </div>
+                  <div className="flex items-center justify-between">
+                    <span>{copy.deliveryFee}</span>
+                    <bdi dir="ltr">
+                      {checkout.deliveryFeeDisplay} {currency}
+                    </bdi>
+                  </div>
+                </div>
+              ) : null}
+              <div className="flex items-center justify-between border-t border-[#EDE7DF] pt-2 text-sm font-semibold text-[#302C29]">
                 <span>{copy.total}</span>
                 <bdi dir="ltr">
-                  {totalDisplay} {currency}
+                  {checkout ? checkout.grandTotalDisplay : totalDisplay} {currency}
                 </bdi>
               </div>
               <button
@@ -238,8 +287,10 @@ export function CartDrawer({
               >
                 {isSubmitting
                   ? copy.placingOrder
-                  : pickup
-                    ? copy.placePickupOrder
+                  : checkout
+                    ? checkout.fulfillment === 'DELIVERY'
+                      ? copy.placeDeliveryOrder
+                      : copy.placePickupOrder
                     : copy.placeOrder}
               </button>
             </div>
@@ -269,11 +320,21 @@ function ConfirmationView({
   currency: string;
   order: GuestOrderView;
 }) {
+  const title =
+    order.type === 'PICKUP'
+      ? copy.pickupOrderSent
+      : order.type === 'DELIVERY'
+        ? copy.deliveryOrderSent
+        : copy.orderSent;
+  const pending =
+    order.type === 'PICKUP'
+      ? copy.pickupOrderPending
+      : order.type === 'DELIVERY'
+        ? copy.deliveryOrderPending
+        : copy.orderStatusPending;
   return (
     <div className="flex flex-col items-center gap-2 py-4 text-center">
-      <p className="text-lg font-bold text-[#1D1A18]">
-        {order.type === 'PICKUP' ? copy.pickupOrderSent : copy.orderSent}
-      </p>
+      <p className="text-lg font-bold text-[#1D1A18]">{title}</p>
       {order.table ? (
         <p className="text-sm text-[#8A5138]">
           {copy.table} {order.table.number}
@@ -284,14 +345,33 @@ function ConfirmationView({
           {copy.pickupFrom}: {order.pickupBranch.name}
         </p>
       ) : null}
+      {order.delivery ? (
+        <p className="text-sm text-[#8A5138]">
+          {copy.deliveryFrom}: {order.delivery.branchName} · {order.delivery.zoneName}
+        </p>
+      ) : null}
+      {order.type === 'DELIVERY' ? (
+        <div className="mt-2 flex w-full max-w-[260px] flex-col gap-1 text-sm text-[#655D56]">
+          <div className="flex items-center justify-between">
+            <span>{copy.subtotal}</span>
+            <bdi dir="ltr">
+              {order.subtotal} {currency}
+            </bdi>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>{copy.deliveryFee}</span>
+            <bdi dir="ltr">
+              {order.deliveryFee} {currency}
+            </bdi>
+          </div>
+        </div>
+      ) : null}
       <p className="text-2xl font-bold text-[#302C29]">
         <bdi dir="ltr">
           {order.total} {currency}
         </bdi>
       </p>
-      <p className="mt-2 text-sm text-[#655D56]">
-        {order.type === 'PICKUP' ? copy.pickupOrderPending : copy.orderStatusPending}
-      </p>
+      <p className="mt-2 text-sm text-[#655D56]">{pending}</p>
     </div>
   );
 }
@@ -299,35 +379,109 @@ function ConfirmationView({
 const FIELD_CLASS =
   'w-full rounded-md border border-[#E5DED6] bg-white px-3 py-2 text-sm text-[#1D1A18] focus:border-[#7A5138] focus:outline-none disabled:bg-[#F8F5F1]';
 
-/** FT-7: Pickup checkout fields -- branch (read-only when only one ACTIVE Branch exists), name, phone, optional notes. */
-function PickupCheckoutForm({
+function TextField({
+  label,
+  value,
+  maxLength,
+  disabled,
+  onChange,
+  type = 'text',
+  autoComplete,
+  ltr = false,
+}: {
+  label: string;
+  value: string;
+  maxLength: number;
+  disabled: boolean;
+  onChange: (value: string) => void;
+  type?: 'text' | 'tel';
+  autoComplete?: string;
+  ltr?: boolean;
+}) {
+  return (
+    <label className="flex flex-col gap-1 text-xs font-medium text-[#655D56]">
+      <span>{label}</span>
+      <input
+        type={type}
+        dir={ltr ? 'ltr' : undefined}
+        value={value}
+        maxLength={maxLength}
+        autoComplete={autoComplete}
+        disabled={disabled}
+        onChange={(event) => onChange(event.target.value)}
+        className={FIELD_CLASS}
+      />
+    </label>
+  );
+}
+
+/** FT-7/FT-8: GENERIC QR checkout -- Pickup/Delivery selector, Branch, delivery area, customer details, and (Delivery) the address. */
+function CheckoutForm({
   copy,
-  pickup,
+  currency,
+  checkout,
   disabled,
 }: {
   copy: PublicMenuCopy;
-  pickup: PickupCheckoutProps;
+  currency: string;
+  checkout: CheckoutFormProps;
   disabled: boolean;
 }) {
-  const singleBranch = pickup.branches.length === 1 ? pickup.branches[0] : null;
+  const isDelivery = checkout.fulfillment === 'DELIVERY';
+  const singleBranch = checkout.branches.length === 1 ? checkout.branches[0] : null;
+  const singleZone = checkout.zones.length === 1 ? checkout.zones[0] : null;
+  const { fields, onFieldChange } = checkout;
+  const branchLabel = isDelivery ? copy.deliveryFrom : copy.pickupFrom;
+
   return (
     <div className="mt-6 flex flex-col gap-3 border-t border-[#E5DED6] pt-5">
+      {checkout.pickupAvailable || checkout.deliveryAvailable ? (
+        <div role="radiogroup" aria-label={copy.fulfillment} className="grid grid-cols-2 gap-2">
+          {([
+            ['PICKUP', copy.pickup, checkout.pickupAvailable],
+            ['DELIVERY', copy.delivery, checkout.deliveryAvailable],
+          ] as const).map(([mode, label, available]) => {
+            const selected = checkout.fulfillment === mode;
+            return (
+              <button
+                key={mode}
+                type="button"
+                role="radio"
+                aria-checked={selected}
+                disabled={disabled || !available}
+                onClick={() => checkout.onFulfillmentChange(mode)}
+                className={`rounded-full border px-3 py-2 text-sm font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
+                  selected
+                    ? 'border-[#7A5138] bg-[#7A5138] text-white'
+                    : 'border-[#E5DED6] bg-white text-[#302C29] hover:bg-[#F8F5F1]'
+                }`}
+              >
+                {label}
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+      {!checkout.deliveryAvailable ? (
+        <p className="text-xs text-[#8A8177]">{copy.deliveryUnavailable}</p>
+      ) : null}
+
       {singleBranch ? (
         <div>
-          <p className="text-xs font-medium text-[#655D56]">{copy.pickupFrom}</p>
+          <p className="text-xs font-medium text-[#655D56]">{branchLabel}</p>
           <p className="mt-0.5 text-sm font-semibold text-[#1D1A18]">{singleBranch.name}</p>
         </div>
       ) : (
         <label className="flex flex-col gap-1 text-xs font-medium text-[#655D56]">
-          <span>{copy.pickupFrom} *</span>
+          <span>{branchLabel} *</span>
           <select
-            value={pickup.branchId ?? ''}
+            value={checkout.branchId ?? ''}
             disabled={disabled}
-            onChange={(event) => pickup.onBranchChange(event.target.value || null)}
+            onChange={(event) => checkout.onBranchChange(event.target.value || null)}
             className={FIELD_CLASS}
           >
             <option value="">{copy.chooseBranch}</option>
-            {pickup.branches.map((branch) => (
+            {checkout.branches.map((branch) => (
               <option key={branch.id} value={branch.id}>
                 {branch.name}
               </option>
@@ -335,42 +489,130 @@ function PickupCheckoutForm({
           </select>
         </label>
       )}
-      <label className="flex flex-col gap-1 text-xs font-medium text-[#655D56]">
-        <span>{copy.customerName} *</span>
-        <input
-          type="text"
-          value={pickup.customerName}
-          maxLength={100}
-          autoComplete="name"
-          disabled={disabled}
-          onChange={(event) => pickup.onNameChange(event.target.value)}
-          className={FIELD_CLASS}
-        />
-      </label>
-      <label className="flex flex-col gap-1 text-xs font-medium text-[#655D56]">
-        <span>{copy.customerPhone} *</span>
-        <input
-          type="tel"
-          dir="ltr"
-          value={pickup.customerPhone}
-          maxLength={30}
-          autoComplete="tel"
-          disabled={disabled}
-          onChange={(event) => pickup.onPhoneChange(event.target.value)}
-          className={FIELD_CLASS}
-        />
-      </label>
+
+      {isDelivery && checkout.branchId ? (
+        singleZone ? (
+          <div>
+            <p className="text-xs font-medium text-[#655D56]">{copy.deliveryArea}</p>
+            <p className="mt-0.5 text-sm font-semibold text-[#1D1A18]">
+              {singleZone.name}{' '}
+              <span className="font-normal text-[#655D56]">
+                <bdi dir="ltr">
+                  {singleZone.deliveryFee} {currency}
+                </bdi>
+                {singleZone.minimumOrder !== '0.00' ? (
+                  <>
+                    {' · '}{copy.minimumOrderLabel}{' '}
+                    <bdi dir="ltr">
+                      {singleZone.minimumOrder} {currency}
+                    </bdi>
+                  </>
+                ) : null}
+              </span>
+            </p>
+          </div>
+        ) : (
+          <label className="flex flex-col gap-1 text-xs font-medium text-[#655D56]">
+            <span>{copy.deliveryArea} *</span>
+            <select
+              value={checkout.zoneId ?? ''}
+              disabled={disabled}
+              onChange={(event) => checkout.onZoneChange(event.target.value || null)}
+              className={FIELD_CLASS}
+            >
+              <option value="">{copy.chooseDeliveryArea}</option>
+              {checkout.zones.map((zone) => (
+                <option key={zone.id} value={zone.id}>
+                  {zone.name} — {zone.deliveryFee} {currency}
+                  {zone.minimumOrder !== '0.00'
+                    ? ` (${copy.minimumOrderLabel} ${zone.minimumOrder} ${currency})`
+                    : ''}
+                </option>
+              ))}
+            </select>
+          </label>
+        )
+      ) : null}
+
+      <TextField
+        label={`${copy.customerName} *`}
+        value={fields.customerName}
+        maxLength={100}
+        autoComplete="name"
+        disabled={disabled}
+        onChange={(value) => onFieldChange('customerName', value)}
+      />
+      <TextField
+        label={`${copy.customerPhone} *`}
+        value={fields.customerPhone}
+        maxLength={30}
+        type="tel"
+        ltr
+        autoComplete="tel"
+        disabled={disabled}
+        onChange={(value) => onFieldChange('customerPhone', value)}
+      />
+
+      {isDelivery ? (
+        <>
+          <TextField
+            label={`${copy.deliveryAddress} *`}
+            value={fields.deliveryAddress}
+            maxLength={300}
+            autoComplete="street-address"
+            disabled={disabled}
+            onChange={(value) => onFieldChange('deliveryAddress', value)}
+          />
+          <div className="grid grid-cols-3 gap-2">
+            <TextField
+              label={copy.deliveryBuilding}
+              value={fields.deliveryBuilding}
+              maxLength={50}
+              disabled={disabled}
+              onChange={(value) => onFieldChange('deliveryBuilding', value)}
+            />
+            <TextField
+              label={copy.deliveryFloor}
+              value={fields.deliveryFloor}
+              maxLength={30}
+              disabled={disabled}
+              onChange={(value) => onFieldChange('deliveryFloor', value)}
+            />
+            <TextField
+              label={copy.deliveryApartment}
+              value={fields.deliveryApartment}
+              maxLength={30}
+              disabled={disabled}
+              onChange={(value) => onFieldChange('deliveryApartment', value)}
+            />
+          </div>
+          <TextField
+            label={copy.deliveryLandmark}
+            value={fields.deliveryLandmark}
+            maxLength={150}
+            disabled={disabled}
+            onChange={(value) => onFieldChange('deliveryLandmark', value)}
+          />
+        </>
+      ) : null}
+
       <label className="flex flex-col gap-1 text-xs font-medium text-[#655D56]">
         <span>{copy.customerNotes}</span>
         <textarea
-          value={pickup.customerNotes}
+          value={fields.customerNotes}
           maxLength={500}
           rows={2}
           disabled={disabled}
-          onChange={(event) => pickup.onNotesChange(event.target.value)}
+          onChange={(event) => onFieldChange('customerNotes', event.target.value)}
           className={FIELD_CLASS}
         />
       </label>
+
+      {checkout.minimumMessage ? (
+        <p role="alert" className="rounded-md bg-[#FFF3D1] px-3 py-2 text-sm text-[#7A5600]">
+          {checkout.minimumMessage}
+        </p>
+      ) : null}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { OrderStatus } from '../generated/prisma/client';
+import type { OrderStatus, OrderType } from '../generated/prisma/client';
 import { PERMISSIONS, type Permission } from '../auth/permission/permission';
 
 /** The exact `OrderStatus` enum values, for DTO `@IsIn` validation (mirrors `PRODUCT_AVAILABILITIES`'s established pattern). */
@@ -7,6 +7,7 @@ export const ORDER_STATUSES = [
   'ACCEPTED',
   'PREPARING',
   'READY',
+  'OUT_FOR_DELIVERY',
   'SERVED',
   'REJECTED',
   'CANCELLED',
@@ -46,21 +47,45 @@ const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderTransitionRule[]> = {
     { to: 'CANCELLED', permission: PERMISSIONS.ORDERS_CANCEL },
   ],
   READY: [{ to: 'SERVED', permission: PERMISSIONS.ORDERS_MARK_SERVED }],
+  // FT-8: only reachable for DELIVERY Orders -- see `transitionsFor`.
+  OUT_FOR_DELIVERY: [],
   SERVED: [],
   REJECTED: [],
   CANCELLED: [],
 };
 
 /**
- * Looks up the one rule (if any) allowing `from -> to`. Returns `null` for
- * every unlisted pair, including any backward transition and any transition
- * out of a terminal status -- there is deliberately no wildcard/fallback
- * case, so a status value this map has not been updated for fails closed
- * rather than silently permitting it.
+ * FT-8: DELIVERY Orders take the extra hop READY -> OUT_FOR_DELIVERY ->
+ * SERVED (both front-of-house handover actions, so both use
+ * orders.markServed -- no new Permission). DINE_IN and PICKUP keep the
+ * exact FT-5 rules and can never reach OUT_FOR_DELIVERY: for them READY still
+ * goes straight to SERVED and OUT_FOR_DELIVERY has no outgoing transition
+ * (and nothing leads into it), so it fails closed for every non-DELIVERY
+ * type. Reject/Cancel rules are unchanged for every type.
+ */
+function transitionsFor(from: OrderStatus, type: OrderType): readonly OrderTransitionRule[] {
+  if (type === 'DELIVERY') {
+    if (from === 'READY') {
+      return [{ to: 'OUT_FOR_DELIVERY', permission: PERMISSIONS.ORDERS_MARK_SERVED }];
+    }
+    if (from === 'OUT_FOR_DELIVERY') {
+      return [{ to: 'SERVED', permission: PERMISSIONS.ORDERS_MARK_SERVED }];
+    }
+  }
+  return ORDER_TRANSITIONS[from];
+}
+
+/**
+ * Looks up the one rule (if any) allowing from -> to for an Order of the
+ * given type. Returns null for every unlisted pair, including any
+ * backward transition and any transition out of a terminal status -- there is
+ * deliberately no wildcard/fallback case, so a status value this map has not
+ * been updated for fails closed rather than silently permitting it.
  */
 export function findOrderTransitionRule(
   from: OrderStatus,
   to: OrderStatus,
+  type: OrderType,
 ): OrderTransitionRule | null {
-  return ORDER_TRANSITIONS[from].find((rule) => rule.to === to) ?? null;
+  return transitionsFor(from, type).find((rule) => rule.to === to) ?? null;
 }

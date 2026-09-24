@@ -31,7 +31,7 @@ import type {
   PublicMenuData,
   PublicMenuProduct,
 } from '../../../lib/public-menu/types';
-import { CartDrawer, type CartLine } from './CartDrawer';
+import { CartDrawer, type CartLine, type CheckoutFieldKey } from './CartDrawer';
 import { ProductOptionsDialog } from './ProductOptionsDialog';
 
 /** Platform locales stay exactly `en`/`ar` (Section 8) -- no locale-name library needed for two fixed labels. */
@@ -77,14 +77,21 @@ export function PublicMenuView({
   const currency = data.context.restaurant.currencyCode;
   const copy = getPublicMenuCopy(data.locale.resolved);
   const hasCategories = data.menu.categories.length > 0;
-  // FT-7: a TABLE QR orders exactly as before (DINE_IN); a GENERIC QR orders
-  // for Pickup, but only while at least one Branch is eligible.
-  const isPickup = data.context.qrType === 'GENERIC';
+  // FT-7/FT-8: a TABLE QR orders exactly as before (DINE_IN); a GENERIC QR
+  // orders for Pickup or Delivery, each only while at least one Branch is
+  // eligible for it (Delivery: an ACTIVE Branch with an ACTIVE zone).
+  const isGenericQr = data.context.qrType === 'GENERIC';
   const pickupBranches = useMemo(
     () => data.context.pickupBranches ?? [],
     [data.context.pickupBranches],
   );
-  const canOrder = !isPickup || pickupBranches.length > 0;
+  const deliveryBranches = useMemo(
+    () => data.context.deliveryBranches ?? [],
+    [data.context.deliveryBranches],
+  );
+  const pickupAvailable = pickupBranches.length > 0;
+  const deliveryAvailable = deliveryBranches.length > 0;
+  const canOrder = !isGenericQr || pickupAvailable || deliveryAvailable;
 
   const productById = useMemo(() => {
     const map = new Map<string, PublicMenuProduct>();
@@ -102,22 +109,68 @@ export function PublicMenuView({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<GuestOrderView | null>(null);
-  // FT-7 Pickup checkout state -- kept here (not inside the Cart drawer) so it
+  // FT-7/FT-8 checkout state -- kept here (not inside the Cart drawer) so it
   // survives closing/reopening the drawer and a failed submission.
+  const [requestedFulfillment, setRequestedFulfillment] = useState<'PICKUP' | 'DELIVERY'>('PICKUP');
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerNotes, setCustomerNotes] = useState('');
-  // One ACTIVE Branch auto-resolves; several require the Guest's own choice.
+  const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
+  const [fields, setFields] = useState<Record<CheckoutFieldKey, string>>({
+    customerName: '',
+    customerPhone: '',
+    customerNotes: '',
+    deliveryAddress: '',
+    deliveryBuilding: '',
+    deliveryFloor: '',
+    deliveryApartment: '',
+    deliveryLandmark: '',
+  });
+  // The mode actually in effect: the Guest's choice while it is available,
+  // otherwise whichever mode is (a Restaurant with only Delivery, say).
+  const fulfillment: 'PICKUP' | 'DELIVERY' = !isGenericQr
+    ? 'PICKUP'
+    : requestedFulfillment === 'DELIVERY' && deliveryAvailable
+      ? 'DELIVERY'
+      : pickupAvailable
+        ? 'PICKUP'
+        : 'DELIVERY';
+  const isDelivery = isGenericQr && fulfillment === 'DELIVERY';
+  // One eligible Branch auto-resolves; several require the Guest's own choice.
+  const eligibleBranches = isDelivery ? deliveryBranches : pickupBranches;
   const resolvedBranchId =
-    pickupBranches.length === 1
-      ? pickupBranches[0].id
-      : pickupBranches.some((branch) => branch.id === selectedBranchId)
+    eligibleBranches.length === 1
+      ? eligibleBranches[0].id
+      : eligibleBranches.some((branch) => branch.id === selectedBranchId)
         ? selectedBranchId
         : null;
-  const checkout: PendingOrderCheckout | null = isPickup
-    ? { branchId: resolvedBranchId, customerName, customerPhone, customerNotes }
+  // Delivery area: only zones of the resolved Branch; a single zone is chosen for the Guest.
+  const zones = isDelivery
+    ? (deliveryBranches.find((branch) => branch.id === resolvedBranchId)?.zones ?? [])
+    : [];
+  const resolvedZoneId =
+    zones.length === 1
+      ? zones[0].id
+      : zones.some((zone) => zone.id === selectedZoneId)
+        ? selectedZoneId
+        : null;
+  const selectedZone = zones.find((zone) => zone.id === resolvedZoneId) ?? null;
+  const checkout: PendingOrderCheckout | null = isGenericQr
+    ? {
+        fulfillment,
+        branchId: resolvedBranchId,
+        customerName: fields.customerName,
+        customerPhone: fields.customerPhone,
+        customerNotes: fields.customerNotes,
+        deliveryZoneId: isDelivery ? resolvedZoneId : null,
+        // A Pickup attempt never carries delivery text (typed earlier, then switched away from).
+        deliveryAddress: isDelivery ? fields.deliveryAddress : '',
+        deliveryBuilding: isDelivery ? fields.deliveryBuilding : '',
+        deliveryFloor: isDelivery ? fields.deliveryFloor : '',
+        deliveryApartment: isDelivery ? fields.deliveryApartment : '',
+        deliveryLandmark: isDelivery ? fields.deliveryLandmark : '',
+      }
     : null;
+  // A stable primitive for effect dependencies (the object above is new every render).
+  const checkoutKey = JSON.stringify(checkout);
   // FT-6A: the Product currently open in the "choose your options" dialog --
   // null means no dialog is open. A Product with Modifier Groups never adds
   // directly from its card; it always opens this dialog first (Section:
@@ -164,22 +217,11 @@ export function PublicMenuView({
       quantity: item.quantity,
       modifierOptionIds: item.modifierOptionIds,
     }));
-    const currentCheckout: PendingOrderCheckout | null = isPickup
-      ? { branchId: resolvedBranchId, customerName, customerPhone, customerNotes }
-      : null;
+    const currentCheckout = JSON.parse(checkoutKey) as PendingOrderCheckout | null;
     if (!payloadMatchesPendingAttempt(publicCode, items, currentCheckout)) {
       clearPendingAttempt(publicCode);
     }
-  }, [
-    cart,
-    publicCode,
-    hasHydratedCart,
-    isPickup,
-    resolvedBranchId,
-    customerName,
-    customerPhone,
-    customerNotes,
-  ]);
+  }, [cart, publicCode, hasHydratedCart, checkoutKey]);
 
   // Every Cart mutation goes through this one helper, which always reads
   // the LATEST `cart` state (via the functional `setState` form) and
@@ -314,11 +356,26 @@ export function PublicMenuView({
   );
   const totalDisplay = fromMinorUnits(totalMinorUnits);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  const pickupDetailsComplete =
-    !isPickup ||
-    (resolvedBranchId !== null && customerName.trim() !== '' && customerPhone.trim() !== '');
+  // FT-8 display-only breakdown (exact BigInt minor units). The Backend
+  // recomputes the fee, minimum and total from the zone row on submit.
+  const deliveryFeeMinorUnits = selectedZone ? toMinorUnits(selectedZone.deliveryFee) : ZERO_MINOR_UNITS;
+  const deliveryFeeDisplay = fromMinorUnits(deliveryFeeMinorUnits);
+  const grandTotalDisplay = fromMinorUnits(totalMinorUnits + deliveryFeeMinorUnits);
+  const belowMinimum =
+    selectedZone !== null && totalMinorUnits < toMinorUnits(selectedZone.minimumOrder);
+  const minimumMessage =
+    selectedZone !== null && belowMinimum
+      ? copy.minimumOrderMessage(selectedZone.name, selectedZone.minimumOrder, currency)
+      : null;
+  const checkoutDetailsComplete =
+    !isGenericQr ||
+    (resolvedBranchId !== null &&
+      fields.customerName.trim() !== '' &&
+      fields.customerPhone.trim() !== '' &&
+      (!isDelivery ||
+        (resolvedZoneId !== null && fields.deliveryAddress.trim() !== '' && !belowMinimum)));
   const canSubmit =
-    cartLines.length > 0 && !hasBlockedLines && !isSubmitting && pickupDetailsComplete;
+    cartLines.length > 0 && !hasBlockedLines && !isSubmitting && checkoutDetailsComplete;
 
   async function handlePlaceOrder() {
     if (!canSubmit) return;
@@ -354,11 +411,33 @@ export function PublicMenuView({
       return;
     }
     if (result.outcome === 'pickupDetailsRequired') {
-      setSubmitError(copy.pickupDetailsRequiredError);
+      setSubmitError(isDelivery ? copy.deliveryDetailsRequiredError : copy.pickupDetailsRequiredError);
+      return;
+    }
+    if (result.outcome === 'deliveryDetailsRequired') {
+      setSubmitError(copy.deliveryDetailsRequiredError);
+      return;
+    }
+    if (result.outcome === 'deliveryZoneInvalid') {
+      setSubmitError(copy.deliveryAreaError);
+      return;
+    }
+    if (result.outcome === 'deliveryUnavailable') {
+      setSubmitError(copy.deliveryUnavailable);
+      return;
+    }
+    if (result.outcome === 'minimumNotMet') {
+      setSubmitError(
+        copy.minimumOrderMessage(
+          result.zoneName ?? selectedZone?.name ?? '',
+          result.minimumOrder ?? selectedZone?.minimumOrder ?? '',
+          currency,
+        ),
+      );
       return;
     }
     if (result.outcome === 'pickupBranchInvalid') {
-      setSubmitError(copy.pickupBranchError);
+      setSubmitError(isDelivery ? copy.deliveryAreaError : copy.pickupBranchError);
       return;
     }
     if (result.outcome === 'pickupUnavailable') {
@@ -436,7 +515,7 @@ export function PublicMenuView({
           ) : null}
         </div>
 
-        {isPickup && pickupBranches.length === 0 ? (
+        {isGenericQr && !pickupAvailable && !deliveryAvailable ? (
           <p className="mb-6 rounded-md border border-[#E5DED6] bg-white px-4 py-3 text-sm text-[#655D56]">
             {copy.pickupUnavailable}
           </p>
@@ -491,18 +570,33 @@ export function PublicMenuView({
           canSubmit={canSubmit}
           submitError={submitError}
           confirmedOrder={confirmedOrder}
-          pickup={
-            isPickup
+          checkout={
+            isGenericQr
               ? {
-                  branches: pickupBranches,
+                  fulfillment,
+                  pickupAvailable,
+                  deliveryAvailable,
+                  onFulfillmentChange: (next) => {
+                    setRequestedFulfillment(next);
+                    // Branch/zone lists differ per mode -- the Guest re-chooses if needed.
+                    setSelectedBranchId(null);
+                    setSelectedZoneId(null);
+                  },
+                  branches: eligibleBranches.map((branch) => ({ id: branch.id, name: branch.name })),
                   branchId: resolvedBranchId,
-                  customerName,
-                  customerPhone,
-                  customerNotes,
-                  onBranchChange: setSelectedBranchId,
-                  onNameChange: setCustomerName,
-                  onPhoneChange: setCustomerPhone,
-                  onNotesChange: setCustomerNotes,
+                  onBranchChange: (branchId) => {
+                    setSelectedBranchId(branchId);
+                    setSelectedZoneId(null);
+                  },
+                  zones,
+                  zoneId: resolvedZoneId,
+                  onZoneChange: setSelectedZoneId,
+                  fields,
+                  onFieldChange: (key, value) => setFields((prev) => ({ ...prev, [key]: value })),
+                  subtotalDisplay: totalDisplay,
+                  deliveryFeeDisplay: isDelivery && selectedZone ? deliveryFeeDisplay : null,
+                  grandTotalDisplay: isDelivery ? grandTotalDisplay : totalDisplay,
+                  minimumMessage,
                 }
               : null
           }

@@ -3,7 +3,13 @@ import type { OrderListItem, OrderStatus } from './types';
 /** FT-7B: the top-level Orders workspace tabs. Pure client-side grouping of the already-loaded Orders -- no backend concept. */
 export type OrdersView = 'active' | 'completed' | 'all';
 
-export const ACTIVE_STATUSES: readonly OrderStatus[] = ['PENDING', 'ACCEPTED', 'PREPARING', 'READY'];
+export const ACTIVE_STATUSES: readonly OrderStatus[] = [
+  'PENDING',
+  'ACCEPTED',
+  'PREPARING',
+  'READY',
+  'OUT_FOR_DELIVERY',
+];
 export const COMPLETED_STATUSES: readonly OrderStatus[] = ['SERVED', 'REJECTED', 'CANCELLED'];
 export const ALL_STATUSES: readonly OrderStatus[] = [...ACTIVE_STATUSES, ...COMPLETED_STATUSES];
 

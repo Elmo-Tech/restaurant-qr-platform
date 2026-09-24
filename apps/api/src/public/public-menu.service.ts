@@ -30,6 +30,27 @@ export interface PublicMenuContext {
    * unavailable. Order creation re-validates whatever id the Guest picks.
    */
   pickupBranches: { id: string; name: string }[] | null;
+  /**
+   * FT-8: GENERIC QR only (null for TABLE) -- the ACTIVE Branches that have
+   * at least one ACTIVE Delivery zone, each with only its ACTIVE zones
+   * (id, name, fee, minimum -- exact decimal strings). Empty means Delivery
+   * is unavailable. Display data only: Order creation re-resolves the zone,
+   * fee and minimum from the database and never trusts these values.
+   */
+  deliveryBranches: PublicMenuDeliveryBranch[] | null;
+}
+
+export interface PublicMenuDeliveryZone {
+  id: string;
+  name: string;
+  deliveryFee: string;
+  minimumOrder: string;
+}
+
+export interface PublicMenuDeliveryBranch {
+  id: string;
+  name: string;
+  zones: PublicMenuDeliveryZone[];
 }
 
 export interface PublicMenuLocale {
@@ -339,14 +360,42 @@ export class PublicMenuService {
       });
     }
 
-    const pickupBranches =
+    // One query for a GENERIC QR: every ACTIVE Branch (Pickup) plus its
+    // ACTIVE Delivery zones (Delivery-eligible = at least one). TABLE QRs
+    // skip it entirely.
+    const activeBranches =
       qr.type === 'GENERIC'
         ? await this.prisma.branch.findMany({
             where: { restaurantId: qr.restaurantId, status: 'ACTIVE' },
             orderBy: [{ name: 'asc' }, { id: 'asc' }],
-            select: { id: true, name: true },
+            select: {
+              id: true,
+              name: true,
+              deliveryZones: {
+                where: { status: 'ACTIVE' },
+                orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+                select: { id: true, name: true, deliveryFee: true, minimumOrder: true },
+              },
+            },
           })
         : null;
+    const pickupBranches = activeBranches
+      ? activeBranches.map((branch) => ({ id: branch.id, name: branch.name }))
+      : null;
+    const deliveryBranches = activeBranches
+      ? activeBranches
+          .filter((branch) => branch.deliveryZones.length > 0)
+          .map((branch) => ({
+            id: branch.id,
+            name: branch.name,
+            zones: branch.deliveryZones.map((zone) => ({
+              id: zone.id,
+              name: zone.name,
+              deliveryFee: zone.deliveryFee.toFixed(2),
+              minimumOrder: zone.minimumOrder.toFixed(2),
+            })),
+          }))
+      : null;
 
     return {
       outcome: 'found',
@@ -360,6 +409,7 @@ export class PublicMenuService {
           branch: qr.branch ? { name: qr.branch.name } : null,
           table: qr.table ? { number: qr.table.tableNumber } : null,
           pickupBranches,
+          deliveryBranches,
         },
         locale: {
           requested,

@@ -1,5 +1,5 @@
 import type { ReactNode } from 'react';
-import { IconBag, IconTable } from '../../../../../components/staff/icons';
+import { IconBag, IconTable, IconTruck } from '../../../../../components/staff/icons';
 import type { OrderType } from '../../../../../lib/orders/types';
 
 interface OrderTypeStyle {
@@ -25,6 +25,11 @@ const TYPE_STYLES: Record<OrderType, OrderTypeStyle> = {
     label: 'Pickup',
     icon: (className) => <IconBag className={className} />,
     badge: 'border-[#CDBFE6] bg-[#F1ECFA] text-[#4B2E86]',
+  },
+  DELIVERY: {
+    label: 'Delivery',
+    icon: (className) => <IconTruck className={className} />,
+    badge: 'border-[#B9D9D6] bg-[#E9F5F4] text-[#1D5F5A]',
   },
 };
 

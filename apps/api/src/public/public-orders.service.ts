@@ -20,6 +20,15 @@ export interface CreateGuestOrderInput {
   customerName?: string;
   customerPhone?: string;
   customerNotes?: string;
+  /** FT-8, GENERIC QR only: the ONLY thing the Guest chooses about the Order type -- PICKUP (default) or DELIVERY. Ignored for a TABLE QR. */
+  fulfillment?: 'PICKUP' | 'DELIVERY';
+  /** FT-8, DELIVERY only: identity of the chosen zone -- never a fee/minimum/total. */
+  deliveryZoneId?: string;
+  deliveryAddress?: string;
+  deliveryBuilding?: string;
+  deliveryFloor?: string;
+  deliveryApartment?: string;
+  deliveryLandmark?: string;
 }
 
 export interface GuestOrderItemModifierView {
@@ -48,8 +57,13 @@ export interface GuestOrderView {
   type: OrderType;
   /** Null for a PICKUP Order. */
   table: { number: string } | null;
-  /** FT-7: only the safe public Branch display name, PICKUP only (null for DINE_IN). */
+  /** FT-7: only the safe public Branch display name, PICKUP only (null otherwise). */
   pickupBranch: { name: string } | null;
+  /** FT-8: DELIVERY only -- Branch and zone display names (null otherwise). */
+  delivery: { branchName: string; zoneName: string } | null;
+  /** FT-8: exact money breakdown -- subtotal + deliveryFee = total. deliveryFee is 0.00 for DINE_IN/PICKUP. */
+  subtotal: string;
+  deliveryFee: string;
   items: GuestOrderItemView[];
 }
 
@@ -65,7 +79,15 @@ export type CreateGuestOrderResult =
   /** FT-7: supplied branchId is unknown, foreign, or INACTIVE -- deliberately one indistinguishable outcome. */
   | { outcome: 'branchInvalid' }
   /** FT-7: GENERIC QR whose Restaurant has zero ACTIVE Branches. */
-  | { outcome: 'pickupUnavailable' };
+  | { outcome: 'pickupUnavailable' }
+  /** FT-8: DELIVERY without a non-empty address. */
+  | { outcome: 'deliveryDetailsRequired' }
+  /** FT-8: GENERIC QR whose Restaurant has no ACTIVE Branch with an ACTIVE Delivery zone. */
+  | { outcome: 'deliveryUnavailable' }
+  /** FT-8: zone missing, unknown, foreign, INACTIVE, or not in the selected Branch -- one indistinguishable outcome. */
+  | { outcome: 'deliveryZoneInvalid' }
+  /** FT-8: items subtotal is below the zone's minimum order. Values come from the Backend's own zone row. */
+  | { outcome: 'minimumOrderNotMet'; zoneName: string; minimumOrder: string };
 
 interface OrderViewRow {
   id: string;
@@ -74,6 +96,9 @@ interface OrderViewRow {
   totalAmount: Prisma.Decimal;
   createdAt: Date;
   type: OrderType;
+  subtotalAmount: Prisma.Decimal;
+  deliveryFeeAmount: Prisma.Decimal;
+  deliveryZoneNameSnapshot: string | null;
   table: { tableNumber: string } | null;
   branch: { name: string };
   items: {
@@ -97,6 +122,9 @@ const ORDER_VIEW_SELECT = {
   totalAmount: true,
   createdAt: true,
   type: true,
+  subtotalAmount: true,
+  deliveryFeeAmount: true,
+  deliveryZoneNameSnapshot: true,
   table: { select: { tableNumber: true } },
   branch: { select: { name: true } },
   items: {
@@ -131,6 +159,12 @@ function toGuestOrderView(order: OrderViewRow): GuestOrderView {
     type: order.type,
     table: order.table ? { number: order.table.tableNumber } : null,
     pickupBranch: order.type === 'PICKUP' ? { name: order.branch.name } : null,
+    delivery:
+      order.type === 'DELIVERY' && order.deliveryZoneNameSnapshot !== null
+        ? { branchName: order.branch.name, zoneName: order.deliveryZoneNameSnapshot }
+        : null,
+    subtotal: order.subtotalAmount.toFixed(2),
+    deliveryFee: order.deliveryFeeAmount.toFixed(2),
     items: order.items.map((item) => ({
       productId: item.productId,
       name: item.productNameSnapshot,
@@ -154,6 +188,19 @@ function toGuestOrderView(order: OrderViewRow): GuestOrderView {
  * pattern in `tables.service.ts`).
  */
 class ItemsUnavailableError extends Error {}
+
+/** FT-8: thrown inside the transaction when the zone is not a valid ACTIVE zone of the resolved Branch. */
+class DeliveryZoneInvalidError extends Error {}
+
+/** FT-8: thrown inside the transaction when the items subtotal is below the zone minimum. */
+class MinimumOrderNotMetError extends Error {
+  constructor(
+    readonly zoneName: string,
+    readonly minimumOrder: Prisma.Decimal,
+  ) {
+    super('minimum order not met');
+  }
+}
 
 /**
  * The real Postgres unique-index name behind
@@ -261,6 +308,12 @@ export class PublicOrdersService {
     let customerName: string | null = null;
     let customerPhone: string | null = null;
     let customerNotes: string | null = null;
+    let deliveryZoneId: string | null = null;
+    let deliveryAddress: string | null = null;
+    let deliveryBuilding: string | null = null;
+    let deliveryFloor: string | null = null;
+    let deliveryApartment: string | null = null;
+    let deliveryLandmark: string | null = null;
 
     if (qr.type === 'TABLE') {
       // DINE_IN, exactly as FT-5: Branch/Table come from the QR/Table only.
@@ -279,35 +332,55 @@ export class PublicOrdersService {
       branchId = qr.branchId;
       tableId = qr.tableId;
     } else {
-      // GENERIC QR -> PICKUP (no Table). Customer name + phone are required.
+      // GENERIC QR -> PICKUP (default) or DELIVERY (no Table). The Guest
+      // chooses only the fulfillment MODE; anything else about the Order
+      // type/Branch/fee is resolved here from the database.
+      const isDelivery = input.fulfillment === 'DELIVERY';
       customerName = input.customerName?.trim() || null;
       customerPhone = input.customerPhone?.trim() || null;
       customerNotes = input.customerNotes?.trim() || null;
       if (!customerName || !customerPhone) {
         return { outcome: 'customerDetailsRequired' };
       }
+      if (isDelivery) {
+        deliveryAddress = input.deliveryAddress?.trim() || null;
+        if (!deliveryAddress) {
+          return { outcome: 'deliveryDetailsRequired' };
+        }
+        if (!input.deliveryZoneId) {
+          return { outcome: 'deliveryZoneInvalid' };
+        }
+        deliveryZoneId = input.deliveryZoneId;
+        deliveryBuilding = input.deliveryBuilding?.trim() || null;
+        deliveryFloor = input.deliveryFloor?.trim() || null;
+        deliveryApartment = input.deliveryApartment?.trim() || null;
+        deliveryLandmark = input.deliveryLandmark?.trim() || null;
+      }
 
-      // Pickup Branch authority: only an ACTIVE Branch of THIS QR's own
-      // Restaurant is ever eligible; a client-supplied branchId is checked
-      // against that server-resolved set, never trusted.
-      const activeBranches = await this.prisma.branch.findMany({
-        where: { restaurantId, status: 'ACTIVE' },
+      // Branch authority: only an eligible Branch of THIS QR's own
+      // Restaurant -- ACTIVE for Pickup; ACTIVE with at least one ACTIVE
+      // Delivery zone for Delivery -- and a client-supplied branchId is
+      // checked against that server-resolved set, never trusted.
+      const eligibleBranches = await this.prisma.branch.findMany({
+        where: isDelivery
+          ? { restaurantId, status: 'ACTIVE', deliveryZones: { some: { status: 'ACTIVE' } } }
+          : { restaurantId, status: 'ACTIVE' },
         select: { id: true },
       });
-      if (activeBranches.length === 0) {
-        return { outcome: 'pickupUnavailable' };
+      if (eligibleBranches.length === 0) {
+        return { outcome: isDelivery ? 'deliveryUnavailable' : 'pickupUnavailable' };
       }
       if (input.branchId) {
-        if (!activeBranches.some((branch) => branch.id === input.branchId)) {
+        if (!eligibleBranches.some((branch) => branch.id === input.branchId)) {
           return { outcome: 'branchInvalid' };
         }
         branchId = input.branchId;
-      } else if (activeBranches.length === 1) {
-        branchId = activeBranches[0].id;
+      } else if (eligibleBranches.length === 1) {
+        branchId = eligibleBranches[0].id;
       } else {
         return { outcome: 'branchRequired' };
       }
-      orderType = 'PICKUP';
+      orderType = isDelivery ? 'DELIVERY' : 'PICKUP';
       tableId = null;
     }
 
@@ -524,6 +597,29 @@ export class PublicOrdersService {
           };
         });
 
+        // FT-8: authoritative Delivery money. The zone is re-resolved HERE,
+        // inside the same transaction as the pricing above, and must be an
+        // ACTIVE zone of the resolved Branch (and Restaurant) -- a foreign,
+        // INACTIVE, or wrong-Branch zone all converge on one outcome. The
+        // fee/minimum come only from this row, never from the request.
+        const subtotal = total;
+        let deliveryFee = new Prisma.Decimal(0);
+        let deliveryZoneNameSnapshot: string | null = null;
+        if (orderType === 'DELIVERY') {
+          const zone = await tx.deliveryZone.findFirst({
+            where: { id: deliveryZoneId ?? '', restaurantId, branchId, status: 'ACTIVE' },
+            select: { name: true, deliveryFee: true, minimumOrder: true },
+          });
+          if (!zone) {
+            throw new DeliveryZoneInvalidError();
+          }
+          if (subtotal.lessThan(zone.minimumOrder)) {
+            throw new MinimumOrderNotMetError(zone.name, zone.minimumOrder);
+          }
+          deliveryFee = zone.deliveryFee;
+          deliveryZoneNameSnapshot = zone.name;
+        }
+
         return tx.order.create({
           data: {
             restaurantId,
@@ -537,7 +633,16 @@ export class PublicOrdersService {
             customerPhoneSnapshot: customerPhone,
             customerNotesSnapshot: customerNotes,
             currencyCode,
-            totalAmount: total,
+            subtotalAmount: subtotal,
+            deliveryFeeAmount: deliveryFee,
+            totalAmount: subtotal.plus(deliveryFee),
+            deliveryZoneId: orderType === 'DELIVERY' ? deliveryZoneId : null,
+            deliveryZoneNameSnapshot,
+            deliveryAddressSnapshot: deliveryAddress,
+            deliveryBuildingSnapshot: deliveryBuilding,
+            deliveryFloorSnapshot: deliveryFloor,
+            deliveryApartmentSnapshot: deliveryApartment,
+            deliveryLandmarkSnapshot: deliveryLandmark,
             items: { create: itemsData },
           },
           select: ORDER_VIEW_SELECT,
@@ -548,6 +653,16 @@ export class PublicOrdersService {
     } catch (error) {
       if (error instanceof ItemsUnavailableError) {
         return { outcome: 'itemsUnavailable' };
+      }
+      if (error instanceof DeliveryZoneInvalidError) {
+        return { outcome: 'deliveryZoneInvalid' };
+      }
+      if (error instanceof MinimumOrderNotMetError) {
+        return {
+          outcome: 'minimumOrderNotMet',
+          zoneName: error.zoneName,
+          minimumOrder: error.minimumOrder.toFixed(2),
+        };
       }
       if (isClientRequestIdConflict(error)) {
         // Section 11: a genuine concurrent double-submit raced past the

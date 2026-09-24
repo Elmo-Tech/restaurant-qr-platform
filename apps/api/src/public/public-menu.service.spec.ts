@@ -76,7 +76,16 @@ function buildPrismaMock() {
     .mockResolvedValue([{ locale: 'en' }, { locale: 'ar' }]);
   const menuFindFirst = jest.fn().mockResolvedValue(MENU_ROW);
   const categoryFindMany = jest.fn().mockResolvedValue([buildCategoryRow()]);
-  const branchFindMany = jest.fn().mockResolvedValue([{ id: 'branch-a', name: 'Downtown' }]);
+  const branchFindMany = jest.fn().mockResolvedValue([
+    { id: 'branch-a', name: 'Downtown', deliveryZones: [] },
+    {
+      id: 'branch-b',
+      name: 'Uptown',
+      deliveryZones: [
+        { id: 'zone-1', name: 'University District', deliveryFee: decimal('25.00'), minimumOrder: decimal('100.00') },
+      ],
+    },
+  ]);
 
   // Deliberately ONLY find*/findFirst/findMany methods exist on this mock --
   // no create/update/upsert/delete/$transaction of any kind (Section 10/25:
@@ -171,6 +180,7 @@ describe('PublicMenuService.getPublicMenu', () => {
       branch: { name: 'Downtown Branch' },
       table: { number: '12' },
       pickupBranches: null,
+      deliveryBranches: null,
     });
   });
 
@@ -191,12 +201,29 @@ describe('PublicMenuService.getPublicMenu', () => {
       restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP' },
       branch: null,
       table: null,
-      pickupBranches: [{ id: 'branch-a', name: 'Downtown' }],
+      pickupBranches: [
+        { id: 'branch-a', name: 'Downtown' },
+        { id: 'branch-b', name: 'Uptown' },
+      ],
+      // FT-8: only Branches with at least one ACTIVE zone, exact money strings.
+      deliveryBranches: [
+        {
+          id: 'branch-b',
+          name: 'Uptown',
+          zones: [
+            { id: 'zone-1', name: 'University District', deliveryFee: '25.00', minimumOrder: '100.00' },
+          ],
+        },
+      ],
     });
     // FT-7: only the Restaurant's ACTIVE Branches, only id + display name.
     expect(mock.branchFindMany.mock.calls[0][0]).toMatchObject({
       where: { restaurantId: 'restaurant-1', status: 'ACTIVE' },
-      select: { id: true, name: true },
+      select: expect.objectContaining({
+        id: true,
+        name: true,
+        deliveryZones: expect.objectContaining({ where: { status: 'ACTIVE' } }),
+      }),
     });
   });
 
@@ -214,6 +241,7 @@ describe('PublicMenuService.getPublicMenu', () => {
     expect(result.outcome).toBe('found');
     if (result.outcome !== 'found') return;
     expect(result.data.context.pickupBranches).toBeNull();
+    expect(result.data.context.deliveryBranches).toBeNull();
     expect(mock.branchFindMany).not.toHaveBeenCalled();
   });
 

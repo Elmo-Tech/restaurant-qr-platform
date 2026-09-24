@@ -6,6 +6,22 @@ export interface PublicMenuContext {
   table: { number: string } | null;
   /** FT-7: GENERIC QR only (null for TABLE) -- the ACTIVE Branches eligible for Pickup. Empty = Pickup unavailable. */
   pickupBranches: { id: string; name: string }[] | null;
+  /** FT-8: GENERIC QR only -- ACTIVE Branches with at least one ACTIVE Delivery zone. Empty = Delivery unavailable. Display data only: the Backend re-resolves fee/minimum on submit. */
+  deliveryBranches: PublicDeliveryBranch[] | null;
+}
+
+export interface PublicDeliveryZone {
+  id: string;
+  name: string;
+  /** Exact decimal strings -- never run through Number()/parseFloat(). */
+  deliveryFee: string;
+  minimumOrder: string;
+}
+
+export interface PublicDeliveryBranch {
+  id: string;
+  name: string;
+  zones: PublicDeliveryZone[];
 }
 
 export interface PublicMenuLocale {
@@ -84,6 +100,7 @@ export type GuestOrderStatus =
   | 'ACCEPTED'
   | 'PREPARING'
   | 'READY'
+  | 'OUT_FOR_DELIVERY'
   | 'SERVED'
   | 'REJECTED'
   | 'CANCELLED';
@@ -95,10 +112,15 @@ export interface GuestOrderView {
   total: string;
   createdAt: string;
   /** FT-7: DINE_IN (TABLE QR) or PICKUP (GENERIC QR). */
-  type: 'DINE_IN' | 'PICKUP';
+  type: 'DINE_IN' | 'PICKUP' | 'DELIVERY';
   /** Null for a PICKUP Order. */
   table: { number: string } | null;
   /** FT-7: PICKUP only -- the safe Branch display name. */
   pickupBranch: { name: string } | null;
+  /** FT-8: DELIVERY only. */
+  delivery: { branchName: string; zoneName: string } | null;
+  /** FT-8: exact breakdown -- subtotal + deliveryFee = total. */
+  subtotal: string;
+  deliveryFee: string;
   items: GuestOrderItemView[];
 }

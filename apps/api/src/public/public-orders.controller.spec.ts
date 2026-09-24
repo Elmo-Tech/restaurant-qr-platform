@@ -10,6 +10,9 @@ const SAMPLE_DATA: GuestOrderView = {
   type: 'DINE_IN',
   table: { number: '7' },
   pickupBranch: null,
+  delivery: null,
+  subtotal: '100.00',
+  deliveryFee: '0.00',
   items: [],
 };
 

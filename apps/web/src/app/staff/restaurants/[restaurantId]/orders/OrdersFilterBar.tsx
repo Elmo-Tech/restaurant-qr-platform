@@ -9,7 +9,7 @@ import { orderTypeLabel } from './OrderTypeBadge';
 export const ALL_BRANCHES = '__all__';
 
 /** Order types offered by the filter -- one entry per real type, so DELIVERY later is one more item (never a fake option today). */
-const TYPE_OPTIONS: readonly OrderType[] = ['DINE_IN', 'PICKUP'];
+const TYPE_OPTIONS: readonly OrderType[] = ['DINE_IN', 'PICKUP', 'DELIVERY'];
 
 const CONTROL_CLASS =
   'rounded-md border border-[#E5DED6] bg-white px-3 py-2 text-sm text-[#1D1A18] outline-none focus:border-[#7A5138] focus:ring-1 focus:ring-[#7A5138]';

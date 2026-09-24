@@ -12,13 +12,15 @@ export interface OrderListItem {
   id: string;
   createdAt: Date;
   status: OrderStatus;
-  /** FT-7: DINE_IN or PICKUP. */
+  /** FT-7/FT-8: DINE_IN, PICKUP or DELIVERY. */
   type: OrderType;
   branch: { id: string; name: string };
   /** Null for a PICKUP Order. */
   table: { id: string; tableNumber: string } | null;
-  /** PICKUP only (null for DINE_IN): the card's primary identity and client-side search. Notes stay Detail-only. */
+  /** PICKUP/DELIVERY only (null for DINE_IN): the card's primary identity and client-side search. Notes stay Detail-only. */
   customer: { name: string; phone: string } | null;
+  /** FT-8: DELIVERY only -- the zone name snapshot shown on the card. */
+  deliveryZoneName: string | null;
   currencyCode: string;
   totalAmount: string;
   itemCount: number;
@@ -45,14 +47,26 @@ export interface OrderDetail {
   id: string;
   createdAt: Date;
   status: OrderStatus;
-  /** FT-7: DINE_IN or PICKUP. */
+  /** FT-7/FT-8: DINE_IN, PICKUP or DELIVERY. */
   type: OrderType;
   restaurant: { id: string; name: string };
   branch: { id: string; name: string };
   /** Null for a PICKUP Order. */
   table: { id: string; tableNumber: string } | null;
-  /** FT-7: PICKUP-only customer snapshots (null for DINE_IN); notes null when not provided. */
+  /** FT-7/FT-8: PICKUP/DELIVERY customer snapshots (null for DINE_IN); notes null when not provided. */
   customer: { name: string; phone: string; notes: string | null } | null;
+  /** FT-8: DELIVERY-only snapshot details (null otherwise) -- always the values at submission time, never the live zone. */
+  delivery: {
+    zoneName: string;
+    address: string;
+    building: string | null;
+    floor: string | null;
+    apartment: string | null;
+    landmark: string | null;
+  } | null;
+  /** FT-8: exact money breakdown: subtotal + deliveryFee = totalAmount. */
+  subtotalAmount: string;
+  deliveryFee: string;
   currencyCode: string;
   totalAmount: string;
   items: OrderItemView[];
@@ -199,6 +213,7 @@ export class OrdersService {
         type: true,
         customerNameSnapshot: true,
         customerPhoneSnapshot: true,
+        deliveryZoneNameSnapshot: true,
         currencyCode: true,
         totalAmount: true,
         branch: { select: { id: true, name: true } },
@@ -215,11 +230,12 @@ export class OrdersService {
       branch: order.branch,
       table: order.table,
       customer:
-        order.type === 'PICKUP' &&
+        order.type !== 'DINE_IN' &&
         order.customerNameSnapshot !== null &&
         order.customerPhoneSnapshot !== null
           ? { name: order.customerNameSnapshot, phone: order.customerPhoneSnapshot }
           : null,
+      deliveryZoneName: order.type === 'DELIVERY' ? order.deliveryZoneNameSnapshot : null,
       currencyCode: order.currencyCode,
       totalAmount: formatMoney(order.totalAmount),
       itemCount: order._count.items,
@@ -244,6 +260,14 @@ export class OrdersService {
         customerNameSnapshot: true,
         customerPhoneSnapshot: true,
         customerNotesSnapshot: true,
+        subtotalAmount: true,
+        deliveryFeeAmount: true,
+        deliveryZoneNameSnapshot: true,
+        deliveryAddressSnapshot: true,
+        deliveryBuildingSnapshot: true,
+        deliveryFloorSnapshot: true,
+        deliveryApartmentSnapshot: true,
+        deliveryLandmarkSnapshot: true,
         branchId: true,
         currencyCode: true,
         totalAmount: true,
@@ -273,7 +297,7 @@ export class OrdersService {
         branch: order.branch,
         table: order.table,
         customer:
-          order.type === 'PICKUP' &&
+          order.type !== 'DINE_IN' &&
           order.customerNameSnapshot !== null &&
           order.customerPhoneSnapshot !== null
             ? {
@@ -283,6 +307,21 @@ export class OrdersService {
               }
             : null,
         currencyCode: order.currencyCode,
+        delivery:
+          order.type === 'DELIVERY' &&
+          order.deliveryZoneNameSnapshot !== null &&
+          order.deliveryAddressSnapshot !== null
+            ? {
+                zoneName: order.deliveryZoneNameSnapshot,
+                address: order.deliveryAddressSnapshot,
+                building: order.deliveryBuildingSnapshot,
+                floor: order.deliveryFloorSnapshot,
+                apartment: order.deliveryApartmentSnapshot,
+                landmark: order.deliveryLandmarkSnapshot,
+              }
+            : null,
+        subtotalAmount: formatMoney(order.subtotalAmount),
+        deliveryFee: formatMoney(order.deliveryFeeAmount),
         totalAmount: formatMoney(order.totalAmount),
         items: order.items.map(toOrderItemView),
       },
@@ -310,7 +349,7 @@ export class OrdersService {
 
     const order = await this.prisma.order.findFirst({
       where: { id: input.orderId, restaurantId: input.scope.restaurantId },
-      select: { id: true, branchId: true, status: true },
+      select: { id: true, branchId: true, status: true, type: true },
     });
     if (!order) {
       return { outcome: 'notFound' };
@@ -321,7 +360,7 @@ export class OrdersService {
       return { outcome: 'notFound' };
     }
 
-    const rule = findOrderTransitionRule(order.status, input.status);
+    const rule = findOrderTransitionRule(order.status, input.status, order.type);
     if (!rule) {
       return { outcome: 'invalidTransition' };
     }

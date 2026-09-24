@@ -24,16 +24,25 @@ export interface PendingOrderItem {
 }
 
 /**
- * FT-7: the Pickup checkout state that is part of one submission's identity
- * (GENERIC QR only; always `null` for a TABLE QR, whose behavior stays
- * exactly FT-5). A changed Branch/name/phone/notes must never reuse a
- * previous attempt's `clientRequestId`. Values are compared trimmed.
+ * FT-7/FT-8: the GENERIC-QR checkout state that is part of one submission's
+ * identity (always `null` for a TABLE QR, whose behavior stays exactly
+ * FT-5). Fulfillment mode, Branch, delivery zone, customer details and every
+ * address field are ALL part of identity: changing any of them must never
+ * reuse a previous attempt's `clientRequestId`. Values are compared trimmed.
+ * Pickup attempts carry empty delivery fields.
  */
 export interface PendingOrderCheckout {
+  fulfillment: 'PICKUP' | 'DELIVERY';
   branchId: string | null;
   customerName: string;
   customerPhone: string;
   customerNotes: string;
+  deliveryZoneId: string | null;
+  deliveryAddress: string;
+  deliveryBuilding: string;
+  deliveryFloor: string;
+  deliveryApartment: string;
+  deliveryLandmark: string;
 }
 
 export interface PendingOrderAttempt {
@@ -42,25 +51,44 @@ export interface PendingOrderAttempt {
   checkout: PendingOrderCheckout | null;
 }
 
+const CHECKOUT_STRING_FIELDS = [
+  'customerName',
+  'customerPhone',
+  'customerNotes',
+  'deliveryAddress',
+  'deliveryBuilding',
+  'deliveryFloor',
+  'deliveryApartment',
+  'deliveryLandmark',
+] as const;
+
 function normalizeCheckout(checkout: PendingOrderCheckout | null): PendingOrderCheckout | null {
   if (checkout === null) return null;
   return {
+    fulfillment: checkout.fulfillment,
     branchId: checkout.branchId,
     customerName: checkout.customerName.trim(),
     customerPhone: checkout.customerPhone.trim(),
     customerNotes: checkout.customerNotes.trim(),
+    deliveryZoneId: checkout.deliveryZoneId,
+    deliveryAddress: checkout.deliveryAddress.trim(),
+    deliveryBuilding: checkout.deliveryBuilding.trim(),
+    deliveryFloor: checkout.deliveryFloor.trim(),
+    deliveryApartment: checkout.deliveryApartment.trim(),
+    deliveryLandmark: checkout.deliveryLandmark.trim(),
   };
 }
 
-function checkoutEqual(a: PendingOrderCheckout | null, b: PendingOrderCheckout | null): boolean {
+/** True when two checkout states describe the SAME submission (normalized). Exported so the identity rule is one shared, testable function. */
+export function checkoutsEqual(a: PendingOrderCheckout | null, b: PendingOrderCheckout | null): boolean {
   const left = normalizeCheckout(a);
   const right = normalizeCheckout(b);
   if (left === null || right === null) return left === right;
   return (
+    left.fulfillment === right.fulfillment &&
     left.branchId === right.branchId &&
-    left.customerName === right.customerName &&
-    left.customerPhone === right.customerPhone &&
-    left.customerNotes === right.customerNotes
+    left.deliveryZoneId === right.deliveryZoneId &&
+    CHECKOUT_STRING_FIELDS.every((field) => left[field] === right[field])
   );
 }
 
@@ -68,11 +96,28 @@ function isPendingCheckout(value: unknown): value is PendingOrderCheckout {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Partial<PendingOrderCheckout>;
   return (
+    (candidate.fulfillment === 'PICKUP' || candidate.fulfillment === 'DELIVERY') &&
     (candidate.branchId === null || typeof candidate.branchId === 'string') &&
-    typeof candidate.customerName === 'string' &&
-    typeof candidate.customerPhone === 'string' &&
-    typeof candidate.customerNotes === 'string'
+    (candidate.deliveryZoneId === null || typeof candidate.deliveryZoneId === 'string') &&
+    CHECKOUT_STRING_FIELDS.every((field) => typeof candidate[field] === 'string')
   );
+}
+
+/** A checkout stored by FT-7 (Pickup only) has no fulfillment/delivery fields: it was a Pickup attempt with empty delivery fields. */
+function withCheckoutDefaults(checkout: unknown): unknown {
+  if (typeof checkout !== 'object' || checkout === null) return checkout;
+  const candidate = checkout as Record<string, unknown>;
+  if ('fulfillment' in candidate) return checkout;
+  return {
+    ...candidate,
+    fulfillment: 'PICKUP',
+    deliveryZoneId: null,
+    deliveryAddress: '',
+    deliveryBuilding: '',
+    deliveryFloor: '',
+    deliveryApartment: '',
+    deliveryLandmark: '',
+  };
 }
 
 function storageKey(publicCode: string): string {
@@ -140,6 +185,10 @@ export function loadPendingAttempt(publicCode: string): PendingOrderAttempt | nu
     if (typeof parsed === 'object' && parsed !== null && !('checkout' in parsed)) {
       // A pre-FT-7 stored attempt has no checkout state: it was a TABLE attempt.
       (parsed as { checkout: null }).checkout = null;
+    } else if (typeof parsed === 'object' && parsed !== null) {
+      (parsed as { checkout: unknown }).checkout = withCheckoutDefaults(
+        (parsed as { checkout: unknown }).checkout,
+      );
     }
     return isPendingOrderAttempt(parsed) ? parsed : null;
   } catch {
@@ -178,7 +227,7 @@ export function payloadMatchesPendingAttempt(
   return (
     existing !== null &&
     itemsEqual(existing.items, items) &&
-    checkoutEqual(existing.checkout, checkout)
+    checkoutsEqual(existing.checkout, checkout)
   );
 }
 
@@ -199,7 +248,7 @@ export function resolveClientRequestId(
   generateId: () => string,
 ): string {
   const existing = loadPendingAttempt(publicCode);
-  if (existing && itemsEqual(existing.items, items) && checkoutEqual(existing.checkout, checkout)) {
+  if (existing && itemsEqual(existing.items, items) && checkoutsEqual(existing.checkout, checkout)) {
     return existing.clientRequestId;
   }
   const clientRequestId = generateId();

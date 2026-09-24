@@ -1,4 +1,4 @@
-import type { OrderStatus } from './types';
+import type { OrderStatus, OrderType } from './types';
 
 /**
  * FT-5: a client-side MIRROR of the Backend's `order-transitions.ts` --
@@ -28,14 +28,26 @@ const ORDER_TRANSITIONS: Record<OrderStatus, readonly OrderTransitionOption[]> =
     { to: 'CANCELLED', permission: 'orders.cancel' },
   ],
   READY: [{ to: 'SERVED', permission: 'orders.markServed' }],
+  // FT-8: only reachable for DELIVERY -- see transitionsFor.
+  OUT_FOR_DELIVERY: [],
   SERVED: [],
   REJECTED: [],
   CANCELLED: [],
 };
 
+/** FT-8: DELIVERY takes READY -> OUT_FOR_DELIVERY -> SERVED; every other type keeps READY -> SERVED and never sees OUT_FOR_DELIVERY (mirrors the Backend's type-aware rules). */
+function transitionsFor(status: OrderStatus, type: OrderType): readonly OrderTransitionOption[] {
+  if (type === 'DELIVERY') {
+    if (status === 'READY') return [{ to: 'OUT_FOR_DELIVERY', permission: 'orders.markServed' }];
+    if (status === 'OUT_FOR_DELIVERY') return [{ to: 'SERVED', permission: 'orders.markServed' }];
+  }
+  return ORDER_TRANSITIONS[status];
+}
+
 export function getAvailableTransitions(
   status: OrderStatus,
   permissions: string[],
+  type: OrderType,
 ): OrderTransitionOption[] {
-  return ORDER_TRANSITIONS[status].filter((option) => permissions.includes(option.permission));
+  return transitionsFor(status, type).filter((option) => permissions.includes(option.permission));
 }
