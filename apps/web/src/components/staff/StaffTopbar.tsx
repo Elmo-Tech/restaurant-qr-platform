@@ -27,12 +27,12 @@ export function StaffTopbar({
   const initial = userEmail.charAt(0).toUpperCase();
 
   return (
-    <header className="flex items-center justify-between gap-4 border-b border-[#E5DED6] bg-white px-4 py-3 sm:px-6 lg:px-8">
+    <header className="flex items-center justify-between gap-4 border-b border-border bg-card px-4 py-3 sm:px-6 lg:px-8">
       <div className="flex min-w-0 items-center gap-3">
         <button
           type="button"
           onClick={onOpenMobileNav}
-          className="-ms-1 inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-[#655D56] hover:bg-[#F8F5F1] lg:hidden"
+          className="-ms-1 inline-flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted lg:hidden"
           aria-label={t('shell.openNavigation')}
         >
           <IconHamburger className="h-5 w-5" />
@@ -42,10 +42,10 @@ export function StaffTopbar({
       <div className="flex flex-shrink-0 items-center gap-3">
         <StaffLanguageSwitcher />
         <div className="hidden items-center gap-2 sm:flex">
-          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-[#7A5138]/10 text-xs font-semibold text-[#7A5138]">
+          <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-xs font-semibold text-primary">
             {initial}
           </span>
-          <span dir="ltr" className="max-w-[160px] truncate text-sm text-[#655D56]">
+          <span dir="ltr" className="max-w-[160px] truncate text-sm text-muted-foreground">
             {userEmail}
           </span>
         </div>

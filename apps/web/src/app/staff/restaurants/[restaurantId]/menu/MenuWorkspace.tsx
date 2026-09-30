@@ -15,6 +15,7 @@ import {
 } from '../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
+import { PageHeader } from '../../../../../components/ui/PageHeader';
 import { MenuContextBar } from './MenuContextBar';
 import { CategoryNavigation } from './CategoryNavigation';
 import { ProductList } from './ProductList';
@@ -329,11 +330,7 @@ export function MenuWorkspace({
       <Alert variant="error">
         <div className="flex items-center justify-between gap-4">
           <span>{menusError}</span>
-          <Button
-            variant="secondary"
-            className="px-2 py-1 text-xs"
-            onClick={() => void loadMenus()}
-          >
+          <Button variant="secondary" size="sm" onClick={() => void loadMenus()}>
             {t('common.retry')}
           </Button>
         </div>
@@ -346,13 +343,11 @@ export function MenuWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-lg font-semibold text-[#1D1A18]">{t('menu.title')}</h1>
-          <p className="mt-1 text-sm text-[#655D56]">{t('menu.subtitle')}</p>
-        </div>
-        <OpenGuestMenuButton restaurantId={restaurantId} />
-      </div>
+      <PageHeader
+        title={t('menu.title')}
+        description={t('menu.subtitle')}
+        actions={<OpenGuestMenuButton restaurantId={restaurantId} />}
+      />
 
       <MenuSectionTabs restaurantId={restaurantId} active="products" />
 

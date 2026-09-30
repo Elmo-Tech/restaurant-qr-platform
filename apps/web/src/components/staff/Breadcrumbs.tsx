@@ -25,7 +25,7 @@ export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
               {item.href && !isLast ? (
                 <Link
                   href={item.href}
-                  className="truncate text-[#655D56] transition-colors hover:text-[#302C29]"
+                  className="truncate text-muted-foreground transition-colors hover:text-secondary-foreground"
                 >
                   <bdi dir="auto">{item.label}</bdi>
                 </Link>
@@ -33,14 +33,14 @@ export function Breadcrumbs({ items }: { items: BreadcrumbItem[] }) {
                 <span
                   aria-current={isLast ? 'page' : undefined}
                   className={`truncate ${
-                    isLast ? 'font-medium text-[#1D1A18]' : 'text-[#655D56]'
+                    isLast ? 'font-medium text-foreground' : 'text-muted-foreground'
                   }`}
                 >
                   {item.label}
                 </span>
               )}
               {!isLast ? (
-                <span className="text-[#AFA397] rtl:-scale-x-100" aria-hidden="true">
+                <span className="text-muted-foreground/70 rtl:-scale-x-100" aria-hidden="true">
                   /
                 </span>
               ) : null}

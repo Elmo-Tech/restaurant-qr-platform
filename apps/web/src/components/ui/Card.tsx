@@ -1,14 +1,19 @@
 import type { ReactNode } from 'react';
+import { cn } from '../../lib/utils';
 
 export interface CardProps {
   children: ReactNode;
   className?: string;
 }
 
-export function Card({ children, className = '' }: CardProps) {
+/** Design-system-v2: the shared surface -- token-based background/border/text, so a Card never silently goes back to the browser default (white-on-white) if it ends up nested somewhere unexpected. */
+export function Card({ children, className }: CardProps) {
   return (
     <div
-      className={`rounded-lg border border-[#E5DED6] bg-white p-6 shadow-sm ${className}`}
+      className={cn(
+        'rounded-xl border border-border bg-card text-card-foreground p-6 shadow-sm',
+        className,
+      )}
     >
       {children}
     </div>

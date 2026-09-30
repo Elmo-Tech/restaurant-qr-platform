@@ -28,9 +28,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
-      <body
-        className={`${ibmPlexSans.variable} ${ibmPlexSansArabic.variable} bg-[#FCFBF9] text-[#1D1A18]`}
-      >
+      <body className={`${ibmPlexSans.variable} ${ibmPlexSansArabic.variable}`}>
         {children}
       </body>
     </html>

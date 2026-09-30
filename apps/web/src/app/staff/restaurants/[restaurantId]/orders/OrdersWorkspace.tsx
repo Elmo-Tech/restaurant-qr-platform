@@ -212,7 +212,7 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
         </div>
         <div className="flex items-center gap-3">
           {isRefreshing && orders !== null ? (
-            <span role="status" className="text-xs text-[#8A8177]">
+            <span role="status" className="text-xs text-muted-foreground">
               {t('orders.updating')}
             </span>
           ) : null}

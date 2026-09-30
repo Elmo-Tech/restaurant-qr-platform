@@ -129,7 +129,7 @@ export function GenericQrCard({
             {isBusy ? t('tables.generic.creating') : t('tables.generic.create')}
           </Button>
           {!canManage ? (
-            <p className="text-xs text-[#8A8177]">{t('tables.generic.ownerOnly')}</p>
+            <p className="text-xs text-muted-foreground">{t('tables.generic.ownerOnly')}</p>
           ) : null}
         </div>
       ) : null}

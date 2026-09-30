@@ -25,7 +25,7 @@ interface RestaurantLandingPageProps {
 
 const STATUS_BADGE_STYLES: Record<RestaurantStatus, string> = {
   ACTIVE: 'bg-[#2F6B4F]/10 text-[#2F6B4F]',
-  INACTIVE: 'bg-[#8A8177]/10 text-[#8A8177]',
+  INACTIVE: 'bg-[#8A8177]/10 text-muted-foreground',
   SUSPENDED: 'bg-[#B3261E]/10 text-[#B3261E]',
 };
 
@@ -42,7 +42,7 @@ function StatusBadge({ status, label }: { status: RestaurantStatus; label: strin
 function ContextFact({ label, children }: { label: string; children: ReactNode }) {
   return (
     <div>
-      <p className="text-xs font-medium uppercase tracking-wide text-[#AFA397]">
+      <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
       <div className="mt-1.5 text-sm font-medium text-[#302C29]">
@@ -92,13 +92,13 @@ function FeatureCard({
           {icon}
         </span>
         {disabledReason ? (
-          <span className="rounded-full bg-[#F1ECE6] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#8A8177]">
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
             {disabledReason}
           </span>
         ) : (
           <span
             aria-hidden="true"
-            className="text-[#AFA397] transition-transform group-hover:translate-x-0.5 group-hover:text-[#7A5138] rtl:group-hover:-translate-x-0.5"
+            className="text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-[#7A5138] rtl:group-hover:-translate-x-0.5"
           >
             <IconArrowRight className="h-5 w-5 rtl:rotate-180" />
           </span>

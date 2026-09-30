@@ -1,12 +1,32 @@
 import type { SelectHTMLAttributes } from 'react';
+import { cn } from '../../lib/utils';
 
 export type SelectProps = SelectHTMLAttributes<HTMLSelectElement>;
 
-export function Select({ className = '', ...props }: SelectProps) {
+/** Design-system-v2: a native `<select>` (no Radix Select) -- it is already fully accessible and keyboard-correct, and a native picker is what Staff on a tablet expects; only the chrome is restyled, with a drawn-in chevron since `appearance-none` removes the browser's own one. */
+export function Select({ className, ...props }: SelectProps) {
+  // `className` (e.g. a caller's width override like `sm:w-40`) sizes the
+  // wrapper, not the inner <select> directly -- the select always fills it,
+  // so the drawn-in chevron below stays pinned to its actual visible edge
+  // instead of a fixed `w-full` that could disagree with a narrower caller.
   return (
-    <select
-      {...props}
-      className={`w-full rounded-md border border-[#E5DED6] bg-white px-3 py-2 text-sm text-[#1D1A18] outline-none focus:border-[#7A5138] focus:ring-1 focus:ring-[#7A5138] disabled:bg-[#F1ECE6] ${className}`}
-    />
+    <div className={cn('relative w-full', className)}>
+      <select
+        {...props}
+        className="h-10 w-full appearance-none rounded-md border border-input bg-card px-3 py-2 pe-9 text-sm text-foreground outline-none transition-colors focus:border-ring focus:ring-2 focus:ring-ring/30 disabled:cursor-not-allowed disabled:bg-muted disabled:text-muted-foreground"
+      />
+      <svg
+        aria-hidden="true"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth={1.75}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        className="pointer-events-none absolute end-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"
+      >
+        <path d="M6 9.5l6 6 6-6" />
+      </svg>
+    </div>
   );
 }

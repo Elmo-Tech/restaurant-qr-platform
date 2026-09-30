@@ -64,7 +64,7 @@ export function TranslationFields({
   return (
     <div className="flex flex-col gap-4">
       {error ? <Alert variant="error">{error}</Alert> : null}
-      {!exists ? <p className="text-xs text-[#655D56]">{t('menu.tr.notTranslatedYet')}</p> : null}
+      {!exists ? <p className="text-xs text-muted-foreground">{t('menu.tr.notTranslatedYet')}</p> : null}
       <FormField label={t('menu.tr.name')} htmlFor={`${idPrefix}-name-${locale}`}>
         <Input
           id={`${idPrefix}-name-${locale}`}

@@ -28,7 +28,7 @@ export function LanguageTabs({ options, activeLocale, onSelect }: LanguageTabsPr
 
   return (
     <div className="flex flex-col gap-1.5">
-      <p className="text-xs font-medium text-[#655D56]">{t('menu.content.languageLabel')}</p>
+      <p className="text-xs font-medium text-muted-foreground">{t('menu.content.languageLabel')}</p>
       <div role="group" aria-label={t('menu.content.languageLabel')} className="flex flex-wrap gap-2">
       {options.map((option) => {
         const isActive = option.locale === activeLocale;
@@ -38,10 +38,10 @@ export function LanguageTabs({ options, activeLocale, onSelect }: LanguageTabsPr
             type="button"
             aria-pressed={isActive}
             onClick={() => onSelect(option.locale)}
-            className={`rounded-lg border px-3 py-1.5 text-start text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-[#7A5138] focus-visible:ring-offset-1 ${
+            className={`rounded-lg border px-3 py-1.5 text-start text-sm outline-none transition-colors focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${
               isActive
-                ? 'border-[#7A5138] bg-[#7A5138]/10 text-[#7A5138]'
-                : 'border-[#E5DED6] bg-white text-[#655D56] hover:border-[#AFA397]'
+                ? 'border-primary bg-accent text-primary'
+                : 'border-border bg-card text-muted-foreground hover:border-muted-foreground/50'
             }`}
           >
             <span lang={option.locale === '__default__' ? undefined : option.locale} className="block font-medium">

@@ -13,10 +13,12 @@ import {
 } from '../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
-import { Card } from '../../../../../components/ui/Card';
+import { SectionCard } from '../../../../../components/ui/SectionCard';
+import { EmptyState } from '../../../../../components/ui/EmptyState';
 import { Input } from '../../../../../components/ui/Input';
 import { Select } from '../../../../../components/ui/Select';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '../../../../../components/ui/Table';
 import {
   IconImage,
   IconPencil,
@@ -52,12 +54,12 @@ function ProductThumbnail({ imageAssetPath }: { imageAssetPath: string | null })
       <img
         src={imageUrl}
         alt=""
-        className="h-10 w-10 flex-shrink-0 rounded-md border border-[#E5DED6] object-cover"
+        className="h-10 w-10 flex-shrink-0 rounded-md border border-border object-cover"
       />
     );
   }
   return (
-    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-[#F1ECE6] text-[#AFA397]">
+    <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
       <IconImage className="h-5 w-5" />
     </span>
   );
@@ -69,9 +71,30 @@ function matchesSearch(product: Product, query: string): boolean {
   return haystack.includes(query.trim().toLowerCase());
 }
 
+function AddProductButton({
+  restaurantId,
+  categoryId,
+  variant = 'primary',
+}: {
+  restaurantId: string;
+  categoryId: string;
+  variant?: 'primary' | 'secondary';
+}) {
+  const { t } = useStaffI18n();
+  return (
+    <Button asChild variant={variant} size="sm">
+      <Link href={`/staff/restaurants/${restaurantId}/menu/products/new?categoryId=${categoryId}`}>
+        <IconPlus />
+        {t('menu.products.add')}
+      </Link>
+    </Button>
+  );
+}
+
 /**
- * UX-3, Section 8/9/10: Products become the dominant, wide workspace area,
- * presented as a professional list/table (desktop) or stacked cards
+ * UX-3, Section 8/9/10 (design-system-v2: rebuilt on `SectionCard` +
+ * shared `Table` primitives): Products are the dominant, wide workspace
+ * area, presented as a professional list/table (desktop) or stacked cards
  * (mobile) instead of small equal-width cards. Search/Status/Availability
  * filtering (Section 8) operates only on the already-loaded `products`
  * array for the current Category -- purely local `useState`/`useMemo`, no
@@ -139,42 +162,25 @@ export function ProductList({
     }
   }
 
-  const subtitle = categoryName
-    ? menuName
-      ? `${categoryName} · ${menuName}`
-      : categoryName
-    : null;
+  const subtitle = categoryName ? (menuName ? `${categoryName} · ${menuName}` : categoryName) : undefined;
 
   return (
-    <Card className="flex min-w-0 flex-col gap-4">
-      <div className="flex items-center justify-between gap-3">
-        <div>
-          <h2 className="text-sm font-semibold text-[#302C29]">{t('menu.products.title')}</h2>
-          {subtitle ? (
-            <p dir="auto" className="text-start text-xs text-[#655D56]">
-              {subtitle}
-            </p>
-          ) : null}
-        </div>
-        {canManage && categoryId ? (
-          <Link
-            href={`/staff/restaurants/${restaurantId}/menu/products/new?categoryId=${categoryId}`}
-            className="inline-flex items-center justify-center rounded-md bg-[#7A5138] px-3 py-1.5 text-xs font-medium text-white transition-colors hover:bg-[#634127]"
-          >
-            <IconPlus className="me-1 h-3.5 w-3.5" /> {t('menu.products.add')}
-          </Link>
-        ) : null}
-      </div>
-
+    <SectionCard
+      className="min-w-0"
+      bodyClassName="flex flex-col gap-4"
+      title={t('menu.products.title')}
+      description={subtitle}
+      actions={canManage && categoryId ? <AddProductButton restaurantId={restaurantId} categoryId={categoryId} /> : undefined}
+    >
       {!categoryId ? (
-        <p className="text-sm text-[#655D56]">{t('menu.products.selectCategory')}</p>
+        <EmptyState compact title={t('menu.products.selectCategory')} />
       ) : (
         <>
           {error ? (
             <Alert variant="error">
               <div className="flex items-center justify-between gap-4">
                 <span>{error}</span>
-                <Button variant="secondary" className="px-2 py-1 text-xs" onClick={onRetry}>
+                <Button variant="secondary" size="sm" onClick={onRetry}>
                   {t('common.retry')}
                 </Button>
               </div>
@@ -185,27 +191,23 @@ export function ProductList({
           {products === null && !error ? <LoadingState label={t('menu.products.loading')} /> : null}
 
           {products !== null && products.length === 0 ? (
-            <div className="flex flex-col gap-3">
-              <div>
-                <p className="text-sm font-medium text-[#302C29]">{t('menu.products.emptyTitle')}</p>
-                <p className="mt-1 text-sm text-[#655D56]">{t('menu.products.emptyHint')}</p>
-              </div>
-              {canManage && categoryId ? (
-                <Link
-                  href={`/staff/restaurants/${restaurantId}/menu/products/new?categoryId=${categoryId}`}
-                  className="inline-flex w-fit items-center justify-center rounded-md border border-[#E5DED6] bg-white px-3 py-1.5 text-xs font-medium text-[#302C29] transition-colors hover:bg-[#F8F5F1]"
-                >
-                  <IconPlus className="me-1 h-3.5 w-3.5" /> {t('menu.products.add')}
-                </Link>
-              ) : null}
-            </div>
+            <EmptyState
+              icon={<IconImage />}
+              title={t('menu.products.emptyTitle')}
+              description={t('menu.products.emptyHint')}
+              action={
+                canManage && categoryId ? (
+                  <AddProductButton restaurantId={restaurantId} categoryId={categoryId} variant="secondary" />
+                ) : undefined
+              }
+            />
           ) : null}
 
           {products !== null && products.length > 0 ? (
             <>
               <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
                 <div className="relative flex-1 sm:max-w-xs">
-                  <IconSearch className="pointer-events-none absolute start-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-[#AFA397]" />
+                  <IconSearch className="pointer-events-none absolute start-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}
@@ -237,59 +239,59 @@ export function ProductList({
               </div>
 
               {filteredProducts && filteredProducts.length === 0 ? (
-                <p className="text-sm text-[#655D56]">{t('menu.products.noMatch')}</p>
+                <EmptyState compact icon={<IconSearch />} title={t('menu.products.noMatch')} />
               ) : null}
 
-              {/* Desktop: table-like list (Section 9). */}
-              <div className="hidden overflow-x-auto xl:block">
-                <table className="w-full border-collapse text-sm">
-                  <thead>
-                    <tr className="border-b border-[#E5DED6] text-start text-xs font-medium uppercase tracking-wide text-[#AFA397]">
-                      <th className="py-2 pe-4 font-medium">{t('menu.products.col.product')}</th>
-                      <th className="py-2 pe-4 font-medium">{t('menu.products.col.price')}</th>
-                      <th className="py-2 pe-4 font-medium">{t('menu.products.col.availability')}</th>
-                      <th className="py-2 pe-4 font-medium">{t('menu.products.col.status')}</th>
-                      <th className="py-2 ps-4 text-end font-medium">{t('menu.products.col.actions')}</th>
-                    </tr>
-                  </thead>
-                  <tbody>
+              {/* Desktop: a real table (Section 9), edge-aligned with the card's own padding. */}
+              <div className="hidden xl:block">
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>{t('menu.products.col.product')}</TableHead>
+                      <TableHead>{t('menu.products.col.price')}</TableHead>
+                      <TableHead>{t('menu.products.col.availability')}</TableHead>
+                      <TableHead>{t('menu.products.col.status')}</TableHead>
+                      <TableHead className="text-end">{t('menu.products.col.actions')}</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
                     {filteredProducts?.map((product) => (
-                      <tr key={product.id} className="border-b border-[#E5DED6] last:border-0">
-                        <td className="py-3 pe-4">
+                      <TableRow key={product.id}>
+                        <TableCell>
                           <div className="flex items-center gap-3">
                             <ProductThumbnail imageAssetPath={product.primaryImageAssetPath} />
                             <div className="min-w-0">
-                              <p className="flex items-center gap-2 font-medium text-[#1D1A18]">
+                              <p className="flex items-center gap-2 font-medium text-foreground">
                                 <span dir="auto" className="truncate">
                                   {product.translation.name}
                                 </span>
                                 {product.featured ? <FeaturedBadge /> : null}
                               </p>
                               {product.translation.description ? (
-                                <p className="truncate text-xs text-[#655D56]">
+                                <p dir="auto" className="truncate text-xs text-muted-foreground">
                                   {product.translation.description}
                                 </p>
                               ) : null}
                             </div>
                           </div>
-                        </td>
-                        <td className="py-3 pe-4 whitespace-nowrap text-[#302C29]">
+                        </TableCell>
+                        <TableCell className="whitespace-nowrap font-medium text-foreground">
                           <bdi dir="ltr">
                             {product.basePrice} {currencyCode}
                           </bdi>
-                        </td>
-                        <td className="py-3 pe-4">
+                        </TableCell>
+                        <TableCell>
                           <AvailabilityBadge availability={product.availability} />
-                        </td>
-                        <td className="py-3 pe-4">
+                        </TableCell>
+                        <TableCell>
                           <StatusBadge active={product.status === 'ACTIVE'} />
-                        </td>
-                        <td className="py-3 ps-4">
+                        </TableCell>
+                        <TableCell>
                           {canManage ? (
                             <div className="flex items-center justify-end gap-1">
                               <Button
                                 variant="secondary"
-                                className="px-2 py-1 text-xs"
+                                size="sm"
                                 disabled={availabilityPendingId === product.id}
                                 onClick={() => void handleToggleAvailability(product)}
                               >
@@ -299,34 +301,37 @@ export function ProductList({
                                     ? t('menu.products.markSoldOut')
                                     : t('menu.products.markAvailable')}
                               </Button>
-                              <Link
-                                href={`/staff/restaurants/${restaurantId}/menu/products/${product.id}?categoryId=${categoryId}`}
-                                aria-label={t('menu.products.editAria', { name: product.translation.name })}
-                                className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#AFA397] hover:bg-[#F8F5F1] hover:text-[#7A5138]"
-                              >
-                                <IconPencil className="h-4 w-4" />
-                              </Link>
+                              <Button asChild variant="ghost" size="icon">
+                                <Link
+                                  href={`/staff/restaurants/${restaurantId}/menu/products/${product.id}?categoryId=${categoryId}`}
+                                  aria-label={t('menu.products.editAria', { name: product.translation.name })}
+                                >
+                                  <IconPencil className="h-4 w-4" />
+                                </Link>
+                              </Button>
                             </div>
                           ) : null}
-                        </td>
-                      </tr>
+                        </TableCell>
+                      </TableRow>
                     ))}
-                  </tbody>
-                </table>
+                  </TableBody>
+                </Table>
               </div>
 
-              {/* Mobile: stacked cards (Section 17). */}
+              {/* Mobile/tablet: stacked cards (Section 17). */}
               <ul className="flex flex-col gap-3 xl:hidden">
                 {filteredProducts?.map((product) => (
-                  <li key={product.id} className="rounded-md border border-[#E5DED6] bg-white p-3">
+                  <li key={product.id} className="rounded-lg border border-border bg-card p-3">
                     <div className="flex items-start gap-3">
                       <ProductThumbnail imageAssetPath={product.primaryImageAssetPath} />
                       <div className="min-w-0 flex-1">
-                        <p className="flex items-center gap-2 font-medium text-[#1D1A18]">
-                          <span dir="auto" className="truncate">{product.translation.name}</span>
+                        <p className="flex items-center gap-2 font-medium text-foreground">
+                          <span dir="auto" className="truncate">
+                            {product.translation.name}
+                          </span>
                           {product.featured ? <FeaturedBadge /> : null}
                         </p>
-                        <p className="mt-0.5 text-sm text-[#302C29]">
+                        <p className="mt-0.5 text-sm text-secondary-foreground">
                           <bdi dir="ltr">
                             {product.basePrice} {currencyCode}
                           </bdi>
@@ -341,7 +346,8 @@ export function ProductList({
                       <div className="mt-3 flex items-center gap-2">
                         <Button
                           variant="secondary"
-                          className="flex-1 px-2 py-1.5 text-xs"
+                          className="flex-1"
+                          size="sm"
                           disabled={availabilityPendingId === product.id}
                           onClick={() => void handleToggleAvailability(product)}
                         >
@@ -351,13 +357,14 @@ export function ProductList({
                               ? t('menu.products.markSoldOut')
                               : t('menu.products.markAvailable')}
                         </Button>
-                        <Link
-                          href={`/staff/restaurants/${restaurantId}/menu/products/${product.id}?categoryId=${categoryId}`}
-                          aria-label={t('menu.products.editAria', { name: product.translation.name })}
-                          className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md border border-[#E5DED6] text-[#655D56] hover:bg-[#F8F5F1]"
-                        >
-                          <IconPencil className="h-4 w-4" />
-                        </Link>
+                        <Button asChild variant="secondary" size="icon">
+                          <Link
+                            href={`/staff/restaurants/${restaurantId}/menu/products/${product.id}?categoryId=${categoryId}`}
+                            aria-label={t('menu.products.editAria', { name: product.translation.name })}
+                          >
+                            <IconPencil className="h-4 w-4" />
+                          </Link>
+                        </Button>
                       </div>
                     ) : null}
                   </li>
@@ -367,6 +374,6 @@ export function ProductList({
           ) : null}
         </>
       )}
-    </Card>
+    </SectionCard>
   );
 }

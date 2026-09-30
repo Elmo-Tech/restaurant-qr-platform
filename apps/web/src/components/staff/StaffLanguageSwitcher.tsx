@@ -16,7 +16,7 @@ export function StaffLanguageSwitcher() {
     <div
       role="group"
       aria-label={t('lang.switcherLabel')}
-      className="flex flex-shrink-0 gap-0.5 rounded-full border border-[#E5DED6] bg-white p-0.5 text-xs"
+      className="flex flex-shrink-0 gap-0.5 rounded-full border border-border bg-card p-0.5 text-xs"
     >
       {STAFF_LOCALES.map((option) => {
         const isActive = option === locale;
@@ -30,7 +30,7 @@ export function StaffLanguageSwitcher() {
               if (!isActive) setLocale(option);
             }}
             className={`rounded-full px-2.5 py-1 font-medium transition-colors ${
-              isActive ? 'bg-[#7A5138] text-white' : 'text-[#655D56] hover:text-[#302C29]'
+              isActive ? 'bg-primary text-primary-foreground' : 'text-muted-foreground hover:text-secondary-foreground'
             }`}
           >
             {t(option === 'ar' ? 'lang.ar' : 'lang.en')}

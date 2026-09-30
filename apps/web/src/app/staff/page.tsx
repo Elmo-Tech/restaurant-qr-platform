@@ -50,13 +50,13 @@ export default async function StaffHomePage() {
 
   return (
     <div className="min-h-screen">
-      <header className="flex items-center justify-between border-b border-[#E5DED6] bg-white px-6 py-3">
-        <span className="text-sm font-semibold text-[#302C29]">
+      <header className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
+        <span className="text-sm font-semibold text-secondary-foreground">
           {t('shell.productName')}
         </span>
         <div className="flex items-center gap-4">
           <StaffLanguageSwitcher />
-          <span dir="ltr" className="text-sm text-[#655D56]">{user.email}</span>
+          <span dir="ltr" className="text-sm text-muted-foreground">{user.email}</span>
           <LogoutButton />
         </div>
       </header>
@@ -67,18 +67,18 @@ export default async function StaffHomePage() {
           </Alert>
         ) : (
           <div className="flex flex-col gap-4">
-            <h1 className="text-lg font-semibold text-[#1D1A18]">
+            <h1 className="text-lg font-semibold text-foreground">
               {t('staffHome.yourRestaurants')}
             </h1>
             <ul className="flex flex-col gap-3">
               {memberships.map((membership) => (
                 <li key={membership.id}>
                   <Link href={`/staff/restaurants/${membership.restaurant.id}`}>
-                    <Card className="transition-colors hover:border-[#7A5138]">
-                      <p dir="auto" className="font-medium text-[#1D1A18]">
+                    <Card className="transition-colors hover:border-primary">
+                      <p dir="auto" className="font-medium text-foreground">
                         {membership.restaurant.name}
                       </p>
-                      <p className="text-sm text-[#655D56]">
+                      <p className="text-sm text-muted-foreground">
                         {t(`role.${membership.role}` as const)} ·{' '}
                         {membership.restaurant.status === 'ACTIVE'
                           ? t('common.active')

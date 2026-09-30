@@ -52,10 +52,10 @@ export function ImageField({
           <img
             src={imageUrl}
             alt=""
-            className="h-20 w-20 flex-shrink-0 rounded-md border border-[#E5DED6] object-cover"
+            className="h-20 w-20 flex-shrink-0 rounded-lg border border-border object-cover"
           />
         ) : (
-          <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-md border border-dashed border-[#E5DED6] text-[#AFA397]">
+          <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground">
             <IconImage className="h-6 w-6" />
           </span>
         )}
@@ -82,7 +82,7 @@ export function ImageField({
               </Button>
             ) : null}
           </div>
-          <p className="text-xs text-[#655D56]">{helperText}</p>
+          <p className="text-xs text-muted-foreground">{helperText}</p>
         </div>
       </div>
       <input

@@ -1,6 +1,120 @@
 @import "tailwindcss";
 
+/*
+ * Design-system-v2 (visual direction correction): dark graphite Sidebar,
+ * clean light workspace, burnt-orange/amber brand accent -- a modern SaaS
+ * look, not the earlier warm beige/brown pass. Tokens only; every component
+ * in `components/ui` (and every screen built on them) reads these names,
+ * never a raw hex value, so the whole app repaints from one place.
+ *
+ * Two token families:
+ *  - the WORKSPACE family (`background`, `card`, `muted`, ...) is the light
+ *    surface every page's content sits on.
+ *  - the `sidebar-*` family is a second, intentionally dark palette used only
+ *    by the Staff Sidebar chrome -- not a dark-mode toggle for the app, a
+ *    permanently dark rail next to a permanently light workspace. Its active
+ *    state and brand mark reuse `primary`/`primary-foreground` directly
+ *    (an orange fill reads correctly on both the light workspace and the
+ *    dark rail -- see the contrast note below), so the brand color is never
+ *    duplicated under a second name.
+ *
+ * `primary` is a deeper "burnt orange" (~#BF5700) rather than the brighter
+ * amber in the brief (~#F07A00): white text on #F07A00 measures ~2.8:1,
+ * which fails WCAG 1.4.3 for real button/nav-item labels -- #BF5700 keeps the
+ * same hue family and reads as the same brand color, but white text on it
+ * measures ~4.8:1 (AA). The brighter amber is kept as `accent`/`accent-
+ * foreground` for soft, non-solid-fill tints (badges, hover washes) where it
+ * is paired with a dark foreground instead of white.
+ */
+@theme {
+  /* ---- workspace (light) ---- */
+  --color-background: #f7f8fa;
+  --color-foreground: #171a1f;
+
+  --color-card: #ffffff;
+  --color-card-foreground: #171a1f;
+
+  --color-popover: #ffffff;
+  --color-popover-foreground: #171a1f;
+
+  --color-muted: #eef0f3;
+  --color-muted-foreground: #5b6472;
+
+  --color-border: #e2e5ea;
+  --color-input: #e2e5ea;
+  --color-ring: #bf5700;
+
+  --color-primary: #bf5700;
+  --color-primary-foreground: #ffffff;
+
+  --color-secondary: #f1f2f5;
+  --color-secondary-foreground: #171a1f;
+
+  --color-accent: #ffead2;
+  --color-accent-foreground: #9a3e00;
+
+  --color-destructive: #dc2626;
+  --color-destructive-foreground: #ffffff;
+  --color-destructive-soft: #fee2e2;
+
+  --color-success: #15803d;
+  --color-success-foreground: #ffffff;
+  --color-success-soft: #dcfce7;
+
+  --color-warning: #b45309;
+  --color-warning-foreground: #ffffff;
+  --color-warning-soft: #fef3c7;
+
+  --color-info: #1d4ed8;
+  --color-info-foreground: #ffffff;
+  --color-info-soft: #dbeafe;
+
+  --color-delivery: #0f766e;
+  --color-delivery-foreground: #ffffff;
+  --color-delivery-soft: #ccfbf1;
+
+  /* ---- sidebar (permanently dark chrome) ---- */
+  --color-sidebar: #14171c;
+  --color-sidebar-foreground: #ffffff;
+  --color-sidebar-muted-foreground: #98a2b3;
+  --color-sidebar-surface: #1b1f26;
+  --color-sidebar-border: #262b33;
+
+  /* Radius scale: overrides Tailwind's own `rounded-md/lg/xl/2xl` -- cards
+     land in the requested 10-14px band (lg/xl) without an arbitrary
+     `rounded-[var(--radius)]` everywhere. */
+  --radius-md: 0.5rem;
+  --radius-lg: 0.625rem;
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+
+  /* Shadow scale: overrides Tailwind's defaults with neutral-graphite-tinted
+     (not pure black, not warm-brown) shadows -- subtle elevation, matching
+     the new neutral foreground. */
+  --shadow-sm: 0 1px 2px 0 rgb(23 26 31 / 0.04);
+  --shadow-md: 0 1px 3px 0 rgb(23 26 31 / 0.06), 0 1px 2px -1px rgb(23 26 31 / 0.04);
+  --shadow-lg: 0 4px 12px -2px rgb(23 26 31 / 0.09), 0 2px 6px -2px rgb(23 26 31 / 0.05);
+  --shadow-xl: 0 12px 28px -6px rgb(23 26 31 / 0.13), 0 4px 10px -4px rgb(23 26 31 / 0.07);
+}
+
 /* FT-10A: Latin text in IBM Plex Sans, Arabic glyphs in IBM Plex Sans Arabic. */
 body {
+  background-color: var(--color-background);
+  color: var(--color-foreground);
   font-family: var(--font-plex-sans), var(--font-plex-sans-arabic), system-ui, sans-serif;
+}
+
+/*
+ * Arabic letters connect: letter-spacing (Tailwind `tracking-*`) breaks the
+ * joins and makes words unreadable, and `uppercase` has no meaning for an
+ * Arabic script. Reset both wherever the Staff UI (or any subtree) is Arabic.
+ */
+:lang(ar) .tracking-wide,
+:lang(ar) .tracking-wider,
+:lang(ar) .tracking-tight {
+  letter-spacing: 0;
+}
+
+:lang(ar) .uppercase {
+  text-transform: none;
 }

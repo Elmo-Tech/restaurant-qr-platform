@@ -128,7 +128,7 @@ export function Dialog({
   return (
     <div className="fixed inset-0 z-50">
       <div
-        className={`absolute inset-0 bg-black/40 transition-opacity duration-200 motion-reduce:transition-none ${
+        className={`absolute inset-0 bg-foreground/45 transition-opacity duration-200 motion-reduce:transition-none ${
           isVisible ? 'opacity-100' : 'opacity-0'
         }`}
         onClick={requestClose}
@@ -148,17 +148,17 @@ export function Dialog({
           aria-modal="true"
           aria-labelledby="dialog-title"
           tabIndex={-1}
-          className={`pointer-events-auto flex h-full w-full flex-col bg-white shadow-xl outline-none transition-all duration-200 motion-reduce:transition-none sm:h-auto sm:max-h-[calc(100vh-64px)] sm:max-w-[600px] sm:rounded-lg ${
+          className={`pointer-events-auto flex h-full w-full flex-col bg-card text-card-foreground shadow-xl outline-none transition-all duration-200 motion-reduce:transition-none sm:h-auto sm:max-h-[calc(100vh-64px)] sm:max-w-[600px] sm:rounded-xl ${
             isVisible ? 'opacity-100 sm:scale-100' : 'opacity-0 sm:scale-95'
           }`}
         >
-          <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-[#E5DED6] px-5 py-4 sm:px-6">
+          <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4 sm:px-6">
             <div className="min-w-0">
-              <h2 id="dialog-title" className="text-base font-semibold text-[#1D1A18]">
+              <h2 id="dialog-title" className="text-base font-semibold text-foreground">
                 {title}
               </h2>
               {subtitle ? (
-                <p dir="auto" className="mt-0.5 truncate text-sm text-[#655D56]">{subtitle}</p>
+                <p dir="auto" className="mt-0.5 truncate text-sm text-muted-foreground">{subtitle}</p>
               ) : null}
             </div>
             <button
@@ -166,7 +166,7 @@ export function Dialog({
               onClick={requestClose}
               disabled={isSubmitting}
               aria-label={t('common.close')}
-              className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-[#655D56] hover:bg-[#F8F5F1] disabled:cursor-not-allowed disabled:opacity-50"
+              className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
             >
               <IconClose className="h-4 w-4" />
             </button>
@@ -174,7 +174,7 @@ export function Dialog({
 
           <form onSubmit={onSubmit} className="flex flex-1 flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
-            <div className="flex flex-shrink-0 items-center justify-end gap-2 border-t border-[#E5DED6] px-5 py-4 sm:px-6">
+            <div className="flex flex-shrink-0 items-center justify-end gap-2 border-t border-border bg-muted/40 px-5 py-4 sm:px-6 sm:rounded-b-xl">
               <Button type="button" variant="secondary" onClick={requestClose} disabled={isSubmitting}>
                 {t('common.cancel')}
               </Button>

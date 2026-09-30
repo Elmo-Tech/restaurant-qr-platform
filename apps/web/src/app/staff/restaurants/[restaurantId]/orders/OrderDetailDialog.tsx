@@ -250,7 +250,7 @@ export function OrderDetailDialog({
             <section aria-labelledby="order-items-title">
               <h3
                 id="order-items-title"
-                className="mb-2 text-xs font-semibold uppercase tracking-wide text-[#8A8177]"
+                className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground"
               >
                 {t('orders.detail.items')}
               </h3>
@@ -285,7 +285,7 @@ export function OrderDetailDialog({
                             ))}
                           </ul>
                         ) : null}
-                        <p className="mt-1 text-xs text-[#8A8177]">
+                        <p className="mt-1 text-xs text-muted-foreground">
                           <bdi dir="ltr">
                             {t('orders.detail.each', { price: item.unitPrice, currency: order.currencyCode })}
                           </bdi>

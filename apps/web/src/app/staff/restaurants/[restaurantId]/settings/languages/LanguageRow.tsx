@@ -27,7 +27,7 @@ function ActiveStateBadge({ active }: { active: boolean }) {
       className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
         active
           ? 'bg-[#2F6B4F]/10 text-[#2F6B4F]'
-          : 'bg-[#8A8177]/10 text-[#8A8177]'
+          : 'bg-[#8A8177]/10 text-muted-foreground'
       }`}
     >
       {active ? t('common.active') : t('common.inactive')}
@@ -69,7 +69,7 @@ export function LanguageRow({
           <span lang={row.locale} className="text-sm font-semibold text-[#1D1A18]">
             {label}
           </span>
-          <span dir="ltr" className="text-xs uppercase tracking-wide text-[#AFA397]">
+          <span dir="ltr" className="text-xs uppercase tracking-wide text-muted-foreground">
             {row.locale}
           </span>
           {row.isDefault ? <DefaultBadge /> : null}

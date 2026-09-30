@@ -28,7 +28,8 @@ import {
 } from '../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
-import { Card } from '../../../../../components/ui/Card';
+import { SectionCard } from '../../../../../components/ui/SectionCard';
+import { EmptyState } from '../../../../../components/ui/EmptyState';
 import { Dialog } from '../../../../../components/ui/Dialog';
 import { FormField } from '../../../../../components/ui/FormField';
 import { FormSection } from '../../../../../components/ui/FormSection';
@@ -99,12 +100,12 @@ function CategoryThumbnail({ imageAssetPath }: { imageAssetPath: string | null }
       <img
         src={imageUrl}
         alt=""
-        className="h-9 w-9 flex-shrink-0 rounded-md border border-[#E5DED6] object-cover"
+        className="h-9 w-9 flex-shrink-0 rounded-md border border-border object-cover"
       />
     );
   }
   return (
-    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-[#F1ECE6] text-[#AFA397]">
+    <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
       <IconImage className="h-4 w-4" />
     </span>
   );
@@ -491,30 +492,33 @@ export function CategoryNavigation({
   );
 
   return (
-    <Card className="flex min-w-0 flex-col gap-3 xl:h-fit">
-      <div className="flex items-center justify-between">
-        <h2 className="text-sm font-semibold text-[#302C29]">{t('menu.categories.title')}</h2>
-        {canManage && menuId ? (
-          <button
+    <SectionCard
+      className="min-w-0 xl:h-fit"
+      bodyClassName="flex flex-col gap-3"
+      title={t('menu.categories.title')}
+      actions={
+        canManage && menuId ? (
+          <Button
             type="button"
+            variant="ghost"
+            size="icon"
             onClick={startCreate}
             aria-label={t('menu.categories.add')}
-            className="inline-flex h-7 w-7 items-center justify-center rounded-md text-[#7A5138] hover:bg-[#F8F5F1]"
           >
             <IconPlus className="h-4 w-4" />
-          </button>
-        ) : null}
-      </div>
-
+          </Button>
+        ) : undefined
+      }
+    >
       {!menuId ? (
-        <p className="text-sm text-[#655D56]">{t('menu.categories.selectMenu')}</p>
+        <EmptyState compact title={t('menu.categories.selectMenu')} />
       ) : (
         <>
           {error ? (
             <Alert variant="error">
               <div className="flex items-center justify-between gap-4">
                 <span>{error}</span>
-                <Button variant="secondary" className="px-2 py-1 text-xs" onClick={onRetry}>
+                <Button variant="secondary" size="sm" onClick={onRetry}>
                   {t('common.retry')}
                 </Button>
               </div>
@@ -524,17 +528,19 @@ export function CategoryNavigation({
           {categories === null && !error ? <LoadingState label={t('menu.categories.loading')} /> : null}
 
           {categories !== null && categories.length === 0 ? (
-            <div className="flex flex-col gap-3">
-              <div>
-                <p className="text-sm font-medium text-[#302C29]">{t('menu.categories.emptyTitle')}</p>
-                <p className="mt-1 text-sm text-[#655D56]">{t('menu.categories.emptyHint')}</p>
-              </div>
-              {canManage ? (
-                <Button variant="secondary" className="self-start px-3 py-1.5 text-xs" onClick={startCreate}>
-                  <IconPlus className="me-1 h-3.5 w-3.5" /> {t('menu.categories.add')}
-                </Button>
-              ) : null}
-            </div>
+            <EmptyState
+              compact
+              icon={<IconImage />}
+              title={t('menu.categories.emptyTitle')}
+              description={t('menu.categories.emptyHint')}
+              action={
+                canManage ? (
+                  <Button variant="secondary" size="sm" onClick={startCreate}>
+                    <IconPlus className="h-3.5 w-3.5" /> {t('menu.categories.add')}
+                  </Button>
+                ) : undefined
+              }
+            />
           ) : null}
 
           {categories !== null && categories.length > 0 ? (
@@ -544,18 +550,24 @@ export function CategoryNavigation({
                 return (
                   <li key={category.id} className="shrink-0 xl:shrink">
                     <div
-                      className={`group flex items-center gap-1 rounded-md border px-1 xl:px-1.5 ${
+                      className={`group relative flex items-center gap-1 rounded-md border px-1 transition-colors xl:px-1.5 ${
                         isSelected
-                          ? 'border-[#7A5138] bg-[#F8F5F1]'
-                          : 'border-[#E5DED6] bg-white xl:border-transparent'
+                          ? 'border-primary/30 bg-accent'
+                          : 'border-border bg-card hover:bg-muted xl:border-transparent'
                       }`}
                     >
+                      {isSelected ? (
+                        <span
+                          aria-hidden="true"
+                          className="absolute inset-y-1.5 start-0 hidden w-[3px] rounded-full bg-primary xl:block"
+                        />
+                      ) : null}
                       <button
                         type="button"
                         onClick={() => onSelectCategory(category.id)}
                         aria-current={isSelected ? 'true' : undefined}
-                        className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-md py-1.5 ps-1.5 pe-1 text-start text-sm xl:w-full xl:whitespace-normal ${
-                          isSelected ? 'font-medium text-[#1D1A18]' : 'text-[#302C29]'
+                        className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-md py-1.5 ps-1.5 pe-1 text-start text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring xl:w-full xl:whitespace-normal ${
+                          isSelected ? 'font-semibold text-primary' : 'text-secondary-foreground'
                         }`}
                       >
                         <span className="flex min-w-0 items-center gap-2">
@@ -565,9 +577,9 @@ export function CategoryNavigation({
                           </span>
                         </span>
                         {category.status === 'INACTIVE' ? (
-                          <span className="text-xs text-[#8A8177]">{t('common.inactive')}</span>
+                          <span className="text-xs text-muted-foreground">{t('common.inactive')}</span>
                         ) : (
-                          <span className="hidden text-xs text-[#AFA397] xl:inline">{t('common.active')}</span>
+                          <span className="hidden text-xs text-muted-foreground xl:inline">{t('common.active')}</span>
                         )}
                       </button>
                       {canManage ? (
@@ -575,7 +587,7 @@ export function CategoryNavigation({
                           type="button"
                           onClick={() => startEdit(category)}
                           aria-label={t('menu.products.editAria', { name: category.translation.name })}
-                          className="inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-[#AFA397] hover:bg-white hover:text-[#7A5138] xl:opacity-0 xl:group-hover:opacity-100"
+                          className="inline-flex h-6 w-6 flex-shrink-0 items-center justify-center rounded text-muted-foreground outline-none transition-colors hover:bg-card hover:text-primary focus-visible:opacity-100 focus-visible:ring-2 focus-visible:ring-ring xl:opacity-0 xl:group-hover:opacity-100"
                         >
                           <IconPencil className="h-3.5 w-3.5" />
                         </button>
@@ -590,7 +602,7 @@ export function CategoryNavigation({
       )}
 
       {dialog}
-    </Card>
+    </SectionCard>
   );
 }
 
@@ -678,7 +690,7 @@ function CategoryFormFields({
             <option value="INACTIVE">{t('common.inactive')}</option>
           </Select>
           {form.status === 'INACTIVE' ? (
-            <p className="mt-1 text-xs text-[#655D56]">{t('menu.form.inactiveHint')}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('menu.form.inactiveHint')}</p>
           ) : null}
         </FormField>
       </FormSection>
@@ -726,8 +738,8 @@ function CategoryFormFields({
           </FormField>
         ) : (
           <div className="flex flex-col gap-1.5">
-            <span className="text-sm font-medium text-[#302C29]">{t('menu.menus.label')}</span>
-            <p className="rounded-md border border-[#E5DED6] bg-[#F8F5F1] px-3 py-2 text-sm text-[#302C29]">
+            <span className="text-sm font-medium text-secondary-foreground">{t('menu.menus.label')}</span>
+            <p className="rounded-md border border-border bg-muted px-3 py-2 text-sm text-secondary-foreground">
               {currentMenuName}
             </p>
           </div>
@@ -837,7 +849,7 @@ function CategoryCreateLanguages({
         </>
       ) : (
         <>
-          <p className="text-xs text-[#655D56]">{t('menu.form.optionalLanguage')}</p>
+          <p className="text-xs text-muted-foreground">{t('menu.form.optionalLanguage')}</p>
           <FormField label={t('menu.tr.name')} htmlFor={`category-create-name-${activeLocale}`}>
             <Input
               id={`category-create-name-${activeLocale}`}

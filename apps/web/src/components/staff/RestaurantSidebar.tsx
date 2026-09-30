@@ -19,6 +19,8 @@ interface ActiveNavItem {
   label: string;
   href: string;
   icon: ReactNode;
+  /** Optional live count pill (e.g. open Orders) -- rendering support only; no screen wires real data through it yet. */
+  count?: number;
 }
 
 interface DisabledNavItem {
@@ -43,6 +45,13 @@ interface RestaurantSidebarProps {
 
 const ICON_CLASS = 'h-[18px] w-[18px]';
 
+/**
+ * design-system-v2 visual direction: the Sidebar is a permanently dark rail
+ * (`sidebar-*` tokens) regardless of the rest of the app's light theme --
+ * this is not a dark-mode toggle. The active item is a solid `primary`
+ * (burnt-orange) fill with white text, matching the brief's "orange filled or
+ * clearly orange-highlighted active state."
+ */
 function ActiveLink({
   item,
   isActive,
@@ -58,16 +67,25 @@ function ActiveLink({
         href={item.href}
         onClick={onNavigate}
         aria-current={isActive ? 'page' : undefined}
-        className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors ${
+        className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
           isActive
-            ? 'bg-[#7A5138]/10 font-medium text-[#7A5138]'
-            : 'text-[#655D56] hover:bg-[#F8F5F1] hover:text-[#302C29]'
+            ? 'bg-primary text-primary-foreground shadow-sm'
+            : 'text-sidebar-foreground/80 hover:bg-sidebar-surface hover:text-sidebar-foreground'
         }`}
       >
-        <span className={isActive ? 'text-[#7A5138]' : 'text-[#AFA397]'}>
+        <span className={isActive ? 'text-primary-foreground' : 'text-sidebar-muted-foreground'}>
           {item.icon}
         </span>
-        {item.label}
+        <span className="flex-1">{item.label}</span>
+        {item.count !== undefined && item.count > 0 ? (
+          <span
+            className={`min-w-[1.25rem] rounded-full px-1.5 text-center text-xs font-semibold tabular-nums ${
+              isActive ? 'bg-primary-foreground/20 text-primary-foreground' : 'bg-sidebar-surface text-sidebar-foreground'
+            }`}
+          >
+            {item.count}
+          </span>
+        ) : null}
       </Link>
     </li>
   );
@@ -78,11 +96,11 @@ function DisabledRow({ item }: { item: DisabledNavItem }) {
     <li>
       <div
         aria-disabled="true"
-        className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-[#AFA397]"
+        className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-muted-foreground"
       >
         <span>{item.icon}</span>
         <span className="flex-1">{item.label}</span>
-        <span className="rounded-full bg-[#F1ECE6] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#8A8177]">
+        <span className="rounded-full bg-sidebar-surface px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-sidebar-muted-foreground">
           {item.badge}
         </span>
       </div>
@@ -113,25 +131,25 @@ function SidebarContent({
 }) {
   const { t } = useStaffI18n();
   return (
-    <div className="flex h-full flex-col">
+    <div className="flex h-full flex-col bg-sidebar">
       <div className="flex items-center gap-2 px-5 py-5">
-        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-[#7A5138] text-sm font-semibold text-white">
+        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
           R
         </span>
-        <span className="text-sm font-semibold leading-tight text-[#1D1A18]">
+        <span className="text-sm font-semibold leading-tight text-sidebar-foreground">
           {t('shell.productName')}
         </span>
       </div>
 
-      <div className="px-5 pb-4">
-        <p className="text-[11px] font-medium uppercase tracking-wide text-[#AFA397]">
+      <div className="mx-3 mb-4 rounded-lg bg-sidebar-surface px-3 py-3">
+        <p className="text-xs font-medium uppercase tracking-wide text-sidebar-muted-foreground">
           {t('shell.restaurant')}
         </p>
-        <p dir="auto" className="mt-1 truncate text-sm font-medium text-[#302C29]">
+        <p dir="auto" className="mt-1 truncate text-sm font-medium text-sidebar-foreground">
           {restaurantName}
         </p>
         {restaurantStatus !== 'ACTIVE' ? (
-          <span className="mt-1 inline-block rounded-full bg-[#B3261E]/10 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#B3261E]">
+          <span className="mt-1.5 inline-block rounded-full bg-destructive-soft px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-destructive">
             {restaurantStatus === 'SUSPENDED' ? t('common.suspended') : t('common.inactive')}
           </span>
         ) : null}
@@ -214,7 +232,7 @@ function SidebarContent({
           )}
         </ul>
 
-        <p className="mb-1 mt-5 px-3 text-[11px] font-medium uppercase tracking-wide text-[#AFA397]">
+        <p className="mb-1 mt-5 px-3 text-xs font-medium uppercase tracking-wide text-sidebar-muted-foreground">
           {t('nav.comingSoonSection')}
         </p>
         <ul className="flex flex-col gap-0.5">
@@ -228,7 +246,7 @@ function SidebarContent({
           />
         </ul>
 
-        <div className="mt-5 border-t border-[#E5DED6] pt-3">
+        <div className="mt-5 border-t border-sidebar-border pt-3">
           <ul>
             {canViewRestaurantSettings ? (
               <ActiveLink
@@ -291,7 +309,7 @@ export function RestaurantSidebar({
   const { t } = useStaffI18n();
   return (
     <>
-      <aside className="hidden w-64 flex-shrink-0 border-e border-[#E5DED6] bg-white lg:flex lg:flex-col">
+      <aside className="hidden w-64 flex-shrink-0 lg:flex lg:flex-col">
         <SidebarContent
           restaurantId={restaurantId}
           restaurantName={restaurantName}
@@ -307,17 +325,17 @@ export function RestaurantSidebar({
       {isMobileOpen ? (
         <div className="fixed inset-0 z-40 lg:hidden">
           <div
-            className="absolute inset-0 bg-black/30"
+            className="absolute inset-0 bg-foreground/30"
             onClick={onCloseMobile}
             aria-hidden="true"
           />
-          <div className="absolute inset-y-0 start-0 flex w-72 max-w-[85vw] flex-col bg-white shadow-xl">
-            <div className="flex justify-end px-3 pt-3">
+          <div className="absolute inset-y-0 start-0 flex w-72 max-w-[85vw] flex-col shadow-xl">
+            <div className="flex justify-end bg-sidebar px-3 pt-3">
               <button
                 type="button"
                 onClick={onCloseMobile}
                 aria-label={t('shell.closeNavigation')}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-[#655D56] hover:bg-[#F8F5F1]"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-sidebar-muted-foreground hover:bg-sidebar-surface hover:text-sidebar-foreground"
               >
                 <IconClose className="h-5 w-5" />
               </button>

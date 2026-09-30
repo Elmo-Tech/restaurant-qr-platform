@@ -227,7 +227,7 @@ export function QrPreviewDialog({
                     className="h-56 w-56 rounded-md border border-[#E5DED6] p-2"
                   />
                 ) : !error ? (
-                  <div className="flex h-56 w-56 items-center justify-center rounded-md border border-dashed border-[#E5DED6] text-xs text-[#AFA397]">
+                  <div className="flex h-56 w-56 items-center justify-center rounded-md border border-dashed border-[#E5DED6] text-xs text-muted-foreground">
                     {t('tables.qr.generating')}
                   </div>
                 ) : null}

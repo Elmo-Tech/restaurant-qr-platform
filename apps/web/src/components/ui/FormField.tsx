@@ -10,12 +10,12 @@ export interface FormFieldProps {
 export function FormField({ label, htmlFor, error, children }: FormFieldProps) {
   return (
     <div className="flex flex-col gap-1.5">
-      <label htmlFor={htmlFor} className="text-sm font-medium text-[#302C29]">
+      <label htmlFor={htmlFor} className="text-sm font-medium text-secondary-foreground">
         {label}
       </label>
       {children}
       {error ? (
-        <p role="alert" className="text-sm text-[#B3261E]">
+        <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       ) : null}

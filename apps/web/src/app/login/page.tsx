@@ -32,7 +32,7 @@ export default async function LoginPage() {
           <div className="mb-4 flex justify-end">
             <StaffLanguageSwitcher />
           </div>
-          <h1 className="mb-6 text-center text-xl font-semibold text-[#1D1A18]">
+          <h1 className="mb-6 text-center text-xl font-semibold text-foreground">
             {t('shell.productName')}
           </h1>
           <LoginForm />

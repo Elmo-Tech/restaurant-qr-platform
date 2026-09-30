@@ -98,7 +98,7 @@ export function StaffShell({
         ];
 
   return (
-    <div className="flex min-h-screen bg-[#F8F5F1]">
+    <div className="flex min-h-screen bg-background">
       <RestaurantSidebar
         restaurantId={restaurantId}
         restaurantName={restaurantName}

@@ -56,7 +56,7 @@ export function OrdersFilterBar({
       <label className="flex min-w-[200px] flex-1 flex-col gap-1 text-xs font-medium text-[#655D56]">
         <span>{t('orders.filter.search')}</span>
         <span className="relative">
-          <IconSearch className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[#AFA397]" />
+          <IconSearch className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <input
             type="search"
             value={search}

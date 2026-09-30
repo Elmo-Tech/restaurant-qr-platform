@@ -48,7 +48,7 @@ export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () 
             {order.customer.phone}
           </p>
         ) : null}
-        <p className="mt-0.5 text-xs text-[#8A8177]">
+        <p className="mt-0.5 text-xs text-muted-foreground">
           {order.deliveryZoneName ? (
             <>
               <bdi dir="auto">{order.deliveryZoneName}</bdi> ·{' '}

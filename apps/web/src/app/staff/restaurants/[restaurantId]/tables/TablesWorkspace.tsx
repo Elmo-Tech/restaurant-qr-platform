@@ -374,7 +374,7 @@ function TableCard({
             type="button"
             onClick={onEdit}
             aria-label={t('tables.card.editAria', { number: table.tableNumber })}
-            className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-[#AFA397] hover:bg-[#F8F5F1] hover:text-[#7A5138]"
+            className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-[#F8F5F1] hover:text-[#7A5138]"
           >
             <IconPencil className="h-3.5 w-3.5" />
           </button>
@@ -383,17 +383,17 @@ function TableCard({
 
       <div className="flex flex-wrap items-center gap-2">
         <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+          className={`rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide ${
             table.status === 'ACTIVE'
               ? 'bg-[#EAF3EA] text-[#2E7D32]'
-              : 'bg-[#F1ECE6] text-[#8A8177]'
+              : 'bg-[#F1ECE6] text-muted-foreground'
           }`}
         >
           {table.status === 'ACTIVE' ? t('common.active') : t('common.inactive')}
         </span>
         <span
-          className={`rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-            hasActiveQr ? 'bg-[#F1ECE6] text-[#7A5138]' : 'bg-[#F1ECE6] text-[#AFA397]'
+          className={`rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide ${
+            hasActiveQr ? 'bg-[#F1ECE6] text-[#7A5138]' : 'bg-[#F1ECE6] text-muted-foreground'
           }`}
         >
           {hasActiveQr ? t('tables.card.activeQr') : t('tables.card.noActiveQr')}
@@ -405,7 +405,7 @@ function TableCard({
           <IconQr className="me-1.5 h-4 w-4" /> {t('tables.card.viewQr')}
         </Button>
       ) : (
-        <p className="mt-1 text-xs text-[#AFA397]">{t('tables.card.noQrHint')}</p>
+        <p className="mt-1 text-xs text-muted-foreground">{t('tables.card.noQrHint')}</p>
       )}
     </Card>
   );

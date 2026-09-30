@@ -25,6 +25,7 @@ import {
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
+import { EmptyState } from '../../../../../components/ui/EmptyState';
 import { Dialog } from '../../../../../components/ui/Dialog';
 import { FormField } from '../../../../../components/ui/FormField';
 import { FormSection } from '../../../../../components/ui/FormSection';
@@ -335,7 +336,7 @@ export function MenuContextBar({
         <Alert variant="error">
           <div className="flex items-center justify-between gap-4">
             <span>{error}</span>
-            <Button variant="secondary" className="px-2 py-1 text-xs" onClick={onRetry}>
+            <Button variant="secondary" size="sm" onClick={onRetry}>
               {t('common.retry')}
             </Button>
           </div>
@@ -359,17 +360,17 @@ export function MenuContextBar({
   if (menus.length === 0) {
     return (
       <>
-        <Card className="flex flex-col gap-3">
-          <div>
-            <p className="text-sm font-medium text-[#302C29]">{t('menu.menus.emptyTitle')}</p>
-            <p className="mt-1 text-sm text-[#655D56]">{t('menu.menus.emptyHint')}</p>
-          </div>
-          {canManage ? (
-            <Button className="self-start" onClick={startCreate}>
-              <IconPlus className="me-1.5 h-4 w-4" /> {t('menu.menus.new')}
-            </Button>
-          ) : null}
-        </Card>
+        <EmptyState
+          title={t('menu.menus.emptyTitle')}
+          description={t('menu.menus.emptyHint')}
+          action={
+            canManage ? (
+              <Button onClick={startCreate}>
+                <IconPlus className="h-4 w-4" /> {t('menu.menus.new')}
+              </Button>
+            ) : undefined
+          }
+        />
         {dialog}
       </>
     );
@@ -380,7 +381,7 @@ export function MenuContextBar({
       <Card className="flex flex-col gap-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
           <div className="flex flex-1 flex-col gap-1.5 sm:max-w-sm">
-            <label htmlFor="menu-context-select" className="text-xs font-medium uppercase tracking-wide text-[#AFA397]">
+            <label htmlFor="menu-context-select" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
               {t('menu.menus.label')}
             </label>
             <Select
@@ -408,22 +409,18 @@ export function MenuContextBar({
               {!selectedMenu.isPrimary ? (
                 <Button
                   variant="secondary"
-                  className="px-3 py-1.5 text-xs"
+                  size="sm"
                   disabled={primaryPending}
                   onClick={() => void handleSetPrimary(selectedMenu)}
                 >
                   {primaryPending ? t('menu.menus.settingPrimary') : t('menu.menus.setPrimary')}
                 </Button>
               ) : null}
-              <Button
-                variant="secondary"
-                className="px-3 py-1.5 text-xs"
-                onClick={() => startEdit(selectedMenu)}
-              >
+              <Button variant="secondary" size="sm" onClick={() => startEdit(selectedMenu)}>
                 {t('menu.menus.edit')}
               </Button>
-              <Button className="px-3 py-1.5 text-xs" onClick={startCreate}>
-                <IconPlus className="me-1 h-3.5 w-3.5" /> {t('menu.menus.new')}
+              <Button size="sm" onClick={startCreate}>
+                <IconPlus className="h-3.5 w-3.5" /> {t('menu.menus.new')}
               </Button>
             </div>
           ) : null}
@@ -494,7 +491,7 @@ function MenuFormFields({
             onChange={(event) => setForm((prev) => ({ ...prev, nameInternal: event.target.value }))}
             disabled={isSubmitting}
           />
-          <p className="mt-1 text-xs text-[#655D56]">{t('menu.form.internalNameHint')}</p>
+          <p className="mt-1 text-xs text-muted-foreground">{t('menu.form.internalNameHint')}</p>
         </FormField>
         <FormField label={t('menu.form.status')} htmlFor="menu-status">
           <Select
@@ -507,7 +504,7 @@ function MenuFormFields({
             <option value="INACTIVE">{t('common.inactive')}</option>
           </Select>
           {form.status === 'INACTIVE' ? (
-            <p className="mt-1 text-xs text-[#655D56]">{t('menu.form.inactiveHint')}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{t('menu.form.inactiveHint')}</p>
           ) : null}
         </FormField>
       </FormSection>
@@ -633,7 +630,7 @@ function MenuCreateLanguages({
         </>
       ) : (
         <>
-          <p className="text-xs text-[#655D56]">{t('menu.form.optionalLanguage')}</p>
+          <p className="text-xs text-muted-foreground">{t('menu.form.optionalLanguage')}</p>
           <FormField label={t('menu.tr.name')} htmlFor={`menu-create-name-${activeLocale}`}>
             <Input
               id={`menu-create-name-${activeLocale}`}
