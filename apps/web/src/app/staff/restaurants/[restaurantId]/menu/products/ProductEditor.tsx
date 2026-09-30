@@ -528,13 +528,13 @@ export function ProductEditor({
     <form onSubmit={handleSubmit} className="flex flex-col gap-6">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <Link href={backHref} className="text-sm text-[#7A5138] hover:underline">
+          <Link href={backHref} className="text-sm text-primary hover:underline">
             <span aria-hidden="true" className="inline-block rtl:rotate-180">
               ←
             </span>{' '}
             {t('product.backToMenu')}
           </Link>
-          <h1 className="mt-1 text-lg font-semibold text-[#1D1A18]">
+          <h1 className="mt-1 text-lg font-semibold text-foreground">
             {mode === 'create'
               ? t('product.createTitle')
               : t('product.editTitle', {
@@ -543,7 +543,7 @@ export function ProductEditor({
           </h1>
         </div>
         <div className="flex items-center gap-2">
-          {saveNotice ? <span className="text-sm text-[#2F6B4F]">{saveNotice}</span> : null}
+          {saveNotice ? <span className="text-sm text-success">{saveNotice}</span> : null}
           <Button type="submit" disabled={isBusy}>
             {isSubmitting
               ? t('common.saving')
@@ -601,109 +601,117 @@ export function ProductEditor({
         )}
       </Card>
 
-      <Card className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <FormSection title={t('product.section.pricing')}>
-          <FormField label={t('product.price', { currency: currencyCode })} htmlFor="product-basePrice">
-            <Input
-              id="product-basePrice"
-              inputMode="decimal"
-              dir="ltr"
-              required
-              value={form.basePrice}
-              onChange={(event) => setForm((prev) => ({ ...prev, basePrice: event.target.value }))}
-              disabled={isBusy}
-            />
-          </FormField>
-        </FormSection>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <FormSection title={t('product.section.pricing')}>
+            <FormField label={t('product.price', { currency: currencyCode })} htmlFor="product-basePrice">
+              <Input
+                id="product-basePrice"
+                inputMode="decimal"
+                dir="ltr"
+                required
+                value={form.basePrice}
+                onChange={(event) => setForm((prev) => ({ ...prev, basePrice: event.target.value }))}
+                disabled={isBusy}
+              />
+            </FormField>
+          </FormSection>
+        </Card>
 
-        <FormSection title={t('product.section.availability')}>
-          <FormField label={t('menu.form.status')} htmlFor="product-status">
-            <Select
-              id="product-status"
-              value={form.status}
-              onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as ProductStatus }))}
-              disabled={isBusy}
-            >
-              <option value="ACTIVE">{t('common.active')}</option>
-              <option value="INACTIVE">{t('common.inactive')}</option>
-            </Select>
-            {form.status === 'INACTIVE' ? (
-              <p className="mt-1 text-xs text-[#655D56]">{t('product.inactiveHint')}</p>
-            ) : null}
-          </FormField>
-          <FormField label={t('product.availability')} htmlFor="product-availability">
-            <Select
-              id="product-availability"
-              value={form.availability}
-              onChange={(event) =>
-                setForm((prev) => ({ ...prev, availability: event.target.value as ProductAvailability }))
-              }
-              disabled={isBusy}
-            >
-              <option value="AVAILABLE">{t('menu.badge.available')}</option>
-              <option value="SOLD_OUT">{t('menu.badge.soldOut')}</option>
-            </Select>
-          </FormField>
-        </FormSection>
-      </Card>
+        <Card>
+          <FormSection title={t('product.section.availability')}>
+            <FormField label={t('menu.form.status')} htmlFor="product-status">
+              <Select
+                id="product-status"
+                value={form.status}
+                onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as ProductStatus }))}
+                disabled={isBusy}
+              >
+                <option value="ACTIVE">{t('common.active')}</option>
+                <option value="INACTIVE">{t('common.inactive')}</option>
+              </Select>
+              {form.status === 'INACTIVE' ? (
+                <p className="mt-1 text-xs text-muted-foreground">{t('product.inactiveHint')}</p>
+              ) : null}
+            </FormField>
+            <FormField label={t('product.availability')} htmlFor="product-availability">
+              <Select
+                id="product-availability"
+                value={form.availability}
+                onChange={(event) =>
+                  setForm((prev) => ({ ...prev, availability: event.target.value as ProductAvailability }))
+                }
+                disabled={isBusy}
+              >
+                <option value="AVAILABLE">{t('menu.badge.available')}</option>
+                <option value="SOLD_OUT">{t('menu.badge.soldOut')}</option>
+              </Select>
+            </FormField>
+          </FormSection>
+        </Card>
+      </div>
 
-      <Card className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <FormSection title={t('product.section.placement')}>
-          <FormField label={t('product.category')} htmlFor="product-category">
-            <Select
-              id="product-category"
-              required
-              value={form.categoryId}
-              onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-              disabled={isBusy}
-            >
-              {form.categoryId === '' ? <option value="">{t('product.selectCategory')}</option> : null}
-              {categoryGroups.map((group) => (
-                <optgroup key={group.menu.id} label={group.menu.translation.name}>
-                  {group.categories.map((category) => (
-                    <option key={category.id} value={category.id}>
-                      {category.translation.name}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </Select>
-          </FormField>
-          <FormField label={t('menu.form.displayOrder')} htmlFor="product-displayOrder">
-            <Input
-              id="product-displayOrder"
-              type="number"
-              min={0}
-              step={1}
-              required
-              value={form.displayOrder}
-              onChange={(event) => setForm((prev) => ({ ...prev, displayOrder: event.target.value }))}
-              disabled={isBusy}
-            />
-          </FormField>
-        </FormSection>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+        <Card>
+          <FormSection title={t('product.section.placement')}>
+            <FormField label={t('product.category')} htmlFor="product-category">
+              <Select
+                id="product-category"
+                required
+                value={form.categoryId}
+                onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
+                disabled={isBusy}
+              >
+                {form.categoryId === '' ? <option value="">{t('product.selectCategory')}</option> : null}
+                {categoryGroups.map((group) => (
+                  <optgroup key={group.menu.id} label={group.menu.translation.name}>
+                    {group.categories.map((category) => (
+                      <option key={category.id} value={category.id}>
+                        {category.translation.name}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </Select>
+            </FormField>
+            <FormField label={t('menu.form.displayOrder')} htmlFor="product-displayOrder">
+              <Input
+                id="product-displayOrder"
+                type="number"
+                min={0}
+                step={1}
+                required
+                value={form.displayOrder}
+                onChange={(event) => setForm((prev) => ({ ...prev, displayOrder: event.target.value }))}
+                disabled={isBusy}
+              />
+            </FormField>
+          </FormSection>
+        </Card>
 
-        <FormSection title={t('product.section.customer')}>
-          <label className="flex items-center gap-2 text-sm text-[#302C29]">
-            <input
-              type="checkbox"
-              checked={form.allowCustomerNotes}
-              onChange={(event) => setForm((prev) => ({ ...prev, allowCustomerNotes: event.target.checked }))}
-              disabled={isBusy}
-            />
-            {t('product.allowNotes')}
-          </label>
-          <label className="flex items-center gap-2 text-sm text-[#302C29]">
-            <input
-              type="checkbox"
-              checked={form.featured}
-              onChange={(event) => setForm((prev) => ({ ...prev, featured: event.target.checked }))}
-              disabled={isBusy}
-            />
-            {t('menu.badge.featured')}
-          </label>
-        </FormSection>
-      </Card>
+        <Card>
+          <FormSection title={t('product.section.customer')}>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={form.allowCustomerNotes}
+                onChange={(event) => setForm((prev) => ({ ...prev, allowCustomerNotes: event.target.checked }))}
+                disabled={isBusy}
+              />
+              {t('product.allowNotes')}
+            </label>
+            <label className="flex items-center gap-2 text-sm text-foreground">
+              <input
+                type="checkbox"
+                checked={form.featured}
+                onChange={(event) => setForm((prev) => ({ ...prev, featured: event.target.checked }))}
+                disabled={isBusy}
+              />
+              {t('menu.badge.featured')}
+            </label>
+          </FormSection>
+        </Card>
+      </div>
 
       {mode === 'edit' && productId ? (
         <Card className="flex flex-col gap-6">
@@ -718,7 +726,7 @@ export function ProductEditor({
       ) : (
         <Card className="flex flex-col gap-6">
           <FormSection title={t('mod.title')}>
-            <p className="text-sm text-[#655D56]">{t('product.modifiersCreateFirst')}</p>
+            <p className="text-sm text-muted-foreground">{t('product.modifiersCreateFirst')}</p>
           </FormSection>
         </Card>
       )}
@@ -809,7 +817,7 @@ function ProductCreateLanguages({
         </>
       ) : (
         <>
-          <p className="text-xs text-[#655D56]">{t('menu.form.optionalLanguage')}</p>
+          <p className="text-xs text-muted-foreground">{t('menu.form.optionalLanguage')}</p>
           <FormField label={t('menu.tr.name')} htmlFor={`product-create-name-${activeLocale}`}>
             <Input
               id={`product-create-name-${activeLocale}`}

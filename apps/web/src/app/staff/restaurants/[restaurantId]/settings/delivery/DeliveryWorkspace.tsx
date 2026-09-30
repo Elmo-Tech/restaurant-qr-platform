@@ -14,11 +14,13 @@ import {
   redirectToLogin,
 } from '../../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../../components/ui/Alert';
+import { Badge } from '../../../../../../components/ui/Badge';
 import { Button } from '../../../../../../components/ui/Button';
 import { Card } from '../../../../../../components/ui/Card';
 import { FormField } from '../../../../../../components/ui/FormField';
 import { Input } from '../../../../../../components/ui/Input';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
+import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { SettingsTabs } from '../SettingsTabs';
 
 /** Mirrors the Backend's accepted decimal-string shape -- helpful client validation only, never authoritative. */
@@ -98,10 +100,7 @@ export function DeliveryWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-lg font-semibold text-[#1D1A18]">{t('settings.title')}</h1>
-        <p className="mt-1 text-sm text-[#655D56]">{t('settings.delivery.subtitle')}</p>
-      </div>
+      <PageHeader title={t('settings.title')} description={t('settings.delivery.subtitle')} />
 
       <SettingsTabs restaurantId={restaurantId} active="delivery" />
 
@@ -109,7 +108,7 @@ export function DeliveryWorkspace({
         <Alert variant="info">{t('settings.delivery.needsFullScope')}</Alert>
       ) : null}
 
-      <p className="text-sm text-[#655D56]">{t('settings.delivery.rule')}</p>
+      <p className="text-sm text-muted-foreground">{t('settings.delivery.rule')}</p>
 
       {error ? (
         <Alert variant="error">
@@ -125,7 +124,7 @@ export function DeliveryWorkspace({
       {branches === null && !error ? <LoadingState label={t('settings.delivery.loading')} /> : null}
 
       {branches !== null && branches.length === 0 ? (
-        <Card className="py-8 text-center text-sm text-[#655D56]">
+        <Card className="py-8 text-center text-sm text-muted-foreground">
           {t('settings.delivery.noBranches')}
         </Card>
       ) : null}
@@ -172,26 +171,20 @@ function BranchCard({
     <Card className="flex flex-col gap-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <h2 dir="auto" className="text-base font-semibold text-[#1D1A18]">
+          <h2 dir="auto" className="text-base font-semibold text-foreground">
             {branch.name}
           </h2>
           {branch.status === 'INACTIVE' ? (
-            <span className="rounded-full bg-[#F1EDE7] px-2 py-0.5 text-xs text-[#655D56]">
-              {t('settings.delivery.branchInactive')}
-            </span>
+            <Badge variant="neutral">{t('settings.delivery.branchInactive')}</Badge>
           ) : null}
         </div>
-        <span
-          className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-            offered ? 'bg-[#DDF1DF] text-[#1E6B25]' : 'bg-[#F1EDE7] text-[#655D56]'
-          }`}
-        >
+        <Badge variant={offered ? 'success' : 'neutral'}>
           {offered ? t('settings.delivery.available') : t('settings.delivery.notOffered')}
-        </span>
+        </Badge>
       </div>
 
       {branch.zones.length === 0 ? (
-        <p className="text-sm text-[#655D56]">{t('settings.delivery.noAreas')}</p>
+        <p className="text-sm text-muted-foreground">{t('settings.delivery.noAreas')}</p>
       ) : (
         <ul className="flex flex-col gap-2">
           {branch.zones.map((zone) => (
@@ -294,20 +287,16 @@ function ZoneRow({
       : t('settings.delivery.minimum', { amount: zone.minimumOrder, currency: currencyCode });
 
   return (
-    <li className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-[#F8F5F1] px-3 py-2.5">
+    <li className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted px-3 py-2.5">
       <div className="min-w-0">
-        <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-[#1D1A18]">
+        <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
           <bdi dir="auto">{zone.name}</bdi>
-          {zone.status === 'INACTIVE' ? (
-            <span className="rounded-full bg-white px-2 py-0.5 text-xs font-normal text-[#655D56]">
-              {t('settings.delivery.inactive')}
-            </span>
-          ) : null}
+          {zone.status === 'INACTIVE' ? <Badge variant="neutral">{t('settings.delivery.inactive')}</Badge> : null}
         </p>
-        <p className="text-xs text-[#655D56]">
+        <p className="text-xs text-muted-foreground">
           {t('settings.delivery.feeLine', { fee: zone.deliveryFee, currency: currencyCode })} · {minimum}
         </p>
-        {error ? <p className="mt-1 text-xs text-[#A4231B]">{error}</p> : null}
+        {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="secondary" disabled={!canManage || isBusy} onClick={() => setIsEditing(true)}>
@@ -391,7 +380,7 @@ function ZoneForm({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-[#E5DED6] bg-white p-3">
+    <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
         <FormField label={t('settings.delivery.areaName')} htmlFor="zone-name">

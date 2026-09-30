@@ -3,11 +3,17 @@ import { useStaffI18n } from '../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../lib/i18n/messages';
 
 /**
- * FT-7B: the ONE Order status visual system, shared by the list cards and the
- * detail dialog. Each status has a distinct semantic treatment (amber /
- * blue / orange / green / neutral / red / muted-red) inside the warm Staff
- * palette -- and the text label always accompanies the color, so color is
- * never the only signal (CANCELLED is additionally struck through).
+ * Design-system-v2, Migration 01: the ONE Order status visual system, shared
+ * by the list cards and the detail dialog -- retokenized onto the semantic
+ * palette (`warning`/`info`/`success`/`delivery`/`destructive`/`muted`), same
+ * status->treatment mapping as before. Preparing and Cancelled keep their own
+ * distinct look instead of reusing another status's token: Preparing borrows
+ * `accent`/`accent-foreground` (the brief's brighter amber, reserved for soft
+ * non-solid-fill tints) so it never reads as either the brand's burnt-orange
+ * `primary` or the amber `warning` used for Pending; Cancelled is an
+ * attenuated `destructive` so it stays visually distinct from the clear-red
+ * Rejected. The text label always accompanies the color, so color is never
+ * the only signal (CANCELLED is additionally struck through).
  */
 interface StatusStyle {
   /** Pill: background + text + border. */
@@ -20,48 +26,48 @@ interface StatusStyle {
 
 const STATUS_STYLES: Record<OrderStatus, StatusStyle> = {
   PENDING: {
-    badge: 'bg-[#FFF3D1] text-[#7A5600] border-[#F0D48A]',
-    dot: 'bg-[#E0A100]',
-    accent: 'border-s-[#E0A100] bg-white',
+    badge: 'bg-warning-soft text-warning border-warning/30',
+    dot: 'bg-warning',
+    accent: 'border-s-warning bg-card',
   },
   ACCEPTED: {
-    badge: 'bg-[#E4EEFC] text-[#1A4F99] border-[#B9D0F2]',
-    dot: 'bg-[#2F6FD0]',
-    accent: 'border-s-[#2F6FD0] bg-white',
+    badge: 'bg-info-soft text-info border-info/30',
+    dot: 'bg-info',
+    accent: 'border-s-info bg-card',
   },
   PREPARING: {
-    badge: 'bg-[#FFE6D0] text-[#8F3F00] border-[#F2BE94]',
-    dot: 'bg-[#E0701A]',
-    accent: 'border-s-[#E0701A] bg-white',
+    badge: 'bg-accent text-accent-foreground border-accent-foreground/25',
+    dot: 'bg-accent-foreground',
+    accent: 'border-s-accent-foreground bg-card',
   },
   READY: {
-    badge: 'bg-[#DDF1DF] text-[#1E6B25] border-[#9FD3A5] font-semibold',
-    dot: 'bg-[#2E9D3A]',
+    badge: 'bg-success-soft text-success border-success/30 font-semibold',
+    dot: 'bg-success',
     // The one card treatment that is deliberately louder: Staff must be able
     // to spot Orders waiting to be handed over at a glance.
-    accent: 'border-s-[6px] border-s-[#2E9D3A] bg-[#F3FAF4] ring-1 ring-[#BFE2C4]',
+    accent: 'border-s-[6px] border-s-success bg-success-soft/40 ring-1 ring-success/25',
   },
   OUT_FOR_DELIVERY: {
-    badge: 'bg-[#E3F1F0] text-[#1D5F5A] border-[#A9D2CE] font-semibold',
-    dot: 'bg-[#2A8C84]',
-    // Active and in motion: teal accent + a light ring so it reads apart from
-    // the blue Accepted and green Ready cards.
-    accent: 'border-s-[#2A8C84] bg-[#F4FAF9]',
+    badge: 'bg-delivery-soft text-delivery border-delivery/30 font-semibold',
+    dot: 'bg-delivery',
+    // Active and in motion: teal accent so it reads apart from the blue
+    // Accepted and green Ready cards.
+    accent: 'border-s-delivery bg-delivery-soft/30',
   },
   SERVED: {
-    badge: 'bg-[#F1EDE7] text-[#6F665E] border-[#DDD5CB]',
-    dot: 'bg-[#AFA397]',
-    accent: 'border-s-[#CFC7BD] bg-[#FBFAF8]',
+    badge: 'bg-muted text-muted-foreground border-border',
+    dot: 'bg-muted-foreground/60',
+    accent: 'border-s-border bg-card',
   },
   REJECTED: {
-    badge: 'bg-[#FBE0DC] text-[#A4231B] border-[#EDB0A8]',
-    dot: 'bg-[#C43A2F]',
-    accent: 'border-s-[#C43A2F] bg-[#FDF7F6]',
+    badge: 'bg-destructive-soft text-destructive border-destructive/30',
+    dot: 'bg-destructive',
+    accent: 'border-s-destructive bg-destructive-soft/20',
   },
   CANCELLED: {
-    badge: 'bg-[#F3E9E7] text-[#7D544E] border-[#DFC6C1] line-through decoration-[#B08A85]/60',
-    dot: 'bg-[#B08A85]',
-    accent: 'border-s-[#D5B9B4] bg-[#FBF8F7]',
+    badge: 'bg-destructive-soft/50 text-destructive/80 border-destructive/15 line-through decoration-destructive/40',
+    dot: 'bg-destructive/50',
+    accent: 'border-s-destructive/40 bg-card',
   },
 };
 

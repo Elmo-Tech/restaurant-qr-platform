@@ -8,6 +8,7 @@ import { canViewTables } from '../../../../lib/tables/capabilities';
 import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
 import type { RestaurantStatus } from '../../../../lib/auth/types';
 import { Alert } from '../../../../components/ui/Alert';
+import { PageHeader } from '../../../../components/ui/PageHeader';
 import { getStaffI18n } from '../../../../lib/i18n/server';
 import { OpenGuestMenuButton } from '../../../../components/menu/OpenGuestMenuButton';
 import {
@@ -24,9 +25,9 @@ interface RestaurantLandingPageProps {
 }
 
 const STATUS_BADGE_STYLES: Record<RestaurantStatus, string> = {
-  ACTIVE: 'bg-[#2F6B4F]/10 text-[#2F6B4F]',
-  INACTIVE: 'bg-[#8A8177]/10 text-muted-foreground',
-  SUSPENDED: 'bg-[#B3261E]/10 text-[#B3261E]',
+  ACTIVE: 'bg-success-soft text-success',
+  INACTIVE: 'bg-muted text-muted-foreground',
+  SUSPENDED: 'bg-destructive-soft text-destructive',
 };
 
 function StatusBadge({ status, label }: { status: RestaurantStatus; label: string }) {
@@ -45,7 +46,7 @@ function ContextFact({ label, children }: { label: string; children: ReactNode }
       <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
         {label}
       </p>
-      <div className="mt-1.5 text-sm font-medium text-[#302C29]">
+      <div className="mt-1.5 text-sm font-medium text-foreground">
         {children}
       </div>
     </div>
@@ -84,9 +85,7 @@ function FeatureCard({
       <div className="flex items-start justify-between">
         <span
           className={`flex h-10 w-10 items-center justify-center rounded-lg ${
-            emphasize
-              ? 'bg-[#7A5138] text-white'
-              : 'bg-[#7A5138]/10 text-[#7A5138]'
+            emphasize ? 'bg-primary text-primary-foreground' : 'bg-accent text-accent-foreground'
           }`}
         >
           {icon}
@@ -98,14 +97,14 @@ function FeatureCard({
         ) : (
           <span
             aria-hidden="true"
-            className="text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-[#7A5138] rtl:group-hover:-translate-x-0.5"
+            className="text-muted-foreground transition-transform group-hover:translate-x-0.5 group-hover:text-primary rtl:group-hover:-translate-x-0.5"
           >
             <IconArrowRight className="h-5 w-5 rtl:rotate-180" />
           </span>
         )}
       </div>
-      <p className="mt-4 text-sm font-semibold text-[#1D1A18]">{title}</p>
-      <p className="mt-1 text-sm text-[#655D56]">{description}</p>
+      <p className="mt-4 text-sm font-semibold text-foreground">{title}</p>
+      <p className="mt-1 text-sm text-muted-foreground">{description}</p>
     </>
   );
 
@@ -113,7 +112,7 @@ function FeatureCard({
     return (
       <Link
         href={href}
-        className="group flex flex-col rounded-lg border border-[#E5DED6] bg-white p-5 shadow-sm transition-colors hover:border-[#7A5138] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#7A5138]"
+        className="group flex flex-col rounded-lg border border-border bg-card p-5 shadow-sm transition-colors hover:border-primary focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       >
         {inner}
       </Link>
@@ -121,7 +120,7 @@ function FeatureCard({
   }
 
   return (
-    <div className="flex cursor-not-allowed flex-col rounded-lg border border-[#E5DED6] bg-white/60 p-5 opacity-70">
+    <div className="flex cursor-not-allowed flex-col rounded-lg border border-border bg-card/60 p-5 opacity-70">
       {inner}
     </div>
   );
@@ -188,17 +187,15 @@ export default async function RestaurantLandingPage({
 
   return (
     <div className="flex flex-col gap-8">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-[#1D1A18]">{t('dashboard.title')}</h1>
-          <p className="mt-1 text-sm text-[#655D56]">
-            {t('dashboard.subtitle', { name: restaurant.name })}
-          </p>
-        </div>
-        {restaurant.status === 'ACTIVE' && canViewMenu(membership) ? (
-          <OpenGuestMenuButton restaurantId={restaurantId} />
-        ) : null}
-      </div>
+      <PageHeader
+        title={t('dashboard.title')}
+        description={t('dashboard.subtitle', { name: restaurant.name })}
+        actions={
+          restaurant.status === 'ACTIVE' && canViewMenu(membership) ? (
+            <OpenGuestMenuButton restaurantId={restaurantId} />
+          ) : undefined
+        }
+      />
 
       {restaurant.status !== 'ACTIVE' ? (
         <Alert variant="error">
@@ -208,7 +205,7 @@ export default async function RestaurantLandingPage({
         </Alert>
       ) : (
         <>
-          <div className="grid grid-cols-2 gap-6 rounded-lg border border-[#E5DED6] bg-white p-5 sm:grid-cols-4">
+          <div className="grid grid-cols-2 gap-6 rounded-lg border border-border bg-card p-5 shadow-sm sm:grid-cols-4">
             <ContextFact label={t('dashboard.fact.status')}>
               <StatusBadge status={restaurant.status} label={statusLabel} />
             </ContextFact>
@@ -222,7 +219,7 @@ export default async function RestaurantLandingPage({
           </div>
 
           <div>
-            <h2 className="text-sm font-semibold text-[#302C29]">
+            <h2 className="text-sm font-semibold text-foreground">
               {t('dashboard.management')}
             </h2>
             <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">

@@ -10,6 +10,7 @@ import {
   redirectToLogin,
 } from '../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../components/ui/Alert';
+import { Badge } from '../../../../../components/ui/Badge';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
 import { IconQr } from '../../../../../components/staff/icons';
@@ -83,24 +84,20 @@ export function GenericQrCard({
     <Card className="flex flex-col gap-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex items-start gap-3">
-          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[#7A5138]/10 text-[#7A5138]">
+          <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
             <IconQr className="h-5 w-5" />
           </span>
           <div>
-            <h2 className="text-base font-semibold text-[#1D1A18]">{t('tables.generic.title')}</h2>
-            <p className="mt-0.5 max-w-xl text-sm text-[#655D56]">
+            <h2 className="text-base font-semibold text-foreground">{t('tables.generic.title')}</h2>
+            <p className="mt-0.5 max-w-xl text-sm text-muted-foreground">
               {t('tables.generic.description')}
             </p>
           </div>
         </div>
         {qr ? (
-          <span
-            className={`rounded-full px-2.5 py-1 text-xs font-medium ${
-              isActive ? 'bg-[#DDF1DF] text-[#1E6B25]' : 'bg-[#F1EDE7] text-[#655D56]'
-            }`}
-          >
+          <Badge variant={isActive ? 'success' : 'neutral'}>
             {isActive ? t('common.active') : t('common.inactive')}
-          </span>
+          </Badge>
         ) : null}
       </div>
 
@@ -116,12 +113,12 @@ export function GenericQrCard({
       ) : null}
 
       {qr === undefined && !error ? (
-        <p className="text-sm text-[#655D56]">{t('common.loading')}</p>
+        <p className="text-sm text-muted-foreground">{t('common.loading')}</p>
       ) : null}
 
       {qr === null ? (
         <div className="flex flex-wrap items-center gap-3">
-          <p className="text-sm text-[#655D56]">{t('tables.generic.none')}</p>
+          <p className="text-sm text-muted-foreground">{t('tables.generic.none')}</p>
           <Button
             disabled={!canManage || isBusy}
             onClick={() => void run(() => qrApi.createGenericQr(restaurantId))}
@@ -142,14 +139,11 @@ export function GenericQrCard({
           <div className="flex flex-wrap items-center gap-2">
             <Button onClick={() => setShowPreview(true)}>{t('tables.generic.viewPrint')}</Button>
             {isActive ? (
-              <a
-                href={guestUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center justify-center rounded-md border border-[#E5DED6] bg-white px-4 py-2 text-sm font-medium text-[#302C29] transition-colors hover:bg-[#F8F5F1]"
-              >
-                {t('tables.generic.openGuestMenu')}
-              </a>
+              <Button variant="secondary" asChild>
+                <a href={guestUrl} target="_blank" rel="noopener noreferrer">
+                  {t('tables.generic.openGuestMenu')}
+                </a>
+              </Button>
             ) : null}
             <Button
               variant="secondary"

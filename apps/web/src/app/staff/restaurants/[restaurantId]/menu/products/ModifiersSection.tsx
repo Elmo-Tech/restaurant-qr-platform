@@ -20,6 +20,7 @@ import {
 } from '../../../../../../lib/menu/error-message';
 import { ApiError } from '../../../../../../lib/api/errors';
 import { Alert } from '../../../../../../components/ui/Alert';
+import { Badge } from '../../../../../../components/ui/Badge';
 import { Button } from '../../../../../../components/ui/Button';
 import { FormField } from '../../../../../../components/ui/FormField';
 import { FormSection } from '../../../../../../components/ui/FormSection';
@@ -120,10 +121,10 @@ export function ModifiersSection({
 
   return (
     <FormSection title={t('mod.title')}>
-      <p className="text-xs text-[#655D56]">{t('mod.intro')}</p>
+      <p className="text-xs text-muted-foreground">{t('mod.intro')}</p>
 
       {groups.length === 0 && addMode === 'none' ? (
-        <p className="text-sm text-[#655D56]">{t('mod.noGroups')}</p>
+        <p className="text-sm text-muted-foreground">{t('mod.noGroups')}</p>
       ) : null}
 
       <div className="flex flex-col gap-4">
@@ -172,7 +173,7 @@ export function ModifiersSection({
       ) : null}
 
       {addMode === 'choose' ? (
-        <div className="flex flex-wrap gap-2 rounded-md border border-[#E5DED6] p-3">
+        <div className="flex flex-wrap gap-2 rounded-md border border-border p-3">
           <Button type="button" variant="secondary" onClick={() => setAddMode('preset')}>
             {t('mod.usePreset')}
           </Button>
@@ -289,7 +290,7 @@ function UsePresetPicker({
 
   if (status === 'loading') {
     return (
-      <div className="rounded-md border border-[#E5DED6] p-4">
+      <div className="rounded-md border border-border p-4">
         <LoadingState label={t('mod.preset.loading')} />
       </div>
     );
@@ -297,7 +298,7 @@ function UsePresetPicker({
 
   if (status === 'error') {
     return (
-      <div className="rounded-md border border-[#E5DED6] p-4">
+      <div className="rounded-md border border-border p-4">
         <Alert variant="error">{error}</Alert>
         <Button type="button" variant="secondary" onClick={onCancel}>
           {t('common.close')}
@@ -308,8 +309,8 @@ function UsePresetPicker({
 
   if (presets.length === 0) {
     return (
-      <div className="flex flex-col gap-3 rounded-md border border-[#E5DED6] p-4">
-        <p className="text-sm text-[#655D56]">{t('mod.preset.none')}</p>
+      <div className="flex flex-col gap-3 rounded-md border border-border p-4">
+        <p className="text-sm text-muted-foreground">{t('mod.preset.none')}</p>
         <Button type="button" variant="secondary" onClick={onCancel}>
           {t('common.close')}
         </Button>
@@ -318,7 +319,7 @@ function UsePresetPicker({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-[#E5DED6] p-4">
+    <div className="flex flex-col gap-3 rounded-md border border-border p-4">
       {error ? <Alert variant="error">{error}</Alert> : null}
       <FormField label={t('mod.preset.label')} htmlFor="use-preset-select">
         <Select
@@ -446,30 +447,22 @@ function ModifierGroupCard({
   }
 
   return (
-    <div className="rounded-md border border-[#E5DED6] p-4">
+    <div className="rounded-md border border-border p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h3 dir="auto" className="text-start text-sm font-semibold text-[#1D1A18]">
+            <h3 dir="auto" className="text-start text-sm font-semibold text-foreground">
               {group.name}
             </h3>
-            {group.sourcePresetId ? (
-              <span className="rounded-full bg-[#EEF3EE] px-2 py-0.5 text-xs text-[#2F6B4F]">
-                {t('mod.basedOnPreset')}
-              </span>
-            ) : null}
-            {group.status === 'INACTIVE' ? (
-              <span className="rounded-full bg-[#F1EDE7] px-2 py-0.5 text-xs text-[#655D56]">
-                {t('common.inactive')}
-              </span>
-            ) : null}
+            {group.sourcePresetId ? <Badge variant="success">{t('mod.basedOnPreset')}</Badge> : null}
+            {group.status === 'INACTIVE' ? <Badge variant="neutral">{t('common.inactive')}</Badge> : null}
           </div>
           {group.helperText ? (
-            <p dir="auto" className="text-start text-xs text-[#655D56]">
+            <p dir="auto" className="text-start text-xs text-muted-foreground">
               {group.helperText}
             </p>
           ) : null}
-          <p className="mt-1 text-xs text-[#655D56]">
+          <p className="mt-1 text-xs text-muted-foreground">
             {t('mod.selectionRange', {
               kind: group.minimumSelections === 0 ? t('mod.optional') : t('mod.required'),
               min: group.minimumSelections,
@@ -715,25 +708,19 @@ function ModifierOptionRow({
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-md bg-[#F8F5F1] px-3 py-2">
-      <div className="flex flex-wrap items-center gap-2 text-sm text-[#302C29]">
+    <div className="flex items-center justify-between gap-4 rounded-md bg-muted px-3 py-2">
+      <div className="flex flex-wrap items-center gap-2 text-sm text-foreground">
         <span dir="auto">{option.name}</span>
-        <bdi dir="ltr" className="text-[#655D56]">
+        <bdi dir="ltr" className="text-muted-foreground">
           {option.priceAdjustment === '0.00' ? '+0.00' : `+${option.priceAdjustment}`} {currencyCode}
         </bdi>
         {option.priceIsOverridden ? (
-          <span className="rounded-full bg-[#FBF0DE] px-2 py-0.5 text-xs text-[#8A5138]">
-            {t('mod.overridden')}
-          </span>
+          <Badge variant="warning">{t('mod.overridden')}</Badge>
         ) : option.sourcePresetOptionId ? (
-          <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#655D56]">
-            {t('menu.content.default')}
-          </span>
+          <Badge variant="neutral" className="bg-card">{t('menu.content.default')}</Badge>
         ) : null}
         {option.status === 'INACTIVE' ? (
-          <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#655D56]">
-            {t('common.inactive')}
-          </span>
+          <Badge variant="neutral" className="bg-card">{t('common.inactive')}</Badge>
         ) : null}
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
@@ -834,7 +821,7 @@ function NewModifierGroupForm({
   }
 
   return (
-    <div className="rounded-md border border-[#E5DED6] p-4 flex flex-col gap-3">
+    <div className="rounded-md border border-border p-4 flex flex-col gap-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
       <FormField label={t('menu.tr.name')} htmlFor="new-group-name">
         <Input id="new-group-name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSubmitting} />
@@ -1005,7 +992,7 @@ function EditModifierGroupForm({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md bg-[#F8F5F1] p-3">
+    <div className="flex flex-col gap-3 rounded-md bg-muted p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
 
       <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
@@ -1133,7 +1120,7 @@ function NewModifierOptionForm({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md bg-[#F8F5F1] p-3">
+    <div className="flex flex-col gap-3 rounded-md bg-muted p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
       <div className="grid grid-cols-2 gap-3">
         <FormField label={t('menu.tr.name')} htmlFor="new-option-name">
@@ -1218,9 +1205,9 @@ function EditLinkedOptionPriceForm({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md bg-white p-3">
+    <div className="flex flex-col gap-3 rounded-md bg-card p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
-      <p className="text-xs text-[#655D56]">{t('mod.linkedPriceNote')}</p>
+      <p className="text-xs text-muted-foreground">{t('mod.linkedPriceNote')}</p>
       <FormField label={t('mod.priceAdjustment')} htmlFor={`edit-linked-option-price-${option.id}`}>
         <Input
           id={`edit-linked-option-price-${option.id}`}
@@ -1349,7 +1336,7 @@ function EditModifierOptionForm({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md bg-white p-3">
+    <div className="flex flex-col gap-3 rounded-md bg-card p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
 
       <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />

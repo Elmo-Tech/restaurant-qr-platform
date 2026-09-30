@@ -140,15 +140,15 @@ export function QrPreviewDialog({
         id="qr-print-section"
         className="hidden print:fixed print:inset-0 print:z-[100] print:flex print:flex-col print:items-center print:justify-center print:gap-3 print:bg-white print:text-center"
       >
-        <p dir="auto" className="text-base font-semibold text-[#1D1A18]">
+        <p dir="auto" className="text-base font-semibold text-foreground">
           {target.restaurantName}
         </p>
         {target.branchName ? (
-          <p dir="auto" className="text-sm text-[#655D56]">
+          <p dir="auto" className="text-sm text-muted-foreground">
             {target.branchName}
           </p>
         ) : null}
-        <p dir="auto" className="text-sm text-[#8A5138]">
+        <p dir="auto" className="text-sm text-primary">
           {subject}
         </p>
         {dataUrl ? (
@@ -159,12 +159,12 @@ export function QrPreviewDialog({
             className="h-64 w-64"
           />
         ) : null}
-        <p className="text-sm text-[#655D56]">{t('tables.qr.scan')}</p>
+        <p className="text-sm text-muted-foreground">{t('tables.qr.scan')}</p>
       </div>
 
       <div className="fixed inset-0 z-50 print:hidden">
         <div
-          className="absolute inset-0 bg-black/40"
+          className="absolute inset-0 bg-foreground/40"
           onClick={onClose}
           aria-hidden="true"
         />
@@ -175,14 +175,14 @@ export function QrPreviewDialog({
             role="dialog"
             aria-modal="true"
             aria-labelledby="qr-dialog-title"
-            className="pointer-events-auto flex h-full w-full flex-col bg-white shadow-xl sm:h-auto sm:max-h-[calc(100vh-64px)] sm:max-w-[420px] sm:rounded-lg"
+            className="pointer-events-auto flex h-full w-full flex-col bg-card shadow-xl sm:h-auto sm:max-h-[calc(100vh-64px)] sm:max-w-[420px] sm:rounded-lg"
           >
-            <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-[#E5DED6] px-5 py-4">
+            <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4">
               <div className="min-w-0">
-                <h2 id="qr-dialog-title" className="text-base font-semibold text-[#1D1A18]">
+                <h2 id="qr-dialog-title" className="text-base font-semibold text-foreground">
                   {title}
                 </h2>
-                <p className="mt-0.5 truncate text-sm text-[#655D56]">
+                <p className="mt-0.5 truncate text-sm text-muted-foreground">
                   <bdi dir="auto">{target.restaurantName}</bdi>
                   {target.branchName ? (
                     <>
@@ -197,7 +197,7 @@ export function QrPreviewDialog({
                 type="button"
                 onClick={onClose}
                 aria-label={t('common.close')}
-                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-[#655D56] hover:bg-[#F8F5F1]"
+                className="inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted"
               >
                 <IconClose className="h-4 w-4" />
               </button>
@@ -207,15 +207,15 @@ export function QrPreviewDialog({
               {error ? <Alert variant="error">{error}</Alert> : null}
 
               <div className="flex w-full flex-col items-center gap-3 text-center">
-                <p dir="auto" className="text-sm font-semibold text-[#1D1A18]">
+                <p dir="auto" className="text-sm font-semibold text-foreground">
                   {target.restaurantName}
                 </p>
                 {target.branchName ? (
-                  <p dir="auto" className="-mt-2 text-xs text-[#655D56]">
+                  <p dir="auto" className="-mt-2 text-xs text-muted-foreground">
                     {target.branchName}
                   </p>
                 ) : null}
-                <p dir="auto" className="-mt-1 text-xs text-[#8A5138]">
+                <p dir="auto" className="-mt-1 text-xs text-primary">
                   {subject}
                 </p>
 
@@ -224,23 +224,23 @@ export function QrPreviewDialog({
                   <img
                     src={dataUrl}
                     alt={altText}
-                    className="h-56 w-56 rounded-md border border-[#E5DED6] p-2"
+                    className="h-56 w-56 rounded-md border border-border p-2"
                   />
                 ) : !error ? (
-                  <div className="flex h-56 w-56 items-center justify-center rounded-md border border-dashed border-[#E5DED6] text-xs text-muted-foreground">
+                  <div className="flex h-56 w-56 items-center justify-center rounded-md border border-dashed border-border text-xs text-muted-foreground">
                     {t('tables.qr.generating')}
                   </div>
                 ) : null}
 
-                <p className="text-xs text-[#655D56]">{t('tables.qr.scan')}</p>
+                <p className="text-xs text-muted-foreground">{t('tables.qr.scan')}</p>
               </div>
 
-              <p dir="ltr" className="w-full break-all rounded-md bg-[#F8F5F1] px-3 py-2 text-center text-xs text-[#655D56]">
+              <p dir="ltr" className="w-full break-all rounded-md bg-muted px-3 py-2 text-center text-xs text-muted-foreground">
                 {guestUrl}
               </p>
             </div>
 
-            <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 border-t border-[#E5DED6] px-5 py-4">
+            <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border px-5 py-4">
               <Button
                 variant="secondary"
                 type="button"
@@ -255,22 +255,17 @@ export function QrPreviewDialog({
                 {t('tables.qr.print')}
               </Button>
               {dataUrl ? (
-                <a
-                  href={dataUrl}
-                  download={filename}
-                  className="inline-flex items-center justify-center rounded-md border border-[#E5DED6] bg-white px-4 py-2 text-sm font-medium text-[#302C29] transition-colors hover:bg-[#F8F5F1]"
-                >
-                  {t('tables.qr.download')}
-                </a>
+                <Button variant="secondary" asChild>
+                  <a href={dataUrl} download={filename}>
+                    {t('tables.qr.download')}
+                  </a>
+                </Button>
               ) : null}
-              <a
-                href={guestUrl}
-                target="_blank"
-                rel="noreferrer"
-                className="inline-flex items-center justify-center rounded-md bg-[#7A5138] px-4 py-2 text-sm font-medium text-white transition-colors hover:bg-[#634127]"
-              >
-                {t('tables.qr.openMenu')}
-              </a>
+              <Button asChild>
+                <a href={guestUrl} target="_blank" rel="noreferrer">
+                  {t('tables.qr.openMenu')}
+                </a>
+              </Button>
             </div>
           </div>
         </div>

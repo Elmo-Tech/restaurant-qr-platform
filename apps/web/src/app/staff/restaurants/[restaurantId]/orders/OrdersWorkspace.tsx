@@ -11,6 +11,8 @@ import type {
 } from '../../../../../lib/orders/types';
 import { getAvailableTransitions } from '../../../../../lib/orders/transitions';
 import {
+  countByStatus,
+  countByType,
   countByView,
   filterOrders,
   statusesForView,
@@ -26,7 +28,9 @@ import { ApiError } from '../../../../../lib/api/errors';
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
+import { ChipGroup, type ChipOption } from '../../../../../components/ui/ChipGroup';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
+import { PageHeader } from '../../../../../components/ui/PageHeader';
 import { OrderCard } from './OrderCard';
 import { OrderDetailDialog } from './OrderDetailDialog';
 import { ALL_BRANCHES, OrdersFilterBar } from './OrdersFilterBar';
@@ -197,70 +201,61 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
     branchFilter !== ALL_BRANCHES;
 
   const counts = useMemo(() => countByView(orders ?? []), [orders]);
+  // Counts for the Type/Status chips: the current view + search applied,
+  // but never the chips' own filters -- so picking a Type never makes its
+  // sibling Status counts (or vice versa) disappear.
+  const countableOrders = useMemo(
+    () => filterOrders(orders ?? [], { view, type: null, status: null, search }),
+    [orders, view, search],
+  );
+  const typeCounts = useMemo(() => countByType(countableOrders), [countableOrders]);
+  const statusCounts = useMemo(() => countByStatus(countableOrders), [countableOrders]);
   const visibleOrders = useMemo(
     () =>
       filterOrders(orders ?? [], { view, type: typeFilter, status: statusFilter, search }),
     [orders, view, typeFilter, statusFilter, search],
   );
 
+  const viewChipOptions: ChipOption<OrdersView>[] = VIEWS.map((option) => ({
+    value: option,
+    label: t(`orders.view.${option}` as const),
+    count: orders !== null ? counts[option] : undefined,
+  }));
+
   return (
     <div className="flex flex-col gap-5">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-[#1D1A18]">{t('orders.title')}</h1>
-          <p className="mt-1 text-sm text-[#655D56]">{t('orders.subtitle')}</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {isRefreshing && orders !== null ? (
-            <span role="status" className="text-xs text-muted-foreground">
-              {t('orders.updating')}
-            </span>
-          ) : null}
-          <Button variant="secondary" disabled={isRefreshing} onClick={() => void loadOrders()}>
-            {t('common.refresh')}
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={t('orders.title')}
+        description={t('orders.subtitle')}
+        actions={
+          <>
+            {isRefreshing && orders !== null ? (
+              <span role="status" className="text-xs text-muted-foreground">
+                {t('orders.updating')}
+              </span>
+            ) : null}
+            <Button variant="secondary" disabled={isRefreshing} onClick={() => void loadOrders()}>
+              {t('common.refresh')}
+            </Button>
+          </>
+        }
+      />
 
-      <div
-        role="tablist"
-        aria-label={t('orders.viewsLabel')}
-        className="flex flex-wrap gap-1 border-b border-[#E5DED6]"
-      >
-        {VIEWS.map((option) => {
-          const selected = option === view;
-          return (
-            <button
-              key={option}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              onClick={() => changeView(option)}
-              className={`-mb-px flex shrink-0 items-center gap-2 border-b-2 px-4 py-2.5 text-sm font-medium transition-colors ${
-                selected
-                  ? 'border-[#7A5138] text-[#7A5138]'
-                  : 'border-transparent text-[#655D56] hover:text-[#302C29]'
-              }`}
-            >
-              {t(`orders.view.${option}` as const)}
-              {orders !== null ? (
-                <span
-                  className={`rounded-full px-2 py-0.5 text-xs ${
-                    selected ? 'bg-[#7A5138] text-white' : 'bg-[#F1ECE6] text-[#655D56]'
-                  }`}
-                >
-                  {counts[option]}
-                </span>
-              ) : null}
-            </button>
-          );
-        })}
-      </div>
+      <ChipGroup
+        variant="segmented"
+        size="lg"
+        ariaLabel={t('orders.viewsLabel')}
+        options={viewChipOptions}
+        value={view}
+        onChange={changeView}
+      />
 
       <OrdersFilterBar
         type={typeFilter}
         status={statusFilter}
         statusOptions={statusesForView(view)}
+        typeCounts={typeCounts}
+        statusCounts={statusCounts}
         search={search}
         branchId={branchFilter}
         branches={branches}
@@ -296,7 +291,7 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
       ) : null}
 
       {visibleOrders.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visibleOrders.map((order) => (
             <OrderCard key={order.id} order={order} onOpen={() => void openOrder(order.id)} />
           ))}
@@ -305,8 +300,8 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
 
       {selectedOrderId ? (
         detailError ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6">
-            <div className="w-full max-w-sm rounded-lg bg-white p-5 shadow-xl">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-6">
+            <div className="w-full max-w-sm rounded-lg bg-card p-5 shadow-xl">
               <Alert variant="error">{detailError}</Alert>
               <Button variant="secondary" className="mt-4" onClick={closeDetail}>
                 {t('common.close')}
@@ -323,7 +318,7 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
             onClose={closeDetail}
           />
         ) : (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40">
             <LoadingState label={t('orders.loadingOne')} />
           </div>
         )
@@ -367,8 +362,8 @@ function EmptyState({
 
   return (
     <Card className="flex flex-col items-center gap-2 py-12 text-center">
-      <p className="text-sm font-semibold text-[#302C29]">{title}</p>
-      <p className="max-w-sm text-sm text-[#655D56]">{hint}</p>
+      <p className="text-sm font-semibold text-foreground">{title}</p>
+      <p className="max-w-sm text-sm text-muted-foreground">{hint}</p>
       {hasActiveFilters ? (
         <Button variant="secondary" className="mt-2" onClick={onClear}>
           {t('orders.filter.clear')}

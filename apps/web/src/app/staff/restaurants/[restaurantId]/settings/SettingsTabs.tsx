@@ -1,8 +1,8 @@
 'use client';
 
-import Link from 'next/link';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../lib/i18n/messages';
+import { NavTabs } from '../../../../../components/ui/Tabs';
 
 export type SettingsSection = 'languages' | 'delivery';
 
@@ -27,24 +27,14 @@ export function SettingsTabs({
 }) {
   const { t } = useStaffI18n();
   return (
-    <div className="flex flex-wrap items-center gap-1 border-b border-[#E5DED6]">
-      {TABS.map((tab) => {
-        const isActive = tab.key === active;
-        return (
-          <Link
-            key={tab.key}
-            href={`/staff/restaurants/${restaurantId}/settings/${tab.path}`}
-            aria-current={isActive ? 'page' : undefined}
-            className={`flex-shrink-0 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
-              isActive
-                ? 'border-[#7A5138] text-[#7A5138]'
-                : 'border-transparent text-[#655D56] hover:text-[#302C29]'
-            }`}
-          >
-            {t(tab.label)}
-          </Link>
-        );
-      })}
-    </div>
+    <NavTabs
+      ariaLabel={t('settings.title')}
+      activeKey={active}
+      items={TABS.map((tab) => ({
+        key: tab.key,
+        label: t(tab.label),
+        href: `/staff/restaurants/${restaurantId}/settings/${tab.path}`,
+      }))}
+    />
   );
 }

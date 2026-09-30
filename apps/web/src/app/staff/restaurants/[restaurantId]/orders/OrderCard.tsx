@@ -27,7 +27,7 @@ export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () 
 
   return (
     <article
-      className={`flex flex-col gap-3 rounded-lg border border-s-4 border-[#E5DED6] p-4 shadow-sm ${statusAccentClass(order.status)} ${
+      className={`flex flex-col gap-3 rounded-lg border border-s-4 border-border p-4 shadow-sm ${statusAccentClass(order.status)} ${
         completed ? 'opacity-80' : ''
       }`}
     >
@@ -39,12 +39,12 @@ export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () 
       <div className="min-w-0">
         <h3
           dir="auto"
-          className={`truncate text-start text-lg font-semibold ${completed ? 'text-[#655D56]' : 'text-[#1D1A18]'}`}
+          className={`truncate text-start text-lg font-semibold ${completed ? 'text-muted-foreground' : 'text-foreground'}`}
         >
           {identity}
         </h3>
         {order.customer ? (
-          <p dir="ltr" className="truncate text-start text-sm text-[#655D56]">
+          <p dir="ltr" className="truncate text-start text-sm text-muted-foreground">
             {order.customer.phone}
           </p>
         ) : null}
@@ -58,11 +58,11 @@ export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () 
         </p>
       </div>
 
-      <div className="flex items-center justify-between border-t border-[#EDE7DF] pt-3 text-sm">
-        <span className="text-[#655D56]">
+      <div className="flex items-center justify-between border-t border-border pt-3 text-sm">
+        <span className="text-muted-foreground">
           {tp('common.items', order.itemCount)}
         </span>
-        <span className={`font-semibold ${completed ? 'text-[#655D56]' : 'text-[#1D1A18]'}`}>
+        <span className={`font-semibold ${completed ? 'text-muted-foreground' : 'text-foreground'}`}>
           <bdi dir="ltr">
             {order.totalAmount} {order.currencyCode}
           </bdi>
@@ -74,8 +74,8 @@ export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () 
         onClick={onOpen}
         className={`w-full rounded-md px-4 py-2 text-sm font-medium transition-colors ${
           isReady
-            ? 'bg-[#2E7D32] text-white hover:bg-[#256628]'
-            : 'border border-[#E5DED6] bg-white text-[#302C29] hover:bg-[#F8F5F1]'
+            ? 'bg-success text-success-foreground hover:bg-success/90'
+            : 'border border-border bg-card text-foreground hover:bg-muted'
         }`}
       >
         {t('orders.card.view')}

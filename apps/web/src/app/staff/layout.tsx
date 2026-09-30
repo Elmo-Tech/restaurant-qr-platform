@@ -43,7 +43,7 @@ export default async function StaffLayout({
     return (
       <StaffI18nProvider
         locale={locale}
-        className="flex min-h-screen items-center justify-center bg-[#F8F5F1] px-4"
+        className="flex min-h-screen items-center justify-center bg-background px-4"
       >
         <Alert variant="error">{sessionState.message}</Alert>
       </StaffI18nProvider>
@@ -51,7 +51,7 @@ export default async function StaffLayout({
   }
 
   return (
-    <StaffI18nProvider locale={locale} className="min-h-screen bg-[#F8F5F1]">
+    <StaffI18nProvider locale={locale} className="min-h-screen bg-background">
       {children}
     </StaffI18nProvider>
   );

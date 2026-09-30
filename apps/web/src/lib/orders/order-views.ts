@@ -1,4 +1,4 @@
-import type { OrderListItem, OrderStatus } from './types';
+import type { OrderListItem, OrderStatus, OrderType } from './types';
 
 /** FT-7B: the top-level Orders workspace tabs. Pure client-side grouping of the already-loaded Orders -- no backend concept. */
 export type OrdersView = 'active' | 'completed' | 'all';
@@ -69,6 +69,32 @@ export function countByView(orders: OrderListItem[]): Record<OrdersView, number>
     else completed += 1;
   }
   return { active, completed, all: orders.length };
+}
+
+/**
+ * Design-system-v2, Migration 01: counts for the Type filter chips. Derived
+ * from the caller's already-loaded, view+search-filtered Orders (never a new
+ * Backend request) -- pass the same subset regardless of the current Type
+ * selection so switching Type doesn't make its own count disappear.
+ */
+export function countByType(orders: OrderListItem[]): Record<OrderType, number> {
+  const counts: Record<OrderType, number> = { DINE_IN: 0, PICKUP: 0, DELIVERY: 0 };
+  for (const order of orders) counts[order.type] += 1;
+  return counts;
+}
+
+/**
+ * Counts for the Status filter chips, scoped to one view (Active or
+ * Completed each show a different status set). Same "already-loaded,
+ * view+search-filtered, ignore the caller's own Status selection" rule as
+ * `countByType` above.
+ */
+export function countByStatus(orders: OrderListItem[]): Partial<Record<OrderStatus, number>> {
+  const counts: Partial<Record<OrderStatus, number>> = {};
+  for (const order of orders) {
+    counts[order.status] = (counts[order.status] ?? 0) + 1;
+  }
+  return counts;
 }
 
 /** What `formatOrderTime` needs from the Staff i18n context (kept structural so this stays a plain helper). */

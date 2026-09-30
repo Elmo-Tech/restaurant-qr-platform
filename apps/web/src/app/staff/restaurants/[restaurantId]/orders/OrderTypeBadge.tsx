@@ -11,23 +11,27 @@ interface OrderTypeStyle {
 }
 
 /**
- * FT-7B: the ONE Order type visual system. Deliberately a different shape
- * (squared, outlined, with an icon) and a cooler hue than the status pills,
- * so type and status are never confused. Adding DELIVERY later is one more
- * entry here (and one more `OrderType` union member) -- nothing else.
+ * Design-system-v2, Migration 01: the ONE Order type visual system --
+ * retokenized. Deliberately a different shape (squared, outlined, with an
+ * icon) from the status pills, so type and status are never confused even
+ * when they happen to share a hue (DELIVERY type and Out-for-delivery status
+ * both use the `delivery` teal token, which reinforces rather than
+ * conflicts, since the two badges never look alike). PICKUP reuses `info`
+ * (blue) -- the design system has no separate purple token, and introducing
+ * one for a single badge would violate "tokens only."
  */
 const TYPE_STYLES: Record<OrderType, OrderTypeStyle> = {
   DINE_IN: {
     icon: (className) => <IconTable className={className} />,
-    badge: 'border-[#D9D2C8] bg-[#F8F5F1] text-[#4A423B]',
+    badge: 'border-border bg-muted text-muted-foreground',
   },
   PICKUP: {
     icon: (className) => <IconBag className={className} />,
-    badge: 'border-[#CDBFE6] bg-[#F1ECFA] text-[#4B2E86]',
+    badge: 'border-info/30 bg-info-soft text-info',
   },
   DELIVERY: {
     icon: (className) => <IconTruck className={className} />,
-    badge: 'border-[#B9D9D6] bg-[#E9F5F4] text-[#1D5F5A]',
+    badge: 'border-delivery/30 bg-delivery-soft text-delivery',
   },
 };
 

@@ -11,6 +11,7 @@ import {
   redirectToLogin,
 } from '../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../components/ui/Alert';
+import { Badge } from '../../../../../components/ui/Badge';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
 import { Dialog } from '../../../../../components/ui/Dialog';
@@ -18,6 +19,7 @@ import { FormField } from '../../../../../components/ui/FormField';
 import { Input } from '../../../../../components/ui/Input';
 import { Select } from '../../../../../components/ui/Select';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
+import { PageHeader } from '../../../../../components/ui/PageHeader';
 import { IconPencil, IconPlus, IconQr } from '../../../../../components/staff/icons';
 import { GenericQrCard } from './GenericQrCard';
 import { QrPreviewDialog } from './QrPreviewDialog';
@@ -233,17 +235,17 @@ export function TablesWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <div className="flex flex-wrap items-start justify-between gap-4">
-        <div>
-          <h1 className="text-xl font-semibold text-[#1D1A18]">{t('tables.title')}</h1>
-          <p className="mt-1 text-sm text-[#655D56]">{t('tables.subtitle')}</p>
-        </div>
-        {canManage && selectedBranchId ? (
-          <Button onClick={startCreate}>
-            <IconPlus className="me-1.5 h-4 w-4" /> {t('tables.new')}
-          </Button>
-        ) : null}
-      </div>
+      <PageHeader
+        title={t('tables.title')}
+        description={t('tables.subtitle')}
+        actions={
+          canManage && selectedBranchId ? (
+            <Button onClick={startCreate}>
+              <IconPlus className="me-1.5 h-4 w-4" /> {t('tables.new')}
+            </Button>
+          ) : undefined
+        }
+      />
 
       <GenericQrCard
         restaurantId={restaurantId}
@@ -295,8 +297,8 @@ export function TablesWorkspace({
 
           {tables !== null && tables.length === 0 ? (
             <Card className="flex flex-col items-center gap-2 py-10 text-center">
-              <p className="text-sm font-medium text-[#302C29]">{t('tables.empty.title')}</p>
-              <p className="text-sm text-[#655D56]">{t('tables.empty.hint')}</p>
+              <p className="text-sm font-medium text-foreground">{t('tables.empty.title')}</p>
+              <p className="text-sm text-muted-foreground">{t('tables.empty.hint')}</p>
               {canManage ? (
                 <Button className="mt-2" onClick={startCreate}>
                   <IconPlus className="me-1.5 h-4 w-4" /> {t('tables.new')}
@@ -360,11 +362,11 @@ function TableCard({
     <Card className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p dir="auto" className="truncate text-start text-base font-semibold text-[#1D1A18]">
+          <p dir="auto" className="truncate text-start text-base font-semibold text-foreground">
             {t('tables.card.title', { number: table.tableNumber })}
           </p>
           {branchName ? (
-            <p dir="auto" className="text-start text-xs text-[#655D56]">
+            <p dir="auto" className="text-start text-xs text-muted-foreground">
               {branchName}
             </p>
           ) : null}
@@ -374,7 +376,7 @@ function TableCard({
             type="button"
             onClick={onEdit}
             aria-label={t('tables.card.editAria', { number: table.tableNumber })}
-            className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-[#F8F5F1] hover:text-[#7A5138]"
+            className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-primary"
           >
             <IconPencil className="h-3.5 w-3.5" />
           </button>
@@ -382,22 +384,12 @@ function TableCard({
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide ${
-            table.status === 'ACTIVE'
-              ? 'bg-[#EAF3EA] text-[#2E7D32]'
-              : 'bg-[#F1ECE6] text-muted-foreground'
-          }`}
-        >
+        <Badge variant={table.status === 'ACTIVE' ? 'success' : 'neutral'}>
           {table.status === 'ACTIVE' ? t('common.active') : t('common.inactive')}
-        </span>
-        <span
-          className={`rounded-full px-2 py-0.5 text-xs font-medium uppercase tracking-wide ${
-            hasActiveQr ? 'bg-[#F1ECE6] text-[#7A5138]' : 'bg-[#F1ECE6] text-muted-foreground'
-          }`}
-        >
+        </Badge>
+        <Badge variant={hasActiveQr ? 'primary' : 'neutral'}>
           {hasActiveQr ? t('tables.card.activeQr') : t('tables.card.noActiveQr')}
-        </span>
+        </Badge>
       </div>
 
       {hasActiveQr ? (

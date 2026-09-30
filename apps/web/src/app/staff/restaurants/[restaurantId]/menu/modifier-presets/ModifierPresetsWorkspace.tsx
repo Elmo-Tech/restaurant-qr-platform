@@ -19,11 +19,13 @@ import {
   redirectToLogin,
 } from '../../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../../components/ui/Alert';
+import { Badge } from '../../../../../../components/ui/Badge';
 import { Button } from '../../../../../../components/ui/Button';
 import { Card } from '../../../../../../components/ui/Card';
 import { FormField } from '../../../../../../components/ui/FormField';
 import { Input } from '../../../../../../components/ui/Input';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
+import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { LanguageTabs, type LanguageTabOption } from '../../../../../../components/menu/LanguageTabs';
 import { TranslationFields } from '../../../../../../components/menu/TranslationFields';
 import { MenuSectionTabs } from '../MenuSectionTabs';
@@ -94,10 +96,7 @@ export function ModifierPresetsWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-lg font-semibold text-[#1D1A18]">{t('presets.title')}</h1>
-        <p className="mt-1 text-sm text-[#655D56]">{t('presets.subtitle')}</p>
-      </div>
+      <PageHeader title={t('presets.title')} description={t('presets.subtitle')} />
 
       <MenuSectionTabs restaurantId={restaurantId} active="modifier-library" />
 
@@ -120,7 +119,7 @@ export function ModifierPresetsWorkspace({
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-[280px_1fr]">
           <Card className="flex flex-col gap-2">
             {presets.length === 0 ? (
-              <p className="text-sm text-[#655D56]">{t('presets.none')}</p>
+              <p className="text-sm text-muted-foreground">{t('presets.none')}</p>
             ) : (
               <ul className="flex flex-col gap-1">
                 {presets.map((preset) => (
@@ -133,8 +132,8 @@ export function ModifierPresetsWorkspace({
                       }}
                       className={`w-full rounded-md px-3 py-2 text-start text-sm ${
                         selectedPresetId === preset.id
-                          ? 'bg-[#7A5138] text-white'
-                          : 'text-[#302C29] hover:bg-[#F8F5F1]'
+                          ? 'bg-primary text-primary-foreground'
+                          : 'text-foreground hover:bg-muted'
                       }`}
                     >
                       <bdi dir="auto">{preset.name}</bdi>
@@ -217,7 +216,7 @@ export function ModifierPresetsWorkspace({
                 }
               />
             ) : (
-              <p className="text-sm text-[#655D56]">{t('presets.selectHint')}</p>
+              <p className="text-sm text-muted-foreground">{t('presets.selectHint')}</p>
             )}
           </Card>
         </div>
@@ -290,7 +289,7 @@ function NewPresetForm({
 
   return (
     <div className="flex flex-col gap-3">
-      <h2 className="text-sm font-semibold text-[#1D1A18]">{t('presets.newTitle')}</h2>
+      <h2 className="text-sm font-semibold text-foreground">{t('presets.newTitle')}</h2>
       {error ? <Alert variant="error">{error}</Alert> : null}
       <FormField label={t('menu.tr.name')} htmlFor="new-preset-name">
         <Input id="new-preset-name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSubmitting} />
@@ -506,7 +505,7 @@ function PresetDetail({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
-        <h2 dir="auto" className="text-start text-sm font-semibold text-[#1D1A18]">
+        <h2 dir="auto" className="text-start text-sm font-semibold text-foreground">
           {preset.name}
         </h2>
         <div className="flex shrink-0 gap-2">
@@ -594,8 +593,8 @@ function PresetDetail({
         </Button>
       </div>
 
-      <div className="border-t border-[#E5DED6] pt-4">
-        <h3 className="mb-2 text-sm font-semibold text-[#1D1A18]">{t('presets.options')}</h3>
+      <div className="border-t border-border pt-4">
+        <h3 className="mb-2 text-sm font-semibold text-foreground">{t('presets.options')}</h3>
         <div className="flex flex-col gap-2">
           {preset.options.map((option) => (
             <PresetOptionRow
@@ -717,17 +716,13 @@ function PresetOptionRow({
   }
 
   return (
-    <div className="flex items-center justify-between gap-4 rounded-md bg-[#F8F5F1] px-3 py-2">
-      <div className="flex items-center gap-2 text-sm text-[#302C29]">
+    <div className="flex items-center justify-between gap-4 rounded-md bg-muted px-3 py-2">
+      <div className="flex items-center gap-2 text-sm text-foreground">
         <span dir="auto">{option.name}</span>
-        <bdi dir="ltr" className="text-[#655D56]">
+        <bdi dir="ltr" className="text-muted-foreground">
           {option.priceAdjustment === '0.00' ? '+0.00' : `+${option.priceAdjustment}`} {currencyCode}
         </bdi>
-        {option.status === 'INACTIVE' ? (
-          <span className="rounded-full bg-white px-2 py-0.5 text-xs text-[#655D56]">
-            {t('common.inactive')}
-          </span>
-        ) : null}
+        {option.status === 'INACTIVE' ? <Badge variant="neutral">{t('common.inactive')}</Badge> : null}
       </div>
       <div className="flex shrink-0 gap-2">
         {error ? <Alert variant="error">{error}</Alert> : null}
@@ -798,7 +793,7 @@ function NewPresetOptionForm({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md bg-[#F8F5F1] p-3">
+    <div className="flex flex-col gap-3 rounded-md bg-muted p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
       <div className="grid grid-cols-2 gap-3">
         <FormField label={t('menu.tr.name')} htmlFor="new-preset-option-name">
@@ -936,7 +931,7 @@ function EditPresetOptionForm({
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md bg-white p-3">
+    <div className="flex flex-col gap-3 rounded-md bg-card p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
       <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
       <div className="grid grid-cols-2 gap-3">

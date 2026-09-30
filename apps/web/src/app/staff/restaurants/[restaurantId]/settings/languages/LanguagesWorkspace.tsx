@@ -12,6 +12,8 @@ import {
 import { Alert } from '../../../../../../components/ui/Alert';
 import { Button } from '../../../../../../components/ui/Button';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
+import { PageHeader } from '../../../../../../components/ui/PageHeader';
+import { SectionCard } from '../../../../../../components/ui/SectionCard';
 import { SettingsTabs } from '../SettingsTabs';
 import { LanguageRow } from './LanguageRow';
 
@@ -129,66 +131,56 @@ export function LanguagesWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <div>
-        <h1 className="text-lg font-semibold text-[#1D1A18]">
-          {t('settings.title')}
-        </h1>
-        <p className="mt-1 text-sm text-[#655D56]">{t('settings.subtitle')}</p>
-      </div>
+      <PageHeader title={t('settings.title')} description={t('settings.subtitle')} />
 
       <SettingsTabs restaurantId={restaurantId} active="languages" />
 
-      <div className="flex flex-col gap-5">
-        <div>
-          <h2 className="text-base font-semibold text-[#1D1A18]">
-            {t('settings.languages.heading')}
-          </h2>
-          <p className="mt-1 text-sm text-[#655D56]">{t('settings.languages.description')}</p>
+      <SectionCard title={t('settings.languages.heading')} description={t('settings.languages.description')}>
+        <div className="flex flex-col gap-5">
+          {!canManage && hasRestaurantManagePermission ? (
+            <Alert variant="info">{t('settings.languages.needsFullScope')}</Alert>
+          ) : !canManage ? (
+            <Alert variant="info">{t('settings.languages.viewOnly')}</Alert>
+          ) : null}
+
+          {loadError && !data ? (
+            <Alert variant="error">
+              <div className="flex items-center justify-between gap-4">
+                <span>{loadError}</span>
+                <Button
+                  variant="secondary"
+                  className="px-2 py-1 text-xs"
+                  onClick={() => void loadLocales()}
+                >
+                  {t('common.retry')}
+                </Button>
+              </div>
+            </Alert>
+          ) : !data ? (
+            <LoadingState label={t('settings.languages.loading')} />
+          ) : (
+            <>
+              <div className="flex flex-col gap-3">
+                {data.locales.map((row) => (
+                  <LanguageRow
+                    key={row.locale}
+                    row={row}
+                    canManage={canManage}
+                    isPending={pendingLocale === row.locale}
+                    onToggle={handleToggle}
+                  />
+                ))}
+              </div>
+
+              {mutationError ? (
+                <Alert variant="error">{mutationError.message}</Alert>
+              ) : null}
+
+              <p className="text-xs text-muted-foreground">{t('settings.languages.disableNote')}</p>
+            </>
+          )}
         </div>
-
-        {!canManage && hasRestaurantManagePermission ? (
-          <Alert variant="info">{t('settings.languages.needsFullScope')}</Alert>
-        ) : !canManage ? (
-          <Alert variant="info">{t('settings.languages.viewOnly')}</Alert>
-        ) : null}
-
-        {loadError && !data ? (
-          <Alert variant="error">
-            <div className="flex items-center justify-between gap-4">
-              <span>{loadError}</span>
-              <Button
-                variant="secondary"
-                className="px-2 py-1 text-xs"
-                onClick={() => void loadLocales()}
-              >
-                {t('common.retry')}
-              </Button>
-            </div>
-          </Alert>
-        ) : !data ? (
-          <LoadingState label={t('settings.languages.loading')} />
-        ) : (
-          <>
-            <div className="flex flex-col gap-3">
-              {data.locales.map((row) => (
-                <LanguageRow
-                  key={row.locale}
-                  row={row}
-                  canManage={canManage}
-                  isPending={pendingLocale === row.locale}
-                  onToggle={handleToggle}
-                />
-              ))}
-            </div>
-
-            {mutationError ? (
-              <Alert variant="error">{mutationError.message}</Alert>
-            ) : null}
-
-            <p className="text-xs text-[#655D56]">{t('settings.languages.disableNote')}</p>
-          </>
-        )}
-      </div>
+      </SectionCard>
     </div>
   );
 }

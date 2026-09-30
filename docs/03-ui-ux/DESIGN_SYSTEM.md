@@ -1,5 +1,13 @@
 ﻿# Design System
 
+> **Staff app note:** the Staff application (`apps/web/src/app/staff/**`) has since moved to an approved
+> "Design System v2" direction — a dark graphite Sidebar, light workspace, and burnt-orange (`#BF5700`)
+> brand accent — which supersedes this document's warm-neutral palette and `#7A5138` fallback brand
+> wherever the two disagree for Staff screens. The concrete, implemented tokens/components/patterns for
+> the Staff app live in `docs/design/DESIGN_SYSTEM.md`. This document remains authoritative for the Guest
+> ordering experience and for the cross-cutting principles (motion, accessibility, RTL testing discipline,
+> component states, etc.) that the newer document does not repeat.
+
 ## Document Purpose
 
 This document defines the V1 visual and interaction Design System for the Restaurant QR Platform.

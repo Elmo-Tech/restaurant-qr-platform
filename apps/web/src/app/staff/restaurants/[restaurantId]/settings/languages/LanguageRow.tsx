@@ -3,37 +3,8 @@
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import type { RestaurantLocaleRow } from '../../../../../../lib/settings/types';
 import { localeLabel } from '../../../../../../lib/settings/locale-labels';
+import { Badge } from '../../../../../../components/ui/Badge';
 import { Button } from '../../../../../../components/ui/Button';
-
-/**
- * Default/Active badges, matching the exact `StatusBadge` visual convention
- * already established in `menu/StatusBadges.tsx` (same color tokens) --
- * kept local to this route rather than a cross-feature import, mirroring
- * how each feature folder already owns its own small display badges.
- */
-function DefaultBadge() {
-  const { t } = useStaffI18n();
-  return (
-    <span className="inline-flex items-center rounded-full bg-[#7A5138]/10 px-2 py-0.5 text-xs font-medium text-[#7A5138]">
-      {t('settings.languages.default')}
-    </span>
-  );
-}
-
-function ActiveStateBadge({ active }: { active: boolean }) {
-  const { t } = useStaffI18n();
-  return (
-    <span
-      className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${
-        active
-          ? 'bg-[#2F6B4F]/10 text-[#2F6B4F]'
-          : 'bg-[#8A8177]/10 text-muted-foreground'
-      }`}
-    >
-      {active ? t('common.active') : t('common.inactive')}
-    </span>
-  );
-}
 
 export interface LanguageRowProps {
   row: RestaurantLocaleRow;
@@ -63,19 +34,21 @@ export function LanguageRow({
   const label = localeLabel(row.locale);
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-[#E5DED6] bg-white px-4 py-3.5">
+    <div className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-border bg-card px-4 py-3.5">
       <div className="min-w-0">
         <div className="flex flex-wrap items-center gap-2">
-          <span lang={row.locale} className="text-sm font-semibold text-[#1D1A18]">
+          <span lang={row.locale} className="text-sm font-semibold text-foreground">
             {label}
           </span>
           <span dir="ltr" className="text-xs uppercase tracking-wide text-muted-foreground">
             {row.locale}
           </span>
-          {row.isDefault ? <DefaultBadge /> : null}
-          <ActiveStateBadge active={row.isActive} />
+          {row.isDefault ? <Badge variant="primary">{t('settings.languages.default')}</Badge> : null}
+          <Badge variant={row.isActive ? 'success' : 'neutral'} dot>
+            {row.isActive ? t('common.active') : t('common.inactive')}
+          </Badge>
         </div>
-        <p className="mt-1 text-xs text-[#655D56]">
+        <p className="mt-1 text-xs text-muted-foreground">
           {row.isDefault
             ? t('settings.languages.defaultNote')
             : row.isActive
