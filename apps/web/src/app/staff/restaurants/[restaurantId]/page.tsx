@@ -6,6 +6,8 @@ import { canViewMenu } from '../../../../lib/menu/capabilities';
 import { canViewOrders } from '../../../../lib/orders/capabilities';
 import { canViewTables } from '../../../../lib/tables/capabilities';
 import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
+import { canViewAnalytics } from '../../../../lib/dashboard/capabilities';
+import { DashboardWorkspace } from './DashboardWorkspace';
 import type { RestaurantStatus } from '../../../../lib/auth/types';
 import { Alert } from '../../../../components/ui/Alert';
 import { PageHeader } from '../../../../components/ui/PageHeader';
@@ -185,11 +187,17 @@ export default async function RestaurantLandingPage({
         ? t('dashboard.language.en')
         : restaurant.defaultLocale.toUpperCase();
 
+  const showAnalytics = restaurant.status === 'ACTIVE' && canViewAnalytics(membership);
+
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
         title={t('dashboard.title')}
-        description={t('dashboard.subtitle', { name: restaurant.name })}
+        description={
+          showAnalytics
+            ? t('dashboard.nav.subtitle', { name: restaurant.name })
+            : t('dashboard.subtitle', { name: restaurant.name })
+        }
         actions={
           restaurant.status === 'ACTIVE' && canViewMenu(membership) ? (
             <OpenGuestMenuButton restaurantId={restaurantId} />
@@ -203,6 +211,12 @@ export default async function RestaurantLandingPage({
             state: restaurant.status === 'SUSPENDED' ? t('guard.state.suspended') : t('guard.state.inactive'),
           })}
         </Alert>
+      ) : showAnalytics ? (
+        <DashboardWorkspace
+          restaurantId={restaurantId}
+          branches={membership.branches}
+          currencyCode={restaurant.currencyCode}
+        />
       ) : (
         <>
           <div className="grid grid-cols-2 gap-6 rounded-lg border border-border bg-card p-5 shadow-sm sm:grid-cols-4">

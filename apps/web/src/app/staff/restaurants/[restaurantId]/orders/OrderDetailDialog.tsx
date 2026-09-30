@@ -10,6 +10,7 @@ import type { OrderTransitionOption } from '../../../../../lib/orders/transition
 import type { MessageKey } from '../../../../../lib/i18n/messages';
 import { formatOrderTime } from '../../../../../lib/orders/order-views';
 import { OrderReceipt } from './OrderReceipt';
+import { OrderTimeline } from './OrderTimeline';
 import { OrderTypeBadge } from './OrderTypeBadge';
 import { StatusBadge } from './StatusBadge';
 
@@ -301,6 +302,8 @@ export function OrderDetailDialog({
                 ))}
               </ul>
             </section>
+
+            <OrderTimeline history={order.statusHistory} type={order.type} />
 
             <div className="flex flex-col gap-2 rounded-lg bg-muted px-4 py-3">
               {showFee ? (

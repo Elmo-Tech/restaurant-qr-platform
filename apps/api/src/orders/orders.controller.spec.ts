@@ -40,6 +40,7 @@ const SAMPLE_DETAIL: OrderDetail = {
   currencyCode: 'EGP',
   totalAmount: '100.00',
   items: [],
+  statusHistory: [{ previousStatus: null, newStatus: 'PENDING', transitionedAt: new Date('2026-01-01T00:00:00Z') }],
 };
 
 describe('OrdersController', () => {

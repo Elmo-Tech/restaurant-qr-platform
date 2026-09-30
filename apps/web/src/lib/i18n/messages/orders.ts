@@ -38,6 +38,11 @@ export const ordersMessages = defineMessages({
 
     'orders.time.justNow': 'Just now',
     'orders.time.minutesAgo': '{count} min ago',
+    /** FT-11: a live duration on the Order Card, never a past-tense timestamp -- "14 min", not "14 min ago". */
+    'orders.time.minutes': '{count} min',
+    'orders.time.hoursMinutes': '{hours}h {minutes}m',
+
+    'orders.detail.timeline': 'Timeline',
 
     'orders.card.table': 'Table {number}',
     'orders.card.pickup': 'Pickup',
@@ -143,6 +148,10 @@ export const ordersMessages = defineMessages({
 
     'orders.time.justNow': 'الآن',
     'orders.time.minutesAgo': 'منذ {count} دقيقة',
+    'orders.time.minutes': '{count} د',
+    'orders.time.hoursMinutes': '{hours} س {minutes} د',
+
+    'orders.detail.timeline': 'المسار الزمني',
 
     'orders.card.table': 'طاولة {number}',
     'orders.card.pickup': 'استلام',

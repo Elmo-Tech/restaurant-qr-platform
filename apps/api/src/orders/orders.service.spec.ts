@@ -31,6 +31,9 @@ const SAMPLE_ORDER_ROW = {
   restaurant: { id: RESTAURANT_ID, name: 'Elmo Bistro' },
   branch: { id: BRANCH_ID, name: 'Main Branch' },
   table: { id: 'table-1', tableNumber: '7' },
+  statusEvents: [
+    { previousStatus: null, newStatus: 'PENDING' as const, transitionedAt: new Date('2026-01-01T00:00:00Z') },
+  ],
   items: [
     {
       productId: 'product-1',
@@ -47,6 +50,7 @@ function buildMocks() {
   const orderFindMany = jest.fn().mockResolvedValue([]);
   const orderFindFirst = jest.fn().mockResolvedValue(SAMPLE_ORDER_ROW);
   const orderUpdateMany = jest.fn().mockResolvedValue({ count: 1 });
+  const orderStatusEventCreate = jest.fn().mockResolvedValue({});
   const restaurantMembershipBranchFindMany = jest.fn().mockResolvedValue([]);
   const resolveBranchManagementAccess = jest
     .fn()
@@ -58,7 +62,13 @@ function buildMocks() {
       findFirst: orderFindFirst,
       updateMany: orderUpdateMany,
     },
+    orderStatusEvent: { create: orderStatusEventCreate },
     restaurantMembershipBranch: { findMany: restaurantMembershipBranchFindMany },
+    // FT-11: `updateOrderStatus` now wraps its conditional update + history
+    // insert in an interactive transaction -- this test double just invokes
+    // the callback with the same mocked client, exactly like every other
+    // Prisma-mock test double in this repo treats `$transaction`.
+    $transaction: jest.fn((callback: (tx: unknown) => unknown) => callback(prisma)),
   };
   const branchAccessService = { resolveBranchManagementAccess };
 
@@ -68,6 +78,7 @@ function buildMocks() {
     orderFindMany,
     orderFindFirst,
     orderUpdateMany,
+    orderStatusEventCreate,
     restaurantMembershipBranchFindMany,
     resolveBranchManagementAccess,
   };
@@ -255,6 +266,9 @@ describe('OrdersService.getOrderDetail', () => {
             modifiers: [],
           },
         ],
+        statusHistory: [
+          { previousStatus: null, newStatus: 'PENDING', transitionedAt: SAMPLE_ORDER_ROW.createdAt },
+        ],
       },
     });
   });
@@ -430,6 +444,86 @@ describe('OrdersService.updateOrderStatus', () => {
       where: { id: WELL_FORMED_UUID, restaurantId: RESTAURANT_ID, status: 'ACCEPTED' },
       data: { status: 'PREPARING' },
     });
+  });
+
+  it('FT-11: records an OrderStatusEvent for a successful transition, with the correct previous/new status and Branch', async () => {
+    const mocks = buildMocks();
+    mocks.orderFindFirst
+      .mockResolvedValueOnce({ ...SAMPLE_ORDER_ROW, status: 'ACCEPTED' })
+      .mockResolvedValueOnce({ ...SAMPLE_ORDER_ROW, status: 'PREPARING' });
+    const service = buildService(mocks);
+
+    await service.updateOrderStatus({
+      ...BASE_INPUT,
+      scope: { ...ALL_BRANCHES_SCOPE, role: 'KITCHEN' },
+      expectedStatus: 'ACCEPTED',
+      status: 'PREPARING',
+    });
+
+    expect(mocks.orderStatusEventCreate).toHaveBeenCalledWith({
+      data: {
+        restaurantId: RESTAURANT_ID,
+        branchId: BRANCH_ID,
+        orderId: WELL_FORMED_UUID,
+        previousStatus: 'ACCEPTED',
+        newStatus: 'PREPARING',
+      },
+    });
+  });
+
+  it('FT-11: never records a history event for an invalid transition', async () => {
+    const mocks = buildMocks();
+    mocks.orderFindFirst.mockResolvedValue({ ...SAMPLE_ORDER_ROW, status: 'CANCELLED' });
+    const service = buildService(mocks);
+
+    await service.updateOrderStatus({ ...BASE_INPUT, expectedStatus: 'CANCELLED', status: 'ACCEPTED' });
+
+    expect(mocks.orderStatusEventCreate).not.toHaveBeenCalled();
+  });
+
+  it('FT-11: never records a history event when a caller lacks the transition Permission', async () => {
+    const mocks = buildMocks();
+    mocks.orderFindFirst.mockResolvedValue({ ...SAMPLE_ORDER_ROW, status: 'PENDING' });
+    const service = buildService(mocks);
+
+    await service.updateOrderStatus({
+      ...BASE_INPUT,
+      scope: { ...ALL_BRANCHES_SCOPE, role: 'WAITER' },
+      expectedStatus: 'PENDING',
+      status: 'ACCEPTED',
+    });
+
+    expect(mocks.orderStatusEventCreate).not.toHaveBeenCalled();
+  });
+
+  it('FT-11: never records a history event when the conditional update matches zero rows (stale race)', async () => {
+    const mocks = buildMocks();
+    mocks.orderFindFirst
+      .mockResolvedValueOnce({ ...SAMPLE_ORDER_ROW, status: 'PENDING' })
+      .mockResolvedValueOnce({ status: 'REJECTED' });
+    mocks.orderUpdateMany.mockResolvedValue({ count: 0 });
+    const service = buildService(mocks);
+
+    await service.updateOrderStatus(BASE_INPUT);
+
+    expect(mocks.orderStatusEventCreate).not.toHaveBeenCalled();
+  });
+
+  it('FT-11: the status update and the history event run inside the same $transaction call (atomicity)', async () => {
+    const mocks = buildMocks();
+    mocks.orderFindFirst
+      .mockResolvedValueOnce({ ...SAMPLE_ORDER_ROW, status: 'PENDING' })
+      .mockResolvedValueOnce({ ...SAMPLE_ORDER_ROW, status: 'ACCEPTED' });
+    const service = buildService(mocks);
+
+    await service.updateOrderStatus(BASE_INPUT);
+
+    expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
+    // Both writes happened strictly after $transaction was invoked and
+    // before it resolved -- i.e. neither is a separate, unguarded write.
+    const transactionCallOrder = mocks.prisma.$transaction.mock.invocationCallOrder[0];
+    expect(mocks.orderUpdateMany.mock.invocationCallOrder[0]).toBeGreaterThan(transactionCallOrder);
+    expect(mocks.orderStatusEventCreate.mock.invocationCallOrder[0]).toBeGreaterThan(transactionCallOrder);
   });
 
   it('rejects with staleStatus when the loaded Order no longer matches expectedStatus', async () => {

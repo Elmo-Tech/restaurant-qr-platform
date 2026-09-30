@@ -644,6 +644,13 @@ export class PublicOrdersService {
             deliveryApartmentSnapshot: deliveryApartment,
             deliveryLandmarkSnapshot: deliveryLandmark,
             items: { create: itemsData },
+            // FT-11 Section 1: initial Order creation establishes the first
+            // status timestamp -- a nested create, so it commits inside this
+            // exact transaction alongside the Order itself, never as a
+            // separate best-effort write.
+            statusEvents: {
+              create: { restaurantId, branchId, previousStatus: null, newStatus: 'PENDING' },
+            },
           },
           select: ORDER_VIEW_SELECT,
         });

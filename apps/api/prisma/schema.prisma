@@ -761,12 +761,13 @@ model Order {
   // exactly like every other Tenant-owned row in this schema -- its parent
   // Restaurant/Branch/Table/QrCode can never be hard-deleted out from under
   // it.
-  restaurant   Restaurant    @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
-  branch       Branch        @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  table        Table?        @relation(fields: [tableId], references: [id], onDelete: Restrict)
-  qrCode       QrCode        @relation(fields: [qrCodeId], references: [id], onDelete: Restrict)
-  deliveryZone DeliveryZone? @relation(fields: [deliveryZoneId], references: [id], onDelete: Restrict)
+  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  branch       Branch             @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  table        Table?             @relation(fields: [tableId], references: [id], onDelete: Restrict)
+  qrCode       QrCode             @relation(fields: [qrCodeId], references: [id], onDelete: Restrict)
+  deliveryZone DeliveryZone?      @relation(fields: [deliveryZoneId], references: [id], onDelete: Restrict)
   items        OrderItem[]
+  statusEvents OrderStatusEvent[]
 
   @@unique([qrCodeId, branchId, clientRequestId])
   @@index([deliveryZoneId])
@@ -774,6 +775,47 @@ model Order {
   @@index([branchId])
   @@index([tableId])
   @@map("orders")
+}
+
+/**
+ * FT-11: authoritative, append-only record of every Order.status transition
+ * (ORDER_LIFECYCLE_SPEC.md #85-87 "Why Lifecycle Timestamps Matter" /
+ * "Audit Events"). One row is written every time `Order.status` actually
+ * changes -- inside the SAME database transaction as that write (never a
+ * best-effort side write) -- so a status change can never exist without its
+ * history event, and a history event never exists without a matching
+ * transition. `previousStatus` is null only for the very first event of an
+ * Order (its creation into PENDING). `transitionedAt` is always a
+ * server-generated timestamp, never client-supplied.
+ * Historical Orders created before this table existed were backfilled with
+ * exactly one synthetic event -- `previousStatus: null, newStatus: PENDING,
+ * transitionedAt: Order.createdAt` -- because that single fact (the Order
+ * was created, i.e. became PENDING, at `createdAt`) is the only transition
+ * timestamp that can be reconstructed truthfully for them; any intermediate
+ * step (when it was ACCEPTED, when it became READY, ...) is genuinely
+ * unknown for those rows and is deliberately left absent rather than
+ * fabricated (FT-11 Section 3: "Do not fabricate missing historical
+ * timings").
+ * `restaurantId`/`branchId` are denormalized copies of the owning Order's
+ * own values (DATABASE_SPEC.md #21 "Direct restaurantId" convention for
+ * high-volume Tenant-owned records) purely so Dashboard timing/analytics
+ * queries can filter this table directly without joining through `orders`
+ * for every row.
+ */
+model OrderStatusEvent {
+  id             String       @id @default(uuid()) @db.Uuid
+  restaurantId   String       @map("restaurant_id") @db.Uuid
+  branchId       String       @map("branch_id") @db.Uuid
+  orderId        String       @map("order_id") @db.Uuid
+  previousStatus OrderStatus? @map("previous_status")
+  newStatus      OrderStatus  @map("new_status")
+  transitionedAt DateTime     @default(now()) @map("transitioned_at") @db.Timestamptz
+
+  order Order @relation(fields: [orderId], references: [id], onDelete: Restrict)
+
+  @@index([orderId])
+  @@index([restaurantId, branchId, newStatus, transitionedAt])
+  @@map("order_status_events")
 }
 
 /**

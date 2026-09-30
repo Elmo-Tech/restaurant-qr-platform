@@ -116,3 +116,31 @@ export function formatOrderTime(isoDate: string, i18n: OrderTimeI18n, now: Date 
   const sameDay = created.toDateString() === now.toDateString();
   return sameDay ? time : `${i18n.formatDayMonth(created)}, ${time}`;
 }
+
+/** Whole minutes elapsed since `isoDate`, never negative (a clock skew or in-flight request must not show a negative age). */
+export function elapsedMinutes(isoDate: string, now: Date = new Date()): number {
+  return Math.max(0, Math.floor((now.getTime() - new Date(isoDate).getTime()) / 60_000));
+}
+
+/** What `formatElapsedAge` needs from the Staff i18n context. */
+export interface OrderElapsedAgeI18n {
+  t: (key: 'orders.time.justNow') => string;
+  /** "{count} min" -- no "ago": this is a live duration on a card, not a past-tense timestamp. */
+  tMinutes: (count: number) => string;
+  /** "{hours}h {minutes}m", minutes zero-padded. */
+  tHoursMinutes: (hours: number, minutes: number) => string;
+}
+
+/**
+ * FT-11 Section 5: the Order Card's live elapsed age -- "Just now", "14
+ * min", "1h 08m". Deliberately distinct from `formatOrderTime` above (which
+ * switches to an absolute clock time after an hour, for the Order Detail
+ * header): a card showing an Order that has been active for 3 hours should
+ * keep counting up as a duration, not fall back to "2:14 PM".
+ */
+export function formatElapsedAge(isoDate: string, i18n: OrderElapsedAgeI18n, now: Date = new Date()): string {
+  const totalMinutes = elapsedMinutes(isoDate, now);
+  if (totalMinutes < 1) return i18n.t('orders.time.justNow');
+  if (totalMinutes < 60) return i18n.tMinutes(totalMinutes);
+  return i18n.tHoursMinutes(Math.floor(totalMinutes / 60), totalMinutes % 60);
+}

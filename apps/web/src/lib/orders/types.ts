@@ -71,4 +71,18 @@ export interface OrderDetail {
   currencyCode: string;
   totalAmount: string;
   items: OrderItemView[];
+  /**
+   * FT-11: every recorded status transition, oldest first. `previousStatus`
+   * is null only for the first (creation) event. A pre-FT-11 historical
+   * Order has exactly one backfilled entry here -- never assume a full
+   * step-by-step history exists.
+   */
+  statusHistory: OrderStatusEvent[];
+}
+
+/** FT-11: one authoritative Order.status transition, exactly as recorded by the Backend -- never a client-side guess. */
+export interface OrderStatusEvent {
+  previousStatus: OrderStatus | null;
+  newStatus: OrderStatus;
+  transitionedAt: string;
 }

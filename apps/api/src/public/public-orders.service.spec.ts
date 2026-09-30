@@ -289,6 +289,28 @@ describe('PublicOrdersService.createOrder', () => {
     );
   });
 
+  it('FT-11: establishes the first OrderStatusEvent (null -> PENDING) as a nested create inside the same Order-creation call', async () => {
+    const mock = buildPrismaMock();
+    const service = buildService(mock);
+
+    await service.createOrder(VALID_INPUT);
+
+    expect(mock.orderCreate).toHaveBeenCalledWith(
+      expect.objectContaining({
+        data: expect.objectContaining({
+          statusEvents: {
+            create: {
+              restaurantId: 'restaurant-1',
+              branchId: 'branch-1',
+              previousStatus: null,
+              newStatus: 'PENDING',
+            },
+          },
+        }),
+      }),
+    );
+  });
+
   it('returns the exact server-computed data on success, including the Table context', async () => {
     const mock = buildPrismaMock();
     const service = buildService(mock);

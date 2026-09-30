@@ -1,4 +1,5 @@
 import { commonMessages } from './common';
+import { dashboardMessages } from './dashboard';
 import { errorMessages } from './errors';
 import { menuMessages } from './menu';
 import { menuStructureMessages } from './menuStructure';
@@ -16,6 +17,7 @@ import { tablesMessages } from './tables';
  */
 const en = {
   ...commonMessages.en,
+  ...dashboardMessages.en,
   ...errorMessages.en,
   ...menuMessages.en,
   ...menuStructureMessages.en,
@@ -28,6 +30,7 @@ const en = {
 
 const ar = {
   ...commonMessages.ar,
+  ...dashboardMessages.ar,
   ...errorMessages.ar,
   ...menuMessages.ar,
   ...menuStructureMessages.ar,

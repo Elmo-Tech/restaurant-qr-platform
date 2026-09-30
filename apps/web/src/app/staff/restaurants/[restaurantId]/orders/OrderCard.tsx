@@ -1,8 +1,11 @@
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import type { OrderListItem } from '../../../../../lib/orders/types';
-import { formatOrderTime, isCompletedStatus } from '../../../../../lib/orders/order-views';
+import { elapsedMinutes, formatElapsedAge, isCompletedStatus } from '../../../../../lib/orders/order-views';
 import { OrderTypeBadge } from './OrderTypeBadge';
 import { StatusBadge, statusAccentClass } from './StatusBadge';
+
+/** FT-11 Section 5: a fixed (never configurable) attention threshold -- a PENDING Order sitting unaccepted this long gets a restrained warning tint on its age. */
+const STALE_PENDING_MINUTES = 10;
 
 /**
  * FT-7B: one Order in the list, built for fast scanning. Status + type on
@@ -12,18 +15,19 @@ import { StatusBadge, statusAccentClass } from './StatusBadge';
  * are visually quieter than Active ones.
  */
 export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () => void }) {
-  const { t, tp, formatTime, formatDayMonth } = useStaffI18n();
+  const { t, tp } = useStaffI18n();
   const completed = isCompletedStatus(order.status);
   const isReady = order.status === 'READY';
   const identity = order.customer
     ? order.customer.name
     : t('orders.card.table', { number: order.table?.tableNumber ?? '—' });
-  const time = formatOrderTime(order.createdAt, {
+  const age = formatElapsedAge(order.createdAt, {
     t,
-    tMinutes: (count) => t('orders.time.minutesAgo', { count }),
-    formatTime,
-    formatDayMonth,
+    tMinutes: (count) => t('orders.time.minutes', { count }),
+    tHoursMinutes: (hours, minutes) =>
+      t('orders.time.hoursMinutes', { hours, minutes: String(minutes).padStart(2, '0') }),
   });
+  const isStalePending = order.status === 'PENDING' && elapsedMinutes(order.createdAt) >= STALE_PENDING_MINUTES;
 
   return (
     <article
@@ -54,7 +58,8 @@ export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () 
               <bdi dir="auto">{order.deliveryZoneName}</bdi> ·{' '}
             </>
           ) : null}
-          <bdi dir="auto">{order.branch.name}</bdi> · {time}
+          <bdi dir="auto">{order.branch.name}</bdi> ·{' '}
+          <span className={isStalePending ? 'font-semibold text-warning' : undefined}>{age}</span>
         </p>
       </div>
 

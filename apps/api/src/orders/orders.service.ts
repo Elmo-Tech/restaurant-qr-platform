@@ -6,6 +6,7 @@ import type { RestaurantAccessContext } from '../auth/context/restaurant-access.
 import { hasPermission } from '../auth/permission/has-permission';
 import type { OrderStatus, OrderType, RestaurantMembershipRole } from '../generated/prisma/client';
 import { findOrderTransitionRule } from './order-transitions';
+import { resolveOrderBranchIdFilter } from './order-branch-scope';
 
 /** Safe Staff-facing Order List row (Section 16/17). Never internal FK ids beyond what Staff needs to render/navigate, never Guest-only fields. */
 export interface OrderListItem {
@@ -70,6 +71,14 @@ export interface OrderDetail {
   currencyCode: string;
   totalAmount: string;
   items: OrderItemView[];
+  /**
+   * FT-11: every recorded OrderStatusEvent for this Order, oldest first.
+   * `previousStatus` is null only for the first (creation) event. A
+   * pre-FT-11 historical Order has exactly one backfilled entry here (see
+   * `OrderStatusEvent`'s schema doc) -- the frontend must not assume every
+   * Order has a full step-by-step history.
+   */
+  statusHistory: { previousStatus: OrderStatus | null; newStatus: OrderStatus; transitionedAt: Date }[];
 }
 
 /** Exactly the fields already produced by `RestaurantAccessGuard` on `request.restaurantAccess` -- never the full Express request. `role` is only actually USED for the specific-transition Permission check in `updateOrderStatus`, but is carried on every scope so the shared `isBranchInScope` helper can build a real `RestaurantAccessContext` without fabricating one. */
@@ -180,24 +189,7 @@ export class OrdersService {
     scope: AuthorizedOrderScope,
     filters: ListOrdersFilters,
   ): Promise<OrderListItem[]> {
-    let branchIdFilter: string[] | undefined;
-
-    if (scope.allBranches) {
-      branchIdFilter = filters.branchId ? [filters.branchId] : undefined;
-    } else {
-      const assignments = await this.prisma.restaurantMembershipBranch.findMany({
-        where: {
-          restaurantMembershipId: scope.membershipId,
-          branch: { restaurantId: scope.restaurantId },
-        },
-        select: { branchId: true },
-      });
-      const assignedIds = assignments.map((row) => row.branchId);
-      branchIdFilter =
-        filters.branchId && assignedIds.includes(filters.branchId)
-          ? [filters.branchId]
-          : assignedIds;
-    }
+    const branchIdFilter = await resolveOrderBranchIdFilter(this.prisma, scope, filters.branchId);
 
     const orders = await this.prisma.order.findMany({
       where: {
@@ -275,6 +267,10 @@ export class OrdersService {
         branch: { select: { id: true, name: true } },
         table: { select: { id: true, tableNumber: true } },
         items: { select: ORDER_ITEM_VIEW_SELECT, orderBy: { createdAt: 'asc' } },
+        statusEvents: {
+          select: { previousStatus: true, newStatus: true, transitionedAt: true },
+          orderBy: { transitionedAt: 'asc' },
+        },
       },
     });
     if (!order) {
@@ -324,6 +320,7 @@ export class OrdersService {
         deliveryFee: formatMoney(order.deliveryFeeAmount),
         totalAmount: formatMoney(order.totalAmount),
         items: order.items.map(toOrderItemView),
+        statusHistory: order.statusEvents,
       },
     };
   }
@@ -373,13 +370,34 @@ export class OrdersService {
       return { outcome: 'staleStatus', currentStatus: order.status };
     }
 
-    const written = await this.prisma.order.updateMany({
-      where: {
-        id: order.id,
-        restaurantId: input.scope.restaurantId,
-        status: input.expectedStatus,
-      },
-      data: { status: input.status },
+    // FT-11: the conditional status update and its OrderStatusEvent must
+    // commit together or not at all -- a successful transition must never
+    // exist without its history event, and a history event must never exist
+    // without the matching transition (FT-11 Section 2). The conditional
+    // `updateMany` (`WHERE status = expectedStatus`) remains the actual
+    // race-safety guarantee (Section 14 note above); the event insert only
+    // ever runs when that write genuinely changed a row.
+    const written = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.order.updateMany({
+        where: {
+          id: order.id,
+          restaurantId: input.scope.restaurantId,
+          status: input.expectedStatus,
+        },
+        data: { status: input.status },
+      });
+      if (result.count > 0) {
+        await tx.orderStatusEvent.create({
+          data: {
+            restaurantId: input.scope.restaurantId,
+            branchId: order.branchId,
+            orderId: order.id,
+            previousStatus: input.expectedStatus,
+            newStatus: input.status,
+          },
+        });
+      }
+      return result;
     });
 
     if (written.count === 0) {

@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { validateEnv } from './config/env.schema';
 import { AuthModule } from './auth/auth.module';
 import { BranchesModule } from './branches/branches.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 import { DatabaseModule } from './database/database.module';
 import { MenuModule } from './menu/menu.module';
 import { OrdersModule } from './orders/orders.module';
@@ -39,6 +40,7 @@ const rootEnvFilePath = path.resolve(__dirname, '..', '..', '..', '.env');
     StaffModule,
     MenuModule,
     OrdersModule,
+    DashboardModule,
     DeliveryModule,
     QrModule,
     RateLimitModule,

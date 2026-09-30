@@ -40,10 +40,12 @@ function build(row: Record<string, unknown> = DELIVERY_ROW) {
   const resolveBranchManagementAccess = jest
     .fn()
     .mockResolvedValue({ outcome: 'authorized', context: { branchId: BRANCH_ID } });
-  const prisma = {
+  const prisma: Record<string, unknown> = {
     order: { findFirst: orderFindFirst, findMany: jest.fn(), updateMany: orderUpdateMany },
+    orderStatusEvent: { create: jest.fn().mockResolvedValue({}) },
     restaurantMembershipBranch: { findMany: jest.fn().mockResolvedValue([]) },
   };
+  prisma.$transaction = jest.fn((callback: (tx: unknown) => unknown) => callback(prisma));
   return {
     service: new OrdersService(prisma as never, { resolveBranchManagementAccess } as never),
     orderFindFirst,
