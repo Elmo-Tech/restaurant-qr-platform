@@ -7,6 +7,7 @@ import { AppModule } from './../src/app.module';
 import { validationExceptionFactory } from './../src/common/http/validation-exception.factory';
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import { PrismaService } from './../src/database/prisma.service';
+import { ensureStarterRole } from './fixtures/ensure-starter-role';
 import { createProductPublicId } from './../src/menu/product-public-id';
 
 // This suite's fixtures are heavier than most (Restaurant + RestaurantLocale
@@ -125,6 +126,7 @@ describe('Menu/Category/Product Translations (e2e)', () => {
         where: { membership: { restaurantId } },
       });
       await prisma.restaurantMembership.deleteMany({ where: { restaurantId } });
+      await prisma.restaurantRole.deleteMany({ where: { restaurantId } });
       await prisma.branch.deleteMany({ where: { restaurantId } });
       await prisma.restaurant.delete({ where: { id: restaurantId } });
     }
@@ -219,6 +221,7 @@ describe('Menu/Category/Product Translations (e2e)', () => {
         restaurantId: params.restaurantId,
         userId: params.userId,
         role: params.role ?? 'OWNER',
+        roleId: (await ensureStarterRole(prisma, params.restaurantId, params.role ?? 'OWNER')).id,
         status: 'ACTIVE',
         allBranches: params.allBranches ?? true,
       },

@@ -2,8 +2,12 @@ import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../lib/auth/session';
 import { StaffI18nProvider } from '../../lib/i18n/client';
 import { getStaffI18n } from '../../lib/i18n/server';
-import { StaffLanguageSwitcher } from '../../components/staff/StaffLanguageSwitcher';
+import { AuthShell } from '../../components/auth/AuthShell';
 import { LoginForm } from './LoginForm';
+
+interface LoginPageProps {
+  searchParams: Promise<{ reset?: string }>;
+}
 
 /**
  * Server Component: deterministic on refresh/deep-link (Section 23) --
@@ -15,29 +19,24 @@ import { LoginForm } from './LoginForm';
  * same as `'unauthenticated'` here -- this page never requires a working
  * prior session check to let someone attempt to log in, so a bootstrap
  * failure must not block rendering the form itself.
+ *
+ * `?reset=success` is set by the Reset Password page after a successful reset
+ * and only selects a friendly notice -- it carries no authority.
  */
-export default async function LoginPage() {
-  const sessionState = await getAuthSessionState();
+export default async function LoginPage({ searchParams }: LoginPageProps) {
+  const [sessionState, { reset }] = await Promise.all([getAuthSessionState(), searchParams]);
 
   if (sessionState.status === 'authenticated') {
     redirect('/staff');
   }
 
-  const { t, locale } = await getStaffI18n();
+  const { locale } = await getStaffI18n();
 
   return (
     <StaffI18nProvider locale={locale}>
-      <main className="flex min-h-screen items-center justify-center px-4">
-        <div className="w-full max-w-sm">
-          <div className="mb-4 flex justify-end">
-            <StaffLanguageSwitcher />
-          </div>
-          <h1 className="mb-6 text-center text-xl font-semibold text-foreground">
-            {t('shell.productName')}
-          </h1>
-          <LoginForm />
-        </div>
-      </main>
+      <AuthShell>
+        <LoginForm showResetSuccess={reset === 'success'} />
+      </AuthShell>
     </StaffI18nProvider>
   );
 }

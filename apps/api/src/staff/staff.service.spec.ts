@@ -7,6 +7,7 @@ import {
 interface MembershipRow {
   id: string;
   role: string;
+  restaurantRole: { id: string; name: string };
   status: string;
   allBranches: boolean;
   user: { id: string; email: string };
@@ -54,6 +55,7 @@ function membership(params: {
   return {
     id: params.id,
     role: params.role ?? 'MANAGER',
+    restaurantRole: { id: `role-${params.role ?? 'MANAGER'}`, name: params.role ?? 'MANAGER' },
     status: params.status ?? 'ACTIVE',
     allBranches: params.allBranches,
     user: { id: params.userId, email: params.email },
@@ -275,7 +277,7 @@ describe('StaffService', () => {
       });
 
       expect(Object.keys(result[0]).sort()).toEqual(
-        ['allBranches', 'branches', 'id', 'role', 'status', 'user'].sort(),
+        ['allBranches', 'branches', 'id', 'role', 'roleId', 'roleName', 'status', 'user'].sort(),
       );
     });
   });

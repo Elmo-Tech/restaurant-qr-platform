@@ -4,7 +4,9 @@
  * controllers, and tests must reference `PERMISSIONS.*`, never a raw
  * string, so a typo can never silently create an unenforceable route.
  *
- * 28 canonical keys, exactly as documented.
+ * 28 canonical keys as documented in AUTH_TENANCY_SPEC.md §48, plus
+ * `roles.manage` (FT-12C) -- the one key needed to create, edit and delete
+ * Restaurant Roles.
  */
 export const PERMISSIONS = {
   RESTAURANT_VIEW: 'restaurant.view',
@@ -13,6 +15,7 @@ export const PERMISSIONS = {
   BRANCHES_MANAGE: 'branches.manage',
   USERS_VIEW: 'users.view',
   USERS_MANAGE: 'users.manage',
+  ROLES_MANAGE: 'roles.manage',
   TABLES_VIEW: 'tables.view',
   TABLES_MANAGE: 'tables.manage',
   MENU_VIEW: 'menu.view',

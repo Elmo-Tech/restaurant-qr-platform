@@ -75,6 +75,7 @@ export function PublicMenuView({
 }) {
   const dir = data.locale.resolved === 'ar' ? 'rtl' : 'ltr';
   const currency = data.context.restaurant.currencyCode;
+  const logoUrl = resolveAssetUrl(data.context.restaurant.logoAssetPath);
   const copy = getPublicMenuCopy(data.locale.resolved);
   const hasCategories = data.menu.categories.length > 0;
   // FT-7/FT-8: a TABLE QR orders exactly as before (DINE_IN); a GENERIC QR
@@ -469,15 +470,25 @@ export function PublicMenuView({
       <header className="sticky top-0 z-20 border-b border-[#E5DED6] bg-[#FCFBF9]/95 backdrop-blur">
         <div className={`${PAGE_CONTAINER} pt-5 pb-3`}>
           <div className="flex items-center justify-between gap-4">
-            <div className="min-w-0">
-              <h1 className="truncate text-xl font-bold text-[#1D1A18] sm:text-2xl">
-                {data.context.restaurant.name}
-              </h1>
-              {data.context.table ? (
-                <p className="mt-0.5 text-sm text-[#8A5138]">
-                  {copy.table} {data.context.table.number}
-                </p>
+            <div className="flex min-w-0 items-center gap-3">
+              {logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image.
+                <img
+                  src={logoUrl}
+                  alt=""
+                  className="h-10 w-10 flex-shrink-0 rounded-lg border border-[#E5DED6] bg-white object-cover sm:h-12 sm:w-12"
+                />
               ) : null}
+              <div className="min-w-0">
+                <h1 className="truncate text-xl font-bold text-[#1D1A18] sm:text-2xl">
+                  {data.context.restaurant.name}
+                </h1>
+                {data.context.table ? (
+                  <p className="mt-0.5 text-sm text-[#8A5138]">
+                    {copy.table} {data.context.table.number}
+                  </p>
+                ) : null}
+              </div>
             </div>
             <LanguageSwitcher
               available={data.locale.available}

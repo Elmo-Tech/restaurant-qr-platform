@@ -233,3 +233,103 @@ describe('StaffInvitationsController', () => {
     });
   });
 });
+
+describe('StaffInvitationsController.listInvitations', () => {
+  let staffInvitationsService: { listInvitations: jest.Mock };
+  let controller: StaffInvitationsController;
+  /* eslint-disable @typescript-eslint/unbound-method */
+  const handler = StaffInvitationsController.prototype.listInvitations;
+  /* eslint-enable @typescript-eslint/unbound-method */
+
+  beforeEach(() => {
+    staffInvitationsService = { listInvitations: jest.fn().mockResolvedValue([]) };
+    controller = new StaffInvitationsController(staffInvitationsService as never);
+  });
+
+  it('declares AuthGuard -> RestaurantAccessGuard -> PermissionGuard, no CsrfGuard (read-only)', () => {
+    const guards = Reflect.getMetadata(GUARDS_METADATA, handler) as unknown[];
+    expect(guards).toEqual([AuthGuard, RestaurantAccessGuard, PermissionGuard]);
+    expect(guards).not.toContain(CsrfGuard);
+  });
+
+  it('requires exactly users.view', () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSION_KEY, handler)).toBe(PERMISSIONS.USERS_VIEW);
+  });
+
+  it('scopes by the authorized restaurantId and wraps the result in a data envelope', async () => {
+    const request = buildRequest({
+      userId: 'user-1',
+      restaurantId: 'authorized-restaurant',
+      membershipId: 'membership-1',
+      allBranches: true,
+      routeParamRestaurantId: 'attacker-value',
+    });
+
+    const body = await controller.listInvitations(request);
+
+    expect(staffInvitationsService.listInvitations).toHaveBeenCalledWith({
+      restaurantId: 'authorized-restaurant',
+    });
+    expect(body).toEqual({ data: [] });
+  });
+});
+
+describe('StaffInvitationsController.revokeInvitation', () => {
+  let staffInvitationsService: { revokeInvitation: jest.Mock };
+  let controller: StaffInvitationsController;
+  /* eslint-disable @typescript-eslint/unbound-method */
+  const handler = StaffInvitationsController.prototype.revokeInvitation;
+  /* eslint-enable @typescript-eslint/unbound-method */
+
+  beforeEach(() => {
+    staffInvitationsService = { revokeInvitation: jest.fn().mockResolvedValue({ outcome: 'revoked' }) };
+    controller = new StaffInvitationsController(staffInvitationsService as never);
+  });
+
+  it('declares AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard', () => {
+    const guards = Reflect.getMetadata(GUARDS_METADATA, handler) as unknown[];
+    expect(guards).toEqual([AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard]);
+  });
+
+  it('requires exactly users.manage', () => {
+    expect(Reflect.getMetadata(REQUIRED_PERMISSION_KEY, handler)).toBe(PERMISSIONS.USERS_MANAGE);
+  });
+
+  it('passes the authorized restaurantId and the route invitationId', async () => {
+    const request = buildRequest({
+      userId: 'user-1',
+      restaurantId: 'restaurant-1',
+      membershipId: 'membership-1',
+      allBranches: true,
+    });
+
+    await controller.revokeInvitation('invitation-1', request);
+
+    expect(staffInvitationsService.revokeInvitation).toHaveBeenCalledWith({
+      restaurantId: 'restaurant-1',
+      invitationId: 'invitation-1',
+    });
+  });
+
+  it('maps notFound to a 404 STAFF_INVITATION_NOT_FOUND', async () => {
+    staffInvitationsService.revokeInvitation.mockResolvedValue({ outcome: 'notFound' });
+    const request = buildRequest({
+      userId: 'user-1',
+      restaurantId: 'restaurant-1',
+      membershipId: 'membership-1',
+      allBranches: true,
+    });
+
+    let caught: NotFoundException | undefined;
+    try {
+      await controller.revokeInvitation('invitation-1', request);
+    } catch (error) {
+      caught = error as NotFoundException;
+    }
+
+    expect(caught).toBeInstanceOf(NotFoundException);
+    expect(caught?.getResponse()).toEqual({
+      error: { code: 'STAFF_INVITATION_NOT_FOUND', message: 'Invitation not found.' },
+    });
+  });
+});

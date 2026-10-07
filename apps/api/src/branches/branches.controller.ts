@@ -162,6 +162,33 @@ export class BranchesController {
   }
 
   /**
+   * FT-12: the mirror of `activateBranch` above -- identical guard chain,
+   * identical rationale (management access, not operational access, since
+   * deactivating a currently-ACTIVE Branch is exactly the case
+   * `BranchAccessGuard` would incorrectly reject). `ACTIVE -> INACTIVE` and
+   * `INACTIVE -> INACTIVE` both succeed identically (idempotent).
+   */
+  @Post(':branchId/deactivate')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    BranchManagementAccessGuard,
+    PermissionGuard,
+  )
+  @RequirePermission(PERMISSIONS.BRANCHES_MANAGE)
+  async deactivateBranch(
+    @Req() request: BranchAuthorizedRequest,
+  ): Promise<ActivateBranchResponseBody> {
+    const data = await this.branchesService.deactivateBranch({
+      branchId: request.branchAccess.branchId,
+    });
+
+    return { data };
+  }
+
+  /**
    * Business Foundation N, settled contract: partial update of an
    * already-existing Branch's basic info (`name`, `timezone`, `phone`,
    * `address`). `status` is deliberately not part of this route at all --

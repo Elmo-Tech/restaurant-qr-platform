@@ -2,18 +2,24 @@ import { Injectable } from '@nestjs/common';
 import { isWellFormedUuid } from '../../common/is-uuid';
 import { PrismaService } from '../../database/prisma.service';
 import type { RestaurantMembershipRole } from '../../generated/prisma/client';
+import type { Permission } from '../permission/permission';
+import { effectiveRolePermissions } from '../permission/role-permissions';
 
 /**
  * Safe authorized Restaurant context for downstream authorization
- * (AUTHORIZATION FOUNDATION G). `role` is carried forward as metadata only
- * -- it is not yet interpreted into permissions (that is a later slice).
- * Never a Prisma record, never a Restaurant/Branch name (not needed for
+ * (AUTHORIZATION FOUNDATION G). `role` is the Role's immutable KIND label;
+ * `permissions` (FT-12C) is the Membership's EFFECTIVE Permission set, taken
+ * from its Restaurant Role row as of this request -- the only thing
+ * `PermissionGuard` and the Orders transition check ever consult. Never a
+ * Prisma record, never a Restaurant/Branch name (not needed for
  * authorization), never a secret.
  */
 export interface RestaurantAccessContext {
   membershipId: string;
   restaurantId: string;
   role: RestaurantMembershipRole;
+  roleId: string;
+  permissions: Permission[];
   allBranches: boolean;
 }
 
@@ -59,8 +65,9 @@ export class RestaurantAccessService {
       select: {
         id: true,
         restaurantId: true,
-        role: true,
+        roleId: true,
         allBranches: true,
+        restaurantRole: { select: { kind: true, permissions: true } },
         restaurant: { select: { status: true } },
       },
     });
@@ -80,7 +87,9 @@ export class RestaurantAccessService {
       context: {
         membershipId: membership.id,
         restaurantId: membership.restaurantId,
-        role: membership.role,
+        role: membership.restaurantRole.kind,
+        roleId: membership.roleId,
+        permissions: effectiveRolePermissions(membership.restaurantRole),
         allBranches: membership.allBranches,
       },
     };

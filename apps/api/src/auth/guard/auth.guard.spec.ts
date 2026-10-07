@@ -219,4 +219,5 @@ describe('AuthGuard', () => {
       expect(request.auth).not.toHaveProperty('passwordHash');
     });
   });
+
 });

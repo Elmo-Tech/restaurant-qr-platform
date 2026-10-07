@@ -1,8 +1,14 @@
 import { Prisma } from '../../generated/prisma/client';
+import { starterRoleData } from '../permission/starter-roles';
+import type { StarterRoleKind } from '../permission/role-permissions';
 import {
   InvitationAcceptanceService,
   type AcceptInvitationInput,
 } from './invitation-acceptance.service';
+
+function roleOf(kind: string) {
+  return { kind, permissions: starterRoleData(kind as StarterRoleKind).permissions };
+}
 
 const RAW_TOKEN = 'raw-token-value';
 const TOKEN_HASH = 'hashed-token-value';
@@ -102,9 +108,14 @@ function buildPrismaMock() {
     inviterUser: { status: 'ACTIVE' } as { status: string } | null,
     inviterMembership: {
       id: INVITER_MEMBERSHIP_ID,
-      role: 'MANAGER',
+      restaurantRole: roleOf('MANAGER'),
       allBranches: true,
-    } as { id: string; role: string; allBranches: boolean } | null,
+    } as {
+      id: string;
+      restaurantRole: { kind: string; permissions: string[] };
+      allBranches: boolean;
+    } | null,
+    grantedRole: { id: 'role-granted' } as { id: string } | null,
     inviterBranchAssignments: [] as { branchId: string }[],
     targetUser: null as {
       id: string;
@@ -131,6 +142,7 @@ function buildPrismaMock() {
     Promise.resolve(state.invitationBranchValidRows),
   );
   membershipBranchCreateMany.mockResolvedValue({ count: 0 });
+  const roleFindFirst = jest.fn(() => Promise.resolve(state.grantedRole));
 
   const userFindUnique = jest.fn((args: { where: Record<string, unknown> }) => {
     if (args.where.id !== undefined) {
@@ -164,6 +176,7 @@ function buildPrismaMock() {
       findMany: invitationBranchFindMany,
     },
     user: { findUnique: userFindUnique, create: userCreate },
+    restaurantRole: { findFirst: roleFindFirst },
     restaurantMembership: {
       findFirst: membershipFindFirst,
       create: membershipCreate,
@@ -191,6 +204,7 @@ function buildPrismaMock() {
     userCreate,
     membershipFindFirst,
     membershipCreate,
+    roleFindFirst,
     membershipBranchFindMany,
     membershipBranchCreateMany,
     txClient,
@@ -351,9 +365,53 @@ describe('InvitationAcceptanceService', () => {
         restaurantId: RESTAURANT_ID,
         userId: NEW_USER_ID,
         role: 'MANAGER',
+        roleId: 'role-granted',
         allBranches: true,
         status: 'ACTIVE',
       });
+    });
+  });
+
+  describe('Restaurant Role of the granted kind (FT-12C)', () => {
+    it('looks the Role up by the Invitation Restaurant AND its kind', async () => {
+      const mock = buildPrismaMock();
+      mock.state.invitation = defaultInvitation({ role: 'CASHIER' });
+      const service = buildService(mock);
+
+      await service.acceptInvitation(INPUT);
+
+      expect(mock.roleFindFirst).toHaveBeenCalledWith({
+        where: { restaurantId: RESTAURANT_ID, kind: 'CASHIER' },
+        select: { id: true },
+      });
+    });
+
+    it('if the Restaurant no longer has a Role of that kind, the Invitation is unusable (generic outcome) and nothing is consumed or created', async () => {
+      const mock = buildPrismaMock();
+      mock.state.grantedRole = null;
+      const service = buildService(mock);
+
+      const result = await service.acceptInvitation(INPUT);
+
+      expect(result).toEqual({ outcome: 'invitationNotFound' });
+      expect(mock.invitationUpdateMany).not.toHaveBeenCalled();
+      expect(mock.userCreate).not.toHaveBeenCalled();
+      expect(mock.membershipCreate).not.toHaveBeenCalled();
+    });
+
+    it('the inviter authority comes from the inviter Role permissions: a Role without users.manage cannot have its Invitations accepted', async () => {
+      const mock = buildPrismaMock();
+      mock.state.inviterMembership = {
+        id: INVITER_MEMBERSHIP_ID,
+        restaurantRole: { kind: 'CUSTOM', permissions: ['orders.view'] },
+        allBranches: true,
+      };
+      const service = buildService(mock);
+
+      const result = await service.acceptInvitation(INPUT);
+
+      expect(result).toEqual({ outcome: 'invitationNotFound' });
+      expect(mock.membershipCreate).not.toHaveBeenCalled();
     });
   });
 
@@ -461,7 +519,7 @@ describe('InvitationAcceptanceService', () => {
       const mock = buildPrismaMock();
       mock.state.inviterMembership = {
         id: INVITER_MEMBERSHIP_ID,
-        role: 'MANAGER',
+        restaurantRole: roleOf('MANAGER'),
         allBranches: true,
       };
       const service = buildService(mock);
@@ -480,7 +538,7 @@ describe('InvitationAcceptanceService', () => {
       mock.state.invitationBranchValidRows = [{ branchId: BRANCH_A }];
       mock.state.inviterMembership = {
         id: INVITER_MEMBERSHIP_ID,
-        role: 'MANAGER',
+        restaurantRole: roleOf('MANAGER'),
         allBranches: false,
       };
       mock.state.inviterBranchAssignments = [{ branchId: BRANCH_A }];
@@ -498,7 +556,7 @@ describe('InvitationAcceptanceService', () => {
       mock.state.invitationBranchValidRows = [{ branchId: BRANCH_A }];
       mock.state.inviterMembership = {
         id: INVITER_MEMBERSHIP_ID,
-        role: 'MANAGER',
+        restaurantRole: roleOf('MANAGER'),
         allBranches: false,
       };
       mock.state.inviterBranchAssignments = [
@@ -519,7 +577,7 @@ describe('InvitationAcceptanceService', () => {
       mock.state.invitationBranchValidRows = [{ branchId: BRANCH_A }];
       mock.state.inviterMembership = {
         id: INVITER_MEMBERSHIP_ID,
-        role: 'MANAGER',
+        restaurantRole: roleOf('MANAGER'),
         allBranches: false,
       };
       mock.state.inviterBranchAssignments = [{ branchId: BRANCH_B }];
@@ -535,7 +593,7 @@ describe('InvitationAcceptanceService', () => {
       mock.state.invitation = defaultInvitation({ allBranches: true });
       mock.state.inviterMembership = {
         id: INVITER_MEMBERSHIP_ID,
-        role: 'MANAGER',
+        restaurantRole: roleOf('MANAGER'),
         allBranches: false,
       };
       const service = buildService(mock);
@@ -569,7 +627,7 @@ describe('InvitationAcceptanceService', () => {
       const mock = buildPrismaMock();
       mock.state.inviterMembership = {
         id: INVITER_MEMBERSHIP_ID,
-        role: 'WAITER',
+        restaurantRole: roleOf('WAITER'),
         allBranches: true,
       };
       const service = buildService(mock);

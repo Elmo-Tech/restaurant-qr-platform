@@ -4,6 +4,9 @@ import { DatabaseModule } from '../database/database.module';
 import { StaffController } from './staff.controller';
 import { StaffInvitationsController } from './staff-invitations.controller';
 import { StaffInvitationsService } from './staff-invitations.service';
+import { StaffProvisioningService } from './staff-provisioning.service';
+import { StaffRolesController } from './staff-roles.controller';
+import { StaffRolesService } from './staff-roles.service';
 import { StaffService } from './staff.service';
 
 /**
@@ -17,7 +20,12 @@ import { StaffService } from './staff.service';
  */
 @Module({
   imports: [DatabaseModule, AuthModule],
-  controllers: [StaffController, StaffInvitationsController],
-  providers: [StaffService, StaffInvitationsService],
+  controllers: [StaffController, StaffInvitationsController, StaffRolesController],
+  providers: [
+    StaffService,
+    StaffInvitationsService,
+    StaffProvisioningService,
+    StaffRolesService,
+  ],
 })
 export class StaffModule {}

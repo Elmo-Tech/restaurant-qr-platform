@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { roleDisplayName } from '../../lib/staff/role-display';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../lib/auth/session';
 import { Alert } from '../../components/ui/Alert';
@@ -79,7 +80,7 @@ export default async function StaffHomePage() {
                         {membership.restaurant.name}
                       </p>
                       <p className="text-sm text-muted-foreground">
-                        {t(`role.${membership.role}` as const)} ·{' '}
+                        {roleDisplayName({ kind: membership.role, name: membership.roleName }, t)} ·{' '}
                         {membership.restaurant.status === 'ACTIVE'
                           ? t('common.active')
                           : membership.restaurant.status === 'SUSPENDED'

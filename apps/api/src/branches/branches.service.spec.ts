@@ -125,11 +125,18 @@ describe('BranchesService', () => {
       expect(prisma.restaurantMembershipBranch.findMany).not.toHaveBeenCalled();
     });
 
-    it('selects only id, name, and status, ordered by id ascending', async () => {
+    it('selects only id, name, status, timezone, phone and address, ordered by id ascending', async () => {
       await service.listBranches(ALL_BRANCHES_SCOPE);
 
       const args = prisma.branch.findMany.mock.calls[0][0];
-      expect(args.select).toEqual({ id: true, name: true, status: true });
+      expect(args.select).toEqual({
+        id: true,
+        name: true,
+        status: true,
+        timezone: true,
+        phone: true,
+        address: true,
+      });
       expect(args.orderBy).toEqual({ id: 'asc' });
     });
 
@@ -142,8 +149,8 @@ describe('BranchesService', () => {
 
     it('returns whatever Prisma resolves, unmodified', async () => {
       const rows: BranchListItem[] = [
-        { id: 'b1', name: 'Maadi', status: 'ACTIVE' },
-        { id: 'b2', name: 'Nasr City', status: 'INACTIVE' },
+        { id: 'b1', name: 'Maadi', status: 'ACTIVE', timezone: 'Africa/Cairo', phone: null, address: null },
+        { id: 'b2', name: 'Nasr City', status: 'INACTIVE', timezone: 'Africa/Cairo', phone: null, address: null },
       ];
       prisma.branch.findMany.mockResolvedValue(rows);
 
@@ -171,26 +178,35 @@ describe('BranchesService', () => {
       });
     });
 
-    it('selects only the nested branch id/name/status', async () => {
+    it('selects only the nested branch id/name/status/timezone/phone/address', async () => {
       await service.listBranches(SCOPED_MEMBERSHIP_SCOPE);
 
       const args = prisma.restaurantMembershipBranch.findMany.mock.calls[0][0];
       expect(args.select).toEqual({
-        branch: { select: { id: true, name: true, status: true } },
+        branch: {
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            timezone: true,
+            phone: true,
+            address: true,
+          },
+        },
       });
     });
 
     it('maps assignment rows to their branch objects', async () => {
       prisma.restaurantMembershipBranch.findMany.mockResolvedValue([
-        { branch: { id: 'b1', name: 'Maadi', status: 'ACTIVE' } },
-        { branch: { id: 'b2', name: 'Nasr City', status: 'INACTIVE' } },
+        { branch: { id: 'b1', name: 'Maadi', status: 'ACTIVE', timezone: 'Africa/Cairo', phone: null, address: null } },
+        { branch: { id: 'b2', name: 'Nasr City', status: 'INACTIVE', timezone: 'Africa/Cairo', phone: null, address: null } },
       ]);
 
       const result = await service.listBranches(SCOPED_MEMBERSHIP_SCOPE);
 
       expect(result).toEqual([
-        { id: 'b1', name: 'Maadi', status: 'ACTIVE' },
-        { id: 'b2', name: 'Nasr City', status: 'INACTIVE' },
+        { id: 'b1', name: 'Maadi', status: 'ACTIVE', timezone: 'Africa/Cairo', phone: null, address: null },
+        { id: 'b2', name: 'Nasr City', status: 'INACTIVE', timezone: 'Africa/Cairo', phone: null, address: null },
       ]);
     });
 
@@ -371,6 +387,58 @@ describe('BranchesService', () => {
       await service.activateBranch(ACTIVATE_INPUT);
 
       expect(prisma.restaurantMembershipBranch.findMany).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deactivateBranch', () => {
+    it('A. sets the exact target Branch status to INACTIVE', async () => {
+      await service.deactivateBranch(ACTIVATE_INPUT);
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(args.where).toEqual({ id: 'branch-1' });
+      expect(args.data).toEqual({ status: 'INACTIVE' });
+    });
+
+    it('B. selects/returns exactly id and status', async () => {
+      await service.deactivateBranch(ACTIVATE_INPUT);
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(args.select).toEqual({ id: true, status: true });
+    });
+
+    it('C. an already-INACTIVE target may be deactivated again successfully (idempotent)', async () => {
+      prisma.branch.update.mockResolvedValue({ id: 'branch-1', status: 'INACTIVE' });
+
+      await expect(service.deactivateBranch(ACTIVATE_INPUT)).resolves.toEqual({
+        id: 'branch-1',
+        status: 'INACTIVE',
+      });
+    });
+
+    it('D. never touches Table, QrCode, DeliveryZone, or RestaurantMembershipBranch -- historical references stay valid', async () => {
+      const prismaWithOthers = prisma as unknown as {
+        table?: unknown;
+        qrCode?: unknown;
+        deliveryZone?: unknown;
+      };
+
+      await service.deactivateBranch(ACTIVATE_INPUT);
+
+      expect(prismaWithOthers.table).toBeUndefined();
+      expect(prismaWithOthers.qrCode).toBeUndefined();
+      expect(prismaWithOthers.deliveryZone).toBeUndefined();
+      expect(prisma.restaurantMembershipBranch.findMany).not.toHaveBeenCalled();
+      expect(
+        (prisma.restaurantMembershipBranch as unknown as { update?: unknown }).update,
+      ).toBeUndefined();
+    });
+
+    it('E. the persisted status is always the literal INACTIVE, never taken from input', async () => {
+      await service.deactivateBranch(ACTIVATE_INPUT);
+
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(Object.keys(args.data)).toEqual(['status']);
+      expect(args.data.status).toBe('INACTIVE');
     });
   });
 

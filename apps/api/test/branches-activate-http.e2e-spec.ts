@@ -7,6 +7,7 @@ import { AppModule } from './../src/app.module';
 import { validationExceptionFactory } from './../src/common/http/validation-exception.factory';
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import { PrismaService } from './../src/database/prisma.service';
+import { ensureStarterRole } from './fixtures/ensure-starter-role';
 
 /**
  * Business Foundation M: proves Branch Activation end-to-end through the
@@ -95,6 +96,7 @@ describe('POST /api/v1/restaurants/:restaurantId/branches/:branchId/activate (e2
         where: { membership: { restaurantId } },
       });
       await prisma.restaurantMembership.deleteMany({ where: { restaurantId } });
+      await prisma.restaurantRole.deleteMany({ where: { restaurantId } });
       await prisma.branch.deleteMany({ where: { restaurantId } });
       await prisma.restaurant.delete({ where: { id: restaurantId } });
     }
@@ -170,6 +172,7 @@ describe('POST /api/v1/restaurants/:restaurantId/branches/:branchId/activate (e2
         restaurantId: params.restaurantId,
         userId: params.userId,
         role: params.role ?? 'OWNER',
+        roleId: (await ensureStarterRole(prisma, params.restaurantId, params.role ?? 'OWNER')).id,
         status: 'ACTIVE',
         allBranches: params.allBranches,
       },

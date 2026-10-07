@@ -1,16 +1,16 @@
 import { ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
+import { restaurantAccessFor } from '../context/restaurant-access.fixture';
 import { BranchAccessGuard } from './branch-access.guard';
 import type { BranchAuthorizedRequest } from './branch-authorized-request';
 
 const RESTAURANT_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
 const BRANCH_ID = 'cccccccc-cccc-cccc-cccc-cccccccccccc';
 
-const RESTAURANT_ACCESS = {
+const RESTAURANT_ACCESS = restaurantAccessFor('OWNER', {
   membershipId: 'membership-1',
   restaurantId: RESTAURANT_ID,
-  role: 'OWNER' as const,
   allBranches: true,
-};
+});
 
 function buildContext(params: Record<string, string> = {}): {
   context: ExecutionContext;

@@ -8,6 +8,7 @@ import { PasswordHasherService } from './../src/auth/password/password-hasher.se
 import type { AuthContext } from './../src/auth/context/auth-context.service';
 import { ROLE_PERMISSIONS } from './../src/auth/permission/role-permissions';
 import { PrismaService } from './../src/database/prisma.service';
+import { ensureStarterRole } from './fixtures/ensure-starter-role';
 
 interface MeResponseBody {
   data: AuthContext;
@@ -56,6 +57,7 @@ describe('GET /api/v1/auth/me (e2e)', () => {
         where: { membership: { restaurantId } },
       });
       await prisma.restaurantMembership.deleteMany({ where: { restaurantId } });
+      await prisma.restaurantRole.deleteMany({ where: { restaurantId } });
       await prisma.branch.deleteMany({ where: { restaurantId } });
       await prisma.restaurant.delete({ where: { id: restaurantId } });
     }
@@ -135,6 +137,7 @@ describe('GET /api/v1/auth/me (e2e)', () => {
         restaurantId: params.restaurantId,
         userId: params.userId,
         role: params.role ?? 'OWNER',
+        roleId: (await ensureStarterRole(prisma, params.restaurantId, params.role ?? 'OWNER')).id,
         status: params.status ?? 'ACTIVE',
         allBranches: params.allBranches,
       },
@@ -549,7 +552,7 @@ describe('GET /api/v1/auth/me (e2e)', () => {
       });
     });
 
-    it('the public response exposes only the documented safe Restaurant fields -- no publicId, logoAssetPath, createdAt, or updatedAt', async () => {
+    it('the public response exposes only the documented safe Restaurant fields -- no publicId, createdAt, or updatedAt', async () => {
       const { id: userId, email } = await createTestUser('ACTIVE');
       const restaurant = await createRestaurant('ACTIVE');
       await createMembership({
@@ -562,10 +565,9 @@ describe('GET /api/v1/auth/me (e2e)', () => {
       const data = await getMeData(cookiePair);
 
       expect(Object.keys(data.memberships[0].restaurant).sort()).toEqual(
-        ['currencyCode', 'defaultLocale', 'id', 'name', 'status'].sort(),
+        ['currencyCode', 'defaultLocale', 'id', 'logoAssetPath', 'name', 'status'].sort(),
       );
       const serialized = JSON.stringify(data);
-      expect(serialized).not.toContain('logoAssetPath');
       expect(serialized).not.toContain('publicId');
       expect(serialized).not.toContain('createdAt');
       expect(serialized).not.toContain('updatedAt');

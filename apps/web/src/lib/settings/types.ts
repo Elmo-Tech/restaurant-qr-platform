@@ -17,3 +17,9 @@ export interface RestaurantLocalesResponse {
   defaultLocale: string;
   locales: RestaurantLocaleRow[];
 }
+
+/** Mirrors the Backend's Restaurant Profile response (`PATCH /restaurants/:id`, `POST /restaurants/:id/logo`). */
+export interface RestaurantProfile {
+  name: string;
+  logoAssetPath: string | null;
+}

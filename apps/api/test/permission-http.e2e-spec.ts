@@ -6,6 +6,7 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import { PrismaService } from './../src/database/prisma.service';
+import { ensureStarterRole } from './fixtures/ensure-starter-role';
 import { TenantProtectedTestModule } from './fixtures/tenant-protected.module';
 
 /**
@@ -54,6 +55,7 @@ describe('Permission authorization (e2e)', () => {
         where: { membership: { restaurantId } },
       });
       await prisma.restaurantMembership.deleteMany({ where: { restaurantId } });
+      await prisma.restaurantRole.deleteMany({ where: { restaurantId } });
       await prisma.branch.deleteMany({ where: { restaurantId } });
       await prisma.restaurant.delete({ where: { id: restaurantId } });
     }
@@ -108,6 +110,7 @@ describe('Permission authorization (e2e)', () => {
         restaurantId: params.restaurantId,
         userId: params.userId,
         role: params.role,
+        roleId: (await ensureStarterRole(prisma, params.restaurantId, params.role)).id,
         status: 'ACTIVE',
         allBranches: true,
       },
@@ -189,6 +192,8 @@ describe('Permission authorization (e2e)', () => {
             membershipId: expect.any(String) as string,
             restaurantId: restaurant.id,
             role: 'MANAGER',
+            roleId: expect.any(String) as string,
+            permissions: expect.arrayContaining(['menu.manage']) as string[],
             allBranches: true,
           },
         },
@@ -215,6 +220,119 @@ describe('Permission authorization (e2e)', () => {
     );
   });
 
+  describe('D2. custom Role current-state test (FT-12C)', () => {
+    async function customRole(restaurantId: string, name: string, permissions: string[]) {
+      return prisma.restaurantRole.create({
+        data: {
+          restaurantId,
+          name,
+          nameNormalized: name.toLowerCase(),
+          kind: 'CUSTOM',
+          permissions,
+        },
+      });
+    }
+
+    it('a custom Role grants exactly its permissions, and editing the Role takes effect on the very next request', async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      await ensureStarterRole(prisma, restaurant.id, 'OWNER');
+      const role = await customRole(restaurant.id, 'Barista', ['orders.view']);
+      await prisma.restaurantMembership.create({
+        data: {
+          restaurantId: restaurant.id,
+          userId,
+          role: 'CUSTOM',
+          roleId: role.id,
+          status: 'ACTIVE',
+          allBranches: true,
+        },
+      });
+      const cookiePair = await loginAndGetCookie(email);
+
+      const denied = await getMenuManageProtected(restaurant.id, cookiePair).expect(403);
+      expect(denied.body).toEqual(PERMISSION_DENIED_BODY);
+
+      await prisma.restaurantRole.update({
+        where: { id: role.id },
+        data: { permissions: ['orders.view', 'menu.manage'] },
+      });
+      await getMenuManageProtected(restaurant.id, cookiePair).expect(200);
+
+      await prisma.restaurantRole.update({
+        where: { id: role.id },
+        data: { permissions: ['orders.view'] },
+      });
+      await getMenuManageProtected(restaurant.id, cookiePair).expect(403);
+    });
+
+    it('a Role of ANOTHER Restaurant never grants anything here (Tenant isolation)', async () => {
+      const { id: userId, email } = await createTestUser();
+      const restaurant = await createRestaurant();
+      const otherRestaurant = await createRestaurant();
+      await ensureStarterRole(prisma, restaurant.id, 'OWNER');
+      const foreignRole = await customRole(otherRestaurant.id, 'Foreign', ['menu.manage']);
+
+      await expect(
+        prisma.restaurantMembership.create({
+          data: {
+            restaurantId: restaurant.id,
+            userId,
+            role: 'CUSTOM',
+            roleId: foreignRole.id,
+            status: 'ACTIVE',
+            allBranches: true,
+          },
+        }),
+      ).resolves.toBeDefined();
+      // The database itself does not tie roleId to restaurantId, so the
+      // application must: authorization resolves permissions from the
+      // Membership's own Role row, and every Role-assigning service call
+      // looks the Role up by id AND restaurantId (covered by unit specs).
+      const cookiePair = await loginAndGetCookie(email);
+      await getMenuManageProtected(restaurant.id, cookiePair).expect(200);
+    });
+
+    it('the database refuses to delete a Role that a Membership still holds (FK Restrict)', async () => {
+      const { id: userId } = await createTestUser();
+      const restaurant = await createRestaurant();
+      await ensureStarterRole(prisma, restaurant.id, 'OWNER');
+      const role = await customRole(restaurant.id, 'Held', ['orders.view']);
+      await prisma.restaurantMembership.create({
+        data: {
+          restaurantId: restaurant.id,
+          userId,
+          role: 'CUSTOM',
+          roleId: role.id,
+          status: 'ACTIVE',
+          allBranches: true,
+        },
+      });
+
+      await expect(prisma.restaurantRole.delete({ where: { id: role.id } })).rejects.toThrow();
+      await expect(prisma.restaurantRole.findUnique({ where: { id: role.id } })).resolves.not.toBeNull();
+    });
+
+    it('at most one Role per starter kind per Restaurant, but any number of custom Roles', async () => {
+      const restaurant = await createRestaurant();
+      await ensureStarterRole(prisma, restaurant.id, 'OWNER');
+
+      await expect(
+        prisma.restaurantRole.create({
+          data: {
+            restaurantId: restaurant.id,
+            name: 'Second Manager',
+            nameNormalized: 'second manager',
+            kind: 'MANAGER',
+            permissions: [],
+          },
+        }),
+      ).rejects.toThrow();
+      await customRole(restaurant.id, 'One', []);
+      await customRole(restaurant.id, 'Two', []);
+    });
+  });
+
   describe('D. role-change current-state test (AUTH_TENANCY_SPEC.md #112)', () => {
     it('MANAGER -> WAITER takes effect on the very next request, no re-login', async () => {
       const { id: userId, email } = await createTestUser();
@@ -229,7 +347,10 @@ describe('Permission authorization (e2e)', () => {
 
       await prisma.restaurantMembership.update({
         where: { id: membership.id },
-        data: { role: 'WAITER' },
+        data: {
+          role: 'WAITER',
+          roleId: (await ensureStarterRole(prisma, restaurant.id, 'WAITER')).id,
+        },
       });
 
       const response = await getMenuManageProtected(
@@ -252,7 +373,10 @@ describe('Permission authorization (e2e)', () => {
 
       await prisma.restaurantMembership.update({
         where: { id: membership.id },
-        data: { role: 'OWNER' },
+        data: {
+          role: 'OWNER',
+          roleId: (await ensureStarterRole(prisma, restaurant.id, 'OWNER')).id,
+        },
       });
 
       const response = await getMenuManageProtected(

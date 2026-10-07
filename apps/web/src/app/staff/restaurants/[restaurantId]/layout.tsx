@@ -5,6 +5,8 @@ import { canViewMenu } from '../../../../lib/menu/capabilities';
 import { canViewTables } from '../../../../lib/tables/capabilities';
 import { canViewOrders } from '../../../../lib/orders/capabilities';
 import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
+import { canViewStaff } from '../../../../lib/staff/capabilities';
+import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import { Alert } from '../../../../components/ui/Alert';
 import { StaffShell } from '../../../../components/staff/StaffShell';
 import { getStaffI18n } from '../../../../lib/i18n/server';
@@ -63,10 +65,12 @@ export default async function RestaurantWorkspaceLayout({
       restaurantId={restaurantId}
       restaurantName={membership.restaurant.name}
       restaurantStatus={membership.restaurant.status}
+      restaurantLogoUrl={resolveAssetUrl(membership.restaurant.logoAssetPath)}
       userEmail={sessionState.context.user.email}
       canViewMenu={canViewMenu(membership)}
       canViewTables={canViewTables(membership)}
       canViewOrders={canViewOrders(membership)}
+      canViewStaff={canViewStaff(membership)}
       canViewRestaurantSettings={canViewRestaurantSettings(membership)}
     >
       {children}

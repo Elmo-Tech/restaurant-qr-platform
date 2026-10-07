@@ -7,6 +7,7 @@ import { AppModule } from './../src/app.module';
 import { validationExceptionFactory } from './../src/common/http/validation-exception.factory';
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import { PrismaService } from './../src/database/prisma.service';
+import { ensureStarterRole } from './fixtures/ensure-starter-role';
 import { StaffService } from './../src/staff/staff.service';
 
 /**
@@ -74,6 +75,7 @@ describe('GET /api/v1/restaurants/:restaurantId/memberships (e2e)', () => {
         where: { membership: { restaurantId } },
       });
       await prisma.restaurantMembership.deleteMany({ where: { restaurantId } });
+      await prisma.restaurantRole.deleteMany({ where: { restaurantId } });
       await prisma.branch.deleteMany({ where: { restaurantId } });
       await prisma.restaurant.delete({ where: { id: restaurantId } });
     }
@@ -152,6 +154,7 @@ describe('GET /api/v1/restaurants/:restaurantId/memberships (e2e)', () => {
         restaurantId: params.restaurantId,
         userId: params.userId,
         role: params.role ?? 'OWNER',
+        roleId: (await ensureStarterRole(prisma, params.restaurantId, params.role ?? 'OWNER')).id,
         status: params.status ?? 'ACTIVE',
         allBranches: params.allBranches,
       },
@@ -703,7 +706,7 @@ describe('GET /api/v1/restaurants/:restaurantId/memberships (e2e)', () => {
 
       const data = (response.body as StaffListResponseBody).data;
       expect(Object.keys(data[0]).sort()).toEqual(
-        ['allBranches', 'branches', 'id', 'role', 'status', 'user'].sort(),
+        ['allBranches', 'branches', 'id', 'role', 'roleId', 'roleName', 'status', 'user'].sort(),
       );
       expect(Object.keys(data[0].user).sort()).toEqual(['email', 'id']);
     });

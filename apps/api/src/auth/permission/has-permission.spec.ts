@@ -1,8 +1,14 @@
-import type { RestaurantMembershipRole } from '../../generated/prisma/client';
 import { hasPermission } from './has-permission';
 import { ALL_PERMISSIONS, PERMISSIONS, type Permission } from './permission';
+import { effectiveRolePermissions, type StarterRoleKind } from './role-permissions';
+import { starterRoleData } from './starter-roles';
 
-const ROLES: RestaurantMembershipRole[] = [
+/** The effective Permissions of a starter Role as seeded for a new Restaurant. */
+function grantsOf(kind: StarterRoleKind): Permission[] {
+  return effectiveRolePermissions(starterRoleData(kind));
+}
+
+const ROLES: StarterRoleKind[] = [
   'OWNER',
   'MANAGER',
   'CASHIER',
@@ -16,10 +22,7 @@ const ROLES: RestaurantMembershipRole[] = [
  * transcription error in the actual matrix rather than trivially
  * re-asserting it against itself.
  */
-const EXPECTED_GRANTS: Record<
-  RestaurantMembershipRole,
-  ReadonlySet<Permission>
-> = {
+const EXPECTED_GRANTS: Record<StarterRoleKind, ReadonlySet<Permission>> = {
   OWNER: new Set(ALL_PERMISSIONS), // §49: all Restaurant-level V1 Permissions
   MANAGER: new Set([
     // §50
@@ -93,8 +96,9 @@ const EXPECTED_GRANTS: Record<
 };
 
 describe('ALL_PERMISSIONS', () => {
-  it('has exactly 28 canonical V1 Permission keys', () => {
-    expect(ALL_PERMISSIONS).toHaveLength(28);
+  it('has exactly 29 canonical Permission keys (the 28 documented V1 keys plus roles.manage)', () => {
+    expect(ALL_PERMISSIONS).toHaveLength(29);
+    expect(ALL_PERMISSIONS).toContain(PERMISSIONS.ROLES_MANAGE);
   });
 
   it('has no duplicate values', () => {
@@ -106,7 +110,7 @@ describe('hasPermission -- exhaustive Role x Permission matrix', () => {
   for (const role of ROLES) {
     describe(role, () => {
       it.each(ALL_PERMISSIONS)('%s', (permission) => {
-        expect(hasPermission(role, permission)).toBe(
+        expect(hasPermission(grantsOf(role), permission)).toBe(
           EXPECTED_GRANTS[role].has(permission),
         );
       });
@@ -115,7 +119,9 @@ describe('hasPermission -- exhaustive Role x Permission matrix', () => {
 
   it('OWNER has every canonical V1 Restaurant Permission', () => {
     expect(
-      ALL_PERMISSIONS.every((permission) => hasPermission('OWNER', permission)),
+      ALL_PERMISSIONS.every((permission) =>
+        hasPermission(grantsOf('OWNER'), permission),
+      ),
     ).toBe(true);
   });
 
@@ -125,25 +131,49 @@ describe('hasPermission -- exhaustive Role x Permission matrix', () => {
         (permission) => !EXPECTED_GRANTS[role].has(permission),
       );
       for (const permission of undocumented) {
-        expect(hasPermission(role, permission)).toBe(false);
+        expect(hasPermission(grantsOf(role), permission)).toBe(false);
       }
     }
   });
 
   it('MANAGER lacks integrations.manage (present only implicitly via OWNER)', () => {
-    expect(hasPermission('MANAGER', PERMISSIONS.INTEGRATIONS_MANAGE)).toBe(
-      false,
-    );
-    expect(hasPermission('OWNER', PERMISSIONS.INTEGRATIONS_MANAGE)).toBe(true);
+    expect(hasPermission(grantsOf('MANAGER'), PERMISSIONS.INTEGRATIONS_MANAGE)).toBe(false);
+    expect(hasPermission(grantsOf('OWNER'), PERMISSIONS.INTEGRATIONS_MANAGE)).toBe(true);
   });
 
   it('KITCHEN lacks sessions.close and users.manage', () => {
-    expect(hasPermission('KITCHEN', PERMISSIONS.SESSIONS_CLOSE)).toBe(false);
-    expect(hasPermission('KITCHEN', PERMISSIONS.USERS_MANAGE)).toBe(false);
+    expect(hasPermission(grantsOf('KITCHEN'), PERMISSIONS.SESSIONS_CLOSE)).toBe(false);
+    expect(hasPermission(grantsOf('KITCHEN'), PERMISSIONS.USERS_MANAGE)).toBe(false);
   });
 
   it('WAITER lacks orders.cancel and menu.manage', () => {
-    expect(hasPermission('WAITER', PERMISSIONS.ORDERS_CANCEL)).toBe(false);
-    expect(hasPermission('WAITER', PERMISSIONS.MENU_MANAGE)).toBe(false);
+    expect(hasPermission(grantsOf('WAITER'), PERMISSIONS.ORDERS_CANCEL)).toBe(false);
+    expect(hasPermission(grantsOf('WAITER'), PERMISSIONS.MENU_MANAGE)).toBe(false);
+  });
+
+  it('only the Owner holds roles.manage by default -- no starter Role can edit Roles', () => {
+    expect(hasPermission(grantsOf('OWNER'), PERMISSIONS.ROLES_MANAGE)).toBe(true);
+    for (const role of ['MANAGER', 'CASHIER', 'KITCHEN', 'WAITER'] as const) {
+      expect(hasPermission(grantsOf(role), PERMISSIONS.ROLES_MANAGE)).toBe(false);
+    }
+  });
+});
+
+describe('effectiveRolePermissions', () => {
+  it('gives the OWNER-kind Role every Permission no matter what is stored', () => {
+    expect(effectiveRolePermissions({ kind: 'OWNER', permissions: [] })).toEqual([...ALL_PERMISSIONS]);
+  });
+
+  it('gives any other Role exactly its stored, known keys in registry order', () => {
+    expect(
+      effectiveRolePermissions({
+        kind: 'CUSTOM',
+        permissions: ['orders.view', 'menu.view', 'not.a.permission'],
+      }),
+    ).toEqual(['menu.view', 'orders.view']);
+  });
+
+  it('gives a Role with no stored permissions nothing', () => {
+    expect(effectiveRolePermissions({ kind: 'CUSTOM', permissions: [] })).toEqual([]);
   });
 });

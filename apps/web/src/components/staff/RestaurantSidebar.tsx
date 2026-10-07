@@ -12,7 +12,15 @@ import {
 } from './icons';
 import { useStaffI18n } from '../../lib/i18n/client';
 
-export type StaffSection = 'dashboard' | 'menu' | 'tables' | 'orders' | 'settings' | null;
+export type StaffSection =
+  | 'dashboard'
+  | 'menu'
+  | 'tables'
+  | 'orders'
+  | 'staff'
+  | 'settings'
+  | 'account'
+  | null;
 
 interface ActiveNavItem {
   key: string;
@@ -34,10 +42,12 @@ interface RestaurantSidebarProps {
   restaurantId: string;
   restaurantName: string;
   restaurantStatus: RestaurantStatus;
+  restaurantLogoUrl: string | null;
   currentSection: StaffSection;
   canViewMenu: boolean;
   canViewTables: boolean;
   canViewOrders: boolean;
+  canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
@@ -112,20 +122,24 @@ function SidebarContent({
   restaurantId,
   restaurantName,
   restaurantStatus,
+  restaurantLogoUrl,
   currentSection,
   canViewMenu,
   canViewTables,
   canViewOrders,
+  canViewStaff,
   canViewRestaurantSettings,
   onNavigate,
 }: {
   restaurantId: string;
   restaurantName: string;
   restaurantStatus: RestaurantStatus;
+  restaurantLogoUrl: string | null;
   currentSection: StaffSection;
   canViewMenu: boolean;
   canViewTables: boolean;
   canViewOrders: boolean;
+  canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
   onNavigate?: () => void;
 }) {
@@ -145,9 +159,19 @@ function SidebarContent({
         <p className="text-xs font-medium uppercase tracking-wide text-sidebar-muted-foreground">
           {t('shell.restaurant')}
         </p>
-        <p dir="auto" className="mt-1 truncate text-sm font-medium text-sidebar-foreground">
-          {restaurantName}
-        </p>
+        <div className="mt-1 flex items-center gap-2.5">
+          {restaurantLogoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image.
+            <img
+              src={restaurantLogoUrl}
+              alt=""
+              className="h-8 w-8 flex-shrink-0 rounded-md bg-card object-cover"
+            />
+          ) : null}
+          <p dir="auto" className="min-w-0 truncate text-sm font-medium text-sidebar-foreground">
+            {restaurantName}
+          </p>
+        </div>
         {restaurantStatus !== 'ACTIVE' ? (
           <span className="mt-1.5 inline-block rounded-full bg-destructive-soft px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-destructive">
             {restaurantStatus === 'SUSPENDED' ? t('common.suspended') : t('common.inactive')}
@@ -230,20 +254,27 @@ function SidebarContent({
               }}
             />
           )}
-        </ul>
-
-        <p className="mb-1 mt-5 px-3 text-xs font-medium uppercase tracking-wide text-sidebar-muted-foreground">
-          {t('nav.comingSoonSection')}
-        </p>
-        <ul className="flex flex-col gap-0.5">
-          <DisabledRow
-            item={{
-              key: 'staff',
-              label: t('nav.staff'),
-              icon: <IconStaff className={ICON_CLASS} />,
-              badge: t('common.soon'),
-            }}
-          />
+          {canViewStaff ? (
+            <ActiveLink
+              item={{
+                key: 'staff',
+                label: t('nav.staff'),
+                href: `/staff/restaurants/${restaurantId}/staff`,
+                icon: <IconStaff className={ICON_CLASS} />,
+              }}
+              isActive={currentSection === 'staff'}
+              onNavigate={onNavigate}
+            />
+          ) : (
+            <DisabledRow
+              item={{
+                key: 'staff',
+                label: t('nav.staff'),
+                icon: <IconStaff className={ICON_CLASS} />,
+                badge: t('common.noAccess'),
+              }}
+            />
+          )}
         </ul>
 
         <div className="mt-5 border-t border-sidebar-border pt-3">
@@ -253,7 +284,7 @@ function SidebarContent({
                 item={{
                   key: 'settings',
                   label: t('nav.settings'),
-                  href: `/staff/restaurants/${restaurantId}/settings/languages`,
+                  href: `/staff/restaurants/${restaurantId}/settings/profile`,
                   icon: <IconSettings className={ICON_CLASS} />,
                 }}
                 isActive={currentSection === 'settings'}
@@ -281,11 +312,12 @@ function SidebarContent({
  * Restaurant Settings converted from a disabled placeholder to a real link
  * now that the Languages route exists; FT-4: Tables & QR converted the same
  * way; FT-5: Orders converted the same way now that
- * `/staff/restaurants/[restaurantId]/orders` exists). Dashboard, Menu
- * Management, Tables & QR, Orders, and Restaurant Settings link somewhere
- * real -- only Staff & Access remains a visibly disabled placeholder, never
- * a link to a route that does not exist (Section 2). `canViewMenu`/
- * `canViewTables`/`canViewOrders`/`canViewRestaurantSettings` are UX-only
+ * `/staff/restaurants/[restaurantId]/orders` exists; FT-12: Staff & Access
+ * converted the same way). Every item links somewhere real, or is a visibly
+ * disabled "No access" row -- never a link to a route that does not exist
+ * (Section 2). Account is deliberately NOT a Restaurant nav item: it is
+ * reached from the top bar's user area. `canViewMenu`/
+ * `canViewTables`/`canViewOrders`/`canViewStaff`/`canViewRestaurantSettings` are UX-only
  * navigation visibility, derived from the same Backend-authorized
  * `permissions` each page itself already checks (`lib/menu/capabilities.ts`,
  * `lib/tables/capabilities.ts`, `lib/orders/capabilities.ts`,
@@ -298,10 +330,12 @@ export function RestaurantSidebar({
   restaurantId,
   restaurantName,
   restaurantStatus,
+  restaurantLogoUrl,
   currentSection,
   canViewMenu,
   canViewTables,
   canViewOrders,
+  canViewStaff,
   canViewRestaurantSettings,
   isMobileOpen,
   onCloseMobile,
@@ -314,10 +348,12 @@ export function RestaurantSidebar({
           restaurantId={restaurantId}
           restaurantName={restaurantName}
           restaurantStatus={restaurantStatus}
+          restaurantLogoUrl={restaurantLogoUrl}
           currentSection={currentSection}
           canViewMenu={canViewMenu}
           canViewTables={canViewTables}
           canViewOrders={canViewOrders}
+          canViewStaff={canViewStaff}
           canViewRestaurantSettings={canViewRestaurantSettings}
         />
       </aside>
@@ -344,10 +380,12 @@ export function RestaurantSidebar({
               restaurantId={restaurantId}
               restaurantName={restaurantName}
               restaurantStatus={restaurantStatus}
+              restaurantLogoUrl={restaurantLogoUrl}
               currentSection={currentSection}
               canViewMenu={canViewMenu}
               canViewTables={canViewTables}
               canViewOrders={canViewOrders}
+              canViewStaff={canViewStaff}
               canViewRestaurantSettings={canViewRestaurantSettings}
               onNavigate={onCloseMobile}
             />

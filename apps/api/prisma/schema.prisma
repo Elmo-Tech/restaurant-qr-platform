@@ -35,12 +35,18 @@ enum UserState {
   @@map("user_state")
 }
 
+// FT-12C: the immutable KIND of a Restaurant Role (`RestaurantRole.kind`),
+// copied onto each Membership at assignment. OWNER marks the protected system
+// Role; MANAGER/CASHIER/KITCHEN/WAITER mark the starter Roles seeded for every
+// Restaurant; CUSTOM marks a Restaurant-defined Role. It is a label only --
+// the Permissions a Membership holds always come from its `restaurantRole`.
 enum RestaurantMembershipRole {
   OWNER
   MANAGER
   CASHIER
   KITCHEN
   WAITER
+  CUSTOM
 
   @@map("restaurant_membership_role")
 }
@@ -163,6 +169,7 @@ model Restaurant {
   locales               RestaurantLocale[]
   branches              Branch[]
   memberships           RestaurantMembership[]
+  roles                 RestaurantRole[]
   invitations           RestaurantInvitation[]
   tables                Table[]
   qrCodes               QrCode[]
@@ -988,7 +995,11 @@ model RestaurantMembership {
   id           String                     @id @default(uuid()) @db.Uuid
   restaurantId String                     @map("restaurant_id") @db.Uuid
   userId       String                     @map("user_id") @db.Uuid
+  // Kind label of `restaurantRole` (see the enum). Never an authority.
   role         RestaurantMembershipRole
+  // FT-12C: the Restaurant Role this Membership holds -- the sole source of its
+  // Permissions. Restrict: a Role referenced by any Membership cannot be deleted.
+  roleId       String                     @map("role_id") @db.Uuid
   status       RestaurantMembershipStatus
   // true = Restaurant-wide Branch access; false = access is restricted to
   // the Branches listed in RestaurantMembershipBranch
@@ -998,14 +1009,41 @@ model RestaurantMembership {
   createdAt    DateTime                   @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime                   @updatedAt @map("updated_at") @db.Timestamptz
 
-  restaurant   Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
-  user         User                         @relation(fields: [userId], references: [id], onDelete: Restrict)
-  branchAccess RestaurantMembershipBranch[]
+  restaurant     Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  user           User                         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  restaurantRole RestaurantRole               @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  branchAccess   RestaurantMembershipBranch[]
 
   @@unique([restaurantId, userId])
   @@index([restaurantId])
   @@index([userId])
+  @@index([roleId])
   @@map("restaurant_memberships")
+}
+
+// FT-12C: a Restaurant-scoped Role -- WHAT a Membership may do (Branch scope
+// is separate, on the Membership). Permissions are canonical keys from the
+// code registry (`PERMISSIONS`); the OWNER-kind Role is protected and always
+// evaluated as holding every Permission regardless of what is stored.
+// A partial unique index (custom SQL, see the FT-12C migration) allows at most
+// one Role per starter kind per Restaurant.
+model RestaurantRole {
+  id             String                   @id @default(uuid()) @db.Uuid
+  restaurantId   String                   @map("restaurant_id") @db.Uuid
+  name           String
+  // Lower-cased trimmed name: names are unique per Restaurant, case-insensitively.
+  nameNormalized String                   @map("name_normalized")
+  kind           RestaurantMembershipRole
+  permissions    String[]
+  createdAt      DateTime                 @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime                 @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant  Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  memberships RestaurantMembership[]
+
+  @@unique([restaurantId, nameNormalized])
+  @@index([restaurantId])
+  @@map("restaurant_roles")
 }
 
 model RestaurantMembershipBranch {

@@ -4,7 +4,7 @@ import { PrismaService } from '../database/prisma.service';
 import { BranchAccessService } from '../auth/context/branch-access.service';
 import type { RestaurantAccessContext } from '../auth/context/restaurant-access.service';
 import { hasPermission } from '../auth/permission/has-permission';
-import type { OrderStatus, OrderType, RestaurantMembershipRole } from '../generated/prisma/client';
+import type { OrderStatus, OrderType } from '../generated/prisma/client';
 import { findOrderTransitionRule } from './order-transitions';
 import { resolveOrderBranchIdFilter } from './order-branch-scope';
 
@@ -81,13 +81,8 @@ export interface OrderDetail {
   statusHistory: { previousStatus: OrderStatus | null; newStatus: OrderStatus; transitionedAt: Date }[];
 }
 
-/** Exactly the fields already produced by `RestaurantAccessGuard` on `request.restaurantAccess` -- never the full Express request. `role` is only actually USED for the specific-transition Permission check in `updateOrderStatus`, but is carried on every scope so the shared `isBranchInScope` helper can build a real `RestaurantAccessContext` without fabricating one. */
-export interface AuthorizedOrderScope {
-  restaurantId: string;
-  membershipId: string;
-  allBranches: boolean;
-  role: RestaurantMembershipRole;
-}
+/** Exactly the fields already produced by `RestaurantAccessGuard` on `request.restaurantAccess` -- never the full Express request. `permissions` is only actually USED for the specific-transition Permission check in `updateOrderStatus`, but the whole context is carried on every scope so the shared `isBranchInScope` helper can pass a real `RestaurantAccessContext` without fabricating one. */
+export type AuthorizedOrderScope = RestaurantAccessContext;
 
 export interface ListOrdersFilters {
   branchId?: string;
@@ -362,7 +357,7 @@ export class OrdersService {
       return { outcome: 'invalidTransition' };
     }
 
-    if (!hasPermission(input.scope.role, rule.permission)) {
+    if (!hasPermission(input.scope.permissions, rule.permission)) {
       return { outcome: 'permissionDenied' };
     }
 
@@ -433,14 +428,8 @@ export class OrdersService {
     scope: AuthorizedOrderScope,
     branchId: string,
   ): Promise<boolean> {
-    const restaurantAccess: RestaurantAccessContext = {
-      membershipId: scope.membershipId,
-      restaurantId: scope.restaurantId,
-      role: scope.role,
-      allBranches: scope.allBranches,
-    };
     const result = await this.branchAccessService.resolveBranchManagementAccess(
-      restaurantAccess,
+      scope,
       branchId,
     );
     return result.outcome === 'authorized';

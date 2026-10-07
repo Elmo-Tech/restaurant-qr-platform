@@ -17,7 +17,19 @@ export interface BranchListItem {
   id: string;
   name: string;
   status: BranchStatus;
+  timezone: string;
+  phone: string | null;
+  address: string | null;
 }
+
+const BRANCH_LIST_SELECT = {
+  id: true,
+  name: true,
+  status: true,
+  timezone: true,
+  phone: true,
+  address: true,
+} as const;
 
 /**
  * The minimum safe authorized scope this query needs -- exactly the fields
@@ -120,7 +132,7 @@ export class BranchesService {
       return this.prisma.branch.findMany({
         where: { restaurantId: scope.restaurantId },
         orderBy: { id: 'asc' },
-        select: { id: true, name: true, status: true },
+        select: BRANCH_LIST_SELECT,
       });
     }
 
@@ -137,7 +149,7 @@ export class BranchesService {
       },
       orderBy: { branch: { id: 'asc' } },
       select: {
-        branch: { select: { id: true, name: true, status: true } },
+        branch: { select: BRANCH_LIST_SELECT },
       },
     });
 
@@ -195,6 +207,27 @@ export class BranchesService {
     return this.prisma.branch.update({
       where: { id: input.branchId },
       data: { status: 'ACTIVE' },
+      select: { id: true, status: true },
+    });
+  }
+
+  /**
+   * FT-12: deactivates an already-existing, already-authorized Branch --
+   * the exact mirror of `activateBranch` above, `ACTIVE -> INACTIVE`. Does
+   * not touch, and does not need to touch, historical Orders/Tables/
+   * Delivery zones/Staff Branch access: those all reference `Branch.id`
+   * directly (never derive validity from `Branch.status`), and existing
+   * runtime rules already treat an INACTIVE Branch as non-operational for
+   * NEW activity while leaving every historical row and every
+   * `RestaurantMembershipBranch` grant completely untouched (DATABASE_SPEC.md
+   * #137: entities referenced by history become INACTIVE, never deleted).
+   * `ACTIVE -> INACTIVE` and `INACTIVE -> INACTIVE` both succeed identically
+   * -- idempotent, same rationale as Activate.
+   */
+  async deactivateBranch(input: ActivateBranchInput): Promise<ActivatedBranch> {
+    return this.prisma.branch.update({
+      where: { id: input.branchId },
+      data: { status: 'INACTIVE' },
       select: { id: true, status: true },
     });
   }

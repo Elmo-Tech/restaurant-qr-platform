@@ -8,6 +8,7 @@ import type { BranchAccessContext } from './../src/auth/context/branch-access.se
 import type { RestaurantAccessContext } from './../src/auth/context/restaurant-access.service';
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import { PrismaService } from './../src/database/prisma.service';
+import { ensureStarterRole } from './fixtures/ensure-starter-role';
 import { TenantProtectedTestModule } from './fixtures/tenant-protected.module';
 
 interface BranchProtectedResponseBody {
@@ -82,6 +83,7 @@ describe('Restaurant/Branch authorization (e2e)', () => {
         where: { membership: { restaurantId } },
       });
       await prisma.restaurantMembership.deleteMany({ where: { restaurantId } });
+      await prisma.restaurantRole.deleteMany({ where: { restaurantId } });
       await prisma.branch.deleteMany({ where: { restaurantId } });
       await prisma.restaurant.delete({ where: { id: restaurantId } });
     }
@@ -155,6 +157,7 @@ describe('Restaurant/Branch authorization (e2e)', () => {
         restaurantId: params.restaurantId,
         userId: params.userId,
         role: params.role ?? 'OWNER',
+        roleId: (await ensureStarterRole(prisma, params.restaurantId, params.role ?? 'OWNER')).id,
         status: params.status ?? 'ACTIVE',
         allBranches: params.allBranches,
       },
@@ -229,6 +232,8 @@ describe('Restaurant/Branch authorization (e2e)', () => {
             membershipId: membership.id,
             restaurantId: restaurant.id,
             role: 'MANAGER',
+            roleId: membership.roleId,
+            permissions: expect.arrayContaining(['menu.manage']),
             allBranches: true,
           },
         },

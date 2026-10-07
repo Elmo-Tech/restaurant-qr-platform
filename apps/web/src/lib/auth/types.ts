@@ -10,7 +10,9 @@ export type RestaurantMembershipRole =
   | 'MANAGER'
   | 'CASHIER'
   | 'KITCHEN'
-  | 'WAITER';
+  | 'WAITER'
+  /** A Restaurant-defined Role (its name and permissions live on the Role itself). */
+  | 'CUSTOM';
 
 export type RestaurantStatus = 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 
@@ -28,6 +30,8 @@ export interface AuthContextRestaurant {
   status: RestaurantStatus;
   currencyCode: string;
   defaultLocale: string;
+  /** Backend-relative asset path (resolve with `resolveAssetUrl`), or `null` when no logo is set. */
+  logoAssetPath: string | null;
 }
 
 export interface AuthContextBranch {
@@ -48,7 +52,11 @@ export interface AuthContextBranch {
  */
 export interface AuthContextMembership {
   id: string;
+  /** The Role's immutable kind label. */
   role: RestaurantMembershipRole;
+  roleId: string;
+  /** The Restaurant Role's display name. */
+  roleName: string;
   allBranches: boolean;
   permissions: string[];
   restaurant: AuthContextRestaurant;

@@ -179,4 +179,30 @@ export class AuthSessionService {
       data: { revokedAt: new Date(), revokeReason: reason ?? null },
     });
   }
+
+  /**
+   * FT-12 (AUTH_TENANCY_SPEC.md #30: "Changing password should revoke other
+   * active Auth Sessions"): revokes every currently-active session belonging
+   * to `userId`. `exceptSessionId` keeps one session alive -- used by
+   * Change Password, where the caller's own current session should survive
+   * so they are not immediately signed out by their own action. Password
+   * Reset (an anonymous flow with no current session) omits it, revoking
+   * all sessions unconditionally. Safe/idempotent like `revokeSession`: a
+   * User with no active sessions simply matches zero rows.
+   */
+  async revokeAllSessionsForUser(
+    userId: string,
+    options?: { exceptSessionId?: string; reason?: string },
+  ): Promise<void> {
+    await this.prisma.authSession.updateMany({
+      where: {
+        userId,
+        revokedAt: null,
+        ...(options?.exceptSessionId
+          ? { id: { not: options.exceptSessionId } }
+          : {}),
+      },
+      data: { revokedAt: new Date(), revokeReason: options?.reason ?? null },
+    });
+  }
 }

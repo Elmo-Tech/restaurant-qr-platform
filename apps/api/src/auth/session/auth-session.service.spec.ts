@@ -413,4 +413,51 @@ describe('AuthSessionService', () => {
       expect(hashSpy).not.toHaveBeenCalled();
     });
   });
+
+  describe('revokeAllSessionsForUser', () => {
+    it('revokes every active session scoped by userId when no exception is given', async () => {
+      await service.revokeAllSessionsForUser('user-id');
+
+      const updateArgs = prisma.authSession.updateMany.mock.calls[0][0];
+
+      expect(updateArgs.where).toEqual({ userId: 'user-id', revokedAt: null });
+      expect(updateArgs.data.revokedAt).toBeInstanceOf(Date);
+      expect(updateArgs.data.revokeReason).toBeNull();
+    });
+
+    it('excludes exceptSessionId from the revoked set (Change Password keeps the current session alive)', async () => {
+      await service.revokeAllSessionsForUser('user-id', {
+        exceptSessionId: 'current-session-id',
+      });
+
+      const updateArgs = prisma.authSession.updateMany.mock.calls[0][0];
+
+      expect(updateArgs.where).toEqual({
+        userId: 'user-id',
+        revokedAt: null,
+        id: { not: 'current-session-id' },
+      });
+    });
+
+    it('passes the given reason through', async () => {
+      await service.revokeAllSessionsForUser('user-id', { reason: 'password-reset' });
+
+      const updateArgs = prisma.authSession.updateMany.mock.calls[0][0];
+
+      expect(updateArgs.data.revokeReason).toBe('password-reset');
+    });
+
+    it('is safe to call repeatedly (second call matches zero rows)', async () => {
+      prisma.authSession.updateMany
+        .mockResolvedValueOnce({ count: 2 })
+        .mockResolvedValueOnce({ count: 0 });
+
+      await expect(
+        service.revokeAllSessionsForUser('user-id'),
+      ).resolves.toBeUndefined();
+      await expect(
+        service.revokeAllSessionsForUser('user-id'),
+      ).resolves.toBeUndefined();
+    });
+  });
 });

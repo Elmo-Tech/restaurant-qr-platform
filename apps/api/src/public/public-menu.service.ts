@@ -19,7 +19,7 @@ export interface GetPublicMenuInput {
 
 export interface PublicMenuContext {
   qrType: QrType;
-  restaurant: { name: string; currencyCode: string };
+  restaurant: { name: string; currencyCode: string; logoAssetPath: string | null };
   branch: { name: string } | null;
   table: { number: string } | null;
   /**
@@ -147,6 +147,7 @@ export class PublicMenuService {
             status: true,
             defaultLocale: true,
             currencyCode: true,
+            logoAssetPath: true,
           },
         },
         branch: { select: { name: true } },
@@ -405,6 +406,7 @@ export class PublicMenuService {
           restaurant: {
             name: qr.restaurant.name,
             currencyCode: qr.restaurant.currencyCode,
+            logoAssetPath: qr.restaurant.logoAssetPath,
           },
           branch: qr.branch ? { name: qr.branch.name } : null,
           table: qr.table ? { number: qr.table.tableNumber } : null,

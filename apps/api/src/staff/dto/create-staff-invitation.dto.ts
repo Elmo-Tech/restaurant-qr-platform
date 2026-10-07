@@ -13,7 +13,7 @@ import {
 import { normalizeLoginEmail } from '../../auth/login/login.service';
 
 /** Normalizes a string email (trim + lowercase, reusing Login's exact behavior); leaves a non-string value untouched for `@IsEmail()` to reject. */
-function normalizeEmailValue(value: unknown): unknown {
+export function normalizeEmailValue(value: unknown): unknown {
   return typeof value === 'string' ? normalizeLoginEmail(value) : value;
 }
 
@@ -25,7 +25,7 @@ function normalizeEmailValue(value: unknown): unknown {
  * reports the normal `VALIDATION_ERROR` for it instead of this identifier
  * crashing before validation completes.
  */
-function branchIdUniquenessKey(branchId: unknown): unknown {
+export function branchIdUniquenessKey(branchId: unknown): unknown {
   return typeof branchId === 'string' ? branchId.toLowerCase() : branchId;
 }
 
@@ -51,7 +51,7 @@ export type InvitableRole = (typeof INVITABLE_ROLES)[number];
  * validation in this repository) rather than in the service, so a malformed
  * request never reaches business logic at all.
  */
-function IsValidBranchScope(validationOptions?: ValidationOptions) {
+export function IsValidBranchScope(validationOptions?: ValidationOptions) {
   return function (target: object, propertyName: string) {
     registerDecorator({
       name: 'isValidBranchScope',

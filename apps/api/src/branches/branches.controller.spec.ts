@@ -58,6 +58,7 @@ describe('BranchesController', () => {
     listBranches: jest.Mock;
     createBranch: jest.Mock;
     activateBranch: jest.Mock;
+    deactivateBranch: jest.Mock;
     updateBranch: jest.Mock;
   };
   let controller: BranchesController;
@@ -76,6 +77,9 @@ describe('BranchesController', () => {
       activateBranch: jest
         .fn()
         .mockResolvedValue({ id: 'branch-1', status: 'ACTIVE' }),
+      deactivateBranch: jest
+        .fn()
+        .mockResolvedValue({ id: 'branch-1', status: 'INACTIVE' }),
       updateBranch: jest.fn().mockResolvedValue({
         id: 'branch-1',
         name: 'Maadi',
@@ -328,6 +332,66 @@ describe('BranchesController', () => {
       );
 
       expect(body).toEqual({ data: { id: 'branch-1', status: 'ACTIVE' } });
+    });
+  });
+
+  describe('deactivateBranch', () => {
+    /* eslint-disable @typescript-eslint/unbound-method */
+    const deactivateBranchHandler = BranchesController.prototype.deactivateBranch;
+    /* eslint-enable @typescript-eslint/unbound-method */
+
+    it('A. declares exactly the settled guard order', () => {
+      const guards = Reflect.getMetadata(
+        GUARDS_METADATA,
+        deactivateBranchHandler,
+      ) as unknown[];
+
+      expect(guards).toEqual([
+        AuthGuard,
+        CsrfGuard,
+        RestaurantAccessGuard,
+        BranchManagementAccessGuard,
+        PermissionGuard,
+      ]);
+    });
+
+    it('B. requires exactly branches.manage', () => {
+      const permission = Reflect.getMetadata(
+        REQUIRED_PERMISSION_KEY,
+        deactivateBranchHandler,
+      ) as string;
+
+      expect(permission).toBe(PERMISSIONS.BRANCHES_MANAGE);
+    });
+
+    it('C. passes branchId from request.branchAccess, not the raw route param', async () => {
+      const request = buildActivateRequest({
+        restaurantId: 'restaurant-1',
+        branchId: 'authorized-branch',
+        routeParamBranchId: 'attacker-branch',
+      });
+
+      await controller.deactivateBranch(request);
+
+      expect(branchesService.deactivateBranch).toHaveBeenCalledWith({
+        branchId: 'authorized-branch',
+      });
+    });
+
+    it('D. wraps the result in the exact data envelope', async () => {
+      branchesService.deactivateBranch.mockResolvedValue({
+        id: 'branch-1',
+        status: 'INACTIVE',
+      });
+
+      const body = await controller.deactivateBranch(
+        buildActivateRequest({
+          restaurantId: 'restaurant-1',
+          branchId: 'branch-1',
+        }),
+      );
+
+      expect(body).toEqual({ data: { id: 'branch-1', status: 'INACTIVE' } });
     });
   });
 

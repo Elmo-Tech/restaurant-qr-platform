@@ -18,6 +18,8 @@ export interface DialogProps {
   subtitle?: string;
   isSubmitting: boolean;
   submitLabel: string;
+  /** `danger` for a destructive confirmation (e.g. deactivate / revoke). */
+  submitVariant?: 'primary' | 'danger';
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   /** Fires for the close (X) button, backdrop click, and Escape -- never while `isSubmitting`. */
   onClose: () => void;
@@ -62,6 +64,7 @@ export function Dialog({
   subtitle,
   isSubmitting,
   submitLabel,
+  submitVariant = 'primary',
   onSubmit,
   onClose,
   initialFocusRef,
@@ -178,7 +181,7 @@ export function Dialog({
               <Button type="button" variant="secondary" onClick={requestClose} disabled={isSubmitting}>
                 {t('common.cancel')}
               </Button>
-              <Button type="submit" disabled={isSubmitting}>
+              <Button type="submit" variant={submitVariant} disabled={isSubmitting}>
                 {submitLabel}
               </Button>
             </div>

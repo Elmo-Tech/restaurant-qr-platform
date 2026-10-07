@@ -1,4 +1,5 @@
 import { PERMISSIONS } from '../auth/permission/permission';
+import { starterRoleData } from '../auth/permission/starter-roles';
 import { hasPermission } from '../auth/permission/has-permission';
 import { findOrderTransitionRule } from './order-transitions';
 import type { OrderStatus } from '../generated/prisma/client';
@@ -66,7 +67,7 @@ describe('findOrderTransitionRule', () => {
     for (const [from, to] of transitions) {
       const rule = findOrderTransitionRule(from, to, 'DINE_IN');
       expect(rule).not.toBeNull();
-      expect(roles.some((role) => hasPermission(role, rule!.permission))).toBe(true);
+      expect(roles.some((role) => hasPermission(starterRoleData(role).permissions, rule!.permission))).toBe(true);
     }
   });
 });

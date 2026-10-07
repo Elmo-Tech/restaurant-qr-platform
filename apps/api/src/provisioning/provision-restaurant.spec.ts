@@ -25,6 +25,12 @@ function build(options: { existingUser?: { id: string } | null; owned?: unknown 
         return Promise.resolve({ id: 'user-1' });
       }),
     },
+    restaurantRole: {
+      create: jest.fn().mockImplementation((args: { data: { kind: string } }) => {
+        calls.push('role');
+        return Promise.resolve({ id: `role-${args.data.kind.toLowerCase()}` });
+      }),
+    },
     restaurantMembership: {
       findFirst: jest.fn().mockResolvedValue(options.owned ?? null),
       create: jest.fn().mockImplementation(() => {
@@ -114,7 +120,19 @@ describe('provisionRestaurant', () => {
       genericQrPublicCode: 'GENERIC-CODE',
     });
     expect(m.prisma.$transaction).toHaveBeenCalledTimes(1);
-    expect(m.calls).toEqual(['restaurant', 'locales', 'user', 'membership', 'branch', 'qr']);
+    expect(m.calls).toEqual([
+      'restaurant',
+      'locales',
+      'user',
+      'role',
+      'role',
+      'role',
+      'role',
+      'role',
+      'membership',
+      'branch',
+      'qr',
+    ]);
     expect(m.tx.restaurant.create.mock.calls[0][0].data).toMatchObject({
       name: 'Elmo Bistro',
       status: 'ACTIVE',
@@ -129,6 +147,7 @@ describe('provisionRestaurant', () => {
       restaurantId: 'restaurant-1',
       userId: 'user-1',
       role: 'OWNER',
+      roleId: 'role-owner',
       status: 'ACTIVE',
       allBranches: true,
     });
@@ -144,6 +163,26 @@ describe('provisionRestaurant', () => {
       type: 'GENERIC',
       status: 'ACTIVE',
     });
+  });
+
+  it('seeds the five starter Roles for the new Restaurant (Owner first), and the Owner holds the Owner Role', async () => {
+    const m = build();
+
+    await provisionRestaurant(m.prisma as never, m.hasher, INPUT);
+
+    const created = m.tx.restaurantRole.create.mock.calls.map(
+      (call: [{ data: { restaurantId: string; kind: string; name: string; permissions: string[] } }]) => call[0].data,
+    );
+    expect(created.map((role: { kind: string }) => role.kind)).toEqual([
+      'OWNER',
+      'MANAGER',
+      'CASHIER',
+      'KITCHEN',
+      'WAITER',
+    ]);
+    expect(created.every((role: { restaurantId: string }) => role.restaurantId === 'restaurant-1')).toBe(true);
+    expect(created[0]).toMatchObject({ name: 'Owner', permissions: expect.arrayContaining(['roles.manage', 'users.manage']) });
+    expect(created[1].permissions).not.toContain('roles.manage');
   });
 
   it('stores only the Argon2 hash of the password, never the plaintext', async () => {
@@ -163,7 +202,15 @@ describe('provisionRestaurant', () => {
     await provisionRestaurant(m.prisma as never, m.hasher, INPUT);
 
     expect(Object.keys(m.tx).sort()).toEqual(
-      ['branch', 'qrCode', 'restaurant', 'restaurantLocale', 'restaurantMembership', 'user'].sort(),
+      [
+        'branch',
+        'qrCode',
+        'restaurant',
+        'restaurantLocale',
+        'restaurantMembership',
+        'restaurantRole',
+        'user',
+      ].sort(),
     );
   });
 

@@ -104,6 +104,8 @@ export class OrdersController {
         membershipId: request.restaurantAccess.membershipId,
         allBranches: request.restaurantAccess.allBranches,
         role: request.restaurantAccess.role,
+        roleId: request.restaurantAccess.roleId,
+        permissions: request.restaurantAccess.permissions,
       },
       { branchId: query.branchId, status: query.status },
     );
@@ -124,6 +126,8 @@ export class OrdersController {
         membershipId: request.restaurantAccess.membershipId,
         allBranches: request.restaurantAccess.allBranches,
         role: request.restaurantAccess.role,
+        roleId: request.restaurantAccess.roleId,
+        permissions: request.restaurantAccess.permissions,
       },
       orderId,
     );
@@ -150,6 +154,8 @@ export class OrdersController {
         membershipId: request.restaurantAccess.membershipId,
         allBranches: request.restaurantAccess.allBranches,
         role: request.restaurantAccess.role,
+        roleId: request.restaurantAccess.roleId,
+        permissions: request.restaurantAccess.permissions,
       },
       orderId,
       expectedStatus: dto.expectedStatus,

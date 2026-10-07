@@ -4,6 +4,7 @@ import { getStaffI18n } from '../../../../../lib/i18n/server';
 import { canViewOrders } from '../../../../../lib/orders/capabilities';
 import { Alert } from '../../../../../components/ui/Alert';
 import { OrdersWorkspace } from './OrdersWorkspace';
+import { resolveAssetUrl } from '../../../../../lib/media/asset-url';
 
 interface OrdersPageProps {
   params: Promise<{ restaurantId: string }>;
@@ -62,6 +63,7 @@ export default async function OrdersPage({ params }: OrdersPageProps) {
       restaurantId={restaurantId}
       branches={membership.branches}
       permissions={membership.permissions}
+      restaurantLogoUrl={resolveAssetUrl(membership.restaurant.logoAssetPath)}
     />
   );
 }

@@ -1,4 +1,5 @@
 import { Prisma } from '../generated/prisma/client';
+import { restaurantAccessFor } from '../auth/context/restaurant-access.fixture';
 import { OrdersService } from './orders.service';
 
 const RESTAURANT_ID = 'restaurant-1';
@@ -54,12 +55,11 @@ function build(row: Record<string, unknown> = DELIVERY_ROW) {
   };
 }
 
-const SCOPE = {
+const SCOPE = restaurantAccessFor('OWNER', {
   restaurantId: RESTAURANT_ID,
   membershipId: 'membership-1',
   allBranches: true,
-  role: 'OWNER' as const,
-};
+});
 
 describe('OrdersService -- DELIVERY Orders (FT-8)', () => {
   it('detail exposes delivery snapshots, customer, and the exact money breakdown', async () => {

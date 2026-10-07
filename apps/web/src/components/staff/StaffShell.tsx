@@ -12,10 +12,12 @@ interface StaffShellProps {
   restaurantId: string;
   restaurantName: string;
   restaurantStatus: RestaurantStatus;
+  restaurantLogoUrl: string | null;
   userEmail: string;
   canViewMenu: boolean;
   canViewTables: boolean;
   canViewOrders: boolean;
+  canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
   children: ReactNode;
 }
@@ -25,6 +27,8 @@ function resolveSection(pathname: string, restaurantId: string): StaffSection {
   const menuPath = `${dashboardPath}/menu`;
   const tablesPath = `${dashboardPath}/tables`;
   const ordersPath = `${dashboardPath}/orders`;
+  const staffPath = `${dashboardPath}/staff`;
+  const accountPath = `${dashboardPath}/account`;
   const settingsPath = `${dashboardPath}/settings`;
 
   if (pathname === menuPath || pathname.startsWith(`${menuPath}/`)) {
@@ -35,6 +39,12 @@ function resolveSection(pathname: string, restaurantId: string): StaffSection {
   }
   if (pathname === ordersPath || pathname.startsWith(`${ordersPath}/`)) {
     return 'orders';
+  }
+  if (pathname === staffPath || pathname.startsWith(`${staffPath}/`)) {
+    return 'staff';
+  }
+  if (pathname === accountPath) {
+    return 'account';
   }
   if (pathname === settingsPath || pathname.startsWith(`${settingsPath}/`)) {
     return 'settings';
@@ -57,10 +67,12 @@ export function StaffShell({
   restaurantId,
   restaurantName,
   restaurantStatus,
+  restaurantLogoUrl,
   userEmail,
   canViewMenu,
   canViewTables,
   canViewOrders,
+  canViewStaff,
   canViewRestaurantSettings,
   children,
 }: StaffShellProps) {
@@ -75,12 +87,16 @@ export function StaffShell({
           { label: restaurantName, href: `/staff/restaurants/${restaurantId}` },
           {
             label: t('nav.settingsShort'),
-            href: `/staff/restaurants/${restaurantId}/settings/languages`,
+            href: `/staff/restaurants/${restaurantId}/settings/profile`,
           },
           {
             label: pathname.includes('/settings/delivery')
               ? t('settings.tab.delivery')
-              : t('settings.tab.languages'),
+              : pathname.includes('/settings/branches')
+                ? t('settings.tab.branches')
+                : pathname.includes('/settings/languages')
+                  ? t('settings.tab.languages')
+                  : t('settings.tab.profile'),
           },
         ]
       : [
@@ -93,7 +109,11 @@ export function StaffShell({
                   ? t('nav.tables')
                   : section === 'orders'
                     ? t('nav.orders')
-                    : t('nav.dashboard'),
+                    : section === 'staff'
+                      ? t('nav.staff')
+                      : section === 'account'
+                        ? t('account.title')
+                        : t('nav.dashboard'),
           },
         ];
 
@@ -103,10 +123,12 @@ export function StaffShell({
         restaurantId={restaurantId}
         restaurantName={restaurantName}
         restaurantStatus={restaurantStatus}
+        restaurantLogoUrl={restaurantLogoUrl}
         currentSection={section}
         canViewMenu={canViewMenu}
         canViewTables={canViewTables}
         canViewOrders={canViewOrders}
+        canViewStaff={canViewStaff}
         canViewRestaurantSettings={canViewRestaurantSettings}
         isMobileOpen={isMobileNavOpen}
         onCloseMobile={() => setIsMobileNavOpen(false)}
@@ -116,6 +138,8 @@ export function StaffShell({
         <StaffTopbar
           onOpenMobileNav={() => setIsMobileNavOpen(true)}
           userEmail={userEmail}
+          accountHref={`/staff/restaurants/${restaurantId}/account`}
+          isAccountActive={section === 'account'}
           breadcrumb={<Breadcrumbs items={breadcrumbItems} />}
         />
         {/* UX-2 geometry fix: no `mx-auto` -- centering a capped max-width

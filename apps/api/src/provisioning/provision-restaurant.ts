@@ -1,4 +1,6 @@
 import { randomUUID } from 'node:crypto';
+import { STARTER_ROLE_KINDS } from '../auth/permission/role-permissions';
+import { starterRoleData } from '../auth/permission/starter-roles';
 import { createBranchPublicId } from '../branches/branch-public-id';
 import { Prisma } from '../generated/prisma/client';
 import { createQrPublicCode } from '../qr/qr-public-code';
@@ -57,6 +59,9 @@ export interface ProvisioningPrisma {
 export interface ProvisioningTx {
   user: {
     findUnique(args: unknown): Promise<{ id: string } | null>;
+    create(args: unknown): Promise<{ id: string }>;
+  };
+  restaurantRole: {
     create(args: unknown): Promise<{ id: string }>;
   };
   restaurantMembership: {
@@ -216,11 +221,25 @@ export async function provisionRestaurant(
         select: { id: true },
       });
 
+      // FT-12C: every Restaurant starts with its five starter Roles; the
+      // protected Owner Role is what the first Owner holds.
+      let ownerRoleId = '';
+      for (const kind of STARTER_ROLE_KINDS) {
+        const role = await tx.restaurantRole.create({
+          data: { restaurantId: restaurant.id, ...starterRoleData(kind) },
+          select: { id: true },
+        });
+        if (kind === 'OWNER') {
+          ownerRoleId = role.id;
+        }
+      }
+
       await tx.restaurantMembership.create({
         data: {
           restaurantId: restaurant.id,
           userId: user.id,
           role: 'OWNER',
+          roleId: ownerRoleId,
           status: 'ACTIVE',
           allBranches: true,
         },

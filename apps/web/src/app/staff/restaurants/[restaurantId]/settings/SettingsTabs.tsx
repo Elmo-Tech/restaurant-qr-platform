@@ -4,19 +4,20 @@ import { useStaffI18n } from '../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../lib/i18n/messages';
 import { NavTabs } from '../../../../../components/ui/Tabs';
 
-export type SettingsSection = 'languages' | 'delivery';
+export type SettingsSection = 'profile' | 'branches' | 'languages' | 'delivery';
 
 const TABS: { key: SettingsSection; label: MessageKey; path: string }[] = [
+  { key: 'profile', label: 'settings.tab.profile', path: 'profile' },
+  { key: 'branches', label: 'settings.tab.branches', path: 'branches' },
   { key: 'languages', label: 'settings.tab.languages', path: 'languages' },
   { key: 'delivery', label: 'settings.tab.delivery', path: 'delivery' },
 ];
 
 /**
  * Restaurant Settings local navigation (LOC-3, Section 19; FT-8 adds
- * Delivery). Only sections that actually exist are shown -- General and
- * Branding are not implemented yet and are deliberately NOT rendered (no
- * disabled placeholder tabs). Adding one later means adding one entry to
- * TABS and its route.
+ * Delivery; FT-12 adds Profile and Branches). Only sections that actually
+ * exist are shown -- no General/Branding placeholder tabs. Adding one later
+ * means adding one entry to TABS and its route.
  */
 export function SettingsTabs({
   restaurantId,

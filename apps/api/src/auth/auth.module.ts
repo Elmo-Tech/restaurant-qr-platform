@@ -16,7 +16,10 @@ import { LoginController } from './login/login.controller';
 import { LoginService } from './login/login.service';
 import { LogoutController } from './logout/logout.controller';
 import { MeController } from './me/me.controller';
+import { ChangePasswordService } from './password/change-password.service';
+import { PasswordController } from './password/password.controller';
 import { PasswordHasherService } from './password/password-hasher.service';
+import { PasswordResetService } from './password/password-reset.service';
 import { AuthSessionService } from './session/auth-session.service';
 import { SessionTokenService } from './session/session-token.service';
 
@@ -70,6 +73,7 @@ import { SessionTokenService } from './session/session-token.service';
     LogoutController,
     MeController,
     InvitationAcceptanceController,
+    PasswordController,
   ],
   providers: [
     SessionTokenService,
@@ -87,9 +91,12 @@ import { SessionTokenService } from './session/session-token.service';
     CsrfGuard,
     AllBranchesRequiredGuard,
     InvitationAcceptanceService,
+    ChangePasswordService,
+    PasswordResetService,
   ],
-  // PasswordHasherService is an internal implementation detail, only
-  // consumed inside this module. The rest are exported for future feature
+  // PasswordHasherService is exported (FT-12B) so direct Staff User
+  // provisioning hashes a temporary password with the one approved Argon2id
+  // hasher instead of a second implementation. The rest are exported for future feature
   // modules that need to authenticate, resolve sessions, read authorization
   // context, enforce Restaurant/Branch/Permission/CSRF/structural-authority
   // scope, or generate/hash a generic opaque token. SessionTokenService is
@@ -110,6 +117,7 @@ import { SessionTokenService } from './session/session-token.service';
     CsrfGuard,
     AllBranchesRequiredGuard,
     SessionTokenService,
+    PasswordHasherService,
   ],
 })
 export class AuthModule {}

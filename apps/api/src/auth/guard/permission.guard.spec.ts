@@ -1,4 +1,5 @@
 import { ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
+import { restaurantAccessFor } from '../context/restaurant-access.fixture';
 import { Reflector } from '@nestjs/core';
 import { PERMISSIONS } from '../permission/permission';
 import { REQUIRED_PERMISSION_KEY } from '../permission/require-permission.decorator';
@@ -49,12 +50,7 @@ describe('PermissionGuard', () => {
   it('no @RequirePermission metadata -> denies (fails closed, never an implicit allow)', () => {
     const guard = new PermissionGuard(buildReflector(undefined));
     const context = buildContext({
-      restaurantAccess: {
-        membershipId: 'm1',
-        restaurantId: 'r1',
-        role: 'OWNER',
-        allBranches: true,
-      },
+      restaurantAccess: restaurantAccessFor('OWNER', { membershipId: 'm1', restaurantId: 'r1', allBranches: true }),
     });
 
     expectDenied(context, guard);
@@ -70,12 +66,7 @@ describe('PermissionGuard', () => {
   it('Role lacking the required Permission -> denies', () => {
     const guard = new PermissionGuard(buildReflector(PERMISSIONS.MENU_MANAGE));
     const context = buildContext({
-      restaurantAccess: {
-        membershipId: 'm1',
-        restaurantId: 'r1',
-        role: 'WAITER',
-        allBranches: true,
-      },
+      restaurantAccess: restaurantAccessFor('WAITER', { membershipId: 'm1', restaurantId: 'r1', allBranches: true }),
     });
 
     expectDenied(context, guard);
@@ -84,29 +75,35 @@ describe('PermissionGuard', () => {
   it('Role holding the required Permission -> returns true', () => {
     const guard = new PermissionGuard(buildReflector(PERMISSIONS.MENU_MANAGE));
     const context = buildContext({
-      restaurantAccess: {
-        membershipId: 'm1',
-        restaurantId: 'r1',
-        role: 'MANAGER',
-        allBranches: true,
-      },
+      restaurantAccess: restaurantAccessFor('MANAGER', { membershipId: 'm1', restaurantId: 'r1', allBranches: true }),
     });
 
     expect(guard.canActivate(context)).toBe(true);
   });
 
-  it('performs no Permission-derivation Role lookup other than request.restaurantAccess.role', () => {
+  it('performs no Permission-derivation Role lookup other than request.restaurantAccess.permissions', () => {
     const guard = new PermissionGuard(buildReflector(PERMISSIONS.ORDERS_VIEW));
     const context = buildContext({
-      restaurantAccess: {
-        membershipId: 'm1',
-        restaurantId: 'r1',
-        role: 'KITCHEN',
-        allBranches: false,
-      },
+      restaurantAccess: restaurantAccessFor('KITCHEN', { membershipId: 'm1', restaurantId: 'r1', allBranches: false }),
     });
 
     expect(guard.canActivate(context)).toBe(true);
+  });
+
+  it('enforces the Role permissions of the Membership, not its kind label (a custom Role)', () => {
+    const guard = new PermissionGuard(buildReflector(PERMISSIONS.MENU_MANAGE));
+    const allowed = buildContext({
+      restaurantAccess: restaurantAccessFor('WAITER', {
+        role: 'CUSTOM',
+        permissions: [PERMISSIONS.MENU_MANAGE],
+      }),
+    });
+    const denied = buildContext({
+      restaurantAccess: restaurantAccessFor('MANAGER', { role: 'CUSTOM', permissions: [] }),
+    });
+
+    expect(guard.canActivate(allowed)).toBe(true);
+    expectDenied(denied, guard);
   });
 
   it('every denial reason produces the exact same generic body -- never reveals which reason applied', () => {
@@ -114,21 +111,11 @@ describe('PermissionGuard', () => {
 
     const missingMetadataGuard = new PermissionGuard(buildReflector(undefined));
     const missingMetadataContext = buildContext({
-      restaurantAccess: {
-        membershipId: 'm1',
-        restaurantId: 'r1',
-        role: 'OWNER',
-        allBranches: true,
-      },
+      restaurantAccess: restaurantAccessFor('OWNER', { membershipId: 'm1', restaurantId: 'r1', allBranches: true }),
     });
     const missingContextContext = buildContext({ restaurantAccess: undefined });
     const insufficientRoleContext = buildContext({
-      restaurantAccess: {
-        membershipId: 'm1',
-        restaurantId: 'r1',
-        role: 'WAITER',
-        allBranches: true,
-      },
+      restaurantAccess: restaurantAccessFor('WAITER', { membershipId: 'm1', restaurantId: 'r1', allBranches: true }),
     });
 
     const bodies: unknown[] = [];

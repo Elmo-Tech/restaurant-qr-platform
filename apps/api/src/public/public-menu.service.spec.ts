@@ -13,6 +13,7 @@ const GENERIC_QR_ROW = {
     status: 'ACTIVE' as const,
     defaultLocale: 'en',
     currencyCode: 'EGP',
+    logoAssetPath: null,
   },
   branch: null,
   table: null,
@@ -161,6 +162,25 @@ describe('PublicMenuService.getPublicMenu', () => {
     expect(result).toEqual({ outcome: 'qrNotFound' });
   });
 
+  it('passes the Restaurant logoAssetPath through to the Guest context', async () => {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue({
+      ...GENERIC_QR_ROW,
+      restaurant: { ...GENERIC_QR_ROW.restaurant, logoAssetPath: '/media/logo.png' },
+    });
+    const service = buildService(mock);
+
+    const result = await service.getPublicMenu({
+      publicCode: 'generic-qr',
+      explicitLang: null,
+      acceptLanguageHeader: null,
+    });
+
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    expect(result.data.context.restaurant.logoAssetPath).toBe('/media/logo.png');
+  });
+
   it('resolves a TABLE QR with its Branch/Table context', async () => {
     const mock = buildPrismaMock();
     mock.qrCodeFindUnique.mockResolvedValue(TABLE_QR_ROW);
@@ -176,7 +196,7 @@ describe('PublicMenuService.getPublicMenu', () => {
     if (result.outcome !== 'found') return;
     expect(result.data.context).toEqual({
       qrType: 'TABLE',
-      restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP' },
+      restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null },
       branch: { name: 'Downtown Branch' },
       table: { number: '12' },
       pickupBranches: null,
@@ -198,7 +218,7 @@ describe('PublicMenuService.getPublicMenu', () => {
     if (result.outcome !== 'found') return;
     expect(result.data.context).toEqual({
       qrType: 'GENERIC',
-      restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP' },
+      restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null },
       branch: null,
       table: null,
       pickupBranches: [

@@ -1,4 +1,5 @@
 import { OrdersService } from './orders.service';
+import { restaurantAccessFor } from '../auth/context/restaurant-access.fixture';
 
 const RESTAURANT_ID = 'restaurant-1';
 const BRANCH_ID = 'branch-1';
@@ -56,7 +57,7 @@ function buildMocks() {
     .fn()
     .mockResolvedValue({ outcome: 'authorized', context: { branchId: BRANCH_ID } });
 
-  const prisma = {
+  const prisma: Record<string, unknown> = {
     order: {
       findMany: orderFindMany,
       findFirst: orderFindFirst,
@@ -64,12 +65,13 @@ function buildMocks() {
     },
     orderStatusEvent: { create: orderStatusEventCreate },
     restaurantMembershipBranch: { findMany: restaurantMembershipBranchFindMany },
-    // FT-11: `updateOrderStatus` now wraps its conditional update + history
-    // insert in an interactive transaction -- this test double just invokes
-    // the callback with the same mocked client, exactly like every other
-    // Prisma-mock test double in this repo treats `$transaction`.
-    $transaction: jest.fn((callback: (tx: unknown) => unknown) => callback(prisma)),
   };
+  // FT-11: `updateOrderStatus` now wraps its conditional update + history
+  // insert in an interactive transaction -- this test double just invokes
+  // the callback with the same mocked client, exactly like every other
+  // Prisma-mock test double in this repo treats `$transaction`.
+  const transaction = jest.fn((callback: (tx: unknown) => unknown) => callback(prisma));
+  prisma.$transaction = transaction;
   const branchAccessService = { resolveBranchManagementAccess };
 
   return {
@@ -81,6 +83,7 @@ function buildMocks() {
     orderStatusEventCreate,
     restaurantMembershipBranchFindMany,
     resolveBranchManagementAccess,
+    transaction,
   };
 }
 
@@ -88,19 +91,17 @@ function buildService(mocks: ReturnType<typeof buildMocks>): OrdersService {
   return new OrdersService(mocks.prisma as never, mocks.branchAccessService as never);
 }
 
-const ALL_BRANCHES_SCOPE = {
+const ALL_BRANCHES_SCOPE = restaurantAccessFor('OWNER', {
   restaurantId: RESTAURANT_ID,
   membershipId: 'membership-1',
   allBranches: true,
-  role: 'OWNER' as const,
-};
+});
 
-const SCOPED_SCOPE = {
+const SCOPED_SCOPE = restaurantAccessFor('CASHIER', {
   restaurantId: RESTAURANT_ID,
   membershipId: 'membership-1',
   allBranches: false,
-  role: 'CASHIER' as const,
-};
+});
 
 describe('OrdersService.listOrders', () => {
   it('scopes the query by the authorized restaurantId (Tenant isolation)', async () => {
@@ -416,7 +417,7 @@ describe('OrdersService.updateOrderStatus', () => {
 
     const result = await service.updateOrderStatus({
       ...BASE_INPUT,
-      scope: { ...ALL_BRANCHES_SCOPE, role: 'WAITER' },
+      scope: restaurantAccessFor('WAITER', { restaurantId: RESTAURANT_ID, membershipId: 'membership-1' }),
       expectedStatus: 'PENDING',
       status: 'ACCEPTED',
     });
@@ -434,7 +435,7 @@ describe('OrdersService.updateOrderStatus', () => {
 
     const result = await service.updateOrderStatus({
       ...BASE_INPUT,
-      scope: { ...ALL_BRANCHES_SCOPE, role: 'KITCHEN' },
+      scope: restaurantAccessFor('KITCHEN', { restaurantId: RESTAURANT_ID, membershipId: 'membership-1' }),
       expectedStatus: 'ACCEPTED',
       status: 'PREPARING',
     });
@@ -455,7 +456,7 @@ describe('OrdersService.updateOrderStatus', () => {
 
     await service.updateOrderStatus({
       ...BASE_INPUT,
-      scope: { ...ALL_BRANCHES_SCOPE, role: 'KITCHEN' },
+      scope: restaurantAccessFor('KITCHEN', { restaurantId: RESTAURANT_ID, membershipId: 'membership-1' }),
       expectedStatus: 'ACCEPTED',
       status: 'PREPARING',
     });
@@ -488,7 +489,7 @@ describe('OrdersService.updateOrderStatus', () => {
 
     await service.updateOrderStatus({
       ...BASE_INPUT,
-      scope: { ...ALL_BRANCHES_SCOPE, role: 'WAITER' },
+      scope: restaurantAccessFor('WAITER', { restaurantId: RESTAURANT_ID, membershipId: 'membership-1' }),
       expectedStatus: 'PENDING',
       status: 'ACCEPTED',
     });
@@ -518,10 +519,10 @@ describe('OrdersService.updateOrderStatus', () => {
 
     await service.updateOrderStatus(BASE_INPUT);
 
-    expect(mocks.prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(mocks.transaction).toHaveBeenCalledTimes(1);
     // Both writes happened strictly after $transaction was invoked and
     // before it resolved -- i.e. neither is a separate, unguarded write.
-    const transactionCallOrder = mocks.prisma.$transaction.mock.invocationCallOrder[0];
+    const transactionCallOrder = mocks.transaction.mock.invocationCallOrder[0];
     expect(mocks.orderUpdateMany.mock.invocationCallOrder[0]).toBeGreaterThan(transactionCallOrder);
     expect(mocks.orderStatusEventCreate.mock.invocationCallOrder[0]).toBeGreaterThan(transactionCallOrder);
   });

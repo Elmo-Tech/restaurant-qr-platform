@@ -40,7 +40,7 @@ function Num({ children }: { children: ReactNode }) {
   return <bdi dir="ltr">{children}</bdi>;
 }
 
-export function OrderReceipt({ order }: { order: OrderDetail }) {
+export function OrderReceipt({ order, logoUrl = null }: { order: OrderDetail; logoUrl?: string | null }) {
   const { t, formatDateTime } = useStaffI18n();
   if (typeof document === 'undefined') return null;
 
@@ -67,6 +67,10 @@ export function OrderReceipt({ order }: { order: OrderDetail }) {
         style={{ fontFamily: 'ui-monospace, "Courier New", monospace' }}
       >
         <header className="text-center">
+          {logoUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element -- print-only Staff-uploaded asset from a runtime-configured API origin.
+            <img src={logoUrl} alt="" className="mx-auto mb-1 max-h-[16mm] max-w-[40mm] object-contain grayscale" />
+          ) : null}
           <p className="text-[15px] font-bold">
             <Text>{order.restaurant.name}</Text>
           </p>

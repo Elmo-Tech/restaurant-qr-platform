@@ -6,7 +6,7 @@ import type {
   RestaurantStatus,
 } from '../../generated/prisma/client';
 import type { Permission } from '../permission/permission';
-import { ROLE_PERMISSIONS } from '../permission/role-permissions';
+import { effectiveRolePermissions } from '../permission/role-permissions';
 
 /** Safe User identity fields (AUTH_TENANCY_SPEC.md #148/#148A). Never passwordHash. */
 export interface AuthContextUser {
@@ -29,6 +29,8 @@ export interface AuthContextRestaurant {
   status: RestaurantStatus;
   currencyCode: string;
   defaultLocale: string;
+  /** FT-12: the Staff Restaurant-identity surface (Sidebar) needs this to render the logo without a second request. Null when no logo has been uploaded. */
+  logoAssetPath: string | null;
 }
 
 /**
@@ -49,8 +51,8 @@ export interface AuthContextBranch {
  * Restaurant Branch when `allBranches` is true, or exactly the assigned
  * `RestaurantMembershipBranch` rows (possibly empty) when it is false.
  *
- * `permissions` (Batch G0) is the Role's canonical effective Permission set,
- * read directly from `ROLE_PERMISSIONS` -- the exact same source
+ * `permissions` (Batch G0, FT-12C) is the Membership's Restaurant Role's
+ * effective Permission set -- the exact same source
  * `PermissionGuard`/`hasPermission` enforce against, never a second matrix.
  * This is ADVISORY FRONTEND CONTEXT ONLY, for hiding/disabling inappropriate
  * UI controls -- it grants nothing by itself. Backend guards re-check
@@ -59,7 +61,11 @@ export interface AuthContextBranch {
  */
 export interface AuthContextMembership {
   id: string;
+  /** The Role's immutable kind label (`CUSTOM` for a Restaurant-defined Role). */
   role: RestaurantMembershipRole;
+  roleId: string;
+  /** The Restaurant Role's display name -- what to show for a custom or renamed Role. */
+  roleName: string;
   allBranches: boolean;
   permissions: Permission[];
   restaurant: AuthContextRestaurant;
@@ -107,8 +113,10 @@ export class AuthContextService {
       orderBy: { id: 'asc' },
       select: {
         id: true,
-        role: true,
         allBranches: true,
+        restaurantRole: {
+          select: { id: true, name: true, kind: true, permissions: true },
+        },
         restaurant: {
           select: {
             id: true,
@@ -116,6 +124,7 @@ export class AuthContextService {
             status: true,
             currencyCode: true,
             defaultLocale: true,
+            logoAssetPath: true,
           },
         },
       },
@@ -201,18 +210,21 @@ export class AuthContextService {
       },
       memberships: memberships.map((membership) => ({
         id: membership.id,
-        role: membership.role,
+        role: membership.restaurantRole.kind,
+        roleId: membership.restaurantRole.id,
+        roleName: membership.restaurantRole.name,
         allBranches: membership.allBranches,
-        // Spread into a plain mutable array; ROLE_PERMISSIONS is the sole
-        // canonical source (never recomputed or duplicated here), and its
-        // own authored order is preserved -- no derived business meaning.
-        permissions: [...ROLE_PERMISSIONS[membership.role]],
+        // The Role's effective Permission set, from the same helper
+        // RestaurantAccessService uses (registry order, fresh array) -- never
+        // recomputed or duplicated here.
+        permissions: effectiveRolePermissions(membership.restaurantRole),
         restaurant: {
           id: membership.restaurant.id,
           name: membership.restaurant.name,
           status: membership.restaurant.status,
           currencyCode: membership.restaurant.currencyCode,
           defaultLocale: membership.restaurant.defaultLocale,
+          logoAssetPath: membership.restaurant.logoAssetPath,
         },
         branches: membership.allBranches
           ? (branchesByRestaurantId.get(membership.restaurant.id) ?? [])

@@ -1,3 +1,5 @@
+import { accountMessages } from './account';
+import { branchesMessages } from './branches';
 import { commonMessages } from './common';
 import { dashboardMessages } from './dashboard';
 import { errorMessages } from './errors';
@@ -6,7 +8,10 @@ import { menuStructureMessages } from './menuStructure';
 import { ordersMessages } from './orders';
 import { presetsMessages } from './presets';
 import { productMessages } from './product';
+import { profileMessages } from './profile';
+import { rolesMessages } from './roles';
 import { settingsMessages } from './settings';
+import { staffMessages } from './staff';
 import { tablesMessages } from './tables';
 
 /**
@@ -16,6 +21,8 @@ import { tablesMessages } from './tables';
  * compile.
  */
 const en = {
+  ...accountMessages.en,
+  ...branchesMessages.en,
   ...commonMessages.en,
   ...dashboardMessages.en,
   ...errorMessages.en,
@@ -24,11 +31,16 @@ const en = {
   ...ordersMessages.en,
   ...presetsMessages.en,
   ...productMessages.en,
+  ...profileMessages.en,
+  ...rolesMessages.en,
   ...settingsMessages.en,
+  ...staffMessages.en,
   ...tablesMessages.en,
 };
 
 const ar = {
+  ...accountMessages.ar,
+  ...branchesMessages.ar,
   ...commonMessages.ar,
   ...dashboardMessages.ar,
   ...errorMessages.ar,
@@ -37,7 +49,10 @@ const ar = {
   ...ordersMessages.ar,
   ...presetsMessages.ar,
   ...productMessages.ar,
+  ...profileMessages.ar,
+  ...rolesMessages.ar,
   ...settingsMessages.ar,
+  ...staffMessages.ar,
   ...tablesMessages.ar,
 };
 

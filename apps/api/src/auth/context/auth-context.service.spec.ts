@@ -1,5 +1,15 @@
 import { AuthContextService } from './auth-context.service';
-import { ROLE_PERMISSIONS } from '../permission/role-permissions';
+import { ALL_PERMISSIONS } from '../permission/permission';
+import { ROLE_PERMISSIONS, type StarterRoleKind } from '../permission/role-permissions';
+import { starterRoleData } from '../permission/starter-roles';
+
+/** The Restaurant Role row a Membership of this starter kind holds (FT-12C). */
+function roleOf(kind: string) {
+  const starter = starterRoleData(kind as StarterRoleKind);
+  return { id: `role-${kind.toLowerCase()}`, name: starter.name, kind, permissions: starter.permissions };
+}
+
+const sorted = (values: readonly string[]) => [...values].sort();
 
 /**
  * Isolates the one unavoidable `any`-erasure point (a bare `jest.fn()`'s
@@ -94,6 +104,7 @@ describe('AuthContextService', () => {
           {
             id: 'membership-1',
             role: 'OWNER',
+            restaurantRole: roleOf('OWNER'),
             allBranches: true,
             restaurant: { id: 'restaurant-1', name: 'Cairo Bites', status },
           },
@@ -113,6 +124,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-1',
           role: 'OWNER',
+          restaurantRole: roleOf('OWNER'),
           allBranches: true,
           restaurant: {
             id: 'restaurant-1',
@@ -156,6 +168,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-1',
           role: 'KITCHEN',
+          restaurantRole: roleOf('KITCHEN'),
           allBranches: false,
           restaurant: {
             id: 'restaurant-1',
@@ -197,6 +210,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-1',
           role: 'WAITER',
+          restaurantRole: roleOf('WAITER'),
           allBranches: false,
           restaurant: {
             id: 'restaurant-1',
@@ -217,6 +231,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-1',
           role: 'WAITER',
+          restaurantRole: roleOf('WAITER'),
           allBranches: false,
           restaurant: {
             id: 'restaurant-1',
@@ -243,6 +258,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-a',
           role: 'WAITER',
+          restaurantRole: roleOf('WAITER'),
           allBranches: false,
           restaurant: {
             id: 'restaurant-a',
@@ -282,6 +298,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-1',
           role: 'OWNER',
+          restaurantRole: roleOf('OWNER'),
           allBranches: true,
           restaurant: {
             id: 'restaurant-1',
@@ -314,6 +331,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-1',
           role: 'OWNER',
+          restaurantRole: roleOf('OWNER'),
           allBranches: true,
           restaurant: {
             id: 'restaurant-1',
@@ -324,6 +342,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-2',
           role: 'WAITER',
+          restaurantRole: roleOf('WAITER'),
           allBranches: false,
           restaurant: {
             id: 'restaurant-2',
@@ -367,6 +386,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-1',
           role: 'OWNER',
+          restaurantRole: roleOf('OWNER'),
           allBranches: true,
           restaurant: {
             id: 'restaurant-1',
@@ -377,6 +397,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-2',
           role: 'OWNER',
+          restaurantRole: roleOf('OWNER'),
           allBranches: true,
           restaurant: {
             id: 'restaurant-2',
@@ -426,6 +447,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-1',
           role: 'OWNER',
+          restaurantRole: roleOf('OWNER'),
           allBranches: true,
           restaurant: {
             id: 'restaurant-1',
@@ -457,6 +479,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-1',
           role: 'OWNER',
+          restaurantRole: roleOf('OWNER'),
           allBranches: true,
           restaurant: {
             id: 'restaurant-1',
@@ -481,6 +504,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-1',
           role: 'OWNER',
+          restaurantRole: roleOf('OWNER'),
           allBranches: true,
           restaurant: {
             id: 'restaurant-1',
@@ -513,6 +537,52 @@ describe('AuthContextService', () => {
         defaultLocale: true,
       });
     });
+
+    it('FT-12: exposes logoAssetPath (null when no logo has been uploaded)', async () => {
+      prisma.restaurantMembership.findMany.mockResolvedValue([
+        {
+          id: 'membership-1',
+          role: 'OWNER',
+          restaurantRole: roleOf('OWNER'),
+          allBranches: true,
+          restaurant: {
+            id: 'restaurant-1',
+            name: 'Cairo Bites',
+            status: 'ACTIVE',
+            currencyCode: 'EGP',
+            defaultLocale: 'ar',
+            logoAssetPath: null,
+          },
+        },
+      ]);
+
+      const context = await service.getAuthContext('user-1');
+
+      expect(context.memberships[0].restaurant.logoAssetPath).toBeNull();
+    });
+
+    it('FT-12: passes through a real logoAssetPath unchanged', async () => {
+      prisma.restaurantMembership.findMany.mockResolvedValue([
+        {
+          id: 'membership-1',
+          role: 'OWNER',
+          restaurantRole: roleOf('OWNER'),
+          allBranches: true,
+          restaurant: {
+            id: 'restaurant-1',
+            name: 'Cairo Bites',
+            status: 'ACTIVE',
+            currencyCode: 'EGP',
+            defaultLocale: 'ar',
+            logoAssetPath: '/media/abc123.png',
+          },
+        },
+      ]);
+
+      const context = await service.getAuthContext('user-1');
+
+      expect(context.memberships[0].restaurant.logoAssetPath).toBe('/media/abc123.png');
+    });
   });
 
   describe('Effective permissions (Batch G0)', () => {
@@ -520,6 +590,7 @@ describe('AuthContextService', () => {
       return {
         id: 'membership-1',
         role,
+        restaurantRole: roleOf(role),
         allBranches: true,
         restaurant: {
           id: 'restaurant-1',
@@ -538,9 +609,7 @@ describe('AuthContextService', () => {
 
       const context = await service.getAuthContext('user-1');
 
-      expect(context.memberships[0].permissions).toEqual([
-        ...ROLE_PERMISSIONS.OWNER,
-      ]);
+      expect(sorted(context.memberships[0].permissions)).toEqual(sorted(ALL_PERMISSIONS));
     });
 
     it('MANAGER receives exactly the canonical MANAGER effective permission set', async () => {
@@ -550,9 +619,7 @@ describe('AuthContextService', () => {
 
       const context = await service.getAuthContext('user-1');
 
-      expect(context.memberships[0].permissions).toEqual([
-        ...ROLE_PERMISSIONS.MANAGER,
-      ]);
+      expect(sorted(context.memberships[0].permissions)).toEqual(sorted(ROLE_PERMISSIONS.MANAGER));
     });
 
     it('a lower role (CASHIER) never receives a MANAGER/OWNER-only permission', async () => {
@@ -562,9 +629,7 @@ describe('AuthContextService', () => {
 
       const context = await service.getAuthContext('user-1');
 
-      expect(context.memberships[0].permissions).toEqual([
-        ...ROLE_PERMISSIONS.CASHIER,
-      ]);
+      expect(sorted(context.memberships[0].permissions)).toEqual(sorted(ROLE_PERMISSIONS.CASHIER));
       // Proves no accidental elevation: a Permission that MANAGER/OWNER have
       // but CASHIER canonically does not must not leak in.
       expect(context.memberships[0].permissions).not.toContain(
@@ -580,9 +645,7 @@ describe('AuthContextService', () => {
 
       const context = await service.getAuthContext('user-1');
 
-      expect(context.memberships[0].permissions).toEqual([
-        ...ROLE_PERMISSIONS.WAITER,
-      ]);
+      expect(sorted(context.memberships[0].permissions)).toEqual(sorted(ROLE_PERMISSIONS.WAITER));
       expect(context.memberships[0].permissions).not.toContain('menu.manage');
       expect(context.memberships[0].permissions).not.toContain('orders.accept');
     });
@@ -592,6 +655,7 @@ describe('AuthContextService', () => {
         {
           id: 'membership-1',
           role: 'WAITER',
+          restaurantRole: roleOf('WAITER'),
           allBranches: false,
           restaurant: {
             id: 'restaurant-1',
@@ -611,9 +675,7 @@ describe('AuthContextService', () => {
 
       const context = await service.getAuthContext('user-1');
 
-      expect(context.memberships[0].permissions).toEqual([
-        ...ROLE_PERMISSIONS.WAITER,
-      ]);
+      expect(sorted(context.memberships[0].permissions)).toEqual(sorted(ROLE_PERMISSIONS.WAITER));
       expect(context.memberships[0].branches).toEqual([
         { id: 'branch-1', name: 'Maadi', status: 'ACTIVE' },
       ]);

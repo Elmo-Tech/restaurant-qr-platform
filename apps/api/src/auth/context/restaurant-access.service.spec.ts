@@ -1,3 +1,4 @@
+import { ALL_PERMISSIONS } from '../permission/permission';
 import { RestaurantAccessService } from './restaurant-access.service';
 
 const USER_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
@@ -14,6 +15,7 @@ function buildMembership(
     id: string;
     restaurantId: string;
     role: string;
+    permissions: string[];
     allBranches: boolean;
     restaurantStatus: string;
   }> = {},
@@ -21,9 +23,12 @@ function buildMembership(
   return {
     id: 'membership-1',
     restaurantId: RESTAURANT_ID,
-    role: 'OWNER',
-    allBranches: true,
-    ...overrides,
+    roleId: 'role-1',
+    allBranches: overrides.allBranches ?? true,
+    restaurantRole: {
+      kind: overrides.role ?? 'OWNER',
+      permissions: overrides.permissions ?? [],
+    },
     restaurant: { status: overrides.restaurantStatus ?? 'ACTIVE' },
   };
 }
@@ -57,8 +62,9 @@ describe('RestaurantAccessService', () => {
       select: {
         id: true,
         restaurantId: true,
-        role: true,
+        roleId: true,
         allBranches: true,
+        restaurantRole: { select: { kind: true, permissions: true } },
         restaurant: { select: { status: true } },
       },
     });
@@ -67,7 +73,7 @@ describe('RestaurantAccessService', () => {
   describe('authorized', () => {
     it('ACTIVE Membership + ACTIVE Restaurant succeeds with the safe context', async () => {
       prisma.restaurantMembership.findUnique.mockResolvedValue(
-        buildMembership({ role: 'MANAGER', allBranches: false }),
+        buildMembership({ role: 'MANAGER', permissions: ['orders.view'], allBranches: false }),
       );
 
       const result = await service.resolveRestaurantAccess(
@@ -81,6 +87,8 @@ describe('RestaurantAccessService', () => {
           membershipId: 'membership-1',
           restaurantId: RESTAURANT_ID,
           role: 'MANAGER',
+          roleId: 'role-1',
+          permissions: ['orders.view'],
           allBranches: false,
         },
       });
@@ -102,7 +110,7 @@ describe('RestaurantAccessService', () => {
       ).toBe(true);
     });
 
-    it('carries Role only as metadata (no interpretation)', async () => {
+    it('carries the Role kind as a label', async () => {
       prisma.restaurantMembership.findUnique.mockResolvedValue(
         buildMembership({ role: 'KITCHEN' }),
       );
@@ -117,7 +125,7 @@ describe('RestaurantAccessService', () => {
       );
     });
 
-    it('never returns a Prisma record -- only the four documented fields', async () => {
+    it('never returns a Prisma record -- only the documented fields', async () => {
       prisma.restaurantMembership.findUnique.mockResolvedValue(
         buildMembership(),
       );
@@ -131,8 +139,40 @@ describe('RestaurantAccessService', () => {
         membershipId: expect.any(String) as string,
         restaurantId: expect.any(String) as string,
         role: expect.any(String) as string,
+        roleId: expect.any(String) as string,
+        permissions: expect.any(Array) as string[],
         allBranches: expect.any(Boolean) as boolean,
       });
+    });
+
+    it('resolves permissions from the Membership Role row (a custom Role), ignoring the kind label', async () => {
+      prisma.restaurantMembership.findUnique.mockResolvedValue(
+        buildMembership({ role: 'CUSTOM', permissions: ['orders.view', 'menu.view', 'bogus.key'] }),
+      );
+
+      const result = await service.resolveRestaurantAccess(USER_ID, RESTAURANT_ID);
+
+      expect(result.outcome === 'authorized' && result.context.permissions).toEqual(['menu.view', 'orders.view']);
+    });
+
+    it('the protected Owner Role always holds every Permission, whatever is stored', async () => {
+      prisma.restaurantMembership.findUnique.mockResolvedValue(
+        buildMembership({ role: 'OWNER', permissions: [] }),
+      );
+
+      const result = await service.resolveRestaurantAccess(USER_ID, RESTAURANT_ID);
+
+      expect(result.outcome === 'authorized' && result.context.permissions).toEqual([...ALL_PERMISSIONS]);
+    });
+
+    it('a Role with no permissions grants nothing', async () => {
+      prisma.restaurantMembership.findUnique.mockResolvedValue(
+        buildMembership({ role: 'CUSTOM', permissions: [] }),
+      );
+
+      const result = await service.resolveRestaurantAccess(USER_ID, RESTAURANT_ID);
+
+      expect(result.outcome === 'authorized' && result.context.permissions).toEqual([]);
     });
   });
 

@@ -1,4 +1,5 @@
 import type { ReactNode } from 'react';
+import Link from 'next/link';
 import { LogoutButton } from '../../app/staff/LogoutButton';
 import { IconHamburger } from './icons';
 import { StaffLanguageSwitcher } from './StaffLanguageSwitcher';
@@ -7,6 +8,9 @@ import { useStaffI18n } from '../../lib/i18n/client';
 interface StaffTopbarProps {
   onOpenMobileNav: () => void;
   userEmail: string;
+  /** The Account page (change password). Reached from the user area -- never a Restaurant nav item. */
+  accountHref: string;
+  isAccountActive: boolean;
   breadcrumb: ReactNode;
 }
 
@@ -21,6 +25,8 @@ interface StaffTopbarProps {
 export function StaffTopbar({
   onOpenMobileNav,
   userEmail,
+  accountHref,
+  isAccountActive,
   breadcrumb,
 }: StaffTopbarProps) {
   const { t } = useStaffI18n();
@@ -41,14 +47,22 @@ export function StaffTopbar({
       </div>
       <div className="flex flex-shrink-0 items-center gap-3">
         <StaffLanguageSwitcher />
-        <div className="hidden items-center gap-2 sm:flex">
+        <Link
+          href={accountHref}
+          aria-label={t('account.linkAria')}
+          aria-current={isAccountActive ? 'page' : undefined}
+          title={t('account.link')}
+          className={`flex items-center gap-2 rounded-md px-1.5 py-1 outline-none transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring ${
+            isAccountActive ? 'bg-muted' : ''
+          }`}
+        >
           <span className="flex h-7 w-7 items-center justify-center rounded-full bg-accent text-xs font-semibold text-primary">
             {initial}
           </span>
-          <span dir="ltr" className="max-w-[160px] truncate text-sm text-muted-foreground">
+          <span dir="ltr" className="hidden max-w-[160px] truncate text-sm text-muted-foreground sm:inline">
             {userEmail}
           </span>
-        </div>
+        </Link>
         <LogoutButton />
       </div>
     </header>

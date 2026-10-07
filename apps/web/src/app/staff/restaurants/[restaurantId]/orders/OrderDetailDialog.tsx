@@ -42,6 +42,7 @@ function isDestructive(status: OrderStatus): boolean {
  */
 export function OrderDetailDialog({
   order,
+  restaurantLogoUrl = null,
   availableTransitions,
   isTransitioning,
   transitionError,
@@ -49,6 +50,7 @@ export function OrderDetailDialog({
   onClose,
 }: {
   order: OrderDetail;
+  restaurantLogoUrl?: string | null;
   availableTransitions: OrderTransitionOption[];
   isTransitioning: boolean;
   transitionError: string | null;
@@ -102,7 +104,7 @@ export function OrderDetailDialog({
   return (
     <>
     {/* Print-only receipt, portalled to <body> (see OrderReceipt): never nested under the print:hidden dialog. */}
-    <OrderReceipt order={order} />
+    <OrderReceipt order={order} logoUrl={restaurantLogoUrl} />
     <div className="fixed inset-0 z-50 print:hidden">
       <div className="absolute inset-0 bg-foreground/40" onClick={onClose} aria-hidden="true" />
       <div className="pointer-events-none absolute inset-0 flex items-center justify-center p-0 sm:p-6">

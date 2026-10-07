@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import { isSerializationConflict } from '../../database/serialization-conflict';
 import { PasswordHasherService } from '../password/password-hasher.service';
 import { hasPermission } from '../permission/has-permission';
+import { effectiveRolePermissions } from '../permission/role-permissions';
 import { PERMISSIONS } from '../permission/permission';
 import { SessionTokenService } from '../session/session-token.service';
 import { PrismaService } from '../../database/prisma.service';
@@ -34,13 +36,6 @@ const RETRYABLE_UNIQUE_CONSTRAINTS = new Set([
   'restaurant_memberships_restaurant_id_user_id_key',
 ]);
 
-function isSerializationConflict(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2034'
-  );
-}
-
 function isRetryableUniqueRace(error: unknown): boolean {
   if (
     !(error instanceof Prisma.PrismaClientKnownRequestError) ||
@@ -58,7 +53,7 @@ function isRetryableUniqueRace(error: unknown): boolean {
   );
 }
 
-function isRetryableConflict(error: unknown): boolean {
+export function isRetryableConflict(error: unknown): boolean {
   return isSerializationConflict(error) || isRetryableUniqueRace(error);
 }
 
@@ -252,12 +247,21 @@ export class InvitationAcceptanceService {
         userId: invitation.invitedByUserId,
         status: 'ACTIVE',
       },
-      select: { id: true, role: true, allBranches: true },
+      select: {
+        id: true,
+        allBranches: true,
+        restaurantRole: { select: { kind: true, permissions: true } },
+      },
     });
     if (!inviterMembership) {
       return { outcome: 'invitationNotFound' };
     }
-    if (!hasPermission(inviterMembership.role, PERMISSIONS.USERS_MANAGE)) {
+    if (
+      !hasPermission(
+        effectiveRolePermissions(inviterMembership.restaurantRole),
+        PERMISSIONS.USERS_MANAGE,
+      )
+    ) {
       return { outcome: 'invitationNotFound' };
     }
     if (!inviterMembership.allBranches) {
@@ -330,6 +334,17 @@ export class InvitationAcceptanceService {
         await this.passwordHasherService.hashPassword(password);
     }
 
+    // FT-12C: the Invitation carries a starter-role KIND; the Membership
+    // needs this Restaurant's Role row of that kind. If the Restaurant has
+    // since deleted that Role, the Invitation is unusable (generic outcome).
+    const grantedRole = await tx.restaurantRole.findFirst({
+      where: { restaurantId: invitation.restaurantId, kind: invitation.role },
+      select: { id: true },
+    });
+    if (!grantedRole) {
+      return { outcome: 'invitationNotFound' };
+    }
+
     // Step 8: mutations. The conditional acceptedAt transition is the
     // one-time-consumption race guard (settled contract #23) -- it must
     // still match the exact pending predicate used by the read above, so a
@@ -375,6 +390,7 @@ export class InvitationAcceptanceService {
         restaurantId: invitation.restaurantId,
         userId,
         role: invitation.role,
+        roleId: grantedRole.id,
         allBranches: invitation.allBranches,
         status: 'ACTIVE',
       },

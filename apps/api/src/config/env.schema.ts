@@ -85,6 +85,18 @@ export const envSchema = z
       .min(1, 'RESTAURANT_INVITATION_TTL_DAYS must be a positive integer')
       .default(7),
 
+    // FT-12 (AUTH_TENANCY_SPEC.md #33): short-lived Password Reset Token
+    // expiry, approximately 30-60 minutes. Already documented in
+    // .env.example as PASSWORD_RESET_TTL_MINUTES=45 -- this wires that
+    // existing variable into runtime validation for the first time; the
+    // name and default are unchanged.
+    PASSWORD_RESET_TTL_MINUTES: z.coerce
+      .number({ message: 'PASSWORD_RESET_TTL_MINUTES must be a number' })
+      .int('PASSWORD_RESET_TTL_MINUTES must be an integer')
+      .min(5, 'PASSWORD_RESET_TTL_MINUTES must be between 5 and 180')
+      .max(180, 'PASSWORD_RESET_TTL_MINUTES must be between 5 and 180')
+      .default(45),
+
     // Exact name is an implementation detail (AUTH_TENANCY_SPEC.md #22).
     AUTH_SESSION_COOKIE_NAME: z
       .string()

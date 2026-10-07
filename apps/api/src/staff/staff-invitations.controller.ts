@@ -3,9 +3,11 @@ import {
   ConflictException,
   Controller,
   ForbiddenException,
+  Get,
   HttpCode,
   HttpStatus,
   NotFoundException,
+  Param,
   Post,
   Req,
   UseGuards,
@@ -19,7 +21,11 @@ import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
 import { CreateStaffInvitationDto } from './dto/create-staff-invitation.dto';
 import { StaffInvitationsService } from './staff-invitations.service';
-import type { CreatedStaffInvitation } from './staff-invitations.service';
+import type { CreatedStaffInvitation, StaffInvitationListItem } from './staff-invitations.service';
+
+const STAFF_INVITATION_NOT_FOUND_RESPONSE = {
+  error: { code: 'STAFF_INVITATION_NOT_FOUND', message: 'Invitation not found.' },
+};
 
 const BRANCH_NOT_FOUND_RESPONSE = {
   error: {
@@ -56,6 +62,10 @@ const STAFF_INVITATION_CONFLICT_RESPONSE = {
 
 interface CreateStaffInvitationResponseBody {
   data: CreatedStaffInvitation;
+}
+
+interface ListStaffInvitationsResponseBody {
+  data: StaffInvitationListItem[];
 }
 
 /**
@@ -119,5 +129,48 @@ export class StaffInvitationsController {
     }
 
     return { data: result.data };
+  }
+
+  /**
+   * FT-12 (API_CONVENTIONS.md #117): the previously-unimplemented Invitation
+   * List. Requires `users.view` -- read visibility, distinct from
+   * `users.manage`'s mutation authority, exactly like Staff Membership List
+   * (#117A). Read-only, so no `CsrfGuard`.
+   */
+  @Get()
+  @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
+  @RequirePermission(PERMISSIONS.USERS_VIEW)
+  async listInvitations(
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<ListStaffInvitationsResponseBody> {
+    const data = await this.staffInvitationsService.listInvitations({
+      restaurantId: request.restaurantAccess.restaurantId,
+    });
+
+    return { data };
+  }
+
+  /**
+   * FT-12: cancel a still-pending Invitation. Requires `users.manage`,
+   * matching Create's own mutation authority. `notFound` covers unknown,
+   * foreign-Restaurant, already-accepted, and already-revoked Invitations
+   * identically (existence-hiding convention).
+   */
+  @Post(':invitationId/revoke')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard)
+  @RequirePermission(PERMISSIONS.USERS_MANAGE)
+  async revokeInvitation(
+    @Param('invitationId') invitationId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<void> {
+    const result = await this.staffInvitationsService.revokeInvitation({
+      restaurantId: request.restaurantAccess.restaurantId,
+      invitationId,
+    });
+
+    if (result.outcome === 'notFound') {
+      throw new NotFoundException(STAFF_INVITATION_NOT_FOUND_RESPONSE);
+    }
   }
 }

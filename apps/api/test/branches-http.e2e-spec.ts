@@ -6,6 +6,7 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import { PrismaService } from './../src/database/prisma.service';
+import { ensureStarterRole } from './fixtures/ensure-starter-role';
 
 /**
  * Business Foundation J: proves the first production Staff business
@@ -69,6 +70,7 @@ describe('GET /api/v1/restaurants/:restaurantId/branches (e2e)', () => {
         where: { membership: { restaurantId } },
       });
       await prisma.restaurantMembership.deleteMany({ where: { restaurantId } });
+      await prisma.restaurantRole.deleteMany({ where: { restaurantId } });
       await prisma.branch.deleteMany({ where: { restaurantId } });
       await prisma.restaurant.delete({ where: { id: restaurantId } });
     }
@@ -146,6 +148,7 @@ describe('GET /api/v1/restaurants/:restaurantId/branches (e2e)', () => {
         restaurantId: params.restaurantId,
         userId: params.userId,
         role: params.role ?? 'OWNER',
+        roleId: (await ensureStarterRole(prisma, params.restaurantId, params.role ?? 'OWNER')).id,
         status: params.status ?? 'ACTIVE',
         allBranches: params.allBranches,
       },
@@ -253,7 +256,7 @@ describe('GET /api/v1/restaurants/:restaurantId/branches (e2e)', () => {
           200,
         );
 
-        expect(response.body).toEqual({
+        expect(response.body).toMatchObject({
           data: [{ id: branch.id, name: 'Maadi', status: 'ACTIVE' }],
         });
       },
@@ -363,7 +366,7 @@ describe('GET /api/v1/restaurants/:restaurantId/branches (e2e)', () => {
 
       const response = await getBranches(restaurant.id, cookiePair).expect(200);
 
-      expect(response.body).toEqual({
+      expect(response.body).toMatchObject({
         data: [{ id: assigned.id, name: 'Assigned', status: 'ACTIVE' }],
       });
     });
@@ -425,7 +428,7 @@ describe('GET /api/v1/restaurants/:restaurantId/branches (e2e)', () => {
 
       const response = await getBranches(restaurant.id, cookiePair).expect(200);
 
-      expect(response.body).toEqual({
+      expect(response.body).toMatchObject({
         data: [
           {
             id: inactiveAssigned.id,
@@ -506,14 +509,14 @@ describe('GET /api/v1/restaurants/:restaurantId/branches (e2e)', () => {
 
       const response = await getBranches(restaurant.id, cookiePair).expect(200);
 
-      expect(response.body).toEqual({
+      expect(response.body).toMatchObject({
         data: [{ id: assigned.id, name: 'Assigned', status: 'ACTIVE' }],
       });
     });
   });
 
   describe('I. response field safety', () => {
-    it('exposes only id, name, and status -- never restaurantId, timezone, phone, address, or timestamps', async () => {
+    it('exposes only id, name, status and the Branch basics (timezone, phone, address) -- never restaurantId or timestamps', async () => {
       const { id: userId, email } = await createTestUser();
       const restaurant = await createRestaurant();
       await createBranch(restaurant.id, 'ACTIVE', 'Maadi');
@@ -528,12 +531,9 @@ describe('GET /api/v1/restaurants/:restaurantId/branches (e2e)', () => {
 
       const data = (response.body as { data: Record<string, unknown>[] }).data;
       expect(data).toHaveLength(1);
-      expect(Object.keys(data[0]).sort()).toEqual(['id', 'name', 'status']);
+      expect(Object.keys(data[0]).sort()).toEqual(['address', 'id', 'name', 'phone', 'status', 'timezone']);
       const serialized = JSON.stringify(response.body);
       expect(serialized).not.toMatch(/restaurantId/i);
-      expect(serialized).not.toMatch(/timezone/i);
-      expect(serialized).not.toMatch(/phone/i);
-      expect(serialized).not.toMatch(/address/i);
       expect(serialized).not.toMatch(/createdAt/i);
       expect(serialized).not.toMatch(/updatedAt/i);
     });

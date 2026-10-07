@@ -1,4 +1,5 @@
 import { BranchAccessService } from './branch-access.service';
+import { restaurantAccessFor } from './restaurant-access.fixture';
 import type { RestaurantAccessContext } from './restaurant-access.service';
 
 const RESTAURANT_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
@@ -15,13 +16,7 @@ function buildPrismaMock() {
 function buildRestaurantAccess(
   overrides: Partial<RestaurantAccessContext> = {},
 ): RestaurantAccessContext {
-  return {
-    membershipId: 'membership-1',
-    restaurantId: RESTAURANT_ID,
-    role: 'OWNER',
-    allBranches: true,
-    ...overrides,
-  };
+  return restaurantAccessFor('OWNER', { restaurantId: RESTAURANT_ID, ...overrides });
 }
 
 describe('BranchAccessService', () => {

@@ -1,0 +1,242 @@
+'use client';
+
+import { useState, type FormEvent } from 'react';
+import { useRouter } from 'next/navigation';
+import { useStaffI18n } from '../../../../../../lib/i18n/client';
+import * as settingsApi from '../../../../../../lib/settings/api';
+import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
+import { validateImageFile } from '../../../../../../lib/menu/image-validation';
+import {
+  describeError,
+  isUnauthenticatedError,
+  redirectToLogin,
+} from '../../../../../../lib/menu/error-message';
+import { ImageField } from '../../../../../../components/menu/ImageField';
+import { Alert } from '../../../../../../components/ui/Alert';
+import { Button } from '../../../../../../components/ui/Button';
+import { ConfirmDialog } from '../../../../../../components/ui/ConfirmDialog';
+import { FormField } from '../../../../../../components/ui/FormField';
+import { Input } from '../../../../../../components/ui/Input';
+import { PageHeader } from '../../../../../../components/ui/PageHeader';
+import { SectionCard } from '../../../../../../components/ui/SectionCard';
+import { SettingsTabs } from '../SettingsTabs';
+
+const NAME_MAX_LENGTH = 200;
+
+export interface ProfileWorkspaceProps {
+  restaurantId: string;
+  initialName: string;
+  initialLogoAssetPath: string | null;
+  currencyCode: string;
+  /** `restaurant.manage` AND `allBranches === true`. */
+  canManage: boolean;
+  /** `restaurant.manage` alone -- only picks the explanatory read-only note. */
+  hasRestaurantManagePermission: boolean;
+}
+
+/**
+ * Restaurant Settings -- Profile (FT-12): the Restaurant's display name and
+ * logo, and nothing else (no theme editor; currency is shown read-only
+ * because it is fixed at creation). After a successful save the Server
+ * Components are refreshed so the Staff sidebar identity (which reads the
+ * same `/auth/me` Restaurant) shows the new name/logo immediately.
+ */
+export function ProfileWorkspace({
+  restaurantId,
+  initialName,
+  initialLogoAssetPath,
+  currencyCode,
+  canManage,
+  hasRestaurantManagePermission,
+}: ProfileWorkspaceProps) {
+  const { t } = useStaffI18n();
+  const router = useRouter();
+
+  const [savedName, setSavedName] = useState(initialName);
+  const [name, setName] = useState(initialName);
+  const [nameError, setNameError] = useState<string | null>(null);
+  const [isSavingName, setIsSavingName] = useState(false);
+
+  const [logoAssetPath, setLogoAssetPath] = useState(initialLogoAssetPath);
+  const [isLogoBusy, setIsLogoBusy] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const [confirmRemove, setConfirmRemove] = useState(false);
+  const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const [notice, setNotice] = useState<string | null>(null);
+  const [formError, setFormError] = useState<string | null>(null);
+
+  const trimmedName = name.trim();
+  const isNameDirty = trimmedName !== savedName;
+
+  async function handleSaveName(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (isSavingName || !canManage) return;
+
+    if (!trimmedName) {
+      setNameError(t('profile.name.error.required'));
+      return;
+    }
+    setNameError(null);
+    setFormError(null);
+    setNotice(null);
+    setIsSavingName(true);
+    try {
+      const profile = await settingsApi.updateRestaurantProfile(restaurantId, { name: trimmedName });
+      setSavedName(profile.name);
+      setName(profile.name);
+      setNotice(t('profile.saved'));
+      router.refresh();
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setFormError(describeError(error));
+    } finally {
+      setIsSavingName(false);
+    }
+  }
+
+  async function handleSelectLogo(file: File) {
+    if (isLogoBusy || !canManage) return;
+    setNotice(null);
+    const validationError = validateImageFile(file);
+    if (validationError) {
+      setLogoError(validationError);
+      return;
+    }
+    setLogoError(null);
+    setIsLogoBusy(true);
+    try {
+      const profile = await settingsApi.uploadRestaurantLogo(restaurantId, file);
+      setLogoAssetPath(profile.logoAssetPath);
+      setNotice(t('profile.logo.saved'));
+      router.refresh();
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setLogoError(describeError(error));
+    } finally {
+      setIsLogoBusy(false);
+    }
+  }
+
+  async function handleRemoveLogo() {
+    if (isLogoBusy) return;
+    setIsLogoBusy(true);
+    setRemoveError(null);
+    try {
+      await settingsApi.removeRestaurantLogo(restaurantId);
+      setLogoAssetPath(null);
+      setConfirmRemove(false);
+      setNotice(t('profile.logo.removed'));
+      router.refresh();
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setRemoveError(describeError(error));
+    } finally {
+      setIsLogoBusy(false);
+    }
+  }
+
+  return (
+    <div className="flex flex-col gap-6">
+      <PageHeader title={t('settings.title')} description={t('settings.subtitle')} />
+
+      <SettingsTabs restaurantId={restaurantId} active="profile" />
+
+      {!canManage && hasRestaurantManagePermission ? (
+        <Alert variant="info">{t('profile.needsFullScope')}</Alert>
+      ) : !canManage ? (
+        <Alert variant="info">{t('profile.viewOnly')}</Alert>
+      ) : null}
+      {notice ? <Alert variant="success">{notice}</Alert> : null}
+
+      <SectionCard title={t('profile.heading')} description={t('profile.description')}>
+        <form onSubmit={handleSaveName} className="flex max-w-xl flex-col gap-5" noValidate>
+          {formError ? <Alert variant="error">{formError}</Alert> : null}
+
+          <FormField label={t('profile.name')} htmlFor="restaurant-name" error={nameError ?? undefined}>
+            <Input
+              id="restaurant-name"
+              dir="auto"
+              maxLength={NAME_MAX_LENGTH}
+              value={name}
+              disabled={!canManage || isSavingName}
+              onChange={(event) => {
+                setName(event.target.value);
+                setNameError(null);
+              }}
+            />
+          </FormField>
+
+          <FormField label={t('profile.currency')} htmlFor="restaurant-currency">
+            <Input id="restaurant-currency" dir="ltr" value={currencyCode} readOnly disabled />
+            <p className="text-xs text-muted-foreground">{t('profile.currencyNote')}</p>
+          </FormField>
+
+          {canManage ? (
+            <div>
+              <Button type="submit" disabled={isSavingName || !isNameDirty}>
+                {isSavingName ? t('common.saving') : t('profile.save')}
+              </Button>
+            </div>
+          ) : null}
+        </form>
+      </SectionCard>
+
+      <SectionCard title={t('profile.logo.heading')} description={t('profile.logo.description')}>
+        <div className="flex max-w-xl flex-col gap-3">
+          {canManage ? (
+            <ImageField
+              idPrefix="restaurant-logo"
+              imageUrl={resolveAssetUrl(logoAssetPath)}
+              onSelectFile={(file) => void handleSelectLogo(file)}
+              onRemove={
+                logoAssetPath
+                  ? () => {
+                      setRemoveError(null);
+                      setConfirmRemove(true);
+                    }
+                  : undefined
+              }
+              isBusy={isLogoBusy}
+              error={logoError}
+              selectLabel={logoAssetPath ? t('profile.logo.replace') : t('profile.logo.upload')}
+              removeLabel={t('profile.logo.remove')}
+              helperText={
+                logoAssetPath ? t('profile.logo.helper') : `${t('profile.logo.empty')} ${t('profile.logo.helper')}`
+              }
+            />
+          ) : resolveAssetUrl(logoAssetPath) ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image.
+            <img
+              src={resolveAssetUrl(logoAssetPath) ?? undefined}
+              alt=""
+              className="h-20 w-20 rounded-lg border border-border object-cover"
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">{t('profile.logo.empty')}</p>
+          )}
+        </div>
+      </SectionCard>
+
+      <ConfirmDialog
+        open={confirmRemove}
+        title={t('profile.logo.removeConfirm.title')}
+        description={t('profile.logo.removeConfirm.description')}
+        confirmLabel={t('profile.logo.remove')}
+        isSubmitting={isLogoBusy}
+        error={removeError}
+        onConfirm={() => void handleRemoveLogo()}
+        onClose={() => setConfirmRemove(false)}
+      />
+    </div>
+  );
+}

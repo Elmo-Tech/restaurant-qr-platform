@@ -186,6 +186,27 @@ describe('validateEnv', () => {
     expect(result.RESTAURANT_INVITATION_TTL_DAYS).toBe(400);
   });
 
+  it('applies the documented default PASSWORD_RESET_TTL_MINUTES when omitted', () => {
+    const result = validateEnv(omit(validConfig(), 'PASSWORD_RESET_TTL_MINUTES'));
+
+    expect(result.PASSWORD_RESET_TTL_MINUTES).toBe(45);
+  });
+
+  it('coerces a valid PASSWORD_RESET_TTL_MINUTES to a number', () => {
+    const result = validateEnv(validConfig({ PASSWORD_RESET_TTL_MINUTES: '30' }));
+
+    expect(result.PASSWORD_RESET_TTL_MINUTES).toBe(30);
+  });
+
+  it('rejects a PASSWORD_RESET_TTL_MINUTES outside the 5-180 range', () => {
+    expect(() =>
+      validateEnv(validConfig({ PASSWORD_RESET_TTL_MINUTES: '4' })),
+    ).toThrow(/PASSWORD_RESET_TTL_MINUTES/);
+    expect(() =>
+      validateEnv(validConfig({ PASSWORD_RESET_TTL_MINUTES: '181' })),
+    ).toThrow(/PASSWORD_RESET_TTL_MINUTES/);
+  });
+
   it('rejects a non-PostgreSQL DATABASE_URL without leaking the value', () => {
     let caught: Error | undefined;
 

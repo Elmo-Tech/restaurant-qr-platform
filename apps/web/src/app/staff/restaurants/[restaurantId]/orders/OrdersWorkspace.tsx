@@ -44,6 +44,8 @@ export interface OrdersWorkspaceProps {
   /** Already scoped to this Membership's authorized Branches by `/auth/me`. */
   branches: AuthContextBranch[];
   permissions: string[];
+  /** The Restaurant's CURRENT logo (not part of any Order snapshot), shown only on the printed receipt header. */
+  restaurantLogoUrl?: string | null;
 }
 
 /**
@@ -61,7 +63,12 @@ export interface OrdersWorkspaceProps {
  * poll replaces only the Orders data and never resets a filter, the selected
  * tab, or an open Order.
  */
-export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersWorkspaceProps) {
+export function OrdersWorkspace({
+  restaurantId,
+  branches,
+  permissions,
+  restaurantLogoUrl = null,
+}: OrdersWorkspaceProps) {
   const { t } = useStaffI18n();
   const [branchFilter, setBranchFilter] = useState<string>(ALL_BRANCHES);
   const [orders, setOrders] = useState<OrderListItem[] | null>(null);
@@ -311,6 +318,7 @@ export function OrdersWorkspace({ restaurantId, branches, permissions }: OrdersW
         ) : orderDetail ? (
           <OrderDetailDialog
             order={orderDetail}
+            restaurantLogoUrl={restaurantLogoUrl}
             availableTransitions={getAvailableTransitions(orderDetail.status, permissions, orderDetail.type)}
             isTransitioning={isTransitioning}
             transitionError={transitionError}

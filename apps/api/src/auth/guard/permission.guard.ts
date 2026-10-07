@@ -29,8 +29,8 @@ const PERMISSION_DENIED_RESPONSE = {
  * Role-capability enforcement. Must run after AuthGuard, RestaurantAccessGuard,
  * and (where applicable) BranchAccessGuard in the same guard chain -- it
  * never re-authenticates and never re-derives Tenant/Branch authorization
- * itself. The only Role authority it uses is `request.restaurantAccess.role`,
- * already produced by RestaurantAccessGuard's current database lookup this
+ * itself. The only Role authority it uses is `request.restaurantAccess.permissions`
+ * (the Membership's Restaurant Role), already produced by RestaurantAccessGuard's current database lookup this
  * same request; PermissionGuard performs no database query of its own, so
  * there is nothing to cache and nothing that can go stale within a request.
  *
@@ -62,7 +62,7 @@ export class PermissionGuard implements CanActivate {
       throw new HttpException(PERMISSION_DENIED_RESPONSE, HttpStatus.FORBIDDEN);
     }
 
-    if (!hasPermission(request.restaurantAccess.role, requiredPermission)) {
+    if (!hasPermission(request.restaurantAccess.permissions, requiredPermission)) {
       throw new HttpException(PERMISSION_DENIED_RESPONSE, HttpStatus.FORBIDDEN);
     }
 

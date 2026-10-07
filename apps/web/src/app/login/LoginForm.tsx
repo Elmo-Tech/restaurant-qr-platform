@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, type FormEvent } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { apiFetch } from '../../lib/api/client';
 import { ApiError } from '../../lib/api/errors';
@@ -22,7 +23,7 @@ interface LoginResponse {
  * successful call sets the Backend's HttpOnly session cookie directly via
  * `Set-Cookie`, and this component only reacts to that outcome.
  */
-export function LoginForm() {
+export function LoginForm({ showResetSuccess = false }: { showResetSuccess?: boolean }) {
   const router = useRouter();
   const { t } = useStaffI18n();
   const [email, setEmail] = useState('');
@@ -57,6 +58,7 @@ export function LoginForm() {
   return (
     <Card>
       <form onSubmit={handleSubmit} className="flex flex-col gap-4" noValidate>
+        {showResetSuccess && !errorMessage ? <Alert variant="success">{t('auth.resetSuccess')}</Alert> : null}
         {errorMessage ? <Alert variant="error">{errorMessage}</Alert> : null}
 
         <FormField label={t('auth.email')} htmlFor="email">
@@ -83,6 +85,12 @@ export function LoginForm() {
             onChange={(event) => setPassword(event.target.value)}
             disabled={isSubmitting}
           />
+          <Link
+            href="/forgot-password"
+            className="self-end text-sm font-medium text-primary hover:underline"
+          >
+            {t('auth.forgotLink')}
+          </Link>
         </FormField>
 
         <Button type="submit" disabled={isSubmitting} className="mt-2 w-full">

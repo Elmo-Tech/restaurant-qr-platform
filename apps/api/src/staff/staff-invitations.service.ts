@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { isSerializationConflict } from '../database/serialization-conflict';
 import { ConfigService } from '@nestjs/config';
 import type { EnvConfig } from '../config/env.schema';
 import { SessionTokenService } from '../auth/session/session-token.service';
@@ -6,6 +7,7 @@ import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import type { BranchStatus } from '../generated/prisma/client';
 import type { InvitableRole } from './dto/create-staff-invitation.dto';
+import { validateBranchGrant } from './staff-branch-scope';
 
 const MILLISECONDS_PER_DAY = 24 * 60 * 60 * 1000;
 const MAX_TRANSACTION_ATTEMPTS = 3;
@@ -49,12 +51,36 @@ export type CreateStaffInvitationResult =
   | { outcome: 'scopeExceedsAuthority' }
   | { outcome: 'conflict' };
 
-function isSerializationConflict(error: unknown): boolean {
-  return (
-    error instanceof Prisma.PrismaClientKnownRequestError &&
-    error.code === 'P2034'
-  );
+export interface ListStaffInvitationsInput {
+  restaurantId: string;
 }
+
+/**
+ * FT-12: one still-relevant (not accepted, not revoked) `RestaurantInvitation`
+ * row -- an accepted Invitation is superseded by the real Membership it
+ * produced (visible instead via Staff Membership List) and is never shown
+ * here; a revoked one is simply gone. `status` is derived, never a stored
+ * column (RestaurantInvitation has none, #77) -- `'EXPIRED'` when
+ * `expiresAt` has passed, `'PENDING'` otherwise. Never `tokenHash`,
+ * `invitedByUserId`, `acceptedAt`, or `revokedAt`.
+ */
+export interface StaffInvitationListItem {
+  id: string;
+  email: string;
+  role: InvitableRole;
+  allBranches: boolean;
+  branches: CreatedStaffInvitationBranch[];
+  createdAt: Date;
+  expiresAt: Date;
+  status: 'PENDING' | 'EXPIRED';
+}
+
+export interface RevokeStaffInvitationInput {
+  restaurantId: string;
+  invitationId: string;
+}
+
+export type RevokeStaffInvitationResult = { outcome: 'revoked' } | { outcome: 'notFound' };
 
 /**
  * Business Foundation S: Staff Invitation creation. INVITATION-ONLY
@@ -108,62 +134,23 @@ export class StaffInvitationsService {
     tx: Prisma.TransactionClient,
     input: CreateStaffInvitationInput,
   ): Promise<CreateStaffInvitationResult> {
-    let validatedBranches: CreatedStaffInvitationBranch[] = [];
-
-    if (!input.allBranches) {
-      // Branch identity check happens BEFORE inviter-scope authority
-      // disclosure (settled contract #10): an unknown or foreign-Restaurant
-      // Branch id always produces `branchNotFound`, regardless of whether
-      // the caller would also have lacked authority over it.
-      const branches = await tx.branch.findMany({
-        where: {
-          id: { in: input.branchIds },
-          restaurantId: input.restaurantId,
-        },
-        orderBy: { id: 'asc' },
-        select: { id: true, name: true, status: true },
-      });
-
-      if (branches.length !== input.branchIds.length) {
-        return { outcome: 'branchNotFound' };
-      }
-
-      // Inviter Branch grant authority (settled contract #9), SECURITY
-      // CRITICAL: a Branch-scoped caller may only grant a Branch set that is
-      // an exact subset of their own CURRENT valid same-Restaurant Branch
-      // assignments -- re-read from current DB state inside this same
-      // transaction, using the established #61A same-Restaurant
-      // defense-in-depth pattern, never trusted from stale/client state.
-      if (!input.inviterAllBranches) {
-        const callerAssignments = await tx.restaurantMembershipBranch.findMany({
-          where: {
-            restaurantMembershipId: input.inviterMembershipId,
-            branch: { restaurantId: input.restaurantId },
-          },
-          select: { branchId: true },
-        });
-        const callerBranchIds = new Set(
-          callerAssignments.map((assignment) => assignment.branchId),
-        );
-        // Authorize against the canonical Branch ids the identity query
-        // already resolved (`branches`), never the raw request strings --
-        // a well-formed UUID may be submitted with different letter casing
-        // than the canonical value PostgreSQL/Prisma returns, and
-        // `Set.has()` is a case-sensitive JavaScript string comparison.
-        const exceedsAuthority = branches.some(
-          (branch) => !callerBranchIds.has(branch.id),
-        );
-        if (exceedsAuthority) {
-          return { outcome: 'scopeExceedsAuthority' };
-        }
-      }
-
-      validatedBranches = branches;
-    } else if (!input.inviterAllBranches) {
-      // A Branch-scoped caller can never grant allBranches=true, regardless
-      // of Role or `users.manage` (settled contract #9).
+    // Branch identity + inviter Branch-grant authority (settled contract
+    // #9/#10, SECURITY CRITICAL): shared with Staff Membership scope-editing
+    // (FT-12) via `validateBranchGrant` -- see that function's docstring.
+    const grant = await validateBranchGrant(tx, {
+      restaurantId: input.restaurantId,
+      granterMembershipId: input.inviterMembershipId,
+      granterAllBranches: input.inviterAllBranches,
+      allBranches: input.allBranches,
+      branchIds: input.branchIds,
+    });
+    if (grant.outcome === 'branchNotFound') {
+      return { outcome: 'branchNotFound' };
+    }
+    if (grant.outcome === 'scopeExceedsAuthority') {
       return { outcome: 'scopeExceedsAuthority' };
     }
+    const validatedBranches: CreatedStaffInvitationBranch[] = input.allBranches ? [] : grant.branches;
 
     // Tenant-scoped existing-Membership check (settled contract #11):
     // queries RestaurantMembership joined to the invited email directly,
@@ -263,5 +250,111 @@ export class StaffInvitationsService {
         invitationToken: rawToken,
       },
     };
+  }
+
+  /**
+   * FT-12 (API_CONVENTIONS.md #117, previously "remains unsettled and
+   * unimplemented"): lists every still-relevant `RestaurantInvitation` for
+   * one Restaurant -- `acceptedAt IS NULL AND revokedAt IS NULL`, regardless
+   * of `expiresAt` (an expired-but-not-yet-revoked Invitation still shows,
+   * with a derived `'EXPIRED'` status, so Staff can see it needs a fresh
+   * Invitation rather than it silently vanishing). Restaurant-scoped at the
+   * query itself, exactly like every other Tenant-scoped list in this
+   * codebase. No Branch-scoped-caller subset-visibility rule -- unlike Staff
+   * Membership List (#117A), an Invitation has no Membership yet to compare
+   * scope against; visibility is gated entirely by `users.view` at the
+   * Controller.
+   */
+  async listInvitations(input: ListStaffInvitationsInput): Promise<StaffInvitationListItem[]> {
+    const now = new Date();
+    const invitations = await this.prisma.restaurantInvitation.findMany({
+      where: { restaurantId: input.restaurantId, acceptedAt: null, revokedAt: null },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        emailNormalized: true,
+        role: true,
+        allBranches: true,
+        createdAt: true,
+        expiresAt: true,
+      },
+    });
+
+    if (invitations.length === 0) {
+      return [];
+    }
+
+    const needsAllBranches = invitations.some((invitation) => invitation.allBranches);
+    const scopedInvitationIds = invitations
+      .filter((invitation) => !invitation.allBranches)
+      .map((invitation) => invitation.id);
+
+    const [restaurantBranches, invitationBranchRows] = await Promise.all([
+      needsAllBranches
+        ? this.prisma.branch.findMany({
+            where: { restaurantId: input.restaurantId },
+            orderBy: { id: 'asc' },
+            select: { id: true, name: true, status: true },
+          })
+        : Promise.resolve([]),
+      scopedInvitationIds.length > 0
+        ? this.prisma.restaurantInvitationBranch.findMany({
+            where: {
+              restaurantInvitationId: { in: scopedInvitationIds },
+              branch: { restaurantId: input.restaurantId },
+            },
+            orderBy: { branch: { id: 'asc' } },
+            select: {
+              restaurantInvitationId: true,
+              branch: { select: { id: true, name: true, status: true } },
+            },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const branchesByInvitationId = new Map<string, CreatedStaffInvitationBranch[]>();
+    for (const row of invitationBranchRows) {
+      const list = branchesByInvitationId.get(row.restaurantInvitationId) ?? [];
+      list.push(row.branch);
+      branchesByInvitationId.set(row.restaurantInvitationId, list);
+    }
+
+    return invitations.map((invitation) => ({
+      id: invitation.id,
+      email: invitation.emailNormalized,
+      role: invitation.role as InvitableRole,
+      allBranches: invitation.allBranches,
+      branches: invitation.allBranches
+        ? restaurantBranches
+        : (branchesByInvitationId.get(invitation.id) ?? []),
+      createdAt: invitation.createdAt,
+      expiresAt: invitation.expiresAt,
+      status: invitation.expiresAt > now ? 'PENDING' : 'EXPIRED',
+    }));
+  }
+
+  /**
+   * FT-12: revokes a still-pending Invitation. The conditional `updateMany`
+   * (`WHERE acceptedAt IS NULL AND revokedAt IS NULL`) is both the identity
+   * check and the one-time-consumption guard in a single atomic statement --
+   * an already-accepted or already-revoked Invitation (or an unknown/
+   * foreign-Restaurant id) all converge on the identical `notFound` outcome,
+   * matching this codebase's established existence-hiding convention. Never
+   * touches `acceptedAt`, and never touches any `User`/`RestaurantMembership`
+   * row -- revoking an Invitation has no effect on any Membership that may
+   * have been created from a DIFFERENT, already-accepted Invitation.
+   */
+  async revokeInvitation(input: RevokeStaffInvitationInput): Promise<RevokeStaffInvitationResult> {
+    const result = await this.prisma.restaurantInvitation.updateMany({
+      where: {
+        id: input.invitationId,
+        restaurantId: input.restaurantId,
+        acceptedAt: null,
+        revokedAt: null,
+      },
+      data: { revokedAt: new Date() },
+    });
+
+    return result.count > 0 ? { outcome: 'revoked' } : { outcome: 'notFound' };
   }
 }

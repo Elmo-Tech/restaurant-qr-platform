@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { roleDisplayName } from '../../../../lib/staff/role-display';
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../lib/auth/session';
@@ -6,6 +7,7 @@ import { canViewMenu } from '../../../../lib/menu/capabilities';
 import { canViewOrders } from '../../../../lib/orders/capabilities';
 import { canViewTables } from '../../../../lib/tables/capabilities';
 import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
+import { canViewStaff } from '../../../../lib/staff/capabilities';
 import { canViewAnalytics } from '../../../../lib/dashboard/capabilities';
 import { DashboardWorkspace } from './DashboardWorkspace';
 import type { RestaurantStatus } from '../../../../lib/auth/types';
@@ -229,7 +231,7 @@ export default async function RestaurantLandingPage({
             <ContextFact label={t('dashboard.fact.defaultLanguage')}>
               {languageLabel} · <bdi dir="ltr">{restaurant.defaultLocale}</bdi>
             </ContextFact>
-            <ContextFact label={t('dashboard.fact.access')}>{t(`role.${role}` as const)}</ContextFact>
+            <ContextFact label={t('dashboard.fact.access')}>{roleDisplayName({ kind: role, name: membership.roleName }, t)}</ContextFact>
           </div>
 
           <div>
@@ -273,14 +275,16 @@ export default async function RestaurantLandingPage({
                 title={t('dashboard.card.staff.title')}
                 description={t('dashboard.card.staff.description')}
                 icon={<IconStaff className="h-5 w-5" />}
-                disabledReason={t('common.comingSoon')}
+                {...(canViewStaff(membership)
+                  ? { href: `/staff/restaurants/${restaurantId}/staff` }
+                  : { disabledReason: t('common.noAccess') })}
               />
               {canViewRestaurantSettings(membership) ? (
                 <FeatureCard
                   title={t('dashboard.card.settings.title')}
                   description={t('dashboard.card.settings.description')}
                   icon={<IconSettings className="h-5 w-5" />}
-                  href={`/staff/restaurants/${restaurantId}/settings/languages`}
+                  href={`/staff/restaurants/${restaurantId}/settings/profile`}
                 />
               ) : (
                 <FeatureCard

@@ -1,0 +1,168 @@
+import { defineMessages } from './define';
+
+/** FT-12B: Staff & Access -- Users (direct creation, Role, Branch access, activation) and the temporary-password notices. */
+export const staffMessages = defineMessages({
+  en: {
+    'staff.title': 'Staff & Access',
+    'staff.subtitle':
+      'Manage who works in this restaurant. A role decides what a user can do; branch access decides where.',
+    'staff.guard.noPermission': "You do not have permission to view this Restaurant's Staff.",
+    'staff.loading': 'Loading users…',
+    'staff.viewOnly': 'You have view-only access to Staff & Access.',
+    'staff.tab.users': 'Users',
+    'staff.tab.roles': 'Roles & Permissions',
+
+    'staff.newUser': 'New user',
+    'staff.members.heading': 'Users',
+    'staff.members.description': 'People who can sign in to this restaurant, with their role and branch access.',
+    'staff.members.empty.title': 'No users yet',
+    'staff.members.empty.description': 'Add your team so they can sign in and work.',
+    'staff.col.member': 'User',
+    'staff.col.role': 'Role',
+    'staff.col.branchAccess': 'Branch access',
+    'staff.col.status': 'Status',
+    'staff.col.actions': 'Actions',
+    'staff.you': 'You',
+
+    'staff.status.ACTIVE': 'Active',
+    'staff.status.DISABLED': 'Inactive',
+    'staff.status.INVITED': 'Invited',
+
+    'staff.branchAccess.all': 'All branches',
+    'staff.branchAccess.none': 'No branches assigned',
+    'staff.branchAccess.inactiveSuffix': '{name} (inactive)',
+
+    'staff.action.edit': 'Edit access',
+    'staff.action.disable': 'Deactivate',
+    'staff.action.enable': 'Activate',
+    'staff.action.protectedSelf': 'You cannot change your own access.',
+
+    'staff.new.title': 'New user',
+    'staff.new.subtitle': 'Set their sign-in password, and choose their role and branches.',
+    'staff.new.submit': 'Create user',
+    'staff.new.submitting': 'Creating…',
+    'staff.new.email': 'Email',
+    'staff.new.emailPlaceholder': 'name@example.com',
+    'staff.new.role': 'Role',
+    'staff.new.active': 'Active',
+    'staff.new.activeHint': 'Can sign in and work right away. Turn off to create the user inactive.',
+    'staff.new.error.emailRequired': 'Enter an email address.',
+    'staff.new.error.emailInvalid': 'Enter a valid email address.',
+    'staff.new.error.passwordLength': 'The password must be 10 to 128 characters.',
+    'staff.new.error.passwordMismatch': 'The two passwords do not match.',
+    'staff.new.password': 'Password',
+    'staff.new.passwordConfirm': 'Confirm password',
+    'staff.new.password.hint': 'Use 10 to 128 characters.',
+    'staff.new.password.existingNote':
+      'If this email already has an account, they are added to this restaurant and keep their own password -- this one is ignored.',
+    'staff.new.success.created': 'User {email} was created. They can sign in with the password you set.',
+    'staff.new.success.attached':
+      '{email} already has an account. They were added to this restaurant and should use their existing login credentials.',
+    'staff.new.noRoles': 'There is no role you can assign yet. Create one under Roles & Permissions.',
+
+
+    'staff.scope.label': 'Branch access',
+    'staff.scope.all': 'All branches',
+    'staff.scope.allHint': 'Access to every current and future branch.',
+    'staff.scope.selected': 'Selected branches',
+    'staff.scope.selectedHint': 'Choose the branches this person can work in.',
+    'staff.scope.noBranches': 'This restaurant has no branches you can assign.',
+    'staff.scope.error.noneSelected': 'Select at least one branch, or choose all branches.',
+    'staff.scope.limited': 'You can only grant access to branches you have access to yourself.',
+
+    'staff.edit.title': 'Edit access',
+    'staff.edit.submit': 'Save changes',
+    'staff.edit.success': 'Access updated for {email}.',
+
+    'staff.disable.title': 'Deactivate {email}?',
+    'staff.disable.description':
+      'They will immediately lose access to this restaurant. Their account and their access to any other restaurant are not affected. You can activate them again at any time.',
+    'staff.disable.confirm': 'Deactivate',
+    'staff.disable.success': '{email} was deactivated.',
+    'staff.enable.title': 'Activate {email}?',
+    'staff.enable.description': 'They will regain access to this restaurant with their current role and branch access.',
+    'staff.enable.confirm': 'Activate',
+    'staff.enable.success': '{email} was activated.',
+  },
+  ar: {
+    'staff.title': 'الموظفون والصلاحيات',
+    'staff.subtitle': 'تحكّم في من يعمل في هذا المطعم. الدور يحدد ما يستطيع المستخدم فعله، ووصول الفروع يحدد أين يفعله.',
+    'staff.guard.noPermission': 'ليست لديك صلاحية عرض موظفي هذا المطعم.',
+    'staff.loading': 'جارٍ تحميل المستخدمين…',
+    'staff.viewOnly': 'لديك صلاحية عرض فقط في الموظفين والصلاحيات.',
+    'staff.tab.users': 'المستخدمون',
+    'staff.tab.roles': 'الأدوار والصلاحيات',
+
+    'staff.newUser': 'مستخدم جديد',
+    'staff.members.heading': 'المستخدمون',
+    'staff.members.description': 'الأشخاص الذين يمكنهم تسجيل الدخول إلى هذا المطعم، مع أدوارهم ووصولهم إلى الفروع.',
+    'staff.members.empty.title': 'لا يوجد مستخدمون بعد',
+    'staff.members.empty.description': 'أضف فريقك ليتمكنوا من تسجيل الدخول والعمل.',
+    'staff.col.member': 'المستخدم',
+    'staff.col.role': 'الدور',
+    'staff.col.branchAccess': 'الوصول إلى الفروع',
+    'staff.col.status': 'الحالة',
+    'staff.col.actions': 'الإجراءات',
+    'staff.you': 'أنت',
+
+    'staff.status.ACTIVE': 'مفعّل',
+    'staff.status.DISABLED': 'غير مفعّل',
+    'staff.status.INVITED': 'مدعو',
+
+    'staff.branchAccess.all': 'كل الفروع',
+    'staff.branchAccess.none': 'لا توجد فروع معيّنة',
+    'staff.branchAccess.inactiveSuffix': '{name} (غير مفعّل)',
+
+    'staff.action.edit': 'تعديل الصلاحيات',
+    'staff.action.disable': 'إلغاء التفعيل',
+    'staff.action.enable': 'تفعيل',
+    'staff.action.protectedSelf': 'لا يمكنك تغيير صلاحياتك بنفسك.',
+
+    'staff.new.title': 'مستخدم جديد',
+    'staff.new.subtitle': 'حدّد كلمة مرور دخوله، واختر دوره وفروعه.',
+    'staff.new.submit': 'إنشاء المستخدم',
+    'staff.new.submitting': 'جارٍ الإنشاء…',
+    'staff.new.email': 'البريد الإلكتروني',
+    'staff.new.emailPlaceholder': 'name@example.com',
+    'staff.new.role': 'الدور',
+    'staff.new.active': 'مفعّل',
+    'staff.new.activeHint': 'يمكنه تسجيل الدخول والعمل فورًا. أوقف الخيار لإنشاء المستخدم غير مفعّل.',
+    'staff.new.error.emailRequired': 'أدخل عنوان البريد الإلكتروني.',
+    'staff.new.error.emailInvalid': 'أدخل عنوان بريد إلكتروني صالحًا.',
+    'staff.new.error.passwordLength': 'يجب أن تتراوح كلمة المرور بين 10 و128 حرفًا.',
+    'staff.new.error.passwordMismatch': 'كلمتا المرور غير متطابقتين.',
+    'staff.new.password': 'كلمة المرور',
+    'staff.new.passwordConfirm': 'تأكيد كلمة المرور',
+    'staff.new.password.hint': 'استخدم من 10 إلى 128 حرفًا.',
+    'staff.new.password.existingNote':
+      'إذا كان لهذا البريد حساب بالفعل، تتم إضافته إلى هذا المطعم ويحتفظ بكلمة مروره -- وتُتجاهل هذه الكلمة.',
+    'staff.new.success.created': 'تم إنشاء المستخدم {email}. يمكنه تسجيل الدخول بكلمة المرور التي حدّدتها.',
+    'staff.new.success.attached':
+      'لدى {email} حساب بالفعل. تمت إضافته إلى هذا المطعم وعليه استخدام بيانات دخوله الحالية.',
+    'staff.new.noRoles': 'لا يوجد دور يمكنك تعيينه بعد. أنشئ دورًا من صفحة الأدوار والصلاحيات.',
+
+
+    'staff.scope.label': 'الوصول إلى الفروع',
+    'staff.scope.all': 'كل الفروع',
+    'staff.scope.allHint': 'وصول إلى كل الفروع الحالية والمستقبلية.',
+    'staff.scope.selected': 'فروع محددة',
+    'staff.scope.selectedHint': 'اختر الفروع التي يمكن لهذا الشخص العمل فيها.',
+    'staff.scope.noBranches': 'لا توجد فروع في هذا المطعم يمكنك تعيينها.',
+    'staff.scope.error.noneSelected': 'اختر فرعًا واحدًا على الأقل، أو اختر كل الفروع.',
+    'staff.scope.limited': 'يمكنك منح الوصول إلى الفروع التي لديك وصول إليها فقط.',
+
+    'staff.edit.title': 'تعديل الصلاحيات',
+    'staff.edit.submit': 'حفظ التغييرات',
+    'staff.edit.success': 'تم تحديث صلاحيات {email}.',
+
+    'staff.disable.title': 'إلغاء تفعيل {email}؟',
+    'staff.disable.description':
+      'سيفقد وصوله إلى هذا المطعم فورًا. لا يتأثر حسابه ولا وصوله إلى أي مطعم آخر. يمكنك إعادة تفعيله في أي وقت.',
+    'staff.disable.confirm': 'إلغاء التفعيل',
+    'staff.disable.success': 'تم إلغاء تفعيل {email}.',
+    'staff.enable.title': 'تفعيل {email}؟',
+    'staff.enable.description': 'سيستعيد وصوله إلى هذا المطعم بدوره الحالي ووصوله الحالي إلى الفروع.',
+    'staff.enable.confirm': 'تفعيل',
+    'staff.enable.success': 'تم تفعيل {email}.',
+  },
+});

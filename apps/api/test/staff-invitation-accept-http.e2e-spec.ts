@@ -7,6 +7,7 @@ import { AppModule } from './../src/app.module';
 import { validationExceptionFactory } from './../src/common/http/validation-exception.factory';
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import { PrismaService } from './../src/database/prisma.service';
+import { ensureStarterRole } from './fixtures/ensure-starter-role';
 
 /**
  * Business Foundation T: proves Staff Invitation Acceptance end-to-end
@@ -76,6 +77,7 @@ describe('POST /api/v1/auth/invitations/accept (e2e)', () => {
         where: { membership: { restaurantId } },
       });
       await prisma.restaurantMembership.deleteMany({ where: { restaurantId } });
+      await prisma.restaurantRole.deleteMany({ where: { restaurantId } });
       await prisma.branch.deleteMany({ where: { restaurantId } });
       await prisma.restaurant.delete({ where: { id: restaurantId } });
     }
@@ -164,6 +166,7 @@ describe('POST /api/v1/auth/invitations/accept (e2e)', () => {
         restaurantId: params.restaurantId,
         userId: params.userId,
         role: params.role ?? 'OWNER',
+        roleId: (await ensureStarterRole(prisma, params.restaurantId, params.role ?? 'OWNER')).id,
         status: params.status ?? 'ACTIVE',
         allBranches: params.allBranches,
       },
@@ -786,7 +789,10 @@ describe('POST /api/v1/auth/invitations/accept (e2e)', () => {
       });
       await prisma.restaurantMembership.update({
         where: { id: managerMembership.id },
-        data: { role: 'WAITER' },
+        data: {
+          role: 'WAITER',
+          roleId: (await ensureStarterRole(prisma, restaurant.id, 'WAITER')).id,
+        },
       });
 
       const response = await postAccept({
