@@ -9,7 +9,7 @@
  * itself. `modifierOptionIds` makes two lines of the SAME Product with
  * DIFFERENT selections genuinely distinct entries in this array (e.g.
  * "Burger + Cheese" vs. "Burger + Bacon") -- `cartLineKey` is the shared
- * identity `PublicMenuView`/`CartDrawer` use to tell lines apart.
+ * identity `PublicMenuView`/`CartPanel` use to tell lines apart.
  */
 export interface StoredCartItem {
   productId: string;

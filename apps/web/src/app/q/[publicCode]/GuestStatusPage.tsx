@@ -1,17 +1,16 @@
+import { GuestIconInfo } from '../../../components/guest/icons';
+
 /**
- * FT-3/FT-3B, QR_SPEC.md #48/#49: the two guest-safe terminal states for
- * the public Menu -- never a raw API error code/JSON, never a Staff-styled
- * error component. Deliberately minimal: an unknown/inactive QR must not
- * confirm or deny anything about the underlying Restaurant, so this never
- * shows Restaurant branding or a navigation option.
+ * The two guest-safe terminal states for the public Menu (QR_SPEC.md #48/#49):
+ * an unknown/inactive QR, and a menu that is temporarily unavailable. Never raw
+ * API text or a Staff-styled error. Deliberately free of Restaurant branding or
+ * navigation -- an unknown/inactive QR must not confirm or deny anything about
+ * the underlying Restaurant.
  *
- * `dir`/`lang` come from the caller's own best-effort guess (the raw
- * `?lang=` the Guest's URL already carried, if any) -- the Backend never
- * resolves or returns a real locale for either outcome here (an unknown/
- * inactive QR has no Restaurant context to resolve one from at all), so
- * this deliberately does not wait on or invent Backend locale data; it
- * only mirrors the direction of whatever locale the interface copy itself
- * ended up in.
+ * `dir` comes from the caller's own best-effort guess (the raw `?lang=` the
+ * Guest's URL already carried, if any) -- the Backend never resolves a real
+ * locale for either outcome, so this only mirrors the direction of whatever
+ * locale the interface copy itself ended up in.
  */
 export function GuestStatusPage({
   title,
@@ -25,11 +24,16 @@ export function GuestStatusPage({
   return (
     <div
       dir={dir}
-      className="flex min-h-screen items-center justify-center bg-[#F8F5F1] px-6 text-center"
+      className="guest-root flex min-h-dvh items-center justify-center bg-guest-paper px-6 py-12 text-center"
     >
-      <div className="flex max-w-sm flex-col items-center gap-2">
-        <h1 className="text-lg font-semibold text-[#1D1A18]">{title}</h1>
-        <p className="text-sm text-[#655D56]">{message}</p>
+      <div className="flex max-w-sm flex-col items-center gap-4">
+        <span className="flex size-16 items-center justify-center rounded-full bg-guest-pine-soft text-guest-pine">
+          <GuestIconInfo className="size-8" />
+        </span>
+        <h1 className="font-guest-display text-2xl font-extrabold leading-tight text-guest-ink">
+          {title}
+        </h1>
+        <p className="text-base leading-relaxed text-guest-muted">{message}</p>
       </div>
     </div>
   );

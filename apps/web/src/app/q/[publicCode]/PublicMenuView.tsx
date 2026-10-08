@@ -1,10 +1,9 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
-import { IconImage } from '../../../components/staff/icons';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { GuestIconInfo } from '../../../components/guest/icons';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
-import { getPublicMenuCopy, type PublicMenuCopy } from '../../../lib/public-menu/copy';
+import { getPublicMenuCopy } from '../../../lib/public-menu/copy';
 import {
   cartLineKey,
   loadCart,
@@ -24,55 +23,45 @@ import {
   resolveClientRequestId,
   type PendingOrderCheckout,
 } from '../../../lib/public-menu/pending-order-attempt';
+import { matchesSearch, normalizeForSearch } from '../../../lib/public-menu/search';
 import { generateUuid } from '../../../lib/public-menu/uuid';
 import type {
   GuestOrderView,
-  PublicMenuCategory,
   PublicMenuData,
   PublicMenuProduct,
 } from '../../../lib/public-menu/types';
-import { CartDrawer, type CartLine, type CheckoutFieldKey } from './CartDrawer';
-import { ProductOptionsDialog } from './ProductOptionsDialog';
-
-/** Platform locales stay exactly `en`/`ar` (Section 8) -- no locale-name library needed for two fixed labels. */
-const LOCALE_LABELS: Record<string, string> = { en: 'English', ar: 'العربية' };
+import { CartBar } from './CartBar';
+import { CartPanel } from './CartPanel';
+import { CompactBar, GuestHeader } from './GuestHeader';
+import type {
+  CartLine,
+  CheckoutFieldKey,
+  Fulfillment,
+  OrderingContextView,
+} from './guest-view-types';
+import { MenuNav } from './MenuNav';
+import { MenuSections } from './MenuSections';
+import { ProductSheet } from './ProductSheet';
+import { useMenuNavigation } from './useMenuNavigation';
 
 const MAX_QUANTITY = 99;
 
 /**
- * The shared page container width (FT-3B, Section 4): full-bleed on mobile
- * with ~16px side padding (`px-4`), growing to a centered, comfortably
- * readable ~1100px column on larger screens -- never edge-to-edge on a
- * wide desktop, never a narrow column drowning in whitespace. Applied
- * identically to the sticky header's inner row and to `<main>` so both
- * stay visually aligned.
- */
-const PAGE_CONTAINER = 'mx-auto max-w-[1100px] px-4 sm:px-6 lg:px-10';
-
-/**
- * FT-3/FT-3B/FT-5: the Guest Menu -- Restaurant header, language switcher,
- * sticky Category chip nav, Category/Product sections, and (Section 3/18,
- * TABLE QR only) a Cart. Promoted to a Client Component in FT-5 (it was a
- * Server Component through FT-3B) purely because the Cart needs React
- * state/localStorage/a browser `fetch` -- Next.js still server-renders a
- * Client Component's first paint, so this costs nothing visually; it is
- * required simply because "Add to Cart" cannot exist without client JS.
- * The language switcher stays plain `<Link>`s carrying `?lang=` (a real
- * navigation), and Category selection stays a plain anchor jump -- neither
- * needed client interactivity and both still work identically.
+ * The Guest Menu (FT-3/FT-5, redesigned FT-13A): brand block, ordering-context
+ * ticket, sticky category navigation with search, the menu itself, and -- for
+ * any QR with something orderable -- the cart/checkout.
  *
- * `dir` is set on this component's own root, not the document `<html>`
- * (shared with Staff) -- everything inside genuinely mirrors for Arabic
- * since no physical-direction utility is used, only `gap` and logical
- * browser bidi/flex behavior.
+ * This component owns the state and the business wiring (Cart identity,
+ * checkout fields, Branch/zone resolution, idempotent submission); everything
+ * visual lives in the small components it composes. It is a Client Component
+ * because the Cart needs React state, localStorage and a browser `fetch`;
+ * Next.js still server-renders the first paint.
+ *
+ * `dir` is set on this component's own root, not the document `<html>` (shared
+ * with Staff) -- everything inside mirrors for Arabic through logical
+ * utilities only.
  */
-export function PublicMenuView({
-  data,
-  publicCode,
-}: {
-  data: PublicMenuData;
-  publicCode: string;
-}) {
+export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; publicCode: string }) {
   const dir = data.locale.resolved === 'ar' ? 'rtl' : 'ltr';
   const currency = data.context.restaurant.currencyCode;
   const logoUrl = resolveAssetUrl(data.context.restaurant.logoAssetPath);
@@ -94,15 +83,58 @@ export function PublicMenuView({
   const deliveryAvailable = deliveryBranches.length > 0;
   const canOrder = !isGenericQr || pickupAvailable || deliveryAvailable;
 
-  const productById = useMemo(() => {
-    const map = new Map<string, PublicMenuProduct>();
+  const orderingContext: OrderingContextView = {
+    kind: isGenericQr ? 'GENERIC' : 'TABLE',
+    tableNumber: data.context.table?.number ?? null,
+    branchName: data.context.branch?.name ?? null,
+    pickupAvailable,
+    deliveryAvailable,
+  };
+
+  const { productById, categoryIdByProductId } = useMemo(() => {
+    const products = new Map<string, PublicMenuProduct>();
+    const categoryIds = new Map<string, string>();
     for (const category of data.menu.categories) {
       for (const product of category.products) {
-        map.set(product.id, product);
+        products.set(product.id, product);
+        categoryIds.set(product.id, category.id);
       }
     }
-    return map;
+    return { productById: products, categoryIdByProductId: categoryIds };
   }, [data.menu.categories]);
+
+  // ---- search (client-side, over the already-loaded Menu) ----
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const normalizedQuery = normalizeForSearch(query);
+  const isSearching = searchOpen && normalizedQuery !== '';
+  const searchIndex = useMemo(() => {
+    const index = new Map<string, string>();
+    for (const product of productById.values()) {
+      index.set(product.id, normalizeForSearch(`${product.name} ${product.description ?? ''}`));
+    }
+    return index;
+  }, [productById]);
+  const visibleCategories = useMemo(() => {
+    if (!isSearching) return data.menu.categories;
+    return data.menu.categories
+      .map((category) => ({
+        ...category,
+        products: category.products.filter((product) =>
+          matchesSearch(searchIndex.get(product.id) ?? '', normalizedQuery),
+        ),
+      }))
+      .filter((category) => category.products.length > 0);
+  }, [data.menu.categories, isSearching, normalizedQuery, searchIndex]);
+  const searchResultCount = visibleCategories.reduce(
+    (sum, category) => sum + category.products.length,
+    0,
+  );
+
+  const navigation = useMenuNavigation(
+    data.menu.categories.map((category) => category.id),
+    isSearching,
+  );
 
   const [cart, setCart] = useState<StoredCartItem[]>([]);
   const [hasHydratedCart, setHasHydratedCart] = useState(false);
@@ -110,9 +142,9 @@ export function PublicMenuView({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [confirmedOrder, setConfirmedOrder] = useState<GuestOrderView | null>(null);
-  // FT-7/FT-8 checkout state -- kept here (not inside the Cart drawer) so it
-  // survives closing/reopening the drawer and a failed submission.
-  const [requestedFulfillment, setRequestedFulfillment] = useState<'PICKUP' | 'DELIVERY'>('PICKUP');
+  // FT-7/FT-8 checkout state -- kept here (not inside the Cart panel) so it
+  // survives closing/reopening the panel and a failed submission.
+  const [requestedFulfillment, setRequestedFulfillment] = useState<Fulfillment>('PICKUP');
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<CheckoutFieldKey, string>>({
@@ -127,7 +159,7 @@ export function PublicMenuView({
   });
   // The mode actually in effect: the Guest's choice while it is available,
   // otherwise whichever mode is (a Restaurant with only Delivery, say).
-  const fulfillment: 'PICKUP' | 'DELIVERY' = !isGenericQr
+  const fulfillment: Fulfillment = !isGenericQr
     ? 'PICKUP'
     : requestedFulfillment === 'DELIVERY' && deliveryAvailable
       ? 'DELIVERY'
@@ -172,14 +204,10 @@ export function PublicMenuView({
     : null;
   // A stable primitive for effect dependencies (the object above is new every render).
   const checkoutKey = JSON.stringify(checkout);
-  // FT-6A: the Product currently open in the "choose your options" dialog --
-  // null means no dialog is open. A Product with Modifier Groups never adds
-  // directly from its card; it always opens this dialog first (Section:
-  // "clicking Add should open a focused Product Options dialog instead of
-  // blindly adding").
-  const [optionsDialogProduct, setOptionsDialogProduct] = useState<PublicMenuProduct | null>(
-    null,
-  );
+  // The Product open in the customizer sheet -- null means no sheet is open.
+  // Any available Product can open it (it shows the dish and a quantity); a
+  // Product with Modifier Groups always opens it before adding.
+  const [sheetProduct, setSheetProduct] = useState<PublicMenuProduct | null>(null);
 
   // Section 21: load once on mount (localStorage does not exist during SSR)
   // and reconcile immediately against the CURRENT Menu response -- a stored
@@ -227,86 +255,123 @@ export function PublicMenuView({
   // Every Cart mutation goes through this one helper, which always reads
   // the LATEST `cart` state (via the functional `setState` form) and
   // persists the result -- safe even across rapid successive clicks.
-  function updateCart(updater: (prev: StoredCartItem[]) => StoredCartItem[]) {
-    setCart((prev) => {
-      const next = updater(prev);
-      saveCart(publicCode, next);
-      return next;
-    });
-  }
+  // (Stable identity: the memoized menu below depends on the handlers.)
+  const updateCart = useCallback(
+    (updater: (prev: StoredCartItem[]) => StoredCartItem[]) => {
+      setCart((prev) => {
+        const next = updater(prev);
+        saveCart(publicCode, next);
+        return next;
+      });
+    },
+    [publicCode],
+  );
 
   // FT-6A: Cart identity is (productId + selected modifierOptionIds), not
   // productId alone -- "Burger + Cheese" and "Burger + Bacon" are two
-  // genuinely distinct lines. Every quantity control below keys off this
-  // same `cartLineKey`, never `productId` in isolation.
-  const quantityByLineKey = useMemo(() => {
-    const map = new Map<string, number>();
+  // genuinely distinct lines. Every quantity control keys off this same
+  // `cartLineKey`, never `productId` in isolation.
+  const { simpleQuantityByProductId, totalQuantityByProductId } = useMemo(() => {
+    const simple = new Map<string, number>();
+    const total = new Map<string, number>();
     for (const item of cart) {
-      map.set(cartLineKey(item.productId, item.modifierOptionIds), item.quantity);
+      total.set(item.productId, (total.get(item.productId) ?? 0) + item.quantity);
+      if (item.modifierOptionIds.length === 0) simple.set(item.productId, item.quantity);
     }
-    return map;
+    return { simpleQuantityByProductId: simple, totalQuantityByProductId: total };
   }, [cart]);
 
-  /** Adds one unit of `productId` with the given selections -- merges into an existing line with the SAME selections, otherwise starts a new distinct line. */
-  function addLine(productId: string, modifierOptionIds: string[]) {
-    const key = cartLineKey(productId, modifierOptionIds);
-    updateCart((prev) => {
-      const current = prev.find(
-        (item) => cartLineKey(item.productId, item.modifierOptionIds) === key,
-      );
-      if (!current) {
-        return [...prev, { productId, quantity: 1, modifierOptionIds }];
-      }
-      return prev.map((item) =>
-        cartLineKey(item.productId, item.modifierOptionIds) === key
-          ? { ...item, quantity: Math.min(item.quantity + 1, MAX_QUANTITY) }
-          : item,
-      );
-    });
-  }
-
-  /** A Product with Modifier Groups always opens the options dialog first (never adds directly); one with none adds a plain no-selection line exactly like before FT-6A. */
-  function handleAddClick(product: PublicMenuProduct) {
-    if (product.modifierGroups.length > 0) {
-      setOptionsDialogProduct(product);
-      return;
-    }
-    addLine(product.id, []);
-  }
-
-  function handleConfirmOptions(selectedOptionIds: string[]) {
-    if (!optionsDialogProduct) return;
-    addLine(optionsDialogProduct.id, selectedOptionIds);
-    setOptionsDialogProduct(null);
-  }
-
-  function handleIncrement(lineKey: string) {
-    updateCart((prev) =>
-      prev.map((item) =>
-        cartLineKey(item.productId, item.modifierOptionIds) === lineKey
-          ? { ...item, quantity: Math.min(item.quantity + 1, MAX_QUANTITY) }
-          : item,
-      ),
-    );
-  }
-
-  function handleDecrement(lineKey: string) {
-    updateCart((prev) =>
-      prev
-        .map((item) =>
-          cartLineKey(item.productId, item.modifierOptionIds) === lineKey
-            ? { ...item, quantity: item.quantity - 1 }
+  /** Adds `quantity` of `productId` with the given selections -- merges into an existing line with the SAME selections, otherwise starts a new distinct line. */
+  const addLine = useCallback(
+    (productId: string, modifierOptionIds: string[], quantity = 1) => {
+      const key = cartLineKey(productId, modifierOptionIds);
+      updateCart((prev) => {
+        const current = prev.find(
+          (item) => cartLineKey(item.productId, item.modifierOptionIds) === key,
+        );
+        if (!current) {
+          return [
+            ...prev,
+            { productId, quantity: Math.min(quantity, MAX_QUANTITY), modifierOptionIds },
+          ];
+        }
+        return prev.map((item) =>
+          cartLineKey(item.productId, item.modifierOptionIds) === key
+            ? { ...item, quantity: Math.min(item.quantity + quantity, MAX_QUANTITY) }
             : item,
-        )
-        .filter((item) => item.quantity > 0),
-    );
+        );
+      });
+    },
+    [updateCart],
+  );
+
+  /** The card's quick-add: a Product with Modifier Groups never adds blindly (it opens the sheet); one with none adds a plain no-selection line. */
+  const handleQuickAdd = useCallback(
+    (product: PublicMenuProduct) => {
+      if (product.modifierGroups.length > 0) {
+        setSheetProduct(product);
+        return;
+      }
+      addLine(product.id, []);
+    },
+    [addLine, setSheetProduct],
+  );
+
+  const handleOpenProduct = useCallback(
+    (product: PublicMenuProduct) => setSheetProduct(product),
+    [setSheetProduct],
+  );
+
+  function handleConfirmOptions(selectedOptionIds: string[], quantity: number) {
+    if (!sheetProduct) return;
+    addLine(sheetProduct.id, selectedOptionIds, quantity);
+    setSheetProduct(null);
   }
+
+  const handleIncrement = useCallback(
+    (lineKey: string) => {
+      updateCart((prev) =>
+        prev.map((item) =>
+          cartLineKey(item.productId, item.modifierOptionIds) === lineKey
+            ? { ...item, quantity: Math.min(item.quantity + 1, MAX_QUANTITY) }
+            : item,
+        ),
+      );
+    },
+    [updateCart],
+  );
+
+  const handleDecrement = useCallback(
+    (lineKey: string) => {
+      updateCart((prev) =>
+        prev
+          .map((item) =>
+            cartLineKey(item.productId, item.modifierOptionIds) === lineKey
+              ? { ...item, quantity: item.quantity - 1 }
+              : item,
+          )
+          .filter((item) => item.quantity > 0),
+      );
+    },
+    [updateCart],
+  );
 
   function handleRemove(lineKey: string) {
     updateCart((prev) =>
       prev.filter((item) => cartLineKey(item.productId, item.modifierOptionIds) !== lineKey),
     );
   }
+
+  // The product cards only ever touch the no-selection line of a simple product.
+  const handleCardIncrement = useCallback(
+    (productId: string) => handleIncrement(cartLineKey(productId, [])),
+    [handleIncrement],
+  );
+  const handleCardDecrement = useCallback(
+    (productId: string) => handleDecrement(cartLineKey(productId, [])),
+    [handleDecrement],
+  );
+  const handleClearSearch = useCallback(() => setQuery(''), []);
 
   const cartLines: CartLine[] = cart
     .map((item) => {
@@ -343,6 +408,7 @@ export function PublicMenuView({
         modifierOptionIds: item.modifierOptionIds,
         name: product.name,
         unitPrice,
+        lineTotal: fromMinorUnits(lineTotalMinorUnits(unitPrice, item.quantity)),
         selections,
         blocked: product.availability === 'SOLD_OUT',
       };
@@ -359,7 +425,9 @@ export function PublicMenuView({
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   // FT-8 display-only breakdown (exact BigInt minor units). The Backend
   // recomputes the fee, minimum and total from the zone row on submit.
-  const deliveryFeeMinorUnits = selectedZone ? toMinorUnits(selectedZone.deliveryFee) : ZERO_MINOR_UNITS;
+  const deliveryFeeMinorUnits = selectedZone
+    ? toMinorUnits(selectedZone.deliveryFee)
+    : ZERO_MINOR_UNITS;
   const deliveryFeeDisplay = fromMinorUnits(deliveryFeeMinorUnits);
   const grandTotalDisplay = fromMinorUnits(totalMinorUnits + deliveryFeeMinorUnits);
   const belowMinimum =
@@ -367,6 +435,13 @@ export function PublicMenuView({
   const minimumMessage =
     selectedZone !== null && belowMinimum
       ? copy.minimumOrderMessage(selectedZone.name, selectedZone.minimumOrder, currency)
+      : null;
+  const minimumShortfallDisplay =
+    selectedZone !== null && belowMinimum
+      ? copy.minimumShortfall(
+          fromMinorUnits(toMinorUnits(selectedZone.minimumOrder) - totalMinorUnits),
+          currency,
+        )
       : null;
   const checkoutDetailsComplete =
     !isGenericQr ||
@@ -377,6 +452,14 @@ export function PublicMenuView({
         (resolvedZoneId !== null && fields.deliveryAddress.trim() !== '' && !belowMinimum)));
   const canSubmit =
     cartLines.length > 0 && !hasBlockedLines && !isSubmitting && checkoutDetailsComplete;
+  // Why the primary action is unavailable, in words (shown instead of a silently greyed button).
+  const submitHint = hasBlockedLines
+    ? copy.placeOrderHintBlocked
+    : !checkoutDetailsComplete && !belowMinimum
+      ? isDelivery
+        ? copy.deliveryDetailsRequiredError
+        : copy.pickupDetailsRequiredError
+      : null;
 
   async function handlePlaceOrder() {
     if (!canSubmit) return;
@@ -412,7 +495,9 @@ export function PublicMenuView({
       return;
     }
     if (result.outcome === 'pickupDetailsRequired') {
-      setSubmitError(isDelivery ? copy.deliveryDetailsRequiredError : copy.pickupDetailsRequiredError);
+      setSubmitError(
+        isDelivery ? copy.deliveryDetailsRequiredError : copy.pickupDetailsRequiredError,
+      );
       return;
     }
     if (result.outcome === 'deliveryDetailsRequired') {
@@ -465,121 +550,110 @@ export function PublicMenuView({
     }
   }
 
+  const showCartBar = canOrder && cartCount > 0;
+  const sheetCategoryId = sheetProduct ? (categoryIdByProductId.get(sheetProduct.id) ?? '') : '';
+
   return (
-    <div dir={dir} lang={data.locale.resolved} className="min-h-screen bg-[#F8F5F1] text-[#1D1A18]">
-      <header className="sticky top-0 z-20 border-b border-[#E5DED6] bg-[#FCFBF9]/95 backdrop-blur">
-        <div className={`${PAGE_CONTAINER} pt-5 pb-3`}>
-          <div className="flex items-center justify-between gap-4">
-            <div className="flex min-w-0 items-center gap-3">
-              {logoUrl ? (
-                // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image.
-                <img
-                  src={logoUrl}
-                  alt=""
-                  className="h-10 w-10 flex-shrink-0 rounded-lg border border-[#E5DED6] bg-white object-cover sm:h-12 sm:w-12"
-                />
-              ) : null}
-              <div className="min-w-0">
-                <h1 className="truncate text-xl font-bold text-[#1D1A18] sm:text-2xl">
-                  {data.context.restaurant.name}
-                </h1>
-                {data.context.table ? (
-                  <p className="mt-0.5 text-sm text-[#8A5138]">
-                    {copy.table} {data.context.table.number}
-                  </p>
-                ) : null}
-              </div>
-            </div>
-            <LanguageSwitcher
-              available={data.locale.available}
-              resolved={data.locale.resolved}
-              publicCode={publicCode}
-            />
-          </div>
+    <div
+      dir={dir}
+      lang={data.locale.resolved}
+      className="guest-root min-h-dvh bg-guest-paper text-guest-ink"
+    >
+      <CompactBar
+        visible={navigation.compact}
+        restaurantName={data.context.restaurant.name}
+        logoUrl={logoUrl}
+        context={orderingContext}
+        copy={copy}
+        locale={data.locale}
+        publicCode={publicCode}
+      />
 
-          {hasCategories ? (
-            <nav
-              aria-label={copy.categories}
-              className="-mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1 [scrollbar-width:none] sm:-mx-6 sm:px-6 lg:-mx-10 lg:px-10 [&::-webkit-scrollbar]:hidden"
-            >
-              {data.menu.categories.map((category) => (
-                <a
-                  key={category.id}
-                  href={`#category-${category.id}`}
-                  className="shrink-0 whitespace-nowrap rounded-full border border-[#E5DED6] bg-white px-3.5 py-1.5 text-sm font-medium text-[#302C29] transition-colors hover:border-[#7A5138] hover:text-[#7A5138] active:bg-[#F1ECE6]"
-                >
-                  {category.name}
-                </a>
-              ))}
-            </nav>
-          ) : null}
-        </div>
-      </header>
+      <GuestHeader
+        sentinelRef={navigation.headerRef}
+        restaurantName={data.context.restaurant.name}
+        logoUrl={logoUrl}
+        menuName={data.menu.name}
+        menuDescription={data.menu.description}
+        context={orderingContext}
+        copy={copy}
+        locale={data.locale}
+        publicCode={publicCode}
+      />
 
-      <main className={`${PAGE_CONTAINER} pt-6 ${canOrder && cartCount > 0 ? 'pb-28' : 'pb-16'}`}>
-        <div className="mb-8 border-b border-[#E5DED6] pb-6">
-          <h2 className="text-xl font-bold text-[#1D1A18] sm:text-2xl">{data.menu.name}</h2>
-          {data.menu.description ? (
-            <p className="mt-2 max-w-2xl text-sm leading-relaxed text-[#655D56]">
-              {data.menu.description}
+      {hasCategories ? (
+        <MenuNav
+          categories={data.menu.categories}
+          activeId={navigation.activeId}
+          onSelect={navigation.select}
+          compact={navigation.compact}
+          searchOpen={searchOpen}
+          query={query}
+          onSearchOpen={() => setSearchOpen(true)}
+          onSearchClose={() => {
+            setSearchOpen(false);
+            setQuery('');
+          }}
+          onQueryChange={setQuery}
+          copy={copy}
+        />
+      ) : null}
+
+      <main className={`px-4 pt-6 sm:px-6 sm:pt-8 lg:px-10 ${showCartBar ? 'pb-36' : 'pb-16'}`}>
+        <div className="mx-auto max-w-[1180px]">
+          {!canOrder ? (
+            <p className="mb-6 flex items-start gap-3 rounded-2xl border border-guest-line bg-guest-surface px-4 py-3.5 text-[0.95rem] leading-relaxed text-guest-ink-soft">
+              <GuestIconInfo className="mt-0.5 size-5 shrink-0 text-guest-pine" />
+              {copy.pickupUnavailable}
             </p>
           ) : null}
+
+          {isSearching && searchResultCount > 0 ? (
+            <p role="status" className="mb-4 text-sm font-semibold text-guest-muted">
+              {copy.searchResultsCount(searchResultCount)}
+            </p>
+          ) : null}
+
+          <MenuSections
+            categories={visibleCategories}
+            menuCategoryCount={data.menu.categories.length}
+            currency={currency}
+            copy={copy}
+            canOrder={canOrder}
+            searchQuery={isSearching ? query : ''}
+            simpleQuantityByProductId={simpleQuantityByProductId}
+            totalQuantityByProductId={totalQuantityByProductId}
+            onOpen={handleOpenProduct}
+            onQuickAdd={handleQuickAdd}
+            onIncrement={handleCardIncrement}
+            onDecrement={handleCardDecrement}
+            onClearSearch={handleClearSearch}
+          />
         </div>
-
-        {isGenericQr && !pickupAvailable && !deliveryAvailable ? (
-          <p className="mb-6 rounded-md border border-[#E5DED6] bg-white px-4 py-3 text-sm text-[#655D56]">
-            {copy.pickupUnavailable}
-          </p>
-        ) : null}
-
-        {!hasCategories ? (
-          <p className="rounded-md border border-[#E5DED6] bg-white px-4 py-6 text-center text-sm text-[#655D56]">
-            {copy.noItemsInMenu}
-          </p>
-        ) : (
-          <div className="divide-y divide-[#E5DED6]">
-            {data.menu.categories.map((category) => (
-              <CategorySection
-                key={category.id}
-                category={category}
-                currency={currency}
-                copy={copy}
-                canOrder={canOrder}
-                quantityByLineKey={quantityByLineKey}
-                onAddClick={handleAddClick}
-                onIncrement={handleIncrement}
-                onDecrement={handleDecrement}
-              />
-            ))}
-          </div>
-        )}
       </main>
 
-      {canOrder && cartCount > 0 ? (
-        <button
-          type="button"
-          onClick={() => setIsCartOpen(true)}
-          className="fixed inset-x-4 bottom-4 z-30 flex items-center justify-between gap-3 rounded-full bg-[#7A5138] px-5 py-3 text-sm font-semibold text-white shadow-lg transition-colors hover:bg-[#634127] sm:inset-x-auto sm:end-6 sm:min-w-[280px]"
-        >
-          <span>
-            {copy.viewCart} · {cartCount}
-          </span>
-          <span dir="ltr">
-            {totalDisplay} {currency}
-          </span>
-        </button>
+      {showCartBar ? (
+        <CartBar
+          count={cartCount}
+          totalDisplay={totalDisplay}
+          currency={currency}
+          copy={copy}
+          onOpen={() => setIsCartOpen(true)}
+        />
       ) : null}
 
       {canOrder && (isCartOpen || confirmedOrder) ? (
-        <CartDrawer
+        <CartPanel
           copy={copy}
           currency={currency}
           dir={dir}
+          context={orderingContext}
           lines={cartLines}
           totalDisplay={totalDisplay}
           isSubmitting={isSubmitting}
           canSubmit={canSubmit}
           submitError={submitError}
+          submitHint={submitHint}
           confirmedOrder={confirmedOrder}
           checkout={
             isGenericQr
@@ -593,7 +667,10 @@ export function PublicMenuView({
                     setSelectedBranchId(null);
                     setSelectedZoneId(null);
                   },
-                  branches: eligibleBranches.map((branch) => ({ id: branch.id, name: branch.name })),
+                  branches: eligibleBranches.map((branch) => ({
+                    id: branch.id,
+                    name: branch.name,
+                  })),
                   branchId: resolvedBranchId,
                   onBranchChange: (branchId) => {
                     setSelectedBranchId(branchId);
@@ -608,6 +685,7 @@ export function PublicMenuView({
                   deliveryFeeDisplay: isDelivery && selectedZone ? deliveryFeeDisplay : null,
                   grandTotalDisplay: isDelivery ? grandTotalDisplay : totalDisplay,
                   minimumMessage,
+                  minimumShortfallDisplay,
                 }
               : null
           }
@@ -619,236 +697,18 @@ export function PublicMenuView({
         />
       ) : null}
 
-      {optionsDialogProduct ? (
-        <ProductOptionsDialog
-          product={optionsDialogProduct}
+      {sheetProduct ? (
+        <ProductSheet
+          key={sheetProduct.id}
+          product={sheetProduct}
+          categoryId={sheetCategoryId}
           currency={currency}
           copy={copy}
-          onCancel={() => setOptionsDialogProduct(null)}
+          dir={dir}
+          onCancel={() => setSheetProduct(null)}
           onConfirm={handleConfirmOptions}
         />
       ) : null}
     </div>
-  );
-}
-
-function LanguageSwitcher({
-  available,
-  resolved,
-  publicCode,
-}: {
-  available: string[];
-  resolved: string;
-  publicCode: string;
-}) {
-  if (available.length <= 1) return null;
-  return (
-    <div className="flex shrink-0 gap-0.5 rounded-full border border-[#E5DED6] bg-white p-1 text-xs">
-      {available.map((locale) => {
-        const isActive = locale === resolved;
-        return (
-          <Link
-            key={locale}
-            href={`/q/${publicCode}?lang=${locale}`}
-            aria-current={isActive ? 'true' : undefined}
-            className={`rounded-full px-2.5 py-1 font-medium transition-colors ${
-              isActive ? 'bg-[#7A5138] text-white' : 'text-[#655D56] hover:text-[#302C29]'
-            }`}
-          >
-            {LOCALE_LABELS[locale] ?? locale}
-          </Link>
-        );
-      })}
-    </div>
-  );
-}
-
-function CategorySection({
-  category,
-  currency,
-  copy,
-  canOrder,
-  quantityByLineKey,
-  onAddClick,
-  onIncrement,
-  onDecrement,
-}: {
-  category: PublicMenuCategory;
-  currency: string;
-  copy: PublicMenuCopy;
-  canOrder: boolean;
-  quantityByLineKey: Map<string, number>;
-  onAddClick: (product: PublicMenuProduct) => void;
-  onIncrement: (lineKey: string) => void;
-  onDecrement: (lineKey: string) => void;
-}) {
-  const imageUrl = resolveAssetUrl(category.imageAssetPath);
-  return (
-    <section id={`category-${category.id}`} className="scroll-mt-36 py-8 first:pt-0">
-      <div className="mb-4 flex items-center gap-3">
-        {imageUrl ? (
-          // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable static/local image.
-          <img
-            src={imageUrl}
-            alt=""
-            className="h-14 w-14 flex-shrink-0 rounded-lg border border-[#E5DED6] object-cover"
-          />
-        ) : null}
-        <div className="min-w-0">
-          <h3 className="text-lg font-bold text-[#1D1A18]">{category.name}</h3>
-          {category.description ? (
-            <p className="mt-0.5 text-sm text-[#655D56]">{category.description}</p>
-          ) : null}
-        </div>
-      </div>
-
-      {category.products.length === 0 ? (
-        <p className="text-sm text-[#AFA397]">{copy.noItemsInCategory}</p>
-      ) : (
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          {category.products.map((product) => {
-            // A Product with Modifier Groups can have several distinct
-            // Cart lines at once (different selections) -- its card never
-            // shows a single quantity stepper, only "Add" (which always
-            // opens the options dialog). A Product with none has exactly
-            // one possible line (empty selections), so the simple stepper
-            // still applies unchanged from before FT-6A.
-            const hasModifiers = product.modifierGroups.length > 0;
-            const simpleLineKey = cartLineKey(product.id, []);
-            return (
-              <ProductCard
-                key={product.id}
-                product={product}
-                currency={currency}
-                copy={copy}
-                canOrder={canOrder}
-                hasModifiers={hasModifiers}
-                quantity={hasModifiers ? 0 : (quantityByLineKey.get(simpleLineKey) ?? 0)}
-                onAddClick={() => onAddClick(product)}
-                onIncrement={() => onIncrement(simpleLineKey)}
-                onDecrement={() => onDecrement(simpleLineKey)}
-              />
-            );
-          })}
-        </div>
-      )}
-    </section>
-  );
-}
-
-function ProductCard({
-  product,
-  currency,
-  copy,
-  canOrder,
-  hasModifiers,
-  quantity,
-  onAddClick,
-  onIncrement,
-  onDecrement,
-}: {
-  product: PublicMenuProduct;
-  currency: string;
-  copy: PublicMenuCopy;
-  canOrder: boolean;
-  hasModifiers: boolean;
-  quantity: number;
-  onAddClick: () => void;
-  onIncrement: () => void;
-  onDecrement: () => void;
-}) {
-  const imageUrl = resolveAssetUrl(product.primaryImageAssetPath);
-  const isSoldOut = product.availability === 'SOLD_OUT';
-
-  return (
-    <article className="flex gap-4 rounded-xl border border-[#E5DED6] bg-white p-3.5 shadow-sm">
-      {imageUrl ? (
-        // eslint-disable-next-line @next/next/no-img-element -- see CategorySection above.
-        <img
-          src={imageUrl}
-          alt=""
-          className={`h-24 w-24 flex-shrink-0 rounded-lg object-cover ${isSoldOut ? 'opacity-60' : ''}`}
-        />
-      ) : (
-        <span className="flex h-24 w-24 flex-shrink-0 items-center justify-center rounded-lg bg-[#F1ECE6] text-[#AFA397]">
-          <IconImage className="h-7 w-7" />
-        </span>
-      )}
-      <div className="flex min-w-0 flex-1 flex-col justify-center gap-1">
-        <h4 className={`text-base font-semibold ${isSoldOut ? 'text-[#8A8177]' : 'text-[#1D1A18]'}`}>
-          {product.name}
-        </h4>
-        {product.description ? (
-          <p className="line-clamp-3 text-sm leading-relaxed text-[#655D56]">
-            {product.description}
-          </p>
-        ) : null}
-        <div className="mt-1 flex flex-wrap items-center gap-2">
-          <span className="text-base font-bold text-[#302C29]">
-            {/* FT-3B micro fix: the price+currency pair must always read as
-                one stable "100.00 EGP" LTR unit, in both English and Arabic
-                -- `<bdi dir="ltr">` isolates it from the surrounding RTL
-                bidi context so it never visually reorders, while the outer
-                `<span>` still flows with the card's natural RTL layout. */}
-            <bdi dir="ltr">
-              {product.basePrice} {currency}
-            </bdi>
-          </span>
-          {product.featured && !isSoldOut ? (
-            <span className="rounded-full bg-[#F1ECE6] px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-[#7A5138]">
-              {copy.featured}
-            </span>
-          ) : null}
-          {isSoldOut ? (
-            <span className="rounded-full bg-[#F6E4DE] px-2 py-0.5 text-xs font-medium text-[#8A3B24]">
-              {copy.soldOut}
-            </span>
-          ) : null}
-        </div>
-
-        {/* Section 3/18/24: ordering controls exist ONLY for a TABLE QR and
-            an AVAILABLE Product -- a GENERIC QR or a SOLD_OUT Product never
-            renders any Add/quantity control at all. */}
-        {canOrder && !isSoldOut ? (
-          <div className="mt-2">
-            {/* A Product with Modifier Groups always shows a plain "Add"
-                button that opens the options dialog -- per-line quantity
-                for it lives only in the Cart (each distinct selection is
-                its own line there), never a single stepper here. */}
-            {hasModifiers || quantity === 0 ? (
-              <button
-                type="button"
-                onClick={onAddClick}
-                className="rounded-full border border-[#7A5138] px-4 py-1.5 text-sm font-semibold text-[#7A5138] transition-colors hover:bg-[#7A5138] hover:text-white"
-              >
-                {copy.add}
-              </button>
-            ) : (
-              <div className="inline-flex items-center gap-3 rounded-full border border-[#E5DED6] bg-[#F8F5F1] px-1 py-1">
-                <button
-                  type="button"
-                  onClick={onDecrement}
-                  aria-label={copy.remove}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#7A5138] shadow-sm"
-                >
-                  −
-                </button>
-                <span className="min-w-[1.5rem] text-center text-sm font-semibold">
-                  {quantity}
-                </span>
-                <button
-                  type="button"
-                  onClick={onIncrement}
-                  aria-label={copy.add}
-                  className="flex h-7 w-7 items-center justify-center rounded-full bg-white text-[#7A5138] shadow-sm"
-                >
-                  +
-                </button>
-              </div>
-            )}
-          </div>
-        ) : null}
-      </div>
-    </article>
   );
 }

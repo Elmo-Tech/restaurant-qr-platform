@@ -80,6 +80,43 @@
   --color-sidebar-surface: #1b1f26;
   --color-sidebar-border: #262b33;
 
+  /* ---- guest (public menu) ----
+     The Guest Menu is a hospitality surface, not the Staff workspace: a warm
+     paper ground, deep pine as the single brand accent, saffron reserved for
+     "Featured". Namespaced `guest-*` so Staff screens never pick them up.
+     Contrast: ink on paper 15:1, pine on white 9:1, muted on white 5.9:1. */
+  --color-guest-paper: #f3f1ec;
+  --color-guest-surface: #ffffff;
+  --color-guest-ink: #17201c;
+  --color-guest-ink-soft: #36413b;
+  --color-guest-muted: #5a665f;
+  --color-guest-line: #e4e0d7;
+  --color-guest-line-strong: #cdc8bb;
+  --color-guest-pine: #1f4a3a;
+  --color-guest-pine-deep: #153427;
+  --color-guest-pine-soft: #e1ece6;
+  --color-guest-saffron: #e8a923;
+  --color-guest-saffron-soft: #fbefcf;
+  --color-guest-danger: #a63a24;
+  --color-guest-danger-soft: #f8e4de;
+  --color-guest-warning-soft: #fbf0d3;
+  --color-guest-warning-ink: #6d4d00;
+
+  /* Fallback tiles for products/categories without a photo: one soft tint
+     + a deeper ink of the same hue, picked deterministically per category. */
+  --color-guest-tint-1: #e8dfc8;
+  --color-guest-tint-ink-1: #6a5a2c;
+  --color-guest-tint-2: #efd9cd;
+  --color-guest-tint-ink-2: #86452f;
+  --color-guest-tint-3: #dbe4cf;
+  --color-guest-tint-ink-3: #46603a;
+  --color-guest-tint-4: #d6e2e8;
+  --color-guest-tint-ink-4: #355a6c;
+  --color-guest-tint-5: #e5dbe8;
+  --color-guest-tint-ink-5: #5b4570;
+  --color-guest-tint-6: #d9e8e0;
+  --color-guest-tint-ink-6: #2a6350;
+
   /* Radius scale: overrides Tailwind's own `rounded-md/lg/xl/2xl` -- cards
      land in the requested 10-14px band (lg/xl) without an arbitrary
      `rounded-[var(--radius)]` everywhere. */
@@ -117,4 +154,126 @@ body {
 
 :lang(ar) .uppercase {
   text-transform: none;
+}
+
+/*
+ * ---- Guest Menu (FT-13A) ----
+ * Display type: Archivo (condensed width axis) for Latin, Cairo for Arabic --
+ * both exposed as variables by app/q/layout.tsx. Body copy stays Plex.
+ */
+@utility font-guest-display {
+  font-family: var(--font-archivo), var(--font-cairo), var(--font-plex-sans), var(--font-plex-sans-arabic), system-ui, sans-serif;
+  font-stretch: 88%;
+}
+
+:lang(ar) .font-guest-display {
+  font-stretch: 100%;
+}
+
+@keyframes guest-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes guest-sheet-up {
+  from { transform: translateY(100%); }
+  to { transform: translateY(0); }
+}
+
+@keyframes guest-sheet-pop {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes guest-drawer-in-ltr {
+  from { transform: translateX(100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes guest-drawer-in-rtl {
+  from { transform: translateX(-100%); }
+  to { transform: translateX(0); }
+}
+
+@keyframes guest-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes guest-bump {
+  0% { transform: scale(1); }
+  40% { transform: scale(1.18); }
+  100% { transform: scale(1); }
+}
+
+@keyframes guest-shimmer {
+  from { background-position: 200% 0; }
+  to { background-position: -200% 0; }
+}
+
+@keyframes guest-check-draw {
+  from { stroke-dashoffset: 28; }
+  to { stroke-dashoffset: 0; }
+}
+
+@utility guest-anim-backdrop {
+  animation: guest-fade-in 180ms ease-out both;
+}
+
+@utility guest-anim-sheet {
+  animation: guest-sheet-up 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  @media (min-width: 40rem) {
+    animation: guest-sheet-pop 220ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@utility guest-anim-drawer {
+  animation: guest-sheet-up 260ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  @media (min-width: 40rem) {
+    animation: guest-drawer-in-ltr 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+[dir='rtl'] .guest-anim-drawer {
+  @media (min-width: 40rem) {
+    animation: guest-drawer-in-rtl 280ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  }
+}
+
+@utility guest-anim-rise {
+  animation: guest-rise 320ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@utility guest-anim-bump {
+  animation: guest-bump 260ms ease-out;
+}
+
+@utility guest-shimmer {
+  background-image: linear-gradient(
+    100deg,
+    transparent 30%,
+    rgb(255 255 255 / 0.55) 50%,
+    transparent 70%
+  );
+  background-size: 200% 100%;
+  animation: guest-shimmer 1.6s linear infinite;
+}
+
+@utility guest-scrollbar-none {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+/* Honour reduced motion across the whole Guest surface: no slides, bumps or shimmer. */
+@media (prefers-reduced-motion: reduce) {
+  .guest-root *,
+  .guest-root *::before,
+  .guest-root *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

@@ -74,6 +74,44 @@ export interface PublicMenuCopy {
   deliveryDetailsRequiredError: string;
   deliveryAreaError: string;
   deliveryTo: string;
+  // FT-13A: ordering context, navigation, search
+  dineIn: string;
+  pickupOrDelivery: string;
+  chooseAtCheckout: string;
+  browseOnly: string;
+  language: string;
+  searchMenu: string;
+  searchPlaceholder: string;
+  clearSearch: string;
+  noSearchResults: string;
+  searchResultsCount: (count: number) => string;
+  menuEmptyTitle: string;
+  // FT-13A: products and the customizer
+  customizable: string;
+  addToOrder: string;
+  addAria: (name: string) => string;
+  increaseAria: (name: string) => string;
+  decreaseAria: (name: string) => string;
+  removeAria: (name: string) => string;
+  quantity: string;
+  inOrderCount: (count: number) => string;
+  clearChoice: string;
+  chooseBetween: (min: number, max: number) => string;
+  pickOne: string;
+  selectedOf: (count: number, max: number) => string;
+  // FT-13A: order, checkout
+  viewOrder: string;
+  itemsCount: (count: number) => string;
+  yourItems: string;
+  pickupHint: string;
+  deliveryHint: string;
+  yourDetails: string;
+  deliveryAddressSection: string;
+  minimumShortfall: (amount: string, currency: string) => string;
+  orderSummary: string;
+  selectBranchFirst: string;
+  notAvailableNow: string;
+  placeOrderHintBlocked: string;
 }
 
 const EN_COPY: PublicMenuCopy = {
@@ -102,7 +140,8 @@ const EN_COPY: PublicMenuCopy = {
   orderStatusPending: 'Waiting for the restaurant to accept your order.',
   itemsUnavailableError:
     'One or more items in your cart are no longer available. Please review your cart.',
-  orderNetworkError: "Couldn't send your order. Please try again.",
+  orderNetworkError:
+    "Couldn't send your order. Check your connection and try again — your items and details are still here.",
   orderNotFoundError: 'This QR code is no longer active. Please ask a member of staff for help.',
   close: 'Close',
   backToMenu: 'Back to menu',
@@ -147,6 +186,41 @@ const EN_COPY: PublicMenuCopy = {
   deliveryDetailsRequiredError: 'Please enter your name, phone number and address.',
   deliveryAreaError: 'Please choose a valid delivery area.',
   deliveryTo: 'Delivering to',
+  dineIn: 'Dine in',
+  pickupOrDelivery: 'Pickup or delivery',
+  chooseAtCheckout: 'Choose at checkout',
+  browseOnly: 'Browse only',
+  language: 'Language',
+  searchMenu: 'Search the menu',
+  searchPlaceholder: 'Search dishes and drinks',
+  clearSearch: 'Clear search',
+  noSearchResults: 'No menu items match your search.',
+  searchResultsCount: (count) => (count === 1 ? '1 item found' : `${count} items found`),
+  menuEmptyTitle: 'The menu is being prepared',
+  customizable: 'Customizable',
+  addToOrder: 'Add to order',
+  addAria: (name) => `Add ${name}`,
+  increaseAria: (name) => `Add one more ${name}`,
+  decreaseAria: (name) => `Remove one ${name}`,
+  removeAria: (name) => `Remove ${name} from your order`,
+  quantity: 'Quantity',
+  inOrderCount: (count) => `${count} in your order`,
+  clearChoice: 'Clear',
+  chooseBetween: (min, max) => `Choose ${min} to ${max}`,
+  pickOne: 'Pick one',
+  selectedOf: (count, max) => `${count} of ${max} selected`,
+  viewOrder: 'View order',
+  itemsCount: (count) => (count === 1 ? '1 item' : `${count} items`),
+  yourItems: 'Your items',
+  pickupHint: 'Collect it from the branch',
+  deliveryHint: 'Brought to your door',
+  yourDetails: 'Your details',
+  deliveryAddressSection: 'Delivery address',
+  minimumShortfall: (amount, currency) => `Add ${amount} ${currency} more to place a delivery order.`,
+  orderSummary: 'Order summary',
+  selectBranchFirst: 'Choose a branch to see delivery areas.',
+  notAvailableNow: 'Not available right now',
+  placeOrderHintBlocked: 'Remove the unavailable items to continue.',
 };
 
 const AR_COPY: PublicMenuCopy = {
@@ -173,7 +247,7 @@ const AR_COPY: PublicMenuCopy = {
   orderSent: 'تم إرسال الطلب',
   orderStatusPending: 'في انتظار موافقة المطعم على طلبك.',
   itemsUnavailableError: 'بعض الأصناف في سلتك لم تعد متاحة. يرجى مراجعة سلتك.',
-  orderNetworkError: 'تعذر إرسال طلبك. يرجى المحاولة مرة أخرى.',
+  orderNetworkError: 'تعذر إرسال طلبك. تحقق من اتصالك وحاول مرة أخرى — أصنافك وبياناتك ما زالت محفوظة.',
   orderNotFoundError: 'رمز QR هذا غير متاح حاليًا. يرجى التواصل مع أحد أفراد طاقم المطعم للمساعدة.',
   close: 'إغلاق',
   backToMenu: 'العودة إلى القائمة',
@@ -218,6 +292,41 @@ const AR_COPY: PublicMenuCopy = {
   deliveryDetailsRequiredError: 'يرجى إدخال اسمك ورقم هاتفك وعنوانك.',
   deliveryAreaError: 'يرجى اختيار منطقة توصيل صالحة.',
   deliveryTo: 'التوصيل إلى',
+  dineIn: 'تناول في المطعم',
+  pickupOrDelivery: 'استلام أو توصيل',
+  chooseAtCheckout: 'اختر عند إتمام الطلب',
+  browseOnly: 'تصفح فقط',
+  language: 'اللغة',
+  searchMenu: 'ابحث في القائمة',
+  searchPlaceholder: 'ابحث عن طبق أو مشروب',
+  clearSearch: 'مسح البحث',
+  noSearchResults: 'لا توجد أصناف تطابق بحثك.',
+  searchResultsCount: (count) => (count === 1 ? 'صنف واحد' : count === 2 ? 'صنفان' : count <= 10 ? `${count} أصناف` : `${count} صنفًا`),
+  menuEmptyTitle: 'القائمة قيد التجهيز',
+  customizable: 'قابل للتخصيص',
+  addToOrder: 'أضف إلى الطلب',
+  addAria: (name) => `إضافة ${name}`,
+  increaseAria: (name) => `إضافة ${name} آخر`,
+  decreaseAria: (name) => `إزالة واحد من ${name}`,
+  removeAria: (name) => `إزالة ${name} من طلبك`,
+  quantity: 'الكمية',
+  inOrderCount: (count) => `${count} في طلبك`,
+  clearChoice: 'مسح',
+  chooseBetween: (min, max) => `اختر من ${min} إلى ${max}`,
+  pickOne: 'اختر واحدًا',
+  selectedOf: (count, max) => `تم اختيار ${count} من ${max}`,
+  viewOrder: 'عرض الطلب',
+  itemsCount: (count) => (count === 1 ? 'صنف واحد' : count === 2 ? 'صنفان' : count <= 10 ? `${count} أصناف` : `${count} صنفًا`),
+  yourItems: 'أصنافك',
+  pickupHint: 'استلمه من الفرع',
+  deliveryHint: 'يصلك إلى بابك',
+  yourDetails: 'بياناتك',
+  deliveryAddressSection: 'عنوان التوصيل',
+  minimumShortfall: (amount, currency) => `أضف ${amount} ${currency} لإتمام طلب التوصيل.`,
+  orderSummary: 'ملخص الطلب',
+  selectBranchFirst: 'اختر الفرع لعرض مناطق التوصيل.',
+  notAvailableNow: 'غير متاح حاليًا',
+  placeOrderHintBlocked: 'أزل الأصناف غير المتاحة للمتابعة.',
 };
 
 /**
