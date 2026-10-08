@@ -1,0 +1,226 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>المنيو — موبايل</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&amp;family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Lalezar&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#F5A524}a:hover{color:#FFC35C}
+.t-dark{--bg:#12100E;--surface:#1D1A17;--surface2:#29241F;--line:#352F29;--text:#F6EFE5;--text2:#BCB1A2;--text3:#958A7C;--accent:#F5A524;--onaccent:#1C1205;--accentsoft:rgba(245,165,36,.15);--price:#F7B548;--ember:#E8573A;--chip:#221E1B;--shadow:0 10px 30px rgba(0,0,0,.45)}
+.t-light{--bg:#FBF6EE;--surface:#FFFFFF;--surface2:#F4EBDD;--line:#E9DDCB;--text:#1F1611;--text2:#66584A;--text3:#8B7D6D;--accent:#F5A524;--onaccent:#1C1205;--accentsoft:#FCEACB;--price:#A9580A;--ember:#CF4527;--chip:#FFFFFF;--shadow:0 10px 30px rgba(70,45,15,.14)}
+.gm{background:var(--bg);color:var(--text);transition:background-color .3s ease,color .3s ease}
+.gm *{box-sizing:border-box}
+.gm button{font-family:inherit;cursor:pointer}
+.ttl{font-family:'Lalezar','IBM Plex Sans Arabic',sans-serif;font-weight:400}
+.lat{font-family:'Archivo',sans-serif}
+.photo{width:100%;height:100%;object-fit:cover;display:block}
+.icbtn{width:44px;height:44px;border-radius:50%;border:1px solid rgba(255,255,255,.18);background:rgba(18,16,14,.45);color:#fff;display:flex;align-items:center;justify-content:center;padding:0;backdrop-filter:blur(8px)}
+.seg{flex:1;height:48px;border-radius:24px;border:0;background:transparent;color:var(--text2);font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
+.seg-on{background:var(--accent);color:var(--onaccent);font-weight:700;box-shadow:0 6px 16px rgba(245,165,36,.35)}
+.search{display:flex;align-items:center;gap:10px;height:50px;padding:0 16px;border-radius:16px;background:var(--surface);border:1px solid var(--line);color:var(--text3);font-size:14.5px}
+.chips{display:flex;gap:10px;overflow:hidden;padding:2px 0}
+.chip{flex:none;display:flex;align-items:center;gap:8px;height:44px;padding:0 16px 0 14px;border-radius:22px;background:var(--chip);border:1px solid var(--line);color:var(--text);font-size:14px;font-weight:600;white-space:nowrap}
+.chip svg{color:var(--accent)}
+.chip-on{background:var(--accent);border-color:var(--accent);color:var(--onaccent)}
+.chip-on svg{color:var(--onaccent)}
+.sh{display:flex;align-items:center;justify-content:space-between;margin:0 0 14px}
+.sh-t{display:flex;align-items:center;gap:10px;margin:0;font-size:27px;line-height:1.3}
+.sh-bar{width:6px;height:24px;border-radius:3px;background:var(--accent)}
+.sh-c{font-size:13px;color:var(--text3)}
+.card{display:flex;gap:14px;padding:12px;border-radius:22px;background:var(--surface);border:1px solid var(--line)}
+.cmedia{position:relative;width:118px;height:118px;flex:none;border-radius:16px;overflow:hidden}
+.fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--accent);background-color:var(--surface2);background-image:radial-gradient(circle at 30% 25%,rgba(245,165,36,.22),transparent 60%)}
+.off{filter:grayscale(1);opacity:.5}
+.cbody{flex:1;min-width:0;display:flex;flex-direction:column;gap:5px;padding-top:2px}
+.pname{font-size:16.5px;font-weight:700;line-height:1.4}
+.pdesc{font-size:13px;line-height:1.65;color:var(--text2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.cfoot{margin-top:auto;display:flex;align-items:center;justify-content:space-between;gap:8px}
+.price{font-family:'Archivo',sans-serif;font-weight:800;font-size:20px;color:var(--price);font-variation-settings:'wdth' 88;white-space:nowrap}
+.cur{font-family:'IBM Plex Sans Arabic',sans-serif;font-size:12px;font-weight:600;margin-inline-start:3px}
+.addbtn{height:44px;padding:0 16px;border-radius:22px;border:1px solid var(--accent);background:var(--accentsoft);color:var(--text);font-size:14px;font-weight:700;display:flex;align-items:center;gap:6px}
+.addbtn svg{color:var(--accent)}
+.step{height:44px;border-radius:22px;background:var(--accent);color:var(--onaccent);display:flex;align-items:center}
+.step button{width:42px;height:44px;border:0;background:none;color:var(--onaccent);display:flex;align-items:center;justify-content:center;padding:0}
+.step span{min-width:16px;text-align:center;font-family:'Archivo',sans-serif;font-weight:800;font-size:15px}
+.tag{position:absolute;top:8px;inset-inline-start:8px;padding:3px 9px;border-radius:999px;background:var(--accent);color:var(--onaccent);font-size:11px;font-weight:700}
+.tag-off{position:absolute;top:8px;inset-inline-start:8px;padding:3px 9px;border-radius:999px;background:#111;color:#fff;font-size:11px;font-weight:700}
+.pm{display:flex;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--line)}
+.pm-dots{flex:1;min-width:16px;border-bottom:2px dotted var(--line);transform:translateY(-5px)}
+.pm-add{width:44px;height:44px;flex:none;border-radius:50%;border:1px solid var(--accent);background:var(--accentsoft);color:var(--accent);display:flex;align-items:center;justify-content:center;padding:0}
+</style>
+</helmet>
+<div class="gm {{themeClass}}" dir="rtl" style="width: 390px; min-height: 2620px; position: relative; overflow: hidden; font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif">
+
+<header style="position: relative; height: 330px">
+<img class="photo" src="/_blob/31d6da681ddb8629a3265e1356e08f7d" alt="" style="position: absolute; inset: 0">
+<div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(14,12,10,.95) 0%, rgba(14,12,10,.55) 45%, rgba(14,12,10,.2) 100%)"></div>
+<div style="position: absolute; top: 16px; inset-inline: 16px; display: flex; justify-content: space-between; align-items: center">
+<div style="display: flex; align-items: center; height: 44px; padding: 4px; border-radius: 22px; background: rgba(18,16,14,.45); border: 1px solid rgba(255,255,255,.18); backdrop-filter: blur(8px)">
+<button type="button" style="height: 34px; padding: 0 14px; border-radius: 17px; border: 0; background: #F5A524; color: #1C1205; font-size: 13px; font-weight: 700">عربي</button>
+<button type="button" class="lat" style="height: 34px; padding: 0 12px; border-radius: 17px; border: 0; background: transparent; color: #FFFFFF; font-size: 13px; font-weight: 700">EN</button>
+</div>
+<div style="display: flex; gap: 10px">
+<button type="button" class="icbtn" aria-label="{{themeLabel}}" onClick="{{toggleTheme}}">
+<sc-if value="{{isDark}}" hint-placeholder-val="{{true}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if>
+<sc-if value="{{isLight}}" hint-placeholder-val="{{false}}"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"></path></svg></sc-if>
+</button>
+</div>
+</div>
+<div style="position: absolute; bottom: 52px; inset-inline: 20px; display: flex; align-items: flex-end; gap: 14px; color: #FFFFFF">
+<div style="width: 72px; height: 72px; flex: none; border-radius: 20px; background: #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 22px rgba(0,0,0,.4)"><span class="lat" style="font-size: 34px; font-weight: 900; color: #1C1205; font-variation-settings: 'wdth' 80">e</span></div>
+<div style="min-width: 0; padding-bottom: 2px">
+<div><span class="lat" dir="ltr" style="font-size: 38px; font-weight: 900; font-variation-settings: 'wdth' 70; letter-spacing: -0.5px; line-height: 1">elmo cafe</span></div>
+<div style="font-size: 14px; color: #F5C46B; font-weight: 600; margin-top: 6px">مطبخ مفتوح وقهوة مختصة</div>
+<div style="display: flex; align-items: center; gap: 5px; font-size: 12.5px; color: rgba(255,255,255,.8); margin-top: 3px"><svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11Z"></path><circle cx="12" cy="10" r="2.2"></circle></svg>الفرع الرئيسي · التجمع الخامس</div>
+</div>
+</div>
+</header>
+
+<div style="position: relative; margin: -28px 16px 0; padding: 5px; border-radius: 30px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow); display: flex; gap: 4px">
+<button type="button" class="seg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1 13H7L6 7Z"></path><path d="M9 7a3 3 0 0 1 6 0"></path></svg>استلام من الفرع</button>
+<button type="button" class="seg seg-on" aria-pressed="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="3"></circle><circle cx="18" cy="17" r="3"></circle><path d="M9 17h6l2-7h3"></path><path d="M14 6h3l1 4"></path></svg>توصيل</button>
+</div>
+
+<div style="padding: 20px 16px 0; display: flex; flex-direction: column; gap: 14px">
+<div class="search"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg>ابحث عن برجر، بيتزا، قهوة...</div>
+<nav class="chips" aria-label="أقسام المنيو">
+<button type="button" class="chip chip-on"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 17l-5.4 2.8 1.1-6.1-4.5-4.3 6.1-.8Z"></path></svg>مميز عندنا</button>
+<button type="button" class="chip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a8 6 0 0 1 16 0Z"></path><path d="M3 14h18"></path><path d="M5 17h14a2 2 0 0 1-2 3H7a2 2 0 0 1-2-3Z"></path></svg>البرجر</button>
+<button type="button" class="chip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21 3 6a14 14 0 0 1 18 0Z"></path><circle cx="10" cy="10" r="1"></circle><circle cx="14" cy="13" r="1"></circle></svg>البيتزا</button>
+<button type="button" class="chip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l1.2 10h7.6L17 10Z"></path><path d="M8.5 10V4M11.5 10V3M14.5 10V5"></path></svg>المقبلات</button>
+</nav>
+</div>
+
+<section style="padding: 30px 16px 0">
+<div class="sh"><h2 class="ttl sh-t"><span class="sh-bar"></span>مميز عندنا</h2><span class="sh-c">اختيارات المطبخ</span></div>
+<article style="position: relative; height: 210px; border-radius: 24px; overflow: hidden; box-shadow: var(--shadow)">
+<img class="photo" src="/_blob/e90dfd79edf3b7695aed34105a7fd44b" alt="برجر لحم كلاسيك">
+<div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(12,10,8,.92) 0%, rgba(12,10,8,.25) 55%, rgba(12,10,8,0) 100%)"></div>
+<span style="position: absolute; top: 14px; inset-inline-start: 14px; display: flex; align-items: center; gap: 5px; padding: 5px 11px; border-radius: 999px; background: #F5A524; color: #1C1205; font-size: 12px; font-weight: 700"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 17l-5.4 2.8 1.1-6.1-4.5-4.3 6.1-.8Z"></path></svg>مميز</span>
+<div style="position: absolute; bottom: 16px; inset-inline: 16px; display: flex; align-items: flex-end; justify-content: space-between; gap: 12px; color: #FFFFFF">
+<div style="min-width: 0">
+<div class="ttl" style="font-size: 25px; line-height: 1.2">برجر لحم كلاسيك</div>
+<div style="font-size: 13px; color: rgba(255,255,255,.78); margin-top: 3px">لحم مشوي على اللهب، شيدر، وصوص البيت</div>
+</div>
+<button type="button" aria-label="أضف برجر لحم كلاسيك" style="flex: none; height: 46px; padding: 0 16px; border-radius: 23px; border: 0; background: #F5A524; color: #1C1205; display: flex; align-items: center; gap: 6px; font-weight: 800"><span class="lat" style="font-size: 18px">145</span><span style="font-size: 12px">ج.م</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+</div>
+</article>
+<div style="display: flex; justify-content: center; gap: 6px; margin-top: 12px"><span style="width: 22px; height: 6px; border-radius: 3px; background: var(--accent)"></span><span style="width: 6px; height: 6px; border-radius: 3px; background: var(--line)"></span><span style="width: 6px; height: 6px; border-radius: 3px; background: var(--line)"></span></div>
+</section>
+
+<sc-for list="{{sections}}" as="s" hint-placeholder-count="3">
+<section style="padding: 34px 16px 0">
+<div class="sh"><h2 class="ttl sh-t"><span class="sh-bar"></span>{{s.title}}</h2><span class="sh-c">{{s.count}}</span></div>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<sc-for list="{{s.items}}" as="p" hint-placeholder-count="2">
+<article class="card">
+<div class="cmedia">
+<sc-if value="{{p.img}}" hint-placeholder-val="{{true}}"><img class="{{p.imgClass}}" src="{{p.img}}" alt="{{p.name}}"></sc-if>
+<sc-if value="{{p.noImg}}" hint-placeholder-val="{{false}}"><div class="fallback"><svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round"><path d="{{p.icon}}"></path></svg></div></sc-if>
+<sc-if value="{{p.featured}}" hint-placeholder-val="{{false}}"><span class="tag">مميز</span></sc-if>
+<sc-if value="{{p.soldOut}}" hint-placeholder-val="{{false}}"><span class="tag-off">نفد اليوم</span></sc-if>
+</div>
+<div class="cbody">
+<div class="pname">{{p.name}}</div>
+<div class="pdesc">{{p.desc}}</div>
+<div class="cfoot">
+<span class="price">{{p.price}}<span class="cur">ج.م</span></span>
+<sc-if value="{{p.showAdd}}" hint-placeholder-val="{{true}}"><button type="button" class="addbtn" aria-label="أضف {{p.name}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>إضافة</button></sc-if>
+<sc-if value="{{p.step}}" hint-placeholder-val="{{false}}"><div class="step"><button type="button" aria-label="زيادة"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button><span>1</span><button type="button" aria-label="تقليل"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M5 12h14"></path></svg></button></div></sc-if>
+<sc-if value="{{p.soldOut}}" hint-placeholder-val="{{false}}"><span style="font-size: 12.5px; color: var(--text3); font-weight: 600">غير متاح الآن</span></sc-if>
+</div>
+</div>
+</article>
+</sc-for>
+</div>
+</section>
+</sc-for>
+
+<section style="padding: 34px 16px 0">
+<div class="sh"><h2 class="ttl sh-t"><span class="sh-bar"></span>المشروبات</h2><span class="sh-c">4 أصناف</span></div>
+<div style="padding: 4px 16px; border-radius: 22px; background: var(--surface); border: 1px solid var(--line)">
+<sc-for list="{{drinks}}" as="d" hint-placeholder-count="4">
+<article class="pm">
+<div style="flex: 1; min-width: 0">
+<div style="display: flex; align-items: baseline; gap: 8px"><span class="pname" style="font-size: 15.5px">{{d.name}}</span><span class="pm-dots"></span><span class="price" style="font-size: 17px">{{d.price}}<span class="cur">ج.م</span></span></div>
+<div style="font-size: 12.5px; color: var(--text2); margin-top: 3px">{{d.desc}}</div>
+</div>
+<button type="button" class="pm-add" aria-label="أضف {{d.name}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button>
+</article>
+</sc-for>
+</div>
+</section>
+
+<div style="height: 140px"></div>
+
+<a href="Checkout.dc.html" style="position: absolute; bottom: 22px; left: 14px; right: 14px; height: 66px; border-radius: 22px; background: #F5A524; color: #1C1205; display: flex; align-items: center; justify-content: space-between; padding-inline: 12px 20px; text-decoration: none; box-shadow: 0 14px 30px rgba(245,165,36,.38)">
+<span style="display: flex; align-items: center; gap: 12px">
+<span class="lat" style="width: 42px; height: 42px; border-radius: 14px; background: #1C1205; color: #F5A524; font-size: 17px; font-weight: 900; display: flex; align-items: center; justify-content: center">1</span>
+<span style="display: flex; flex-direction: column; line-height: 1.25"><span style="font-size: 16px; font-weight: 800">عرض الطلب</span><span style="font-size: 12px; font-weight: 600; opacity: .75">توصيل · صنف واحد</span></span>
+</span>
+<span style="display: flex; align-items: center; gap: 8px"><span class="lat" style="font-size: 21px; font-weight: 900">160</span><span style="font-size: 12.5px; font-weight: 700">ج.م</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg></span>
+</a>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"$preview":{"width":390,"height":2620}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { theme: null };
+  }
+  renderVals() {
+    const theme = this.state.theme || this.props.theme || 'dark';
+    const ICON = {
+      burger: 'M4 11a8 6 0 0 1 16 0ZM3 14h18M5 17h14a2 2 0 0 1-2 3H7a2 2 0 0 1-2-3Z',
+      pizza: 'M12 21 3 6a14 14 0 0 1 18 0ZM10 10h.01M14 13h.01',
+      plate: 'M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z'
+    };
+    const prep = (p) => Object.assign({}, p, {
+      noImg: !p.img,
+      showAdd: !p.soldOut && !p.step,
+      imgClass: p.soldOut ? 'photo off' : 'photo',
+      icon: ICON[p.kind] || ICON.plate
+    });
+    const B = '/_blob/602e62aa6bf352ead2f3f32f6944dde3';
+    const P = '/_blob/7165e535e5db1a6b86529108d56d43ae';
+    const S = '/_blob/c5b3edda81d6b7325a9ce08f094534fa';
+    const sections = [
+      { title: 'البرجر', count: '3 أصناف', items: [
+        { img: B, kind: 'burger', name: 'برجر لحم كلاسيك', desc: 'لحم مشوي على اللهب مع شيدر ومخلل وصوص البيت في خبز بريوش.', price: '145', featured: true, step: true },
+        { img: '', kind: 'burger', name: 'برجر باربكيو مدخن', desc: 'قطعة لحم مع حلقات بصل مقرمشة وصوص باربكيو مدخن.', price: '165' },
+        { img: '', kind: 'burger', name: 'برجر دجاج مقرمش', desc: 'فيليه دجاج مقرمش مع كولسلو وهالبينو.', price: '135' }
+      ].map(prep) },
+      { title: 'البيتزا', count: '2 صنف', items: [
+        { img: P, kind: 'pizza', name: 'بيتزا بيبروني', desc: 'عجينة رقيقة مخبوزة في فرن حطب مع بيبروني وموتزاريلا وريحان.', price: '155' },
+        { img: '', kind: 'pizza', name: 'أربع أجبان', desc: 'موتزاريلا وشيدر وبارميزان وجبنة زرقاء.', price: '165' }
+      ].map(prep) },
+      { title: 'الأطباق الرئيسية', count: '2 صنف', items: [
+        { img: S, kind: 'plate', name: 'ريش مشوية على الفحم', desc: 'ريش متبلة ومشوية ببطء تقدم مع خضار مشوي وصوص الفلفل.', price: '340', featured: true },
+        { img: '', kind: 'plate', name: 'تشيكن ألفريدو', desc: 'فيتوتشيني بصوص الألفريدو الكريمي مع دجاج مشوي.', price: '175', soldOut: true }
+      ].map(prep) }
+    ];
+    const drinks = [
+      { name: 'آيس لاتيه', desc: 'إسبريسو مزدوج فوق حليب بارد وثلج.', price: '75' },
+      { name: 'عصير برتقال فريش', desc: 'يُعصر عند الطلب.', price: '60' },
+      { name: 'موهيتو', desc: 'ليمون ونعناع طازج ومياه غازية.', price: '70' },
+      { name: 'مشروب غازي', desc: 'يقدم مثلجًا.', price: '35' }
+    ];
+    return {
+      sections, drinks,
+      themeClass: theme === 'light' ? 't-light' : 't-dark',
+      isDark: theme !== 'light',
+      isLight: theme === 'light',
+      themeLabel: theme === 'light' ? 'الوضع الداكن' : 'الوضع الفاتح',
+      toggleTheme: () => this.setState({ theme: theme === 'light' ? 'dark' : 'light' })
+    };
+  }
+}
+</script>
+</body>
+</html>

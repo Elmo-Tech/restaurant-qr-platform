@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>السلة والتوصيل — موبايل</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&amp;family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Lalezar&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#F5A524}a:hover{color:#FFC35C}
+.t-dark{--bg:#12100E;--surface:#1D1A17;--surface2:#29241F;--line:#352F29;--text:#F6EFE5;--text2:#BCB1A2;--text3:#958A7C;--accent:#F5A524;--onaccent:#1C1205;--accentsoft:rgba(245,165,36,.13);--price:#F7B548}
+.t-light{--bg:#FBF6EE;--surface:#FFFFFF;--surface2:#F4EBDD;--line:#E9DDCB;--text:#1F1611;--text2:#66584A;--text3:#8B7D6D;--accent:#F5A524;--onaccent:#1C1205;--accentsoft:#FDF0D6;--price:#A9580A}
+.gc *{box-sizing:border-box}
+.gc button,.gc input,.gc textarea{font-family:inherit}
+.gc button{cursor:pointer}
+.ttl{font-family:'Lalezar','IBM Plex Sans Arabic',sans-serif;font-weight:400}
+.lat{font-family:'Archivo',sans-serif}
+.photo{width:100%;height:100%;object-fit:cover;display:block}
+.num{font-family:'Archivo',sans-serif;font-weight:800;font-variation-settings:'wdth' 88;white-space:nowrap}
+.cur{font-family:'IBM Plex Sans Arabic',sans-serif;font-size:.65em;font-weight:600;margin-inline-start:3px}
+.box{background:var(--surface);border:1px solid var(--line);border-radius:22px}
+.h{font-size:16.5px;font-weight:700;margin:0 0 12px}
+.it{display:flex;gap:12px;align-items:center;padding:14px;border-top:1px solid var(--line)}
+.it:first-child{border-top:0}
+.it-m{width:64px;height:64px;flex:none;border-radius:14px;overflow:hidden}
+.stp{display:flex;align-items:center;height:44px;border-radius:14px;background:var(--surface2);flex:none}
+.stp button{width:38px;height:44px;border:0;background:none;color:var(--text);display:flex;align-items:center;justify-content:center;padding:0}
+.stp span{min-width:14px;text-align:center;font-family:'Archivo',sans-serif;font-weight:800;font-size:14.5px}
+.seg{flex:1;height:50px;border-radius:16px;border:0;background:transparent;color:var(--text2);font-size:14.5px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
+.seg-on{background:var(--accent);color:var(--onaccent);font-weight:800}
+.zone{display:flex;align-items:center;gap:12px;padding:14px;border-radius:16px;background:var(--surface);border:1.5px solid var(--line)}
+.zone-on{border-color:var(--accent);background:var(--accentsoft)}
+.rd{width:22px;height:22px;flex:none;border-radius:50%;border:2px solid var(--text3)}
+.rd-on{width:22px;height:22px;flex:none;border-radius:50%;border:6px solid var(--accent);background:var(--onaccent)}
+.lbl{display:block;font-size:13px;font-weight:600;color:var(--text2);margin-bottom:6px}
+.op{font-weight:500;color:var(--text3);font-size:12px}
+.in{width:100%;height:50px;border:1px solid var(--line);border-radius:14px;padding:0 14px;font-size:15px;background:var(--surface);color:var(--text)}
+.row{display:flex;justify-content:space-between;align-items:baseline;font-size:14.5px;color:var(--text2)}
+</style>
+</helmet>
+<div class="gc {{themeClass}}" dir="rtl" style="width: 390px; min-height: 1500px; position: relative; background: var(--bg); color: var(--text); font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif">
+
+<header style="display: flex; justify-content: space-between; align-items: center; padding: 18px 18px 16px; border-bottom: 1px solid var(--line)">
+<div style="display: flex; align-items: center; gap: 10px">
+<h1 class="ttl" style="margin: 0; font-size: 28px; line-height: 1.2">طلبك</h1>
+<span class="lat" style="min-width: 26px; height: 26px; padding: 0 7px; border-radius: 13px; background: #F5A524; color: #1C1205; font-size: 13px; font-weight: 900; display: flex; align-items: center; justify-content: center">3</span>
+</div>
+<a href="Main.dc.html" aria-label="رجوع للمنيو" style="width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface); color: var(--text); display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg></a>
+</header>
+
+<div style="padding: 18px 16px; display: flex; flex-direction: column; gap: 26px">
+
+<div class="box" style="padding: 5px; display: flex; gap: 4px; border-radius: 20px">
+<button type="button" class="seg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1 13H7L6 7Z"></path><path d="M9 7a3 3 0 0 1 6 0"></path></svg>استلام من الفرع</button>
+<button type="button" class="seg seg-on" aria-pressed="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="3"></circle><circle cx="18" cy="17" r="3"></circle><path d="M9 17h6l2-7h3"></path><path d="M14 6h3l1 4"></path></svg>توصيل</button>
+</div>
+
+<section class="box">
+<sc-for list="{{items}}" as="it" hint-placeholder-count="3">
+<div class="it">
+<div class="it-m"><img class="photo" src="{{it.img}}" alt="{{it.name}}"></div>
+<div style="flex: 1; min-width: 0">
+<div style="font-size: 15px; font-weight: 700">{{it.name}}</div>
+<div style="font-size: 12.5px; color: var(--text2); line-height: 1.5; margin-top: 2px">{{it.mods}}</div>
+<div class="num" style="color: var(--price); font-size: 16px; margin-top: 4px">{{it.price}}<span class="cur">ج.م</span></div>
+</div>
+<div class="stp"><button type="button" aria-label="زيادة"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button><span>1</span><button type="button" aria-label="حذف {{it.name}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"></path></svg></button></div>
+</div>
+</sc-for>
+</section>
+
+<section>
+<h2 class="h">التوصيل من</h2>
+<div class="box" style="display: flex; align-items: center; gap: 12px; padding: 12px 14px">
+<span style="width: 40px; height: 40px; flex: none; border-radius: 12px; background: var(--accentsoft); color: var(--accent); display: flex; align-items: center; justify-content: center"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11Z"></path><circle cx="12" cy="10" r="2.2"></circle></svg></span>
+<span style="flex: 1; font-size: 15px; font-weight: 600">الفرع الرئيسي · التجمع الخامس</span>
+<button type="button" style="height: 44px; padding: 0 10px; border: 0; background: none; color: var(--accent); font-weight: 700; font-size: 14px">تغيير</button>
+</div>
+<h2 class="h" style="margin-top: 20px">منطقة التوصيل</h2>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<label class="zone zone-on"><span class="rd-on"></span><span style="flex: 1"><span style="display: block; font-size: 15px; font-weight: 700">التجمع الخامس</span><span style="display: block; font-size: 12.5px; color: var(--text2); margin-top: 2px">حد أدنى للطلب 100 ج.م</span></span><span class="num" style="font-size: 15px; color: var(--price)">25<span class="cur">ج.م</span></span></label>
+<label class="zone"><span class="rd"></span><span style="flex: 1"><span style="display: block; font-size: 15px; font-weight: 700">الرحاب ومدينتي</span><span style="display: block; font-size: 12.5px; color: var(--text2); margin-top: 2px">حد أدنى للطلب 200 ج.م</span></span><span class="num" style="font-size: 15px; color: var(--price)">40<span class="cur">ج.م</span></span></label>
+</div>
+</section>
+
+<section>
+<h2 class="h">بياناتك والعنوان</h2>
+<div style="display: flex; flex-direction: column; gap: 12px">
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div><label class="lbl" for="n">الاسم</label><input id="n" class="in" placeholder="اسمك"></div>
+<div><label class="lbl" for="p">الموبايل</label><input id="p" class="in" dir="ltr" inputmode="tel" placeholder="01x xxxx xxxx" style="text-align: right"></div>
+</div>
+<div><label class="lbl" for="a">الشارع والمنطقة</label><input id="a" class="in" placeholder="مثلاً: شارع التسعين الشمالي"></div>
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px">
+<div><label class="lbl" for="b">المبنى <span class="op">اختياري</span></label><input id="b" class="in"></div>
+<div><label class="lbl" for="f">الدور <span class="op">اختياري</span></label><input id="f" class="in"></div>
+<div><label class="lbl" for="ap">الشقة <span class="op">اختياري</span></label><input id="ap" class="in"></div>
+</div>
+<div><label class="lbl" for="l">علامة مميزة <span class="op">اختياري</span></label><input id="l" class="in" placeholder="بجوار..."></div>
+</div>
+</section>
+
+<section class="box" style="padding: 16px; display: flex; flex-direction: column; gap: 10px">
+<div class="row"><span>إجمالي الأصناف</span><span class="num" style="color: var(--text)">655<span class="cur">ج.م</span></span></div>
+<div class="row"><span>رسوم التوصيل</span><span class="num" style="color: var(--text)">25<span class="cur">ج.م</span></span></div>
+<div style="height: 1px; background: var(--line); margin: 4px 0"></div>
+<div class="row" style="color: var(--text); font-size: 16px; font-weight: 700"><span>الإجمالي</span><span class="num" style="font-size: 24px; color: var(--price)">680<span class="cur">ج.م</span></span></div>
+</section>
+
+<div style="height: 96px"></div>
+</div>
+
+<div style="position: absolute; left: 0; right: 0; bottom: 0; padding: 14px 16px 22px; background: var(--surface); border-top: 1px solid var(--line)">
+<button type="button" style="width: 100%; height: 58px; border: 0; border-radius: 18px; background: #F5A524; color: #1C1205; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font-size: 16.5px; font-weight: 800; box-shadow: 0 10px 24px rgba(245,165,36,.3)">
+<span>تأكيد طلب التوصيل</span>
+<span><span class="lat" style="font-size: 20px; font-weight: 900">680</span><span style="font-size: 12px; margin-inline-start: 3px">ج.م</span></span>
+</button>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["dark","light"],"default":"dark"},"$preview":{"width":390,"height":1500}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const theme = this.props.theme || 'dark';
+    const items = [
+      { img: '/_blob/602e62aa6bf352ead2f3f32f6944dde3', name: 'برجر لحم كلاسيك', mods: 'سينجل · شيدر إضافي', price: '160' },
+      { img: '/_blob/7165e535e5db1a6b86529108d56d43ae', name: 'بيتزا بيبروني', mods: 'حجم وسط', price: '155' },
+      { img: '/_blob/c5b3edda81d6b7325a9ce08f094534fa', name: 'ريش مشوية على الفحم', mods: 'صوص الفلفل الأسود', price: '340' }
+    ];
+    return { items, themeClass: theme === 'light' ? 't-light' : 't-dark' };
+  }
+}
+</script>
+</body>
+</html>

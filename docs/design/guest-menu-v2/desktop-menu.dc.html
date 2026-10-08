@@ -1,0 +1,242 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<title>المنيو — ديسكتوب</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wdth,wght@62..125,400..900&amp;family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&amp;family=Lalezar&amp;display=swap">
+<style>
+body{margin:0}
+a{color:#A9580A}a:hover{color:#7C3F05}
+.t-dark{--bg:#12100E;--surface:#1D1A17;--surface2:#29241F;--line:#352F29;--text:#F6EFE5;--text2:#BCB1A2;--text3:#958A7C;--accent:#F5A524;--onaccent:#1C1205;--accentsoft:rgba(245,165,36,.15);--price:#F7B548;--chip:#221E1B;--shadow:0 14px 34px rgba(0,0,0,.45)}
+.t-light{--bg:#FBF6EE;--surface:#FFFFFF;--surface2:#F4EBDD;--line:#E9DDCB;--text:#1F1611;--text2:#66584A;--text3:#8B7D6D;--accent:#F5A524;--onaccent:#1C1205;--accentsoft:#FCEACB;--price:#A9580A;--chip:#FFFFFF;--shadow:0 14px 34px rgba(70,45,15,.12)}
+.gd{background:var(--bg);color:var(--text);transition:background-color .3s ease,color .3s ease}
+.gd *{box-sizing:border-box}
+.gd button,.gd input{font-family:inherit}
+.gd button{cursor:pointer}
+.ttl{font-family:'Lalezar','IBM Plex Sans Arabic',sans-serif;font-weight:400}
+.lat{font-family:'Archivo',sans-serif}
+.photo{width:100%;height:100%;object-fit:cover;display:block;transition:transform .5s ease}
+.wrap{max-width:1280px;margin:0 auto;padding:0 32px}
+.icbtn{width:46px;height:46px;border-radius:50%;border:1px solid rgba(255,255,255,.22);background:rgba(18,16,14,.45);color:#fff;display:flex;align-items:center;justify-content:center;padding:0;backdrop-filter:blur(8px)}
+.seg{height:48px;padding:0 22px;border-radius:24px;border:0;background:transparent;color:var(--text2);font-size:15px;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px}
+.seg-on{background:var(--accent);color:var(--onaccent);font-weight:800}
+.chip{flex:none;display:flex;align-items:center;gap:8px;height:46px;padding:0 18px 0 16px;border-radius:23px;background:var(--chip);border:1px solid var(--line);color:var(--text);font-size:14.5px;font-weight:600;white-space:nowrap}
+.chip svg{color:var(--accent)}
+.chip-on{background:var(--accent);border-color:var(--accent);color:var(--onaccent)}
+.chip-on svg{color:var(--onaccent)}
+.sh{display:flex;align-items:center;justify-content:space-between;margin:0 0 18px}
+.sh-t{display:flex;align-items:center;gap:12px;margin:0;font-size:34px;line-height:1.3}
+.sh-bar{width:7px;height:30px;border-radius:4px;background:var(--accent)}
+.sh-c{font-size:14px;color:var(--text3)}
+.vc{display:flex;flex-direction:column;border-radius:24px;overflow:hidden;background:var(--surface);border:1px solid var(--line);transition:transform .25s ease,box-shadow .25s ease}
+.vc:hover{transform:translateY(-3px);box-shadow:var(--shadow)}
+.vc:hover .photo{transform:scale(1.05)}
+.vm{position:relative;height:200px;overflow:hidden}
+.fallback{width:100%;height:100%;display:flex;align-items:center;justify-content:center;color:var(--accent);background-color:var(--surface2);background-image:radial-gradient(circle at 30% 25%,rgba(245,165,36,.25),transparent 60%)}
+.off{filter:grayscale(1);opacity:.5}
+.tag{position:absolute;top:12px;inset-inline-start:12px;padding:4px 11px;border-radius:999px;background:#F5A524;color:#1C1205;font-size:12px;font-weight:700}
+.tag-off{position:absolute;top:12px;inset-inline-start:12px;padding:4px 11px;border-radius:999px;background:#111;color:#fff;font-size:12px;font-weight:700}
+.vb{padding:16px 18px 18px;display:flex;flex-direction:column;gap:6px;flex:1}
+.pname{font-size:18px;font-weight:700;line-height:1.4}
+.pdesc{font-size:14px;line-height:1.65;color:var(--text2);display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
+.vf{margin-top:auto;padding-top:10px;display:flex;align-items:center;justify-content:space-between}
+.price{font-family:'Archivo',sans-serif;font-weight:800;font-size:22px;color:var(--price);font-variation-settings:'wdth' 88;white-space:nowrap}
+.cur{font-family:'IBM Plex Sans Arabic',sans-serif;font-size:13px;font-weight:600;margin-inline-start:3px}
+.addbtn{height:44px;padding:0 18px;border-radius:22px;border:1px solid var(--accent);background:var(--accentsoft);color:var(--text);font-size:14.5px;font-weight:700;display:flex;align-items:center;gap:6px}
+.addbtn svg{color:var(--accent)}
+.addbtn:hover{background:var(--accent);color:var(--onaccent)}
+.addbtn:hover svg{color:var(--onaccent)}
+.ci{display:flex;gap:12px;align-items:center;padding:14px 0;border-top:1px solid var(--line)}
+</style>
+</helmet>
+<div class="gd {{themeClass}}" dir="rtl" style="width: 100%; min-height: 2050px; font-family: 'IBM Plex Sans Arabic', system-ui, sans-serif">
+
+<header style="position: relative; height: 400px">
+<img class="photo" src="/_blob/31d6da681ddb8629a3265e1356e08f7d" alt="" style="position: absolute; inset: 0">
+<div style="position: absolute; inset: 0; background: linear-gradient(to top, rgba(14,12,10,.94) 0%, rgba(14,12,10,.5) 50%, rgba(14,12,10,.2) 100%)"></div>
+<div class="wrap" style="position: relative; height: 100%; display: flex; flex-direction: column; justify-content: space-between; padding-top: 24px; padding-bottom: 64px; color: #FFFFFF">
+<div style="display: flex; justify-content: space-between; align-items: center">
+<div style="display: flex; align-items: center; height: 46px; padding: 4px; border-radius: 23px; background: rgba(18,16,14,.45); border: 1px solid rgba(255,255,255,.22); backdrop-filter: blur(8px)">
+<button type="button" style="height: 36px; padding: 0 16px; border-radius: 18px; border: 0; background: #F5A524; color: #1C1205; font-size: 13.5px; font-weight: 700">عربي</button>
+<button type="button" class="lat" style="height: 36px; padding: 0 14px; border-radius: 18px; border: 0; background: transparent; color: #FFFFFF; font-size: 13.5px; font-weight: 700">EN</button>
+</div>
+<button type="button" class="icbtn" aria-label="{{themeLabel}}" onClick="{{toggleTheme}}">
+<sc-if value="{{isDark}}" hint-placeholder-val="{{false}}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="4"></circle><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"></path></svg></sc-if>
+<sc-if value="{{isLight}}" hint-placeholder-val="{{true}}"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z"></path></svg></sc-if>
+</button>
+</div>
+<div style="display: flex; align-items: flex-end; gap: 22px">
+<div style="width: 112px; height: 112px; flex: none; border-radius: 30px; background: #FFFFFF; display: flex; align-items: center; justify-content: center; box-shadow: 0 10px 28px rgba(0,0,0,.45)"><span class="lat" style="font-size: 52px; font-weight: 900; color: #1C1205; font-variation-settings: 'wdth' 80">e</span></div>
+<div>
+<div><span class="lat" dir="ltr" style="font-size: 72px; font-weight: 900; font-variation-settings: 'wdth' 68; letter-spacing: -1.5px; line-height: .95">elmo cafe</span></div>
+<div style="font-size: 18px; color: #F5C46B; font-weight: 600; margin-top: 10px">مطبخ مفتوح وقهوة مختصة</div>
+<div style="display: flex; align-items: center; gap: 6px; font-size: 14px; color: rgba(255,255,255,.82); margin-top: 4px"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21s-6-5.5-6-11a6 6 0 0 1 12 0c0 5.5-6 11-6 11Z"></path><circle cx="12" cy="10" r="2.2"></circle></svg>الفرع الرئيسي · التجمع الخامس</div>
+</div>
+</div>
+</div>
+</header>
+
+<div class="wrap" style="position: relative; margin-top: -30px">
+<div style="display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; padding: 8px; border-radius: 32px; background: var(--surface); border: 1px solid var(--line); box-shadow: var(--shadow)">
+<div style="display: flex; gap: 4px; padding: 2px; border-radius: 26px; background: var(--surface2)">
+<button type="button" class="seg"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 7h12l-1 13H7L6 7Z"></path><path d="M9 7a3 3 0 0 1 6 0"></path></svg>استلام من الفرع</button>
+<button type="button" class="seg seg-on" aria-pressed="true"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="3"></circle><circle cx="18" cy="17" r="3"></circle><path d="M9 17h6l2-7h3"></path><path d="M14 6h3l1 4"></path></svg>توصيل</button>
+</div>
+<label style="flex: 1 1 280px; max-width: 460px; display: flex; align-items: center; gap: 10px; height: 52px; padding: 0 18px; border-radius: 26px; background: var(--surface2); color: var(--text3)"><svg width="19" height="19" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="m20 20-3.5-3.5"></path></svg><input aria-label="ابحث في المنيو" placeholder="ابحث عن برجر، بيتزا، قهوة..." style="border: 0; outline: 0; background: transparent; flex: 1; min-width: 0; font-size: 15px; color: var(--text)"></label>
+</div>
+<nav aria-label="أقسام المنيو" style="display: flex; gap: 10px; overflow-x: auto; padding: 22px 0 6px">
+<button type="button" class="chip chip-on"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 17l-5.4 2.8 1.1-6.1-4.5-4.3 6.1-.8Z"></path></svg>مميز عندنا</button>
+<button type="button" class="chip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M7 10l1.2 10h7.6L17 10Z"></path><path d="M8.5 10V4M11.5 10V3M14.5 10V5"></path></svg>المقبلات</button>
+<button type="button" class="chip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11a8 6 0 0 1 16 0Z"></path><path d="M3 14h18"></path><path d="M5 17h14a2 2 0 0 1-2 3H7a2 2 0 0 1-2-3Z"></path></svg>البرجر</button>
+<button type="button" class="chip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M12 21 3 6a14 14 0 0 1 18 0Z"></path><circle cx="10" cy="10" r="1"></circle><circle cx="14" cy="13" r="1"></circle></svg>البيتزا</button>
+<button type="button" class="chip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"></circle><circle cx="12" cy="12" r="4"></circle></svg>الأطباق الرئيسية</button>
+<button type="button" class="chip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16v-7H4z"></path><path d="M4 16c2 1.5 4 1.5 6 0s4-1.5 6 0 3 1 4 0"></path><path d="M12 13V9"></path></svg>الحلويات</button>
+<button type="button" class="chip"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"><path d="M5 8h12v6a5 5 0 0 1-5 5h-2a5 5 0 0 1-5-5V8Z"></path><path d="M17 10h1.5a2.5 2.5 0 0 1 0 5H17"></path><path d="M9 3v2M13 3v2"></path></svg>المشروبات</button>
+</nav>
+</div>
+
+<div class="wrap" style="padding-top: 30px; padding-bottom: 40px">
+<main style="display: flex; flex-direction: column; gap: 52px">
+
+<section>
+<div class="sh"><h2 class="ttl sh-t"><span class="sh-bar"></span>مميز عندنا</h2><span class="sh-c">اختيارات المطبخ</span></div>
+<article style="position: relative; height: 300px; border-radius: 28px; overflow: hidden; box-shadow: var(--shadow)">
+<img class="photo" src="/_blob/e90dfd79edf3b7695aed34105a7fd44b" alt="برجر لحم كلاسيك">
+<div style="position: absolute; inset: 0; background: linear-gradient(to left, rgba(12,10,8,0) 30%, rgba(12,10,8,.88) 100%)"></div>
+<div style="position: absolute; top: 0; bottom: 0; left: 0; width: 46%; padding: 36px; display: flex; flex-direction: column; justify-content: flex-end; gap: 10px; color: #FFFFFF">
+<span style="align-self: flex-start; display: flex; align-items: center; gap: 5px; padding: 5px 12px; border-radius: 999px; background: #F5A524; color: #1C1205; font-size: 12.5px; font-weight: 700"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><path d="m12 3 2.7 5.6 6.1.8-4.5 4.3 1.1 6.1L12 17l-5.4 2.8 1.1-6.1-4.5-4.3 6.1-.8Z"></path></svg>مميز</span>
+<div class="ttl" style="font-size: 40px; line-height: 1.15">برجر لحم كلاسيك</div>
+<div style="font-size: 15px; line-height: 1.6; color: rgba(255,255,255,.8)">لحم أنجوس مشوي على اللهب مع شيدر ذائب وصوص البيت في خبز بريوش.</div>
+<button type="button" style="align-self: flex-start; margin-top: 6px; height: 52px; padding: 0 22px; border-radius: 26px; border: 0; background: #F5A524; color: #1C1205; display: flex; align-items: center; gap: 10px; font-size: 15.5px; font-weight: 800"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>أضف للطلب · <span class="lat" style="font-size: 18px; font-weight: 900">145</span> ج.م</button>
+</div>
+</article>
+</section>
+
+<sc-for list="{{sections}}" as="s" hint-placeholder-count="2">
+<section>
+<div class="sh"><h2 class="ttl sh-t"><span class="sh-bar"></span>{{s.title}}</h2><span class="sh-c">{{s.count}}</span></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px">
+<sc-for list="{{s.items}}" as="p" hint-placeholder-count="3">
+<article class="vc">
+<div class="vm">
+<sc-if value="{{p.img}}" hint-placeholder-val="{{true}}"><img class="{{p.imgClass}}" src="{{p.img}}" alt="{{p.name}}"></sc-if>
+<sc-if value="{{p.noImg}}" hint-placeholder-val="{{false}}"><div class="fallback"><svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"><path d="{{p.icon}}"></path></svg></div></sc-if>
+<sc-if value="{{p.featured}}" hint-placeholder-val="{{false}}"><span class="tag">مميز</span></sc-if>
+<sc-if value="{{p.soldOut}}" hint-placeholder-val="{{false}}"><span class="tag-off">نفد اليوم</span></sc-if>
+</div>
+<div class="vb">
+<div class="pname">{{p.name}}</div>
+<div class="pdesc">{{p.desc}}</div>
+<div class="vf">
+<span class="price">{{p.price}}<span class="cur">ج.م</span></span>
+<sc-if value="{{p.canAdd}}" hint-placeholder-val="{{true}}"><button type="button" class="addbtn" aria-label="أضف {{p.name}}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg>إضافة</button></sc-if>
+<sc-if value="{{p.soldOut}}" hint-placeholder-val="{{false}}"><span style="font-size: 13px; color: var(--text3); font-weight: 600">غير متاح الآن</span></sc-if>
+</div>
+</div>
+</article>
+</sc-for>
+</div>
+</section>
+</sc-for>
+</main>
+</div>
+
+<div style="position: sticky; bottom: 24px; display: flex; justify-content: center; padding: 0 32px 24px; pointer-events: none">
+<button type="button" onClick="{{openCart}}" style="pointer-events: auto; width: 100%; max-width: 560px; height: 66px; border: 0; border-radius: 22px; background: #F5A524; color: #1C1205; display: flex; align-items: center; justify-content: space-between; padding-inline: 12px 22px; box-shadow: 0 16px 34px rgba(245,165,36,.4)">
+<span style="display: flex; align-items: center; gap: 12px">
+<span class="lat" style="width: 42px; height: 42px; border-radius: 14px; background: #1C1205; color: #F5A524; font-size: 17px; font-weight: 900; display: flex; align-items: center; justify-content: center">2</span>
+<span style="display: flex; flex-direction: column; align-items: flex-start; line-height: 1.25"><span style="font-size: 16px; font-weight: 800">عرض الطلب</span><span style="font-size: 12.5px; font-weight: 600; opacity: .75">توصيل · صنفين</span></span>
+</span>
+<span style="display: flex; align-items: center; gap: 8px"><span class="lat" style="font-size: 21px; font-weight: 900">315</span><span style="font-size: 12.5px; font-weight: 700">ج.م</span><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="m15 18-6-6 6-6"></path></svg></span>
+</button>
+</div>
+
+<sc-if value="{{cartOpen}}" hint-placeholder-val="{{false}}">
+<div onClick="{{closeCart}}" style="position: fixed; inset: 0; background: rgba(8,7,6,.55); z-index: 40"></div>
+<aside role="dialog" aria-modal="true" aria-label="طلبك" style="position: fixed; top: 0; bottom: 0; left: 0; width: 440px; max-width: 100%; z-index: 41; background: var(--surface); color: var(--text); display: flex; flex-direction: column; box-shadow: 20px 0 50px rgba(0,0,0,.35)">
+<div style="display: flex; justify-content: space-between; align-items: center; padding: 22px 24px 16px; border-bottom: 1px solid var(--line)">
+<div style="display: flex; align-items: center; gap: 10px"><h2 class="ttl" style="margin: 0; font-size: 30px; line-height: 1.2">طلبك</h2><span style="display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--accentsoft); font-size: 13px; font-weight: 700"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="6" cy="17" r="3"></circle><circle cx="18" cy="17" r="3"></circle><path d="M9 17h6l2-7h3"></path><path d="M14 6h3l1 4"></path></svg>توصيل</span></div>
+<button type="button" onClick="{{closeCart}}" aria-label="إغلاق" style="width: 44px; height: 44px; border-radius: 50%; border: 1px solid var(--line); background: var(--surface2); color: var(--text); display: flex; align-items: center; justify-content: center"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"></path></svg></button>
+</div>
+<div style="flex: 1; overflow: auto; padding: 4px 24px">
+<sc-for list="{{cart}}" as="c" hint-placeholder-count="2">
+<div class="ci">
+<div style="width: 64px; height: 64px; flex: none; border-radius: 14px; overflow: hidden"><img class="photo" src="{{c.img}}" alt="{{c.name}}"></div>
+<div style="flex: 1; min-width: 0"><div style="font-size: 15px; font-weight: 700">{{c.name}}</div><div style="font-size: 12.5px; color: var(--text2)">{{c.mods}}</div><div class="price" style="font-size: 16px; margin-top: 4px">{{c.price}}<span class="cur">ج.م</span></div></div>
+<div style="display: flex; align-items: center; height: 44px; border-radius: 14px; background: var(--surface2)"><button type="button" aria-label="زيادة" style="width: 38px; height: 44px; border: 0; background: none; color: var(--text); display: flex; align-items: center; justify-content: center"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"><path d="M12 5v14M5 12h14"></path></svg></button><span class="lat" style="min-width: 14px; text-align: center; font-weight: 800">1</span><button type="button" aria-label="حذف" style="width: 38px; height: 44px; border: 0; background: none; color: var(--text); display: flex; align-items: center; justify-content: center"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14M10 7V5h4v2M7 7l1 12h8l1-12"></path></svg></button></div>
+</div>
+</sc-for>
+</div>
+<div style="padding: 18px 24px 24px; border-top: 1px solid var(--line)">
+<div style="display: flex; flex-direction: column; gap: 8px; padding-bottom: 16px; font-size: 14.5px; color: var(--text2)">
+<div style="display: flex; justify-content: space-between"><span>إجمالي الأصناف</span><span class="lat" style="font-weight: 700; color: var(--text)">315 ج.م</span></div>
+<div style="display: flex; justify-content: space-between"><span>التوصيل</span><span style="color: var(--text3)">يحدد حسب منطقتك</span></div>
+</div>
+<button type="button" style="width: 100%; height: 58px; border: 0; border-radius: 18px; background: #F5A524; color: #1C1205; display: flex; align-items: center; justify-content: space-between; padding: 0 22px; font-size: 16.5px; font-weight: 800; box-shadow: 0 10px 24px rgba(245,165,36,.3)"><span>إتمام الطلب</span><span><span class="lat" style="font-size: 20px; font-weight: 900">315</span><span style="font-size: 12px; margin-inline-start: 3px">ج.م</span></span></button>
+</div>
+</aside>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":2050}}'>
+class Component extends DCLogic {
+  constructor(props) {
+    super(props);
+    this.state = { theme: null, cartOpen: false };
+  }
+  renderVals() {
+    const theme = this.state.theme || this.props.theme || 'light';
+    const ICON = {
+      burger: 'M4 11a8 6 0 0 1 16 0ZM3 14h18M5 17h14a2 2 0 0 1-2 3H7a2 2 0 0 1-2-3Z',
+      pizza: 'M12 21 3 6a14 14 0 0 1 18 0ZM10 10h.01M14 13h.01',
+      plate: 'M12 20a8 8 0 1 0 0-16 8 8 0 0 0 0 16ZM12 16a4 4 0 1 0 0-8 4 4 0 0 0 0 8Z'
+    };
+    const prep = (p) => Object.assign({}, p, {
+      noImg: !p.img,
+      canAdd: !p.soldOut,
+      imgClass: p.soldOut ? 'photo off' : 'photo',
+      icon: ICON[p.kind] || ICON.plate
+    });
+    const B = '/_blob/602e62aa6bf352ead2f3f32f6944dde3';
+    const P = '/_blob/7165e535e5db1a6b86529108d56d43ae';
+    const S = '/_blob/c5b3edda81d6b7325a9ce08f094534fa';
+    const sections = [
+      { title: 'البرجر والبيتزا', count: '6 أصناف', items: [
+        { img: B, kind: 'burger', name: 'برجر لحم كلاسيك', desc: 'لحم مشوي على اللهب مع شيدر ومخلل وصوص البيت.', price: '145', featured: true },
+        { img: P, kind: 'pizza', name: 'بيتزا بيبروني', desc: 'عجينة رقيقة مخبوزة في فرن حطب مع بيبروني وريحان.', price: '155' },
+        { img: '', kind: 'burger', name: 'برجر باربكيو مدخن', desc: 'قطعة لحم مع حلقات بصل مقرمشة وصوص باربكيو.', price: '165' },
+        { img: '', kind: 'pizza', name: 'أربع أجبان', desc: 'موتزاريلا وشيدر وبارميزان وجبنة زرقاء.', price: '165' },
+        { img: '', kind: 'burger', name: 'برجر دجاج مقرمش', desc: 'فيليه دجاج مقرمش مع كولسلو وهالبينو.', price: '135' },
+        { img: '', kind: 'burger', name: 'برجر مشروم وسويس', desc: 'مشروم سوتيه وجبنة سويسرية فوق قطعة لحم طرية.', price: '155' }
+      ].map(prep) },
+      { title: 'الأطباق الرئيسية', count: '3 أصناف', items: [
+        { img: S, kind: 'plate', name: 'ريش مشوية على الفحم', desc: 'ريش متبلة ومشوية ببطء مع خضار مشوي وصوص الفلفل.', price: '340', featured: true },
+        { img: '', kind: 'plate', name: 'دجاج مشوي', desc: 'نصف دجاجة متبلة مشوية على الفحم مع صوص الثوم.', price: '185' },
+        { img: '', kind: 'plate', name: 'تشيكن ألفريدو', desc: 'فيتوتشيني بصوص الألفريدو الكريمي مع دجاج مشوي.', price: '175', soldOut: true }
+      ].map(prep) }
+    ];
+    const cart = [
+      { img: B, name: 'برجر لحم كلاسيك', mods: 'سينجل · شيدر إضافي', price: '160' },
+      { img: P, name: 'بيتزا بيبروني', mods: 'حجم وسط', price: '155' }
+    ];
+    return {
+      sections, cart,
+      themeClass: theme === 'dark' ? 't-dark' : 't-light',
+      isDark: theme === 'dark',
+      isLight: theme !== 'dark',
+      themeLabel: theme === 'dark' ? 'الوضع الفاتح' : 'الوضع الداكن',
+      cartOpen: this.state.cartOpen,
+      openCart: () => this.setState({ cartOpen: true }),
+      closeCart: () => this.setState({ cartOpen: false }),
+      toggleTheme: () => this.setState({ theme: theme === 'dark' ? 'light' : 'dark' })
+    };
+  }
+}
+</script>
+</body>
+</html>
