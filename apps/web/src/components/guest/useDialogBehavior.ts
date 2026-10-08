@@ -6,14 +6,20 @@ const FOCUSABLE =
   'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])';
 
 /**
- * Shared modal behavior for the Guest overlays (product sheet, cart panel):
- * Escape closes, Tab/Shift+Tab stay inside the panel, the page behind does not
- * scroll (without the layout jumping when the scrollbar disappears), and focus
- * returns to whatever opened the overlay.
+ * The open dialogs, innermost last. The product sheet can open on top of the cart (the cart's
+ * "Edit" action), so Escape and Tab must act on the TOP dialog only -- otherwise one Escape
+ * would close both, and Tab would be trapped by the wrong panel.
+ */
+const openDialogs: symbol[] = [];
+
+/**
+ * Shared modal behavior for the Guest overlays (product sheet, cart panel): Escape closes the
+ * top-most one, Tab/Shift+Tab stay inside it, the page behind does not scroll (without the
+ * layout jumping when the scrollbar disappears), and focus returns to whatever opened it.
  *
- * `onClose` is read through a ref -- parents pass a fresh closure on every
- * render (each checkout keystroke re-renders them), and re-running the focus
- * effect would pull focus off the field being typed in.
+ * `onClose` is read through a ref -- parents pass a fresh closure on every render (each
+ * checkout keystroke re-renders them), and re-running the focus effect would pull focus off
+ * the field being typed in.
  */
 export function useDialogBehavior(panelRef: RefObject<HTMLElement | null>, onClose: () => void) {
   const onCloseRef = useRef(onClose);
@@ -23,6 +29,8 @@ export function useDialogBehavior(panelRef: RefObject<HTMLElement | null>, onClo
 
   useEffect(() => {
     const panel = panelRef.current;
+    const id = Symbol('guest-dialog');
+    openDialogs.push(id);
     const previouslyFocused = document.activeElement as HTMLElement | null;
 
     const initial = panel?.querySelector<HTMLElement>('[data-autofocus]') ?? panel;
@@ -36,6 +44,7 @@ export function useDialogBehavior(panelRef: RefObject<HTMLElement | null>, onClo
     if (scrollbarWidth > 0) body.style.paddingRight = `${scrollbarWidth}px`;
 
     function handleKeyDown(event: KeyboardEvent) {
+      if (openDialogs[openDialogs.length - 1] !== id) return;
       if (event.key === 'Escape') {
         event.preventDefault();
         onCloseRef.current();
@@ -65,6 +74,8 @@ export function useDialogBehavior(panelRef: RefObject<HTMLElement | null>, onClo
     document.addEventListener('keydown', handleKeyDown);
     return () => {
       document.removeEventListener('keydown', handleKeyDown);
+      const index = openDialogs.indexOf(id);
+      if (index !== -1) openDialogs.splice(index, 1);
       body.style.overflow = previousOverflow;
       body.style.paddingRight = previousPaddingRight;
       if (previouslyFocused && document.contains(previouslyFocused)) {

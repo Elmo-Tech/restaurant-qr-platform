@@ -1,8 +1,8 @@
 'use client';
 
 import { memo, useState } from 'react';
-import { GuestIconPlus, GuestIconSliders, GuestIconStar } from '../../../components/guest/icons';
-import { MonogramTile } from '../../../components/guest/MonogramTile';
+import { DishFallback } from '../../../components/guest/DishFallback';
+import { GuestIconPlus } from '../../../components/guest/icons';
 import { Price } from '../../../components/guest/Price';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
@@ -10,21 +10,22 @@ import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import type { PublicMenuProduct } from '../../../lib/public-menu/types';
 
 /**
- * FT-13A product card -- one component, two layouts:
+ * FT-13B product card -- one component, two layouts:
  *
- * - Phone: a compact restaurant-style row (text on the start side, a square
- *   photo on the end side with the add control overlapping its corner).
- * - `sm` and up: a vertical card with a 4:3 photo on top.
+ * - Phone: a horizontal card, 118px media on the start side, name, a two-line description,
+ *   the price and an "Add" pill.
+ * - `md` and up: a vertical card with a 200px media block on top; it lifts and the photo
+ *   zooms slightly on hover (both disabled under reduced motion).
  *
- * The whole card opens the product sheet through a stretched button on the
- * name (one real, labelled control -- not a clickable div); the add control sits
- * above it. A product with no photo gets a tinted monogram tile, never a
- * "missing image" icon. A sold-out product is visibly unavailable and offers no
- * control at all, so it cannot be ordered by accident.
+ * The whole card opens the product sheet through a stretched button on the name (one real,
+ * labelled control -- not a clickable div); the add pill/stepper sits above it. In the
+ * order: a simple product swaps the pill for a saffron stepper; a product with modifiers
+ * keeps the pill, shows a quantity badge, and always opens the sheet (one product can have
+ * several cart lines). No photo -> the shared dish fallback tile. Sold out -> a black tag,
+ * greyed media, "Unavailable now" and no control at all.
  */
 function ProductCardImpl({
   product,
-  categoryId,
   currency,
   copy,
   canOrder,
@@ -36,7 +37,6 @@ function ProductCardImpl({
   onDecrement,
 }: {
   product: PublicMenuProduct;
-  categoryId: string;
   currency: string;
   copy: PublicMenuCopy;
   canOrder: boolean;
@@ -56,27 +56,43 @@ function ProductCardImpl({
   const interactive = canOrder && !isSoldOut;
   const showStepper = interactive && !hasModifiers && simpleQuantity > 0;
   const showPhoto = imageUrl !== null && !imageFailed;
+  const dimmed = isSoldOut ? 'opacity-50 grayscale' : '';
 
   return (
     <article
-      className={`guest-anim-rise group relative flex gap-3.5 p-3.5 sm:flex-col sm:gap-0 sm:rounded-2xl sm:border sm:border-guest-line sm:bg-guest-surface sm:p-0 sm:transition-[transform,box-shadow,border-color] sm:duration-300 has-[[data-open]:focus-visible]:outline-2 has-[[data-open]:focus-visible]:outline-offset-2 has-[[data-open]:focus-visible]:outline-guest-pine ${
-        interactive
-          ? 'sm:hover:-translate-y-0.5 sm:hover:border-guest-line-strong sm:hover:shadow-lg'
-          : ''
+      className={`guest-anim-rise group relative flex gap-3.5 rounded-[22px] border border-g-line bg-g-surface p-3 md:flex-col md:gap-0 md:overflow-hidden md:rounded-[24px] md:p-0 md:transition-[transform,box-shadow] md:duration-300 has-[[data-open]:focus-visible]:outline-2 has-[[data-open]:focus-visible]:outline-offset-2 has-[[data-open]:focus-visible]:outline-g-accent-text ${
+        interactive ? 'md:hover:-translate-y-[3px] md:hover:shadow-[var(--g-shadow)]' : ''
       }`}
     >
-      <div className="flex min-w-0 flex-1 flex-col sm:order-2 sm:p-4">
-        {product.featured && !isSoldOut ? (
-          <span className="mb-1.5 inline-flex w-fit items-center gap-1 rounded-full bg-guest-saffron-soft px-2 py-0.5 text-[11px] font-bold text-guest-warning-ink">
-            <GuestIconStar className="size-3 text-guest-saffron" />
+      <div className="relative size-[118px] shrink-0 overflow-hidden rounded-2xl md:size-auto md:h-[200px] md:w-full md:rounded-none">
+        {showPhoto ? (
+          // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image.
+          <img
+            src={imageUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            onError={() => setImageFailed(true)}
+            className={`size-full object-cover transition-transform duration-500 ease-out md:group-hover:scale-105 ${dimmed}`}
+          />
+        ) : (
+          <DishFallback className={`size-full ${dimmed}`} iconClassName="size-10 md:size-14" />
+        )}
+        {isSoldOut ? (
+          <span className="absolute start-2 top-2 rounded-full bg-[#111] px-[9px] py-[3px] text-[11px] font-bold text-white md:start-3 md:top-3 md:px-[11px] md:py-1 md:text-xs">
+            {copy.soldOut}
+          </span>
+        ) : product.featured ? (
+          <span className="absolute start-2 top-2 rounded-full bg-g-accent px-[9px] py-[3px] text-[11px] font-bold text-g-on-accent md:start-3 md:top-3 md:px-[11px] md:py-1 md:text-xs">
             {copy.featured}
           </span>
         ) : null}
+      </div>
 
+      <div className="flex min-w-0 flex-1 flex-col gap-[5px] pt-0.5 md:gap-1.5 md:px-[18px] md:pb-[18px] md:pt-4">
         <h3
-          dir="auto"
-          className={`font-guest-display text-[1.15rem] font-bold leading-snug ${
-            isSoldOut ? 'text-guest-muted' : 'text-guest-ink'
+          className={`text-[16.5px] font-bold leading-[1.4] md:text-[18px] ${
+            isSoldOut ? 'text-g-text-2' : 'text-g-text'
           }`}
         >
           {interactive ? (
@@ -86,100 +102,74 @@ function ProductCardImpl({
               onClick={() => onOpen(product)}
               className="text-start outline-none after:absolute after:inset-0 after:content-['']"
             >
-              {product.name}
+              <bdi>{product.name}</bdi>
             </button>
           ) : (
-            product.name
+            <bdi>{product.name}</bdi>
           )}
         </h3>
 
         {product.description ? (
-          <p dir="auto" className="mt-1 line-clamp-2 text-[0.9rem] leading-snug text-guest-muted">
+          <p
+            dir="auto"
+            className="line-clamp-2 text-[13px] leading-[1.65] text-g-text-2 md:text-sm"
+          >
             {product.description}
           </p>
         ) : null}
 
-        <div className="mt-auto flex flex-wrap items-center gap-x-3 gap-y-1 pt-3">
+        <div className="mt-auto flex items-center justify-between gap-2 pt-1.5">
           <Price
             amount={product.basePrice}
             currency={currency}
-            className={`font-guest-display text-lg font-bold ${
-              isSoldOut ? 'text-guest-muted' : 'text-guest-ink'
-            }`}
+            className={`g-num text-[20px] md:text-[22px] ${isSoldOut ? 'text-g-text-3' : 'text-g-price'}`}
+            currencyClassName="text-[12px] font-semibold md:text-[13px]"
           />
           {isSoldOut ? (
-            <span className="inline-flex items-center rounded-full bg-guest-danger-soft px-2.5 py-0.5 text-xs font-bold text-guest-danger">
-              {copy.soldOut}
-            </span>
-          ) : hasModifiers && canOrder ? (
-            <span className="inline-flex items-center gap-1 text-xs font-medium text-guest-muted">
-              <GuestIconSliders className="size-3.5" />
-              {copy.customizable}
-            </span>
+            <span className="text-[12.5px] font-semibold text-g-text-3">{copy.unavailableNow}</span>
+          ) : interactive ? (
+            <div className="relative z-10">
+              {showStepper ? (
+                <Stepper
+                  variant="accent"
+                  value={simpleQuantity}
+                  removesAtOne
+                  decrementLabel={
+                    simpleQuantity <= 1
+                      ? copy.removeAria(product.name)
+                      : copy.decreaseAria(product.name)
+                  }
+                  incrementLabel={copy.increaseAria(product.name)}
+                  onDecrement={() => onDecrement(product.id)}
+                  onIncrement={() => onIncrement(product.id)}
+                  className="guest-anim-bump"
+                />
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => onQuickAdd(product)}
+                  aria-label={copy.addAria(product.name)}
+                  className="group/add relative flex h-11 items-center gap-1.5 rounded-[22px] border border-g-accent bg-g-accent-soft px-4 text-sm font-bold text-g-text transition-colors hover:bg-g-accent hover:text-g-on-accent active:scale-95 md:px-[18px] md:text-[14.5px]"
+                >
+                  <GuestIconPlus
+                    className="size-4 text-g-accent group-hover/add:text-g-on-accent"
+                    strokeWidth={2.8}
+                  />
+                  {copy.add}
+                  {totalQuantity > 0 ? (
+                    <span
+                      key={totalQuantity}
+                      className="g-num guest-anim-bump absolute -end-1.5 -top-2 grid h-5 min-w-5 place-items-center rounded-full bg-g-accent px-1 text-[11px] text-g-on-accent ring-2 ring-g-surface"
+                    >
+                      {totalQuantity}
+                      <span className="sr-only"> · {copy.inOrderCount(totalQuantity)}</span>
+                    </span>
+                  ) : null}
+                </button>
+              )}
+            </div>
           ) : null}
         </div>
-      </div>
-
-      <div
-        className={`pointer-events-none relative size-[104px] shrink-0 sm:order-1 sm:size-auto sm:w-full ${showPhoto ? 'sm:aspect-[4/3]' : 'sm:aspect-[16/10]'}`}
-      >
-        <div className="size-full overflow-hidden rounded-2xl sm:rounded-none sm:rounded-t-2xl">
-          {showPhoto ? (
-            // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image.
-            <img
-              src={imageUrl}
-              alt=""
-              loading="lazy"
-              decoding="async"
-              onError={() => setImageFailed(true)}
-              className={`size-full object-cover transition-transform duration-500 ease-out group-hover:scale-[1.04] ${
-                isSoldOut ? 'opacity-60 grayscale' : ''
-              }`}
-            />
-          ) : (
-            <MonogramTile
-              name={product.name}
-              seed={categoryId}
-              className={`size-full ${isSoldOut ? 'opacity-60 grayscale' : ''}`}
-              letterClassName="text-4xl sm:text-6xl"
-            />
-          )}
-        </div>
-
-        {interactive ? (
-          <div className="pointer-events-auto absolute -bottom-2 -end-2 z-10 sm:bottom-3 sm:end-3">
-            {showStepper ? (
-              <Stepper
-                tone="solid"
-                value={simpleQuantity}
-                removesAtOne
-                decrementLabel={copy.decreaseAria(product.name)}
-                incrementLabel={copy.increaseAria(product.name)}
-                onDecrement={() => onDecrement(product.id)}
-                onIncrement={() => onIncrement(product.id)}
-                className="guest-anim-bump"
-              />
-            ) : (
-              <button
-                type="button"
-                onClick={() => onQuickAdd(product)}
-                aria-label={copy.addAria(product.name)}
-                className="relative flex size-11 items-center justify-center rounded-full bg-guest-surface text-guest-pine shadow-md ring-1 ring-guest-ink/10 transition-[background-color,color,transform] hover:bg-guest-pine hover:text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-guest-pine active:scale-90"
-              >
-                <GuestIconPlus className="size-5" />
-                {totalQuantity > 0 ? (
-                  <span
-                    key={totalQuantity}
-                    className="guest-anim-bump absolute -top-1.5 -end-1.5 grid h-5 min-w-5 place-items-center rounded-full bg-guest-pine px-1 text-[11px] font-bold text-white ring-2 ring-guest-surface"
-                  >
-                    {totalQuantity}
-                    <span className="sr-only"> · {copy.inOrderCount(totalQuantity)}</span>
-                  </span>
-                ) : null}
-              </button>
-            )}
-          </div>
-        ) : null}
       </div>
     </article>
   );

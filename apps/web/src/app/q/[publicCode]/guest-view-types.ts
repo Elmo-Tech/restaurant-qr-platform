@@ -1,8 +1,8 @@
 /**
- * View-model types shared between `PublicMenuView` (state + orchestration) and
- * the presentational Guest components. Everything money-shaped here is a
- * display string the Backend returned or an exact BigInt-derived one -- never
- * authoritative; the Backend recomputes every total on submit.
+ * View-model types shared between `PublicMenuView` (state + orchestration) and the
+ * presentational Guest components. Everything money-shaped here is a display string the
+ * Backend returned or an exact BigInt-derived one -- never authoritative; the Backend
+ * recomputes every total on submit.
  */
 
 /** One selected Modifier Option shown on a Cart line, e.g. "Size: Large". */
@@ -19,6 +19,10 @@ export interface CartLine {
   quantity: number;
   modifierOptionIds: string[];
   name: string;
+  /** The product has Modifier Groups, so the cart row offers "Edit" (re-open the sheet with these selections). */
+  hasModifierGroups: boolean;
+  /** The product photo, or null (the cart row then shows the shared dish tile). */
+  imageAssetPath: string | null;
   /** Product.basePrice PLUS every selected Option's priceAdjustment -- display-only. */
   unitPrice: string;
   /** unitPrice * quantity -- display-only, exact via BigInt minor units. */
@@ -68,7 +72,7 @@ export interface CheckoutFormProps {
   minimumShortfallDisplay: string | null;
 }
 
-/** What the Guest is ordering into -- drives the header ticket and the cart's context line. */
+/** What the Guest is ordering into -- drives the hero line, the cart header and the cart bar's sub-line. */
 export interface OrderingContextView {
   kind: 'TABLE' | 'GENERIC';
   tableNumber: string | null;

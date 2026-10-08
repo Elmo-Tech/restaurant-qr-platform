@@ -1,13 +1,14 @@
 /**
- * Shown by Next.js while the Server Component in `page.tsx` is still fetching
- * (a first load, or a client-side `?lang=` navigation). The skeleton mirrors
- * the real page -- brand block, ticket, category strip, a list of product rows
- * on phones and a card grid from `sm` up -- so nothing jumps when content
- * arrives. Shimmer is CSS-only and switches off under reduced motion.
+ * Shown by Next.js while the Server Component in `page.tsx` is still fetching (a first load,
+ * or a client-side `?lang=` navigation). The skeleton mirrors the new layout -- the hero block,
+ * the floating control bar, the chip row and three product cards (horizontal on a phone, a
+ * grid from 768px) -- so nothing jumps when content arrives. The shimmer is CSS-only, reads on
+ * both themes (it tints with `--g-text`) and switches off under reduced motion. The theme
+ * itself comes from the /q layout, so the skeleton already has the Guest's colours.
  */
 function Bone({ className }: { className: string }) {
   return (
-    <div className={`relative overflow-hidden bg-guest-line/70 ${className}`}>
+    <div className={`relative overflow-hidden bg-g-surface-2 ${className}`}>
       <div className="guest-shimmer absolute inset-0" />
     </div>
   );
@@ -15,51 +16,52 @@ function Bone({ className }: { className: string }) {
 
 export default function PublicMenuLoading() {
   return (
-    <div className="guest-root min-h-dvh bg-guest-paper" aria-busy="true">
-      <div className="px-4 pt-4 pb-5 sm:px-6 sm:pt-7 sm:pb-7 lg:px-10">
-        <div className="mx-auto flex max-w-[1180px] flex-col gap-5">
-          <div className="flex items-start justify-between gap-4">
-            <div className="flex items-center gap-3.5 sm:gap-5">
-              <Bone className="size-14 rounded-2xl sm:size-[72px]" />
-              <div className="flex flex-col gap-2">
-                <Bone className="h-7 w-44 rounded-lg sm:h-10 sm:w-72" />
-                <Bone className="h-4 w-24 rounded-md" />
-              </div>
+    <div className="g-body" aria-busy="true">
+      <div className="relative h-[330px] overflow-hidden bg-g-surface lg:h-[400px]">
+        <div className="mx-auto flex h-full max-w-[1280px] flex-col justify-between px-4 pb-[52px] pt-4 lg:px-8 lg:pb-16 lg:pt-6">
+          <div className="flex items-center justify-between">
+            <Bone className="h-11 w-28 rounded-full" />
+            <Bone className="size-11 rounded-full" />
+          </div>
+          <div className="flex items-end gap-3.5 lg:gap-[22px]">
+            <Bone className="size-[72px] shrink-0 rounded-[20px] lg:size-[112px] lg:rounded-[30px]" />
+            <div className="flex flex-col gap-2.5 pb-1">
+              <Bone className="h-9 w-44 rounded-lg lg:h-16 lg:w-80" />
+              <Bone className="h-4 w-32 rounded-md" />
             </div>
-            <Bone className="h-11 w-24 rounded-full" />
-          </div>
-          <div className="flex md:justify-end">
-            <Bone className="h-[72px] w-full max-w-sm rounded-2xl md:w-[280px]" />
           </div>
         </div>
       </div>
 
-      <div className="border-y border-guest-line">
-        <div className="mx-auto flex h-14 max-w-[1180px] items-center gap-2 px-4 sm:px-6 lg:px-10">
-          <Bone className="size-11 shrink-0 rounded-full" />
-          <Bone className="h-10 w-24 shrink-0 rounded-full" />
-          <Bone className="h-10 w-28 shrink-0 rounded-full" />
-          <Bone className="h-10 w-20 shrink-0 rounded-full" />
-          <Bone className="hidden h-10 w-28 shrink-0 rounded-full sm:block" />
+      <div className="px-4 lg:px-8">
+        <div className="mx-auto max-w-[1280px]">
+          <Bone className="-mt-7 h-[62px] rounded-[30px] border border-g-line lg:h-[68px]" />
+          <Bone className="mt-5 h-[50px] rounded-2xl lg:hidden" />
+          <div className="mt-3.5 flex gap-2.5 py-3">
+            <Bone className="h-11 w-28 shrink-0 rounded-full" />
+            <Bone className="h-11 w-24 shrink-0 rounded-full" />
+            <Bone className="h-11 w-24 shrink-0 rounded-full" />
+            <Bone className="hidden h-11 w-28 shrink-0 rounded-full sm:block" />
+          </div>
         </div>
       </div>
 
-      <div className="px-4 pt-6 pb-16 sm:px-6 sm:pt-8 lg:px-10">
-        <div className="mx-auto max-w-[1180px]">
-          <Bone className="mb-4 h-8 w-44 rounded-lg" />
-          <div className="divide-y divide-guest-line rounded-2xl border border-guest-line bg-guest-surface sm:grid sm:grid-cols-2 sm:gap-5 sm:divide-y-0 sm:rounded-none sm:border-0 sm:bg-transparent lg:grid-cols-3">
-            {[0, 1, 2, 3, 4, 5].map((card) => (
+      <div className="px-4 pb-16 pt-5 lg:px-8 lg:pt-7">
+        <div className="mx-auto max-w-[1280px]">
+          <Bone className="mb-3.5 h-8 w-44 rounded-lg" />
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-[repeat(auto-fill,minmax(250px,1fr))] md:gap-5">
+            {[0, 1, 2].map((card) => (
               <div
                 key={card}
-                className="flex gap-3.5 p-3.5 sm:flex-col sm:gap-0 sm:overflow-hidden sm:rounded-2xl sm:border sm:border-guest-line sm:bg-guest-surface sm:p-0"
+                className="flex gap-3.5 rounded-[22px] border border-g-line bg-g-surface p-3 md:flex-col md:gap-0 md:overflow-hidden md:rounded-[24px] md:p-0"
               >
-                <div className="flex min-w-0 flex-1 flex-col gap-2.5 sm:order-2 sm:p-4">
+                <Bone className="size-[118px] shrink-0 rounded-2xl md:size-auto md:h-[200px] md:w-full md:rounded-none" />
+                <div className="flex min-w-0 flex-1 flex-col gap-2.5 pt-1 md:px-[18px] md:pb-[18px] md:pt-4">
                   <Bone className="h-5 w-2/3 rounded-md" />
                   <Bone className="h-3.5 w-full rounded-md" />
                   <Bone className="h-3.5 w-1/2 rounded-md" />
-                  <Bone className="mt-2 h-5 w-20 rounded-md" />
+                  <Bone className="mt-auto h-6 w-20 rounded-md" />
                 </div>
-                <Bone className="size-[104px] shrink-0 rounded-2xl sm:order-1 sm:aspect-[4/3] sm:size-auto sm:w-full sm:rounded-none" />
               </div>
             ))}
           </div>

@@ -1,51 +1,61 @@
 'use client';
 
+import { useEffect, useRef, useState } from 'react';
+import { DishFallback } from '../../../components/guest/DishFallback';
+import { GuestEmptyState } from '../../../components/guest/GuestEmptyState';
 import {
   GuestIconAlert,
   GuestIconBag,
+  GuestIconChevron,
   GuestIconClose,
-  GuestIconTable,
   GuestIconTrash,
 } from '../../../components/guest/icons';
-import { GuestEmptyState } from '../../../components/guest/GuestEmptyState';
 import { Price } from '../../../components/guest/Price';
 import { Sheet } from '../../../components/guest/Sheet';
 import { Stepper } from '../../../components/guest/Stepper';
+import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import type { GuestOrderView } from '../../../lib/public-menu/types';
 import {
-  AddressFields,
-  BranchPicker,
+  AddressSection,
+  BranchChooser,
   CheckoutSection,
-  ContactFields,
-  DeliveryAreaPicker,
-  FulfillmentSelector,
+  ContactSection,
   MinimumNotice,
-  NotesField,
-  ReceiptRow,
+  NotesSection,
+  SummaryRow,
+  ZonePicker,
 } from './CheckoutSections';
 import type { CartLine, CheckoutFormProps, OrderingContextView } from './guest-view-types';
+import { ModeSwitch } from './ModeSwitch';
 
 export interface CartPanelProps {
   copy: PublicMenuCopy;
   currency: string;
+  locale: string;
   dir: 'ltr' | 'rtl';
   context: OrderingContextView;
   lines: CartLine[];
+  /** Total units in the cart (the badge next to the title). */
+  count: number;
   totalDisplay: string;
   isSubmitting: boolean;
   canSubmit: boolean;
   submitError: string | null;
-  /** Why "Place order" is unavailable right now (a visible reason beats a silently disabled button). */
+  /** Why "Place order" is unavailable right now (a visible reason beats a silently greyed button). */
   submitHint: string | null;
   confirmedOrder: GuestOrderView | null;
   checkout: CheckoutFormProps | null;
   onIncrement: (lineKey: string) => void;
   onDecrement: (lineKey: string) => void;
   onRemove: (lineKey: string) => void;
+  /** Re-open the product sheet with this line's selections (only offered for lines with Modifier Groups). */
+  onEditLine: (lineKey: string) => void;
   onPlaceOrder: () => void;
   onClose: () => void;
 }
+
+type Step = 'review' | 'details';
 
 function orderTitle(order: GuestOrderView, copy: PublicMenuCopy): string {
   return order.type === 'PICKUP'
@@ -55,23 +65,180 @@ function orderTitle(order: GuestOrderView, copy: PublicMenuCopy): string {
       : copy.orderSent;
 }
 
+function CartItemRow({
+  line,
+  currency,
+  copy,
+  onIncrement,
+  onDecrement,
+  onRemove,
+  onEditLine,
+}: {
+  line: CartLine;
+  currency: string;
+  copy: PublicMenuCopy;
+  onIncrement: (lineKey: string) => void;
+  onDecrement: (lineKey: string) => void;
+  onRemove: (lineKey: string) => void;
+  onEditLine: (lineKey: string) => void;
+}) {
+  const imageUrl = resolveAssetUrl(line.imageAssetPath);
+  const [imageFailed, setImageFailed] = useState(false);
+  const modifiers = line.selections.map((selection) => selection.optionName).join(' · ');
+  return (
+    <li className="border-t border-g-line first:border-t-0">
+      <div className="flex items-center gap-3 p-3.5">
+        <div className="size-16 shrink-0 overflow-hidden rounded-[14px]">
+          {imageUrl && !imageFailed ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image.
+            <img
+              src={imageUrl}
+              alt=""
+              loading="lazy"
+              decoding="async"
+              onError={() => setImageFailed(true)}
+              className="size-full object-cover"
+            />
+          ) : (
+            <DishFallback className="size-full" iconClassName="size-7" />
+          )}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[15px] font-bold leading-snug text-g-text">
+            <bdi>{line.name}</bdi>
+          </p>
+          {modifiers ? (
+            <p dir="auto" className="mt-0.5 text-[12.5px] leading-[1.5] text-g-text-2">
+              {modifiers}
+            </p>
+          ) : null}
+          <div className="mt-1 flex flex-wrap items-center gap-x-3">
+            <Price
+              amount={line.lineTotal}
+              currency={currency}
+              className="g-num text-base text-g-price"
+              currencyClassName="text-[0.65em] font-semibold"
+            />
+            {line.hasModifierGroups && !line.blocked ? (
+              <button
+                type="button"
+                onClick={() => onEditLine(line.lineKey)}
+                aria-label={copy.editAria(line.name)}
+                className="-my-2 flex h-11 items-center text-[13px] font-bold text-g-accent-text"
+              >
+                {copy.edit}
+              </button>
+            ) : null}
+          </div>
+        </div>
+        {!line.blocked ? (
+          <Stepper
+            variant="cart"
+            value={line.quantity}
+            removesAtOne
+            incrementLabel={copy.increaseAria(line.name)}
+            decrementLabel={
+              line.quantity <= 1 ? copy.removeAria(line.name) : copy.decreaseAria(line.name)
+            }
+            onIncrement={() => onIncrement(line.lineKey)}
+            onDecrement={() => onDecrement(line.lineKey)}
+          />
+        ) : null}
+      </div>
+      {line.blocked ? (
+        <div className="mx-3.5 mb-3.5 flex items-center justify-between gap-3 rounded-xl bg-g-danger-soft px-3 py-2.5">
+          <p className="flex items-center gap-2 text-sm font-semibold text-g-danger">
+            <GuestIconAlert className="size-4 shrink-0" />
+            {copy.removeToContinue}
+          </p>
+          <button
+            type="button"
+            onClick={() => onRemove(line.lineKey)}
+            aria-label={copy.removeAria(line.name)}
+            className="flex h-11 shrink-0 items-center gap-1.5 rounded-full border border-g-danger px-3.5 text-sm font-bold text-g-danger"
+          >
+            <GuestIconTrash className="size-4" />
+            {copy.remove}
+          </button>
+        </div>
+      ) : null}
+    </li>
+  );
+}
+
+/** Step 2's read-only recap of what is being ordered, with a way back to change it. */
+function OrderRecap({
+  lines,
+  currency,
+  copy,
+  onEdit,
+  disabled,
+}: {
+  lines: CartLine[];
+  currency: string;
+  copy: PublicMenuCopy;
+  onEdit: () => void;
+  disabled: boolean;
+}) {
+  return (
+    <CheckoutSection title={copy.yourItems} id="cart-recap-title">
+      <div className="rounded-[22px] border border-g-line bg-g-surface p-3.5">
+        <ul className="flex flex-col gap-2">
+          {lines.map((line) => (
+            <li key={line.lineKey} className="flex items-baseline justify-between gap-3 text-sm">
+              <span className="min-w-0 text-g-text">
+                <span className="g-num text-g-accent-text">{line.quantity}×</span>{' '}
+                <bdi>{line.name}</bdi>
+              </span>
+              <Price
+                amount={line.lineTotal}
+                currency={currency}
+                className="g-num shrink-0 text-g-text-2"
+                currencyClassName="text-[0.7em] font-semibold"
+              />
+            </li>
+          ))}
+        </ul>
+        <button
+          type="button"
+          onClick={onEdit}
+          disabled={disabled}
+          className="-mb-2 mt-1 flex h-11 items-center text-sm font-bold text-g-accent-text disabled:opacity-50"
+        >
+          {copy.edit}
+        </button>
+      </div>
+    </CheckoutSection>
+  );
+}
+
 /**
- * The cart and checkout, in one overlay: a bottom sheet on phones, a side
- * drawer on larger screens (overlaying the menu rather than permanently taking
- * a third of the width). Header (title + close), a scrolling body, and a fixed
- * footer holding the error/hint and the one primary action, so "Place order" is
- * never hidden below the fold or covered.
+ * Cart + checkout in a drawer: a full-height bottom sheet below 1024px, a 440px side drawer from
+ * the inline-end edge from 1024px up (dim backdrop; a click outside or Escape closes it).
  *
- * Cart/Order semantics are unchanged: every figure is display-only, a sold-out
- * line stays visible and blocks submit until removed, and the confirmation view
- * uses only the Backend's returned order.
+ * Two steps for a Pickup / Delivery order (a generic QR):
+ *   1. Review -- the ordering-mode switch, every line with its modifiers, quantity stepper, price
+ *      and Edit/remove, the items subtotal, and a sticky "Continue".
+ *   2. Details -- a recap, then where from (pickup branch / "Delivering from" + delivery area with
+ *      the minimum-order warning), your details, the delivery address, notes, the final summary
+ *      (subtotal, delivery fee, total) and the sticky confirm button.
+ * "Back" returns to step 1 with the cart and every typed value intact (all state lives in
+ * `PublicMenuView`). A TABLE QR has nothing to fill in, so it is a single review step whose
+ * footer sends the order (DINE_IN, unchanged).
+ *
+ * Cart/Order semantics are unchanged: every figure is display-only (the Backend recomputes the
+ * fee, minimum and total), a sold-out line stays visible and blocks continuing until removed,
+ * only the existing submit handler places the order (idempotent; the button is disabled while a
+ * submission is in flight), and the confirmation uses only the Backend's returned order.
  */
 export function CartPanel({
   copy,
   currency,
+  locale,
   dir,
   context,
   lines,
+  count,
   totalDisplay,
   isSubmitting,
   canSubmit,
@@ -82,9 +249,35 @@ export function CartPanel({
   onIncrement,
   onDecrement,
   onRemove,
+  onEditLine,
   onPlaceOrder,
   onClose,
 }: CartPanelProps) {
+  const [step, setStep] = useState<Step>('review');
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const isFirstRender = useRef(true);
+
+  const hasBlockedLines = lines.some((line) => line.blocked);
+  const isDelivery = checkout?.fulfillment === 'DELIVERY';
+  const isTwoStep = checkout !== null && !confirmedOrder && lines.length > 0;
+  const canContinue = lines.length > 0 && !hasBlockedLines;
+  const disabled = isSubmitting;
+
+  // A cart emptied behind our back (or one without a checkout form) is always the review step.
+  const effectiveStep: Step = step === 'details' && isTwoStep ? 'details' : 'review';
+
+  // Moving between steps: the new step starts at the top and its heading takes focus, so a
+  // keyboard or screen-reader user lands on the new content instead of a stale button.
+  useEffect(() => {
+    if (isFirstRender.current) {
+      isFirstRender.current = false;
+      return;
+    }
+    bodyRef.current?.scrollTo({ top: 0 });
+    headingRef.current?.focus({ preventScroll: true });
+  }, [effectiveStep]);
+
   const ctaLabel = isSubmitting
     ? copy.placingOrder
     : checkout
@@ -93,196 +286,217 @@ export function CartPanel({
         : copy.placePickupOrder
       : copy.placeOrder;
   const grandTotal = checkout ? checkout.grandTotalDisplay : totalDisplay;
-  const isDelivery = checkout?.fulfillment === 'DELIVERY';
-  const disabled = isSubmitting;
+
+  const titleText = confirmedOrder
+    ? orderTitle(confirmedOrder, copy)
+    : effectiveStep === 'details'
+      ? copy.stepDetails
+      : copy.yourOrder;
 
   return (
     <Sheet variant="drawer" dir={dir} labelledBy="cart-panel-title" onClose={onClose}>
-      <div className="flex shrink-0 items-start justify-between gap-4 border-b border-guest-line px-5 pt-5 pb-4 sm:px-6">
-        <div className="min-w-0">
-          <h2
-            id="cart-panel-title"
-            className="font-guest-display text-[1.75rem] font-extrabold leading-tight text-guest-ink"
+      <div className="shrink-0 border-b border-g-line px-[18px] pb-4 pt-[18px] lg:px-6 lg:pt-[22px]">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex min-w-0 items-center gap-2.5">
+            {effectiveStep === 'details' && !confirmedOrder ? (
+              <button
+                type="button"
+                onClick={() => setStep('review')}
+                disabled={isSubmitting}
+                aria-label={copy.back}
+                className="-ms-1 flex size-11 shrink-0 items-center justify-center rounded-full border border-g-line bg-g-surface text-g-text disabled:opacity-50"
+              >
+                <GuestIconChevron
+                  className="size-5 -scale-x-100 rtl:scale-x-100"
+                  strokeWidth={2.4}
+                />
+              </button>
+            ) : null}
+            <div className="min-w-0">
+              <div className="flex items-center gap-2.5">
+                <h2
+                  id="cart-panel-title"
+                  ref={headingRef}
+                  tabIndex={-1}
+                  className="g-display text-[28px] leading-[1.2] text-g-text outline-none lg:text-[30px]"
+                >
+                  {titleText}
+                </h2>
+                {!confirmedOrder && count > 0 && effectiveStep === 'review' ? (
+                  <span className="g-num flex h-[26px] min-w-[26px] items-center justify-center rounded-[13px] bg-g-accent px-[7px] text-[13px] text-g-on-accent [font-weight:900]">
+                    {count}
+                  </span>
+                ) : null}
+              </div>
+              {isTwoStep ? (
+                <p className="mt-0.5 text-[12.5px] font-semibold text-g-text-3">
+                  {copy.stepOf(effectiveStep === 'review' ? 1 : 2, 2)} ·{' '}
+                  {effectiveStep === 'review'
+                    ? copy.stepReview
+                    : isDelivery
+                      ? copy.delivery
+                      : copy.pickup}
+                </p>
+              ) : context.kind === 'TABLE' && !confirmedOrder ? (
+                <p dir="auto" className="mt-1 text-[13px] font-semibold text-g-accent-text">
+                  {copy.tableDineIn(context.tableNumber ?? '')}
+                </p>
+              ) : null}
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label={copy.close}
+            className="flex size-11 shrink-0 items-center justify-center rounded-full border border-g-line bg-g-surface text-g-text lg:bg-g-surface-2"
           >
-            {confirmedOrder ? orderTitle(confirmedOrder, copy) : copy.yourOrder}
-          </h2>
-          {context.kind === 'TABLE' && !confirmedOrder ? (
-            <p className="mt-1 flex items-center gap-1.5 text-sm font-medium text-guest-muted">
-              <GuestIconTable className="size-4" />
-              <span dir="auto">
-                {copy.table} {context.tableNumber} · {copy.dineIn}
-              </span>
-            </p>
-          ) : null}
+            <GuestIconClose className="size-[18px]" strokeWidth={2.2} />
+          </button>
         </div>
-        <button
-          type="button"
-          onClick={onClose}
-          aria-label={copy.close}
-          className="flex size-11 shrink-0 items-center justify-center rounded-full border border-guest-line-strong text-guest-ink transition-colors hover:bg-guest-paper focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-guest-pine"
-        >
-          <GuestIconClose className="size-5" />
-        </button>
+        {isTwoStep ? (
+          <div className="mt-3 flex gap-1.5" aria-hidden="true">
+            <span className="h-1 flex-1 rounded-full bg-g-accent" />
+            <span
+              className={`h-1 flex-1 rounded-full transition-colors ${
+                effectiveStep === 'details' ? 'bg-g-accent' : 'bg-g-line'
+              }`}
+            />
+          </div>
+        ) : null}
       </div>
 
-      <div className="flex-1 overflow-y-auto overscroll-contain bg-guest-paper/40 px-5 py-5 sm:px-6">
+      <div
+        ref={bodyRef}
+        className="flex-1 overflow-y-auto overscroll-contain px-4 py-[18px] lg:px-6"
+      >
         {confirmedOrder ? (
           <Confirmation copy={copy} currency={currency} order={confirmedOrder} />
         ) : lines.length === 0 ? (
-          <GuestEmptyState
-            icon={<GuestIconBag />}
-            title={copy.emptyCart}
-            className="border-0 bg-transparent"
-          />
-        ) : (
-          <div className="flex flex-col gap-8">
-            <CheckoutSection title={copy.yourItems} id="cart-items-title">
-              <ul className="divide-y divide-guest-line rounded-2xl border border-guest-line bg-guest-surface px-4">
-                {lines.map((line) => (
-                  <li key={line.lineKey} className="py-4">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 flex-1">
-                        <p
-                          dir="auto"
-                          className="text-[1.02rem] font-semibold leading-snug text-guest-ink"
-                        >
-                          {line.name}
-                        </p>
-                        {line.selections.length > 0 ? (
-                          <ul className="mt-1 flex flex-col gap-0.5 text-sm text-guest-muted">
-                            {line.selections.map((selection, index) => (
-                              <li key={index} dir="auto">
-                                {selection.groupName}
-                                {/[?؟:]$/.test(selection.groupName) ? ' ' : ': '}
-                                {selection.optionName}
-                              </li>
-                            ))}
-                          </ul>
-                        ) : null}
-                      </div>
-                      <Price
-                        amount={line.lineTotal}
-                        currency={currency}
-                        className="shrink-0 font-guest-display text-base font-bold text-guest-ink"
-                      />
-                    </div>
-
-                    {line.blocked ? (
-                      <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-guest-danger-soft px-3 py-2.5">
-                        <p className="flex items-center gap-2 text-sm font-medium text-guest-danger">
-                          <GuestIconAlert className="size-4 shrink-0" />
-                          {copy.removeToContinue}
-                        </p>
-                        <button
-                          type="button"
-                          onClick={() => onRemove(line.lineKey)}
-                          className="min-h-10 shrink-0 rounded-full bg-guest-danger px-4 text-sm font-semibold text-white focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-guest-danger"
-                        >
-                          {copy.remove}
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="mt-3 flex items-center justify-between gap-3">
-                        <Stepper
-                          value={line.quantity}
-                          removesAtOne
-                          decrementLabel={
-                            line.quantity <= 1
-                              ? copy.removeAria(line.name)
-                              : copy.decreaseAria(line.name)
-                          }
-                          incrementLabel={copy.increaseAria(line.name)}
-                          onDecrement={() => onDecrement(line.lineKey)}
-                          onIncrement={() => onIncrement(line.lineKey)}
-                        />
-                        <button
-                          type="button"
-                          onClick={() => onRemove(line.lineKey)}
-                          aria-label={copy.removeAria(line.name)}
-                          className="flex min-h-11 items-center gap-1.5 rounded-full px-3 text-sm font-semibold text-guest-muted transition-colors hover:bg-guest-danger-soft hover:text-guest-danger focus-visible:outline-2 focus-visible:outline-guest-danger"
-                        >
-                          <GuestIconTrash className="size-4" />
-                          {copy.remove}
-                        </button>
-                      </div>
-                    )}
-                  </li>
-                ))}
-              </ul>
-            </CheckoutSection>
-
+          <GuestEmptyState icon={<GuestIconBag />} title={copy.emptyCart} className="border-0" />
+        ) : effectiveStep === 'review' ? (
+          <div className="flex flex-col gap-[26px]">
             {checkout ? (
-              <>
-                <FulfillmentSelector checkout={checkout} copy={copy} disabled={disabled} />
-
-                <CheckoutSection
-                  title={isDelivery ? copy.deliveryTo : copy.pickupFrom}
-                  id="checkout-where-title"
-                >
-                  <BranchPicker checkout={checkout} copy={copy} disabled={disabled} />
-                  {isDelivery ? (
-                    <DeliveryAreaPicker
-                      checkout={checkout}
-                      copy={copy}
-                      currency={currency}
-                      disabled={disabled}
-                    />
-                  ) : null}
-                  {isDelivery && checkout.minimumMessage ? (
-                    <MinimumNotice
-                      message={checkout.minimumMessage}
-                      shortfall={checkout.minimumShortfallDisplay}
-                    />
-                  ) : null}
-                </CheckoutSection>
-
-                <CheckoutSection title={copy.yourDetails} id="checkout-details-title">
-                  <ContactFields checkout={checkout} copy={copy} disabled={disabled} />
-                </CheckoutSection>
-
-                {isDelivery ? (
-                  <CheckoutSection title={copy.deliveryAddressSection} id="checkout-address-title">
-                    <AddressFields checkout={checkout} copy={copy} disabled={disabled} />
-                  </CheckoutSection>
-                ) : null}
-
-                <NotesField checkout={checkout} copy={copy} disabled={disabled} />
-              </>
+              <div className="flex gap-1 rounded-[20px] border border-g-line bg-g-surface p-[5px]">
+                <ModeSwitch
+                  variant="cart"
+                  value={checkout.fulfillment}
+                  pickupAvailable={checkout.pickupAvailable}
+                  deliveryAvailable={checkout.deliveryAvailable}
+                  onChange={checkout.onFulfillmentChange}
+                  copy={copy}
+                  disabled={disabled}
+                />
+              </div>
             ) : null}
 
-            <section
-              aria-label={copy.orderSummary}
-              className="rounded-2xl border border-guest-line bg-guest-surface px-4 py-4"
+            <ul
+              aria-label={copy.yourItems}
+              className="overflow-hidden rounded-[22px] border border-g-line bg-g-surface"
             >
-              <div className="flex flex-col gap-2.5">
-                {checkout && isDelivery && checkout.deliveryFeeDisplay !== null ? (
+              {lines.map((line) => (
+                <CartItemRow
+                  key={line.lineKey}
+                  line={line}
+                  currency={currency}
+                  copy={copy}
+                  onIncrement={onIncrement}
+                  onDecrement={onDecrement}
+                  onRemove={onRemove}
+                  onEditLine={onEditLine}
+                />
+              ))}
+            </ul>
+
+            <CheckoutSection title={copy.orderSummary} id="cart-summary-title">
+              <div className="flex flex-col gap-2.5 rounded-[22px] border border-g-line bg-g-surface p-4">
+                <SummaryRow label={copy.itemsSubtotal} amount={totalDisplay} currency={currency} />
+                {isDelivery ? (
+                  <p className="text-[12.5px] text-g-text-3">{copy.deliveryFeeNextStep}</p>
+                ) : null}
+                {!checkout ? (
                   <>
-                    <ReceiptRow
-                      label={copy.subtotal}
-                      amount={checkout.subtotalDisplay}
-                      currency={currency}
-                    />
-                    <ReceiptRow
-                      label={copy.deliveryFee}
-                      amount={checkout.deliveryFeeDisplay}
+                    <div className="my-1 h-px bg-g-line" />
+                    <SummaryRow
+                      strong
+                      label={copy.total}
+                      amount={totalDisplay}
                       currency={currency}
                     />
                   </>
                 ) : null}
-                <ReceiptRow strong label={copy.total} amount={grandTotal} currency={currency} />
               </div>
-            </section>
+            </CheckoutSection>
+          </div>
+        ) : (
+          <div className="flex flex-col gap-[26px]">
+            <OrderRecap
+              lines={lines}
+              currency={currency}
+              copy={copy}
+              onEdit={() => setStep('review')}
+              disabled={disabled}
+            />
+            {checkout ? (
+              <>
+                <BranchChooser checkout={checkout} copy={copy} disabled={disabled} />
+                {isDelivery ? (
+                  <div>
+                    <ZonePicker
+                      checkout={checkout}
+                      copy={copy}
+                      currency={currency}
+                      locale={locale}
+                      disabled={disabled}
+                    />
+                    {checkout.minimumMessage ? (
+                      <MinimumNotice
+                        message={checkout.minimumMessage}
+                        shortfall={checkout.minimumShortfallDisplay}
+                      />
+                    ) : null}
+                  </div>
+                ) : null}
+                <ContactSection checkout={checkout} copy={copy} disabled={disabled} />
+                {isDelivery ? (
+                  <AddressSection checkout={checkout} copy={copy} disabled={disabled} />
+                ) : null}
+                <NotesSection checkout={checkout} copy={copy} disabled={disabled} />
+
+                <CheckoutSection title={copy.orderSummary} id="cart-final-summary-title">
+                  <div className="flex flex-col gap-2.5 rounded-[22px] border border-g-line bg-g-surface p-4">
+                    <SummaryRow
+                      label={copy.itemsSubtotal}
+                      amount={checkout.subtotalDisplay}
+                      currency={currency}
+                    />
+                    {isDelivery && checkout.deliveryFeeDisplay !== null ? (
+                      <SummaryRow
+                        label={copy.deliveryFee}
+                        amount={checkout.deliveryFeeDisplay}
+                        currency={currency}
+                      />
+                    ) : null}
+                    <div className="my-1 h-px bg-g-line" />
+                    <SummaryRow
+                      strong
+                      label={copy.total}
+                      amount={checkout.grandTotalDisplay}
+                      currency={currency}
+                    />
+                  </div>
+                </CheckoutSection>
+              </>
+            ) : null}
           </div>
         )}
       </div>
 
-      <div className="shrink-0 border-t border-guest-line bg-guest-surface px-5 pt-3.5 pb-[max(1rem,env(safe-area-inset-bottom))] sm:px-6">
+      <div className="shrink-0 border-t border-g-line bg-g-surface px-4 pb-[max(1.375rem,env(safe-area-inset-bottom))] pt-3.5 lg:px-6">
         {confirmedOrder ? (
           <button
             type="button"
-            data-autofocus
             onClick={onClose}
-            className="flex h-14 w-full items-center justify-center rounded-full bg-guest-pine text-base font-semibold text-white transition-colors hover:bg-guest-pine-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-guest-pine"
+            className="flex h-[58px] w-full items-center justify-center rounded-[18px] bg-g-accent text-[16.5px] font-extrabold text-g-on-accent shadow-[0_10px_24px_rgb(245_165_36/0.3)]"
           >
             {copy.backToMenu}
           </button>
@@ -291,34 +505,75 @@ export function CartPanel({
             {submitError ? (
               <div
                 role="alert"
-                className="mb-3 flex gap-2.5 rounded-xl bg-guest-danger-soft px-3.5 py-3 text-sm font-medium leading-relaxed text-guest-danger"
+                className="mb-3 flex gap-2.5 rounded-xl bg-g-danger-soft px-3.5 py-3 text-sm font-semibold leading-relaxed text-g-danger"
               >
                 <GuestIconAlert className="mt-0.5 size-4 shrink-0" />
                 <p>{submitError}</p>
               </div>
             ) : null}
-            {!submitError && submitHint && lines.length > 0 && !canSubmit ? (
-              <p id="cart-submit-hint" className="mb-2.5 text-center text-sm text-guest-muted">
-                {submitHint}
-              </p>
-            ) : null}
-            <button
-              type="button"
-              disabled={!canSubmit}
-              onClick={onPlaceOrder}
-              aria-describedby={submitHint && !canSubmit ? 'cart-submit-hint' : undefined}
-              className="flex h-14 w-full items-center justify-between gap-3 rounded-full bg-guest-pine px-6 text-base font-semibold text-white transition-[background-color,transform] hover:bg-guest-pine-deep focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-guest-pine active:scale-[0.99] disabled:cursor-not-allowed disabled:bg-guest-line-strong disabled:text-guest-muted"
-            >
-              <span className="truncate">{ctaLabel}</span>
-              {lines.length > 0 ? (
-                <Price
-                  amount={grandTotal}
-                  currency={currency}
-                  className="font-guest-display text-lg font-bold"
-                  currencyClassName="text-[0.78em] font-medium opacity-80"
-                />
-              ) : null}
-            </button>
+            {isTwoStep && effectiveStep === 'review' ? (
+              <>
+                {hasBlockedLines ? (
+                  <p id="cart-submit-hint" className="mb-2.5 text-center text-[13px] text-g-text-2">
+                    {copy.placeOrderHintBlocked}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={!canContinue}
+                  onClick={() => setStep('details')}
+                  aria-describedby={hasBlockedLines ? 'cart-submit-hint' : undefined}
+                  className={`flex h-[58px] w-full items-center justify-between gap-3 rounded-[18px] px-[22px] text-[16.5px] font-extrabold transition-[background-color,color,transform] active:scale-[0.99] disabled:cursor-not-allowed ${
+                    canContinue
+                      ? 'bg-g-accent text-g-on-accent shadow-[0_10px_24px_rgb(245_165_36/0.3)]'
+                      : 'border border-g-line bg-g-surface-2 text-g-text-2'
+                  }`}
+                >
+                  <span className="flex min-w-0 items-center gap-2">
+                    <span className="truncate">{copy.continueToDetails}</span>
+                    <GuestIconChevron
+                      className="size-[18px] shrink-0 rtl:-scale-x-100"
+                      strokeWidth={2.6}
+                    />
+                  </span>
+                  <Price
+                    amount={totalDisplay}
+                    currency={currency}
+                    className="g-num text-xl [font-weight:900]"
+                    currencyClassName="text-xs font-semibold"
+                  />
+                </button>
+              </>
+            ) : (
+              <>
+                {!submitError && submitHint && lines.length > 0 && !canSubmit ? (
+                  <p id="cart-submit-hint" className="mb-2.5 text-center text-[13px] text-g-text-2">
+                    {submitHint}
+                  </p>
+                ) : null}
+                <button
+                  type="button"
+                  disabled={!canSubmit}
+                  onClick={onPlaceOrder}
+                  aria-describedby={submitHint && !canSubmit ? 'cart-submit-hint' : undefined}
+                  className={`flex h-[58px] w-full items-center justify-between gap-3 rounded-[18px] px-[22px] text-[16.5px] font-extrabold transition-[background-color,color,transform] active:scale-[0.99] disabled:cursor-not-allowed ${
+                    canSubmit
+                      ? 'bg-g-accent text-g-on-accent shadow-[0_10px_24px_rgb(245_165_36/0.3)]'
+                      : 'border border-g-line bg-g-surface-2 text-g-text-2'
+                  }`}
+                >
+                  <span className="truncate">{ctaLabel}</span>
+                  {lines.length > 0 ? (
+                    <Price
+                      amount={grandTotal}
+                      currency={currency}
+                      className="g-num text-xl [font-weight:900]"
+                      currencyClassName="text-xs font-semibold"
+                    />
+                  ) : null}
+                </button>
+              </>
+            )}
           </>
         )}
       </div>
@@ -326,7 +581,7 @@ export function CartPanel({
   );
 }
 
-/** The order docket: a confirmation stamped from the Backend's own returned order -- never a client recomputation. */
+/** The confirmation, stamped from the Backend's own returned order -- never a client recomputation. */
 function Confirmation({
   copy,
   currency,
@@ -345,13 +600,13 @@ function Confirmation({
   return (
     <div className="flex flex-col items-center gap-6 py-2 text-center">
       <div className="flex flex-col items-center gap-3">
-        <span className="guest-anim-bump flex size-16 items-center justify-center rounded-full bg-guest-pine text-white">
+        <span className="guest-anim-bump flex size-16 items-center justify-center rounded-full bg-g-accent text-g-on-accent">
           <svg
             viewBox="0 0 24 24"
             className="size-8"
             fill="none"
             stroke="currentColor"
-            strokeWidth={2.4}
+            strokeWidth={2.6}
             strokeLinecap="round"
             strokeLinejoin="round"
             aria-hidden="true"
@@ -363,15 +618,11 @@ function Confirmation({
             />
           </svg>
         </span>
-        <p role="status" className="max-w-xs text-[0.97rem] leading-relaxed text-guest-ink-soft">
+        <p role="status" className="max-w-xs text-[15px] leading-[1.7] text-g-text-2">
           {pending}
         </p>
-        <div className="flex flex-col gap-0.5 text-sm font-semibold text-guest-pine">
-          {order.table ? (
-            <span dir="auto">
-              {copy.table} {order.table.number}
-            </span>
-          ) : null}
+        <div className="flex flex-col gap-0.5 text-sm font-semibold text-g-accent-text">
+          {order.table ? <span dir="auto">{copy.tableDineIn(order.table.number)}</span> : null}
           {order.pickupBranch ? (
             <span dir="auto">
               {copy.pickupFrom}: {order.pickupBranch.name}
@@ -387,21 +638,20 @@ function Confirmation({
 
       <section
         aria-label={copy.orderSummary}
-        className="w-full rounded-2xl border border-guest-line bg-guest-surface px-4 py-4 text-start"
+        className="w-full rounded-[22px] border border-g-line bg-g-surface p-4 text-start"
       >
-        <ul className="flex flex-col gap-3 border-b border-dashed border-guest-line-strong pb-4">
+        <ul className="flex flex-col gap-3 border-b border-dashed border-g-line pb-4">
           {order.items.map((item, index) => (
             <li
               key={`${item.productId}-${index}`}
               className="flex items-start justify-between gap-3"
             >
               <div className="min-w-0">
-                <p dir="auto" className="font-semibold text-guest-ink">
-                  <span className="font-guest-display text-guest-pine">{item.quantity}×</span>{' '}
-                  {item.name}
+                <p dir="auto" className="text-[15px] font-bold text-g-text">
+                  <span className="g-num text-g-accent-text">{item.quantity}×</span> {item.name}
                 </p>
                 {item.modifiers.length > 0 ? (
-                  <p dir="auto" className="mt-0.5 text-sm text-guest-muted">
+                  <p dir="auto" className="mt-0.5 text-[12.5px] text-g-text-2">
                     {item.modifiers.map((modifier) => modifier.optionName).join(' · ')}
                   </p>
                 ) : null}
@@ -409,7 +659,8 @@ function Confirmation({
               <Price
                 amount={item.lineTotal}
                 currency={currency}
-                className="shrink-0 text-[0.95rem] font-semibold text-guest-ink-soft"
+                className="g-num shrink-0 text-[15px] text-g-text"
+                currencyClassName="text-[0.65em] font-semibold"
               />
             </li>
           ))}
@@ -417,11 +668,12 @@ function Confirmation({
         <div className="mt-4 flex flex-col gap-2.5">
           {order.type === 'DELIVERY' ? (
             <>
-              <ReceiptRow label={copy.subtotal} amount={order.subtotal} currency={currency} />
-              <ReceiptRow label={copy.deliveryFee} amount={order.deliveryFee} currency={currency} />
+              <SummaryRow label={copy.itemsSubtotal} amount={order.subtotal} currency={currency} />
+              <SummaryRow label={copy.deliveryFee} amount={order.deliveryFee} currency={currency} />
+              <div className="my-1 h-px bg-g-line" />
             </>
           ) : null}
-          <ReceiptRow strong label={copy.total} amount={order.total} currency={currency} />
+          <SummaryRow strong label={copy.total} amount={order.total} currency={currency} />
         </div>
       </section>
     </div>

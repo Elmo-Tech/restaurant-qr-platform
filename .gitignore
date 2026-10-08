@@ -47,3 +47,6 @@ docker-data/
 # FT-2: local-disk Product/Category image uploads (first-working-version
 # storage only, see ImageStorageService) -- never source-controlled.
 apps/api/storage/
+
+# FT-13B: local dev-only demo photos for the guest menu (never committed)
+demo-assets/

@@ -28,7 +28,8 @@
     "prisma:validate": "prisma validate",
     "prisma:generate": "prisma generate",
     "prisma:version": "prisma --version",
-    "provision:restaurant": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/provision-restaurant.ts"
+    "provision:restaurant": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/provision-restaurant.ts",
+    "dev:attach-demo-images": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/dev-attach-demo-images.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

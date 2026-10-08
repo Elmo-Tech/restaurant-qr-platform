@@ -112,6 +112,32 @@ export interface PublicMenuCopy {
   selectBranchFirst: string;
   notAvailableNow: string;
   placeOrderHintBlocked: string;
+  // FT-13B "Ember & Saffron"
+  ourPicks: string;
+  unavailableNow: string;
+  chooseOne: string;
+  upTo: (max: number) => string;
+  upToSelected: (max: number, selected: number) => string;
+  tableDineIn: (table: string) => string;
+  deliveringFrom: string;
+  change: string;
+  minimumOrderOf: (amount: string) => string;
+  itemsSubtotal: string;
+  lightMode: string;
+  darkMode: string;
+  slideOf: (index: number, count: number) => string;
+  orderingMode: string;
+  // Final polish: two-step checkout + editing a line
+  stepOf: (step: number, total: number) => string;
+  stepReview: string;
+  stepDetails: string;
+  continueToDetails: string;
+  back: string;
+  edit: string;
+  editAria: (name: string) => string;
+  updateOrder: string;
+  deliveryFeeNextStep: string;
+  reviewItemsHint: string;
 }
 
 const EN_COPY: PublicMenuCopy = {
@@ -133,7 +159,7 @@ const EN_COPY: PublicMenuCopy = {
   emptyCart: 'Your cart is empty.',
   remove: 'Remove',
   total: 'Total',
-  placeOrder: 'Place order',
+  placeOrder: 'Send order',
   placingOrder: 'Sending order…',
   removeToContinue: 'No longer available — remove to continue.',
   orderSent: 'Order sent',
@@ -175,7 +201,7 @@ const EN_COPY: PublicMenuCopy = {
   deliveryApartment: 'Apartment (optional)',
   deliveryLandmark: 'Landmark (optional)',
   subtotal: 'Subtotal',
-  deliveryFee: 'Delivery',
+  deliveryFee: 'Delivery fee',
   minimumOrderLabel: 'minimum',
   minimumOrderMessage: (zone, amount, currency) =>
     `Minimum order for ${zone} is ${amount} ${currency}.`,
@@ -192,7 +218,7 @@ const EN_COPY: PublicMenuCopy = {
   browseOnly: 'Browse only',
   language: 'Language',
   searchMenu: 'Search the menu',
-  searchPlaceholder: 'Search dishes and drinks',
+  searchPlaceholder: 'Search dishes or drinks',
   clearSearch: 'Clear search',
   noSearchResults: 'No menu items match your search.',
   searchResultsCount: (count) => (count === 1 ? '1 item found' : `${count} items found`),
@@ -215,18 +241,42 @@ const EN_COPY: PublicMenuCopy = {
   pickupHint: 'Collect it from the branch',
   deliveryHint: 'Brought to your door',
   yourDetails: 'Your details',
-  deliveryAddressSection: 'Delivery address',
+  deliveryAddressSection: 'Address',
   minimumShortfall: (amount, currency) => `Add ${amount} ${currency} more to place a delivery order.`,
   orderSummary: 'Order summary',
   selectBranchFirst: 'Choose a branch to see delivery areas.',
   notAvailableNow: 'Not available right now',
   placeOrderHintBlocked: 'Remove the unavailable items to continue.',
+  ourPicks: 'Our picks',
+  unavailableNow: 'Unavailable now',
+  chooseOne: 'Choose 1',
+  upTo: (max) => `Up to ${max}`,
+  upToSelected: (max, selected) => `Up to ${max} · ${selected} selected`,
+  tableDineIn: (table) => `Table ${table} · Dine in`,
+  deliveringFrom: 'Delivering from',
+  change: 'Change',
+  minimumOrderOf: (amount) => `Minimum order ${amount}`,
+  itemsSubtotal: 'Items subtotal',
+  lightMode: 'Light mode',
+  darkMode: 'Dark mode',
+  slideOf: (index, count) => `Pick ${index} of ${count}`,
+  orderingMode: 'How would you like your order?',
+  stepOf: (step, total) => `Step ${step} of ${total}`,
+  stepReview: 'Review your order',
+  stepDetails: 'Order details',
+  continueToDetails: 'Continue',
+  back: 'Back',
+  edit: 'Edit',
+  editAria: (name) => `Edit ${name}`,
+  updateOrder: 'Update order',
+  deliveryFeeNextStep: 'The delivery fee is added in the next step.',
+  reviewItemsHint: 'Review your items, then continue.',
 };
 
 const AR_COPY: PublicMenuCopy = {
   table: 'طاولة',
   featured: 'مميز',
-  soldOut: 'نفد مؤقتًا',
+  soldOut: 'نفد',
   categories: 'الأقسام',
   noItemsInCategory: 'لا توجد أصناف في هذا القسم حاليًا.',
   noItemsInMenu: 'لا توجد أصناف متاحة في القائمة حاليًا.',
@@ -255,7 +305,7 @@ const AR_COPY: PublicMenuCopy = {
   optional: 'اختياري',
   chooseUpTo: 'اختر حتى',
   chooseExactly: 'اختر',
-  addToCart: 'أضف إلى السلة',
+  addToCart: 'أضف إلى طلبي',
   cancel: 'إلغاء',
   selectionRequiredError: 'يرجى إكمال الاختيارات المطلوبة أعلاه.',
   pickup: 'استلام من الفرع',
@@ -264,7 +314,7 @@ const AR_COPY: PublicMenuCopy = {
   customerName: 'الاسم',
   customerPhone: 'رقم الهاتف',
   customerNotes: 'ملاحظات (اختياري)',
-  placePickupOrder: 'إرسال طلب الاستلام',
+  placePickupOrder: 'تأكيد طلب الاستلام',
   pickupOrderSent: 'تم إرسال طلب الاستلام',
   pickupOrderPending: 'في انتظار موافقة المطعم على طلب الاستلام.',
   pickupUnavailable: 'الطلب للاستلام غير متاح حاليًا. يمكنك تصفح القائمة.',
@@ -281,18 +331,18 @@ const AR_COPY: PublicMenuCopy = {
   deliveryApartment: 'الشقة (اختياري)',
   deliveryLandmark: 'علامة مميزة (اختياري)',
   subtotal: 'المجموع الفرعي',
-  deliveryFee: 'التوصيل',
+  deliveryFee: 'رسوم التوصيل',
   minimumOrderLabel: 'الحد الأدنى',
   minimumOrderMessage: (zone, amount, currency) =>
     `الحد الأدنى للطلب في منطقة ${zone} هو ${amount} ${currency}.`,
-  placeDeliveryOrder: 'إرسال طلب التوصيل',
+  placeDeliveryOrder: 'تأكيد طلب التوصيل',
   deliveryOrderSent: 'تم إرسال طلب التوصيل',
   deliveryOrderPending: 'في انتظار موافقة المطعم على طلب التوصيل.',
   deliveryUnavailable: 'التوصيل غير متاح حاليًا.',
   deliveryDetailsRequiredError: 'يرجى إدخال اسمك ورقم هاتفك وعنوانك.',
   deliveryAreaError: 'يرجى اختيار منطقة توصيل صالحة.',
   deliveryTo: 'التوصيل إلى',
-  dineIn: 'تناول في المطعم',
+  dineIn: 'داخل المطعم',
   pickupOrDelivery: 'استلام أو توصيل',
   chooseAtCheckout: 'اختر عند إتمام الطلب',
   browseOnly: 'تصفح فقط',
@@ -304,7 +354,7 @@ const AR_COPY: PublicMenuCopy = {
   searchResultsCount: (count) => (count === 1 ? 'صنف واحد' : count === 2 ? 'صنفان' : count <= 10 ? `${count} أصناف` : `${count} صنفًا`),
   menuEmptyTitle: 'القائمة قيد التجهيز',
   customizable: 'قابل للتخصيص',
-  addToOrder: 'أضف إلى الطلب',
+  addToOrder: 'أضف إلى طلبي',
   addAria: (name) => `إضافة ${name}`,
   increaseAria: (name) => `إضافة ${name} آخر`,
   decreaseAria: (name) => `إزالة واحد من ${name}`,
@@ -321,12 +371,36 @@ const AR_COPY: PublicMenuCopy = {
   pickupHint: 'استلمه من الفرع',
   deliveryHint: 'يصلك إلى بابك',
   yourDetails: 'بياناتك',
-  deliveryAddressSection: 'عنوان التوصيل',
+  deliveryAddressSection: 'العنوان',
   minimumShortfall: (amount, currency) => `أضف ${amount} ${currency} لإتمام طلب التوصيل.`,
   orderSummary: 'ملخص الطلب',
   selectBranchFirst: 'اختر الفرع لعرض مناطق التوصيل.',
   notAvailableNow: 'غير متاح حاليًا',
   placeOrderHintBlocked: 'أزل الأصناف غير المتاحة للمتابعة.',
+  ourPicks: 'مميز عندنا',
+  unavailableNow: 'غير متاح الآن',
+  chooseOne: 'اختر واحد',
+  upTo: (max) => `حتى ${max}`,
+  upToSelected: (max, selected) => `حتى ${max} · اخترت ${selected}`,
+  tableDineIn: (table) => `طاولة ${table} · داخل المطعم`,
+  deliveringFrom: 'التوصيل من',
+  change: 'تغيير',
+  minimumOrderOf: (amount) => `حد أدنى للطلب ${amount}`,
+  itemsSubtotal: 'إجمالي الأصناف',
+  lightMode: 'الوضع الفاتح',
+  darkMode: 'الوضع الداكن',
+  slideOf: (index, count) => `اختيار ${index} من ${count}`,
+  orderingMode: 'كيف تريد استلام طلبك؟',
+  stepOf: (step, total) => `الخطوة ${step} من ${total}`,
+  stepReview: 'راجع طلبك',
+  stepDetails: 'تفاصيل الطلب',
+  continueToDetails: 'متابعة',
+  back: 'رجوع',
+  edit: 'تعديل',
+  editAria: (name) => `تعديل ${name}`,
+  updateOrder: 'تحديث الطلب',
+  deliveryFeeNextStep: 'تُضاف رسوم التوصيل في الخطوة التالية.',
+  reviewItemsHint: 'راجع أصنافك ثم تابع.',
 };
 
 /**

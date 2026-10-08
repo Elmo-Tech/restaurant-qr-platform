@@ -161,3 +161,32 @@ export function GuestIconUtensils(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+export function GuestIconSun(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <circle cx="12" cy="12" r="4" />
+      <path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" />
+    </Icon>
+  );
+}
+
+export function GuestIconMoon(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M20 14.5A8 8 0 0 1 9.5 4a8 8 0 1 0 10.5 10.5Z" />
+    </Icon>
+  );
+}
+
+/** The one neutral dish line icon (a serving cloche) used by every product without a photo. */
+export function GuestIconDish(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon strokeWidth={1.4} {...props}>
+      <path d="M3 18.5h18" />
+      <path d="M5 18.5a7 7 0 0 1 14 0" />
+      <path d="M12 11.5v-2" />
+      <circle cx="12" cy="8.4" r="1.1" />
+    </Icon>
+  );
+}

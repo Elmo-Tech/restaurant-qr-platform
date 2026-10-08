@@ -2,8 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-/** Height of the sticky stack (compact bar 52px + category nav 56px) plus a little breathing room. */
-const SPY_OFFSET_PX = 128;
+/** Height of the sticky chip bar (about 68px) plus breathing room: a section counts as current once its top passes this line. */
+const SPY_OFFSET_PX = 100;
+
+/** The "Our picks" banner section is a pseudo-category with this id (DOM id `category-featured`). */
+export const FEATURED_SECTION_ID = 'featured';
 
 export function categoryDomId(categoryId: string): string {
   return `category-${categoryId}`;
@@ -28,7 +31,7 @@ function prefersReducedMotion(): boolean {
  * is no meaningful "current category".
  */
 export function useMenuNavigation(categoryIds: string[], paused: boolean) {
-  const headerRef = useRef<HTMLDivElement>(null);
+  const headerRef = useRef<HTMLElement>(null);
   const [compact, setCompact] = useState(false);
   const [activeId, setActiveId] = useState<string | null>(categoryIds[0] ?? null);
   const lockedRef = useRef(false);

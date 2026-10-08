@@ -1,21 +1,16 @@
 'use client';
 
-import type { ReactNode } from 'react';
-import {
-  GuestIconAlert,
-  GuestIconBag,
-  GuestIconCheck,
-  GuestIconMapPin,
-  GuestIconMoped,
-} from '../../../components/guest/icons';
+import { useState, type ReactNode } from 'react';
+import { GuestIconAlert, GuestIconMapPin } from '../../../components/guest/icons';
 import { Price } from '../../../components/guest/Price';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
-import type { CheckoutFieldKey, CheckoutFormProps, Fulfillment } from './guest-view-types';
+import { formatMoney } from '../../../lib/public-menu/price-format';
+import type { CheckoutFieldKey, CheckoutFormProps } from './guest-view-types';
 
 const INPUT_CLASS =
-  'h-12 w-full rounded-xl border border-guest-line-strong bg-guest-surface px-3.5 text-base text-guest-ink placeholder:text-guest-muted focus:border-guest-pine focus:outline-2 focus:outline-offset-0 focus:outline-guest-pine/25 disabled:bg-guest-paper disabled:text-guest-muted';
+  'h-[50px] w-full rounded-[14px] border border-g-line bg-g-surface px-3.5 text-[15px] text-g-text placeholder:text-g-text-3 focus:border-g-accent disabled:opacity-60';
 
-/** A titled group of related fields -- the checkout is a few clear sections, not one long form. */
+/** A titled group of the single-step checkout. */
 export function CheckoutSection({
   title,
   children,
@@ -23,13 +18,13 @@ export function CheckoutSection({
 }: {
   title: string;
   children: ReactNode;
-  id?: string;
+  id: string;
 }) {
   return (
-    <section aria-labelledby={id} className="@container flex flex-col gap-3.5">
-      <h3 id={id} className="font-guest-display text-xl font-bold text-guest-ink">
+    <section aria-labelledby={id}>
+      <h2 id={id} className="mb-3 text-[16.5px] font-bold text-g-text">
         {title}
-      </h3>
+      </h2>
       {children}
     </section>
   );
@@ -38,24 +33,24 @@ export function CheckoutSection({
 function Field({
   id,
   label,
-  required = false,
   children,
+  reserveLabelLines = false,
 }: {
   id: string;
   label: string;
-  required?: boolean;
   children: ReactNode;
+  /** In a narrow multi-column row, keep a two-line label slot so the inputs stay level when one label wraps. */
+  reserveLabelLines?: boolean;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5">
-      <label htmlFor={id} className="text-sm font-semibold text-guest-ink-soft">
+    <div className="min-w-0">
+      <label
+        htmlFor={id}
+        className={`mb-1.5 text-[13px] font-semibold leading-snug text-g-text-2 ${
+          reserveLabelLines ? 'flex min-h-[2.7em] items-end' : 'block'
+        }`}
+      >
         {label}
-        {required ? (
-          <span aria-hidden="true" className="text-guest-danger">
-            {' '}
-            *
-          </span>
-        ) : null}
       </label>
       {children}
     </div>
@@ -73,6 +68,8 @@ function TextField({
   type = 'text',
   autoComplete,
   ltr = false,
+  placeholder,
+  reserveLabelLines = false,
 }: {
   fieldKey: CheckoutFieldKey;
   label: string;
@@ -84,10 +81,12 @@ function TextField({
   type?: 'text' | 'tel';
   autoComplete?: string;
   ltr?: boolean;
+  placeholder?: string;
+  reserveLabelLines?: boolean;
 }) {
   const id = `checkout-${fieldKey}`;
   return (
-    <Field id={id} label={label} required={required}>
+    <Field id={id} label={label} reserveLabelLines={reserveLabelLines}>
       <input
         id={id}
         type={type}
@@ -97,102 +96,61 @@ function TextField({
         maxLength={maxLength}
         autoComplete={autoComplete}
         disabled={disabled}
+        placeholder={placeholder}
         aria-required={required || undefined}
         onChange={(event) => onChange(fieldKey, event.target.value)}
-        className={INPUT_CLASS}
+        className={`${INPUT_CLASS} ${ltr ? 'rtl:text-right' : ''}`}
       />
     </Field>
   );
 }
 
-const MODE_ICON: Record<Fulfillment, ReactNode> = {
-  PICKUP: <GuestIconBag className="size-5" />,
-  DELIVERY: <GuestIconMoped className="size-5" />,
-};
-
-/** Pickup | Delivery as two large selectable cards (real radios underneath: arrow keys, focus, screen readers). */
-export function FulfillmentSelector({
-  checkout,
-  copy,
+/** A radio card: real radio underneath (arrow keys, focus, screen readers), saffron when chosen. */
+function RadioCard({
+  name,
+  checked,
   disabled,
+  onSelect,
+  children,
+  trailing,
 }: {
-  checkout: CheckoutFormProps;
-  copy: PublicMenuCopy;
+  name: string;
+  checked: boolean;
   disabled: boolean;
+  onSelect: () => void;
+  children: ReactNode;
+  trailing?: ReactNode;
 }) {
-  const modes: { mode: Fulfillment; label: string; hint: string; available: boolean }[] = [
-    {
-      mode: 'PICKUP',
-      label: copy.pickup,
-      hint: copy.pickupHint,
-      available: checkout.pickupAvailable,
-    },
-    {
-      mode: 'DELIVERY',
-      label: copy.delivery,
-      hint: copy.deliveryHint,
-      available: checkout.deliveryAvailable,
-    },
-  ];
   return (
-    <fieldset className="flex min-w-0 flex-col gap-3">
-      <legend className="mb-3 font-guest-display text-xl font-bold text-guest-ink">
-        {copy.fulfillment}
-      </legend>
-      <div className="grid grid-cols-2 gap-3">
-        {modes.map(({ mode, label, hint, available }) => {
-          const selected = checkout.fulfillment === mode;
-          const isDisabled = disabled || !available;
-          return (
-            <label
-              key={mode}
-              className={`relative flex flex-col gap-2.5 rounded-2xl border-2 p-4 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-guest-pine ${
-                selected
-                  ? 'border-guest-pine bg-guest-pine-soft'
-                  : 'border-guest-line bg-guest-surface hover:border-guest-line-strong'
-              } ${!available ? 'cursor-not-allowed opacity-55' : 'cursor-pointer'}`}
-            >
-              <input
-                type="radio"
-                name="fulfillment"
-                value={mode}
-                checked={selected}
-                disabled={isDisabled}
-                onChange={() => checkout.onFulfillmentChange(mode)}
-                className="sr-only"
-              />
-              <span className="flex items-center justify-between">
-                <span
-                  className={`flex size-10 items-center justify-center rounded-full ${
-                    selected ? 'bg-guest-pine text-white' : 'bg-guest-paper text-guest-ink-soft'
-                  }`}
-                >
-                  {MODE_ICON[mode]}
-                </span>
-                {selected ? (
-                  <span className="flex size-6 items-center justify-center rounded-full bg-guest-pine text-white">
-                    <GuestIconCheck className="size-3.5" />
-                  </span>
-                ) : null}
-              </span>
-              <span>
-                <span className="block font-guest-display text-lg font-bold leading-tight text-guest-ink">
-                  {label}
-                </span>
-                <span className="mt-0.5 block text-sm leading-snug text-guest-muted">
-                  {available ? hint : copy.notAvailableNow}
-                </span>
-              </span>
-            </label>
-          );
-        })}
-      </div>
-    </fieldset>
+    <label
+      className={`flex cursor-pointer items-center gap-3 rounded-2xl border-[1.5px] p-3.5 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-g-accent-text ${
+        checked ? 'border-g-accent bg-g-accent-soft' : 'border-g-line bg-g-surface'
+      }`}
+    >
+      <input
+        type="radio"
+        name={name}
+        checked={checked}
+        disabled={disabled}
+        onChange={onSelect}
+        className="peer sr-only"
+      />
+      <span
+        aria-hidden="true"
+        className="size-[22px] shrink-0 rounded-full border-2 border-g-text-3 transition-all peer-checked:border-[6px] peer-checked:border-g-accent peer-checked:bg-g-on-accent"
+      />
+      <span className="min-w-0 flex-1">{children}</span>
+      {trailing}
+    </label>
   );
 }
 
-/** One eligible Branch is stated; several become a pick-one list. */
-export function BranchPicker({
+/**
+ * Where the order comes from. Pickup with several branches: a pick-one list (a single branch
+ * needs no section -- it is already in the hero). Delivery: a "Delivering from" card with a
+ * "Change" action when there are several branches, and the list while none is chosen yet.
+ */
+export function BranchChooser({
   checkout,
   copy,
   disabled,
@@ -201,207 +159,147 @@ export function BranchPicker({
   copy: PublicMenuCopy;
   disabled: boolean;
 }) {
-  const label = checkout.fulfillment === 'DELIVERY' ? copy.deliveryFrom : copy.pickupFrom;
-  if (checkout.branches.length === 1) {
+  const [expanded, setExpanded] = useState(false);
+  const isDelivery = checkout.fulfillment === 'DELIVERY';
+  const selected = checkout.branches.find((branch) => branch.id === checkout.branchId) ?? null;
+  const several = checkout.branches.length > 1;
+
+  const list = (
+    <div role="radiogroup" aria-label={copy.chooseBranch} className="flex flex-col gap-2.5">
+      {checkout.branches.map((branch) => (
+        <RadioCard
+          key={branch.id}
+          name="checkout-branch"
+          checked={checkout.branchId === branch.id}
+          disabled={disabled}
+          onSelect={() => {
+            checkout.onBranchChange(branch.id);
+            setExpanded(false);
+          }}
+        >
+          <span className="block text-[15px] font-bold text-g-text">
+            <bdi>{branch.name}</bdi>
+          </span>
+        </RadioCard>
+      ))}
+    </div>
+  );
+
+  if (!isDelivery) {
+    if (!several) return null;
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-guest-line bg-guest-surface px-4 py-3.5">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-guest-pine-soft text-guest-pine">
-          <GuestIconMapPin className="size-5" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-guest-muted">{label}</p>
-          <p className="font-guest-display text-lg font-bold leading-tight text-guest-ink">
-            <bdi>{checkout.branches[0].name}</bdi>
-          </p>
-        </div>
-      </div>
+      <CheckoutSection title={copy.pickupFrom} id="checkout-branch-title">
+        {list}
+      </CheckoutSection>
     );
   }
+
   return (
-    <fieldset className="flex min-w-0 flex-col gap-2.5">
-      <legend className="sr-only">
-        {label}
-        <span aria-hidden="true" className="text-guest-danger">
-          {' '}
-          *
-        </span>
-      </legend>
-      {checkout.branches.map((branch) => {
-        const selected = checkout.branchId === branch.id;
-        return (
-          <label
-            key={branch.id}
-            className={`flex min-h-14 cursor-pointer items-center gap-3 rounded-2xl border-2 px-4 py-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-guest-pine ${
-              selected
-                ? 'border-guest-pine bg-guest-pine-soft'
-                : 'border-guest-line bg-guest-surface hover:border-guest-line-strong'
-            }`}
-          >
-            <input
-              type="radio"
-              name="checkout-branch"
-              checked={selected}
+    <CheckoutSection title={copy.deliveringFrom} id="checkout-branch-title">
+      {selected && !(several && expanded) ? (
+        <div className="flex items-center gap-3 rounded-[22px] border border-g-line bg-g-surface px-3.5 py-3">
+          <span className="flex size-10 shrink-0 items-center justify-center rounded-xl bg-g-accent-soft text-g-accent-text">
+            <GuestIconMapPin className="size-5" />
+          </span>
+          <span className="min-w-0 flex-1 text-[15px] font-semibold text-g-text">
+            <bdi>{selected.name}</bdi>
+          </span>
+          {several ? (
+            <button
+              type="button"
+              onClick={() => setExpanded(true)}
               disabled={disabled}
-              onChange={() => checkout.onBranchChange(branch.id)}
-              className="peer sr-only"
-            />
-            <span className="min-w-0 flex-1 font-semibold text-guest-ink">
-              <bdi>{branch.name}</bdi>
-            </span>
-            <span
-              aria-hidden="true"
-              className={`grid size-6 shrink-0 place-items-center rounded-full border-2 transition-colors ${
-                selected
-                  ? 'border-guest-pine bg-guest-pine text-white'
-                  : 'border-guest-line-strong bg-guest-surface text-transparent'
-              }`}
+              className="h-11 shrink-0 px-2.5 text-sm font-bold text-g-accent-text"
             >
-              <GuestIconCheck className="size-3.5" />
-            </span>
-          </label>
-        );
-      })}
-    </fieldset>
+              {copy.change}
+            </button>
+          ) : null}
+        </div>
+      ) : (
+        list
+      )}
+    </CheckoutSection>
   );
 }
 
 /** Delivery areas with their fee and minimum on the card, so the commitment is clear before choosing. */
-export function DeliveryAreaPicker({
+export function ZonePicker({
   checkout,
   copy,
   currency,
+  locale,
   disabled,
 }: {
   checkout: CheckoutFormProps;
   copy: PublicMenuCopy;
   currency: string;
+  locale: string;
   disabled: boolean;
 }) {
   if (!checkout.branchId) {
-    return <p className="text-sm text-guest-muted">{copy.selectBranchFirst}</p>;
-  }
-  const hasMinimum = (amount: string) => amount !== '0.00';
-  const meta = (zone: CheckoutFormProps['zones'][number]) => (
-    <span className="mt-0.5 flex flex-col text-sm text-guest-muted">
-      <span>
-        {copy.deliveryFee}{' '}
-        <Price amount={zone.deliveryFee} currency={currency} currencyClassName="text-[0.85em]" />
-      </span>
-      {hasMinimum(zone.minimumOrder) ? (
-        <span>
-          <span className="capitalize">{copy.minimumOrderLabel}</span>{' '}
-          <Price amount={zone.minimumOrder} currency={currency} currencyClassName="text-[0.85em]" />
-        </span>
-      ) : null}
-    </span>
-  );
-  if (checkout.zones.length === 1) {
-    const zone = checkout.zones[0];
     return (
-      <div className="flex items-center gap-3 rounded-2xl border border-guest-line bg-guest-surface px-4 py-3.5">
-        <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-guest-pine-soft text-guest-pine">
-          <GuestIconMoped className="size-5" />
-        </span>
-        <div className="min-w-0">
-          <p className="text-xs font-semibold text-guest-muted">{copy.deliveryArea}</p>
-          <p className="font-guest-display text-lg font-bold leading-tight text-guest-ink">
-            <bdi>{zone.name}</bdi>
-          </p>
-          {meta(zone)}
-        </div>
-      </div>
+      <CheckoutSection title={copy.deliveryArea} id="checkout-zone-title">
+        <p className="text-sm text-g-text-2">{copy.selectBranchFirst}</p>
+      </CheckoutSection>
     );
   }
   return (
-    <fieldset className="flex min-w-0 flex-col gap-2.5">
-      <legend className="mb-2.5 text-sm font-semibold text-guest-ink-soft">
-        {copy.chooseDeliveryArea}
-        <span aria-hidden="true" className="text-guest-danger">
-          {' '}
-          *
-        </span>
-      </legend>
-      {checkout.zones.map((zone) => {
-        const selected = checkout.zoneId === zone.id;
-        return (
-          <label
+    <CheckoutSection title={copy.deliveryArea} id="checkout-zone-title">
+      <div role="radiogroup" aria-label={copy.chooseDeliveryArea} className="flex flex-col gap-2.5">
+        {checkout.zones.map((zone) => (
+          <RadioCard
             key={zone.id}
-            className={`flex min-h-16 cursor-pointer items-center gap-3 rounded-2xl border-2 px-4 py-3 transition-colors has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-guest-pine ${
-              selected
-                ? 'border-guest-pine bg-guest-pine-soft'
-                : 'border-guest-line bg-guest-surface hover:border-guest-line-strong'
-            }`}
+            name="checkout-zone"
+            checked={checkout.zoneId === zone.id}
+            disabled={disabled}
+            onSelect={() => checkout.onZoneChange(zone.id)}
+            trailing={
+              <Price
+                amount={zone.deliveryFee}
+                currency={currency}
+                className="g-num text-[15px] text-g-price"
+                currencyClassName="text-[0.65em] font-semibold"
+              />
+            }
           >
-            <input
-              type="radio"
-              name="checkout-zone"
-              checked={selected}
-              disabled={disabled}
-              onChange={() => checkout.onZoneChange(zone.id)}
-              className="sr-only"
-            />
-            <span className="min-w-0 flex-1">
-              <span className="block font-semibold text-guest-ink">
-                <bdi>{zone.name}</bdi>
+            <span className="block text-[15px] font-bold text-g-text">
+              <bdi>{zone.name}</bdi>
+            </span>
+            {zone.minimumOrder !== '0.00' ? (
+              <span className="mt-0.5 block text-[12.5px] text-g-text-2">
+                {copy.minimumOrderOf(formatMoney(zone.minimumOrder, currency, locale))}
               </span>
-              {meta(zone)}
-            </span>
-            <span
-              aria-hidden="true"
-              className={`grid size-6 shrink-0 place-items-center rounded-full border-2 transition-colors ${
-                selected
-                  ? 'border-guest-pine bg-guest-pine text-white'
-                  : 'border-guest-line-strong bg-guest-surface text-transparent'
-              }`}
-            >
-              <GuestIconCheck className="size-3.5" />
-            </span>
-          </label>
-        );
-      })}
-    </fieldset>
+            ) : null}
+          </RadioCard>
+        ))}
+      </div>
+    </CheckoutSection>
   );
 }
 
-export function ContactFields({
-  checkout,
-  copy,
-  disabled,
+/** Below-minimum feedback: what the rule is, and exactly how much more is needed. */
+export function MinimumNotice({
+  message,
+  shortfall,
 }: {
-  checkout: CheckoutFormProps;
-  copy: PublicMenuCopy;
-  disabled: boolean;
+  message: string;
+  shortfall: string | null;
 }) {
-  const { fields, onFieldChange } = checkout;
   return (
-    <div className="grid gap-3.5 @md:grid-cols-2">
-      <TextField
-        fieldKey="customerName"
-        label={copy.customerName}
-        required
-        value={fields.customerName}
-        maxLength={100}
-        autoComplete="name"
-        disabled={disabled}
-        onChange={onFieldChange}
-      />
-      <TextField
-        fieldKey="customerPhone"
-        label={copy.customerPhone}
-        required
-        value={fields.customerPhone}
-        maxLength={30}
-        type="tel"
-        ltr
-        autoComplete="tel"
-        disabled={disabled}
-        onChange={onFieldChange}
-      />
+    <div
+      role="alert"
+      className="mt-3 flex gap-3 rounded-2xl border border-g-accent bg-g-accent-soft p-3.5 text-g-text"
+    >
+      <GuestIconAlert className="mt-0.5 size-5 shrink-0 text-g-accent-text" />
+      <div className="text-sm leading-[1.6]">
+        <p className="font-bold">{message}</p>
+        {shortfall ? <p className="mt-0.5 text-g-text-2">{shortfall}</p> : null}
+      </div>
     </div>
   );
 }
 
-export function AddressFields({
+export function ContactSection({
   checkout,
   copy,
   disabled,
@@ -412,56 +310,102 @@ export function AddressFields({
 }) {
   const { fields, onFieldChange } = checkout;
   return (
-    <div className="flex flex-col gap-3.5">
-      <TextField
-        fieldKey="deliveryAddress"
-        label={copy.deliveryAddress}
-        required
-        value={fields.deliveryAddress}
-        maxLength={300}
-        autoComplete="street-address"
-        disabled={disabled}
-        onChange={onFieldChange}
-      />
-      <div className="grid grid-cols-1 gap-3.5 @md:grid-cols-3">
+    <CheckoutSection title={copy.yourDetails} id="checkout-details-title">
+      <div className="grid grid-cols-2 gap-2.5">
         <TextField
-          fieldKey="deliveryBuilding"
-          label={copy.deliveryBuilding}
-          value={fields.deliveryBuilding}
-          maxLength={50}
+          fieldKey="customerName"
+          label={copy.customerName}
+          required
+          value={fields.customerName}
+          maxLength={100}
+          autoComplete="name"
           disabled={disabled}
           onChange={onFieldChange}
         />
         <TextField
-          fieldKey="deliveryFloor"
-          label={copy.deliveryFloor}
-          value={fields.deliveryFloor}
+          fieldKey="customerPhone"
+          label={copy.customerPhone}
+          required
+          value={fields.customerPhone}
           maxLength={30}
-          disabled={disabled}
-          onChange={onFieldChange}
-        />
-        <TextField
-          fieldKey="deliveryApartment"
-          label={copy.deliveryApartment}
-          value={fields.deliveryApartment}
-          maxLength={30}
+          type="tel"
+          ltr
+          autoComplete="tel"
+          placeholder="01x xxxx xxxx"
           disabled={disabled}
           onChange={onFieldChange}
         />
       </div>
-      <TextField
-        fieldKey="deliveryLandmark"
-        label={copy.deliveryLandmark}
-        value={fields.deliveryLandmark}
-        maxLength={150}
-        disabled={disabled}
-        onChange={onFieldChange}
-      />
-    </div>
+    </CheckoutSection>
   );
 }
 
-export function NotesField({
+export function AddressSection({
+  checkout,
+  copy,
+  disabled,
+}: {
+  checkout: CheckoutFormProps;
+  copy: PublicMenuCopy;
+  disabled: boolean;
+}) {
+  const { fields, onFieldChange } = checkout;
+  return (
+    <CheckoutSection title={copy.deliveryAddressSection} id="checkout-address-title">
+      <div className="flex flex-col gap-3">
+        <TextField
+          fieldKey="deliveryAddress"
+          label={copy.deliveryAddress}
+          required
+          value={fields.deliveryAddress}
+          maxLength={300}
+          autoComplete="street-address"
+          disabled={disabled}
+          onChange={onFieldChange}
+        />
+        <div className="grid grid-cols-3 gap-2.5">
+          <TextField
+            fieldKey="deliveryBuilding"
+            reserveLabelLines
+            label={copy.deliveryBuilding}
+            value={fields.deliveryBuilding}
+            maxLength={50}
+            disabled={disabled}
+            onChange={onFieldChange}
+          />
+          <TextField
+            fieldKey="deliveryFloor"
+            reserveLabelLines
+            label={copy.deliveryFloor}
+            value={fields.deliveryFloor}
+            maxLength={30}
+            disabled={disabled}
+            onChange={onFieldChange}
+          />
+          <TextField
+            fieldKey="deliveryApartment"
+            reserveLabelLines
+            label={copy.deliveryApartment}
+            value={fields.deliveryApartment}
+            maxLength={30}
+            disabled={disabled}
+            onChange={onFieldChange}
+          />
+        </div>
+        <TextField
+          fieldKey="deliveryLandmark"
+          label={copy.deliveryLandmark}
+          value={fields.deliveryLandmark}
+          maxLength={150}
+          disabled={disabled}
+          onChange={onFieldChange}
+        />
+      </div>
+    </CheckoutSection>
+  );
+}
+
+export function NotesSection({
   checkout,
   copy,
   disabled,
@@ -486,54 +430,31 @@ export function NotesField({
   );
 }
 
-/** Below-minimum feedback: what the rule is, and exactly how much more is needed. */
-export function MinimumNotice({
-  message,
-  shortfall,
-}: {
-  message: string;
-  shortfall: string | null;
-}) {
-  return (
-    <div
-      role="alert"
-      className="flex gap-3 rounded-2xl bg-guest-warning-soft px-4 py-3.5 text-guest-warning-ink"
-    >
-      <GuestIconAlert className="mt-0.5 size-5 shrink-0" />
-      <div className="text-sm leading-relaxed">
-        <p className="font-semibold">{message}</p>
-        {shortfall ? <p className="mt-0.5">{shortfall}</p> : null}
-      </div>
-    </div>
-  );
-}
-
-/** A receipt row: label ........ amount, with the dotted menu-style leader between them. */
-export function ReceiptRow({
+/** A summary row: label on one side, the amount on the other (Archivo numerals). */
+export function SummaryRow({
   label,
   amount,
   currency,
   strong = false,
 }: {
-  label: ReactNode;
+  label: string;
   amount: string;
   currency: string;
   strong?: boolean;
 }) {
   return (
     <div
-      className={`flex items-baseline gap-2 ${
-        strong
-          ? 'font-guest-display text-xl font-extrabold text-guest-ink'
-          : 'text-[0.95rem] text-guest-ink-soft'
+      className={`flex items-baseline justify-between gap-3 ${
+        strong ? 'text-base font-bold text-g-text' : 'text-[14.5px] text-g-text-2'
       }`}
     >
-      <span className="min-w-0">{label}</span>
-      <span
-        aria-hidden="true"
-        className="min-w-4 flex-1 border-b-2 border-dotted border-guest-line-strong"
+      <span>{label}</span>
+      <Price
+        amount={amount}
+        currency={currency}
+        className={strong ? 'g-num text-2xl text-g-price' : 'g-num text-g-text'}
+        currencyClassName="text-[0.65em] font-semibold"
       />
-      <Price amount={amount} currency={currency} />
     </div>
   );
 }
