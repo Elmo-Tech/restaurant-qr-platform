@@ -1071,6 +1071,8 @@ No database default (mirrors Restaurant/Branch, #24/#27A): the initial status is
 
 # 37. Table Session
 
+> **Amended 2026-10-09 (Table Sessions design v3; foundation implemented in Slice 1, migration `20261009100000_add_table_sessions`).** The session lifecycle is only `OPEN | CLOSED`. Payment status is **derived** from eligible order totals and a settlement ledger and is never a session status. `paidAt` is not stored (derived as the time the balance reached zero). See #42A for the implemented schema and `docs/05-future-proposals/TABLE_SESSION_CLOSURE_AND_PAYMENT_DESIGN.md`.
+
 Database table:
 
 `table_sessions`
@@ -1094,15 +1096,13 @@ Potential fields:
 
 # 38. Table Session Status
 
-V1:
+V1 (amended 2026-10-09):
 
 OPEN
 
-PAYMENT_PENDING
-
-PAID
-
 CLOSED
+
+(PAYMENT_PENDING and PAID were removed from the lifecycle: payment is a separate, derived concept.)
 
 ---
 
@@ -1110,13 +1110,9 @@ CLOSED
 
 For database integrity purposes, active session means:
 
-status IN:
+status = OPEN (amended 2026-10-09).
 
-OPEN
-PAYMENT_PENDING
-PAID
-
-CLOSED is historical and inactive.
+CLOSED is historical and inactive. A CLOSED session is never reopened.
 
 ---
 
@@ -1144,9 +1140,11 @@ PAID
 
 Conceptual SQL:
 
-CREATE UNIQUE INDEX table_sessions_one_active_per_table
+CREATE UNIQUE INDEX table_sessions_one_open_per_table
 ON table_sessions (table_id)
-WHERE status IN ('OPEN', 'PAYMENT_PENDING', 'PAID');
+WHERE status = 'OPEN';
+
+(Implemented in Slice 1; name and predicate amended 2026-10-09.)
 
 ---
 
@@ -1177,6 +1175,22 @@ the same Branch.
 Backend validates this during creation.
 
 Additional database constraints may be added where they remain maintainable.
+
+---
+
+# 42A. Table Sessions: Slice 1 Implemented Schema (2026-10-09)
+
+Migration `20261009100000_add_table_sessions` (purely additive; legacy rows untouched):
+
+- Enums: `table_session_status` (OPEN, CLOSED), `table_session_opened_via` (FIRST_ORDER, STAFF), `table_session_closure_reason` (NORMAL, FIRST_ORDER_REJECTED, STAFF_CORRECTION, OTHER), `table_session_ledger_kind` (PAYMENT), `table_session_payment_method` (CASH, CARD, OTHER), `table_session_event_type`, `table_session_actor_type`.
+- `tables.staff_open_required` boolean NOT NULL DEFAULT false: Table QR ordering availability, separate from lifecycle and payment. Unique `(id, restaurant_id, branch_id)` on `tables` is the target of the session's composite foreign key.
+- `table_sessions`: `public_id` (`session-<uuid>`), `restaurant_id`, `branch_id`, `table_id`, `status`, `opened_at`, `opened_via`, `opened_by_membership_id`, `closed_at`, `closed_by_membership_id`, `closure_reason`, `next_round_number` (>= 1), timestamps. Composite FK `(table_id, restaurant_id, branch_id)` to `tables`. CHECK: closure fields are set exactly when `status = 'CLOSED'`. Partial unique index `table_sessions_one_open_per_table`.
+- `orders`: nullable `table_session_id` and `round_number`; unique `(table_session_id, round_number)`; composite FK `orders_table_session_scope_fkey` `(table_session_id, restaurant_id, branch_id, table_id)` to `table_sessions`; CHECK `orders_table_session_pair_check` (both null or both set) and `orders_table_session_dine_in_check` (a session implies a DINE_IN order with a table and round >= 1). Legacy DINE_IN orders keep both columns null and are never migrated into sessions (decision D8); this amends #97 for orders created before sessions.
+- Triggers: `orders_require_open_table_session_trg` (BEFORE INSERT; the target session must be OPEN, locked with `FOR SHARE`; SQLSTATE `TS001`) and `orders_protect_table_session_link_trg` (BEFORE UPDATE of the two columns; the session link and round are immutable once set; SQLSTATE `TS002`).
+- `table_session_payments` (ledger foundation, no API yet): amount > 0, void fields all-or-nothing with a non-blank reason, unique `(table_session_id, client_request_id)`, composite FK to the session. A void is an audited accounting correction, never a refund.
+- `table_session_events` (audit foundation): Slice 1 writes only SESSION_OPENED (actor GUEST) in the same transaction as the session.
+
+Locking protocol (fixed order, every writer): `tables` row `FOR NO KEY UPDATE`, then the `table_sessions` row, then `orders` rows. The order-creation transaction takes the table lock first, resolves or opens the OPEN session, and allocates the round with one atomic `UPDATE ... RETURNING`.
 
 ---
 
@@ -2196,6 +2210,8 @@ Keep Order Type and Order Source separate.
 
 # 97. Dine-In Order Constraint
 
+> **Amended 2026-10-09:** the "non-null" requirement below applies to DINE_IN orders created from Slice 1 onward (enforced by the ordering service and covered by tests). DINE_IN orders created before sessions existed keep `tableSessionId` and `roundNumber` null (decision D8); the database enforces only that the two travel together and that non-DINE_IN orders have neither (see #42A).
+
 DINE_IN Order requires:
 
 tableSessionId non-null
@@ -2659,6 +2675,8 @@ OPEN
 → PAYMENT_PENDING
 
 inside one controlled transaction where appropriate.
+
+> **Superseded 2026-10-09:** PAYMENT_PENDING no longer exists. Request Bill (a deferred feature) will not change the session lifecycle or block ordering.
 
 ---
 

@@ -68,6 +68,19 @@ describe('PublicOrdersController', () => {
     });
   });
 
+  it('maps tableOrderingUnavailable to 409 TABLE_ORDERING_UNAVAILABLE', async () => {
+    publicOrdersService.createOrder.mockResolvedValue({
+      outcome: 'tableOrderingUnavailable',
+    });
+
+    await expect(
+      controller.createOrder('code-1', { clientRequestId: 'req-1', items: [] }),
+    ).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'TABLE_ORDERING_UNAVAILABLE' } },
+    });
+  });
+
   it('maps duplicateItems to 400 VALIDATION_ERROR', async () => {
     publicOrdersService.createOrder.mockResolvedValue({ outcome: 'duplicateItems' });
 

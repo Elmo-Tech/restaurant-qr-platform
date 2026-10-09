@@ -1,5 +1,28 @@
 import { Prisma } from '../generated/prisma/client';
+import {
+  resolveDineInSessionSlot,
+  TableNotOrderableError,
+  TableOrderingUnavailableError,
+} from '../table-sessions/table-session-ordering';
 import { PublicOrdersService } from './public-orders.service';
+
+// Table Sessions: the session/round logic is covered by its own unit spec and by
+// the real-PostgreSQL integration test. Here only the wiring into createOrder is
+// asserted, so the helper is mocked (its real error classes are kept).
+jest.mock('../table-sessions/table-session-ordering', () => ({
+  ...jest.requireActual('../table-sessions/table-session-ordering'),
+  resolveDineInSessionSlot: jest.fn(),
+}));
+const resolveSlotMock = resolveDineInSessionSlot as jest.MockedFunction<
+  typeof resolveDineInSessionSlot
+>;
+beforeEach(() => {
+  resolveSlotMock.mockReset();
+  resolveSlotMock.mockResolvedValue({
+    tableSessionId: 'session-1',
+    roundNumber: 1,
+  });
+});
 
 function decimal(value: string) {
   return new Prisma.Decimal(value);
@@ -864,5 +887,115 @@ describe('PublicOrdersService.createOrder -- Modifiers (FT-6A)', () => {
     });
 
     expect(result.outcome).toBe('created');
+  });
+});
+
+describe('PublicOrdersService.createOrder -- Table Sessions wiring (Slice 1)', () => {
+  it('resolves the session slot INSIDE the transaction, scoped by the QR-derived tenant/branch/table, and stores session + round on the Order', async () => {
+    const mock = buildPrismaMock();
+    resolveSlotMock.mockResolvedValue({
+      tableSessionId: 'session-9',
+      roundNumber: 3,
+    });
+    const service = buildService(mock);
+
+    await service.createOrder({
+      ...VALID_INPUT,
+      // Never authority: ignored for a TABLE QR.
+      branchId: 'attacker-branch',
+    });
+
+    expect(resolveSlotMock).toHaveBeenCalledTimes(1);
+    expect(resolveSlotMock.mock.calls[0][1]).toEqual({
+      restaurantId: 'restaurant-1',
+      branchId: 'branch-1',
+      tableId: 'table-1',
+    });
+    const data = mock.orderCreate.mock.calls[0][0].data;
+    expect(data.tableSessionId).toBe('session-9');
+    expect(data.roundNumber).toBe(3);
+    // The slot was resolved with the transaction client, not the root client.
+    expect(mock.transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('keeps the existing pricing/snapshot fields untouched when a session is attached', async () => {
+    const mock = buildPrismaMock();
+    const service = buildService(mock);
+
+    await service.createOrder(VALID_INPUT);
+
+    const data = mock.orderCreate.mock.calls[0][0].data;
+    expect(data.type).toBe('DINE_IN');
+    expect(data.status).toBe('PENDING');
+    expect(data.totalAmount.toFixed(2)).toBe('100.00');
+    expect(data.subtotalAmount.toFixed(2)).toBe('100.00');
+  });
+
+  it('returns tableOrderingUnavailable and creates nothing when the table is locked by staff', async () => {
+    const mock = buildPrismaMock();
+    resolveSlotMock.mockRejectedValue(new TableOrderingUnavailableError());
+    const service = buildService(mock);
+
+    const result = await service.createOrder(VALID_INPUT);
+
+    expect(result).toEqual({ outcome: 'tableOrderingUnavailable' });
+    expect(mock.orderCreate).not.toHaveBeenCalled();
+  });
+
+  it('treats a table that stopped being orderable between the QR lookup and the lock exactly like an unknown QR', async () => {
+    const mock = buildPrismaMock();
+    resolveSlotMock.mockRejectedValue(new TableNotOrderableError());
+    const service = buildService(mock);
+
+    const result = await service.createOrder(VALID_INPUT);
+
+    expect(result).toEqual({ outcome: 'qrNotFound' });
+    expect(mock.orderCreate).not.toHaveBeenCalled();
+  });
+
+  it('maps the closed-session database trigger (SQLSTATE TS001) to tableOrderingUnavailable, never a raw database error', async () => {
+    const mock = buildPrismaMock();
+    mock.orderCreate.mockRejectedValue(
+      Object.assign(new Error('Raw query failed'), { code: 'TS001' }),
+    );
+    const service = buildService(mock);
+
+    const result = await service.createOrder(VALID_INPUT);
+
+    expect(result).toEqual({ outcome: 'tableOrderingUnavailable' });
+  });
+
+  it('an unrelated persistence error still propagates unmapped', async () => {
+    const mock = buildPrismaMock();
+    mock.orderCreate.mockRejectedValue(new Error('connection reset'));
+    const service = buildService(mock);
+
+    await expect(service.createOrder(VALID_INPUT)).rejects.toThrow(
+      'connection reset',
+    );
+  });
+
+  it('an idempotent retry returns the ORIGINAL order on the fast path without touching sessions, even if the table was locked since', async () => {
+    const mock = buildPrismaMock();
+    mock.orderFindFirst.mockResolvedValue(CREATED_ORDER_ROW);
+    resolveSlotMock.mockRejectedValue(new TableOrderingUnavailableError());
+    const service = buildService(mock);
+
+    const result = await service.createOrder(VALID_INPUT);
+
+    expect(result.outcome).toBe('created');
+    expect(resolveSlotMock).not.toHaveBeenCalled();
+    expect(mock.transaction).not.toHaveBeenCalled();
+  });
+
+  it('does not allocate a session when the whole Order is rejected for unavailable items (rolled back with the transaction)', async () => {
+    const mock = buildPrismaMock();
+    mock.productFindMany.mockResolvedValue([]);
+    const service = buildService(mock);
+
+    const result = await service.createOrder(VALID_INPUT);
+
+    expect(result).toEqual({ outcome: 'itemsUnavailable' });
+    expect(mock.orderCreate).not.toHaveBeenCalled();
   });
 });

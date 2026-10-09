@@ -600,7 +600,9 @@ Examples:
 
 `ORDER_STATE_CONFLICT`
 
-`SESSION_PAYMENT_PENDING`
+`TABLE_ORDERING_UNAVAILABLE`
+
+(Amended 2026-10-09: `SESSION_PAYMENT_PENDING` is retired because PAYMENT_PENDING no longer exists. `TABLE_ORDERING_UNAVAILABLE` is returned with HTTP 409 by the public order endpoint when a Table QR is locked by staff.)
 
 Frontend logic may depend on code.
 

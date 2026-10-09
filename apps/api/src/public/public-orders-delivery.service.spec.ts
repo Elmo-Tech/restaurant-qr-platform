@@ -1,5 +1,20 @@
 import { Prisma } from '../generated/prisma/client';
+import { resolveDineInSessionSlot } from '../table-sessions/table-session-ordering';
 import { PublicOrdersService } from './public-orders.service';
+
+// Table Sessions: only the Dine-In wiring touches the session helper; it is
+// mocked here (covered by its own unit spec and the real-PostgreSQL test).
+jest.mock('../table-sessions/table-session-ordering', () => ({
+  ...jest.requireActual('../table-sessions/table-session-ordering'),
+  resolveDineInSessionSlot: jest.fn(),
+}));
+beforeEach(() => {
+  (resolveDineInSessionSlot as jest.Mock).mockReset();
+  (resolveDineInSessionSlot as jest.Mock).mockResolvedValue({
+    tableSessionId: 'session-1',
+    roundNumber: 1,
+  });
+});
 
 function decimal(value: string) {
   return new Prisma.Decimal(value);

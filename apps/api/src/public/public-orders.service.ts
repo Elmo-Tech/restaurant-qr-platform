@@ -2,6 +2,13 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import type { OrderStatus, OrderType } from '../generated/prisma/client';
+import {
+  isClosedSessionTriggerViolation,
+  resolveDineInSessionSlot,
+  TableNotOrderableError,
+  TableOrderingUnavailableError,
+  type DineInSessionSlot,
+} from '../table-sessions/table-session-ordering';
 
 export interface CreateGuestOrderItemInput {
   productId: string;
@@ -87,7 +94,9 @@ export type CreateGuestOrderResult =
   /** FT-8: zone missing, unknown, foreign, INACTIVE, or not in the selected Branch -- one indistinguishable outcome. */
   | { outcome: 'deliveryZoneInvalid' }
   /** FT-8: items subtotal is below the zone's minimum order. Values come from the Backend's own zone row. */
-  | { outcome: 'minimumOrderNotMet'; zoneName: string; minimumOrder: string };
+  | { outcome: 'minimumOrderNotMet'; zoneName: string; minimumOrder: string }
+  /** Table Sessions: a TABLE QR whose table is locked by staff (no OPEN session and a staff open is required). Never produced for Pickup/Delivery. */
+  | { outcome: 'tableOrderingUnavailable' };
 
 interface OrderViewRow {
   id: string;
@@ -406,6 +415,20 @@ export class PublicOrdersService {
 
     try {
       const created = await this.prisma.$transaction(async (tx) => {
+        // Table Sessions: a Dine-In order locks its Table row FIRST (fixed lock
+        // order, see table-session-ordering.ts), then attaches to the OPEN
+        // session or opens one, and takes the next round number -- all inside
+        // THIS transaction, so a rejected/failed order leaves no session, event
+        // or round behind. Pickup and Delivery never enter this branch.
+        let sessionSlot: DineInSessionSlot | null = null;
+        if (orderType === 'DINE_IN' && tableId) {
+          sessionSlot = await resolveDineInSessionSlot(tx, {
+            restaurantId,
+            branchId,
+            tableId,
+          });
+        }
+
         // Section 6: every submitted Product must belong to an ACTIVE
         // Category inside the Restaurant's CURRENT ACTIVE PRIMARY Menu --
         // resolved fresh, inside this same transaction, never trusted
@@ -625,6 +648,12 @@ export class PublicOrdersService {
             restaurantId,
             branchId,
             tableId,
+            ...(sessionSlot
+              ? {
+                  tableSessionId: sessionSlot.tableSessionId,
+                  roundNumber: sessionSlot.roundNumber,
+                }
+              : {}),
             qrCodeId: qr.id,
             clientRequestId: input.clientRequestId,
             status: 'PENDING',
@@ -660,6 +689,17 @@ export class PublicOrdersService {
     } catch (error) {
       if (error instanceof ItemsUnavailableError) {
         return { outcome: 'itemsUnavailable' };
+      }
+      if (error instanceof TableOrderingUnavailableError) {
+        return { outcome: 'tableOrderingUnavailable' };
+      }
+      if (error instanceof TableNotOrderableError) {
+        return { outcome: 'qrNotFound' };
+      }
+      if (isClosedSessionTriggerViolation(error)) {
+        // Defense in depth: the database trigger refused to attach the order to
+        // a session that is not OPEN. Never expose the raw database error.
+        return { outcome: 'tableOrderingUnavailable' };
       }
       if (error instanceof DeliveryZoneInvalidError) {
         return { outcome: 'deliveryZoneInvalid' };

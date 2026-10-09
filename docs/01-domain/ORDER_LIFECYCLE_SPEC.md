@@ -662,6 +662,8 @@ Both Orders continue independently.
 
 # 34. PAYMENT_PENDING Session
 
+> **Superseded 2026-10-09:** there is no PAYMENT_PENDING status and payment state never blocks ordering. Only a locked table (after a staff close) with no OPEN session rejects new Table QR orders, with `TABLE_ORDERING_UNAVAILABLE`.
+
 If Table Session is:
 
 PAYMENT_PENDING
@@ -679,6 +681,8 @@ if guests decide to continue ordering.
 ---
 
 # 35. PAID or CLOSED Session
+
+> **Amended 2026-10-09:** orders can only be attached to an OPEN session; a CLOSED session is never reopened or written to (backend lock order plus database triggers). "PAID" is no longer a session status.
 
 New Dine-In Orders must be rejected when the resolved Table Session is:
 

@@ -68,6 +68,15 @@ const PICKUP_UNAVAILABLE_RESPONSE = {
   },
 };
 
+/** Table Sessions: the table is locked by staff (a session was closed and no new one has been opened). Stable code for the Guest UI (decision P1); the message is a fallback only. */
+const TABLE_ORDERING_UNAVAILABLE_RESPONSE = {
+  error: {
+    code: 'TABLE_ORDERING_UNAVAILABLE',
+    message:
+      'Ordering for this table is closed right now. Please ask a member of staff.',
+  },
+};
+
 const DELIVERY_DETAILS_REQUIRED_RESPONSE = {
   error: {
     code: 'DELIVERY_DETAILS_REQUIRED',
@@ -177,6 +186,9 @@ export class PublicOrdersController {
       throw new BadRequestException(
         minimumOrderNotMetResponse(result.zoneName, result.minimumOrder),
       );
+    }
+    if (result.outcome === 'tableOrderingUnavailable') {
+      throw new ConflictException(TABLE_ORDERING_UNAVAILABLE_RESPONSE);
     }
     if (result.outcome === 'pickupUnavailable') {
       throw new ConflictException(PICKUP_UNAVAILABLE_RESPONSE);

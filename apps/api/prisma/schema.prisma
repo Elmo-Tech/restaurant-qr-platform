@@ -145,6 +145,67 @@ enum DeliveryZoneStatus {
   @@map("delivery_zone_status")
 }
 
+// Table Sessions (Slice 1; TABLE_SESSION_CLOSURE_AND_PAYMENT_DESIGN.md v3).
+// The session lifecycle is deliberately only OPEN | CLOSED: payment status is a
+// separate, DERIVED concept (never stored here) and table QR ordering
+// availability lives on `Table.staffOpenRequired`.
+enum TableSessionStatus {
+  OPEN
+  CLOSED
+
+  @@map("table_session_status")
+}
+
+enum TableSessionOpenedVia {
+  FIRST_ORDER
+  STAFF
+
+  @@map("table_session_opened_via")
+}
+
+enum TableSessionClosureReason {
+  NORMAL
+  FIRST_ORDER_REJECTED
+  STAFF_CORRECTION
+  OTHER
+
+  @@map("table_session_closure_reason")
+}
+
+// Only PAYMENT is created in V1; REFUND / ADJUSTMENT stay reserved (decision P9).
+enum TableSessionLedgerKind {
+  PAYMENT
+
+  @@map("table_session_ledger_kind")
+}
+
+// Recorded manually by staff; the platform processes nothing (decision D10).
+enum TableSessionPaymentMethod {
+  CASH
+  CARD
+  OTHER
+
+  @@map("table_session_payment_method")
+}
+
+enum TableSessionEventType {
+  SESSION_OPENED
+  SESSION_CLOSED
+  PAYMENT_RECORDED
+  PAYMENT_VOIDED
+  BILL_PRINTED
+
+  @@map("table_session_event_type")
+}
+
+enum TableSessionActorType {
+  GUEST
+  STAFF
+  SYSTEM
+
+  @@map("table_session_actor_type")
+}
+
 // -----------------------------------------------------------------------------
 // Restaurant / Branch (DATABASE_SPEC.md #23-30)
 // -----------------------------------------------------------------------------
@@ -630,27 +691,37 @@ model ModifierPresetOptionTranslation {
 // -----------------------------------------------------------------------------
 
 model Table {
-  id           String      @id @default(uuid()) @db.Uuid
-  restaurantId String      @map("restaurant_id") @db.Uuid
-  branchId     String      @map("branch_id") @db.Uuid
-  tableNumber  String      @map("table_number")
+  id                String      @id @default(uuid()) @db.Uuid
+  restaurantId      String      @map("restaurant_id") @db.Uuid
+  branchId          String      @map("branch_id") @db.Uuid
+  tableNumber       String      @map("table_number")
   // No database default (mirrors Restaurant/Branch, DATABASE_SPEC.md
   // #24/#27A): Table creation must explicitly choose the initial status at
   // the application/domain layer. Business Foundation L3 always creates a
   // new Table as ACTIVE.
-  status       TableStatus
-  createdAt    DateTime    @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  status            TableStatus
+  // Table Sessions (Slice 1): table QR ordering availability, separate from the
+  // session lifecycle and from payment. Set true by a staff close and cleared
+  // by a manual open (later slices). While true and no OPEN session exists, a
+  // Table QR order is rejected (TABLE_ORDERING_UNAVAILABLE). Default false keeps
+  // every existing table orderable exactly as before.
+  staffOpenRequired Boolean     @default(false) @map("staff_open_required")
+  createdAt         DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
-  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  restaurant Restaurant     @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  branch     Branch         @relation(fields: [branchId], references: [id], onDelete: Restrict)
   qrCodes    QrCode[]
   orders     Order[]
+  sessions   TableSession[]
 
   // DATABASE_SPEC.md #35: Table Number unique within a Branch. This compound
   // index's leading column (branchId) already serves branchId-only lookups,
   // so no separate @@index([branchId]) is added.
   @@unique([branchId, tableNumber])
+  // Target of the TableSession composite foreign key: a session's
+  // restaurant/branch always equal its Table's own.
+  @@unique([id, restaurantId, branchId])
   @@index([restaurantId])
   @@map("tables")
 }
@@ -761,6 +832,13 @@ model Order {
   deliveryFloorSnapshot     String?     @map("delivery_floor_snapshot")
   deliveryApartmentSnapshot String?     @map("delivery_apartment_snapshot")
   deliveryLandmarkSnapshot  String?     @map("delivery_landmark_snapshot")
+  // Table Sessions (Slice 1): DINE_IN orders created after this slice belong to
+  // exactly one TableSession and carry a round number unique within it.
+  // Legacy DINE_IN orders (and every PICKUP/DELIVERY order) keep both null --
+  // never migrated into sessions (decision D8). The pair-null CHECK, the
+  // DINE_IN-only CHECK and the triggers live in the migration SQL.
+  tableSessionId            String?     @map("table_session_id") @db.Uuid
+  roundNumber               Int?        @map("round_number")
   createdAt                 DateTime    @default(now()) @map("created_at") @db.Timestamptz
   updatedAt                 DateTime    @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -775,8 +853,14 @@ model Order {
   deliveryZone DeliveryZone?      @relation(fields: [deliveryZoneId], references: [id], onDelete: Restrict)
   items        OrderItem[]
   statusEvents OrderStatusEvent[]
+  // Composite scope: with MATCH SIMPLE semantics the constraint is only
+  // checked when every column is non-null (i.e. a DINE_IN order with a
+  // session), so it can never attach an order to another tenant's, branch's or
+  // table's session.
+  tableSession TableSession?      @relation(fields: [tableSessionId, restaurantId, branchId, tableId], references: [id, restaurantId, branchId, tableId], onDelete: Restrict, map: "orders_table_session_scope_fkey")
 
   @@unique([qrCodeId, branchId, clientRequestId])
+  @@unique([tableSessionId, roundNumber])
   @@index([deliveryZoneId])
   @@index([restaurantId])
   @@index([branchId])
@@ -823,6 +907,114 @@ model OrderStatusEvent {
   @@index([orderId])
   @@index([restaurantId, branchId, newStatus, transitionedAt])
   @@map("order_status_events")
+}
+
+/**
+ * Table Sessions (Slice 1; TABLE_SESSION_CLOSURE_AND_PAYMENT_DESIGN.md v3): one
+ * dining visit at one Table. Lifecycle is only OPEN | CLOSED -- payment status
+ * is DERIVED from eligible order totals and the payment ledger, never stored.
+ * Created automatically by the first valid Dine-In order (`openedVia =
+ * FIRST_ORDER`) when Table QR ordering is permitted; staff opening and closing
+ * arrive in later slices. A CLOSED session is never reopened.
+ * Integrity lives in the migration SQL (Prisma cannot express it):
+ * - `table_sessions_one_open_per_table`: UNIQUE (table_id) WHERE status = 'OPEN';
+ * - CHECKs tying `closed_at` / `closure_reason` to `status`, and
+ * `next_round_number >= 1`;
+ * - BEFORE INSERT / BEFORE UPDATE triggers on `orders` (never attach an order
+ * to a session that is not OPEN; never re-link or renumber an order).
+ * The composite foreign key to Table guarantees restaurant/branch/table agree.
+ */
+model TableSession {
+  id                   String                     @id @default(uuid()) @db.Uuid
+  publicId             String                     @unique @map("public_id")
+  restaurantId         String                     @map("restaurant_id") @db.Uuid
+  branchId             String                     @map("branch_id") @db.Uuid
+  tableId              String                     @map("table_id") @db.Uuid
+  status               TableSessionStatus
+  openedAt             DateTime                   @default(now()) @map("opened_at") @db.Timestamptz
+  openedVia            TableSessionOpenedVia      @map("opened_via")
+  openedByMembershipId String?                    @map("opened_by_membership_id") @db.Uuid
+  closedAt             DateTime?                  @map("closed_at") @db.Timestamptz
+  closedByMembershipId String?                    @map("closed_by_membership_id") @db.Uuid
+  closureReason        TableSessionClosureReason? @map("closure_reason")
+  // The next Order round to hand out; allocated under the table lock by an
+  // atomic UPDATE ... RETURNING, so rounds are sequential and never collide.
+  nextRoundNumber      Int                        @default(1) @map("next_round_number")
+  createdAt            DateTime                   @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt            DateTime                   @updatedAt @map("updated_at") @db.Timestamptz
+
+  table    Table                 @relation(fields: [tableId, restaurantId, branchId], references: [id, restaurantId, branchId], onDelete: Restrict, map: "table_sessions_table_scope_fkey")
+  openedBy RestaurantMembership? @relation("TableSessionOpenedBy", fields: [openedByMembershipId], references: [id], onDelete: Restrict)
+  closedBy RestaurantMembership? @relation("TableSessionClosedBy", fields: [closedByMembershipId], references: [id], onDelete: Restrict)
+  orders   Order[]
+  payments TableSessionPayment[]
+  events   TableSessionEvent[]
+
+  // Targets of the composite foreign keys from orders / payments / events.
+  @@unique([id, restaurantId, branchId, tableId])
+  @@unique([id, restaurantId, branchId])
+  @@index([restaurantId, branchId, status])
+  @@index([tableId, openedAt])
+  @@map("table_sessions")
+}
+
+/**
+ * Table Sessions (Slice 1): the append-only settlement ledger FOUNDATION.
+ * No API writes to it yet (Slice 4). Recorded manually by staff -- the
+ * platform processes nothing, so there are deliberately no gateway fields. A
+ * correction is a void (an audited accounting correction, NEVER a refund,
+ * decision P5); rows are never edited or deleted.
+ */
+model TableSessionPayment {
+  id                     String                    @id @default(uuid()) @db.Uuid
+  restaurantId           String                    @map("restaurant_id") @db.Uuid
+  branchId               String                    @map("branch_id") @db.Uuid
+  tableSessionId         String                    @map("table_session_id") @db.Uuid
+  kind                   TableSessionLedgerKind    @default(PAYMENT)
+  amount                 Decimal                   @db.Decimal(14, 2)
+  method                 TableSessionPaymentMethod
+  // Idempotency: a double click records once (unique per session).
+  clientRequestId        String                    @map("client_request_id") @db.Uuid
+  note                   String?
+  recordedByMembershipId String                    @map("recorded_by_membership_id") @db.Uuid
+  recordedAt             DateTime                  @default(now()) @map("recorded_at") @db.Timestamptz
+  voidedAt               DateTime?                 @map("voided_at") @db.Timestamptz
+  voidedByMembershipId   String?                   @map("voided_by_membership_id") @db.Uuid
+  voidReason             String?                   @map("void_reason")
+
+  session    TableSession          @relation(fields: [tableSessionId, restaurantId, branchId], references: [id, restaurantId, branchId], onDelete: Restrict, map: "table_session_payments_session_scope_fkey")
+  recordedBy RestaurantMembership  @relation("TableSessionPaymentRecordedBy", fields: [recordedByMembershipId], references: [id], onDelete: Restrict)
+  voidedBy   RestaurantMembership? @relation("TableSessionPaymentVoidedBy", fields: [voidedByMembershipId], references: [id], onDelete: Restrict)
+
+  @@unique([tableSessionId, clientRequestId])
+  @@index([tableSessionId])
+  @@index([restaurantId, branchId])
+  @@map("table_session_payments")
+}
+
+/**
+ * Table Sessions (Slice 1): append-only audit trail, same pattern as
+ * `OrderStatusEvent`. Slice 1 writes only SESSION_OPENED (actor GUEST) when the
+ * first order opens a session, in the same transaction as the session itself.
+ */
+model TableSessionEvent {
+  id                String                @id @default(uuid()) @db.Uuid
+  restaurantId      String                @map("restaurant_id") @db.Uuid
+  branchId          String                @map("branch_id") @db.Uuid
+  tableSessionId    String                @map("table_session_id") @db.Uuid
+  type              TableSessionEventType
+  actorType         TableSessionActorType @map("actor_type")
+  actorMembershipId String?               @map("actor_membership_id") @db.Uuid
+  occurredAt        DateTime              @default(now()) @map("occurred_at") @db.Timestamptz
+  // Minimal, non-sensitive context only (reason, amount, policy) -- never PII.
+  metadata          Json?
+
+  session TableSession          @relation(fields: [tableSessionId, restaurantId, branchId], references: [id, restaurantId, branchId], onDelete: Restrict, map: "table_session_events_session_scope_fkey")
+  actor   RestaurantMembership? @relation(fields: [actorMembershipId], references: [id], onDelete: Restrict)
+
+  @@index([tableSessionId, occurredAt])
+  @@index([restaurantId, branchId, type, occurredAt])
+  @@map("table_session_events")
 }
 
 /**
@@ -1009,10 +1201,16 @@ model RestaurantMembership {
   createdAt    DateTime                   @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime                   @updatedAt @map("updated_at") @db.Timestamptz
 
-  restaurant     Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
-  user           User                         @relation(fields: [userId], references: [id], onDelete: Restrict)
-  restaurantRole RestaurantRole               @relation(fields: [roleId], references: [id], onDelete: Restrict)
-  branchAccess   RestaurantMembershipBranch[]
+  restaurant            Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  user                  User                         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  restaurantRole        RestaurantRole               @relation(fields: [roleId], references: [id], onDelete: Restrict)
+  branchAccess          RestaurantMembershipBranch[]
+  // Table Sessions (Slice 1): back-relations only, no columns on this table.
+  sessionsOpened        TableSession[]               @relation("TableSessionOpenedBy")
+  sessionsClosed        TableSession[]               @relation("TableSessionClosedBy")
+  sessionPaymentsMade   TableSessionPayment[]        @relation("TableSessionPaymentRecordedBy")
+  sessionPaymentsVoided TableSessionPayment[]        @relation("TableSessionPaymentVoidedBy")
+  sessionEvents         TableSessionEvent[]
 
   @@unique([restaurantId, userId])
   @@index([restaurantId])

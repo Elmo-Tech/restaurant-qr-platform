@@ -19,6 +19,20 @@ This specification is the source of truth for Table Session behavior.
 
 ---
 
+> ## Amendment v3 (2026-10-09): lifecycle, payment and table ordering availability
+>
+> Approved by the product owner after the design review; full design in `docs/05-future-proposals/TABLE_SESSION_CLOSURE_AND_PAYMENT_DESIGN.md` and decisions in `TABLE_SESSION_PRODUCT_DECISIONS.md`. Where this amendment and the sections below disagree, **this amendment wins**.
+>
+> - The session lifecycle is only **OPEN | CLOSED** (#20-#27 are superseded: no PAYMENT_PENDING, no PAID status, no "Mark Paid & Close" status step).
+> - **Payment status is separate and derived** (NO_CHARGE, UNPAID, PARTIALLY_PAID, PAID, OVERPAID). Closing never implies paid; a CLOSED session may stay unpaid and may be settled later without reopening.
+> - **Table QR ordering availability** is a third, separate concept (`Table.staffOpenRequired`). The first valid Dine-In order opens a session automatically **only when ordering is permitted**: an OPEN session exists, or the table is not locked. After a staff close the table is locked: new Table QR submissions are rejected (`TABLE_ORDERING_UNAVAILABLE`) until staff open a new session (#33 and #34 are superseded). A closed session is never reopened.
+> - Only an OPEN session accepts orders; `OPEN` is the only "active" status (#9, #59 INV-003).
+> - Automatic closure after a rejected first order (#40) applies only when no other pending, accepted or active order remains, only to a session opened by that order, and does not lock the table.
+>
+> **Implemented in Slice 1 (foundation and ordering):** automatic creation on the first Dine-In order, attachment of later orders, sequential round numbers (#15-#17), locking, idempotency (#19) and the audit event SESSION_OPENED. **Not yet implemented (later slices):** staff read APIs, manual open, close, payments and settlement, bill printing, the Dashboard and the Guest "ordering closed" notice. Legacy Dine-In orders created before sessions stay session-less.
+
+---
+
 # 1. Core Principle
 
 A Table and a Table Session are different concepts.

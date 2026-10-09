@@ -1,5 +1,20 @@
 import { Prisma } from '../generated/prisma/client';
+import { resolveDineInSessionSlot } from '../table-sessions/table-session-ordering';
 import { PublicOrdersService } from './public-orders.service';
+
+// Table Sessions: only the Dine-In wiring touches the session helper; it is
+// mocked here (covered by its own unit spec and the real-PostgreSQL test).
+jest.mock('../table-sessions/table-session-ordering', () => ({
+  ...jest.requireActual('../table-sessions/table-session-ordering'),
+  resolveDineInSessionSlot: jest.fn(),
+}));
+beforeEach(() => {
+  (resolveDineInSessionSlot as jest.Mock).mockReset();
+  (resolveDineInSessionSlot as jest.Mock).mockResolvedValue({
+    tableSessionId: 'session-1',
+    roundNumber: 1,
+  });
+});
 
 function decimal(value: string) {
   return new Prisma.Decimal(value);
@@ -213,6 +228,18 @@ describe('PublicOrdersService.createOrder -- GENERIC QR creates PICKUP (FT-7)', 
         pickupBranch: { name: 'Downtown' },
       }),
     });
+  });
+
+  it('Table Sessions: a PICKUP Order never resolves a session and never carries session/round fields', async () => {
+    const mock = buildMock({ qr: GENERIC_QR_ROW });
+    const service = buildService(mock);
+
+    await service.createOrder(PICKUP_INPUT);
+
+    expect(resolveDineInSessionSlot).not.toHaveBeenCalled();
+    const data = mock.orderCreate.mock.calls[0][0].data;
+    expect(data).not.toHaveProperty('tableSessionId');
+    expect(data).not.toHaveProperty('roundNumber');
   });
 
   it('stores blank customerNotes as null', async () => {
