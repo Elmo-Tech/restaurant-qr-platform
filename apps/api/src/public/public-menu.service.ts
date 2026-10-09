@@ -5,6 +5,10 @@ import {
   normalizePlatformLocale,
   type PlatformSupportedLocale,
 } from '../restaurants/platform-locales';
+import {
+  resolveTableOrderingAvailability,
+  type GuestTableOrdering,
+} from '../table-sessions/table-session-availability';
 import { resolvePublicLocale } from './public-locale';
 import { resolvePublicField } from './public-translation-fallback';
 import type { PublicTranslatableRow } from './public-translation-fallback';
@@ -19,6 +23,12 @@ export interface GetPublicMenuInput {
 
 export interface PublicMenuContext {
   qrType: QrType;
+  /**
+   * Table Sessions: TABLE QR only (null for GENERIC) -- whether Table QR ordering is
+   * currently open. Advisory (the order endpoint re-checks under the table lock);
+   * never exposes session, bill or payment data.
+   */
+  tableOrdering: GuestTableOrdering | null;
   restaurant: { name: string; currencyCode: string; logoAssetPath: string | null };
   branch: { name: string } | null;
   table: { number: string } | null;
@@ -128,6 +138,48 @@ function pickRow(
 export class PublicMenuService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Table Sessions: the cheap advisory re-check behind the Guest "Check again"
+   * action -- the same availability the menu context reports, without loading
+   * the whole menu. Same QR resolution rules (an unknown, INACTIVE or GENERIC QR
+   * converges on `qrNotFound`).
+   */
+  async getTableOrdering(
+    publicCode: string,
+  ): Promise<
+    | { outcome: 'found'; tableOrdering: GuestTableOrdering }
+    | { outcome: 'qrNotFound' }
+  > {
+    const qr = await this.prisma.qrCode.findUnique({
+      where: { publicCode },
+      select: {
+        type: true,
+        status: true,
+        tableId: true,
+        restaurant: { select: { status: true } },
+        table: { select: { status: true, staffOpenRequired: true } },
+      },
+    });
+    if (
+      !qr ||
+      qr.status !== 'ACTIVE' ||
+      qr.restaurant.status !== 'ACTIVE' ||
+      qr.type !== 'TABLE' ||
+      !qr.tableId ||
+      !qr.table ||
+      qr.table.status !== 'ACTIVE'
+    ) {
+      return { outcome: 'qrNotFound' };
+    }
+    return {
+      outcome: 'found',
+      tableOrdering: await resolveTableOrderingAvailability(this.prisma, {
+        tableId: qr.tableId,
+        staffOpenRequired: qr.table.staffOpenRequired,
+      }),
+    };
+  }
+
   async getPublicMenu(input: GetPublicMenuInput): Promise<GetPublicMenuResult> {
     // One query resolves the QR itself plus its Restaurant/Branch/Table
     // context in a single round trip (Prisma joins to-one relations) --
@@ -141,6 +193,7 @@ export class PublicMenuService {
         type: true,
         status: true,
         restaurantId: true,
+        tableId: true,
         restaurant: {
           select: {
             name: true,
@@ -151,13 +204,21 @@ export class PublicMenuService {
           },
         },
         branch: { select: { name: true } },
-        table: { select: { tableNumber: true } },
+        table: { select: { tableNumber: true, staffOpenRequired: true } },
       },
     });
 
     if (!qr || qr.status !== 'ACTIVE' || qr.restaurant.status !== 'ACTIVE') {
       return { outcome: 'qrNotFound' };
     }
+
+    const tableOrdering: GuestTableOrdering | null =
+      qr.type === 'TABLE' && qr.tableId && qr.table
+        ? await resolveTableOrderingAvailability(this.prisma, {
+            tableId: qr.tableId,
+            staffOpenRequired: qr.table.staffOpenRequired === true,
+          })
+        : null;
 
     const activeLocaleRows = await this.prisma.restaurantLocale.findMany({
       where: { restaurantId: qr.restaurantId, isActive: true },
@@ -403,6 +464,7 @@ export class PublicMenuService {
       data: {
         context: {
           qrType: qr.type,
+          tableOrdering,
           restaurant: {
             name: qr.restaurant.name,
             currencyCode: qr.restaurant.currencyCode,

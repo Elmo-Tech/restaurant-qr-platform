@@ -253,6 +253,8 @@ CLOSED
 
 The exact lifecycle will be defined in TABLE_SESSION_SPEC.md.
 
+> **Amended 2026-10-10 (implemented):** the session lifecycle is only OPEN and CLOSED. Payment status is separate and derived (no charge, unpaid, balance due, paid) and never blocks ordering; Table QR ordering availability is a third, separate concept. See `TABLE_SESSION_SPEC.md` (amendment v3).
+
 Optional UI state:
 
 CLEANING

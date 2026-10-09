@@ -10,6 +10,7 @@ import { presetsMessages } from './presets';
 import { productMessages } from './product';
 import { profileMessages } from './profile';
 import { rolesMessages } from './roles';
+import { sessionsMessages } from './sessions';
 import { settingsMessages } from './settings';
 import { staffMessages } from './staff';
 import { tablesMessages } from './tables';
@@ -33,6 +34,7 @@ const en = {
   ...productMessages.en,
   ...profileMessages.en,
   ...rolesMessages.en,
+  ...sessionsMessages.en,
   ...settingsMessages.en,
   ...staffMessages.en,
   ...tablesMessages.en,
@@ -51,6 +53,7 @@ const ar = {
   ...productMessages.ar,
   ...profileMessages.ar,
   ...rolesMessages.ar,
+  ...sessionsMessages.ar,
   ...settingsMessages.ar,
   ...staffMessages.ar,
   ...tablesMessages.ar,

@@ -24,15 +24,15 @@ import {
   formatMoney,
   toBillView,
   type SessionBillView,
-  type SessionPaymentStatus,
 } from './session-billing';
+import {
+  findSessionIdsByPayment,
+  outstandingClosedByTable,
+} from './session-sql';
 import { lockSessionRow, lockTableRow } from './table-session-locks';
 import { createTableSessionPublicId } from './table-session-public-id';
 
 export type SessionScope = RestaurantAccessContext;
-
-/** Upper bound on how many sessions the payment-status filter scans (the status is derived, not stored). */
-const PAYMENT_FILTER_SCAN_CAP = 1000;
 
 export interface SessionListItem {
   /** The session's opaque public id (`session-<uuid>`). */
@@ -118,6 +118,68 @@ export type ListSessionsFilters = {
   payment?: SessionPaymentFilter;
   limit?: number;
 };
+
+/** One table on the Dashboard board: ordering availability, the live session and any old unpaid bills. */
+export interface TableBoardRow {
+  table: { id: string; tableNumber: string; status: 'ACTIVE' | 'INACTIVE' };
+  branch: { id: string; name: string };
+  /**
+   * AVAILABLE: guests may order (an OPEN session exists, or the table is not
+   * locked). CLOSED_BY_STAFF: locked until staff open a session. UNAVAILABLE:
+   * the table itself is inactive. Independent of payment state.
+   */
+  ordering: 'AVAILABLE' | 'CLOSED_BY_STAFF' | 'UNAVAILABLE';
+  openSession: SessionListItem | null;
+  /** CLOSED sessions of this table that still owe money (never merged into the open session). */
+  outstanding: {
+    sessionCount: number;
+    balance: string;
+    currencyCode: string;
+  } | null;
+}
+
+export type TableBoardFilters = { branchId?: string };
+
+/** The printable combined bill: every value comes from the Backend, never recomputed by the client. */
+export interface SessionBillRound {
+  roundNumber: number;
+  orderStatus: OrderStatus;
+  createdAt: Date;
+  totalAmount: string;
+  items: SessionOrderItemView[];
+}
+
+export interface SessionBillDocument {
+  generatedAt: Date;
+  restaurant: {
+    name: string;
+    currencyCode: string;
+    logoAssetPath: string | null;
+  };
+  branch: { name: string };
+  table: { tableNumber: string };
+  session: {
+    id: string;
+    status: 'OPEN' | 'CLOSED';
+    openedAt: Date;
+    closedAt: Date | null;
+  };
+  /** Accepted (billable) orders, by round. */
+  rounds: SessionBillRound[];
+  /** PENDING orders: awaiting acceptance, NOT included in the totals. */
+  awaitingRounds: SessionBillRound[];
+  totals: SessionBillView;
+  /** Active (non-voided) payments only. */
+  payments: {
+    method: TableSessionPaymentMethod;
+    amount: string;
+    recordedAt: Date;
+  }[];
+  voidedPaymentCount: number;
+}
+
+export type GetBillResult =
+  { outcome: 'found'; data: SessionBillDocument } | { outcome: 'notFound' };
 
 export type GetSessionResult =
   { outcome: 'found'; data: SessionDetail } | { outcome: 'notFound' };
@@ -324,19 +386,43 @@ export class TableSessionsService {
       SESSION_LIST_MAX_LIMIT,
     );
 
-    const rows = await this.prisma.tableSession.findMany({
-      where: {
+    let rows: ListRow[];
+    if (filters.payment) {
+      // The payment status is DERIVED (never stored). It is evaluated set-based
+      // in SQL, so the filtered list is exact: there is no scan cap that could
+      // silently hide older unpaid sessions.
+      const ids = await findSessionIdsByPayment(this.prisma, {
         restaurantId: scope.restaurantId,
-        ...(branchIdFilter ? { branchId: { in: branchIdFilter } } : {}),
-        ...(filters.tableId ? { tableId: filters.tableId } : {}),
-        ...(filters.status ? { status: filters.status } : {}),
-      },
-      orderBy: [{ openedAt: 'desc' }, { id: 'desc' }],
-      // The payment status is DERIVED (never stored), so a payment filter has
-      // to look at the candidates before limiting.
-      take: filters.payment ? PAYMENT_FILTER_SCAN_CAP : limit,
-      select: LIST_SELECT,
-    });
+        branchIds: branchIdFilter,
+        tableId: filters.tableId,
+        status: filters.status,
+        payment: filters.payment,
+        limit,
+      });
+      const found =
+        ids.length === 0
+          ? []
+          : await this.prisma.tableSession.findMany({
+              where: { restaurantId: scope.restaurantId, id: { in: ids } },
+              select: LIST_SELECT,
+            });
+      const byId = new Map(found.map((row) => [row.id, row]));
+      rows = ids
+        .map((id) => byId.get(id))
+        .filter((row): row is ListRow => row !== undefined);
+    } else {
+      rows = await this.prisma.tableSession.findMany({
+        where: {
+          restaurantId: scope.restaurantId,
+          ...(branchIdFilter ? { branchId: { in: branchIdFilter } } : {}),
+          ...(filters.tableId ? { tableId: filters.tableId } : {}),
+          ...(filters.status ? { status: filters.status } : {}),
+        },
+        orderBy: [{ openedAt: 'desc' }, { id: 'desc' }],
+        take: limit,
+        select: LIST_SELECT,
+      });
+    }
 
     const [branches, restaurant] = await Promise.all([
       this.prisma.branch.findMany({
@@ -354,16 +440,9 @@ export class TableSessionsService {
     const branchNames = new Map(branches.map((b) => [b.id, b.name]));
     const currency = restaurant?.currencyCode ?? '';
 
-    let items = rows.map((row) =>
+    return rows.map((row) =>
       toListItem(row, branchNames.get(row.branchId) ?? '', currency),
     );
-    if (filters.payment) {
-      const wanted = filters.payment;
-      items = items.filter((item) =>
-        matchesPaymentFilter(item.bill.paymentStatus, wanted),
-      );
-    }
-    return items.slice(0, limit);
   }
 
   async getSession(
@@ -375,6 +454,180 @@ export class TableSessionsService {
       return { outcome: 'notFound' };
     }
     return { outcome: 'found', data: await this.loadDetail(scope, located.id) };
+  }
+
+  /**
+   * Dashboard board: one row per table in the caller's Branch scope with its
+   * ordering availability (separate from lifecycle and payment), the live OPEN
+   * session summary and the old unpaid closed bills. Tenant- and
+   * Branch-scoped exactly like the list.
+   */
+  async getBoard(
+    scope: SessionScope,
+    filters: TableBoardFilters,
+  ): Promise<TableBoardRow[]> {
+    const branchIdFilter = await resolveOrderBranchIdFilter(
+      this.prisma,
+      scope,
+      filters.branchId,
+    );
+    if (branchIdFilter && branchIdFilter.length === 0) {
+      return [];
+    }
+
+    const [tables, branches, restaurant, outstanding] = await Promise.all([
+      this.prisma.table.findMany({
+        where: {
+          restaurantId: scope.restaurantId,
+          ...(branchIdFilter ? { branchId: { in: branchIdFilter } } : {}),
+        },
+        orderBy: [{ branchId: 'asc' }, { tableNumber: 'asc' }],
+        select: {
+          id: true,
+          tableNumber: true,
+          status: true,
+          branchId: true,
+          staffOpenRequired: true,
+        },
+      }),
+      this.prisma.branch.findMany({
+        where: {
+          restaurantId: scope.restaurantId,
+          ...(branchIdFilter ? { id: { in: branchIdFilter } } : {}),
+        },
+        select: { id: true, name: true },
+      }),
+      this.prisma.restaurant.findUnique({
+        where: { id: scope.restaurantId },
+        select: { currencyCode: true },
+      }),
+      outstandingClosedByTable(this.prisma, {
+        restaurantId: scope.restaurantId,
+        branchIds: branchIdFilter,
+      }),
+    ]);
+    const currency = restaurant?.currencyCode ?? '';
+    const branchNames = new Map(branches.map((b) => [b.id, b.name]));
+
+    const openRows =
+      tables.length === 0
+        ? []
+        : await this.prisma.tableSession.findMany({
+            where: {
+              restaurantId: scope.restaurantId,
+              status: 'OPEN',
+              tableId: { in: tables.map((t) => t.id) },
+            },
+            select: LIST_SELECT,
+          });
+    const openByTable = new Map(openRows.map((row) => [row.table.id, row]));
+
+    return tables.map((table) => {
+      const open = openByTable.get(table.id) ?? null;
+      const owed = outstanding.get(table.id);
+      const branchName = branchNames.get(table.branchId) ?? '';
+      let ordering: TableBoardRow['ordering'] = 'AVAILABLE';
+      if (table.status !== 'ACTIVE') {
+        ordering = 'UNAVAILABLE';
+      } else if (!open && table.staffOpenRequired) {
+        ordering = 'CLOSED_BY_STAFF';
+      }
+      return {
+        table: {
+          id: table.id,
+          tableNumber: table.tableNumber,
+          status: table.status,
+        },
+        branch: { id: table.branchId, name: branchName },
+        ordering,
+        openSession: open ? toListItem(open, branchName, currency) : null,
+        outstanding: owed
+          ? {
+              sessionCount: owed.sessionCount,
+              balance: formatMoney(owed.balance),
+              currencyCode: currency,
+            }
+          : null,
+      };
+    });
+  }
+
+  /** The combined bill document for printing. Read-only; see `recordBillPrinted` for the audit event. */
+  async getBill(scope: SessionScope, publicId: string): Promise<GetBillResult> {
+    const located = await this.locate(scope, publicId);
+    if (!located) {
+      return { outcome: 'notFound' };
+    }
+    const detail = await this.loadDetail(scope, located.id);
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: scope.restaurantId },
+      select: { name: true, currencyCode: true, logoAssetPath: true },
+    });
+    const toRound = (round: SessionRoundView): SessionBillRound => ({
+      roundNumber: round.roundNumber,
+      orderStatus: round.order.status,
+      createdAt: round.order.createdAt,
+      totalAmount: round.order.totalAmount,
+      items: round.order.items,
+    });
+    return {
+      outcome: 'found',
+      data: {
+        generatedAt: new Date(),
+        restaurant: {
+          name: restaurant?.name ?? '',
+          currencyCode: restaurant?.currencyCode ?? detail.currencyCode,
+          logoAssetPath: restaurant?.logoAssetPath ?? null,
+        },
+        branch: { name: detail.branch.name },
+        table: { tableNumber: detail.table.tableNumber },
+        session: {
+          id: detail.id,
+          status: detail.status,
+          openedAt: detail.openedAt,
+          closedAt: detail.closedAt,
+        },
+        rounds: detail.rounds.filter((r) => r.order.billable).map(toRound),
+        awaitingRounds: detail.rounds
+          .filter((r) => r.order.status === 'PENDING')
+          .map(toRound),
+        totals: detail.bill,
+        payments: detail.payments
+          .filter((p) => p.voided === null)
+          .map((p) => ({
+            method: p.method,
+            amount: p.amount,
+            recordedAt: p.recordedAt,
+          })),
+        voidedPaymentCount: detail.payments.filter((p) => p.voided !== null)
+          .length,
+      },
+    };
+  }
+
+  /**
+   * Audit only: staff pressed Print on the combined bill (design v3 #54). It
+   * changes nothing about the session, its bill or its payments.
+   */
+  async recordBillPrinted(
+    scope: SessionScope,
+    publicId: string,
+  ): Promise<{ outcome: 'recorded' } | { outcome: 'notFound' }> {
+    const located = await this.locate(scope, publicId);
+    if (!located) {
+      return { outcome: 'notFound' };
+    }
+    await this.prisma.tableSessionEvent.create({
+      data: {
+        restaurantId: scope.restaurantId,
+        branchId: located.branchId,
+        tableSessionId: located.id,
+        type: 'BILL_PRINTED',
+        actorType: 'STAFF',
+        actorMembershipId: scope.membershipId,
+      },
+    });
+    return { outcome: 'recorded' };
   }
 
   // --------------------------------------------------------------- open/close
@@ -850,16 +1103,6 @@ export class TableSessionsService {
     });
     return toDetail(row, branch?.name ?? '', restaurant?.currencyCode ?? '');
   }
-}
-
-function matchesPaymentFilter(
-  status: SessionPaymentStatus,
-  filter: SessionPaymentFilter,
-): boolean {
-  if (filter === 'OUTSTANDING') {
-    return status === 'UNPAID' || status === 'PARTIALLY_PAID';
-  }
-  return status === filter;
 }
 
 function toDetail(

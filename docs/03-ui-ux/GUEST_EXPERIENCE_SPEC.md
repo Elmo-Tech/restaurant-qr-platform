@@ -1405,6 +1405,8 @@ Order.roundNumber.
 
 # 138. PAYMENT_PENDING
 
+> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING or PAID session status, payment state never blocks ordering, and the Guest cannot request or change payment state in V1 (Request Bill is deferred). The only Guest-visible state is **Table QR ordering availability**: while staff have closed ordering for the table the menu stays browseable, the cart is kept, a localized notice ("Ordering for this table is closed right now. Please ask a member of staff.") replaces the ability to send, and "Check again" re-reads the advisory `tableOrdering` field. A stale page that submits anyway receives `409 TABLE_ORDERING_UNAVAILABLE` and shows the same notice with its cart intact; an order created before the lock is still returned on retry (idempotent). Pickup and Delivery never show it.
+
 When Table Session becomes:
 
 PAYMENT_PENDING
@@ -1437,6 +1439,8 @@ Guest may then place another Order.
 ---
 
 # 141. PAID
+
+> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING or PAID session status, payment state never blocks ordering, and the Guest cannot request or change payment state in V1 (Request Bill is deferred). The only Guest-visible state is **Table QR ordering availability**: while staff have closed ordering for the table the menu stays browseable, the cart is kept, a localized notice ("Ordering for this table is closed right now. Please ask a member of staff.") replaces the ability to send, and "Check again" re-reads the advisory `tableOrdering` field. A stale page that submits anyway receives `409 TABLE_ORDERING_UNAVAILABLE` and shows the same notice with its cart intact; an order created before the lock is still returned on retry (idempotent). Pickup and Delivery never show it.
 
 When Staff confirms settlement:
 
@@ -1496,6 +1500,8 @@ Online payment completed.
 ---
 
 # 147. Mark Paid
+
+> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING or PAID session status, payment state never blocks ordering, and the Guest cannot request or change payment state in V1 (Request Bill is deferred). The only Guest-visible state is **Table QR ordering availability**: while staff have closed ordering for the table the menu stays browseable, the cart is kept, a localized notice ("Ordering for this table is closed right now. Please ask a member of staff.") replaces the ability to send, and "Check again" re-reads the advisory `tableOrdering` field. A stale page that submits anyway receives `409 TABLE_ORDERING_UNAVAILABLE` and shows the same notice with its cart intact; an order created before the lock is still returned on retry (idempotent). Pickup and Delivery never show it.
 
 Only authorized Restaurant Staff can confirm external settlement.
 

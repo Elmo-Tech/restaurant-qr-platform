@@ -112,6 +112,13 @@ export interface PublicMenuCopy {
   selectBranchFirst: string;
   notAvailableNow: string;
   placeOrderHintBlocked: string;
+  tableOrderingClosedTitle: string;
+  tableOrderingClosedBody: string;
+  tableOrderingCheckAgain: string;
+  tableOrderingChecking: string;
+  tableOrderingStillClosed: string;
+  tableOrderingCheckFailed: string;
+  tableOrderingReopened: string;
   // FT-13B "Ember & Saffron"
   ourPicks: string;
   unavailableNow: string;
@@ -247,6 +254,14 @@ const EN_COPY: PublicMenuCopy = {
   selectBranchFirst: 'Choose a branch to see delivery areas.',
   notAvailableNow: 'Not available right now',
   placeOrderHintBlocked: 'Remove the unavailable items to continue.',
+  tableOrderingClosedTitle: 'Ordering is closed for this table',
+  tableOrderingClosedBody:
+    'Ordering for this table is closed right now. Please ask a member of staff.',
+  tableOrderingCheckAgain: 'Check again',
+  tableOrderingChecking: 'Checking…',
+  tableOrderingStillClosed: 'Still closed. Please ask a member of staff.',
+  tableOrderingCheckFailed: 'Could not check right now. Please try again.',
+  tableOrderingReopened: 'Ordering is open again. You can send your order now.',
   ourPicks: 'Our picks',
   unavailableNow: 'Unavailable now',
   chooseOne: 'Choose 1',
@@ -377,6 +392,14 @@ const AR_COPY: PublicMenuCopy = {
   selectBranchFirst: 'اختر الفرع لعرض مناطق التوصيل.',
   notAvailableNow: 'غير متاح حاليًا',
   placeOrderHintBlocked: 'أزل الأصناف غير المتاحة للمتابعة.',
+  tableOrderingClosedTitle: 'الطلب مغلق لهذه الطاولة',
+  tableOrderingClosedBody:
+    'الطلب من هذه الطاولة مغلق حاليًا. من فضلك اسأل أحد الموظفين.',
+  tableOrderingCheckAgain: 'تحقق مرة أخرى',
+  tableOrderingChecking: 'جارٍ التحقق…',
+  tableOrderingStillClosed: 'ما زال مغلقًا. من فضلك اسأل أحد الموظفين.',
+  tableOrderingCheckFailed: 'تعذر التحقق الآن. من فضلك حاول مرة أخرى.',
+  tableOrderingReopened: 'الطلب متاح مرة أخرى. يمكنك إرسال طلبك الآن.',
   ourPicks: 'مميز عندنا',
   unavailableNow: 'غير متاح الآن',
   chooseOne: 'اختر واحد',

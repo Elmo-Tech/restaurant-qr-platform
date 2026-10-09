@@ -32,11 +32,32 @@ export type SubmitGuestOrderResult =
   | { outcome: 'pickupDetailsRequired' }
   | { outcome: 'pickupBranchInvalid' }
   | { outcome: 'pickupUnavailable' }
+  /** Table Sessions: staff closed ordering for this table (409 TABLE_ORDERING_UNAVAILABLE). Nothing was created. */
+  | { outcome: 'tableOrderingUnavailable' }
   | { outcome: 'deliveryDetailsRequired' }
   | { outcome: 'deliveryZoneInvalid' }
   | { outcome: 'deliveryUnavailable' }
   | { outcome: 'minimumNotMet'; zoneName: string | null; minimumOrder: string | null }
   | { outcome: 'networkError' };
+
+/**
+ * Table Sessions: the advisory Table QR ordering availability behind the Guest
+ * "Check again" action. `unknown` for any failure (offline, 404): the caller
+ * must never treat that as "open" or as "closed" -- the order endpoint remains
+ * the authority and re-checks on every submission.
+ */
+export async function getTableOrdering(
+  publicCode: string,
+): Promise<'AVAILABLE' | 'CLOSED' | 'unknown'> {
+  try {
+    const body = await apiFetch<{ data: { tableOrdering: 'AVAILABLE' | 'CLOSED' } }>(
+      `/public/qr/${encodeURIComponent(publicCode)}/table-ordering`,
+    );
+    return body.data.tableOrdering === 'CLOSED' ? 'CLOSED' : 'AVAILABLE';
+  } catch {
+    return 'unknown';
+  }
+}
 
 /**
  * FT-5: the one Guest Order-submission request -- a genuine browser
@@ -114,6 +135,9 @@ export async function submitGuestOrder(
       }
       if (error.code === 'PICKUP_UNAVAILABLE') {
         return { outcome: 'pickupUnavailable' };
+      }
+      if (error.code === 'TABLE_ORDERING_UNAVAILABLE') {
+        return { outcome: 'tableOrderingUnavailable' };
       }
       if (error.code === 'QR_NOT_FOUND') {
         return { outcome: 'notFound' };

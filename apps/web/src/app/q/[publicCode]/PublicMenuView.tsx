@@ -17,7 +17,8 @@ import {
   toMinorUnits,
   ZERO_MINOR_UNITS,
 } from '../../../lib/public-menu/money';
-import { submitGuestOrder } from '../../../lib/public-menu/orders-api';
+import { getTableOrdering, submitGuestOrder } from '../../../lib/public-menu/orders-api';
+import { TableClosedNotice, type OrderingRecheckStatus } from './TableClosedNotice';
 import {
   clearPendingAttempt,
   payloadMatchesPendingAttempt,
@@ -179,6 +180,15 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  // Table Sessions: staff can close ordering for a TABLE QR. The server-rendered value is
+  // advisory; a 409 from the order endpoint or "Check again" overrides it. Never applies to
+  // Pickup/Delivery (GENERIC QR).
+  const [orderingOverride, setOrderingOverride] = useState<'AVAILABLE' | 'CLOSED' | null>(null);
+  const [isRecheckingOrdering, setIsRecheckingOrdering] = useState(false);
+  const [orderingRecheck, setOrderingRecheck] = useState<OrderingRecheckStatus>('idle');
+  const tableOrdering =
+    orderingOverride ?? (data.context.tableOrdering === 'CLOSED' ? 'CLOSED' : 'AVAILABLE');
+  const tableLocked = !isGenericQr && tableOrdering === 'CLOSED';
   const [confirmedOrder, setConfirmedOrder] = useState<GuestOrderView | null>(null);
   // FT-7/FT-8 checkout state -- kept here (not inside the Cart panel) so it
   // survives closing/reopening the panel and a failed submission. The hero's mode
@@ -582,15 +592,53 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       (!isDelivery ||
         (resolvedZoneId !== null && fields.deliveryAddress.trim() !== '' && !belowMinimum)));
   const canSubmit =
-    cartLines.length > 0 && !hasBlockedLines && !isSubmitting && checkoutDetailsComplete;
+    cartLines.length > 0 &&
+    !hasBlockedLines &&
+    !isSubmitting &&
+    checkoutDetailsComplete &&
+    !tableLocked;
   // Why the primary action is unavailable, in words (shown instead of a silently greyed button).
-  const submitHint = hasBlockedLines
+  // A locked table shows its own dedicated notice instead of this one-line hint.
+  const submitHint = tableLocked
+    ? null
+    : hasBlockedLines
     ? copy.placeOrderHintBlocked
     : !checkoutDetailsComplete && !belowMinimum
       ? isDelivery
         ? copy.deliveryDetailsRequiredError
         : copy.pickupDetailsRequiredError
       : null;
+
+  // "Check again": re-read the advisory availability. Failure is shown as such -- never
+  // silently treated as open or closed; the order endpoint stays the authority.
+  const checkOrderingAgain = useCallback(async () => {
+    if (isGenericQr) return;
+    setIsRecheckingOrdering(true);
+    const result = await getTableOrdering(publicCode);
+    setIsRecheckingOrdering(false);
+    if (result === 'unknown') {
+      setOrderingRecheck('failed');
+      return;
+    }
+    setOrderingOverride(result);
+    setSubmitError(null);
+    if (result === 'CLOSED') {
+      setOrderingRecheck('stillClosed');
+      return;
+    }
+    setOrderingRecheck('reopened');
+    window.setTimeout(() => setOrderingRecheck('idle'), 8000);
+  }, [isGenericQr, publicCode]);
+
+  // A phone often sleeps on the table: re-check when the page becomes visible again.
+  useEffect(() => {
+    if (!tableLocked) return;
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') void checkOrderingAgain();
+    };
+    document.addEventListener('visibilitychange', onVisible);
+    return () => document.removeEventListener('visibilitychange', onVisible);
+  }, [tableLocked, checkOrderingAgain]);
 
   async function handlePlaceOrder() {
     if (!canSubmit) return;
@@ -615,6 +663,13 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       setConfirmedOrder(result.data);
       persistCartCleared();
       clearPendingAttempt(publicCode);
+      return;
+    }
+    if (result.outcome === 'tableOrderingUnavailable') {
+      // Staff closed ordering since this page loaded. Nothing was created; the cart and the
+      // pending attempt are kept, so the SAME request id is reused if ordering reopens.
+      setOrderingOverride('CLOSED');
+      setOrderingRecheck('idle');
       return;
     }
     if (result.outcome === 'itemsUnavailable') {
@@ -748,6 +803,22 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
               clearLabel={copy.clearSearch}
               className="mt-5 lg:hidden"
             />
+            {tableLocked ? (
+              <TableClosedNotice
+                className="mt-4"
+                copy={copy}
+                isChecking={isRecheckingOrdering}
+                status={orderingRecheck}
+                onCheckAgain={() => void checkOrderingAgain()}
+              />
+            ) : orderingRecheck === 'reopened' ? (
+              <p
+                role="status"
+                className="mt-4 rounded-2xl border border-g-line bg-g-surface-2 px-4 py-3 text-[14px] font-semibold text-g-text"
+              >
+                {copy.tableOrderingReopened}
+              </p>
+            ) : null}
           </div>
         </div>
 
@@ -833,6 +904,15 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
             canSubmit={canSubmit}
             submitError={submitError}
             submitHint={submitHint}
+            orderingClosed={
+              tableLocked
+                ? {
+                    isChecking: isRecheckingOrdering,
+                    status: orderingRecheck,
+                    onCheckAgain: () => void checkOrderingAgain(),
+                  }
+                : null
+            }
             confirmedOrder={confirmedOrder}
             checkout={
               isGenericQr

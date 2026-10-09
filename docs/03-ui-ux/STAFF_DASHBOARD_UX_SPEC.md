@@ -904,6 +904,8 @@ Staff may continue receiving new Orders.
 
 # 79. PAYMENT_PENDING
 
+> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING status, no "Mark Paid" status step and no "Mark Paid & Close" action. The Tables & QR workspace shows three separate things per table: Table QR **ordering availability** (open for ordering / ordering closed / table inactive), the **session lifecycle** (open / closed) and the **payment status** derived by the Backend (no charge / unpaid / balance due / paid / needs review). Staff **close** a session (never implying payment) and **record a full-balance payment** on the closed session, which stays closed. A void is an audited accounting correction, never a refund.
+
 UI prominently indicates:
 
 Guest requested bill / ordering paused.
@@ -924,6 +926,8 @@ PAYMENT_PENDING
 ---
 
 # 81. Mark Paid
+
+> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING status, no "Mark Paid" status step and no "Mark Paid & Close" action. The Tables & QR workspace shows three separate things per table: Table QR **ordering availability** (open for ordering / ordering closed / table inactive), the **session lifecycle** (open / closed) and the **payment status** derived by the Backend (no charge / unpaid / balance due / paid / needs review). Staff **close** a session (never implying payment) and **record a full-balance payment** on the closed session, which stays closed. A void is an audited accounting correction, never a refund.
 
 Authorized Staff action:
 
@@ -960,6 +964,8 @@ There is still an active order.
 ---
 
 # 85. Mark Paid & Close
+
+> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING status, no "Mark Paid" status step and no "Mark Paid & Close" action. The Tables & QR workspace shows three separate things per table: Table QR **ordering availability** (open for ordering / ordering closed / table inactive), the **session lifecycle** (open / closed) and the **payment status** derived by the Backend (no charge / unpaid / balance due / paid / needs review). Staff **close** a session (never implying payment) and **record a full-balance payment** on the closed session, which stays closed. A void is an audited accounting correction, never a refund.
 
 UI may provide combined convenient action if Backend implements it transactionally and safely.
 
@@ -1295,6 +1301,10 @@ PAYMENT_PENDING Tables.
 ---
 
 # 123. Mark Paid Flow
+
+> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING status, no "Mark Paid" status step and no "Mark Paid & Close" action. The Tables & QR workspace shows three separate things per table: Table QR **ordering availability** (open for ordering / ordering closed / table inactive), the **session lifecycle** (open / closed) and the **payment status** derived by the Backend (no charge / unpaid / balance due / paid / needs review). Staff **close** a session (never implying payment) and **record a full-balance payment** on the closed session, which stays closed. A void is an audited accounting correction, never a refund.
+
+> **Implemented Table Sessions flow (2026-10-10):** Tables & QR workspace (one place, no second table screen): each table card shows availability, session status, duration, order count, pending-order count, the Backend running bill, the payment status and an "old unpaid bills" indicator; actions are Open session (`sessions.open`), View session, Close session (`sessions.close`; mandatory KEEP / REJECT choice when pending orders exist; REJECT also needs `orders.reject`), Combined bill, and Record payment / Void payment (`sessions.settle`, CASH / CARD / OTHER, mandatory void reason, confirmation dialogs). The session panel shows orders by round with each order's own kitchen status, pending orders separately and unbilled, payments and history. An **Unpaid bills** view lists CLOSED sessions with an outstanding balance (exact, never truncated) and lets staff settle them without reopening. All amounts are Backend values. EN/AR with real RTL.
 
 Flow should show:
 

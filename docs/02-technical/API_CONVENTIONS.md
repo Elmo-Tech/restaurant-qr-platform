@@ -1746,6 +1746,8 @@ Potential filters:
 
 # 102. Table Session Detail
 
+> **Added 2026-10-10 (Batch B):** `GET .../table-sessions/board` (one row per table in the caller's Branch scope: ordering availability, live session summary, old unpaid closed bills; permission `sessions.view`); `GET .../table-sessions/{sessionId}/bill` (the printable combined-bill document, Backend values only) and `POST .../table-sessions/{sessionId}/bill/printed` (audit event BILL_PRINTED, no other effect); and the public advisory `GET /api/v1/public/qr/{publicCode}/table-ordering` returning `{ tableOrdering: AVAILABLE | CLOSED }` (also present as `context.tableOrdering` in the public menu response for TABLE QR, `null` for GENERIC). The `payment` list filter is evaluated set-based in SQL, so a filtered list is exact and never truncated.
+
 > **Implemented 2026-10-10:** `GET .../table-sessions` (filters `branchId`, `tableId`, `status`, `payment` incl. `OUTSTANDING`, `limit` <= 200, newest first; cursor pagination remains a follow-up like Orders) and `GET .../table-sessions/{sessionId}` (rounds grouped by round, running bill from order snapshots, derived payment status, payments, audit events). Permission `sessions.view`; Branch scope resolved per session; foreign or out-of-scope sessions are `404 TABLE_SESSION_NOT_FOUND`.
 
 `GET /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}`

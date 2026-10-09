@@ -7,6 +7,7 @@ import {
   canViewTables,
 } from '../../../../../lib/tables/capabilities';
 import { getWebOrigin } from '../../../../../lib/env/web-origin';
+import { sessionCapabilities } from '../../../../../lib/table-sessions/capabilities';
 import { Alert } from '../../../../../components/ui/Alert';
 import { TablesWorkspace } from './TablesWorkspace';
 
@@ -73,6 +74,7 @@ export default async function TablesPage({ params }: TablesPageProps) {
       canManage={canManageTables(membership)}
       canManageGenericQr={canManageGenericQr(membership)}
       webOrigin={getWebOrigin()}
+      sessionCaps={sessionCapabilities(membership)}
     />
   );
 }

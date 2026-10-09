@@ -145,6 +145,8 @@ OPEN
 
 After closing the session, the table may become available for a new session.
 
+> **Amended 2026-10-10 (implemented):** OPEN and CLOSED only. Closing never implies paid; a closed session may stay unpaid and be settled later without reopening. After a staff close the table is locked for QR ordering until staff open a new session (the only exception: a session auto-closed after a rejected first order does not lock the table). See `TABLE_SESSION_SPEC.md` (amendment v3).
+
 A Cleaning state may be introduced in the operational UI where useful.
 
 ---

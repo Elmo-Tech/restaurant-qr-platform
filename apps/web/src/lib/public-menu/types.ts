@@ -1,6 +1,8 @@
 /** Mirrors the Backend's public Guest Menu response shape exactly (FT-3) -- never a Staff `menu/types.ts` type, since the public payload's shape (flattened, already-resolved names/descriptions, no translation rows) is genuinely different. */
 export interface PublicMenuContext {
   qrType: 'TABLE' | 'GENERIC';
+  /** Table Sessions: TABLE QR only (null for GENERIC). Advisory -- the order endpoint re-checks. */
+  tableOrdering: 'AVAILABLE' | 'CLOSED' | null;
   restaurant: { name: string; currencyCode: string; logoAssetPath: string | null };
   branch: { name: string } | null;
   table: { number: string } | null;

@@ -28,6 +28,7 @@ import {
 } from './CheckoutSections';
 import type { CartLine, CheckoutFormProps, OrderingContextView } from './guest-view-types';
 import { ModeSwitch } from './ModeSwitch';
+import { TableClosedNotice, type OrderingRecheckStatus } from './TableClosedNotice';
 
 export interface CartPanelProps {
   copy: PublicMenuCopy;
@@ -44,6 +45,12 @@ export interface CartPanelProps {
   submitError: string | null;
   /** Why "Place order" is unavailable right now (a visible reason beats a silently greyed button). */
   submitHint: string | null;
+  /** Table Sessions: set while staff have closed ordering for this TABLE QR (submission is disabled). */
+  orderingClosed: {
+    isChecking: boolean;
+    status: OrderingRecheckStatus;
+    onCheckAgain: () => void;
+  } | null;
   confirmedOrder: GuestOrderView | null;
   checkout: CheckoutFormProps | null;
   onIncrement: (lineKey: string) => void;
@@ -244,6 +251,7 @@ export function CartPanel({
   canSubmit,
   submitError,
   submitHint,
+  orderingClosed,
   confirmedOrder,
   checkout,
   onIncrement,
@@ -510,6 +518,15 @@ export function CartPanel({
                 <GuestIconAlert className="mt-0.5 size-4 shrink-0" />
                 <p>{submitError}</p>
               </div>
+            ) : null}
+            {orderingClosed ? (
+              <TableClosedNotice
+                className="mb-3"
+                copy={copy}
+                isChecking={orderingClosed.isChecking}
+                status={orderingClosed.status}
+                onCheckAgain={orderingClosed.onCheckAgain}
+              />
             ) : null}
             {isTwoStep && effectiveStep === 'review' ? (
               <>

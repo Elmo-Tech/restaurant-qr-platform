@@ -22,14 +22,17 @@ import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
 import { CloseSessionDto } from './dto/close-session.dto';
 import { ListSessionsQueryDto } from './dto/list-sessions-query.dto';
+import { BoardQueryDto } from './dto/board-query.dto';
 import { OpenSessionDto } from './dto/open-session.dto';
 import { RecordPaymentDto } from './dto/record-payment.dto';
 import { VoidPaymentDto } from './dto/void-payment.dto';
 import { TableSessionsService } from './table-sessions.service';
 import type {
+  SessionBillDocument,
   SessionDetail,
   SessionListItem,
   SessionScope,
+  TableBoardRow,
 } from './table-sessions.service';
 
 /** One stable, existence-hiding response for an unknown, foreign-Restaurant or out-of-Branch-scope session. */
@@ -101,6 +104,24 @@ export class TableSessionsController {
     return { data };
   }
 
+  /**
+   * Dashboard board: every table in the caller's Branch scope with its ordering
+   * availability, live session summary and old unpaid closed bills. Declared
+   * BEFORE `:sessionId` so "board" is never read as a session id.
+   */
+  @Get('board')
+  @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
+  @RequirePermission(PERMISSIONS.SESSIONS_VIEW)
+  async board(
+    @Query() query: BoardQueryDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: TableBoardRow[] }> {
+    const data = await this.sessions.getBoard(scopeOf(request), {
+      branchId: query.branchId,
+    });
+    return { data };
+  }
+
   @Post()
   @HttpCode(HttpStatus.CREATED)
   @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard)
@@ -147,6 +168,39 @@ export class TableSessionsController {
       throw new NotFoundException(SESSION_NOT_FOUND_RESPONSE);
     }
     return { data: result.data };
+  }
+
+  @Get(':sessionId/bill')
+  @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
+  @RequirePermission(PERMISSIONS.SESSIONS_VIEW)
+  async bill(
+    @Param('sessionId') sessionId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: SessionBillDocument }> {
+    const result = await this.sessions.getBill(scopeOf(request), sessionId);
+    if (result.outcome === 'notFound') {
+      throw new NotFoundException(SESSION_NOT_FOUND_RESPONSE);
+    }
+    return { data: result.data };
+  }
+
+  /** Audit only: the staff member pressed Print. Changes nothing about the session. */
+  @Post(':sessionId/bill/printed')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard)
+  @RequirePermission(PERMISSIONS.SESSIONS_VIEW)
+  async billPrinted(
+    @Param('sessionId') sessionId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: { recorded: true } }> {
+    const result = await this.sessions.recordBillPrinted(
+      scopeOf(request),
+      sessionId,
+    );
+    if (result.outcome === 'notFound') {
+      throw new NotFoundException(SESSION_NOT_FOUND_RESPONSE);
+    }
+    return { data: { recorded: true } };
   }
 
   @Post(':sessionId/close')

@@ -4,6 +4,7 @@ import type { PublicMenuData } from './public-menu.service';
 const SAMPLE_DATA: PublicMenuData = {
   context: {
     qrType: 'GENERIC',
+    tableOrdering: null,
     restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null },
     branch: null,
     table: null,

@@ -23,7 +23,8 @@ const TABLE_QR_ROW = {
   ...GENERIC_QR_ROW,
   type: 'TABLE' as const,
   branch: { name: 'Downtown Branch' },
-  table: { tableNumber: '12' },
+  tableId: 'table-1',
+  table: { tableNumber: '12', status: 'ACTIVE' as const, staffOpenRequired: false },
 };
 
 const MENU_ROW = {
@@ -76,6 +77,7 @@ function buildPrismaMock() {
     .fn()
     .mockResolvedValue([{ locale: 'en' }, { locale: 'ar' }]);
   const menuFindFirst = jest.fn().mockResolvedValue(MENU_ROW);
+  const tableSessionFindFirst = jest.fn().mockResolvedValue(null);
   const categoryFindMany = jest.fn().mockResolvedValue([buildCategoryRow()]);
   const branchFindMany = jest.fn().mockResolvedValue([
     { id: 'branch-a', name: 'Downtown', deliveryZones: [] },
@@ -101,7 +103,9 @@ function buildPrismaMock() {
       menu: { findFirst: menuFindFirst },
       category: { findMany: categoryFindMany },
       branch: { findMany: branchFindMany },
+      tableSession: { findFirst: tableSessionFindFirst },
     },
+    tableSessionFindFirst,
     qrCodeFindUnique,
     restaurantLocaleFindMany,
     menuFindFirst,
@@ -197,6 +201,7 @@ describe('PublicMenuService.getPublicMenu', () => {
     expect(result.data.context).toEqual({
       qrType: 'TABLE',
       restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null },
+      tableOrdering: 'AVAILABLE',
       branch: { name: 'Downtown Branch' },
       table: { number: '12' },
       pickupBranches: null,
@@ -218,6 +223,7 @@ describe('PublicMenuService.getPublicMenu', () => {
     if (result.outcome !== 'found') return;
     expect(result.data.context).toEqual({
       qrType: 'GENERIC',
+      tableOrdering: null,
       restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null },
       branch: null,
       table: null,
@@ -469,5 +475,78 @@ describe('PublicMenuService.getPublicMenu', () => {
     expect(result.data.menu.categories[0].products[0].primaryImageAssetPath).toBe(
       '/media/product-1.jpg',
     );
+  });
+});
+
+describe('PublicMenuService Table QR ordering availability (Table Sessions)', () => {
+  const lockedTable = { ...TABLE_QR_ROW, table: { ...TABLE_QR_ROW.table, staffOpenRequired: true } };
+
+  async function menuTableOrdering(mock: ReturnType<typeof buildPrismaMock>) {
+    const result = await buildService(mock).getPublicMenu({
+      publicCode: 'table-qr',
+      explicitLang: null,
+      acceptLanguageHeader: null,
+    });
+    expect(result.outcome).toBe('found');
+    return result.outcome === 'found' ? result.data.context.tableOrdering : undefined;
+  }
+
+  it('reports AVAILABLE for an unlocked table without any session query', async () => {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue(TABLE_QR_ROW);
+
+    expect(await menuTableOrdering(mock)).toBe('AVAILABLE');
+    expect(mock.tableSessionFindFirst).not.toHaveBeenCalled();
+  });
+
+  it('reports CLOSED for a locked table with no OPEN session', async () => {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue(lockedTable);
+
+    expect(await menuTableOrdering(mock)).toBe('CLOSED');
+    expect(mock.tableSessionFindFirst).toHaveBeenCalledWith({
+      where: { tableId: 'table-1', status: 'OPEN' },
+      select: { id: true },
+    });
+  });
+
+  it('an OPEN session wins over a stale lock flag', async () => {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue(lockedTable);
+    mock.tableSessionFindFirst.mockResolvedValue({ id: 'session-1' });
+
+    expect(await menuTableOrdering(mock)).toBe('AVAILABLE');
+  });
+
+  it('a GENERIC QR never carries the field', async () => {
+    const mock = buildPrismaMock();
+
+    expect(await menuTableOrdering(mock)).toBeNull();
+    expect(mock.tableSessionFindFirst).not.toHaveBeenCalled();
+  });
+
+  describe('getTableOrdering (Check again)', () => {
+    it('returns the advisory value for an ACTIVE table QR', async () => {
+      const mock = buildPrismaMock();
+      mock.qrCodeFindUnique.mockResolvedValue(lockedTable);
+
+      expect(await buildService(mock).getTableOrdering('table-qr')).toEqual({
+        outcome: 'found',
+        tableOrdering: 'CLOSED',
+      });
+    });
+
+    it.each([
+      ['unknown QR', null],
+      ['INACTIVE QR', { ...TABLE_QR_ROW, status: 'INACTIVE' }],
+      ['GENERIC QR', { ...TABLE_QR_ROW, type: 'GENERIC', tableId: null }],
+      ['INACTIVE table', { ...TABLE_QR_ROW, table: { ...TABLE_QR_ROW.table, status: 'INACTIVE' } }],
+      ['suspended restaurant', { ...TABLE_QR_ROW, restaurant: { ...TABLE_QR_ROW.restaurant, status: 'SUSPENDED' } }],
+    ])('%s -> qrNotFound (never a distinguishable reason)', async (_name, row) => {
+      const mock = buildPrismaMock();
+      mock.qrCodeFindUnique.mockResolvedValue(row);
+
+      expect(await buildService(mock).getTableOrdering('x')).toEqual({ outcome: 'qrNotFound' });
+    });
   });
 });

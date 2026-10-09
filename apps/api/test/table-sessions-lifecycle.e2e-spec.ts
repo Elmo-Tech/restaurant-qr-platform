@@ -1,4 +1,4 @@
-/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call --
+/* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-call, @typescript-eslint/no-unsafe-assignment --
  * supertest exposes `response.body` as `any`; the assertions below read the JSON
  * envelope directly, exactly like the other HTTP e2e specs in this folder. */
 import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
@@ -106,6 +106,8 @@ describeSandbox(
           status: 'ACTIVE',
           defaultLocale: 'en',
           currencyCode: 'EGP',
+          // a real, translated menu so the PUBLIC menu endpoint resolves
+          locales: { create: { locale: 'en', isActive: true } },
         },
       });
       const branch = await prisma.branch.create({
@@ -142,6 +144,7 @@ describeSandbox(
           status: 'ACTIVE',
           displayOrder: 0,
           isPrimary: true,
+          translations: { create: { locale: 'en', name: 'IT Menu' } },
         },
       });
       const category = await prisma.category.create({
@@ -150,6 +153,7 @@ describeSandbox(
           menuId: menu.id,
           status: 'ACTIVE',
           displayOrder: 0,
+          translations: { create: { locale: 'en', name: 'IT Mains' } },
         },
       });
       const product = await prisma.product.create({
@@ -2019,6 +2023,481 @@ describeSandbox(
         expect(managerKeys.filter((k) => k !== 'sessions.open').sort()).toEqual(
           [...old].sort(),
         );
+      });
+    });
+
+    // ============================================ Batch B: board, bill, guest lock
+
+    describe('Dashboard board', () => {
+      it('reports per-table ordering availability, the live session and OLD unpaid bills separately from the new session', async () => {
+        const world = await seedWorld('board');
+        const manager = await addStaff(world.restaurantId, 'MANAGER');
+        const second = await addTable(world, '2');
+        const inactive = await addTable(world, '3');
+        await prisma.table.update({
+          where: { id: inactive.tableId },
+          data: { status: 'INACTIVE' },
+        });
+
+        // Table 1: an old CLOSED + UNPAID session, then a NEW open session with its own order
+        const old = await acceptedSession(world, manager, 2);
+        await closeKeep(manager, old.publicId);
+        const board1 = await sessions.getBoard(manager.scope, {});
+        const row1 = (id: string, rows = board1) =>
+          rows.find((r) => r.table.id === id);
+        expect(row1(world.tableId)).toMatchObject({
+          ordering: 'CLOSED_BY_STAFF',
+          openSession: null,
+          outstanding: { sessionCount: 1, balance: '100.00' },
+        });
+
+        await sessions.openSession(manager.scope, { tableId: world.tableId });
+        await place(world);
+        // Table 2: free, never used
+        const board2 = await sessions.getBoard(manager.scope, {});
+
+        expect(row1(world.tableId, board2)).toMatchObject({
+          ordering: 'AVAILABLE',
+          openSession: { status: 'OPEN', orderCount: 1, pendingOrderCount: 1 },
+          // the old unpaid balance is reported next to, never inside, the new session
+          outstanding: {
+            sessionCount: 1,
+            balance: '100.00',
+            currencyCode: 'EGP',
+          },
+        });
+        expect(row1(world.tableId, board2)?.openSession?.bill).toMatchObject({
+          eligibleTotal: '0.00',
+          pendingAmount: '50.00',
+          balance: '0.00',
+        });
+        expect(row1(second.tableId, board2)).toMatchObject({
+          ordering: 'AVAILABLE',
+          openSession: null,
+          outstanding: null,
+        });
+        expect(row1(inactive.tableId, board2)).toMatchObject({
+          ordering: 'UNAVAILABLE',
+        });
+      });
+
+      it('is tenant- and Branch-scoped, and requires sessions.view', async () => {
+        const a = await seedWorld('board-a');
+        const b = await seedWorld('board-b');
+        const other = await addBranch(a, 'second');
+        const managerA = await addStaff(a.restaurantId, 'MANAGER');
+        const scoped = await addStaff(a.restaurantId, 'MANAGER', {
+          allBranches: false,
+          branchIds: [a.branchId],
+        });
+        const kitchen = await addStaff(a.restaurantId, 'KITCHEN');
+        const managerB = await addStaff(b.restaurantId, 'MANAGER');
+
+        const all = await sessions.getBoard(managerA.scope, {});
+        const narrow = await sessions.getBoard(scoped.scope, {});
+        const foreignFilter = await sessions.getBoard(scoped.scope, {
+          branchId: other.branchId,
+        });
+        const tenantB = await sessions.getBoard(managerB.scope, {});
+
+        expect(all.map((r) => r.table.id).sort()).toEqual(
+          [a.tableId, other.tableId].sort(),
+        );
+        expect(narrow.map((r) => r.table.id)).toEqual([a.tableId]);
+        expect(foreignFilter.map((r) => r.table.id)).toEqual([a.tableId]); // dropped, never widened
+        expect(tenantB.map((r) => r.table.id)).toEqual([b.tableId]);
+        const denied = await api(kitchen, 'get', a.restaurantId, '/board');
+        expect(denied.status).toBe(403);
+        const ok = await api(managerA, 'get', a.restaurantId, '/board');
+        expect(ok.status).toBe(200);
+        expect(ok.body.data).toHaveLength(2);
+      });
+    });
+
+    describe('exact payment filter (no scan cap)', () => {
+      it('SQL filter agrees with the derived status on every state, including OVERPAID', async () => {
+        const world = await seedWorld('filter-states');
+        const manager = await addStaff(world.restaurantId, 'MANAGER');
+        const t = [
+          world,
+          ...(await Promise.all(
+            ['2', '3', '4', '5'].map((n) => addTable(world, n)),
+          )),
+        ] as {
+          tableId: string;
+          qrCode: string;
+        }[];
+        const product = world.productId;
+        const settle = async (publicId: string, amount: string) =>
+          sessions.recordPayment(manager.scope, publicId, {
+            clientRequestId: randomUUID(),
+            method: 'CASH',
+            expectedAmount: amount,
+          });
+        const build = async (
+          tbl: { tableId: string; qrCode: string },
+          accepted: number,
+        ) => {
+          for (let i = 0; i < accepted; i += 1) {
+            await place({ qrCode: tbl.qrCode, productId: product });
+          }
+          for (const order of await ordersOf(tbl.tableId)) {
+            await transition(manager.scope, order.id, 'PENDING', 'ACCEPTED');
+          }
+          const [row] = await sessionRows(tbl.tableId);
+          await closeKeep(manager, row.publicId);
+          return row;
+        };
+
+        const unpaid = await build(t[0], 1);
+        const paid = await build(t[1], 1);
+        await settle(paid.publicId, '50.00');
+        const partial = await build(t[2], 1);
+        await settle(partial.publicId, '50.00');
+        // a kept order accepted AFTER settlement: PARTIALLY_PAID
+        await place({ qrCode: t[2].qrCode, productId: product }).catch(
+          () => undefined,
+        );
+        const empty = await sessions.openSession(manager.scope, {
+          tableId: t[3].tableId,
+        });
+        expect(empty.outcome).toBe('opened');
+        if (empty.outcome === 'opened')
+          await sessions.closeSession(manager.scope, empty.data.id, {});
+        const over = await build(t[4], 1);
+        // force a corrupt state the API forbids (payment above the bill) to prove the SQL twin
+        const membership = manager.membershipId;
+        await prisma.tableSessionPayment.create({
+          data: {
+            restaurantId: world.restaurantId,
+            branchId: world.branchId,
+            tableSessionId: over.id,
+            amount: '75.00',
+            method: 'CASH',
+            clientRequestId: randomUUID(),
+            recordedByMembershipId: membership,
+          },
+        });
+
+        const all = await sessions.listSessions(manager.scope, { limit: 200 });
+        for (const status of [
+          'NO_CHARGE',
+          'UNPAID',
+          'PAID',
+          'PARTIALLY_PAID',
+          'OVERPAID',
+        ] as const) {
+          const viaSql = await sessions.listSessions(manager.scope, {
+            payment: status,
+            limit: 200,
+          });
+          const viaTs = all.filter((s) => s.bill.paymentStatus === status);
+          expect(viaSql.map((s) => s.id).sort()).toEqual(
+            viaTs.map((s) => s.id).sort(),
+          );
+        }
+        const outstanding = await sessions.listSessions(manager.scope, {
+          payment: 'OUTSTANDING',
+          limit: 200,
+        });
+        expect(outstanding.map((s) => s.id)).toContain(unpaid.publicId);
+        expect(outstanding.map((s) => s.id)).not.toContain(paid.publicId);
+        expect(
+          (
+            await sessions.listSessions(manager.scope, { payment: 'OVERPAID' })
+          ).map((s) => s.id),
+        ).toEqual([over.publicId]);
+      });
+
+      it('finds an OLD unpaid closed session behind 1100 newer sessions (no silent truncation)', async () => {
+        const world = await seedWorld('filter-cap');
+        const manager = await addStaff(world.restaurantId, 'MANAGER');
+        const old = await acceptedSession(world, manager, 1);
+        await closeKeep(manager, old.publicId);
+        const bulk = await addTable(world, '9');
+        await prisma.$executeRaw`
+          INSERT INTO "table_sessions"
+            ("id","public_id","restaurant_id","branch_id","table_id","status","opened_at","opened_via",
+             "closed_at","closure_reason","next_round_number","updated_at")
+          SELECT gen_random_uuid(), 'session-' || gen_random_uuid()::text,
+                 ${world.restaurantId}::uuid, ${world.branchId}::uuid, ${bulk.tableId}::uuid,
+                 'CLOSED', now() + (g || ' seconds')::interval, 'STAFF',
+                 now() + (g || ' seconds')::interval, 'NORMAL', 1, now()
+            FROM generate_series(1, 1100) AS g`;
+
+        const outstanding = await sessions.listSessions(manager.scope, {
+          status: 'CLOSED',
+          payment: 'OUTSTANDING',
+          limit: 50,
+        });
+        const everything = await sessions.listSessions(manager.scope, {
+          limit: 200,
+        });
+
+        expect(outstanding.map((s) => s.id)).toEqual([old.publicId]);
+        expect(everything).toHaveLength(200); // the plain list is limited, the filter is exact
+      });
+    });
+
+    describe('combined bill document', () => {
+      it('contains only accepted rounds in totals, lists pending separately, active payments only, and is tenant/permission scoped', async () => {
+        const world = await seedWorld('bill');
+        const manager = await addStaff(world.restaurantId, 'MANAGER');
+        const waiter = await addStaff(world.restaurantId, 'WAITER');
+        const kitchen = await addStaff(world.restaurantId, 'KITCHEN');
+        const foreign = await seedWorld('bill-foreign');
+        const foreignManager = await addStaff(foreign.restaurantId, 'MANAGER');
+        await place(world);
+        await place(world);
+        await place(world);
+        const all = await ordersOf(world.tableId);
+        await transition(manager.scope, all[0].id, 'PENDING', 'ACCEPTED');
+        await transition(manager.scope, all[1].id, 'PENDING', 'ACCEPTED');
+        await transition(manager.scope, all[1].id, 'ACCEPTED', 'CANCELLED');
+        const [session] = await sessionRows(world.tableId);
+        await sessions.closeSession(manager.scope, session.publicId, {
+          pendingOrders: 'KEEP',
+        });
+        const paid = await sessions.recordPayment(
+          manager.scope,
+          session.publicId,
+          {
+            clientRequestId: randomUUID(),
+            method: 'CARD',
+            expectedAmount: '50.00',
+          },
+        );
+        const paymentId =
+          paid.outcome === 'recorded' ? paid.data.payments[0].id : '';
+        await sessions.voidPayment(
+          manager.scope,
+          session.publicId,
+          paymentId,
+          'typo',
+        );
+        await sessions.recordPayment(manager.scope, session.publicId, {
+          clientRequestId: randomUUID(),
+          method: 'CASH',
+          expectedAmount: '50.00',
+        });
+
+        const bill = await api(
+          waiter,
+          'get',
+          world.restaurantId,
+          `/${session.publicId}/bill`,
+        );
+
+        expect(bill.status).toBe(200);
+        const doc = bill.body.data;
+        expect(doc.restaurant).toMatchObject({
+          name: 'IT bill',
+          currencyCode: 'EGP',
+        });
+        expect(doc.table.tableNumber).toBe('1');
+        expect(doc.session).toMatchObject({
+          id: session.publicId,
+          status: 'CLOSED',
+        });
+        expect(
+          doc.rounds.map((r: { roundNumber: number }) => r.roundNumber),
+        ).toEqual([1]);
+        expect(
+          doc.awaitingRounds.map((r: { roundNumber: number }) => r.roundNumber),
+        ).toEqual([3]);
+        expect(doc.totals).toMatchObject({
+          eligibleTotal: '50.00',
+          pendingAmount: '50.00',
+          paidAmount: '50.00',
+          balance: '0.00',
+          paymentStatus: 'PAID',
+        });
+        expect(doc.payments).toHaveLength(1);
+        expect(doc.payments[0]).toMatchObject({
+          method: 'CASH',
+          amount: '50.00',
+        });
+        expect(doc.voidedPaymentCount).toBe(1);
+        expect(doc.rounds[0].items[0]).toMatchObject({
+          productNameSnapshot: 'IT Burger',
+          lineTotal: '50.00',
+        });
+
+        expect(
+          (
+            await api(
+              kitchen,
+              'get',
+              world.restaurantId,
+              `/${session.publicId}/bill`,
+            )
+          ).status,
+        ).toBe(403);
+        const crossTenant = await api(
+          foreignManager,
+          'get',
+          foreign.restaurantId,
+          `/${session.publicId}/bill`,
+        );
+        expect(crossTenant.status).toBe(404);
+        expect(crossTenant.body.error.code).toBe('TABLE_SESSION_NOT_FOUND');
+      });
+
+      it('records a BILL_PRINTED audit event without changing the session, the bill or the payments', async () => {
+        const world = await seedWorld('bill-print');
+        const manager = await addStaff(world.restaurantId, 'MANAGER');
+        const session = await acceptedSession(world, manager, 1);
+        const before = await sessions.getSession(
+          manager.scope,
+          session.publicId,
+        );
+
+        const response = await api(
+          manager,
+          'post',
+          world.restaurantId,
+          `/${session.publicId}/bill/printed`,
+          {},
+        );
+        const noOrigin = await api(
+          manager,
+          'post',
+          world.restaurantId,
+          `/${session.publicId}/bill/printed`,
+          {},
+          { omitOrigin: true },
+        );
+
+        expect(response.status).toBe(200);
+        expect(response.body.data).toEqual({ recorded: true });
+        expect(noOrigin.status).toBe(403);
+        expect(
+          await prisma.tableSessionEvent.count({
+            where: { tableSessionId: session.id, type: 'BILL_PRINTED' },
+          }),
+        ).toBe(1);
+        const after = await sessions.getSession(
+          manager.scope,
+          session.publicId,
+        );
+        expect(
+          after.outcome === 'found' &&
+            before.outcome === 'found' &&
+            after.data.bill,
+        ).toEqual(before.outcome === 'found' ? before.data.bill : undefined);
+        expect(after.outcome === 'found' && after.data.status).toBe('OPEN');
+      });
+    });
+
+    describe('Guest QR lock and unlock (public API)', () => {
+      const publicGet = (path: string) =>
+        request(app.getHttpServer()).get(`/api/v1/public/qr${path}`);
+
+      it('advertises availability in the menu context and the Check-again endpoint, and the order endpoint answers 409 TABLE_ORDERING_UNAVAILABLE when locked', async () => {
+        const world = await seedWorld('guest-lock');
+        const manager = await addStaff(world.restaurantId, 'MANAGER');
+        await place(world);
+        const [session] = await sessionRows(world.tableId);
+
+        const open = await publicGet(`/${world.qrCode}/table-ordering`);
+        const menuOpen = await publicGet(`/${world.qrCode}/menu`);
+        expect(open.status).toBe(200);
+        expect(open.body.data).toEqual({ tableOrdering: 'AVAILABLE' });
+        expect(menuOpen.body.data.context.tableOrdering).toBe('AVAILABLE');
+
+        await sessions.closeSession(manager.scope, session.publicId, {
+          pendingOrders: 'KEEP',
+        });
+        const locked = await publicGet(`/${world.qrCode}/table-ordering`);
+        const menuLocked = await publicGet(`/${world.qrCode}/menu`);
+        const submit = await request(app.getHttpServer())
+          .post(`/api/v1/public/qr/${world.qrCode}/orders`)
+          .send({
+            clientRequestId: randomUUID(),
+            items: [{ productId: world.productId, quantity: 1 }],
+          });
+        expect(locked.body.data).toEqual({ tableOrdering: 'CLOSED' });
+        expect(menuLocked.status).toBe(200); // the menu stays browseable
+        expect(menuLocked.body.data.context.tableOrdering).toBe('CLOSED');
+        expect(submit.status).toBe(409);
+        expect(submit.body.error.code).toBe('TABLE_ORDERING_UNAVAILABLE');
+        expect(JSON.stringify(locked.body)).not.toMatch(
+          /session|balance|payment|paid/i,
+        );
+
+        await sessions.openSession(manager.scope, { tableId: world.tableId });
+        const unlocked = await publicGet(`/${world.qrCode}/table-ordering`);
+        const accepted = await request(app.getHttpServer())
+          .post(`/api/v1/public/qr/${world.qrCode}/orders`)
+          .send({
+            clientRequestId: randomUUID(),
+            items: [{ productId: world.productId, quantity: 1 }],
+          });
+        expect(unlocked.body.data).toEqual({ tableOrdering: 'AVAILABLE' });
+        expect(accepted.status).toBe(201);
+      });
+
+      it('a stale page retrying an order that was created before the lock still gets the original order (no duplicate)', async () => {
+        const world = await seedWorld('guest-retry');
+        const manager = await addStaff(world.restaurantId, 'MANAGER');
+        const clientRequestId = randomUUID();
+        const body = {
+          clientRequestId,
+          items: [{ productId: world.productId, quantity: 1 }],
+        };
+        const first = await request(app.getHttpServer())
+          .post(`/api/v1/public/qr/${world.qrCode}/orders`)
+          .send(body);
+        expect(first.status).toBe(201);
+        const [session] = await sessionRows(world.tableId);
+        await sessions.closeSession(manager.scope, session.publicId, {
+          pendingOrders: 'KEEP',
+        });
+
+        const retry = await request(app.getHttpServer())
+          .post(`/api/v1/public/qr/${world.qrCode}/orders`)
+          .send(body);
+        const fresh = await request(app.getHttpServer())
+          .post(`/api/v1/public/qr/${world.qrCode}/orders`)
+          .send({ ...body, clientRequestId: randomUUID() });
+
+        expect(retry.status).toBe(201);
+        expect(retry.body.data.id).toBe(first.body.data.id);
+        expect(fresh.status).toBe(409);
+        expect(await ordersOf(world.tableId)).toHaveLength(1);
+      });
+
+      it('Pickup and Delivery QRs are unaffected: no field, a locked table never influences them', async () => {
+        const world = await seedWorld('guest-generic');
+        await prisma.table.update({
+          where: { id: world.tableId },
+          data: { staffOpenRequired: true },
+        });
+        const generic = await prisma.qrCode.create({
+          data: {
+            publicCode: `it-qr-${randomUUID()}`,
+            restaurantId: world.restaurantId,
+            type: 'GENERIC',
+            status: 'ACTIVE',
+          },
+        });
+
+        const menu = await publicGet(`/${generic.publicCode}/menu`);
+        const recheck = await publicGet(
+          `/${generic.publicCode}/table-ordering`,
+        );
+        const pickup = await request(app.getHttpServer())
+          .post(`/api/v1/public/qr/${generic.publicCode}/orders`)
+          .send({
+            clientRequestId: randomUUID(),
+            items: [{ productId: world.productId, quantity: 1 }],
+            customerName: 'Sara',
+            customerPhone: '+20 100 000 0000',
+          });
+
+        expect(menu.body.data.context.tableOrdering).toBeNull();
+        expect(recheck.status).toBe(404);
+        expect(pickup.status).toBe(201);
       });
     });
   },

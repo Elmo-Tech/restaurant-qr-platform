@@ -23,6 +23,20 @@ import { PageHeader } from '../../../../../components/ui/PageHeader';
 import { IconPencil, IconPlus, IconQr } from '../../../../../components/staff/icons';
 import { GenericQrCard } from './GenericQrCard';
 import { QrPreviewDialog } from './QrPreviewDialog';
+import * as sessionsApi from '../../../../../lib/table-sessions/api';
+import type { SessionCapabilities } from '../../../../../lib/table-sessions/capabilities';
+import type { TableBoardRow } from '../../../../../lib/table-sessions/types';
+import { minutesBetween, useNow } from '../../../../../lib/table-sessions/use-now';
+import { OpenSessionDialog } from './SessionActionDialogs';
+import {
+  LifecycleBadge,
+  Money,
+  OrderingBadge,
+  PaymentStatusBadge,
+  useDurationLabel,
+} from './SessionBadges';
+import { SessionDrawer } from './SessionDrawer';
+import { UnpaidBillsPanel } from './UnpaidBillsPanel';
 
 export interface TablesWorkspaceProps {
   restaurantId: string;
@@ -34,6 +48,8 @@ export interface TablesWorkspaceProps {
   /** FT-9: `tables.manage` AND full Restaurant branch scope -- the Restaurant-wide Generic QR is not Branch-scoped. */
   canManageGenericQr: boolean;
   webOrigin: string;
+  /** Table Sessions: UX-only capabilities derived from the Membership permissions (the Backend enforces). */
+  sessionCaps: SessionCapabilities;
 }
 
 interface TableFormState {
@@ -62,6 +78,7 @@ export function TablesWorkspace({
   canManage,
   canManageGenericQr,
   webOrigin,
+  sessionCaps,
 }: TablesWorkspaceProps) {
   const { t } = useStaffI18n();
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(
@@ -77,6 +94,20 @@ export function TablesWorkspace({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [qrTarget, setQrTarget] = useState<TableRow | null>(null);
+
+  // Table Sessions: ONE workspace. The board (availability, live session, old unpaid bills)
+  // is read from the Backend per Branch; sessions are viewed in a panel, never on a second
+  // disconnected screen.
+  const [view, setView] = useState<'tables' | 'unpaid'>('tables');
+  const [board, setBoard] = useState<TableBoardRow[] | null>(null);
+  const [boardError, setBoardError] = useState<string | null>(null);
+  const [drawerSessionId, setDrawerSessionId] = useState<string | null>(null);
+  const [openTarget, setOpenTarget] = useState<TableRow | null>(null);
+  const [isOpening, setIsOpening] = useState(false);
+  const [openError, setOpenError] = useState<string | null>(null);
+  const [unpaidTable, setUnpaidTable] = useState<{ id: string; tableNumber: string } | null>(null);
+  const [unpaidRefreshKey, setUnpaidRefreshKey] = useState(0);
+  const boardRequestRef = useRef(0);
 
   const tablesRequestRef = useRef(0);
   const tableNumberRef = useRef<HTMLInputElement>(null);
@@ -115,6 +146,30 @@ export function TablesWorkspace({
     [restaurantId],
   );
 
+  const loadBoard = useCallback(
+    async (branchId: string, options: { silent?: boolean } = {}) => {
+      if (!sessionCaps.canView) return;
+      const requestId = ++boardRequestRef.current;
+      if (!options.silent) {
+        setBoard(null);
+      }
+      setBoardError(null);
+      try {
+        const rows = await sessionsApi.getBoard(restaurantId, branchId);
+        if (boardRequestRef.current !== requestId) return;
+        setBoard(rows);
+      } catch (error) {
+        if (boardRequestRef.current !== requestId) return;
+        if (isUnauthenticatedError(error)) {
+          redirectToLogin();
+          return;
+        }
+        setBoardError(describeError(error));
+      }
+    },
+    [restaurantId, sessionCaps.canView],
+  );
+
   useEffect(() => {
     // `queueMicrotask` here is purely to satisfy eslint-plugin-react-hooks'
     // `set-state-in-effect` rule (same established pattern as
@@ -123,9 +178,53 @@ export function TablesWorkspace({
     if (selectedBranchId) {
       queueMicrotask(() => {
         void loadTables(selectedBranchId);
+        void loadBoard(selectedBranchId);
       });
     }
-  }, [selectedBranchId, loadTables]);
+  }, [selectedBranchId, loadTables, loadBoard]);
+
+  // A live floor: refresh the board quietly every 30 s while the page is visible.
+  useEffect(() => {
+    if (!sessionCaps.canView || !selectedBranchId) return;
+    const id = window.setInterval(() => {
+      if (document.visibilityState === 'visible') {
+        void loadBoard(selectedBranchId, { silent: true });
+      }
+    }, 30_000);
+    return () => window.clearInterval(id);
+  }, [sessionCaps.canView, selectedBranchId, loadBoard]);
+
+  function handleSessionChanged() {
+    if (selectedBranchId) {
+      void loadBoard(selectedBranchId, { silent: true });
+    }
+    setUnpaidRefreshKey((key) => key + 1);
+  }
+
+  async function handleOpenSession() {
+    if (!openTarget || isOpening) return;
+    setIsOpening(true);
+    setOpenError(null);
+    try {
+      const opened = await sessionsApi.openSession(restaurantId, openTarget.id);
+      setOpenTarget(null);
+      handleSessionChanged();
+      setDrawerSessionId(opened.id);
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setOpenError(describeError(error));
+      // e.g. someone else just opened it: show the real state.
+      handleSessionChanged();
+    } finally {
+      setIsOpening(false);
+    }
+  }
+
+  const boardByTable = new Map((board ?? []).map((row) => [row.table.id, row]));
+  const showTables = view === 'tables';
 
   function startCreate() {
     setMode('create');
@@ -260,7 +359,7 @@ export function TablesWorkspace({
         </Alert>
       ) : (
         <>
-          {branches.length > 1 ? (
+          {branches.length > 1 && showTables ? (
             <div className="max-w-xs">
               <FormField label={t('tables.branch')} htmlFor="branch-select">
                 <Select
@@ -278,7 +377,50 @@ export function TablesWorkspace({
             </div>
           ) : null}
 
-          {tablesError ? (
+          {sessionCaps.canView ? (
+            <div role="group" aria-label={t('tables.title')} className="flex flex-wrap items-center gap-2">
+              {(['tables', 'unpaid'] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  aria-pressed={view === option}
+                  onClick={() => setView(option)}
+                  className={`h-9 rounded-md border px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring ${
+                    view === option
+                      ? 'border-primary bg-accent text-accent-foreground'
+                      : 'border-border bg-secondary text-secondary-foreground hover:bg-muted'
+                  }`}
+                >
+                  {t(`sessions.view.${option}` as const)}
+                </button>
+              ))}
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => selectedBranchId && handleSessionChanged()}
+              >
+                {t('sessions.refresh')}
+              </Button>
+            </div>
+          ) : null}
+
+          {sessionCaps.canView && boardError && showTables ? (
+            <Alert variant="error">{boardError}</Alert>
+          ) : null}
+
+          {sessionCaps.canView && view === 'unpaid' ? (
+            <UnpaidBillsPanel
+              restaurantId={restaurantId}
+              branches={branches}
+              initialBranchId={selectedBranchId}
+              tableFilter={unpaidTable}
+              refreshKey={unpaidRefreshKey}
+              onClearTableFilter={() => setUnpaidTable(null)}
+              onOpenSession={setDrawerSessionId}
+            />
+          ) : null}
+
+          {showTables && tablesError ? (
             <Alert variant="error">
               <div className="flex items-center justify-between gap-4">
                 <span>{tablesError}</span>
@@ -293,9 +435,11 @@ export function TablesWorkspace({
             </Alert>
           ) : null}
 
-          {tables === null && !tablesError ? <LoadingState label={t('tables.loading')} /> : null}
+          {showTables && tables === null && !tablesError ? (
+            <LoadingState label={t('tables.loading')} />
+          ) : null}
 
-          {tables !== null && tables.length === 0 ? (
+          {showTables && tables !== null && tables.length === 0 ? (
             <Card className="flex flex-col items-center gap-2 py-10 text-center">
               <p className="text-sm font-medium text-foreground">{t('tables.empty.title')}</p>
               <p className="text-sm text-muted-foreground">{t('tables.empty.hint')}</p>
@@ -307,7 +451,7 @@ export function TablesWorkspace({
             </Card>
           ) : null}
 
-          {tables !== null && tables.length > 0 ? (
+          {showTables && tables !== null && tables.length > 0 ? (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
               {tables.map((table) => (
                 <TableCard
@@ -317,6 +461,17 @@ export function TablesWorkspace({
                   canManage={canManage}
                   onEdit={() => startEdit(table)}
                   onViewQr={() => setQrTarget(table)}
+                  board={sessionCaps.canView ? (boardByTable.get(table.id) ?? null) : null}
+                  sessionCaps={sessionCaps}
+                  onOpenSession={() => {
+                    setOpenError(null);
+                    setOpenTarget(table);
+                  }}
+                  onViewSession={setDrawerSessionId}
+                  onViewUnpaid={() => {
+                    setUnpaidTable({ id: table.id, tableNumber: table.tableNumber });
+                    setView('unpaid');
+                  }}
                 />
               ))}
             </div>
@@ -325,6 +480,29 @@ export function TablesWorkspace({
       )}
 
       {dialog}
+
+      {openTarget ? (
+        <OpenSessionDialog
+          tableNumber={openTarget.tableNumber}
+          isSubmitting={isOpening}
+          error={openError}
+          onConfirm={() => void handleOpenSession()}
+          onClose={() => {
+            if (!isOpening) setOpenTarget(null);
+          }}
+        />
+      ) : null}
+
+      {drawerSessionId ? (
+        <SessionDrawer
+          key={drawerSessionId}
+          restaurantId={restaurantId}
+          sessionId={drawerSessionId}
+          caps={sessionCaps}
+          onClose={() => setDrawerSessionId(null)}
+          onChanged={handleSessionChanged}
+        />
+      ) : null}
 
       {qrTarget && qrTarget.qr ? (
         <QrPreviewDialog
@@ -348,15 +526,29 @@ function TableCard({
   canManage,
   onEdit,
   onViewQr,
+  board,
+  sessionCaps,
+  onOpenSession,
+  onViewSession,
+  onViewUnpaid,
 }: {
   table: TableRow;
   branchName: string | null;
   canManage: boolean;
   onEdit: () => void;
   onViewQr: () => void;
+  /** Table Sessions board row for this table (null when sessions are not viewable or still loading). */
+  board: TableBoardRow | null;
+  sessionCaps: SessionCapabilities;
+  onOpenSession: () => void;
+  onViewSession: (sessionId: string) => void;
+  onViewUnpaid: () => void;
 }) {
-  const { t } = useStaffI18n();
+  const { t, tp } = useStaffI18n();
+  const now = useNow();
+  const durationLabel = useDurationLabel();
   const hasActiveQr = table.qr !== null && table.qr.status === 'ACTIVE';
+  const open = board?.openSession ?? null;
 
   return (
     <Card className="flex flex-col gap-3">
@@ -391,6 +583,79 @@ function TableCard({
           {hasActiveQr ? t('tables.card.activeQr') : t('tables.card.noActiveQr')}
         </Badge>
       </div>
+
+      {board ? (
+        <div className="flex flex-col gap-2.5 border-t border-border pt-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <OrderingBadge state={board.ordering} />
+            {open ? (
+              <>
+                <LifecycleBadge status={open.status} />
+                <PaymentStatusBadge status={open.bill.paymentStatus} />
+              </>
+            ) : null}
+          </div>
+
+          {open ? (
+            <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+              <div>
+                <dt className="text-muted-foreground">{t('sessions.card.runningBill')}</dt>
+                <dd className="text-sm font-semibold text-foreground">
+                  <Money amount={open.bill.eligibleTotal} currency={open.currencyCode} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground">{t('sessions.detail.duration')}</dt>
+                <dd className="text-sm font-medium text-foreground">
+                  <bdi dir="ltr">{durationLabel(minutesBetween(open.openedAt, now))}</bdi>
+                </dd>
+              </div>
+              <div>
+                <dt className="sr-only">{t('sessions.detail.rounds')}</dt>
+                <dd className="text-foreground">{tp('sessions.card.orders', open.orderCount)}</dd>
+              </div>
+              {open.pendingOrderCount > 0 ? (
+                <div>
+                  <dd className="font-medium text-warning">
+                    {tp('sessions.card.pending', open.pendingOrderCount)}
+                  </dd>
+                </div>
+              ) : null}
+            </dl>
+          ) : board.ordering === 'CLOSED_BY_STAFF' ? (
+            <p className="text-xs text-muted-foreground">
+              {t('sessions.availabilityHint.CLOSED_BY_STAFF')}
+            </p>
+          ) : (
+            <p className="text-xs text-muted-foreground">{t('sessions.noOpenSession')}</p>
+          )}
+
+          {board.outstanding ? (
+            <button
+              type="button"
+              onClick={onViewUnpaid}
+              className="rounded-md bg-warning-soft px-2.5 py-1.5 text-start text-xs font-medium text-warning hover:underline focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {tp('sessions.card.oldUnpaid', board.outstanding.sessionCount, {
+                amount: `${board.outstanding.balance} ${board.outstanding.currencyCode}`,
+              })}
+            </button>
+          ) : null}
+
+          <div className="flex flex-wrap gap-2">
+            {open ? (
+              <Button variant="secondary" size="sm" onClick={() => onViewSession(open.id)}>
+                {t('sessions.action.view')}
+              </Button>
+            ) : null}
+            {!open && board.ordering !== 'UNAVAILABLE' && sessionCaps.canOpen ? (
+              <Button size="sm" onClick={onOpenSession}>
+                {t('sessions.action.open')}
+              </Button>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {hasActiveQr ? (
         <Button variant="secondary" className="mt-1 justify-center" onClick={onViewQr}>

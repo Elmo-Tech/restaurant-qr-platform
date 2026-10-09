@@ -33,6 +33,19 @@ export const errorMessages = defineMessages({
     'error.RESTAURANT_NOT_FOUND': 'Restaurant not found.',
     'error.RESTAURANT_NOT_OPERATIONAL': 'This restaurant is not currently operational.',
     'error.TABLE_NOT_FOUND': 'Table not found.',
+    'error.TABLE_INACTIVE': 'This table is inactive, so a session cannot be opened.',
+    'error.TABLE_SESSION_NOT_FOUND': 'This session was not found.',
+    'error.TABLE_SESSION_ALREADY_OPEN': 'This table already has an open session.',
+    'error.SESSION_HAS_PENDING_ORDERS':
+      'This session has pending orders. Choose whether to keep or reject them, then try again.',
+    'error.SESSION_NOT_CLOSED': 'A payment can only be recorded on a closed session.',
+    'error.NOTHING_TO_SETTLE': 'This session has no outstanding balance.',
+    'error.PAYMENT_AMOUNT_MISMATCH':
+      'The balance changed while you were working. Review the updated balance and try again.',
+    'error.PAYMENT_NOT_FOUND': 'Payment record not found.',
+    'error.PAYMENT_ALREADY_VOIDED': 'This payment record was already voided.',
+    'error.ORDER_CANCEL_BLOCKED_BY_SETTLEMENT':
+      'This order cannot be cancelled while its table session has a recorded payment. Void the payment record first.',
     'error.TABLE_NUMBER_ALREADY_EXISTS': 'A table with this number already exists in this branch.',
   },
   ar: {
@@ -62,6 +75,19 @@ export const errorMessages = defineMessages({
     'error.RESTAURANT_NOT_FOUND': 'المطعم غير موجود.',
     'error.RESTAURANT_NOT_OPERATIONAL': 'هذا المطعم غير متاح للتشغيل حاليًا.',
     'error.TABLE_NOT_FOUND': 'الطاولة غير موجودة.',
+    'error.TABLE_INACTIVE': 'هذه الطاولة غير نشطة، لذلك لا يمكن فتح جلسة لها.',
+    'error.TABLE_SESSION_NOT_FOUND': 'لم يتم العثور على هذه الجلسة.',
+    'error.TABLE_SESSION_ALREADY_OPEN': 'لدى هذه الطاولة جلسة مفتوحة بالفعل.',
+    'error.SESSION_HAS_PENDING_ORDERS':
+      'في هذه الجلسة طلبات قيد الانتظار. اختر إبقاءها أو رفضها ثم حاول مرة أخرى.',
+    'error.SESSION_NOT_CLOSED': 'لا يمكن تسجيل الدفع إلا على جلسة مغلقة.',
+    'error.NOTHING_TO_SETTLE': 'لا يوجد رصيد مستحق على هذه الجلسة.',
+    'error.PAYMENT_AMOUNT_MISMATCH':
+      'تغيّر الرصيد أثناء عملك. راجع الرصيد المحدّث ثم حاول مرة أخرى.',
+    'error.PAYMENT_NOT_FOUND': 'لم يتم العثور على سجل الدفع.',
+    'error.PAYMENT_ALREADY_VOIDED': 'تم إلغاء سجل الدفع هذا بالفعل.',
+    'error.ORDER_CANCEL_BLOCKED_BY_SETTLEMENT':
+      'لا يمكن إلغاء هذا الطلب لأن جلسة الطاولة لها دفعة مسجلة. ألغِ سجل الدفع أولًا.',
     'error.TABLE_NUMBER_ALREADY_EXISTS': 'توجد طاولة بهذا الرقم في هذا الفرع بالفعل.',
   },
 });
