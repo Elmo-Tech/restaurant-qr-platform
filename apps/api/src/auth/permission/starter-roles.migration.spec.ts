@@ -9,6 +9,16 @@ const MIGRATION = join(
   '../../../prisma/migrations/20261008090100_restaurant_roles/migration.sql',
 );
 
+/**
+ * Permissions added AFTER the FT-12C backfill. Existing Restaurants receive them
+ * through their own, later data migrations (see
+ * `sessions-open-permission.migration.spec.ts`), so the original seed SQL is
+ * compared against the template WITHOUT them.
+ */
+const ADDED_AFTER_BACKFILL: readonly string[] = ['sessions.open'];
+const withoutLaterAdditions = (keys: readonly string[]): string[] =>
+  keys.filter((key) => !ADDED_AFTER_BACKFILL.includes(key));
+
 interface SeedRow {
   name: string;
   kind: string;
@@ -47,11 +57,13 @@ describe('FT-12C starter Role backfill migration', () => {
     const template = starterRoleData(kind);
 
     expect(sqlRow?.name).toBe(template.name);
-    expect(sqlRow?.permissions).toEqual(template.permissions);
+    expect(sqlRow?.permissions).toEqual(withoutLaterAdditions(template.permissions));
   });
 
   it('the Owner seed holds every canonical Permission', () => {
-    expect(rows.find((row) => row.kind === 'OWNER')?.permissions).toEqual([...ALL_PERMISSIONS]);
+    expect(rows.find((row) => row.kind === 'OWNER')?.permissions).toEqual(
+      withoutLaterAdditions(ALL_PERMISSIONS),
+    );
   });
 
   it('only the Owner seed holds roles.manage', () => {

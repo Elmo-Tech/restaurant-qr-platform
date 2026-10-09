@@ -176,6 +176,15 @@ export class OrdersController {
         },
       });
     }
+    if (result.outcome === 'cancelBlockedBySettlement') {
+      throw new ConflictException({
+        error: {
+          code: 'ORDER_CANCEL_BLOCKED_BY_SETTLEMENT',
+          message:
+            'This order cannot be cancelled while its table session has a recorded payment. Void the payment first.',
+        },
+      });
+    }
     if (result.outcome === 'staleStatus') {
       throw new ConflictException(orderStatusChangedResponse(result.currentStatus));
     }

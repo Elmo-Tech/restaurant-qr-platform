@@ -683,6 +683,8 @@ if guests decide to continue ordering.
 # 35. PAID or CLOSED Session
 
 > **Amended 2026-10-09:** orders can only be attached to an OPEN session; a CLOSED session is never reopened or written to (backend lock order plus database triggers). "PAID" is no longer a session status.
+>
+> **Cancel guard (2026-10-10, decision P5):** an ACCEPTED or PREPARING order whose session has an active (non-voided) payment cannot be cancelled (`409 ORDER_CANCEL_BLOCKED_BY_SETTLEMENT`); staff void the payment first (an audited correction, not a refund). Accepting and cancelling take the session lock so a payment can never race them. Rejecting the round-1 order of an auto-opened session may close that session (see TABLE_SESSION_SPEC amendment v3). No other transition rule changes.
 
 New Dine-In Orders must be rejected when the resolved Table Session is:
 

@@ -1,3 +1,8 @@
+import {
+  assertSandboxIdentity,
+  assertSandboxUrl,
+  SANDBOX_URL,
+} from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from './../src/generated/prisma/client';
@@ -9,75 +14,9 @@ import { isClosedSessionTriggerViolation } from './../src/table-sessions/table-s
  * session creation/attachment, round allocation, the table lock, idempotency,
  * the CHECK / partial-unique / composite-FK integrity and both triggers.
  *
- * ISOLATION (these tests write data and must NEVER touch the development or any
- * production database). They only run when TABLE_SESSION_IT_DATABASE_URL is
- * set -- deliberately NOT DATABASE_URL -- and then refuse to continue unless
- * ALL of these hold:
- *   1. the URL is local (localhost / 127.0.0.1);
- *   2. the login role is the dedicated sandbox role `restaurant_qr_it`, which
- *      owns the sandbox database and has no privileges on any other database's
- *      tables (so a wrong URL fails with "permission denied" anyway);
- *   3. the database name matches ^restaurant_qr_[a-z0-9_]+_test$;
- *   4. the database name and role differ from the root `.env` DATABASE_URL;
- *   5. the connected database carries the explicit sandbox marker comment
- *      `restaurant-qr-integration-sandbox` (set once when it is created; the
- *      development database never has it).
- * Without the variable the whole suite is skipped.
+ * Isolation: see `support/sandbox-guard.ts` (sandbox-only, identity-checked,
+ * skipped without TABLE_SESSION_IT_DATABASE_URL).
  */
-
-const SANDBOX_URL = process.env.TABLE_SESSION_IT_DATABASE_URL;
-const SANDBOX_MARKER = 'restaurant-qr-integration-sandbox';
-const SANDBOX_ROLE = 'restaurant_qr_it';
-
-function developmentTarget(): { database: string | null; user: string | null } {
-  try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const dotenv = require('dotenv') as typeof import('dotenv');
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const path = require('node:path') as typeof import('node:path');
-    const parsed = dotenv.parse(
-      // eslint-disable-next-line @typescript-eslint/no-require-imports
-      (require('node:fs') as typeof import('node:fs')).readFileSync(
-        path.resolve(__dirname, '..', '..', '..', '.env'),
-      ),
-    );
-    if (!parsed.DATABASE_URL) {
-      return { database: null, user: null };
-    }
-    const url = new URL(parsed.DATABASE_URL);
-    return {
-      database: url.pathname.replace(/^\//, ''),
-      user: decodeURIComponent(url.username),
-    };
-  } catch {
-    return { database: null, user: null };
-  }
-}
-
-function assertSandboxUrl(rawUrl: string): void {
-  const url = new URL(rawUrl);
-  const database = url.pathname.replace(/^\//, '');
-  const user = decodeURIComponent(url.username);
-  const dev = developmentTarget();
-  if (!['localhost', '127.0.0.1'].includes(url.hostname)) {
-    throw new Error(
-      `Refusing to run: sandbox host must be local, got ${url.hostname}`,
-    );
-  }
-  if (user !== SANDBOX_ROLE) {
-    throw new Error(`Refusing to run: login role must be ${SANDBOX_ROLE}`);
-  }
-  if (!/^restaurant_qr_[a-z0-9_]+_test$/.test(database)) {
-    throw new Error(
-      `Refusing to run: database name "${database}" is not a sandbox name`,
-    );
-  }
-  if (dev.database === database || dev.user === user) {
-    throw new Error(
-      'Refusing to run: sandbox target equals the development database or role',
-    );
-  }
-}
 
 const describeSandbox = SANDBOX_URL ? describe : describe.skip;
 
@@ -103,20 +42,11 @@ describeSandbox('Table Sessions Slice 1 (real PostgreSQL)', () => {
       }),
     });
     await prisma.$connect();
-    const identity = await prisma.$queryRaw<
-      { db: string; usr: string; marker: string | null }[]
-    >`SELECT current_database() AS db, current_user::text AS usr,
-              shobj_description(d.oid, 'pg_database') AS marker
-         FROM pg_database d WHERE d.datname = current_database()`;
-    if (
-      identity.length !== 1 ||
-      identity[0].marker !== SANDBOX_MARKER ||
-      identity[0].usr !== SANDBOX_ROLE
-    ) {
+    try {
+      await assertSandboxIdentity(prisma);
+    } catch (error) {
       await prisma.$disconnect();
-      throw new Error(
-        'Refusing to run: connected database is not the marked integration sandbox',
-      );
+      throw error;
     }
     service = new PublicOrdersService(prisma as never);
   });

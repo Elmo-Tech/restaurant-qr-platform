@@ -18,6 +18,7 @@ import { PublicModule } from './public/public.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
 import { StaffModule } from './staff/staff.module';
 import { TablesModule } from './tables/tables.module';
+import { TableSessionsModule } from './table-sessions/table-sessions.module';
 
 // This repository owns a single root-level .env / .env.example. Resolving
 // it relative to this file's own location (rather than process.cwd()) keeps
@@ -40,6 +41,7 @@ const rootEnvFilePath = path.resolve(__dirname, '..', '..', '..', '.env');
     StaffModule,
     MenuModule,
     OrdersModule,
+    TableSessionsModule,
     DashboardModule,
     DeliveryModule,
     QrModule,

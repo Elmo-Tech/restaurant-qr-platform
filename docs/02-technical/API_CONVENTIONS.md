@@ -451,9 +451,7 @@ Authenticated Restaurant actions use explicit tenant-scoped routes.
 
 Examples:
 
-`POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/resume`
-
-`POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/mark-paid`
+> **Amended 2026-10-10 (Table Sessions design v3, implemented):** `/resume` and `/mark-paid` no longer exist. The implemented actions are `POST .../table-sessions` (manual open), `POST .../table-sessions/{sessionId}/close`, `POST .../table-sessions/{sessionId}/payments` and `POST .../table-sessions/{sessionId}/payments/{paymentId}/void`. `{sessionId}` is the session's opaque `publicId`. See #101-#105.
 
 `POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/close`
 
@@ -1748,6 +1746,8 @@ Potential filters:
 
 # 102. Table Session Detail
 
+> **Implemented 2026-10-10:** `GET .../table-sessions` (filters `branchId`, `tableId`, `status`, `payment` incl. `OUTSTANDING`, `limit` <= 200, newest first; cursor pagination remains a follow-up like Orders) and `GET .../table-sessions/{sessionId}` (rounds grouped by round, running bill from order snapshots, derived payment status, payments, audit events). Permission `sessions.view`; Branch scope resolved per session; foreign or out-of-scope sessions are `404 TABLE_SESSION_NOT_FOUND`.
+
 `GET /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}`
 
 May include:
@@ -1762,13 +1762,15 @@ according to permission.
 
 ---
 
-# 103. Mark Paid
+# 103. Record Payment (implemented 2026-10-10)
 
-`POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/mark-paid`
+`POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/payments`
 
-Permission:
+Permission: `sessions.settle`
 
-`sessions.settle`
+Body: `{ clientRequestId (uuid), method (CASH|CARD|OTHER), expectedAmount (decimal string), note? }`. Full-balance settlement of a CLOSED session only (V1). The Backend records its own computed balance; `expectedAmount` must equal it (`409 PAYMENT_AMOUNT_MISMATCH` with `details.balance`). Idempotent per `(session, clientRequestId)`. Errors: `SESSION_NOT_CLOSED`, `NOTHING_TO_SETTLE`, `TABLE_SESSION_NOT_FOUND`.
+
+Void: `POST .../table-sessions/{sessionId}/payments/{paymentId}/void` with `{ reason }` (mandatory), permission `sessions.settle`. An audited accounting correction, never a refund. Errors: `PAYMENT_NOT_FOUND`, `PAYMENT_ALREADY_VOIDED`.
 
 V1 means external payment confirmed.
 
@@ -1778,26 +1780,17 @@ V1 means external payment confirmed.
 
 `POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/close`
 
-Permission:
+Permission: `sessions.close`
 
-`sessions.close`
+Body: `{ pendingOrders?: KEEP|REJECT, reason?: NORMAL|STAFF_CORRECTION|OTHER }`. When PENDING orders exist the choice is mandatory (`409 SESSION_HAS_PENDING_ORDERS`, `details.pendingOrderCount`); REJECT also needs `orders.reject`. Closing never touches payment, locks Table QR ordering (`Table.staffOpenRequired`) and is idempotent.
 
-Backend validates unresolved Orders.
+(Amended 2026-10-10.)
 
 ---
 
 # 105. Resume Session
 
-`POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/resume`
-
-Expected:
-
-PAYMENT_PENDING
-→ OPEN
-
-Permission:
-
-`sessions.resume`
+> **Superseded 2026-10-10:** there is no PAYMENT_PENDING status and no resume. A closed session is never reopened; staff open a NEW session with `POST /api/v1/restaurants/{restaurantId}/table-sessions` (`{ tableId }`, permission `sessions.open`, `409 TABLE_SESSION_ALREADY_OPEN` when one is already open).
 
 ---
 

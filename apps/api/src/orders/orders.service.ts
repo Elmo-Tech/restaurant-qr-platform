@@ -7,6 +7,11 @@ import { hasPermission } from '../auth/permission/has-permission';
 import type { OrderStatus, OrderType } from '../generated/prisma/client';
 import { findOrderTransitionRule } from './order-transitions';
 import { resolveOrderBranchIdFilter } from './order-branch-scope';
+import {
+  autoCloseAfterFirstOrderRejection,
+  CancelBlockedBySettlementError,
+  prepareOrderTransition,
+} from '../table-sessions/table-session-order-hooks';
 
 /** Safe Staff-facing Order List row (Section 16/17). Never internal FK ids beyond what Staff needs to render/navigate, never Guest-only fields. */
 export interface OrderListItem {
@@ -105,6 +110,8 @@ export type UpdateOrderStatusResult =
   | { outcome: 'notFound' }
   | { outcome: 'invalidTransition' }
   | { outcome: 'permissionDenied' }
+  /** Table Sessions (P5): the order's session has an active payment, so it cannot be cancelled until that payment is voided. */
+  | { outcome: 'cancelBlockedBySettlement' }
   | { outcome: 'staleStatus'; currentStatus: OrderStatus };
 
 function formatMoney(value: { toFixed(digits: number): string }): string {
@@ -341,7 +348,14 @@ export class OrdersService {
 
     const order = await this.prisma.order.findFirst({
       where: { id: input.orderId, restaurantId: input.scope.restaurantId },
-      select: { id: true, branchId: true, status: true, type: true },
+      select: {
+        id: true,
+        branchId: true,
+        status: true,
+        type: true,
+        tableSessionId: true,
+        roundNumber: true,
+      },
     });
     if (!order) {
       return { outcome: 'notFound' };
@@ -372,28 +386,57 @@ export class OrdersService {
     // `updateMany` (`WHERE status = expectedStatus`) remains the actual
     // race-safety guarantee (Section 14 note above); the event insert only
     // ever runs when that write genuinely changed a row.
-    const written = await this.prisma.$transaction(async (tx) => {
-      const result = await tx.order.updateMany({
-        where: {
-          id: order.id,
-          restaurantId: input.scope.restaurantId,
-          status: input.expectedStatus,
-        },
-        data: { status: input.status },
-      });
-      if (result.count > 0) {
-        await tx.orderStatusEvent.create({
-          data: {
+    let written: { count: number };
+    try {
+      written = await this.prisma.$transaction(async (tx) => {
+        // Table Sessions: take the session locks (and enforce the cancel-after-
+        // payment guard) BEFORE the conditional update. A session-less order
+        // (legacy, Pickup, Delivery) skips this entirely.
+        const prepared = await prepareOrderTransition(
+          tx,
+          {
             restaurantId: input.scope.restaurantId,
             branchId: order.branchId,
-            orderId: order.id,
-            previousStatus: input.expectedStatus,
-            newStatus: input.status,
+            tableSessionId: order.tableSessionId,
+            roundNumber: order.roundNumber,
           },
+          input.status,
+        );
+        const result = await tx.order.updateMany({
+          where: {
+            id: order.id,
+            restaurantId: input.scope.restaurantId,
+            status: input.expectedStatus,
+          },
+          data: { status: input.status },
         });
+        if (result.count > 0) {
+          await tx.orderStatusEvent.create({
+            data: {
+              restaurantId: input.scope.restaurantId,
+              branchId: order.branchId,
+              orderId: order.id,
+              previousStatus: input.expectedStatus,
+              newStatus: input.status,
+            },
+          });
+          if (prepared.checkFirstOrderAutoClose && order.tableSessionId) {
+            await autoCloseAfterFirstOrderRejection(tx, {
+              sessionId: order.tableSessionId,
+              restaurantId: input.scope.restaurantId,
+              branchId: order.branchId,
+              rejectedOrderId: order.id,
+            });
+          }
+        }
+        return result;
+      });
+    } catch (error) {
+      if (error instanceof CancelBlockedBySettlementError) {
+        return { outcome: 'cancelBlockedBySettlement' };
       }
-      return result;
-    });
+      throw error;
+    }
 
     if (written.count === 0) {
       // Section 14: another request changed the status between our read

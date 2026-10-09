@@ -6,7 +6,8 @@
  *
  * 28 canonical keys as documented in AUTH_TENANCY_SPEC.md §48, plus
  * `roles.manage` (FT-12C) -- the one key needed to create, edit and delete
- * Restaurant Roles.
+ * Restaurant Roles, plus `sessions.open` (Table Sessions design v3, D3) -- the
+ * key for manually opening a Table Session.
  */
 export const PERMISSIONS = {
   RESTAURANT_VIEW: 'restaurant.view',
@@ -30,6 +31,7 @@ export const PERMISSIONS = {
   KITCHEN_VIEW: 'kitchen.view',
   KITCHEN_UPDATE: 'kitchen.update',
   SESSIONS_VIEW: 'sessions.view',
+  SESSIONS_OPEN: 'sessions.open',
   SESSIONS_RESUME: 'sessions.resume',
   SESSIONS_SETTLE: 'sessions.settle',
   SESSIONS_CLOSE: 'sessions.close',

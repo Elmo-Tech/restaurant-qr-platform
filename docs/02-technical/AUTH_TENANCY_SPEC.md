@@ -834,7 +834,8 @@ Initial Permission keys:
 ### Table Sessions
 
 - `sessions.view`
-- `sessions.resume`
+- `sessions.open` (added 2026-10-10, Table Sessions design v3 decision D3: manually open a session)
+- `sessions.resume` (reserved: PAYMENT_PENDING no longer exists; the key stays registered so stored roles remain valid)
 - `sessions.settle`
 - `sessions.close`
 
@@ -898,6 +899,7 @@ MANAGER normally receives:
 - kitchen.view
 - kitchen.update
 - sessions.view
+- sessions.open (added 2026-10-10)
 - sessions.resume
 - sessions.settle
 - sessions.close
@@ -930,6 +932,7 @@ CASHIER normally receives:
 - orders.cancel
 - orders.markServed
 - sessions.view
+- sessions.open (added 2026-10-10)
 - sessions.resume
 - sessions.settle
 - sessions.close

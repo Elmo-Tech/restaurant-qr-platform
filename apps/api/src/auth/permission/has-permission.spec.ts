@@ -45,6 +45,7 @@ const EXPECTED_GRANTS: Record<StarterRoleKind, ReadonlySet<Permission>> = {
     PERMISSIONS.KITCHEN_VIEW,
     PERMISSIONS.KITCHEN_UPDATE,
     PERMISSIONS.SESSIONS_VIEW,
+    PERMISSIONS.SESSIONS_OPEN,
     PERMISSIONS.SESSIONS_RESUME,
     PERMISSIONS.SESSIONS_SETTLE,
     PERMISSIONS.SESSIONS_CLOSE,
@@ -66,6 +67,7 @@ const EXPECTED_GRANTS: Record<StarterRoleKind, ReadonlySet<Permission>> = {
     PERMISSIONS.ORDERS_CANCEL,
     PERMISSIONS.ORDERS_MARK_SERVED,
     PERMISSIONS.SESSIONS_VIEW,
+    PERMISSIONS.SESSIONS_OPEN,
     PERMISSIONS.SESSIONS_RESUME,
     PERMISSIONS.SESSIONS_SETTLE,
     PERMISSIONS.SESSIONS_CLOSE,
@@ -96,8 +98,8 @@ const EXPECTED_GRANTS: Record<StarterRoleKind, ReadonlySet<Permission>> = {
 };
 
 describe('ALL_PERMISSIONS', () => {
-  it('has exactly 29 canonical Permission keys (the 28 documented V1 keys plus roles.manage)', () => {
-    expect(ALL_PERMISSIONS).toHaveLength(29);
+  it('has exactly 30 canonical Permission keys (the 28 documented V1 keys plus roles.manage and sessions.open)', () => {
+    expect(ALL_PERMISSIONS).toHaveLength(30);
     expect(ALL_PERMISSIONS).toContain(PERMISSIONS.ROLES_MANAGE);
   });
 

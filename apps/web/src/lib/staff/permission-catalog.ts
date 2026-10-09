@@ -73,6 +73,7 @@ export const PERMISSION_GROUPS: readonly PermissionGroupDef[] = [
     label: 'roles.group.service',
     permissions: [
       { key: 'sessions.view', label: 'roles.perm.sessions.view' },
+      { key: 'sessions.open', label: 'roles.perm.sessions.open' },
       { key: 'sessions.resume', label: 'roles.perm.sessions.resume' },
       { key: 'sessions.settle', label: 'roles.perm.sessions.settle' },
       { key: 'sessions.close', label: 'roles.perm.sessions.close' },
