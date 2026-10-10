@@ -836,7 +836,7 @@ Initial Permission keys:
 - `sessions.view`
 - `sessions.open` (added 2026-10-10, Table Sessions design v3 decision D3: manually open a session)
 - `sessions.resume` (reserved: PAYMENT_PENDING no longer exists; the key stays registered so stored roles remain valid)
-- `sessions.settle`
+- `sessions.settle` (deferred 2026-10-10, DEC-035: no V1 route requires it; the key stays registered so stored roles remain valid)
 - `sessions.close`
 
 ### Service Requests
@@ -940,6 +940,8 @@ CASHIER normally receives:
 - serviceRequests.handle
 
 Cashier may operate payment / settlement workflow.
+
+> **Amended 2026-10-10 (DEC-035):** V1 has no payment or settlement workflow; `sessions.settle` is inert and the Cashier role operates Table Sessions only through `sessions.view`, `sessions.open` and `sessions.close`.
 
 ---
 

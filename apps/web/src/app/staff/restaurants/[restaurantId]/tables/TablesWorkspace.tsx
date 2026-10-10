@@ -32,11 +32,10 @@ import {
   LifecycleBadge,
   Money,
   OrderingBadge,
-  PaymentStatusBadge,
   useDurationLabel,
 } from './SessionBadges';
-import { SessionDrawer } from './SessionDrawer';
-import { UnpaidBillsPanel } from './UnpaidBillsPanel';
+import { SessionDrawer, type SessionDrawerIntent } from './SessionDrawer';
+import { SessionHistoryPanel } from './SessionHistoryPanel';
 
 export interface TablesWorkspaceProps {
   restaurantId: string;
@@ -95,18 +94,21 @@ export function TablesWorkspace({
 
   const [qrTarget, setQrTarget] = useState<TableRow | null>(null);
 
-  // Table Sessions: ONE workspace. The board (availability, live session, old unpaid bills)
-  // is read from the Backend per Branch; sessions are viewed in a panel, never on a second
-  // disconnected screen.
-  const [view, setView] = useState<'tables' | 'unpaid'>('tables');
+  // Table Sessions: ONE workspace. The board (availability and the live session) is read
+  // from the Backend per Branch; sessions are viewed in a panel, never on a second
+  // disconnected screen. Past sessions stay reachable through the history view.
+  const [view, setView] = useState<'tables' | 'past'>('tables');
   const [board, setBoard] = useState<TableBoardRow[] | null>(null);
   const [boardError, setBoardError] = useState<string | null>(null);
-  const [drawerSessionId, setDrawerSessionId] = useState<string | null>(null);
+  const [drawerTarget, setDrawerTarget] = useState<{
+    id: string;
+    intent?: SessionDrawerIntent;
+  } | null>(null);
   const [openTarget, setOpenTarget] = useState<TableRow | null>(null);
   const [isOpening, setIsOpening] = useState(false);
   const [openError, setOpenError] = useState<string | null>(null);
-  const [unpaidTable, setUnpaidTable] = useState<{ id: string; tableNumber: string } | null>(null);
-  const [unpaidRefreshKey, setUnpaidRefreshKey] = useState(0);
+  const [pastTable, setPastTable] = useState<{ id: string; tableNumber: string } | null>(null);
+  const [historyRefreshKey, setHistoryRefreshKey] = useState(0);
   const boardRequestRef = useRef(0);
 
   const tablesRequestRef = useRef(0);
@@ -198,7 +200,7 @@ export function TablesWorkspace({
     if (selectedBranchId) {
       void loadBoard(selectedBranchId, { silent: true });
     }
-    setUnpaidRefreshKey((key) => key + 1);
+    setHistoryRefreshKey((key) => key + 1);
   }
 
   async function handleOpenSession() {
@@ -209,7 +211,7 @@ export function TablesWorkspace({
       const opened = await sessionsApi.openSession(restaurantId, openTarget.id);
       setOpenTarget(null);
       handleSessionChanged();
-      setDrawerSessionId(opened.id);
+      setDrawerTarget({ id: opened.id });
     } catch (error) {
       if (isUnauthenticatedError(error)) {
         redirectToLogin();
@@ -379,7 +381,7 @@ export function TablesWorkspace({
 
           {sessionCaps.canView ? (
             <div role="group" aria-label={t('tables.title')} className="flex flex-wrap items-center gap-2">
-              {(['tables', 'unpaid'] as const).map((option) => (
+              {(['tables', 'past'] as const).map((option) => (
                 <button
                   key={option}
                   type="button"
@@ -408,15 +410,15 @@ export function TablesWorkspace({
             <Alert variant="error">{boardError}</Alert>
           ) : null}
 
-          {sessionCaps.canView && view === 'unpaid' ? (
-            <UnpaidBillsPanel
+          {sessionCaps.canView && view === 'past' ? (
+            <SessionHistoryPanel
               restaurantId={restaurantId}
               branches={branches}
               initialBranchId={selectedBranchId}
-              tableFilter={unpaidTable}
-              refreshKey={unpaidRefreshKey}
-              onClearTableFilter={() => setUnpaidTable(null)}
-              onOpenSession={setDrawerSessionId}
+              tableFilter={pastTable}
+              refreshKey={historyRefreshKey}
+              onClearTableFilter={() => setPastTable(null)}
+              onOpenSession={(id) => setDrawerTarget({ id })}
             />
           ) : null}
 
@@ -467,10 +469,10 @@ export function TablesWorkspace({
                     setOpenError(null);
                     setOpenTarget(table);
                   }}
-                  onViewSession={setDrawerSessionId}
-                  onViewUnpaid={() => {
-                    setUnpaidTable({ id: table.id, tableNumber: table.tableNumber });
-                    setView('unpaid');
+                  onViewSession={(id, intent) => setDrawerTarget({ id, intent })}
+                  onViewHistory={() => {
+                    setPastTable({ id: table.id, tableNumber: table.tableNumber });
+                    setView('past');
                   }}
                 />
               ))}
@@ -493,13 +495,14 @@ export function TablesWorkspace({
         />
       ) : null}
 
-      {drawerSessionId ? (
+      {drawerTarget ? (
         <SessionDrawer
-          key={drawerSessionId}
+          key={`${drawerTarget.id}:${drawerTarget.intent ?? ''}`}
           restaurantId={restaurantId}
-          sessionId={drawerSessionId}
+          sessionId={drawerTarget.id}
           caps={sessionCaps}
-          onClose={() => setDrawerSessionId(null)}
+          intent={drawerTarget.intent}
+          onClose={() => setDrawerTarget(null)}
           onChanged={handleSessionChanged}
         />
       ) : null}
@@ -530,7 +533,7 @@ function TableCard({
   sessionCaps,
   onOpenSession,
   onViewSession,
-  onViewUnpaid,
+  onViewHistory,
 }: {
   table: TableRow;
   branchName: string | null;
@@ -541,8 +544,8 @@ function TableCard({
   board: TableBoardRow | null;
   sessionCaps: SessionCapabilities;
   onOpenSession: () => void;
-  onViewSession: (sessionId: string) => void;
-  onViewUnpaid: () => void;
+  onViewSession: (sessionId: string, intent?: SessionDrawerIntent) => void;
+  onViewHistory: () => void;
 }) {
   const { t, tp } = useStaffI18n();
   const now = useNow();
@@ -589,25 +592,22 @@ function TableCard({
           <div className="flex flex-wrap items-center gap-2">
             <OrderingBadge state={board.ordering} />
             {open ? (
-              <>
-                <LifecycleBadge status={open.status} />
-                <PaymentStatusBadge status={open.bill.paymentStatus} />
-              </>
+              <LifecycleBadge status={open.status} />
             ) : null}
           </div>
 
           {open ? (
             <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
               <div>
-                <dt className="text-muted-foreground">{t('sessions.card.runningBill')}</dt>
+                <dt className="text-muted-foreground">{t('sessions.card.acceptedTotal')}</dt>
                 <dd className="text-sm font-semibold text-foreground">
-                  <Money amount={open.bill.eligibleTotal} currency={open.currencyCode} />
+                  <Money amount={open.totals.acceptedTotal} currency={open.currencyCode} />
                 </dd>
               </div>
               <div>
                 <dt className="text-muted-foreground">{t('sessions.detail.duration')}</dt>
                 <dd className="text-sm font-medium text-foreground">
-                  <bdi dir="ltr">{durationLabel(minutesBetween(open.openedAt, now))}</bdi>
+                  <bdi dir="auto">{durationLabel(minutesBetween(open.openedAt, now))}</bdi>
                 </dd>
               </div>
               <div>
@@ -630,29 +630,38 @@ function TableCard({
             <p className="text-xs text-muted-foreground">{t('sessions.noOpenSession')}</p>
           )}
 
-          {board.outstanding ? (
-            <button
-              type="button"
-              onClick={onViewUnpaid}
-              className="rounded-md bg-warning-soft px-2.5 py-1.5 text-start text-xs font-medium text-warning hover:underline focus-visible:ring-2 focus-visible:ring-ring"
-            >
-              {tp('sessions.card.oldUnpaid', board.outstanding.sessionCount, {
-                amount: `${board.outstanding.balance} ${board.outstanding.currencyCode}`,
-              })}
-            </button>
-          ) : null}
-
           <div className="flex flex-wrap gap-2">
             {open ? (
-              <Button variant="secondary" size="sm" onClick={() => onViewSession(open.id)}>
-                {t('sessions.action.view')}
-              </Button>
+              <>
+                <Button variant="secondary" size="sm" onClick={() => onViewSession(open.id)}>
+                  {t('sessions.action.view')}
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => onViewSession(open.id, 'summary')}
+                >
+                  {t('sessions.action.summary')}
+                </Button>
+                {sessionCaps.canClose ? (
+                  <Button
+                    variant="secondary"
+                    size="sm"
+                    onClick={() => onViewSession(open.id, 'close')}
+                  >
+                    {t('sessions.action.close')}
+                  </Button>
+                ) : null}
+              </>
             ) : null}
             {!open && board.ordering !== 'UNAVAILABLE' && sessionCaps.canOpen ? (
               <Button size="sm" onClick={onOpenSession}>
                 {t('sessions.action.open')}
               </Button>
             ) : null}
+            <Button variant="ghost" size="sm" onClick={onViewHistory}>
+              {t('sessions.action.history')}
+            </Button>
           </div>
         </div>
       ) : null}

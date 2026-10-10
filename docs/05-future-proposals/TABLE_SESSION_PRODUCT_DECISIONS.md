@@ -1,5 +1,7 @@
 # Table Sessions: Product Decisions (final)
 
+> **Amended 2026-10-10 (DEC-035):** decisions about payment (P5 void/refund wording, settlement, derived payment status, D2, D4, D10, D11, D12) are **deferred**: V1 is a QR menu and ordering platform, not a POS or accounting system. Payment is not recorded, voided or shown; see `TABLE_SESSION_SPEC.md` amendment v4.
+
 Companion to `TABLE_SESSION_CLOSURE_AND_PAYMENT_DESIGN.md` (v3). Decisions below were made by the product owner on 2026-10-09 and are the reference for Slice 1 onward. Anything not listed here follows the design document.
 
 Earlier decisions (design review): D1 OPEN/CLOSED lifecycle, D2 payment never blocks ordering, D3 `sessions.open` with a safe migration, D4 derived payment status, D8 legacy orders stay session-less, D9 locking and trigger approach, D10 CASH / CARD / OTHER, D11 settle closed sessions without reopening, D12 zero-charge sessions. D5, D6 and D7 were revisited and are resolved by P3, P5 and P4 below.

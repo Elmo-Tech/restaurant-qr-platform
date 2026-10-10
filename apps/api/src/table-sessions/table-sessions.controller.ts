@@ -24,16 +24,18 @@ import { CloseSessionDto } from './dto/close-session.dto';
 import { ListSessionsQueryDto } from './dto/list-sessions-query.dto';
 import { BoardQueryDto } from './dto/board-query.dto';
 import { OpenSessionDto } from './dto/open-session.dto';
-import { RecordPaymentDto } from './dto/record-payment.dto';
-import { VoidPaymentDto } from './dto/void-payment.dto';
+import {
+  toStaffBoardRow,
+  toStaffDetail,
+  toStaffListItem,
+  toStaffSummary,
+  type StaffSessionDetail,
+  type StaffSessionListItem,
+  type StaffSessionSummaryDocument,
+  type StaffTableBoardRow,
+} from './session-v1-view';
 import { TableSessionsService } from './table-sessions.service';
-import type {
-  SessionBillDocument,
-  SessionDetail,
-  SessionListItem,
-  SessionScope,
-  TableBoardRow,
-} from './table-sessions.service';
+import type { SessionScope } from './table-sessions.service';
 
 /** One stable, existence-hiding response for an unknown, foreign-Restaurant or out-of-Branch-scope session. */
 const SESSION_NOT_FOUND_RESPONSE = {
@@ -55,11 +57,11 @@ const PERMISSION_DENIED_RESPONSE = {
 };
 
 interface SessionListResponseBody {
-  data: SessionListItem[];
+  data: StaffSessionListItem[];
 }
 
 interface SessionDetailResponseBody {
-  data: SessionDetail;
+  data: StaffSessionDetail;
 }
 
 function scopeOf(request: RestaurantAuthorizedRequest): SessionScope {
@@ -74,14 +76,19 @@ function scopeOf(request: RestaurantAuthorizedRequest): SessionScope {
 }
 
 /**
- * Staff Table Session routes (Table Sessions design v3). Like Orders, sessions
- * are operational Branch data: there is deliberately NO `AllBranchesRequiredGuard`
- * and no `:branchId` path segment; Branch scope is resolved per row inside
- * `TableSessionsService`. Each route carries ONE static Permission:
- * `sessions.view` (reads), `sessions.open`, `sessions.close`, `sessions.settle`
- * (record and void payments). Closing with `pendingOrders: "REJECT"` additionally
- * needs `orders.reject`, which a static guard cannot express, so the service
- * checks it and reports `permissionDenied`.
+ * Staff Table Session routes (Table Sessions design v3, V1 scope correction).
+ * Like Orders, sessions are operational Branch data: there is deliberately NO
+ * `AllBranchesRequiredGuard` and no `:branchId` path segment; Branch scope is
+ * resolved per row inside `TableSessionsService`. Each route carries ONE static
+ * Permission: `sessions.view` (reads), `sessions.open`, `sessions.close`.
+ * Closing with `pendingOrders: "REJECT"` additionally needs `orders.reject`,
+ * which a static guard cannot express, so the service checks it and reports
+ * `permissionDenied`.
+ *
+ * V1 manages no payments: there is deliberately NO route that records or voids
+ * a payment, and every response goes through `session-v1-view.ts`, which
+ * carries order totals only. The payment ledger and its service methods are
+ * deferred POS-integration infrastructure that no V1 client can reach.
  */
 @Controller('restaurants/:restaurantId/table-sessions')
 export class TableSessionsController {
@@ -98,16 +105,15 @@ export class TableSessionsController {
       branchId: query.branchId,
       tableId: query.tableId,
       status: query.status,
-      payment: query.payment,
       limit: query.limit,
     });
-    return { data };
+    return { data: data.map(toStaffListItem) };
   }
 
   /**
    * Dashboard board: every table in the caller's Branch scope with its ordering
-   * availability, live session summary and old unpaid closed bills. Declared
-   * BEFORE `:sessionId` so "board" is never read as a session id.
+   * availability and live session summary. Declared BEFORE `:sessionId` so
+   * "board" is never read as a session id.
    */
   @Get('board')
   @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
@@ -115,11 +121,11 @@ export class TableSessionsController {
   async board(
     @Query() query: BoardQueryDto,
     @Req() request: RestaurantAuthorizedRequest,
-  ): Promise<{ data: TableBoardRow[] }> {
+  ): Promise<{ data: StaffTableBoardRow[] }> {
     const data = await this.sessions.getBoard(scopeOf(request), {
       branchId: query.branchId,
     });
-    return { data };
+    return { data: data.map(toStaffBoardRow) };
   }
 
   @Post()
@@ -153,7 +159,7 @@ export class TableSessionsController {
         },
       });
     }
-    return { data: result.data };
+    return { data: toStaffDetail(result.data) };
   }
 
   @Get(':sessionId')
@@ -167,24 +173,29 @@ export class TableSessionsController {
     if (result.outcome === 'notFound') {
       throw new NotFoundException(SESSION_NOT_FOUND_RESPONSE);
     }
-    return { data: result.data };
+    return { data: toStaffDetail(result.data) };
   }
 
+  /**
+   * The combined table order summary document (accepted orders by round, pending
+   * orders separately, order totals). The route keeps its `/bill` path for
+   * contract stability; it carries no payment information.
+   */
   @Get(':sessionId/bill')
   @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
   @RequirePermission(PERMISSIONS.SESSIONS_VIEW)
   async bill(
     @Param('sessionId') sessionId: string,
     @Req() request: RestaurantAuthorizedRequest,
-  ): Promise<{ data: SessionBillDocument }> {
+  ): Promise<{ data: StaffSessionSummaryDocument }> {
     const result = await this.sessions.getBill(scopeOf(request), sessionId);
     if (result.outcome === 'notFound') {
       throw new NotFoundException(SESSION_NOT_FOUND_RESPONSE);
     }
-    return { data: result.data };
+    return { data: toStaffSummary(result.data) };
   }
 
-  /** Audit only: the staff member pressed Print. Changes nothing about the session. */
+  /** Audit only: the staff member pressed Print on the order summary. Changes nothing about the session. */
   @Post(':sessionId/bill/printed')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard)
@@ -233,95 +244,6 @@ export class TableSessionsController {
         },
       });
     }
-    return { data: result.data };
-  }
-
-  @Post(':sessionId/payments')
-  @HttpCode(HttpStatus.CREATED)
-  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard)
-  @RequirePermission(PERMISSIONS.SESSIONS_SETTLE)
-  async recordPayment(
-    @Param('sessionId') sessionId: string,
-    @Body() dto: RecordPaymentDto,
-    @Req() request: RestaurantAuthorizedRequest,
-  ): Promise<SessionDetailResponseBody> {
-    const result = await this.sessions.recordPayment(
-      scopeOf(request),
-      sessionId,
-      {
-        clientRequestId: dto.clientRequestId,
-        method: dto.method,
-        expectedAmount: dto.expectedAmount,
-        note: dto.note,
-      },
-    );
-    if (result.outcome === 'notFound') {
-      throw new NotFoundException(SESSION_NOT_FOUND_RESPONSE);
-    }
-    if (result.outcome === 'notClosed') {
-      throw new ConflictException({
-        error: {
-          code: 'SESSION_NOT_CLOSED',
-          message: 'A payment can only be recorded on a closed session.',
-        },
-      });
-    }
-    if (result.outcome === 'nothingToSettle') {
-      throw new ConflictException({
-        error: {
-          code: 'NOTHING_TO_SETTLE',
-          message: 'This session has no outstanding balance.',
-        },
-      });
-    }
-    if (result.outcome === 'amountMismatch') {
-      throw new ConflictException({
-        error: {
-          code: 'PAYMENT_AMOUNT_MISMATCH',
-          message:
-            'The balance changed. Review the current balance and try again.',
-          details: { balance: result.balance },
-        },
-      });
-    }
-    return { data: result.data };
-  }
-
-  @Post(':sessionId/payments/:paymentId/void')
-  @HttpCode(HttpStatus.OK)
-  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard)
-  @RequirePermission(PERMISSIONS.SESSIONS_SETTLE)
-  async voidPayment(
-    @Param('sessionId') sessionId: string,
-    @Param('paymentId') paymentId: string,
-    @Body() dto: VoidPaymentDto,
-    @Req() request: RestaurantAuthorizedRequest,
-  ): Promise<SessionDetailResponseBody> {
-    const result = await this.sessions.voidPayment(
-      scopeOf(request),
-      sessionId,
-      paymentId,
-      dto.reason,
-    );
-    if (result.outcome === 'notFound') {
-      throw new NotFoundException(SESSION_NOT_FOUND_RESPONSE);
-    }
-    if (result.outcome === 'paymentNotFound') {
-      throw new NotFoundException({
-        error: {
-          code: 'PAYMENT_NOT_FOUND',
-          message: 'Payment record not found.',
-        },
-      });
-    }
-    if (result.outcome === 'alreadyVoided') {
-      throw new ConflictException({
-        error: {
-          code: 'PAYMENT_ALREADY_VOIDED',
-          message: 'This payment record was already voided.',
-        },
-      });
-    }
-    return { data: result.data };
+    return { data: toStaffDetail(result.data) };
   }
 }

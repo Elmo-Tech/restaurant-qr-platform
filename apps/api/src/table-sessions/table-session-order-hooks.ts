@@ -2,19 +2,16 @@ import type { OrderStatus, Prisma } from '../generated/prisma/client';
 import { lockSessionRow, lockTableRow } from './table-session-locks';
 
 /**
- * Table Sessions: the three places the EXISTING order status transition must
+ * Table Sessions: the places the EXISTING order status transition must
  * cooperate with a session (design v3 sections 5.2 and 5.3). The transition
  * rules themselves (`order-transitions.ts`) are unchanged; these hooks only
- * add locking and two session-level rules around the existing conditional
- * update. A session-less (legacy, Pickup, Delivery) order skips all of it.
+ * add locking and one session-level rule (first-order auto close) around the
+ * existing conditional update. A session-less (legacy, Pickup, Delivery)
+ * order skips all of it.
+ *
+ * V1 scope correction: the platform does not manage payments, so there is no
+ * "cancel blocked by settlement" rule any more.
  */
-
-/** Cancelling is blocked while the order's session has an active (non-voided) payment (decision P5). */
-export class CancelBlockedBySettlementError extends Error {
-  constructor() {
-    super('order cannot be cancelled while its session has an active payment');
-  }
-}
 
 export interface TransitionOrderRef {
   restaurantId: string;
@@ -31,10 +28,9 @@ export interface PreparedTransition {
 /**
  * Runs INSIDE the transition transaction, BEFORE the conditional status update.
  *
- * - ACCEPTED / CANCELLED change what the bill is, so they lock the session row
- *   first (the same lock a payment takes, so a payment's balance check can never
- *   race an acceptance or cancellation). CANCELLED additionally refuses when a
- *   non-voided payment exists (P5).
+ * - ACCEPTED / CANCELLED change what the session total is, so they lock the
+ *   session row first (the same lock closing and the deferred ledger take, so
+ *   no total can be read half-way through an acceptance or cancellation).
  * - A REJECTED round-1 order of a session that was opened by that order may
  *   close it (P6), so it takes the full lock chain: table row, then session row.
  * - Everything else needs no session lock.
@@ -73,14 +69,6 @@ export async function prepareOrderTransition(
 
   if (target === 'ACCEPTED' || target === 'CANCELLED') {
     await lockSessionRow(tx, { sessionId, restaurantId: order.restaurantId });
-    if (target === 'CANCELLED') {
-      const activePayments = await tx.tableSessionPayment.count({
-        where: { tableSessionId: sessionId, voidedAt: null },
-      });
-      if (activePayments > 0) {
-        throw new CancelBlockedBySettlementError();
-      }
-    }
   }
   return none;
 }

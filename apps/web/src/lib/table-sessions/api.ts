@@ -1,9 +1,8 @@
 import { apiFetch } from '../api/client';
 import type {
-  PaymentMethod,
-  SessionBillDocument,
   SessionDetail,
   SessionListItem,
+  SessionSummaryDocument,
   TableBoardRow,
 } from './types';
 
@@ -42,7 +41,6 @@ export interface ListSessionsParams {
   branchId?: string;
   tableId?: string;
   status?: 'OPEN' | 'CLOSED';
-  payment?: 'OUTSTANDING' | 'NO_CHARGE' | 'UNPAID' | 'PARTIALLY_PAID' | 'PAID' | 'OVERPAID';
   limit?: number;
 }
 
@@ -89,42 +87,12 @@ export async function closeSession(
   return body.data;
 }
 
-export async function recordPayment(
-  restaurantId: string,
-  sessionId: string,
-  input: {
-    clientRequestId: string;
-    method: PaymentMethod;
-    /** The balance the staff member SAW; the Backend rejects the call when it no longer matches. */
-    expectedAmount: string;
-    note?: string;
-  },
-): Promise<SessionDetail> {
-  const body = await apiFetch<{ data: SessionDetail }>(
-    `${base(restaurantId)}/${encodeURIComponent(sessionId)}/payments`,
-    { method: 'POST', body: input },
-  );
-  return body.data;
-}
-
-export async function voidPayment(
-  restaurantId: string,
-  sessionId: string,
-  paymentId: string,
-  reason: string,
-): Promise<SessionDetail> {
-  const body = await apiFetch<{ data: SessionDetail }>(
-    `${base(restaurantId)}/${encodeURIComponent(sessionId)}/payments/${encodeURIComponent(paymentId)}/void`,
-    { method: 'POST', body: { reason } },
-  );
-  return body.data;
-}
-
+/** The printable table order summary (the route keeps its stable `/bill` path). */
 export async function getBill(
   restaurantId: string,
   sessionId: string,
-): Promise<SessionBillDocument> {
-  const body = await apiFetch<{ data: SessionBillDocument }>(
+): Promise<SessionSummaryDocument> {
+  const body = await apiFetch<{ data: SessionSummaryDocument }>(
     `${base(restaurantId)}/${encodeURIComponent(sessionId)}/bill`,
   );
   return body.data;

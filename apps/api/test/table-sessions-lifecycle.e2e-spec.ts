@@ -23,11 +23,16 @@ import { TableSessionsService } from './../src/table-sessions/table-sessions.ser
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
 
 /**
- * Table Sessions Batch A (slices 2-4): staff reads, manual open, close with the
- * pending-order policy, auto-close after a rejected first order, the payment
- * ledger (full-balance settlement, idempotency, voids), the cancel-after-payment
- * guard and the `sessions.open` permission migration -- all against REAL
- * PostgreSQL through the real Nest application (HTTP -> guards -> services).
+ * Table Sessions (slices 2-4, V1 scope correction): staff reads, manual open,
+ * close with the pending-order policy, auto-close after a rejected first order,
+ * the deferred payment ledger infrastructure (exercised at SERVICE level only:
+ * no V1 route reaches it), and the `sessions.open` permission migration -- all
+ * against REAL PostgreSQL through the real Nest application (HTTP -> guards ->
+ * services).
+ *
+ * V1 manages no payments. The HTTP tests below prove that no route can record or
+ * void a payment and that no Staff response carries a payment status, a paid
+ * amount, a balance or an unpaid total.
  *
  * Isolation: see `support/sandbox-guard.ts`. The guard is imported FIRST so the
  * Nest app boots against the marked sandbox only; without
@@ -504,34 +509,25 @@ describeSandbox(
         expect(closed.status).toBe(200);
         expect(closed.body.data.status).toBe('CLOSED');
 
-        // payments (empty session: nothing to settle, but authorization comes first)
+        // V1: no payment route exists for ANY role, even one holding sessions.settle
         const payBody = {
           clientRequestId: randomUUID(),
           method: 'CASH',
           expectedAmount: '0.00',
         };
-        expect(
-          (
-            await api(
-              waiter,
-              'post',
-              world.restaurantId,
-              `/${sessionId}/payments`,
-              payBody,
-            )
-          ).status,
-        ).toBe(403);
-        expect(
-          (
-            await api(
-              customNoOpen,
-              'post',
-              world.restaurantId,
-              `/${sessionId}/payments`,
-              payBody,
-            )
-          ).status,
-        ).toBe(409);
+        for (const staff of [waiter, customNoOpen, manager]) {
+          expect(
+            (
+              await api(
+                staff,
+                'post',
+                world.restaurantId,
+                `/${sessionId}/payments`,
+                payBody,
+              )
+            ).status,
+          ).toBe(404);
+        }
       });
 
       it('hides sessions of another restaurant (404, never a distinct reason) and never lists them', async () => {
@@ -641,56 +637,23 @@ describeSandbox(
       it('validates bodies and queries (400, nothing written)', async () => {
         const world = await seedWorld('validation');
         const manager = await addStaff(world.restaurantId, 'MANAGER');
-        await acceptedSession(world, manager, 1);
-        const [session] = await sessionRows(world.tableId);
-        await closeKeep(manager, session.publicId);
-        const base = `/${session.publicId}/payments`;
+        const session = await acceptedSession(world, manager, 1);
 
-        const noRequestId = await api(
-          manager,
-          'post',
-          world.restaurantId,
-          base,
-          {
-            method: 'CASH',
-            expectedAmount: '50.00',
-          },
-        );
-        const badMethod = await api(manager, 'post', world.restaurantId, base, {
-          clientRequestId: randomUUID(),
-          method: 'BITCOIN',
-          expectedAmount: '50.00',
-        });
-        const floatAmount = await api(
-          manager,
-          'post',
-          world.restaurantId,
-          base,
-          {
-            clientRequestId: randomUUID(),
-            method: 'CASH',
-            expectedAmount: '50.123',
-          },
-        );
-        const numberAmount = await api(
-          manager,
-          'post',
-          world.restaurantId,
-          base,
-          {
-            clientRequestId: randomUUID(),
-            method: 'CASH',
-            expectedAmount: 50,
-          },
-        );
         const badOpen = await api(manager, 'post', world.restaurantId, '', {
           tableId: 'nope',
         });
-        const badFilter = await api(
+        const badPolicy = await api(
+          manager,
+          'post',
+          world.restaurantId,
+          `/${session.publicId}/close`,
+          { pendingOrders: 'MAYBE' },
+        );
+        const badStatus = await api(
           manager,
           'get',
           world.restaurantId,
-          '?payment=WHATEVER',
+          '?status=WHATEVER',
         );
         const badLimit = await api(
           manager,
@@ -699,29 +662,17 @@ describeSandbox(
           '?limit=100000',
         );
 
-        for (const response of [
-          noRequestId,
-          badMethod,
-          floatAmount,
-          numberAmount,
-          badOpen,
-          badFilter,
-          badLimit,
-        ]) {
+        for (const response of [badOpen, badPolicy, badStatus, badLimit]) {
           expect(response.status).toBe(400);
         }
-        expect(
-          await prisma.tableSessionPayment.count({
-            where: { tableSessionId: session.id },
-          }),
-        ).toBe(0);
+        expect((await sessionRows(world.tableId))[0].status).toBe('OPEN');
       });
     });
 
     // ============================================================ HTTP end to end
 
     describe('HTTP: a full service lifecycle', () => {
-      it('order, close, settle, void, lock, reopen as a NEW session; the old unpaid balance stays independent', async () => {
+      it('order, close, lock, reopen as a NEW session; sessions stay independent and carry order totals only', async () => {
         const world = await seedWorld('e2e');
         const manager = await addStaff(world.restaurantId, 'MANAGER');
         const r = world.restaurantId;
@@ -731,7 +682,7 @@ describeSandbox(
         const [session] = await sessionRows(world.tableId);
         const id = session.publicId;
 
-        // detail: rounds grouped, nothing billed yet (both PENDING)
+        // detail: rounds grouped, nothing counted yet (both PENDING)
         const before = await api(manager, 'get', r, `/${id}`);
         expect(before.status).toBe(200);
         expect(
@@ -739,12 +690,9 @@ describeSandbox(
             (x: { roundNumber: number }) => x.roundNumber,
           ),
         ).toEqual([1, 2]);
-        expect(before.body.data.bill).toMatchObject({
-          eligibleTotal: '0.00',
-          pendingAmount: '100.00',
-          paidAmount: '0.00',
-          balance: '0.00',
-          paymentStatus: 'NO_CHARGE',
+        expect(before.body.data.totals).toEqual({
+          acceptedTotal: '0.00',
+          pendingTotal: '100.00',
         });
 
         // closing with pending orders requires an explicit choice
@@ -753,130 +701,37 @@ describeSandbox(
         expect(needChoice.body.error.code).toBe('SESSION_HAS_PENDING_ORDERS');
         expect(needChoice.body.error.details).toEqual({ pendingOrderCount: 2 });
 
-        // staff accept both, then the bill is the sum of the snapshots
+        // staff accept both, then the accepted total is the sum of the snapshots
         for (const order of await ordersOf(world.tableId)) {
           expect(
             (await transition(manager.scope, order.id, 'PENDING', 'ACCEPTED'))
               .outcome,
           ).toBe('updated');
         }
-        const billed = await api(manager, 'get', r, `/${id}`);
-        expect(billed.body.data.bill).toMatchObject({
-          eligibleTotal: '100.00',
-          pendingAmount: '0.00',
-          balance: '100.00',
-          paymentStatus: 'UNPAID',
+        const accepted = await api(manager, 'get', r, `/${id}`);
+        expect(accepted.body.data.totals).toEqual({
+          acceptedTotal: '100.00',
+          pendingTotal: '0.00',
         });
 
-        // close: ordering is locked, payment untouched
+        // close: ordering is locked
         const closed = await api(manager, 'post', r, `/${id}/close`, {});
         expect(closed.status).toBe(200);
         expect(closed.body.data).toMatchObject({
           status: 'CLOSED',
           closureReason: 'NORMAL',
         });
-        expect(closed.body.data.bill.paymentStatus).toBe('UNPAID');
         expect(await place(world)).toEqual({
           outcome: 'tableOrderingUnavailable',
         });
 
-        // wrong amount is rejected with the live balance
-        const clientRequestId = randomUUID();
-        const mismatch = await api(manager, 'post', r, `/${id}/payments`, {
-          clientRequestId,
-          method: 'CASH',
-          expectedAmount: '99.99',
-        });
-        expect(mismatch.status).toBe(409);
-        expect(mismatch.body.error).toMatchObject({
-          code: 'PAYMENT_AMOUNT_MISMATCH',
-          details: { balance: '100.00' },
-        });
-
-        // settle, replay is idempotent
-        const paid = await api(manager, 'post', r, `/${id}/payments`, {
-          clientRequestId,
-          method: 'CARD',
-          expectedAmount: '100.00',
-          note: 'terminal 2',
-        });
-        expect(paid.status).toBe(201);
-        expect(paid.body.data.bill).toMatchObject({
-          paidAmount: '100.00',
-          balance: '0.00',
-          paymentStatus: 'PAID',
-        });
-        const replay = await api(manager, 'post', r, `/${id}/payments`, {
-          clientRequestId,
-          method: 'CARD',
-          expectedAmount: '100.00',
-        });
-        expect(replay.status).toBe(201);
-        expect(replay.body.data.payments).toHaveLength(1);
-        const paymentId = paid.body.data.payments[0].id as string;
-        expect(
-          (
-            await api(manager, 'post', r, `/${id}/payments`, {
-              clientRequestId: randomUUID(),
-              method: 'CASH',
-              expectedAmount: '0.00',
-            })
-          ).body.error.code,
-        ).toBe('NOTHING_TO_SETTLE');
-
-        // void needs a reason; it is a correction, the session stays CLOSED and locked
-        const noReason = await api(
-          manager,
-          'post',
-          r,
-          `/${id}/payments/${paymentId}/void`,
-          {},
-        );
-        expect(noReason.status).toBe(400);
-        const voided = await api(
-          manager,
-          'post',
-          r,
-          `/${id}/payments/${paymentId}/void`,
-          {
-            reason: 'entered on the wrong table',
-          },
-        );
-        expect(voided.status).toBe(200);
-        expect(voided.body.data.status).toBe('CLOSED');
-        expect(voided.body.data.bill).toMatchObject({
-          paidAmount: '0.00',
-          paymentStatus: 'UNPAID',
-        });
-        expect(voided.body.data.payments[0].voided).toMatchObject({
-          reason: 'entered on the wrong table',
-        });
-        expect(JSON.stringify(voided.body).toLowerCase()).not.toContain(
-          'refund',
-        );
-        expect(
-          (
-            await api(manager, 'post', r, `/${id}/payments/${paymentId}/void`, {
-              reason: 'again',
-            })
-          ).body.error.code,
-        ).toBe('PAYMENT_ALREADY_VOIDED');
-        expect(await place(world)).toEqual({
-          outcome: 'tableOrderingUnavailable',
-        });
-
-        // the unpaid closed session is still listed as outstanding
-        const outstanding = await api(
-          manager,
-          'get',
-          r,
-          '?status=CLOSED&payment=OUTSTANDING',
-        );
-        expect(outstanding.body.data.map((s: { id: string }) => s.id)).toEqual([
+        // the closed session stays reachable as history
+        const history = await api(manager, 'get', r, '?status=CLOSED');
+        expect(history.body.data.map((s: { id: string }) => s.id)).toEqual([
           id,
         ]);
 
-        // staff open a NEW session: guests can order again, balances stay separate
+        // staff open a NEW session: guests can order again, history stays separate
         const reopened = await api(manager, 'post', r, '', {
           tableId: world.tableId,
         });
@@ -886,17 +741,131 @@ describeSandbox(
         const fresh = await api(manager, 'get', r, `/${reopened.body.data.id}`);
         expect(fresh.body.data.rounds).toHaveLength(1);
         expect(fresh.body.data.rounds[0].roundNumber).toBe(1);
-        expect(fresh.body.data.bill.balance).toBe('0.00');
+        expect(fresh.body.data.totals).toEqual({
+          acceptedTotal: '0.00',
+          pendingTotal: '50.00',
+        });
         const old = await api(manager, 'get', r, `/${id}`);
         expect(old.body.data).toMatchObject({ status: 'CLOSED' });
-        expect(old.body.data.bill).toMatchObject({
-          eligibleTotal: '100.00',
-          balance: '100.00',
+        expect(old.body.data.totals).toEqual({
+          acceptedTotal: '100.00',
+          pendingTotal: '0.00',
         });
+        // opening again while one is open is a conflict
         expect(
           (await api(manager, 'post', r, '', { tableId: world.tableId })).body
             .error.code,
         ).toBe('TABLE_SESSION_ALREADY_OPEN');
+      });
+
+      it('V1 scope: no route records or voids a payment for any role, and nothing is written', async () => {
+        const world = await seedWorld('v1-no-payments');
+        const manager = await addStaff(world.restaurantId, 'MANAGER');
+        const cashier = await addStaff(world.restaurantId, 'CASHIER');
+        const holder = await addStaff(world.restaurantId, 'CUSTOM', {
+          customPermissions: [
+            'restaurant.view',
+            'sessions.view',
+            'sessions.close',
+            'sessions.settle',
+          ],
+        });
+        const session = await acceptedSession(world, manager, 1);
+        await closeKeep(manager, session.publicId);
+        const record = {
+          clientRequestId: randomUUID(),
+          method: 'CASH',
+          expectedAmount: '50.00',
+        };
+
+        for (const staff of [manager, cashier, holder]) {
+          const recorded = await api(
+            staff,
+            'post',
+            world.restaurantId,
+            `/${session.publicId}/payments`,
+            record,
+          );
+          const voided = await api(
+            staff,
+            'post',
+            world.restaurantId,
+            `/${session.publicId}/payments/${randomUUID()}/void`,
+            { reason: 'attempt' },
+          );
+          expect(recorded.status).toBe(404);
+          expect(voided.status).toBe(404);
+        }
+        expect(
+          await prisma.tableSessionPayment.count({
+            where: { tableSessionId: session.id },
+          }),
+        ).toBe(0);
+        expect(
+          await prisma.tableSessionEvent.count({
+            where: {
+              tableSessionId: session.id,
+              type: { in: ['PAYMENT_RECORDED', 'PAYMENT_VOIDED'] },
+            },
+          }),
+        ).toBe(0);
+      });
+
+      it('V1 responses carry order totals only, even when a deferred ledger row exists', async () => {
+        const world = await seedWorld('v1-views');
+        const manager = await addStaff(world.restaurantId, 'MANAGER');
+        const r = world.restaurantId;
+        const session = await acceptedSession(world, manager, 1);
+        await closeKeep(manager, session.publicId);
+        // The deferred ledger can only be written through the service (no route).
+        const paid = await sessions.recordPayment(
+          manager.scope,
+          session.publicId,
+          {
+            clientRequestId: randomUUID(),
+            method: 'CASH',
+            expectedAmount: '50.00',
+          },
+        );
+        expect(paid.outcome).toBe('recorded');
+
+        const detail = await api(manager, 'get', r, `/${session.publicId}`);
+        const summary = await api(
+          manager,
+          'get',
+          r,
+          `/${session.publicId}/bill`,
+        );
+        const list = await api(manager, 'get', r, '?status=CLOSED');
+        const board = await api(manager, 'get', r, '/board');
+        const ignoredFilter = await api(
+          manager,
+          'get',
+          r,
+          '?status=CLOSED&payment=UNPAID',
+        );
+
+        for (const response of [detail, summary, list, board]) {
+          expect(response.status).toBe(200);
+          expect(JSON.stringify(response.body)).not.toMatch(
+            /payment|paid|balance|outstanding|unpaid|refund|settle/i,
+          );
+        }
+        expect(detail.body.data.totals).toEqual({
+          acceptedTotal: '50.00',
+          pendingTotal: '0.00',
+        });
+        expect(
+          detail.body.data.events.map((e: { type: string }) => e.type),
+        ).toEqual(['SESSION_OPENED', 'SESSION_CLOSED']);
+        expect(summary.body.data.totals).toEqual({
+          acceptedTotal: '50.00',
+          pendingTotal: '0.00',
+        });
+        expect(summary.body.data).not.toHaveProperty('payments');
+        // the removed filter is simply not a filter any more
+        expect(ignoredFilter.status).toBe(200);
+        expect(ignoredFilter.body.data).toEqual(list.body.data);
       });
     });
 
@@ -1396,9 +1365,6 @@ describeSandbox(
         const byTable = await sessions.listSessions(manager.scope, {
           tableId: world.tableId,
         });
-        const outstanding = await sessions.listSessions(manager.scope, {
-          payment: 'OUTSTANDING',
-        });
         const limited = await sessions.listSessions(manager.scope, {
           limit: 1,
         });
@@ -1410,7 +1376,6 @@ describeSandbox(
         expect(byTable[0].openedAt.getTime()).toBeGreaterThanOrEqual(
           byTable[1].openedAt.getTime(),
         );
-        expect(outstanding.map((s) => s.id)).toEqual([s1.publicId]);
         expect(limited).toHaveLength(1);
         expect(closed[0]).toMatchObject({
           branch: { id: world.branchId },
@@ -1688,59 +1653,6 @@ describeSandbox(
         });
       });
 
-      it('blocks cancelling an order while its session has an active payment; allowed again after a void', async () => {
-        const world = await seedWorld('cancel-guard');
-        const manager = await addStaff(world.restaurantId, 'MANAGER');
-        const session = await acceptedSession(world, manager, 1);
-        const [order] = await ordersOf(world.tableId);
-        await closeKeep(manager, session.publicId);
-        const paid = await sessions.recordPayment(
-          manager.scope,
-          session.publicId,
-          {
-            clientRequestId: randomUUID(),
-            method: 'CASH',
-            expectedAmount: '50.00',
-          },
-        );
-        const paymentId =
-          paid.outcome === 'recorded' ? paid.data.payments[0].id : '';
-
-        const blocked = await transition(
-          manager.scope,
-          order.id,
-          'ACCEPTED',
-          'CANCELLED',
-        );
-        expect(blocked).toEqual({ outcome: 'cancelBlockedBySettlement' });
-        expect(
-          (await prisma.order.findUniqueOrThrow({ where: { id: order.id } }))
-            .status,
-        ).toBe('ACCEPTED');
-
-        await sessions.voidPayment(
-          manager.scope,
-          session.publicId,
-          paymentId,
-          'cancelling the order',
-        );
-        const cancelled = await transition(
-          manager.scope,
-          order.id,
-          'ACCEPTED',
-          'CANCELLED',
-        );
-
-        expect(cancelled.outcome).toBe('updated');
-        const detail = await sessions.getSession(
-          manager.scope,
-          session.publicId,
-        );
-        expect(
-          detail.outcome === 'found' && detail.data.bill.paymentStatus,
-        ).toBe('NO_CHARGE');
-      });
-
       it('a late-accepted kept order re-opens a balance on a settled closed session, which can be settled again', async () => {
         const world = await seedWorld('late');
         const manager = await addStaff(world.restaurantId, 'MANAGER');
@@ -1813,42 +1725,6 @@ describeSandbox(
         expect(
           second2.outcome === 'recorded' && second2.data.payments,
         ).toHaveLength(2);
-      });
-
-      it('a cancellation racing a payment never leaves an overpaid session', async () => {
-        for (let attempt = 0; attempt < 5; attempt += 1) {
-          const world = await seedWorld(`cancel-pay-${attempt}`);
-          const manager = await addStaff(world.restaurantId, 'MANAGER');
-          const session = await acceptedSession(world, manager, 1);
-          const [order] = await ordersOf(world.tableId);
-          await closeKeep(manager, session.publicId);
-
-          const [cancel, pay] = await Promise.all([
-            transition(manager.scope, order.id, 'ACCEPTED', 'CANCELLED'),
-            sessions.recordPayment(manager.scope, session.publicId, {
-              clientRequestId: randomUUID(),
-              method: 'CASH',
-              expectedAmount: '50.00',
-            }),
-          ]);
-
-          const cancelled = cancel.outcome === 'updated';
-          const paid = pay.outcome === 'recorded';
-          expect(cancelled && paid).toBe(false); // never both
-          const detail = await sessions.getSession(
-            manager.scope,
-            session.publicId,
-          );
-          expect(
-            detail.outcome === 'found' && detail.data.bill.paymentStatus,
-          ).not.toBe('OVERPAID');
-          if (paid) {
-            expect(cancel).toEqual({ outcome: 'cancelBlockedBySettlement' });
-          } else {
-            expect(cancel.outcome).toBe('updated');
-            expect(pay.outcome).toBe('nothingToSettle');
-          }
-        }
       });
     });
 
@@ -2029,7 +1905,7 @@ describeSandbox(
     // ============================================ Batch B: board, bill, guest lock
 
     describe('Dashboard board', () => {
-      it('reports per-table ordering availability, the live session and OLD unpaid bills separately from the new session', async () => {
+      it('reports per-table ordering availability and the live session, separate from older closed sessions', async () => {
         const world = await seedWorld('board');
         const manager = await addStaff(world.restaurantId, 'MANAGER');
         const second = await addTable(world, '2');
@@ -2039,7 +1915,7 @@ describeSandbox(
           data: { status: 'INACTIVE' },
         });
 
-        // Table 1: an old CLOSED + UNPAID session, then a NEW open session with its own order
+        // Table 1: an old CLOSED session, then a NEW open session with its own order
         const old = await acceptedSession(world, manager, 2);
         await closeKeep(manager, old.publicId);
         const board1 = await sessions.getBoard(manager.scope, {});
@@ -2048,7 +1924,6 @@ describeSandbox(
         expect(row1(world.tableId)).toMatchObject({
           ordering: 'CLOSED_BY_STAFF',
           openSession: null,
-          outstanding: { sessionCount: 1, balance: '100.00' },
         });
 
         await sessions.openSession(manager.scope, { tableId: world.tableId });
@@ -2059,22 +1934,15 @@ describeSandbox(
         expect(row1(world.tableId, board2)).toMatchObject({
           ordering: 'AVAILABLE',
           openSession: { status: 'OPEN', orderCount: 1, pendingOrderCount: 1 },
-          // the old unpaid balance is reported next to, never inside, the new session
-          outstanding: {
-            sessionCount: 1,
-            balance: '100.00',
-            currencyCode: 'EGP',
-          },
         });
+        // the older closed session's total is never merged into the new session
         expect(row1(world.tableId, board2)?.openSession?.bill).toMatchObject({
           eligibleTotal: '0.00',
           pendingAmount: '50.00',
-          balance: '0.00',
         });
         expect(row1(second.tableId, board2)).toMatchObject({
           ordering: 'AVAILABLE',
           openSession: null,
-          outstanding: null,
         });
         expect(row1(inactive.tableId, board2)).toMatchObject({
           ordering: 'UNAVAILABLE',
@@ -2114,133 +1982,8 @@ describeSandbox(
       });
     });
 
-    describe('exact payment filter (no scan cap)', () => {
-      it('SQL filter agrees with the derived status on every state, including OVERPAID', async () => {
-        const world = await seedWorld('filter-states');
-        const manager = await addStaff(world.restaurantId, 'MANAGER');
-        const t = [
-          world,
-          ...(await Promise.all(
-            ['2', '3', '4', '5'].map((n) => addTable(world, n)),
-          )),
-        ] as {
-          tableId: string;
-          qrCode: string;
-        }[];
-        const product = world.productId;
-        const settle = async (publicId: string, amount: string) =>
-          sessions.recordPayment(manager.scope, publicId, {
-            clientRequestId: randomUUID(),
-            method: 'CASH',
-            expectedAmount: amount,
-          });
-        const build = async (
-          tbl: { tableId: string; qrCode: string },
-          accepted: number,
-        ) => {
-          for (let i = 0; i < accepted; i += 1) {
-            await place({ qrCode: tbl.qrCode, productId: product });
-          }
-          for (const order of await ordersOf(tbl.tableId)) {
-            await transition(manager.scope, order.id, 'PENDING', 'ACCEPTED');
-          }
-          const [row] = await sessionRows(tbl.tableId);
-          await closeKeep(manager, row.publicId);
-          return row;
-        };
-
-        const unpaid = await build(t[0], 1);
-        const paid = await build(t[1], 1);
-        await settle(paid.publicId, '50.00');
-        const partial = await build(t[2], 1);
-        await settle(partial.publicId, '50.00');
-        // a kept order accepted AFTER settlement: PARTIALLY_PAID
-        await place({ qrCode: t[2].qrCode, productId: product }).catch(
-          () => undefined,
-        );
-        const empty = await sessions.openSession(manager.scope, {
-          tableId: t[3].tableId,
-        });
-        expect(empty.outcome).toBe('opened');
-        if (empty.outcome === 'opened')
-          await sessions.closeSession(manager.scope, empty.data.id, {});
-        const over = await build(t[4], 1);
-        // force a corrupt state the API forbids (payment above the bill) to prove the SQL twin
-        const membership = manager.membershipId;
-        await prisma.tableSessionPayment.create({
-          data: {
-            restaurantId: world.restaurantId,
-            branchId: world.branchId,
-            tableSessionId: over.id,
-            amount: '75.00',
-            method: 'CASH',
-            clientRequestId: randomUUID(),
-            recordedByMembershipId: membership,
-          },
-        });
-
-        const all = await sessions.listSessions(manager.scope, { limit: 200 });
-        for (const status of [
-          'NO_CHARGE',
-          'UNPAID',
-          'PAID',
-          'PARTIALLY_PAID',
-          'OVERPAID',
-        ] as const) {
-          const viaSql = await sessions.listSessions(manager.scope, {
-            payment: status,
-            limit: 200,
-          });
-          const viaTs = all.filter((s) => s.bill.paymentStatus === status);
-          expect(viaSql.map((s) => s.id).sort()).toEqual(
-            viaTs.map((s) => s.id).sort(),
-          );
-        }
-        const outstanding = await sessions.listSessions(manager.scope, {
-          payment: 'OUTSTANDING',
-          limit: 200,
-        });
-        expect(outstanding.map((s) => s.id)).toContain(unpaid.publicId);
-        expect(outstanding.map((s) => s.id)).not.toContain(paid.publicId);
-        expect(
-          (
-            await sessions.listSessions(manager.scope, { payment: 'OVERPAID' })
-          ).map((s) => s.id),
-        ).toEqual([over.publicId]);
-      });
-
-      it('finds an OLD unpaid closed session behind 1100 newer sessions (no silent truncation)', async () => {
-        const world = await seedWorld('filter-cap');
-        const manager = await addStaff(world.restaurantId, 'MANAGER');
-        const old = await acceptedSession(world, manager, 1);
-        await closeKeep(manager, old.publicId);
-        const bulk = await addTable(world, '9');
-        await prisma.$executeRaw`
-          INSERT INTO "table_sessions"
-            ("id","public_id","restaurant_id","branch_id","table_id","status","opened_at","opened_via",
-             "closed_at","closure_reason","next_round_number","updated_at")
-          SELECT gen_random_uuid(), 'session-' || gen_random_uuid()::text,
-                 ${world.restaurantId}::uuid, ${world.branchId}::uuid, ${bulk.tableId}::uuid,
-                 'CLOSED', now() + (g || ' seconds')::interval, 'STAFF',
-                 now() + (g || ' seconds')::interval, 'NORMAL', 1, now()
-            FROM generate_series(1, 1100) AS g`;
-
-        const outstanding = await sessions.listSessions(manager.scope, {
-          status: 'CLOSED',
-          payment: 'OUTSTANDING',
-          limit: 50,
-        });
-        const everything = await sessions.listSessions(manager.scope, {
-          limit: 200,
-        });
-
-        expect(outstanding.map((s) => s.id)).toEqual([old.publicId]);
-        expect(everything).toHaveLength(200); // the plain list is limited, the filter is exact
-      });
-    });
-
     describe('combined bill document', () => {
-      it('contains only accepted rounds in totals, lists pending separately, active payments only, and is tenant/permission scoped', async () => {
+      it('contains only accepted rounds in totals, lists pending separately, carries no payment data, and is tenant/permission scoped', async () => {
         const world = await seedWorld('bill');
         const manager = await addStaff(world.restaurantId, 'MANAGER');
         const waiter = await addStaff(world.restaurantId, 'WAITER');
@@ -2257,28 +2000,6 @@ describeSandbox(
         const [session] = await sessionRows(world.tableId);
         await sessions.closeSession(manager.scope, session.publicId, {
           pendingOrders: 'KEEP',
-        });
-        const paid = await sessions.recordPayment(
-          manager.scope,
-          session.publicId,
-          {
-            clientRequestId: randomUUID(),
-            method: 'CARD',
-            expectedAmount: '50.00',
-          },
-        );
-        const paymentId =
-          paid.outcome === 'recorded' ? paid.data.payments[0].id : '';
-        await sessions.voidPayment(
-          manager.scope,
-          session.publicId,
-          paymentId,
-          'typo',
-        );
-        await sessions.recordPayment(manager.scope, session.publicId, {
-          clientRequestId: randomUUID(),
-          method: 'CASH',
-          expectedAmount: '50.00',
         });
 
         const bill = await api(
@@ -2305,19 +2026,12 @@ describeSandbox(
         expect(
           doc.awaitingRounds.map((r: { roundNumber: number }) => r.roundNumber),
         ).toEqual([3]);
-        expect(doc.totals).toMatchObject({
-          eligibleTotal: '50.00',
-          pendingAmount: '50.00',
-          paidAmount: '50.00',
-          balance: '0.00',
-          paymentStatus: 'PAID',
+        expect(doc.totals).toEqual({
+          acceptedTotal: '50.00',
+          pendingTotal: '50.00',
         });
-        expect(doc.payments).toHaveLength(1);
-        expect(doc.payments[0]).toMatchObject({
-          method: 'CASH',
-          amount: '50.00',
-        });
-        expect(doc.voidedPaymentCount).toBe(1);
+        expect(doc).not.toHaveProperty('payments');
+        expect(doc).not.toHaveProperty('voidedPaymentCount');
         expect(doc.rounds[0].items[0]).toMatchObject({
           productNameSnapshot: 'IT Burger',
           lineTotal: '50.00',

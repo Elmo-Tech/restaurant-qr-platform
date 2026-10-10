@@ -14,53 +14,43 @@ import {
 import { ApiError } from '../../../../../lib/api/errors';
 import * as sessionsApi from '../../../../../lib/table-sessions/api';
 import type { SessionCapabilities } from '../../../../../lib/table-sessions/capabilities';
-import type {
-  PaymentMethod,
-  SessionDetail,
-  SessionPayment,
-} from '../../../../../lib/table-sessions/types';
+import type { SessionDetail } from '../../../../../lib/table-sessions/types';
 import { minutesBetween, useNow } from '../../../../../lib/table-sessions/use-now';
 import { StatusBadge } from '../orders/StatusBadge';
 import { BillPrintDialog } from './BillPrintDialog';
-import {
-  LifecycleBadge,
-  Money,
-  PaymentStatusBadge,
-  useDurationLabel,
-} from './SessionBadges';
-import {
-  CloseSessionDialog,
-  RecordPaymentDialog,
-  VoidPaymentDialog,
-} from './SessionActionDialogs';
+import { LifecycleBadge, Money, useDurationLabel } from './SessionBadges';
+import { CloseSessionDialog } from './SessionActionDialogs';
 
-type OpenDialog =
-  | { kind: 'close' }
-  | { kind: 'pay' }
-  | { kind: 'void'; payment: SessionPayment }
-  | { kind: 'bill' }
-  | null;
+export type SessionDrawerIntent = 'close' | 'summary';
+
+type OpenDialog = { kind: 'close' } | { kind: 'summary' } | null;
 
 /**
- * Table Session detail panel (design v3). A bespoke right-hand panel (full
- * screen on a phone), like the Order detail: identity, lifecycle and payment
- * badges, the Backend-computed bill, the rounds with each order's own kitchen
- * status, the payment ledger and the audit history. Every amount and status
- * shown is exactly what the Backend returned; staff actions go through the
- * Backend and the panel simply re-renders the answer.
+ * Table Session detail panel (design v3, V1 scope correction). A bespoke
+ * right-hand panel (full screen on a phone), like the Order detail: identity,
+ * lifecycle badge, the Backend-computed order totals, the rounds with each
+ * order's own kitchen status and the audit history. The platform manages no
+ * payments, so nothing here records, shows or implies one. Every amount shown
+ * is exactly what the Backend returned; staff actions go through the Backend
+ * and the panel simply re-renders the answer.
+ *
+ * `intent` lets a board card jump straight to the close dialog or the order
+ * summary; both still run on this panel, so there is one implementation.
  */
 export function SessionDrawer({
   restaurantId,
   sessionId,
   caps,
+  intent,
   onClose,
   onChanged,
 }: {
   restaurantId: string;
   sessionId: string;
   caps: SessionCapabilities;
+  intent?: SessionDrawerIntent;
   onClose: () => void;
-  /** Tell the parent a session changed so its board / unpaid list refreshes. */
+  /** Tell the parent a session changed so its board / history refreshes. */
   onChanged: () => void;
 }) {
   const { t, tp, formatDateTime } = useStaffI18n();
@@ -68,11 +58,14 @@ export function SessionDrawer({
   const now = useNow();
   const [detail, setDetail] = useState<SessionDetail | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [dialog, setDialog] = useState<OpenDialog>(null);
+  const [dialog, setDialog] = useState<OpenDialog>(
+    intent === 'summary' ? { kind: 'summary' } : null,
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const intentHandledRef = useRef(false);
 
   const load = useCallback(async () => {
     try {
@@ -93,6 +86,16 @@ export function SessionDrawer({
       void load();
     });
   }, [load]);
+
+  // A "Close session" entered from a board card opens the close dialog once the
+  // session has loaded -- and only when it is still OPEN and closable.
+  useEffect(() => {
+    if (intent !== 'close' || intentHandledRef.current || !detail) return;
+    intentHandledRef.current = true;
+    if (detail.status === 'OPEN' && caps.canClose) {
+      queueMicrotask(() => setDialog({ kind: 'close' }));
+    }
+  }, [intent, detail, caps.canClose]);
 
   // Escape closes the panel -- but never while a nested dialog (which handles its own
   // Escape) is open. The latest handler is kept in a ref so re-renders never re-bind it.
@@ -158,41 +161,8 @@ export function SessionDrawer({
     );
   }
 
-  function handlePay(input: {
-    clientRequestId: string;
-    method: PaymentMethod;
-    expectedAmount: string;
-    note: string;
-  }) {
-    void run(
-      () =>
-        sessionsApi.recordPayment(restaurantId, sessionId, {
-          clientRequestId: input.clientRequestId,
-          method: input.method,
-          expectedAmount: input.expectedAmount,
-          ...(input.note ? { note: input.note } : {}),
-        }),
-      t('sessions.notice.paid'),
-      ['PAYMENT_AMOUNT_MISMATCH', 'NOTHING_TO_SETTLE', 'SESSION_NOT_CLOSED'],
-    );
-  }
-
-  function handleVoid(paymentId: string, reason: string) {
-    void run(
-      () => sessionsApi.voidPayment(restaurantId, sessionId, paymentId, reason),
-      t('sessions.notice.voided'),
-      ['PAYMENT_ALREADY_VOIDED'],
-    );
-  }
-
   const endMs = detail?.closedAt ? new Date(detail.closedAt).getTime() : now;
   const minutes = detail ? minutesBetween(detail.openedAt, endMs) : 0;
-  // Offered only when the BACKEND-derived status says money is owed on a closed session;
-  // the Backend still validates the exact amount on submission.
-  const balanceDue =
-    detail !== null &&
-    detail.status === 'CLOSED' &&
-    (detail.bill.paymentStatus === 'UNPAID' || detail.bill.paymentStatus === 'PARTIALLY_PAID');
 
   return (
     <>
@@ -209,7 +179,6 @@ export function SessionDrawer({
               {detail ? (
                 <div className="flex flex-wrap items-center gap-2">
                   <LifecycleBadge status={detail.status} />
-                  <PaymentStatusBadge status={detail.bill.paymentStatus} />
                 </div>
               ) : null}
               <h2
@@ -269,7 +238,7 @@ export function SessionDrawer({
                   <div>
                     <dt className="text-xs text-muted-foreground">{t('sessions.detail.duration')}</dt>
                     <dd className="font-medium text-foreground">
-                      <bdi dir="ltr">{durationLabel(minutes)}</bdi>
+                      <bdi dir="auto">{durationLabel(minutes)}</bdi>
                     </dd>
                   </div>
                   <div>
@@ -309,63 +278,35 @@ export function SessionDrawer({
                       {t('sessions.action.close')}
                     </Button>
                   ) : null}
-                  {balanceDue && caps.canSettle ? (
-                    <Button
-                      onClick={() => {
-                        setActionError(null);
-                        setDialog({ kind: 'pay' });
-                      }}
-                    >
-                      {t('sessions.action.recordPayment')}
-                    </Button>
-                  ) : null}
                   {caps.canView ? (
-                    <Button variant="secondary" onClick={() => setDialog({ kind: 'bill' })}>
-                      {t('sessions.action.bill')}
+                    <Button variant="secondary" onClick={() => setDialog({ kind: 'summary' })}>
+                      {t('sessions.action.summary')}
                     </Button>
                   ) : null}
                 </div>
 
-                {/* bill (all amounts from the Backend) */}
-                <section aria-labelledby="session-bill-title" className="rounded-lg border border-border p-4">
-                  <h3 id="session-bill-title" className="text-sm font-semibold text-foreground">
-                    {t('sessions.bill.title')}
+                {/* order totals (all amounts from the Backend) */}
+                <section aria-labelledby="session-total-title" className="rounded-lg border border-border p-4">
+                  <h3 id="session-total-title" className="text-sm font-semibold text-foreground">
+                    {t('sessions.summary.title')}
                   </h3>
                   <dl className="mt-3 flex flex-col gap-2 text-sm">
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-muted-foreground">{t('sessions.bill.billed')}</dt>
-                      <dd className="font-medium text-foreground">
-                        <Money amount={detail.bill.eligibleTotal} currency={detail.currencyCode} />
+                    <div className="flex justify-between gap-3 text-base">
+                      <dt className="font-semibold text-foreground">{t('sessions.summary.accepted')}</dt>
+                      <dd className="font-semibold text-foreground">
+                        <Money amount={detail.totals.acceptedTotal} currency={detail.currencyCode} />
                       </dd>
                     </div>
-                    {detail.bill.pendingAmount !== '0.00' ? (
+                    {detail.totals.pendingTotal !== '0.00' ? (
                       <div className="flex justify-between gap-3">
-                        <dt className="text-muted-foreground">{t('sessions.bill.awaiting')}</dt>
+                        <dt className="text-muted-foreground">{t('sessions.summary.awaiting')}</dt>
                         <dd className="text-muted-foreground">
-                          <Money amount={detail.bill.pendingAmount} currency={detail.currencyCode} />
+                          <Money amount={detail.totals.pendingTotal} currency={detail.currencyCode} />
                         </dd>
                       </div>
                     ) : null}
-                    <div className="flex justify-between gap-3">
-                      <dt className="text-muted-foreground">{t('sessions.bill.paid')}</dt>
-                      <dd className="font-medium text-foreground">
-                        <Money amount={detail.bill.paidAmount} currency={detail.currencyCode} />
-                      </dd>
-                    </div>
-                    <div className="flex justify-between gap-3 border-t border-border pt-2 text-base">
-                      <dt className="font-semibold text-foreground">{t('sessions.bill.balance')}</dt>
-                      <dd className="font-semibold text-foreground">
-                        <Money amount={detail.bill.balance} currency={detail.currencyCode} />
-                      </dd>
-                    </div>
-                    <div className="flex items-center justify-between gap-3">
-                      <dt className="text-muted-foreground">{t('sessions.bill.status')}</dt>
-                      <dd>
-                        <PaymentStatusBadge status={detail.bill.paymentStatus} />
-                      </dd>
-                    </div>
                   </dl>
-                  <p className="mt-3 text-xs text-muted-foreground">{t('sessions.bill.serverNote')}</p>
+                  <p className="mt-3 text-xs text-muted-foreground">{t('sessions.summary.serverNote')}</p>
                 </section>
 
                 {/* rounds */}
@@ -397,7 +338,7 @@ export function SessionDrawer({
                         </span>
                       </div>
                       {round.order.status === 'PENDING' ? (
-                        <p className="mt-1 text-xs text-muted-foreground">{t('sessions.detail.notBilled')}</p>
+                        <p className="mt-1 text-xs text-muted-foreground">{t('sessions.detail.notCounted')}</p>
                       ) : null}
                       <ul className="mt-2 flex flex-col gap-1.5 text-sm">
                         {round.order.items.map((item, index) => (
@@ -439,71 +380,6 @@ export function SessionDrawer({
                   ) : null}
                 </section>
 
-                {/* payments */}
-                <section aria-labelledby="session-payments-title" className="flex flex-col gap-3">
-                  <h3 id="session-payments-title" className="text-sm font-semibold text-foreground">
-                    {t('sessions.payments.title')}
-                  </h3>
-                  {detail.payments.length === 0 ? (
-                    <p className="text-sm text-muted-foreground">{t('sessions.payments.empty')}</p>
-                  ) : null}
-                  {detail.payments.map((payment) => (
-                    <div
-                      key={payment.id}
-                      className={`rounded-lg border border-border p-3 text-sm ${
-                        payment.voided ? 'bg-muted/40 text-muted-foreground' : ''
-                      }`}
-                    >
-                      <div className="flex flex-wrap items-center justify-between gap-2">
-                        <span className="font-medium">
-                          {t(`sessions.payments.method.${payment.method}` as const)}
-                          {payment.voided ? (
-                            <span className="ms-2 rounded-full bg-muted px-2 py-0.5 text-xs">
-                              {t('sessions.payments.voided')}
-                            </span>
-                          ) : null}
-                        </span>
-                        <span className={payment.voided ? 'line-through' : 'font-semibold text-foreground'}>
-                          <Money amount={payment.amount} currency={detail.currencyCode} />
-                        </span>
-                      </div>
-                      <p className="mt-0.5 text-xs">
-                        <bdi dir="ltr">{formatDateTime(payment.recordedAt)}</bdi>
-                        {payment.note ? (
-                          <>
-                            {' · '}
-                            <bdi dir="auto">{payment.note}</bdi>
-                          </>
-                        ) : null}
-                      </p>
-                      {payment.voided ? (
-                        <p className="mt-1 text-xs">
-                          {t('sessions.payments.voidReason', { reason: payment.voided.reason })}
-                        </p>
-                      ) : caps.canSettle ? (
-                        <div className="mt-2">
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => {
-                              setActionError(null);
-                              setDialog({ kind: 'void', payment });
-                            }}
-                          >
-                            {t('sessions.action.voidPayment')}
-                          </Button>
-                        </div>
-                      ) : null}
-                    </div>
-                  ))}
-                  {detail.status === 'OPEN' && caps.canSettle ? (
-                    <p className="text-xs text-muted-foreground">{t('sessions.payments.closeFirst')}</p>
-                  ) : null}
-                  {detail.status === 'CLOSED' && balanceDue && caps.canSettle ? (
-                    <p className="text-xs text-muted-foreground">{t('sessions.payments.settleHint')}</p>
-                  ) : null}
-                </section>
-
                 {/* history */}
                 <section aria-labelledby="session-history-title" className="flex flex-col gap-2">
                   <h3 id="session-history-title" className="text-sm font-semibold text-foreground">
@@ -542,27 +418,7 @@ export function SessionDrawer({
           onClose={closeDialog}
         />
       ) : null}
-      {detail && dialog?.kind === 'pay' ? (
-        <RecordPaymentDialog
-          balance={detail.bill.balance}
-          currency={detail.currencyCode}
-          isSubmitting={isSubmitting}
-          error={actionError}
-          onConfirm={handlePay}
-          onClose={closeDialog}
-        />
-      ) : null}
-      {detail && dialog?.kind === 'void' ? (
-        <VoidPaymentDialog
-          amount={dialog.payment.amount}
-          currency={detail.currencyCode}
-          isSubmitting={isSubmitting}
-          error={actionError}
-          onConfirm={(reason) => handleVoid(dialog.payment.id, reason)}
-          onClose={closeDialog}
-        />
-      ) : null}
-      {dialog?.kind === 'bill' ? (
+      {dialog?.kind === 'summary' ? (
         <BillPrintDialog
           restaurantId={restaurantId}
           sessionId={sessionId}

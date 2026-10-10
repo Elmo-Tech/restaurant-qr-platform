@@ -255,6 +255,8 @@ The exact lifecycle will be defined in TABLE_SESSION_SPEC.md.
 
 > **Amended 2026-10-10 (implemented):** the session lifecycle is only OPEN and CLOSED. Payment status is separate and derived (no charge, unpaid, balance due, paid) and never blocks ordering; Table QR ordering availability is a third, separate concept. See `TABLE_SESSION_SPEC.md` (amendment v3).
 
+> **Amended 2026-10-10 (DEC-035):** V1 scope correction 2026-10-10 (final business decision): Restaurant QR Platform V1 is a QR menu and ordering platform, NOT a POS or accounting system, so payments, settlement, voids and unpaid balances are deferred. See `TABLE_SESSION_SPEC.md` (amendment v4). Payment status is not shown anywhere in V1; a session carries only its accepted-order total.
+
 Optional UI state:
 
 CLEANING
@@ -761,7 +763,9 @@ A real connector should be implemented when there is a concrete customer or pilo
 
 Online payment integration is not required for the initial Pilot MVP.
 
-V1 may support restaurant-side marking of a Table Session as completed or paid for workflow purposes.
+> **Superseded 2026-10-10 (DEC-035):** V1 does not record, mark or track payments in any form. Restaurants keep their own POS / accounting software; integration with it is deferred (`docs/05-future-proposals/POS_INTEGRATION.md`).
+
+V1 may NOT support restaurant-side marking of a Table Session as paid. The table order summary reports only what was ordered and accepted.
 
 The system must not pretend to process payment unless a real payment provider is integrated.
 

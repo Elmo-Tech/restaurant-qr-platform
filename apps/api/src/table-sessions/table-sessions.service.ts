@@ -14,7 +14,6 @@ import type {
 } from '../generated/prisma/client';
 import { resolveOrderBranchIdFilter } from '../orders/order-branch-scope';
 import type { CloseSessionDto } from './dto/close-session.dto';
-import type { SessionPaymentFilter } from './dto/list-sessions-query.dto';
 import {
   SESSION_LIST_DEFAULT_LIMIT,
   SESSION_LIST_MAX_LIMIT,
@@ -25,10 +24,6 @@ import {
   toBillView,
   type SessionBillView,
 } from './session-billing';
-import {
-  findSessionIdsByPayment,
-  outstandingClosedByTable,
-} from './session-sql';
 import { lockSessionRow, lockTableRow } from './table-session-locks';
 import { createTableSessionPublicId } from './table-session-public-id';
 
@@ -115,27 +110,20 @@ export type ListSessionsFilters = {
   branchId?: string;
   tableId?: string;
   status?: 'OPEN' | 'CLOSED';
-  payment?: SessionPaymentFilter;
   limit?: number;
 };
 
-/** One table on the Dashboard board: ordering availability, the live session and any old unpaid bills. */
+/** One table on the Dashboard board: ordering availability and the live session. */
 export interface TableBoardRow {
   table: { id: string; tableNumber: string; status: 'ACTIVE' | 'INACTIVE' };
   branch: { id: string; name: string };
   /**
    * AVAILABLE: guests may order (an OPEN session exists, or the table is not
    * locked). CLOSED_BY_STAFF: locked until staff open a session. UNAVAILABLE:
-   * the table itself is inactive. Independent of payment state.
+   * the table itself is inactive.
    */
   ordering: 'AVAILABLE' | 'CLOSED_BY_STAFF' | 'UNAVAILABLE';
   openSession: SessionListItem | null;
-  /** CLOSED sessions of this table that still owe money (never merged into the open session). */
-  outstanding: {
-    sessionCount: number;
-    balance: string;
-    currencyCode: string;
-  } | null;
 }
 
 export type TableBoardFilters = { branchId?: string };
@@ -386,43 +374,17 @@ export class TableSessionsService {
       SESSION_LIST_MAX_LIMIT,
     );
 
-    let rows: ListRow[];
-    if (filters.payment) {
-      // The payment status is DERIVED (never stored). It is evaluated set-based
-      // in SQL, so the filtered list is exact: there is no scan cap that could
-      // silently hide older unpaid sessions.
-      const ids = await findSessionIdsByPayment(this.prisma, {
+    const rows = await this.prisma.tableSession.findMany({
+      where: {
         restaurantId: scope.restaurantId,
-        branchIds: branchIdFilter,
-        tableId: filters.tableId,
-        status: filters.status,
-        payment: filters.payment,
-        limit,
-      });
-      const found =
-        ids.length === 0
-          ? []
-          : await this.prisma.tableSession.findMany({
-              where: { restaurantId: scope.restaurantId, id: { in: ids } },
-              select: LIST_SELECT,
-            });
-      const byId = new Map(found.map((row) => [row.id, row]));
-      rows = ids
-        .map((id) => byId.get(id))
-        .filter((row): row is ListRow => row !== undefined);
-    } else {
-      rows = await this.prisma.tableSession.findMany({
-        where: {
-          restaurantId: scope.restaurantId,
-          ...(branchIdFilter ? { branchId: { in: branchIdFilter } } : {}),
-          ...(filters.tableId ? { tableId: filters.tableId } : {}),
-          ...(filters.status ? { status: filters.status } : {}),
-        },
-        orderBy: [{ openedAt: 'desc' }, { id: 'desc' }],
-        take: limit,
-        select: LIST_SELECT,
-      });
-    }
+        ...(branchIdFilter ? { branchId: { in: branchIdFilter } } : {}),
+        ...(filters.tableId ? { tableId: filters.tableId } : {}),
+        ...(filters.status ? { status: filters.status } : {}),
+      },
+      orderBy: [{ openedAt: 'desc' }, { id: 'desc' }],
+      take: limit,
+      select: LIST_SELECT,
+    });
 
     const [branches, restaurant] = await Promise.all([
       this.prisma.branch.findMany({
@@ -458,9 +420,8 @@ export class TableSessionsService {
 
   /**
    * Dashboard board: one row per table in the caller's Branch scope with its
-   * ordering availability (separate from lifecycle and payment), the live OPEN
-   * session summary and the old unpaid closed bills. Tenant- and
-   * Branch-scoped exactly like the list.
+   * ordering availability (separate from the session lifecycle) and the live
+   * OPEN session summary. Tenant- and Branch-scoped exactly like the list.
    */
   async getBoard(
     scope: SessionScope,
@@ -475,7 +436,7 @@ export class TableSessionsService {
       return [];
     }
 
-    const [tables, branches, restaurant, outstanding] = await Promise.all([
+    const [tables, branches, restaurant] = await Promise.all([
       this.prisma.table.findMany({
         where: {
           restaurantId: scope.restaurantId,
@@ -501,10 +462,6 @@ export class TableSessionsService {
         where: { id: scope.restaurantId },
         select: { currencyCode: true },
       }),
-      outstandingClosedByTable(this.prisma, {
-        restaurantId: scope.restaurantId,
-        branchIds: branchIdFilter,
-      }),
     ]);
     const currency = restaurant?.currencyCode ?? '';
     const branchNames = new Map(branches.map((b) => [b.id, b.name]));
@@ -524,7 +481,6 @@ export class TableSessionsService {
 
     return tables.map((table) => {
       const open = openByTable.get(table.id) ?? null;
-      const owed = outstanding.get(table.id);
       const branchName = branchNames.get(table.branchId) ?? '';
       let ordering: TableBoardRow['ordering'] = 'AVAILABLE';
       if (table.status !== 'ACTIVE') {
@@ -541,13 +497,6 @@ export class TableSessionsService {
         branch: { id: table.branchId, name: branchName },
         ordering,
         openSession: open ? toListItem(open, branchName, currency) : null,
-        outstanding: owed
-          ? {
-              sessionCount: owed.sessionCount,
-              balance: formatMoney(owed.balance),
-              currencyCode: currency,
-            }
-          : null,
       };
     });
   }
@@ -850,9 +799,16 @@ export class TableSessionsService {
   }
 
   // ----------------------------------------------------------------- payments
+  //
+  // DEFERRED (V1 scope correction): the platform is a QR menu and ordering
+  // product, not a POS or accounting system. NO route exposes the two methods
+  // below, so a V1 client cannot create or change a payment record. They stay
+  // (with the ledger tables and their invariants) only so the work is not lost
+  // when POS integration is designed; do not wire them to a controller in V1.
 
   /**
-   * Full-balance settlement of a CLOSED session (V1). Under the session lock:
+   * DEFERRED, not reachable from any V1 route. Full-balance settlement of a
+   * CLOSED session. Under the session lock:
    * an existing record with the same `clientRequestId` is returned as a replay
    * (idempotent); otherwise the session must be CLOSED, the live balance must
    * be positive and must equal `expectedAmount`. The amount recorded is the
@@ -976,7 +932,8 @@ export class TableSessionsService {
   }
 
   /**
-   * Voids a payment record: an audited accounting correction (mandatory reason),
+   * DEFERRED, not reachable from any V1 route. Voids a payment record: an
+   * audited accounting correction (mandatory reason),
    * never a refund. The record is kept; only its void fields are set. The
    * session stays exactly as it was (a CLOSED session is not reopened).
    */

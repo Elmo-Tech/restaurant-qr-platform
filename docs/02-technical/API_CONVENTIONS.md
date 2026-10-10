@@ -453,6 +453,8 @@ Examples:
 
 > **Amended 2026-10-10 (Table Sessions design v3, implemented):** `/resume` and `/mark-paid` no longer exist. The implemented actions are `POST .../table-sessions` (manual open), `POST .../table-sessions/{sessionId}/close`, `POST .../table-sessions/{sessionId}/payments` and `POST .../table-sessions/{sessionId}/payments/{paymentId}/void`. `{sessionId}` is the session's opaque `publicId`. See #101-#105.
 
+> **Amended 2026-10-10 (DEC-035, V1 scope correction):** the `.../payments` and `.../payments/{paymentId}/void` actions are **not routed** (404 for every role). V1 Table Session actions are only open and close (plus the audit-only `bill/printed`).
+
 `POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/close`
 
 Guest bill request is not a direct Table Session mutation endpoint.
@@ -1764,7 +1766,11 @@ according to permission.
 
 ---
 
-# 103. Record Payment (implemented 2026-10-10)
+# 103. Record Payment (DEFERRED: not exposed in V1)
+
+> **Removed from V1 routing 2026-10-10 (DEC-035):** V1 scope correction 2026-10-10 (final business decision): Restaurant QR Platform V1 is a QR menu and ordering platform, NOT a POS or accounting system, so payments, settlement, voids and unpaid balances are deferred. See `TABLE_SESSION_SPEC.md` (amendment v4). The two routes below are **not routed**: they answer `404` for every role and permission, and no V1 response carries a payment status, payment record, balance or unpaid total. The ledger table and the service methods are preserved as deferred infrastructure only; any future POS integration needs its own approved design (`docs/05-future-proposals/POS_INTEGRATION.md`).
+
+*Historical design (not implemented in V1 routing):*
 
 `POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/payments`
 
@@ -1779,6 +1785,8 @@ V1 means external payment confirmed.
 ---
 
 # 104. Close Session
+
+> **V1 response shape (2026-10-10):** Staff session responses carry `totals: { acceptedTotal, pendingTotal }` (decimal strings) instead of the former `bill` object, no `payments`, no payment status and no `outstanding` on the board. The list endpoint has no `payment` filter (an unknown query property is ignored by the global whitelist). `GET .../{sessionId}/bill` returns the **Table Order Summary** document (rounds, awaiting rounds, `totals`), path kept for contract stability.
 
 `POST /api/v1/restaurants/{restaurantId}/table-sessions/{sessionId}/close`
 

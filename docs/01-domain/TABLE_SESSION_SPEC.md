@@ -9,7 +9,7 @@ This document defines the authoritative V1 behavior for:
 - Guest browsing context
 - Multiple guests scanning the same table
 - Multiple Order Rounds
-- Session settlement
+- Session settlement (deferred: not part of V1, see amendment v4)
 - Session closure
 - Table reuse by new dining parties
 - Concurrency
@@ -19,7 +19,29 @@ This specification is the source of truth for Table Session behavior.
 
 ---
 
-> ## Amendment v3 (2026-10-09): lifecycle, payment and table ordering availability
+> ## Amendment v4 (2026-10-10): V1 scope correction. QR menu and ordering platform, not a POS or accounting system
+>
+> Approved by the product owner as a final business decision. Where this amendment and anything below (including Amendment v3) disagree, **this amendment wins**.
+>
+> Restaurant QR Platform V1 is a QR menu and restaurant ordering platform. It is **not** a POS and **not** an accounting system. Many restaurants already run their own POS and accounting software; the future direction is to integrate with those systems through APIs and webhooks (deferred, see `docs/05-future-proposals/POS_INTEGRATION.md`), never to force restaurants to replace them.
+>
+> V1 therefore does **not** manage payments, settlement, refunds, voids or unpaid financial balances:
+>
+> - No Record Payment or Void Payment action exists in any V1 client, **and the server exposes no route for them**: the payment write routes were removed from routing, so they answer `404` for every role (UI hiding alone would not be enough). `sessions.settle` stays registered only so stored roles remain valid; it is inert.
+> - There is no payment status (NO_CHARGE / UNPAID / PARTIALLY_PAID / PAID / OVERPAID), no balance, no "Unpaid bills" view, no payment history and no payment-method choice in any V1 response or screen. Closing a session never implies, requires or records payment.
+> - A session's value is the **accepted-order total**: the sum of the immutable order snapshot totals of ACCEPTED / PREPARING / READY / SERVED orders, computed by the Backend with decimal-safe arithmetic (money strings in the API). PENDING orders are reported separately and are not counted until accepted; REJECTED and CANCELLED orders never count.
+> - The printable document is the **Table Order Summary** (Arabic: "ملخص طلبات الترابيزة"), in 80 mm receipt and A4 layouts, English and Arabic. It lists accepted orders by round with modifiers and quantities, pending orders separately, and the accepted-order total. It must never claim that payment was made.
+> - Cancelling an order is no longer blocked by a settlement: the cancel-after-payment guard (P5) was removed together with the payment surface.
+>
+> **Kept unchanged:** automatic session creation on the first valid Dine-In order; manual open (`sessions.open`); multiple independent orders per session with round numbers and chronological grouping; independent kitchen lifecycles; the running accepted-order total; session duration and history; manual close with the KEEP / REJECT pending-order policy; closing locks Table QR ordering until staff open a new session; old sessions stay historically separate and are never merged; Tenant and Branch isolation, audit events (including `BILL_PRINTED`, now "order summary printed"), concurrency protection and idempotency.
+>
+> **Superseded by this amendment:** every part of this document about payment status, payment ledger, settlement, "Request Bill", the "V1 Payment Boundary" and the settlement timestamp is **deferred**, not part of V1.
+>
+> **Deferred and preserved safely:** the `table_session_payments` table, its DB invariants and migrations, and the payment service methods stay in the codebase as deferred POS-integration infrastructure with no route to them. Existing rows are never deleted or rewritten. They must not be exposed again without an approved integration design.
+
+---
+
+> ## Amendment v3 (2026-10-09): lifecycle, payment and table ordering availability (payment parts superseded by v4)
 >
 > Approved by the product owner after the design review; full design in `docs/05-future-proposals/TABLE_SESSION_CLOSURE_AND_PAYMENT_DESIGN.md` and decisions in `TABLE_SESSION_PRODUCT_DECISIONS.md`. Where this amendment and the sections below disagree, **this amendment wins**.
 >

@@ -1,21 +1,25 @@
 import { defineMessages } from './define';
 
 /**
- * Table Sessions (design v3): the Dashboard board, the session drawer, the
- * open / close / payment / void flows, the unpaid-bills view and the combined
- * bill. English and Arabic side by side; a key missing from Arabic is a compile
- * error. Wording rule: a void is an audited ACCOUNTING CORRECTION and is never
- * called a refund anywhere in the UI.
+ * Table Sessions (design v3, V1 scope correction): the Dashboard board, the
+ * session drawer, the open / close flows, the session history view and the
+ * table order summary. English and Arabic side by side; a key missing from
+ * Arabic is a compile error.
+ *
+ * Wording rule: Restaurant QR Platform V1 is a QR menu and ordering platform,
+ * not a POS or accounting system. Nothing here may say or imply that a table
+ * was paid, owes money or has a balance: only "accepted orders" and their
+ * total, with pending orders shown separately and not counted.
  */
 export const sessionsMessages = defineMessages({
   en: {
     // views
     'sessions.view.tables': 'Tables',
-    'sessions.view.unpaid': 'Unpaid bills',
+    'sessions.view.past': 'Session history',
     'sessions.refresh': 'Refresh',
     'sessions.boardError': 'Could not load table sessions.',
 
-    // ordering availability (table) and session lifecycle: three separate concepts
+    // ordering availability (table) and session lifecycle: separate concepts
     'sessions.availability.AVAILABLE': 'Open for ordering',
     'sessions.availability.CLOSED_BY_STAFF': 'Ordering closed',
     'sessions.availability.UNAVAILABLE': 'Table inactive',
@@ -25,50 +29,45 @@ export const sessionsMessages = defineMessages({
     'sessions.status.CLOSED': 'Session closed',
     'sessions.noOpenSession': 'No open session',
 
-    // payment status (derived by the Backend)
-    'sessions.payment.NO_CHARGE': 'No charge',
-    'sessions.payment.UNPAID': 'Unpaid',
-    'sessions.payment.PARTIALLY_PAID': 'Balance due',
-    'sessions.payment.PAID': 'Paid',
-    'sessions.payment.OVERPAID': 'Needs review',
-
     // card
     'sessions.card.orders.one': '{count} order',
     'sessions.card.orders.other': '{count} orders',
     'sessions.card.pending.one': '{count} awaiting acceptance',
     'sessions.card.pending.other': '{count} awaiting acceptance',
-    'sessions.card.duration': 'Open for {duration}',
-    'sessions.card.runningBill': 'Running bill',
-    'sessions.card.oldUnpaid.one': '{count} unpaid closed bill · {amount}',
-    'sessions.card.oldUnpaid.other': '{count} unpaid closed bills · {amount}',
+    'sessions.card.acceptedTotal': 'Accepted orders total',
 
     // duration
-    'sessions.duration.minutes': '{minutes} min',
-    'sessions.duration.hoursMinutes': '{hours} h {minutes} min',
-    'sessions.duration.daysHours': '{days} d {hours} h',
+    'sessions.duration.minutes.one': '{count} min',
+    'sessions.duration.minutes.other': '{count} min',
+    'sessions.duration.hours.one': '{count} h',
+    'sessions.duration.hours.other': '{count} h',
+    'sessions.duration.days.one': '{count} d',
+    'sessions.duration.days.other': '{count} d',
+    'sessions.duration.join': '{first} {second}',
 
     // actions
     'sessions.action.open': 'Open session',
     'sessions.action.view': 'View session',
     'sessions.action.close': 'Close session',
-    'sessions.action.bill': 'Combined bill',
-    'sessions.action.recordPayment': 'Record payment',
-    'sessions.action.voidPayment': 'Void payment',
-    'sessions.action.viewUnpaid': 'View unpaid bills',
+    'sessions.action.summary': 'Print order summary',
+    'sessions.action.history': 'Session history',
     'sessions.action.closeDrawer': 'Close panel',
     'sessions.action.back': 'Back',
 
-    // unpaid bills view
-    'sessions.unpaid.title': 'Closed sessions with an outstanding balance',
-    'sessions.unpaid.hint':
-      'These sessions are closed. You can settle them here without reopening them; new sessions never include these balances.',
-    'sessions.unpaid.empty': 'No unpaid closed bills.',
-    'sessions.unpaid.allBranches': 'All branches',
-    'sessions.unpaid.table': 'Table {number}',
-    'sessions.unpaid.closedAt': 'Closed {time}',
-    'sessions.unpaid.filteredTable': 'Showing table {number} only',
-    'sessions.unpaid.clearFilter': 'Show all tables',
-    'sessions.unpaid.loading': 'Loading unpaid bills…',
+    // session history view
+    'sessions.past.title': 'Session history',
+    'sessions.past.hint':
+      'Current and past sessions, newest first. Each session keeps its own orders and total.',
+    'sessions.past.empty': 'No sessions yet.',
+    'sessions.past.allBranches': 'All branches',
+    'sessions.past.status': 'Status',
+    'sessions.past.statusAll': 'All sessions',
+    'sessions.past.table': 'Table {number}',
+    'sessions.past.opened': 'Opened {time}',
+    'sessions.past.closedAt': 'Closed {time}',
+    'sessions.past.filteredTable': 'Showing table {number} only',
+    'sessions.past.clearFilter': 'Show all tables',
+    'sessions.past.loading': 'Loading sessions…',
 
     // drawer
     'sessions.detail.title': 'Table {number}',
@@ -86,41 +85,24 @@ export const sessionsMessages = defineMessages({
     'sessions.detail.rounds': 'Orders by round',
     'sessions.detail.noOrders': 'No orders in this session yet.',
     'sessions.detail.round': 'Round {number}',
-    'sessions.detail.notBilled': 'Awaiting acceptance: not billed yet',
-    'sessions.detail.excluded.one': '{count} rejected or cancelled order is not billed.',
-    'sessions.detail.excluded.other': '{count} rejected or cancelled orders are not billed.',
+    'sessions.detail.notCounted': 'Awaiting acceptance: not counted yet',
+    'sessions.detail.excluded.one': '{count} rejected or cancelled order is not counted.',
+    'sessions.detail.excluded.other': '{count} rejected or cancelled orders are not counted.',
     'sessions.detail.each': 'each',
     'sessions.detail.loading': 'Loading session…',
     'sessions.detail.loadError': 'Could not load this session.',
 
-    // bill block
-    'sessions.bill.title': 'Bill',
-    'sessions.bill.billed': 'Billed (accepted orders)',
-    'sessions.bill.awaiting': 'Awaiting acceptance (not billed)',
-    'sessions.bill.paid': 'Paid',
-    'sessions.bill.balance': 'Balance due',
-    'sessions.bill.status': 'Payment status',
-    'sessions.bill.serverNote': 'Totals are calculated by the system from the orders as they were placed.',
-
-    // payments
-    'sessions.payments.title': 'Payments',
-    'sessions.payments.empty': 'No payments recorded.',
-    'sessions.payments.method.CASH': 'Cash',
-    'sessions.payments.method.CARD': 'Card',
-    'sessions.payments.method.OTHER': 'Other',
-    'sessions.payments.voided': 'Voided',
-    'sessions.payments.voidReason': 'Reason: {reason}',
-    'sessions.payments.settleHint':
-      'The session stays closed. Recording a payment never reopens it or changes ordering.',
-    'sessions.payments.closeFirst': 'Close the session to record its payment.',
+    // order summary block
+    'sessions.summary.title': 'Table order summary',
+    'sessions.summary.accepted': 'Accepted orders',
+    'sessions.summary.awaiting': 'Awaiting acceptance (not counted)',
+    'sessions.summary.serverNote': 'Totals are calculated by the system from the orders as they were placed.',
 
     // history
     'sessions.history.title': 'History',
     'sessions.history.SESSION_OPENED': 'Session opened',
     'sessions.history.SESSION_CLOSED': 'Session closed',
-    'sessions.history.PAYMENT_RECORDED': 'Payment recorded',
-    'sessions.history.PAYMENT_VOIDED': 'Payment voided',
-    'sessions.history.BILL_PRINTED': 'Bill printed',
+    'sessions.history.BILL_PRINTED': 'Order summary printed',
     'sessions.history.actor.GUEST': 'Guest',
     'sessions.history.actor.STAFF': 'Staff',
     'sessions.history.actor.SYSTEM': 'System',
@@ -128,14 +110,14 @@ export const sessionsMessages = defineMessages({
     // open dialog
     'sessions.open.title': 'Open a session for table {number}',
     'sessions.open.description':
-      'Guests will be able to order from the table QR code again. Earlier closed sessions stay separate with their own balances.',
+      'Guests will be able to order from the table QR code again. Earlier sessions stay separate.',
     'sessions.open.confirm': 'Open session',
     'sessions.open.opening': 'Opening…',
 
     // close dialog
     'sessions.close.title': 'Close this session?',
     'sessions.close.description':
-      'Closing stops further ordering from this table until you open a new session. It does not mark the bill as paid: an unpaid bill stays available to settle afterwards.',
+      'Closing stops further ordering from this table until you open a new session. Existing orders keep moving through the kitchen as usual.',
     'sessions.close.pending.one': 'This session has {count} pending order.',
     'sessions.close.pending.other': 'This session has {count} pending orders.',
     'sessions.close.pendingPrompt': 'Choose what happens to them:',
@@ -149,35 +131,14 @@ export const sessionsMessages = defineMessages({
     'sessions.close.confirm': 'Close session',
     'sessions.close.closing': 'Closing…',
 
-    // payment dialog
-    'sessions.pay.title': 'Record payment',
-    'sessions.pay.description':
-      'Records the full outstanding balance as settled outside the platform. The session stays closed.',
-    'sessions.pay.amount': 'Amount to settle',
-    'sessions.pay.method': 'Payment method',
-    'sessions.pay.note': 'Note (optional)',
-    'sessions.pay.notePlaceholder': 'e.g. terminal receipt number',
-    'sessions.pay.confirm': 'Record payment',
-    'sessions.pay.recording': 'Recording…',
-
-    // void dialog
-    'sessions.void.title': 'Void this payment record?',
-    'sessions.void.description':
-      'Voiding corrects an accounting record and is kept in the history. It is not a refund: no money is returned by the platform.',
-    'sessions.void.reason': 'Reason (required)',
-    'sessions.void.reasonPlaceholder': 'e.g. entered with the wrong method',
-    'sessions.void.reasonRequired': 'A reason is required to void a payment record.',
-    'sessions.void.confirm': 'Void payment',
-    'sessions.void.voiding': 'Voiding…',
-
-    // combined bill
-    'sessions.print.title': 'Combined bill',
+    // table order summary (print)
+    'sessions.print.title': 'Table Order Summary',
     'sessions.print.paper': 'Paper',
     'sessions.print.paper.receipt': 'Receipt (80 mm)',
     'sessions.print.paper.a4': 'A4',
-    'sessions.print.print': 'Print bill',
-    'sessions.print.loading': 'Preparing the bill…',
-    'sessions.print.error': 'Could not load the bill.',
+    'sessions.print.print': 'Print summary',
+    'sessions.print.loading': 'Preparing the summary…',
+    'sessions.print.error': 'Could not load the summary.',
     'sessions.print.close': 'Close',
     'sessions.print.table': 'Table',
     'sessions.print.session': 'Session',
@@ -185,27 +146,18 @@ export const sessionsMessages = defineMessages({
     'sessions.print.closed': 'Closed',
     'sessions.print.printedAt': 'Printed',
     'sessions.print.order': 'Round {number}',
-    'sessions.print.awaitingTitle': 'Awaiting acceptance (not billed)',
-    'sessions.print.subtotal': 'Total billed',
-    'sessions.print.paymentsTitle': 'Payments',
-    'sessions.print.noPayments': 'No payments recorded',
-    'sessions.print.totalPaid': 'Total paid',
-    'sessions.print.balanceDue': 'Balance due',
-    'sessions.print.status': 'Payment status',
-    'sessions.print.voidedNote.one': '{count} payment record was voided (correction).',
-    'sessions.print.voidedNote.other': '{count} payment records were voided (corrections).',
+    'sessions.print.awaitingTitle': 'Awaiting acceptance (not counted)',
+    'sessions.print.subtotal': 'Accepted orders total',
     'sessions.print.thanks': 'Thank you',
-    'sessions.print.openSessionNote': 'Session still open: this bill may change.',
+    'sessions.print.openSessionNote': 'Session still open: this summary may change.',
 
     // staff-facing notices
     'sessions.notice.opened': 'Session opened.',
     'sessions.notice.closed': 'Session closed. Ordering from this table is locked until a new session is opened.',
-    'sessions.notice.paid': 'Payment recorded.',
-    'sessions.notice.voided': 'Payment record voided.',
   },
   ar: {
     'sessions.view.tables': 'الطاولات',
-    'sessions.view.unpaid': 'الفواتير غير المدفوعة',
+    'sessions.view.past': 'سجل الجلسات',
     'sessions.refresh': 'تحديث',
     'sessions.boardError': 'تعذر تحميل جلسات الطاولات.',
 
@@ -218,12 +170,6 @@ export const sessionsMessages = defineMessages({
     'sessions.status.CLOSED': 'الجلسة مغلقة',
     'sessions.noOpenSession': 'لا توجد جلسة مفتوحة',
 
-    'sessions.payment.NO_CHARGE': 'بدون رسوم',
-    'sessions.payment.UNPAID': 'غير مدفوعة',
-    'sessions.payment.PARTIALLY_PAID': 'رصيد مستحق',
-    'sessions.payment.PAID': 'مدفوعة',
-    'sessions.payment.OVERPAID': 'تحتاج مراجعة',
-
     'sessions.card.orders.one': 'طلب واحد',
     'sessions.card.orders.two': 'طلبان',
     'sessions.card.orders.few': '{count} طلبات',
@@ -234,38 +180,46 @@ export const sessionsMessages = defineMessages({
     'sessions.card.pending.few': '{count} طلبات بانتظار القبول',
     'sessions.card.pending.many': '{count} طلبًا بانتظار القبول',
     'sessions.card.pending.other': '{count} طلب بانتظار القبول',
-    'sessions.card.duration': 'مفتوحة منذ {duration}',
-    'sessions.card.runningBill': 'الفاتورة الحالية',
-    'sessions.card.oldUnpaid.one': 'فاتورة مغلقة غير مدفوعة · {amount}',
-    'sessions.card.oldUnpaid.two': 'فاتورتان مغلقتان غير مدفوعتين · {amount}',
-    'sessions.card.oldUnpaid.few': '{count} فواتير مغلقة غير مدفوعة · {amount}',
-    'sessions.card.oldUnpaid.many': '{count} فاتورة مغلقة غير مدفوعة · {amount}',
-    'sessions.card.oldUnpaid.other': '{count} فاتورة مغلقة غير مدفوعة · {amount}',
+    'sessions.card.acceptedTotal': 'إجمالي الطلبات المقبولة',
 
-    'sessions.duration.minutes': '{minutes} د',
-    'sessions.duration.hoursMinutes': '{hours} س {minutes} د',
-    'sessions.duration.daysHours': '{days} ي {hours} س',
+    'sessions.duration.minutes.one': 'دقيقة واحدة',
+    'sessions.duration.minutes.two': 'دقيقتان',
+    'sessions.duration.minutes.few': '{count} دقائق',
+    'sessions.duration.minutes.many': '{count} دقيقة',
+    'sessions.duration.minutes.other': '{count} دقيقة',
+    'sessions.duration.hours.one': 'ساعة واحدة',
+    'sessions.duration.hours.two': 'ساعتان',
+    'sessions.duration.hours.few': '{count} ساعات',
+    'sessions.duration.hours.many': '{count} ساعة',
+    'sessions.duration.hours.other': '{count} ساعة',
+    'sessions.duration.days.one': 'يوم واحد',
+    'sessions.duration.days.two': 'يومان',
+    'sessions.duration.days.few': '{count} أيام',
+    'sessions.duration.days.many': '{count} يومًا',
+    'sessions.duration.days.other': '{count} يوم',
+    'sessions.duration.join': '{first} و{second}',
 
     'sessions.action.open': 'فتح جلسة',
     'sessions.action.view': 'عرض الجلسة',
     'sessions.action.close': 'إغلاق الجلسة',
-    'sessions.action.bill': 'الفاتورة المجمعة',
-    'sessions.action.recordPayment': 'تسجيل الدفع',
-    'sessions.action.voidPayment': 'إلغاء سجل الدفع',
-    'sessions.action.viewUnpaid': 'عرض الفواتير غير المدفوعة',
+    'sessions.action.summary': 'طباعة ملخص الطلبات',
+    'sessions.action.history': 'سجل الجلسات',
     'sessions.action.closeDrawer': 'إغلاق اللوحة',
     'sessions.action.back': 'رجوع',
 
-    'sessions.unpaid.title': 'جلسات مغلقة عليها رصيد مستحق',
-    'sessions.unpaid.hint':
-      'هذه الجلسات مغلقة. يمكنك تسويتها من هنا دون إعادة فتحها، ولا تشمل الجلسات الجديدة هذه الأرصدة أبدًا.',
-    'sessions.unpaid.empty': 'لا توجد فواتير مغلقة غير مدفوعة.',
-    'sessions.unpaid.allBranches': 'كل الفروع',
-    'sessions.unpaid.table': 'الطاولة {number}',
-    'sessions.unpaid.closedAt': 'أُغلقت {time}',
-    'sessions.unpaid.filteredTable': 'عرض الطاولة {number} فقط',
-    'sessions.unpaid.clearFilter': 'عرض كل الطاولات',
-    'sessions.unpaid.loading': 'جارٍ تحميل الفواتير غير المدفوعة…',
+    'sessions.past.title': 'سجل الجلسات',
+    'sessions.past.hint':
+      'الجلسات الحالية والسابقة، الأحدث أولًا. تحتفظ كل جلسة بطلباتها وإجماليها.',
+    'sessions.past.empty': 'لا توجد جلسات بعد.',
+    'sessions.past.allBranches': 'كل الفروع',
+    'sessions.past.status': 'الحالة',
+    'sessions.past.statusAll': 'كل الجلسات',
+    'sessions.past.table': 'الطاولة {number}',
+    'sessions.past.opened': 'فُتحت {time}',
+    'sessions.past.closedAt': 'أُغلقت {time}',
+    'sessions.past.filteredTable': 'عرض الطاولة {number} فقط',
+    'sessions.past.clearFilter': 'عرض كل الطاولات',
+    'sessions.past.loading': 'جارٍ تحميل الجلسات…',
 
     'sessions.detail.title': 'الطاولة {number}',
     'sessions.detail.sessionId': 'الجلسة',
@@ -282,7 +236,7 @@ export const sessionsMessages = defineMessages({
     'sessions.detail.rounds': 'الطلبات حسب الجولة',
     'sessions.detail.noOrders': 'لا توجد طلبات في هذه الجلسة بعد.',
     'sessions.detail.round': 'الجولة {number}',
-    'sessions.detail.notBilled': 'بانتظار القبول: لم يُحتسب بعد',
+    'sessions.detail.notCounted': 'بانتظار القبول: لم يُحتسب بعد',
     'sessions.detail.excluded.one': 'طلب واحد مرفوض أو ملغى لا يُحتسب.',
     'sessions.detail.excluded.two': 'طلبان مرفوضان أو ملغيان لا يُحتسبان.',
     'sessions.detail.excluded.few': '{count} طلبات مرفوضة أو ملغاة لا تُحتسب.',
@@ -292,44 +246,28 @@ export const sessionsMessages = defineMessages({
     'sessions.detail.loading': 'جارٍ تحميل الجلسة…',
     'sessions.detail.loadError': 'تعذر تحميل هذه الجلسة.',
 
-    'sessions.bill.title': 'الفاتورة',
-    'sessions.bill.billed': 'المحتسب (الطلبات المقبولة)',
-    'sessions.bill.awaiting': 'بانتظار القبول (غير محتسب)',
-    'sessions.bill.paid': 'المدفوع',
-    'sessions.bill.balance': 'الرصيد المستحق',
-    'sessions.bill.status': 'حالة الدفع',
-    'sessions.bill.serverNote': 'يحسب النظام الإجماليات من الطلبات كما تم تقديمها.',
-
-    'sessions.payments.title': 'المدفوعات',
-    'sessions.payments.empty': 'لا توجد مدفوعات مسجلة.',
-    'sessions.payments.method.CASH': 'نقدًا',
-    'sessions.payments.method.CARD': 'بطاقة',
-    'sessions.payments.method.OTHER': 'أخرى',
-    'sessions.payments.voided': 'ملغى',
-    'sessions.payments.voidReason': 'السبب: {reason}',
-    'sessions.payments.settleHint':
-      'تبقى الجلسة مغلقة. تسجيل الدفع لا يعيد فتحها ولا يغيّر إمكانية الطلب.',
-    'sessions.payments.closeFirst': 'أغلق الجلسة لتسجيل دفعها.',
+    'sessions.summary.title': 'ملخص طلبات الترابيزة',
+    'sessions.summary.accepted': 'الطلبات المقبولة',
+    'sessions.summary.awaiting': 'بانتظار القبول (غير محتسب)',
+    'sessions.summary.serverNote': 'يحسب النظام الإجماليات من الطلبات كما تم تقديمها.',
 
     'sessions.history.title': 'السجل',
     'sessions.history.SESSION_OPENED': 'فُتحت الجلسة',
     'sessions.history.SESSION_CLOSED': 'أُغلقت الجلسة',
-    'sessions.history.PAYMENT_RECORDED': 'سُجّل الدفع',
-    'sessions.history.PAYMENT_VOIDED': 'أُلغي سجل الدفع',
-    'sessions.history.BILL_PRINTED': 'طُبعت الفاتورة',
+    'sessions.history.BILL_PRINTED': 'طُبع ملخص الطلبات',
     'sessions.history.actor.GUEST': 'الضيف',
     'sessions.history.actor.STAFF': 'الموظف',
     'sessions.history.actor.SYSTEM': 'النظام',
 
     'sessions.open.title': 'فتح جلسة للطاولة {number}',
     'sessions.open.description':
-      'سيتمكن الضيوف من الطلب عبر رمز QR الخاص بالطاولة مرة أخرى. تبقى الجلسات المغلقة السابقة منفصلة بأرصدتها الخاصة.',
+      'سيتمكن الضيوف من الطلب عبر رمز QR الخاص بالطاولة مرة أخرى. تبقى الجلسات السابقة منفصلة.',
     'sessions.open.confirm': 'فتح جلسة',
     'sessions.open.opening': 'جارٍ الفتح…',
 
     'sessions.close.title': 'إغلاق هذه الجلسة؟',
     'sessions.close.description':
-      'يوقف الإغلاق الطلب من هذه الطاولة حتى تفتح جلسة جديدة. ولا يعني ذلك أن الفاتورة مدفوعة: تبقى الفاتورة غير المدفوعة متاحة للتسوية لاحقًا.',
+      'يوقف الإغلاق الطلب من هذه الطاولة حتى تفتح جلسة جديدة. وتستمر الطلبات الحالية في مسارها المعتاد داخل المطبخ.',
     'sessions.close.pending.one': 'في هذه الجلسة طلب واحد قيد الانتظار.',
     'sessions.close.pending.two': 'في هذه الجلسة طلبان قيد الانتظار.',
     'sessions.close.pending.few': 'في هذه الجلسة {count} طلبات قيد الانتظار.',
@@ -345,32 +283,13 @@ export const sessionsMessages = defineMessages({
     'sessions.close.confirm': 'إغلاق الجلسة',
     'sessions.close.closing': 'جارٍ الإغلاق…',
 
-    'sessions.pay.title': 'تسجيل الدفع',
-    'sessions.pay.description':
-      'يسجّل كامل الرصيد المستحق على أنه سُوّي خارج المنصة. تبقى الجلسة مغلقة.',
-    'sessions.pay.amount': 'المبلغ المراد تسويته',
-    'sessions.pay.method': 'طريقة الدفع',
-    'sessions.pay.note': 'ملاحظة (اختياري)',
-    'sessions.pay.notePlaceholder': 'مثال: رقم إيصال الجهاز',
-    'sessions.pay.confirm': 'تسجيل الدفع',
-    'sessions.pay.recording': 'جارٍ التسجيل…',
-
-    'sessions.void.title': 'إلغاء سجل الدفع هذا؟',
-    'sessions.void.description':
-      'الإلغاء تصحيح لسجل محاسبي ويبقى محفوظًا في السجل. وهو ليس استردادًا: لا تعيد المنصة أي مبلغ.',
-    'sessions.void.reason': 'السبب (مطلوب)',
-    'sessions.void.reasonPlaceholder': 'مثال: سُجّل بطريقة دفع خاطئة',
-    'sessions.void.reasonRequired': 'السبب مطلوب لإلغاء سجل الدفع.',
-    'sessions.void.confirm': 'إلغاء سجل الدفع',
-    'sessions.void.voiding': 'جارٍ الإلغاء…',
-
-    'sessions.print.title': 'الفاتورة المجمعة',
+    'sessions.print.title': 'ملخص طلبات الترابيزة',
     'sessions.print.paper': 'الورق',
     'sessions.print.paper.receipt': 'إيصال (80 مم)',
     'sessions.print.paper.a4': 'A4',
-    'sessions.print.print': 'طباعة الفاتورة',
-    'sessions.print.loading': 'جارٍ تجهيز الفاتورة…',
-    'sessions.print.error': 'تعذر تحميل الفاتورة.',
+    'sessions.print.print': 'طباعة الملخص',
+    'sessions.print.loading': 'جارٍ تجهيز الملخص…',
+    'sessions.print.error': 'تعذر تحميل الملخص.',
     'sessions.print.close': 'إغلاق',
     'sessions.print.table': 'الطاولة',
     'sessions.print.session': 'الجلسة',
@@ -379,23 +298,11 @@ export const sessionsMessages = defineMessages({
     'sessions.print.printedAt': 'تمت الطباعة',
     'sessions.print.order': 'الجولة {number}',
     'sessions.print.awaitingTitle': 'بانتظار القبول (غير محتسب)',
-    'sessions.print.subtotal': 'إجمالي المحتسب',
-    'sessions.print.paymentsTitle': 'المدفوعات',
-    'sessions.print.noPayments': 'لا توجد مدفوعات مسجلة',
-    'sessions.print.totalPaid': 'إجمالي المدفوع',
-    'sessions.print.balanceDue': 'الرصيد المستحق',
-    'sessions.print.status': 'حالة الدفع',
-    'sessions.print.voidedNote.one': 'أُلغي سجل دفع واحد (تصحيح).',
-    'sessions.print.voidedNote.two': 'أُلغي سجلا دفع (تصحيحان).',
-    'sessions.print.voidedNote.few': 'أُلغيت {count} سجلات دفع (تصحيحات).',
-    'sessions.print.voidedNote.many': 'أُلغي {count} سجل دفع (تصحيحات).',
-    'sessions.print.voidedNote.other': 'أُلغي {count} سجل دفع (تصحيحات).',
+    'sessions.print.subtotal': 'إجمالي الطلبات المقبولة',
     'sessions.print.thanks': 'شكرًا لزيارتكم',
-    'sessions.print.openSessionNote': 'الجلسة ما زالت مفتوحة: قد تتغير هذه الفاتورة.',
+    'sessions.print.openSessionNote': 'الجلسة ما زالت مفتوحة: قد يتغير هذا الملخص.',
 
     'sessions.notice.opened': 'تم فتح الجلسة.',
     'sessions.notice.closed': 'تم إغلاق الجلسة. الطلب من هذه الطاولة مقفل حتى تُفتح جلسة جديدة.',
-    'sessions.notice.paid': 'تم تسجيل الدفع.',
-    'sessions.notice.voided': 'تم إلغاء سجل الدفع.',
   },
 });

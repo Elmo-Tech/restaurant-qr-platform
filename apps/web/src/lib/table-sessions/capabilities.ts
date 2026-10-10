@@ -10,7 +10,6 @@ export interface SessionCapabilities {
   canView: boolean;
   canOpen: boolean;
   canClose: boolean;
-  canSettle: boolean;
   /** Closing with "reject pending orders" additionally needs `orders.reject`. */
   canRejectOrders: boolean;
 }
@@ -23,7 +22,6 @@ export function sessionCapabilities(
     canView: has('sessions.view'),
     canOpen: has('sessions.open'),
     canClose: has('sessions.close'),
-    canSettle: has('sessions.settle'),
     canRejectOrders: has('orders.reject'),
   };
 }
@@ -32,6 +30,5 @@ export const NO_SESSION_CAPABILITIES: SessionCapabilities = {
   canView: false,
   canOpen: false,
   canClose: false,
-  canSettle: false,
   canRejectOrders: false,
 };

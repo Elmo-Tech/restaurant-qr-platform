@@ -883,6 +883,8 @@ UI explains conflict.
 
 # 77. Table Session Detail
 
+> **Amended 2026-10-10 (DEC-035):** there is no payment state in V1. The Tables & QR workspace shows, per table: ordering availability, session state, session age, order count, pending count and the accepted-order total, with the actions Open session, View session, Close session and Print order summary. There is no Unpaid Bills tab and no financial badge. Past sessions stay reachable through "Session history". The printed "Table Order Summary" (EN/AR, 80 mm / A4) shows accepted orders, modifiers, quantities and the accepted-order total, and never claims payment.
+
 Active Session view should show:
 
 - Table
@@ -890,9 +892,8 @@ Active Session view should show:
 - Open time
 - Duration
 - Orders
-- Total
+- Total (accepted orders; pending orders separately)
 - Service Requests
-- Payment state
 
 ---
 
@@ -904,7 +905,7 @@ Staff may continue receiving new Orders.
 
 # 79. PAYMENT_PENDING
 
-> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING status, no "Mark Paid" status step and no "Mark Paid & Close" action. The Tables & QR workspace shows three separate things per table: Table QR **ordering availability** (open for ordering / ordering closed / table inactive), the **session lifecycle** (open / closed) and the **payment status** derived by the Backend (no charge / unpaid / balance due / paid / needs review). Staff **close** a session (never implying payment) and **record a full-balance payment** on the closed session, which stays closed. A void is an audited accounting correction, never a refund.
+> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING status, no "Mark Paid" status step and no "Mark Paid & Close" action. The Tables & QR workspace shows three separate things per table: Table QR **ordering availability** (open for ordering / ordering closed / table inactive), the **session lifecycle** (open / closed) and (the payment status that was part of this design was **removed 2026-10-10**: V1 scope correction 2026-10-10 (final business decision): Restaurant QR Platform V1 is a QR menu and ordering platform, NOT a POS or accounting system, so payments, settlement, voids and unpaid balances are deferred. See `TABLE_SESSION_SPEC.md` (amendment v4).). Staff **close** a session (never implying payment); the table then stays locked for QR ordering until staff **open a new session**.
 
 UI prominently indicates:
 
@@ -927,7 +928,7 @@ PAYMENT_PENDING
 
 # 81. Mark Paid
 
-> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING status, no "Mark Paid" status step and no "Mark Paid & Close" action. The Tables & QR workspace shows three separate things per table: Table QR **ordering availability** (open for ordering / ordering closed / table inactive), the **session lifecycle** (open / closed) and the **payment status** derived by the Backend (no charge / unpaid / balance due / paid / needs review). Staff **close** a session (never implying payment) and **record a full-balance payment** on the closed session, which stays closed. A void is an audited accounting correction, never a refund.
+> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING status, no "Mark Paid" status step and no "Mark Paid & Close" action. The Tables & QR workspace shows three separate things per table: Table QR **ordering availability** (open for ordering / ordering closed / table inactive), the **session lifecycle** (open / closed) and (the payment status that was part of this design was **removed 2026-10-10**: V1 scope correction 2026-10-10 (final business decision): Restaurant QR Platform V1 is a QR menu and ordering platform, NOT a POS or accounting system, so payments, settlement, voids and unpaid balances are deferred. See `TABLE_SESSION_SPEC.md` (amendment v4).). Staff **close** a session (never implying payment); the table then stays locked for QR ordering until staff **open a new session**.
 
 Authorized Staff action:
 
@@ -965,7 +966,7 @@ There is still an active order.
 
 # 85. Mark Paid & Close
 
-> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING status, no "Mark Paid" status step and no "Mark Paid & Close" action. The Tables & QR workspace shows three separate things per table: Table QR **ordering availability** (open for ordering / ordering closed / table inactive), the **session lifecycle** (open / closed) and the **payment status** derived by the Backend (no charge / unpaid / balance due / paid / needs review). Staff **close** a session (never implying payment) and **record a full-balance payment** on the closed session, which stays closed. A void is an audited accounting correction, never a refund.
+> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING status, no "Mark Paid" status step and no "Mark Paid & Close" action. The Tables & QR workspace shows three separate things per table: Table QR **ordering availability** (open for ordering / ordering closed / table inactive), the **session lifecycle** (open / closed) and (the payment status that was part of this design was **removed 2026-10-10**: V1 scope correction 2026-10-10 (final business decision): Restaurant QR Platform V1 is a QR menu and ordering platform, NOT a POS or accounting system, so payments, settlement, voids and unpaid balances are deferred. See `TABLE_SESSION_SPEC.md` (amendment v4).). Staff **close** a session (never implying payment); the table then stays locked for QR ordering until staff **open a new session**.
 
 UI may provide combined convenient action if Backend implements it transactionally and safely.
 
@@ -1302,7 +1303,7 @@ PAYMENT_PENDING Tables.
 
 # 123. Mark Paid Flow
 
-> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING status, no "Mark Paid" status step and no "Mark Paid & Close" action. The Tables & QR workspace shows three separate things per table: Table QR **ordering availability** (open for ordering / ordering closed / table inactive), the **session lifecycle** (open / closed) and the **payment status** derived by the Backend (no charge / unpaid / balance due / paid / needs review). Staff **close** a session (never implying payment) and **record a full-balance payment** on the closed session, which stays closed. A void is an audited accounting correction, never a refund.
+> **Superseded 2026-10-10 (Table Sessions design v3, implemented in Batch B):** there is no PAYMENT_PENDING status, no "Mark Paid" status step and no "Mark Paid & Close" action. The Tables & QR workspace shows three separate things per table: Table QR **ordering availability** (open for ordering / ordering closed / table inactive), the **session lifecycle** (open / closed) and (the payment status that was part of this design was **removed 2026-10-10**: V1 scope correction 2026-10-10 (final business decision): Restaurant QR Platform V1 is a QR menu and ordering platform, NOT a POS or accounting system, so payments, settlement, voids and unpaid balances are deferred. See `TABLE_SESSION_SPEC.md` (amendment v4).). Staff **close** a session (never implying payment); the table then stays locked for QR ordering until staff **open a new session**.
 
 > **Implemented Table Sessions flow (2026-10-10):** Tables & QR workspace (one place, no second table screen): each table card shows availability, session status, duration, order count, pending-order count, the Backend running bill, the payment status and an "old unpaid bills" indicator; actions are Open session (`sessions.open`), View session, Close session (`sessions.close`; mandatory KEEP / REJECT choice when pending orders exist; REJECT also needs `orders.reject`), Combined bill, and Record payment / Void payment (`sessions.settle`, CASH / CARD / OTHER, mandatory void reason, confirmation dialogs). The session panel shows orders by round with each order's own kitchen status, pending orders separately and unbilled, payments and history. An **Unpaid bills** view lists CLOSED sessions with an outstanding balance (exact, never truncated) and lets staff settle them without reopening. All amounts are Backend values. EN/AR with real RTL.
 

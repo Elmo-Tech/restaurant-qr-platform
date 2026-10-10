@@ -1,32 +1,27 @@
 import type { OrderStatus, OrderType } from '../orders/types';
 
 /**
- * Mirrors the Backend's Table Session read models (Table Sessions design v3).
- * Every money value is a DECIMAL STRING computed by the Backend from order
- * snapshots and the payment ledger -- the Web never calculates an
- * authoritative total, balance or payment status itself.
+ * Mirrors the Backend's Table Session read models (Table Sessions design v3,
+ * V1 scope correction). Every money value is a DECIMAL STRING computed by the
+ * Backend from order snapshots -- the Web never calculates an authoritative
+ * total itself.
+ *
+ * V1 is a QR menu and ordering platform, not a POS or accounting system: these
+ * models carry order totals only. There is no payment, balance or settlement
+ * state anywhere in them.
  */
 
 export type SessionLifecycle = 'OPEN' | 'CLOSED';
-export type SessionPaymentStatus =
-  | 'NO_CHARGE'
-  | 'UNPAID'
-  | 'PARTIALLY_PAID'
-  | 'PAID'
-  | 'OVERPAID';
-export type PaymentMethod = 'CASH' | 'CARD' | 'OTHER';
 export type ClosureReason =
   | 'NORMAL'
   | 'FIRST_ORDER_REJECTED'
   | 'STAFF_CORRECTION'
   | 'OTHER';
 
-export interface SessionBillView {
-  eligibleTotal: string;
-  pendingAmount: string;
-  paidAmount: string;
-  balance: string;
-  paymentStatus: SessionPaymentStatus;
+/** Order value of a session: accepted orders count; pending ones are shown separately. */
+export interface SessionTotals {
+  acceptedTotal: string;
+  pendingTotal: string;
 }
 
 export interface SessionListItem {
@@ -42,7 +37,7 @@ export interface SessionListItem {
   currencyCode: string;
   orderCount: number;
   pendingOrderCount: number;
-  bill: SessionBillView;
+  totals: SessionTotals;
 }
 
 export interface SessionOrderItem {
@@ -61,6 +56,7 @@ export interface SessionRound {
     status: OrderStatus;
     type: OrderType;
     createdAt: string;
+    /** True once the restaurant accepted it: only then it counts toward the total. */
     billable: boolean;
     currencyCode: string;
     totalAmount: string;
@@ -68,24 +64,8 @@ export interface SessionRound {
   };
 }
 
-export interface SessionPayment {
-  id: string;
-  kind: 'PAYMENT';
-  amount: string;
-  method: PaymentMethod;
-  note: string | null;
-  recordedAt: string;
-  recordedByMembershipId: string;
-  voided: { at: string; byMembershipId: string; reason: string } | null;
-}
-
 export interface SessionEvent {
-  type:
-    | 'SESSION_OPENED'
-    | 'SESSION_CLOSED'
-    | 'PAYMENT_RECORDED'
-    | 'PAYMENT_VOIDED'
-    | 'BILL_PRINTED';
+  type: 'SESSION_OPENED' | 'SESSION_CLOSED' | 'BILL_PRINTED';
   actorType: 'GUEST' | 'STAFF' | 'SYSTEM';
   actorMembershipId: string | null;
   occurredAt: string;
@@ -94,7 +74,6 @@ export interface SessionEvent {
 
 export interface SessionDetail extends SessionListItem {
   rounds: SessionRound[];
-  payments: SessionPayment[];
   events: SessionEvent[];
   excludedOrderCount: number;
 }
@@ -106,10 +85,9 @@ export interface TableBoardRow {
   branch: { id: string; name: string };
   ordering: TableOrderingState;
   openSession: SessionListItem | null;
-  outstanding: { sessionCount: number; balance: string; currencyCode: string } | null;
 }
 
-export interface SessionBillRound {
+export interface SessionSummaryRound {
   roundNumber: number;
   orderStatus: OrderStatus;
   createdAt: string;
@@ -117,8 +95,8 @@ export interface SessionBillRound {
   items: SessionOrderItem[];
 }
 
-/** The printable combined bill. Rendered exactly as received. */
-export interface SessionBillDocument {
+/** The printable table order summary. Rendered exactly as received. */
+export interface SessionSummaryDocument {
   generatedAt: string;
   restaurant: { name: string; currencyCode: string; logoAssetPath: string | null };
   branch: { name: string };
@@ -129,9 +107,7 @@ export interface SessionBillDocument {
     openedAt: string;
     closedAt: string | null;
   };
-  rounds: SessionBillRound[];
-  awaitingRounds: SessionBillRound[];
-  totals: SessionBillView;
-  payments: { method: PaymentMethod; amount: string; recordedAt: string }[];
-  voidedPaymentCount: number;
+  rounds: SessionSummaryRound[];
+  awaitingRounds: SessionSummaryRound[];
+  totals: SessionTotals;
 }

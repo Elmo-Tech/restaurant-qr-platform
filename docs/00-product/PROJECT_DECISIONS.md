@@ -145,7 +145,7 @@ OPEN
 
 After closing the session, the table may become available for a new session.
 
-> **Amended 2026-10-10 (implemented):** OPEN and CLOSED only. Closing never implies paid; a closed session may stay unpaid and be settled later without reopening. After a staff close the table is locked for QR ordering until staff open a new session (the only exception: a session auto-closed after a rejected first order does not lock the table). See `TABLE_SESSION_SPEC.md` (amendment v3).
+> **Amended 2026-10-10 (implemented):** OPEN and CLOSED only. Closing never implies paid; a closed session may stay unpaid and be settled later without reopening. After a staff close the table is locked for QR ordering until staff open a new session (the only exception: a session auto-closed after a rejected first order does not lock the table). See `TABLE_SESSION_SPEC.md` (amendment v3). **Further amended 2026-10-10 (DEC-035):** payment status and settlement are not part of V1.
 
 A Cleaning state may be introduced in the operational UI where useful.
 
@@ -741,6 +741,40 @@ zone-based form described in `VERSION_ROADMAP.md`.
 lean scope reaches a real restaurant sooner. **Impact:** `VERSION_ROADMAP.md`
 carries the authoritative "V1 Accepted Release Scope" section; the detailed
 domain specs for the deferred items remain valid as the design for V1.1.
+
+### DEC-035 — V1 Is Not a POS or Accounting System (Table Sessions Scope Correction)
+
+**Status:** Accepted (2026-10-10)
+
+Restaurant QR Platform V1 is a QR menu and restaurant ordering platform. It
+does not manage payments, settlement, refunds, voids or unpaid financial
+balances. Many restaurants already have their own POS and accounting software;
+the future direction is integration through APIs and webhooks (deferred, see
+`docs/05-future-proposals/POS_INTEGRATION.md`), not replacement.
+
+**Kept in V1 Table Sessions:** automatic creation on the first Dine-In order,
+manual open, multiple independent Orders with round numbers, independent
+kitchen lifecycles, the Backend-calculated accepted-order total (pending
+orders shown separately), duration and history, the combined **Table Order
+Summary** (EN/AR, 80 mm / A4), manual close without payment with the
+KEEP / REJECT pending policy, and the Table QR ordering lock until staff open
+a new session.
+
+**Removed from V1:** Record Payment, Void Payment, payment methods, payment
+statuses (PAID / UNPAID / PARTIALLY_PAID / OVERPAID), the Unpaid Bills view and
+badges, financial settlement summaries, payment history and any payment
+control in the printed document.
+
+**Server rule:** the payment write routes are not routed at all (404 for every
+role); UI hiding alone is not acceptable. The ledger table, its migrations and
+its records are preserved as deferred infrastructure and are never exposed
+without an approved integration design.
+
+**Reason:** a product that tracks payments would have to compete with the
+restaurant's POS and accounting system and would hold financial state it cannot
+keep authoritative. **Impact:** `TABLE_SESSION_SPEC.md` (amendment v4) wins over
+earlier payment text; DEC-007 and the Table Session UX/API sections carry
+cross-reference notes.
 
 ---
 

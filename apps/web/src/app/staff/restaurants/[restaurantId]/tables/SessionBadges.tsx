@@ -3,42 +3,16 @@
 import type { ReactNode } from 'react';
 import { Badge } from '../../../../../components/ui/Badge';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
-import type {
-  SessionPaymentStatus,
-  TableOrderingState,
-} from '../../../../../lib/table-sessions/types';
+import type { TableOrderingState } from '../../../../../lib/table-sessions/types';
 
 /**
- * Presentation helpers shared by the board card, the session drawer, the unpaid
- * bills view and the bill dialog. Everything here only DISPLAYS values the
- * Backend already derived (payment status, balances, availability); nothing is
- * recalculated in the browser.
+ * Presentation helpers shared by the board card, the session drawer, the
+ * session history view and the order summary dialog. Everything here only
+ * DISPLAYS values the Backend already derived (availability, order totals);
+ * nothing is recalculated in the browser.
  */
 
 type BadgeTone = 'neutral' | 'primary' | 'success' | 'warning' | 'destructive' | 'info';
-
-export function paymentTone(status: SessionPaymentStatus): BadgeTone {
-  switch (status) {
-    case 'PAID':
-      return 'success';
-    case 'UNPAID':
-    case 'PARTIALLY_PAID':
-      return 'warning';
-    case 'OVERPAID':
-      return 'destructive';
-    case 'NO_CHARGE':
-      return 'neutral';
-  }
-}
-
-export function PaymentStatusBadge({ status }: { status: SessionPaymentStatus }) {
-  const { t } = useStaffI18n();
-  return (
-    <Badge variant={paymentTone(status)} dot>
-      {t(`sessions.payment.${status}` as const)}
-    </Badge>
-  );
-}
 
 export function OrderingBadge({ state }: { state: TableOrderingState }) {
   const { t } = useStaffI18n();
@@ -77,22 +51,35 @@ export function Money({
   );
 }
 
-/** Formats whole minutes as a short, localized duration ("45 min", "2 h 5 min", "1 d 3 h"). */
+/**
+ * Formats whole minutes as a localized, plural-aware duration. English stays compact
+ * ("45 min", "2 h 5 min", "1 d 3 h"); Arabic uses full words with the proper dual and
+ * plural forms ("دقيقتان"، "ساعتان و5 دقائق"). Render the result with `dir="auto"`, never
+ * forced LTR, so Arabic keeps its natural reading order.
+ */
 export function useDurationLabel(): (minutes: number) => string {
-  const { t } = useStaffI18n();
+  const { t, tp } = useStaffI18n();
   return (minutes: number) => {
     if (minutes < 60) {
-      return t('sessions.duration.minutes', { minutes });
+      return tp('sessions.duration.minutes', minutes);
     }
     if (minutes < 60 * 24) {
-      return t('sessions.duration.hoursMinutes', {
-        hours: Math.floor(minutes / 60),
-        minutes: minutes % 60,
-      });
+      const hours = Math.floor(minutes / 60);
+      const rest = minutes % 60;
+      return rest === 0
+        ? tp('sessions.duration.hours', hours)
+        : t('sessions.duration.join', {
+            first: tp('sessions.duration.hours', hours),
+            second: tp('sessions.duration.minutes', rest),
+          });
     }
-    return t('sessions.duration.daysHours', {
-      days: Math.floor(minutes / (60 * 24)),
-      hours: Math.floor((minutes % (60 * 24)) / 60),
-    });
+    const days = Math.floor(minutes / (60 * 24));
+    const hours = Math.floor((minutes % (60 * 24)) / 60);
+    return hours === 0
+      ? tp('sessions.duration.days', days)
+      : t('sessions.duration.join', {
+          first: tp('sessions.duration.days', days),
+          second: tp('sessions.duration.hours', hours),
+        });
   };
 }

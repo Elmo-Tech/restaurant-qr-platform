@@ -9,7 +9,7 @@ import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { describeError } from '../../../../../lib/menu/error-message';
 import { resolveAssetUrl } from '../../../../../lib/media/asset-url';
 import * as sessionsApi from '../../../../../lib/table-sessions/api';
-import type { SessionBillDocument } from '../../../../../lib/table-sessions/types';
+import type { SessionSummaryDocument } from '../../../../../lib/table-sessions/types';
 import {
   SessionBillPrintPortal,
   SessionBillView,
@@ -17,12 +17,12 @@ import {
 } from './SessionBillReceipt';
 
 /**
- * The combined bill: a preview of exactly what will print, a paper choice
+ * The table order summary: a preview of exactly what will print, a paper choice
  * (80 mm receipt or A4) and the Print button. The document comes straight from
- * the Backend bill endpoint; this dialog only displays and prints it. Pressing
- * Print records a BILL_PRINTED audit event (best effort: a failure there never
- * blocks printing). Browser "Save as PDF" covers PDF output, so no PDF service
- * is involved.
+ * the Backend summary endpoint; this dialog only displays and prints it.
+ * Pressing Print records a BILL_PRINTED audit event (best effort: a failure
+ * there never blocks printing). Browser "Save as PDF" covers PDF output, so no
+ * PDF service is involved.
  */
 export function BillPrintDialog({
   restaurantId,
@@ -34,7 +34,7 @@ export function BillPrintDialog({
   onClose: () => void;
 }) {
   const { t } = useStaffI18n();
-  const [bill, setBill] = useState<SessionBillDocument | null>(null);
+  const [bill, setBill] = useState<SessionSummaryDocument | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [paper, setPaper] = useState<BillPaper>('receipt');
   const closeRef = useRef<HTMLButtonElement>(null);

@@ -9,7 +9,6 @@ import { findOrderTransitionRule } from './order-transitions';
 import { resolveOrderBranchIdFilter } from './order-branch-scope';
 import {
   autoCloseAfterFirstOrderRejection,
-  CancelBlockedBySettlementError,
   prepareOrderTransition,
 } from '../table-sessions/table-session-order-hooks';
 
@@ -110,8 +109,6 @@ export type UpdateOrderStatusResult =
   | { outcome: 'notFound' }
   | { outcome: 'invalidTransition' }
   | { outcome: 'permissionDenied' }
-  /** Table Sessions (P5): the order's session has an active payment, so it cannot be cancelled until that payment is voided. */
-  | { outcome: 'cancelBlockedBySettlement' }
   | { outcome: 'staleStatus'; currentStatus: OrderStatus };
 
 function formatMoney(value: { toFixed(digits: number): string }): string {
@@ -386,57 +383,48 @@ export class OrdersService {
     // `updateMany` (`WHERE status = expectedStatus`) remains the actual
     // race-safety guarantee (Section 14 note above); the event insert only
     // ever runs when that write genuinely changed a row.
-    let written: { count: number };
-    try {
-      written = await this.prisma.$transaction(async (tx) => {
-        // Table Sessions: take the session locks (and enforce the cancel-after-
-        // payment guard) BEFORE the conditional update. A session-less order
-        // (legacy, Pickup, Delivery) skips this entirely.
-        const prepared = await prepareOrderTransition(
-          tx,
-          {
+    const written = await this.prisma.$transaction(async (tx) => {
+      // Table Sessions: take the session locks BEFORE the conditional update.
+      // A session-less order (legacy, Pickup, Delivery) skips this entirely.
+      const prepared = await prepareOrderTransition(
+        tx,
+        {
+          restaurantId: input.scope.restaurantId,
+          branchId: order.branchId,
+          tableSessionId: order.tableSessionId,
+          roundNumber: order.roundNumber,
+        },
+        input.status,
+      );
+      const result = await tx.order.updateMany({
+        where: {
+          id: order.id,
+          restaurantId: input.scope.restaurantId,
+          status: input.expectedStatus,
+        },
+        data: { status: input.status },
+      });
+      if (result.count > 0) {
+        await tx.orderStatusEvent.create({
+          data: {
             restaurantId: input.scope.restaurantId,
             branchId: order.branchId,
-            tableSessionId: order.tableSessionId,
-            roundNumber: order.roundNumber,
+            orderId: order.id,
+            previousStatus: input.expectedStatus,
+            newStatus: input.status,
           },
-          input.status,
-        );
-        const result = await tx.order.updateMany({
-          where: {
-            id: order.id,
-            restaurantId: input.scope.restaurantId,
-            status: input.expectedStatus,
-          },
-          data: { status: input.status },
         });
-        if (result.count > 0) {
-          await tx.orderStatusEvent.create({
-            data: {
-              restaurantId: input.scope.restaurantId,
-              branchId: order.branchId,
-              orderId: order.id,
-              previousStatus: input.expectedStatus,
-              newStatus: input.status,
-            },
+        if (prepared.checkFirstOrderAutoClose && order.tableSessionId) {
+          await autoCloseAfterFirstOrderRejection(tx, {
+            sessionId: order.tableSessionId,
+            restaurantId: input.scope.restaurantId,
+            branchId: order.branchId,
+            rejectedOrderId: order.id,
           });
-          if (prepared.checkFirstOrderAutoClose && order.tableSessionId) {
-            await autoCloseAfterFirstOrderRejection(tx, {
-              sessionId: order.tableSessionId,
-              restaurantId: input.scope.restaurantId,
-              branchId: order.branchId,
-              rejectedOrderId: order.id,
-            });
-          }
         }
-        return result;
-      });
-    } catch (error) {
-      if (error instanceof CancelBlockedBySettlementError) {
-        return { outcome: 'cancelBlockedBySettlement' };
       }
-      throw error;
-    }
+      return result;
+    });
 
     if (written.count === 0) {
       // Section 14: another request changed the status between our read

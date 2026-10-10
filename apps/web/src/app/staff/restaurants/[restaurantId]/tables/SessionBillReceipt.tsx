@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { createPortal } from 'react-dom';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
-import type { SessionBillDocument } from '../../../../../lib/table-sessions/types';
+import type { SessionSummaryDocument } from '../../../../../lib/table-sessions/types';
 import { useDurationLabel } from './SessionBadges';
 
 export type BillPaper = 'receipt' | 'a4';
@@ -50,17 +50,18 @@ function Divider({ paper }: { paper: BillPaper }) {
 }
 
 /**
- * The combined session bill, rendered EXACTLY from the Backend bill document:
- * no total, balance or payment status is calculated here. Used both for the
- * on-screen preview and (through `SessionBillPrintPortal`) for printing, so
- * what staff see is what is printed. Plain black on white, no icons required.
+ * The table order summary, rendered EXACTLY from the Backend summary document:
+ * no total is calculated here, and it carries no payment information at all
+ * (the platform manages no payments). Used both for the on-screen preview and
+ * (through `SessionBillPrintPortal`) for printing, so what staff see is what
+ * is printed. Plain black on white, no icons required.
  */
 export function SessionBillView({
   bill,
   paper,
   logoUrl,
 }: {
-  bill: SessionBillDocument;
+  bill: SessionSummaryDocument;
   paper: BillPaper;
   logoUrl: string | null;
 }) {
@@ -137,7 +138,7 @@ export function SessionBillView({
             value={<Num>{formatDateTime(bill.session.closedAt)}</Num>}
           />
         ) : null}
-        <Row label={t('sessions.detail.duration')} value={<Num>{durationLabel(minutes)}</Num>} />
+        <Row label={t('sessions.detail.duration')} value={<Text>{durationLabel(minutes)}</Text>} />
         <Row
           label={t('sessions.print.printedAt')}
           value={<Num>{formatDateTime(bill.generatedAt)}</Num>}
@@ -191,12 +192,12 @@ export function SessionBillView({
         </section>
       ))}
 
-      <Divider paper={paper} />
+      {bill.rounds.length > 0 ? <Divider paper={paper} /> : null}
 
       <dl className="flex flex-col gap-0.5">
         <Row
           label={t('sessions.print.subtotal')}
-          value={money(bill.totals.eligibleTotal)}
+          value={money(bill.totals.acceptedTotal)}
           strong
         />
       </dl>
@@ -224,52 +225,6 @@ export function SessionBillView({
       ) : null}
 
       <Divider paper={paper} />
-
-      <section>
-        <p className="font-bold">{t('sessions.print.paymentsTitle')}</p>
-        {bill.payments.length === 0 ? (
-          <p>{t('sessions.print.noPayments')}</p>
-        ) : (
-          <ul className="flex flex-col gap-0.5">
-            {bill.payments.map((payment, index) => (
-              <li key={index} className="flex justify-between gap-2">
-                <span>
-                  {t(`sessions.payments.method.${payment.method}` as const)}{' '}
-                  <span className="opacity-80">
-                    <Num>{formatDateTime(payment.recordedAt)}</Num>
-                  </span>
-                </span>
-                <span className="whitespace-nowrap">{money(payment.amount)}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        {bill.voidedPaymentCount > 0 ? (
-          <p className="mt-0.5 opacity-80">
-            {bill.voidedPaymentCount === 1
-              ? t('sessions.print.voidedNote.one', { count: bill.voidedPaymentCount })
-              : t('sessions.print.voidedNote.other', { count: bill.voidedPaymentCount })}
-          </p>
-        ) : null}
-      </section>
-
-      <Divider paper={paper} />
-
-      <dl className="flex flex-col gap-0.5">
-        <Row label={t('sessions.print.totalPaid')} value={money(bill.totals.paidAmount)} />
-        <Row
-          label={t('sessions.print.balanceDue')}
-          value={money(bill.totals.balance)}
-          strong
-        />
-        <Row
-          label={t('sessions.print.status')}
-          value={t(`sessions.payment.${bill.totals.paymentStatus}` as const)}
-          strong
-        />
-      </dl>
-
-      <Divider paper={paper} />
       <p className="text-center">{t('sessions.print.thanks')}</p>
     </div>
   );
@@ -287,7 +242,7 @@ export function SessionBillPrintPortal({
   paper,
   logoUrl,
 }: {
-  bill: SessionBillDocument;
+  bill: SessionSummaryDocument;
   paper: BillPaper;
   logoUrl: string | null;
 }) {
