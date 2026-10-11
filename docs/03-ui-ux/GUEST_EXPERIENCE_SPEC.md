@@ -386,6 +386,8 @@ Guest header may include:
 
 ---
 
+> **Implemented 2026-10-11 (V1 Final Features, Batch 1):** the Restaurant cover image is shown as the full-bleed hero background (cropped with `object-fit: cover`) under a theme-aware scrim that fades into the page background, so the name and ordering context keep contrast in both Light and Dark. Without a cover image the existing branded hero (soft glow and cloche mark) is shown unchanged; a cover that fails to load falls back to it. Branch and Delivery zone names follow the menu content language (requested, then default, then legacy name).
+
 # 29. Restaurant Branding
 
 Guest interface may use controlled Restaurant:

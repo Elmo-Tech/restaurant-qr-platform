@@ -5,6 +5,8 @@ import { PrismaService } from '../database/prisma.service';
 export interface RestaurantProfile {
   name: string;
   logoAssetPath: string | null;
+  /** Guest Menu hero cover image; null keeps the default branded hero. */
+  coverAssetPath: string | null;
 }
 
 export interface UpdateRestaurantProfileInput {
@@ -30,7 +32,25 @@ export type ClearRestaurantLogoResult = {
   previousLogoAssetPath: string | null;
 };
 
-const PROFILE_SELECT = { name: true, logoAssetPath: true } as const;
+const PROFILE_SELECT = {
+  name: true,
+  logoAssetPath: true,
+  coverAssetPath: true,
+} as const;
+
+export interface SetRestaurantCoverInput {
+  restaurantId: string;
+  imageAssetPath: string;
+}
+
+export type SetRestaurantCoverResult = {
+  data: RestaurantProfile;
+  previousCoverAssetPath: string | null;
+};
+
+export type ClearRestaurantCoverResult = {
+  previousCoverAssetPath: string | null;
+};
 
 /**
  * FT-12: Restaurant Profile (name, logo). `restaurantId` authority always
@@ -67,6 +87,38 @@ export class RestaurantProfileService {
     });
 
     return { data, previousLogoAssetPath: existing.logoAssetPath };
+  }
+
+  /** Same save-file, then DB write, then best-effort delete of the old file contract as the logo. */
+  async setCover(input: SetRestaurantCoverInput): Promise<SetRestaurantCoverResult> {
+    const existing = await this.prisma.restaurant.findUniqueOrThrow({
+      where: { id: input.restaurantId },
+      select: { coverAssetPath: true },
+    });
+
+    const data = await this.prisma.restaurant.update({
+      where: { id: input.restaurantId },
+      data: { coverAssetPath: input.imageAssetPath },
+      select: PROFILE_SELECT,
+    });
+
+    return { data, previousCoverAssetPath: existing.coverAssetPath };
+  }
+
+  async clearCover(input: { restaurantId: string }): Promise<ClearRestaurantCoverResult> {
+    const existing = await this.prisma.restaurant.findUniqueOrThrow({
+      where: { id: input.restaurantId },
+      select: { coverAssetPath: true },
+    });
+
+    if (existing.coverAssetPath !== null) {
+      await this.prisma.restaurant.update({
+        where: { id: input.restaurantId },
+        data: { coverAssetPath: null },
+      });
+    }
+
+    return { previousCoverAssetPath: existing.coverAssetPath };
   }
 
   async clearLogo(input: ClearRestaurantLogoInput): Promise<ClearRestaurantLogoResult> {

@@ -22,12 +22,21 @@ import { Input } from '../../../../../../components/ui/Input';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { SettingsTabs } from '../SettingsTabs';
+import { LocalizedNameFields } from '../../../../../../components/staff/LocalizedNameFields';
+import {
+  initialNameValues,
+  localizedName,
+  toNamePayload,
+} from '../../../../../../lib/i18n/localized-name';
+import { useActiveLocales } from '../../../../../../lib/settings/use-active-locales';
 
 /** Mirrors the Backend's accepted decimal-string shape -- helpful client validation only, never authoritative. */
 const MONEY_PATTERN = /^(0|[1-9]\d{0,11})(\.\d{1,2})?$/;
 
 export interface DeliveryWorkspaceProps {
   restaurantId: string;
+  /** The Restaurant default locale (`/auth/me`): the required name language in the zone form. */
+  defaultLocale: string;
   currencyCode: string;
   /** `restaurant.manage` AND `allBranches === true`. */
   canManage: boolean;
@@ -43,6 +52,7 @@ export interface DeliveryWorkspaceProps {
  */
 export function DeliveryWorkspace({
   restaurantId,
+  defaultLocale,
   currencyCode,
   canManage,
   hasRestaurantManagePermission: hasManagePermission,
@@ -133,6 +143,7 @@ export function DeliveryWorkspace({
         <BranchCard
           key={branch.id}
           restaurantId={restaurantId}
+          defaultLocale={defaultLocale}
           currencyCode={currencyCode}
           canManage={canManage}
           branch={branch}
@@ -147,6 +158,7 @@ export function DeliveryWorkspace({
 
 function BranchCard({
   restaurantId,
+  defaultLocale,
   currencyCode,
   canManage,
   branch,
@@ -155,6 +167,7 @@ function BranchCard({
   onZoneDeleted,
 }: {
   restaurantId: string;
+  defaultLocale: string;
   currencyCode: string;
   canManage: boolean;
   branch: DeliveryBranch;
@@ -162,7 +175,7 @@ function BranchCard({
   onZoneCreated: (zone: DeliveryZone) => void;
   onZoneDeleted: (zoneId: string) => void;
 }) {
-  const { t } = useStaffI18n();
+  const { t, locale } = useStaffI18n();
   const [isAdding, setIsAdding] = useState(false);
   const activeZones = branch.zones.filter((zone) => zone.status === 'ACTIVE').length;
   const offered = branch.status === 'ACTIVE' && activeZones > 0;
@@ -172,7 +185,7 @@ function BranchCard({
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
           <h2 dir="auto" className="text-base font-semibold text-foreground">
-            {branch.name}
+            {localizedName(branch, locale)}
           </h2>
           {branch.status === 'INACTIVE' ? (
             <Badge variant="neutral">{t('settings.delivery.branchInactive')}</Badge>
@@ -191,6 +204,7 @@ function BranchCard({
             <ZoneRow
               key={zone.id}
               restaurantId={restaurantId}
+              defaultLocale={defaultLocale}
               currencyCode={currencyCode}
               canManage={canManage}
               zone={zone}
@@ -203,6 +217,8 @@ function BranchCard({
 
       {isAdding ? (
         <ZoneForm
+          restaurantId={restaurantId}
+          defaultLocale={defaultLocale}
           currencyCode={currencyCode}
           submitLabel={t('settings.delivery.addAreaSubmit')}
           onCancel={() => setIsAdding(false)}
@@ -225,6 +241,7 @@ function BranchCard({
 
 function ZoneRow({
   restaurantId,
+  defaultLocale,
   currencyCode,
   canManage,
   zone,
@@ -232,13 +249,14 @@ function ZoneRow({
   onDeleted,
 }: {
   restaurantId: string;
+  defaultLocale: string;
   currencyCode: string;
   canManage: boolean;
   zone: DeliveryZone;
   onChanged: (zone: DeliveryZone) => void;
   onDeleted: (zoneId: string) => void;
 }) {
-  const { t } = useStaffI18n();
+  const { t, locale } = useStaffI18n();
   const [isEditing, setIsEditing] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -267,6 +285,8 @@ function ZoneRow({
     return (
       <li>
         <ZoneForm
+          restaurantId={restaurantId}
+          defaultLocale={defaultLocale}
           currencyCode={currencyCode}
           initial={zone}
           submitLabel={t('common.save')}
@@ -290,7 +310,7 @@ function ZoneRow({
     <li className="flex flex-wrap items-center justify-between gap-3 rounded-md bg-muted px-3 py-2.5">
       <div className="min-w-0">
         <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
-          <bdi dir="auto">{zone.name}</bdi>
+          <bdi dir="auto">{localizedName(zone, locale)}</bdi>
           {zone.status === 'INACTIVE' ? <Badge variant="neutral">{t('settings.delivery.inactive')}</Badge> : null}
         </p>
         <p className="text-xs text-muted-foreground">
@@ -321,7 +341,7 @@ function ZoneRow({
             variant="danger"
             disabled={!canManage || isBusy}
             onClick={() => {
-              if (!window.confirm(t('settings.delivery.confirmDelete', { name: zone.name }))) return;
+              if (!window.confirm(t('settings.delivery.confirmDelete', { name: localizedName(zone, locale) }))) return;
               void run(async () => {
                 await deliveryApi.deleteDeliveryZone(restaurantId, zone.id);
                 onDeleted(zone.id);
@@ -337,27 +357,35 @@ function ZoneRow({
 }
 
 function ZoneForm({
+  restaurantId,
+  defaultLocale,
   currencyCode,
   initial,
   submitLabel,
   onCancel,
   onSubmit,
 }: {
+  restaurantId: string;
+  defaultLocale: string;
   currencyCode: string;
   initial?: DeliveryZone;
   submitLabel: string;
   onCancel: () => void;
-  onSubmit: (values: { name: string; deliveryFee: string; minimumOrder: string }) => Promise<void>;
+  onSubmit: (values: deliveryApi.DeliveryZoneInput) => Promise<void>;
 }) {
   const { t } = useStaffI18n();
-  const [name, setName] = useState(initial?.name ?? '');
+  const activeLocales = useActiveLocales(restaurantId, defaultLocale);
+  const [names, setNames] = useState<Record<string, string>>(() =>
+    initialNameValues(initial ?? null, defaultLocale),
+  );
   const [deliveryFee, setDeliveryFee] = useState(initial?.deliveryFee ?? '0.00');
   const [minimumOrder, setMinimumOrder] = useState(initial?.minimumOrder ?? '0.00');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   async function handleSubmit() {
-    if (name.trim() === '') {
+    const namePayload = toNamePayload(names, defaultLocale, activeLocales);
+    if (namePayload.name === '') {
       setError(t('settings.delivery.nameRequired'));
       return;
     }
@@ -368,7 +396,7 @@ function ZoneForm({
     setIsSubmitting(true);
     setError(null);
     try {
-      await onSubmit({ name: name.trim(), deliveryFee, minimumOrder });
+      await onSubmit({ ...namePayload, deliveryFee, minimumOrder });
     } catch (err) {
       if (isUnauthenticatedError(err)) {
         redirectToLogin();
@@ -382,18 +410,17 @@ function ZoneForm({
   return (
     <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-3">
       {error ? <Alert variant="error">{error}</Alert> : null}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-        <FormField label={t('settings.delivery.areaName')} htmlFor="zone-name">
-          <Input
-            id="zone-name"
-            value={name}
-            dir="auto"
-            maxLength={100}
-            placeholder={t('settings.delivery.areaNamePlaceholder')}
-            disabled={isSubmitting}
-            onChange={(e) => setName(e.target.value)}
-          />
-        </FormField>
+      <LocalizedNameFields
+        idPrefix="zone-name"
+        defaultLocale={defaultLocale}
+        activeLocales={activeLocales}
+        values={names}
+        onChange={(locale, value) => setNames((prev) => ({ ...prev, [locale]: value }))}
+        disabled={isSubmitting}
+        maxLength={100}
+        placeholder={t('settings.delivery.areaNamePlaceholder')}
+      />
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
         <FormField label={t('settings.delivery.fee', { currency: currencyCode })} htmlFor="zone-fee">
           <Input
             id="zone-fee"

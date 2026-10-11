@@ -12,6 +12,7 @@ function decimal(value: string) {
 const ZONE_ROW = {
   id: ZONE_ID,
   name: 'University District',
+  translations: [{ locale: 'en', name: 'University District' }],
   deliveryFee: decimal('25'),
   minimumOrder: decimal('150'),
   status: 'ACTIVE' as const,
@@ -21,9 +22,19 @@ const ZONE_ROW = {
 
 function build() {
   const branchFindMany = jest.fn().mockResolvedValue([]);
-  const branchFindFirst = jest.fn().mockResolvedValue({ id: BRANCH_ID, _count: { deliveryZones: 2 } });
+  const branchFindFirst = jest.fn().mockResolvedValue({
+    id: BRANCH_ID,
+    restaurant: { defaultLocale: 'en' },
+    _count: { deliveryZones: 2 },
+  });
   const zoneCreate = jest.fn().mockResolvedValue(ZONE_ROW);
-  const zoneFindFirst = jest.fn().mockResolvedValue({ id: ZONE_ID, _count: { orders: 0 } });
+  const zoneFindFirst = jest.fn().mockResolvedValue({
+    id: ZONE_ID,
+    restaurant: { defaultLocale: 'en' },
+    _count: { orders: 0 },
+  });
+  const zoneTranslationUpsert = jest.fn().mockResolvedValue({});
+  const zoneTranslationDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
   const zoneUpdate = jest.fn().mockResolvedValue(ZONE_ROW);
   const zoneDelete = jest.fn().mockResolvedValue(undefined);
   const membershipBranchFindMany = jest.fn().mockResolvedValue([]);
@@ -36,8 +47,18 @@ function build() {
       delete: zoneDelete,
     },
     restaurantMembershipBranch: { findMany: membershipBranchFindMany },
+    deliveryZoneTranslation: {
+      upsert: zoneTranslationUpsert,
+      deleteMany: zoneTranslationDeleteMany,
+    },
+    $transaction: jest.fn(),
   };
+  prisma.$transaction.mockImplementation((callback: (tx: unknown) => Promise<unknown>) =>
+    callback(prisma),
+  );
   return {
+    zoneTranslationUpsert,
+    zoneTranslationDeleteMany,
     service: new DeliveryZonesService(prisma as never),
     branchFindMany,
     branchFindFirst,
@@ -53,7 +74,7 @@ describe('DeliveryZonesService', () => {
   it('lists Branches scoped to the authorized Restaurant and formats money as exact 2-decimal strings', async () => {
     const m = build();
     m.branchFindMany.mockResolvedValue([
-      { id: BRANCH_ID, name: 'Main', status: 'ACTIVE', deliveryZones: [ZONE_ROW] },
+      { id: BRANCH_ID, name: 'Main', translations: [], status: 'ACTIVE', deliveryZones: [ZONE_ROW] },
     ]);
 
     const result = await m.service.listDeliveryBranches({
@@ -92,6 +113,7 @@ describe('DeliveryZonesService', () => {
       {
         id: BRANCH_ID,
         name: 'Main',
+        translations: [],
         status: 'ACTIVE',
         deliveryZones: [{ ...ZONE_ROW, _count: { orders: 3 } }],
       },
@@ -144,6 +166,78 @@ describe('DeliveryZonesService', () => {
     expect(data.deliveryFee).toBeInstanceOf(Prisma.Decimal);
     expect(data.deliveryFee.toFixed(2)).toBe('25.00');
     expect(data.minimumOrder.toFixed(2)).toBe('150.00');
+  });
+
+  it('create writes the default-locale row from name plus the supplied translations; the legacy name is the default-locale value', async () => {
+    const m = build();
+
+    await m.service.createZone({
+      restaurantId: RESTAURANT_ID,
+      branchId: BRANCH_ID,
+      name: 'University District',
+      translations: [{ locale: 'ar', name: 'حي الجامعة' }],
+      deliveryFee: '25.00',
+      minimumOrder: '150',
+      status: 'ACTIVE',
+    });
+
+    const data = m.zoneCreate.mock.calls[0][0].data;
+    expect(data.name).toBe('University District');
+    expect(data.translations).toEqual({
+      create: [
+        { locale: 'ar', name: 'حي الجامعة' },
+        { locale: 'en', name: 'University District' },
+      ],
+    });
+  });
+
+  it('create refuses a blank default-locale translation and writes nothing', async () => {
+    const m = build();
+
+    const result = await m.service.createZone({
+      restaurantId: RESTAURANT_ID,
+      branchId: BRANCH_ID,
+      name: 'X',
+      translations: [{ locale: 'en', name: '' }],
+      deliveryFee: '1',
+      minimumOrder: '0',
+      status: 'ACTIVE',
+    });
+
+    expect(result).toEqual({ outcome: 'defaultNameRequired' });
+    expect(m.zoneCreate).not.toHaveBeenCalled();
+  });
+
+  it('update upserts supplied locales and removes an emptied non-default locale, scoped to the verified zone', async () => {
+    const m = build();
+
+    await m.service.updateZone({
+      restaurantId: RESTAURANT_ID,
+      zoneId: ZONE_ID,
+      translations: [
+        { locale: 'ar', name: 'حي الجامعة' },
+        { locale: 'en', name: 'University' },
+      ],
+    });
+    const creates = m.zoneTranslationUpsert.mock.calls.map(
+      (call: [{ create: unknown }]) => call[0].create,
+    );
+    expect(creates).toEqual([
+      { deliveryZoneId: ZONE_ID, locale: 'ar', name: 'حي الجامعة' },
+      { deliveryZoneId: ZONE_ID, locale: 'en', name: 'University' },
+    ]);
+    // the default-locale translation is authoritative for the legacy name
+    expect(m.zoneUpdate.mock.calls[0][0].data.name).toBe('University');
+
+    const removal = build();
+    await removal.service.updateZone({
+      restaurantId: RESTAURANT_ID,
+      zoneId: ZONE_ID,
+      translations: [{ locale: 'ar', name: '' }],
+    });
+    expect(removal.zoneTranslationDeleteMany).toHaveBeenCalledWith({
+      where: { deliveryZoneId: ZONE_ID, locale: { in: ['ar'] } },
+    });
   });
 
   it('a malformed Branch id is not found without touching the database', async () => {

@@ -2078,6 +2078,14 @@ Never returned: a raw `RestaurantLocale` `id`/`restaurantId`. Changing `Restaura
 
 ---
 
+# 108D-1. Restaurant Cover Image, Bilingual Branch / Zone Names (V1 Final Features Batch 1, 2026-10-11)
+
+**Cover image.** `POST /api/v1/restaurants/{restaurantId}/cover` (multipart field `image`) and `DELETE /api/v1/restaurants/{restaurantId}/cover`. Permission `restaurant.manage` with Restaurant-wide scope (`AllBranchesRequiredGuard`), CSRF-protected, exactly like the logo. The file is saved first, then the row updated, then the previous file removed best-effort. Validation reuses the image rules (JPEG / PNG / WebP by signature, 5 MB) and adds banner rules: width and height at least 800 x 300 px, at most 6000 px on a side, aspect ratio between 1.3:1 and 3.2:1 (recommended 16:9). Stable codes: `COVER_IMAGE_TOO_SMALL`, `COVER_IMAGE_DIMENSIONS_TOO_LARGE`, `COVER_IMAGE_INVALID_ASPECT_RATIO`, `IMAGE_UNREADABLE`, plus `IMAGE_REQUIRED`, `INVALID_IMAGE_TYPE`, `IMAGE_TOO_LARGE`. `PATCH /restaurants/{id}`, `POST .../logo` and `POST .../cover` responses carry `{ name, logoAssetPath, coverAssetPath }`; `/auth/me` restaurants and the public menu `context.restaurant` carry `coverAssetPath` (null when none).
+
+**Bilingual names.** `POST /restaurants/{id}/branches`, `PATCH /restaurants/{id}/branches/{branchId}`, `POST /restaurants/{id}/branches/{branchId}/delivery-zones` and `PATCH /restaurants/{id}/delivery-zones/{zoneId}` accept an optional `translations: [{ locale, name }]` (locales `en` / `ar`, no repeats, name up to 100 characters). `name` remains the default-locale name; an empty translation name removes that locale; the default locale cannot be removed (`400 DEFAULT_TRANSLATION_REQUIRED`). Branch list/detail, `/auth/me` branches, and the Delivery overview return `translations`. The public menu returns already-resolved names (requested locale, then default locale, then `name`). `POST /public/qr/{publicCode}/orders` accepts an optional display-only `locale` (`en` | `ar`) used to localize Branch and zone names in the confirmation; it never affects pricing, validation or the stored snapshot.
+
+---
+
 # 108E. Menu/Category/Product Translations (Settled, LOC-2B)
 
 `GET`/`PUT`/`DELETE .../translations[/{locale}]`, added as sub-resources under each entity's existing canonical route: `.../menus/{menuId}/translations`, `.../categories/{categoryId}/translations`, `.../products/{productId}/translations`. Identical behavior and contract across all three entities.

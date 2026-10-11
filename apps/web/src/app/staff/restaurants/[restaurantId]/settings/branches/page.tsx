@@ -64,6 +64,7 @@ export default async function BranchesSettingsPage({ params }: BranchesSettingsP
   return (
     <BranchesWorkspace
       restaurantId={restaurantId}
+      defaultLocale={membership.restaurant.defaultLocale}
       canManage={canManageBranches(membership)}
       canCreate={canCreateBranch(membership)}
     />

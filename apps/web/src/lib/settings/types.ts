@@ -22,4 +22,5 @@ export interface RestaurantLocalesResponse {
 export interface RestaurantProfile {
   name: string;
   logoAssetPath: string | null;
+  coverAssetPath: string | null;
 }

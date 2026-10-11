@@ -14,9 +14,14 @@ import { Alert } from '../../../../../../components/ui/Alert';
 import { Dialog } from '../../../../../../components/ui/Dialog';
 import { FormField } from '../../../../../../components/ui/FormField';
 import { Input } from '../../../../../../components/ui/Input';
+import { LocalizedNameFields } from '../../../../../../components/staff/LocalizedNameFields';
+import { initialNameValues, toNamePayload } from '../../../../../../lib/i18n/localized-name';
+import { useActiveLocales } from '../../../../../../lib/settings/use-active-locales';
 
 export interface BranchFormDialogProps {
   restaurantId: string;
+  /** The Restaurant default locale: its name is the required one. */
+  defaultLocale: string;
   /** `'create'` for a new Branch, the Branch itself to edit, or `null` when the dialog is closed. */
   target: 'create' | BranchItem | null;
   /** The browser's own IANA zone, offered as the default for a new Branch. */
@@ -33,6 +38,7 @@ export function BranchFormDialog(props: BranchFormDialogProps) {
 
 function BranchForm({
   restaurantId,
+  defaultLocale,
   target,
   defaultTimezone,
   onClose,
@@ -41,7 +47,10 @@ function BranchForm({
   const { t } = useStaffI18n();
   const nameRef = useRef<HTMLInputElement>(null);
   const isCreate = target === 'create';
-  const [name, setName] = useState(isCreate ? '' : target.name);
+  const activeLocales = useActiveLocales(restaurantId, defaultLocale);
+  const [names, setNames] = useState<Record<string, string>>(() =>
+    initialNameValues(isCreate ? null : target, defaultLocale),
+  );
   const [timezone, setTimezone] = useState(isCreate ? defaultTimezone : target.timezone);
   const [phone, setPhone] = useState(isCreate ? '' : (target.phone ?? ''));
   const [address, setAddress] = useState(isCreate ? '' : (target.address ?? ''));
@@ -54,8 +63,9 @@ function BranchForm({
     event.preventDefault();
     if (isSubmitting) return;
 
+    const namePayload = toNamePayload(names, defaultLocale, activeLocales);
     const values = {
-      name: name.trim(),
+      ...namePayload,
       timezone: timezone.trim(),
       phone: phone.trim(),
       address: address.trim(),
@@ -108,16 +118,16 @@ function BranchForm({
         {formError ? <Alert variant="error">{formError}</Alert> : null}
         {isCreate ? <Alert variant="info">{t('branches.form.createNote')}</Alert> : null}
 
-        <FormField label={t('branches.form.name')} htmlFor="branch-name" error={nameError ?? undefined}>
-          <Input
-            ref={nameRef}
-            id="branch-name"
-            dir="auto"
-            value={name}
-            disabled={isSubmitting}
-            onChange={(event) => setName(event.target.value)}
-          />
-        </FormField>
+        <LocalizedNameFields
+          idPrefix="branch-name"
+          defaultLocale={defaultLocale}
+          activeLocales={activeLocales}
+          values={names}
+          onChange={(locale, value) => setNames((prev) => ({ ...prev, [locale]: value }))}
+          disabled={isSubmitting}
+          defaultError={nameError ?? undefined}
+          defaultInputRef={nameRef}
+        />
 
         <FormField label={t('branches.form.timezone')} htmlFor="branch-timezone" error={timezoneError ?? undefined}>
           <Input

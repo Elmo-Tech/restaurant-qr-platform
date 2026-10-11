@@ -31,6 +31,8 @@ export interface AuthContextRestaurant {
   defaultLocale: string;
   /** FT-12: the Staff Restaurant-identity surface (Sidebar) needs this to render the logo without a second request. Null when no logo has been uploaded. */
   logoAssetPath: string | null;
+  /** Guest Menu cover image (Restaurant Settings -> Profile). Null when none has been uploaded. */
+  coverAssetPath: string | null;
 }
 
 /**
@@ -40,7 +42,10 @@ export interface AuthContextRestaurant {
  */
 export interface AuthContextBranch {
   id: string;
+  /** The default-locale name (also the legacy single-language value). */
   name: string;
+  /** Per-locale display names so the Staff UI can show the right language, falling back to `name`. */
+  translations: { locale: string; name: string }[];
   status: BranchStatus;
 }
 
@@ -125,6 +130,7 @@ export class AuthContextService {
             currencyCode: true,
             defaultLocale: true,
             logoAssetPath: true,
+            coverAssetPath: true,
           },
         },
       },
@@ -159,6 +165,10 @@ export class AuthContextService {
               name: true,
               status: true,
               restaurantId: true,
+              translations: {
+                select: { locale: true, name: true },
+                orderBy: { locale: 'asc' },
+              },
             },
           })
         : Promise.resolve([]),
@@ -178,7 +188,17 @@ export class AuthContextService {
             orderBy: { branch: { id: 'asc' } },
             select: {
               restaurantMembershipId: true,
-              branch: { select: { id: true, name: true, status: true } },
+              branch: {
+                select: {
+                  id: true,
+                  name: true,
+                  status: true,
+                  translations: {
+                    select: { locale: true, name: true },
+                    orderBy: { locale: 'asc' },
+                  },
+                },
+              },
             },
           })
         : Promise.resolve([]),
@@ -187,7 +207,12 @@ export class AuthContextService {
     const branchesByRestaurantId = new Map<string, AuthContextBranch[]>();
     for (const branch of restaurantBranches) {
       const list = branchesByRestaurantId.get(branch.restaurantId) ?? [];
-      list.push({ id: branch.id, name: branch.name, status: branch.status });
+      list.push({
+        id: branch.id,
+        name: branch.name,
+        translations: branch.translations,
+        status: branch.status,
+      });
       branchesByRestaurantId.set(branch.restaurantId, list);
     }
 
@@ -197,6 +222,7 @@ export class AuthContextService {
       list.push({
         id: row.branch.id,
         name: row.branch.name,
+        translations: row.branch.translations,
         status: row.branch.status,
       });
       branchesByMembershipId.set(row.restaurantMembershipId, list);
@@ -225,6 +251,7 @@ export class AuthContextService {
           currencyCode: membership.restaurant.currencyCode,
           defaultLocale: membership.restaurant.defaultLocale,
           logoAssetPath: membership.restaurant.logoAssetPath,
+          coverAssetPath: membership.restaurant.coverAssetPath,
         },
         branches: membership.allBranches
           ? (branchesByRestaurantId.get(membership.restaurant.id) ?? [])

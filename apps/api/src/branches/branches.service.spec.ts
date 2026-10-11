@@ -13,7 +13,7 @@ import {
 interface FindManyBranchArgs {
   where: Record<string, unknown>;
   orderBy: Record<string, unknown>;
-  select: Record<string, boolean>;
+  select: Record<string, unknown>;
 }
 
 interface FindManyAssignmentArgs {
@@ -24,13 +24,13 @@ interface FindManyAssignmentArgs {
 
 interface CreateBranchArgs {
   data: Record<string, unknown>;
-  select: Record<string, boolean>;
+  select: Record<string, unknown>;
 }
 
 interface UpdateBranchArgs {
   where: Record<string, unknown>;
   data: Record<string, unknown>;
-  select: Record<string, boolean>;
+  select: Record<string, unknown>;
 }
 
 type BranchUpdateResult = ActivatedBranch | UpdatedBranch;
@@ -64,6 +64,14 @@ describe('BranchesService', () => {
       create: jest.Mock<Promise<CreatedBranch>, [CreateBranchArgs]>;
       update: jest.Mock<Promise<BranchUpdateResult>, [UpdateBranchArgs]>;
     };
+    restaurant: { findUniqueOrThrow: jest.Mock };
+    branchTranslation: { upsert: jest.Mock; deleteMany: jest.Mock };
+    $transaction: jest.Mock;
+  };
+
+  const TRANSLATIONS_SELECT = {
+    select: { locale: true, name: true },
+    orderBy: { locale: 'asc' },
   };
   let service: BranchesService;
 
@@ -80,6 +88,7 @@ describe('BranchesService', () => {
   const UPDATED_BRANCH: UpdatedBranch = {
     id: 'branch-1',
     name: 'Maadi',
+    translations: [{ locale: 'en', name: 'Maadi' }],
     status: 'ACTIVE',
     timezone: 'Africa/Cairo',
     phone: null,
@@ -97,6 +106,7 @@ describe('BranchesService', () => {
           .mockResolvedValue({
             id: 'new-branch-id',
             name: 'Maadi',
+            translations: [{ locale: 'en', name: 'Maadi' }],
             status: 'INACTIVE',
             timezone: 'Africa/Cairo',
             phone: null,
@@ -111,7 +121,18 @@ describe('BranchesService', () => {
           .fn<Promise<{ branch: BranchListItem }[]>, [FindManyAssignmentArgs]>()
           .mockResolvedValue([]),
       },
+      restaurant: {
+        findUniqueOrThrow: jest.fn().mockResolvedValue({ defaultLocale: 'en' }),
+      },
+      branchTranslation: {
+        upsert: jest.fn().mockResolvedValue({}),
+        deleteMany: jest.fn().mockResolvedValue({ count: 0 }),
+      },
+      $transaction: jest.fn(),
     };
+    prisma.$transaction.mockImplementation(
+      (callback: (tx: unknown) => Promise<unknown>) => callback(prisma),
+    );
     service = new BranchesService(prisma as never);
   });
 
@@ -125,7 +146,7 @@ describe('BranchesService', () => {
       expect(prisma.restaurantMembershipBranch.findMany).not.toHaveBeenCalled();
     });
 
-    it('selects only id, name, status, timezone, phone and address, ordered by id ascending', async () => {
+    it('selects only id, name, translations, status, timezone, phone and address, ordered by id ascending', async () => {
       await service.listBranches(ALL_BRANCHES_SCOPE);
 
       const args = prisma.branch.findMany.mock.calls[0][0];
@@ -136,6 +157,7 @@ describe('BranchesService', () => {
         timezone: true,
         phone: true,
         address: true,
+        translations: TRANSLATIONS_SELECT,
       });
       expect(args.orderBy).toEqual({ id: 'asc' });
     });
@@ -149,8 +171,8 @@ describe('BranchesService', () => {
 
     it('returns whatever Prisma resolves, unmodified', async () => {
       const rows: BranchListItem[] = [
-        { id: 'b1', name: 'Maadi', status: 'ACTIVE', timezone: 'Africa/Cairo', phone: null, address: null },
-        { id: 'b2', name: 'Nasr City', status: 'INACTIVE', timezone: 'Africa/Cairo', phone: null, address: null },
+        { id: 'b1', name: 'Maadi', translations: [], status: 'ACTIVE', timezone: 'Africa/Cairo', phone: null, address: null },
+        { id: 'b2', name: 'Nasr City', translations: [], status: 'INACTIVE', timezone: 'Africa/Cairo', phone: null, address: null },
       ];
       prisma.branch.findMany.mockResolvedValue(rows);
 
@@ -191,6 +213,7 @@ describe('BranchesService', () => {
             timezone: true,
             phone: true,
             address: true,
+            translations: TRANSLATIONS_SELECT,
           },
         },
       });
@@ -198,15 +221,15 @@ describe('BranchesService', () => {
 
     it('maps assignment rows to their branch objects', async () => {
       prisma.restaurantMembershipBranch.findMany.mockResolvedValue([
-        { branch: { id: 'b1', name: 'Maadi', status: 'ACTIVE', timezone: 'Africa/Cairo', phone: null, address: null } },
-        { branch: { id: 'b2', name: 'Nasr City', status: 'INACTIVE', timezone: 'Africa/Cairo', phone: null, address: null } },
+        { branch: { id: 'b1', name: 'Maadi', translations: [], status: 'ACTIVE', timezone: 'Africa/Cairo', phone: null, address: null } },
+        { branch: { id: 'b2', name: 'Nasr City', translations: [], status: 'INACTIVE', timezone: 'Africa/Cairo', phone: null, address: null } },
       ]);
 
       const result = await service.listBranches(SCOPED_MEMBERSHIP_SCOPE);
 
       expect(result).toEqual([
-        { id: 'b1', name: 'Maadi', status: 'ACTIVE', timezone: 'Africa/Cairo', phone: null, address: null },
-        { id: 'b2', name: 'Nasr City', status: 'INACTIVE', timezone: 'Africa/Cairo', phone: null, address: null },
+        { id: 'b1', name: 'Maadi', translations: [], status: 'ACTIVE', timezone: 'Africa/Cairo', phone: null, address: null },
+        { id: 'b2', name: 'Nasr City', translations: [], status: 'INACTIVE', timezone: 'Africa/Cairo', phone: null, address: null },
       ]);
     });
 
@@ -288,6 +311,7 @@ describe('BranchesService', () => {
           'restaurantId',
           'status',
           'timezone',
+          'translations',
         ].sort(),
       );
     });
@@ -299,6 +323,7 @@ describe('BranchesService', () => {
       expect(args.select).toEqual({
         id: true,
         name: true,
+        translations: TRANSLATIONS_SELECT,
         status: true,
         timezone: true,
         phone: true,
@@ -310,6 +335,7 @@ describe('BranchesService', () => {
       const created: CreatedBranch = {
         id: 'b1',
         name: 'Maadi',
+        translations: [{ locale: 'en', name: 'Maadi' }],
         status: 'INACTIVE',
         timezone: 'Africa/Cairo',
         phone: null,
@@ -319,7 +345,45 @@ describe('BranchesService', () => {
 
       const result = await service.createBranch(CREATE_INPUT);
 
-      expect(result).toEqual(created);
+      expect(result).toEqual({ outcome: 'created', data: created });
+    });
+
+    it('writes the default-locale row from name and keeps other locales from translations', async () => {
+      await service.createBranch({
+        ...CREATE_INPUT,
+        name: 'Maadi',
+        translations: [{ locale: 'ar', name: 'المعادي' }],
+      });
+
+      const args = prisma.branch.create.mock.calls[0][0];
+      expect(args.data.name).toBe('Maadi');
+      expect(args.data.translations).toEqual({
+        create: [
+          { locale: 'ar', name: 'المعادي' },
+          { locale: 'en', name: 'Maadi' },
+        ],
+      });
+    });
+
+    it('the default-locale translation is authoritative for the legacy name', async () => {
+      await service.createBranch({
+        ...CREATE_INPUT,
+        name: 'ignored',
+        translations: [{ locale: 'en', name: 'Maadi Branch' }],
+      });
+
+      const args = prisma.branch.create.mock.calls[0][0];
+      expect(args.data.name).toBe('Maadi Branch');
+    });
+
+    it('refuses a blank default-locale translation and creates nothing', async () => {
+      const result = await service.createBranch({
+        ...CREATE_INPUT,
+        translations: [{ locale: 'en', name: '' }],
+      });
+
+      expect(result).toEqual({ outcome: 'defaultNameRequired' });
+      expect(prisma.branch.create).not.toHaveBeenCalled();
     });
   });
 
@@ -449,6 +513,7 @@ describe('BranchesService', () => {
 
     it('A. persists a supplied name', async () => {
       const input: UpdateBranchInput = {
+        restaurantId: 'restaurant-1',
         branchId: 'branch-1',
         name: 'Nasr City',
       };
@@ -462,6 +527,7 @@ describe('BranchesService', () => {
 
     it('B. persists a supplied timezone', async () => {
       const input: UpdateBranchInput = {
+        restaurantId: 'restaurant-1',
         branchId: 'branch-1',
         timezone: 'Africa/Cairo',
       };
@@ -473,7 +539,11 @@ describe('BranchesService', () => {
     });
 
     it('C. phone: null clears phone', async () => {
-      const input: UpdateBranchInput = { branchId: 'branch-1', phone: null };
+      const input: UpdateBranchInput = {
+        restaurantId: 'restaurant-1',
+        branchId: 'branch-1',
+        phone: null,
+      };
 
       await service.updateBranch(input);
 
@@ -482,7 +552,11 @@ describe('BranchesService', () => {
     });
 
     it('D. address: null clears address', async () => {
-      const input: UpdateBranchInput = { branchId: 'branch-1', address: null };
+      const input: UpdateBranchInput = {
+        restaurantId: 'restaurant-1',
+        branchId: 'branch-1',
+        address: null,
+      };
 
       await service.updateBranch(input);
 
@@ -492,6 +566,7 @@ describe('BranchesService', () => {
 
     it('E. omitted fields are not present in the Prisma update data', async () => {
       const input: UpdateBranchInput = {
+        restaurantId: 'restaurant-1',
         branchId: 'branch-1',
         name: 'Nasr City',
       };
@@ -504,6 +579,7 @@ describe('BranchesService', () => {
 
     it('F. status is never present in the Prisma update data', async () => {
       const input: UpdateBranchInput = {
+        restaurantId: 'restaurant-1',
         branchId: 'branch-1',
         name: 'Nasr City',
         timezone: 'Africa/Cairo',
@@ -518,12 +594,13 @@ describe('BranchesService', () => {
     });
 
     it('G. selects exactly id, name, status, timezone, phone, address', async () => {
-      await service.updateBranch({ branchId: 'branch-1' });
+      await service.updateBranch({ restaurantId: 'restaurant-1', branchId: 'branch-1' });
 
       const args = prisma.branch.update.mock.calls[0][0];
       expect(args.select).toEqual({
         id: true,
         name: true,
+        translations: TRANSLATIONS_SELECT,
         status: true,
         timezone: true,
         phone: true,
@@ -532,15 +609,19 @@ describe('BranchesService', () => {
     });
 
     it('H. an empty update (all fields omitted) still succeeds with an empty data object', async () => {
-      const result = await service.updateBranch({ branchId: 'branch-1' });
+      const result = await service.updateBranch({ restaurantId: 'restaurant-1', branchId: 'branch-1' });
 
       const args = prisma.branch.update.mock.calls[0][0];
       expect(args.data).toEqual({});
-      expect(result).toEqual(UPDATED_BRANCH);
+      expect(result).toEqual({ outcome: 'updated', data: UPDATED_BRANCH });
     });
 
     it('I. performs no Membership/authorization query', async () => {
-      await service.updateBranch({ branchId: 'branch-1', name: 'Nasr City' });
+      await service.updateBranch({
+        restaurantId: 'restaurant-1',
+        branchId: 'branch-1',
+        name: 'Nasr City',
+      });
 
       expect(prisma.restaurantMembershipBranch.findMany).not.toHaveBeenCalled();
     });
@@ -551,7 +632,11 @@ describe('BranchesService', () => {
         qrCode?: unknown;
       };
 
-      await service.updateBranch({ branchId: 'branch-1', name: 'Nasr City' });
+      await service.updateBranch({
+        restaurantId: 'restaurant-1',
+        branchId: 'branch-1',
+        name: 'Nasr City',
+      });
 
       expect(prismaWithTableQr.table).toBeUndefined();
       expect(prismaWithTableQr.qrCode).toBeUndefined();
@@ -561,11 +646,71 @@ describe('BranchesService', () => {
       prisma.branch.update.mockResolvedValue(UPDATED_BRANCH);
 
       const result = await service.updateBranch({
+        restaurantId: 'restaurant-1',
         branchId: 'branch-1',
         name: 'Maadi',
       });
 
-      expect(result).toEqual(UPDATED_BRANCH);
+      expect(result).toEqual({ outcome: 'updated', data: UPDATED_BRANCH });
+    });
+
+    it('K. upserts supplied locale names and keeps the default-locale row in step with name', async () => {
+      await service.updateBranch({
+        restaurantId: 'restaurant-1',
+        branchId: 'branch-1',
+        name: 'Maadi',
+        translations: [{ locale: 'ar', name: 'المعادي' }],
+      });
+
+      const upserts = prisma.branchTranslation.upsert.mock.calls.map(
+        (call: [{ where: unknown; create: { locale: string; name: string } }]) =>
+          call[0].create,
+      );
+      expect(upserts).toEqual([
+        { branchId: 'branch-1', locale: 'ar', name: 'المعادي' },
+        { branchId: 'branch-1', locale: 'en', name: 'Maadi' },
+      ]);
+      expect(prisma.branchTranslation.deleteMany).not.toHaveBeenCalled();
+    });
+
+    it('L. an empty non-default name removes only that locale, scoped to the authorized Branch', async () => {
+      await service.updateBranch({
+        restaurantId: 'restaurant-1',
+        branchId: 'branch-1',
+        translations: [{ locale: 'ar', name: '' }],
+      });
+
+      expect(prisma.branchTranslation.deleteMany).toHaveBeenCalledWith({
+        where: { branchId: 'branch-1', locale: { in: ['ar'] } },
+      });
+      expect(prisma.branchTranslation.upsert).not.toHaveBeenCalled();
+      const args = prisma.branch.update.mock.calls[0][0];
+      expect(args.data).toEqual({});
+    });
+
+    it('M. a blank default-locale translation is refused and nothing is written', async () => {
+      const result = await service.updateBranch({
+        restaurantId: 'restaurant-1',
+        branchId: 'branch-1',
+        translations: [{ locale: 'en', name: '' }],
+      });
+
+      expect(result).toEqual({ outcome: 'defaultNameRequired' });
+      expect(prisma.branch.update).not.toHaveBeenCalled();
+      expect(prisma.branchTranslation.upsert).not.toHaveBeenCalled();
+    });
+
+    it('N. reads the default locale only from the caller Restaurant', async () => {
+      await service.updateBranch({
+        restaurantId: 'restaurant-1',
+        branchId: 'branch-1',
+        name: 'Maadi',
+      });
+
+      expect(prisma.restaurant.findUniqueOrThrow).toHaveBeenCalledWith({
+        where: { id: 'restaurant-1' },
+        select: { defaultLocale: true },
+      });
     });
   });
 });

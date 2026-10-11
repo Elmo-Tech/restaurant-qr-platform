@@ -32,11 +32,16 @@ export interface AuthContextRestaurant {
   defaultLocale: string;
   /** Backend-relative asset path (resolve with `resolveAssetUrl`), or `null` when no logo is set. */
   logoAssetPath: string | null;
+  /** Backend-relative asset path of the Guest Menu cover image, or `null` when none is set. */
+  coverAssetPath: string | null;
 }
 
 export interface AuthContextBranch {
   id: string;
+  /** The Restaurant default-locale name (also the legacy single-language value). */
   name: string;
+  /** Per-locale display names; resolve with `localizedName`, falling back to `name`. */
+  translations: { locale: string; name: string }[];
   status: BranchStatus;
 }
 

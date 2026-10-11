@@ -4,6 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import * as branchesApi from '../../../../../../lib/branches/api';
 import type { BranchItem } from '../../../../../../lib/branches/types';
+import { localizedName } from '../../../../../../lib/i18n/localized-name';
 import {
   describeError,
   isUnauthenticatedError,
@@ -23,6 +24,8 @@ import { BranchFormDialog } from './BranchFormDialog';
 
 export interface BranchesWorkspaceProps {
   restaurantId: string;
+  /** The Restaurant default locale (`/auth/me`): the required name language in the form. */
+  defaultLocale: string;
   /** `branches.manage` -- edit / activate / deactivate. UX only. */
   canManage: boolean;
   /** `branches.manage` AND `allBranches` -- creating a Branch is Restaurant-structural. UX only. */
@@ -44,8 +47,13 @@ function browserTimezone(): string {
  * only ever deactivated, so its Orders, Tables, Delivery areas and Staff
  * access stay intact. Each mutation settles by re-fetching the list.
  */
-export function BranchesWorkspace({ restaurantId, canManage, canCreate }: BranchesWorkspaceProps) {
-  const { t } = useStaffI18n();
+export function BranchesWorkspace({
+  restaurantId,
+  defaultLocale,
+  canManage,
+  canCreate,
+}: BranchesWorkspaceProps) {
+  const { t, locale } = useStaffI18n();
   const [branches, setBranches] = useState<BranchItem[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
@@ -92,7 +100,7 @@ export function BranchesWorkspace({ restaurantId, canManage, canCreate }: Branch
     setNotice(null);
     try {
       await branchesApi.setBranchActive(restaurantId, branch.id, true);
-      setNotice(t('branches.activate.success', { name: branch.name }));
+      setNotice(t('branches.activate.success', { name: localizedName(branch, locale) }));
       await loadBranches();
     } catch (error) {
       if (isUnauthenticatedError(error)) {
@@ -113,7 +121,7 @@ export function BranchesWorkspace({ restaurantId, canManage, canCreate }: Branch
     try {
       await branchesApi.setBranchActive(restaurantId, branch.id, false);
       setDeactivateTarget(null);
-      setNotice(t('branches.deactivate.success', { name: branch.name }));
+      setNotice(t('branches.deactivate.success', { name: localizedName(branch, locale) }));
       await loadBranches();
     } catch (error) {
       if (isUnauthenticatedError(error)) {
@@ -182,7 +190,7 @@ export function BranchesWorkspace({ restaurantId, canManage, canCreate }: Branch
                   <li key={branch.id} className="flex flex-col gap-3 rounded-lg border border-border p-4">
                     <div className="flex items-start justify-between gap-3">
                       <h3 dir="auto" className="min-w-0 break-words text-base font-semibold text-foreground">
-                        {branch.name}
+                        {localizedName(branch, locale)}
                       </h3>
                       <Badge variant={isActive ? 'success' : 'neutral'} dot>
                         {isActive ? t('common.active') : t('common.inactive')}
@@ -250,6 +258,7 @@ export function BranchesWorkspace({ restaurantId, canManage, canCreate }: Branch
 
       <BranchFormDialog
         restaurantId={restaurantId}
+        defaultLocale={defaultLocale}
         target={formTarget}
         defaultTimezone={browserTimezone()}
         onClose={() => setFormTarget(null)}

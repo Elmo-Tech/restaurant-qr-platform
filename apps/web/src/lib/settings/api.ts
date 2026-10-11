@@ -61,3 +61,21 @@ export async function uploadRestaurantLogo(
 export async function removeRestaurantLogo(restaurantId: string): Promise<void> {
   await apiFetch<undefined>(`${restaurantPath(restaurantId)}/logo`, { method: 'DELETE' });
 }
+
+/** Guest Menu cover image: same multipart field name (`image`) and contract as the logo. */
+export async function uploadRestaurantCover(
+  restaurantId: string,
+  file: File,
+): Promise<RestaurantProfile> {
+  const formData = new FormData();
+  formData.set('image', file);
+  const body = await apiFetchFormData<{ data: RestaurantProfile }>(
+    `${restaurantPath(restaurantId)}/cover`,
+    formData,
+  );
+  return body.data;
+}
+
+export async function removeRestaurantCover(restaurantId: string): Promise<void> {
+  await apiFetch<undefined>(`${restaurantPath(restaurantId)}/cover`, { method: 'DELETE' });
+}

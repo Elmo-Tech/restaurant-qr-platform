@@ -20,7 +20,10 @@ import type { RestaurantAuthorizedRequest } from '../auth/guard/restaurant-autho
 import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
-import { assertValidImageUpload } from '../storage/image-file-validator';
+import {
+  assertValidCoverImageUpload,
+  assertValidImageUpload,
+} from '../storage/image-file-validator';
 import { ImageStorageService, MAX_IMAGE_BYTES } from '../storage/image-storage.service';
 import type { UploadedImageFile } from '../storage/uploaded-image-file';
 import { UpdateRestaurantProfileDto } from './dto/update-restaurant-profile.dto';
@@ -32,7 +35,8 @@ interface RestaurantProfileResponseBody {
 
 /**
  * FT-12: Restaurant Profile -- `PATCH /restaurants/{restaurantId}` (name),
- * `POST`/`DELETE /restaurants/{restaurantId}/logo`. A Restaurant-structural
+ * `POST`/`DELETE /restaurants/{restaurantId}/logo` and `/cover` (Guest Menu
+ * hero image). A Restaurant-structural
  * mutation exactly like Restaurant Locales (`restaurants.controller.ts`):
  * `restaurant.manage` alone is not sufficient authority --
  * `AllBranchesRequiredGuard` additionally requires Restaurant-wide Branch
@@ -100,6 +104,54 @@ export class RestaurantProfileController {
     await this.imageStorageService.deleteImageBestEffort(result.previousLogoAssetPath);
 
     return { data: result.data };
+  }
+
+  /**
+   * Guest Menu cover image: the same guards, storage, save-then-write-then-
+   * best-effort-delete-old contract as the logo, plus the extra dimension rules
+   * of `assertValidCoverImageUpload` (banner aspect ratio, minimum and maximum
+   * size). `restaurant.manage` alone is not enough: Restaurant-wide scope is
+   * required, exactly like the logo.
+   */
+  @Post('cover')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.RESTAURANT_MANAGE)
+  @UseInterceptors(FileInterceptor('image', { limits: { fileSize: MAX_IMAGE_BYTES * 2 } }))
+  async uploadCover(
+    @UploadedFile() file: UploadedImageFile | undefined,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<RestaurantProfileResponseBody> {
+    assertValidCoverImageUpload(file);
+
+    const saved = await this.imageStorageService.saveImage(file.buffer, file.mimetype);
+
+    let result;
+    try {
+      result = await this.restaurantProfileService.setCover({
+        restaurantId: request.restaurantAccess.restaurantId,
+        imageAssetPath: saved.assetPath,
+      });
+    } catch (error) {
+      await this.imageStorageService.deleteImageBestEffort(saved.assetPath);
+      throw error;
+    }
+
+    await this.imageStorageService.deleteImageBestEffort(result.previousCoverAssetPath);
+
+    return { data: result.data };
+  }
+
+  @Delete('cover')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.RESTAURANT_MANAGE)
+  async removeCover(@Req() request: RestaurantAuthorizedRequest): Promise<void> {
+    const result = await this.restaurantProfileService.clearCover({
+      restaurantId: request.restaurantAccess.restaurantId,
+    });
+
+    await this.imageStorageService.deleteImageBestEffort(result.previousCoverAssetPath);
   }
 
   @Delete('logo')

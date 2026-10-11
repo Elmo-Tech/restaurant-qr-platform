@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
+import { localizedName } from '../../../../../lib/i18n/localized-name';
 import * as ordersApi from '../../../../../lib/orders/api';
 import type {
   OrderDetail,
@@ -69,7 +70,15 @@ export function OrdersWorkspace({
   permissions,
   restaurantLogoUrl = null,
 }: OrdersWorkspaceProps) {
-  const { t } = useStaffI18n();
+  const { t, locale } = useStaffI18n();
+  // Order DTOs carry the default-locale Branch name; the Staff language's own
+  // name comes from the Memberships' Branch list (falls back to the DTO name).
+  function withBranchLabel<T extends { branch: { id: string; name: string } }>(order: T): T {
+    const known = branches.find((branch) => branch.id === order.branch.id);
+    return known
+      ? { ...order, branch: { ...order.branch, name: localizedName(known, locale) } }
+      : order;
+  }
   const [branchFilter, setBranchFilter] = useState<string>(ALL_BRANCHES);
   const [orders, setOrders] = useState<OrderListItem[] | null>(null);
   const [ordersError, setOrdersError] = useState<string | null>(null);
@@ -300,7 +309,11 @@ export function OrdersWorkspace({
       {visibleOrders.length > 0 ? (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {visibleOrders.map((order) => (
-            <OrderCard key={order.id} order={order} onOpen={() => void openOrder(order.id)} />
+            <OrderCard
+              key={order.id}
+              order={withBranchLabel(order)}
+              onOpen={() => void openOrder(order.id)}
+            />
           ))}
         </div>
       ) : null}
@@ -317,7 +330,7 @@ export function OrdersWorkspace({
           </div>
         ) : orderDetail ? (
           <OrderDetailDialog
-            order={orderDetail}
+            order={withBranchLabel(orderDetail)}
             restaurantLogoUrl={restaurantLogoUrl}
             availableTransitions={getAvailableTransitions(orderDetail.status, permissions, orderDetail.type)}
             isTransitioning={isTransitioning}

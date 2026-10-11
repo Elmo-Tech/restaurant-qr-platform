@@ -18,6 +18,8 @@ export interface ImageFieldProps {
   selectLabel: string;
   removeLabel?: string;
   helperText: string;
+  /** `wide` shows a banner-shaped preview (cover images); `square` is the default thumbnail. */
+  previewShape?: 'square' | 'wide';
 }
 
 /**
@@ -39,9 +41,12 @@ export function ImageField({
   selectLabel,
   removeLabel,
   helperText,
+  previewShape = 'square',
 }: ImageFieldProps) {
   const { t } = useStaffI18n();
   const inputRef = useRef<HTMLInputElement>(null);
+  const previewClass =
+    previewShape === 'wide' ? 'h-24 w-full max-w-[16rem] sm:h-28' : 'h-20 w-20';
 
   return (
     <div className="flex flex-col gap-3">
@@ -52,10 +57,12 @@ export function ImageField({
           <img
             src={imageUrl}
             alt=""
-            className="h-20 w-20 flex-shrink-0 rounded-lg border border-border object-cover"
+            className={`${previewClass} flex-shrink-0 rounded-lg border border-border object-cover`}
           />
         ) : (
-          <span className="flex h-20 w-20 flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground">
+          <span
+            className={`flex ${previewClass} flex-shrink-0 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground`}
+          >
             <IconImage className="h-6 w-6" />
           </span>
         )}

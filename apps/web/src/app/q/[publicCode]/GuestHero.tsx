@@ -107,16 +107,19 @@ function LogoTile({ name, logoUrl }: { name: string; logoUrl: string | null }) {
 }
 
 /**
- * The full-bleed hero (330px phone / 400px desktop). Without a restaurant cover photo
- * (there is no such field yet) it is the branded variant: the raised surface with a soft
- * saffron glow and a faint cloche mark -- never a grey placeholder. The language switch
- * and theme toggle float over it as glass pills; the logo tile, the restaurant name and
- * the ordering context sit at the bottom. It shows only what exists in our data: no
+ * The full-bleed hero (330px phone / 400px desktop). Without a restaurant cover image it is
+ * the branded variant: the raised surface with a soft saffron glow and a faint cloche mark
+ * -- never a grey placeholder. With a cover image the photo fills the hero (cropped with
+ * `object-fit: cover`) under a theme-aware scrim that fades into the page background, so
+ * the name and ordering context keep their contrast in both Light and Dark. The language
+ * switch and theme toggle float over it as glass pills; the logo tile, the restaurant name
+ * and the ordering context sit at the bottom. It shows only what exists in our data: no
  * ratings, hours, "open now" or tagline.
  */
 export function GuestHero({
   restaurantName,
   logoUrl,
+  coverUrl,
   tableNumber,
   branchLine,
   copy,
@@ -126,6 +129,8 @@ export function GuestHero({
 }: {
   restaurantName: string;
   logoUrl: string | null;
+  /** The restaurant's cover image, or `null` for the default branded hero. */
+  coverUrl: string | null;
   /** TABLE QR only. */
   tableNumber: string | null;
   /** The branch name, when exactly one branch applies. */
@@ -136,27 +141,51 @@ export function GuestHero({
   sentinelRef: React.RefObject<HTMLElement | null>;
 }) {
   const hasArabicName = ARABIC_SCRIPT.test(restaurantName);
+  const [coverFailed, setCoverFailed] = useState(false);
+  const showCover = coverUrl !== null && !coverFailed;
   return (
     <header
       ref={sentinelRef}
       className="relative h-[330px] overflow-hidden bg-g-surface lg:h-[400px]"
     >
-      <div
-        aria-hidden="true"
-        className="absolute inset-0"
-        style={{
-          background:
-            'radial-gradient(70% 90% at 12% 8%, rgb(245 165 36 / 0.26), transparent 62%), radial-gradient(55% 70% at 92% 100%, rgb(232 87 58 / 0.15), transparent 66%)',
-        }}
-      />
+      {showCover ? (
+        <>
+          {/* eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image. */}
+          <img
+            src={coverUrl}
+            alt=""
+            onError={() => setCoverFailed(true)}
+            className="absolute inset-0 size-full object-cover"
+          />
+          <div
+            aria-hidden="true"
+            className="absolute inset-0"
+            style={{
+              background:
+                'linear-gradient(to top, var(--g-bg) 0%, color-mix(in srgb, var(--g-bg) 80%, transparent) 36%, color-mix(in srgb, var(--g-bg) 22%, transparent) 100%)',
+            }}
+          />
+        </>
+      ) : (
+        <>
+          <div
+            aria-hidden="true"
+            className="absolute inset-0"
+            style={{
+              background:
+                'radial-gradient(70% 90% at 12% 8%, rgb(245 165 36 / 0.26), transparent 62%), radial-gradient(55% 70% at 92% 100%, rgb(232 87 58 / 0.15), transparent 66%)',
+            }}
+          />
+          <GuestIconDish
+            aria-hidden="true"
+            strokeWidth={0.5}
+            className="pointer-events-none absolute -bottom-12 -end-12 size-[340px] text-g-accent opacity-[0.1] lg:-bottom-20 lg:-end-16 lg:size-[520px]"
+          />
+        </>
+      )}
       <div
         aria-hidden="true"
         className="absolute inset-x-0 bottom-0 h-24 bg-gradient-to-t from-g-bg to-transparent"
-      />
-      <GuestIconDish
-        aria-hidden="true"
-        strokeWidth={0.5}
-        className="pointer-events-none absolute -bottom-12 -end-12 size-[340px] text-g-accent opacity-[0.1] lg:-bottom-20 lg:-end-16 lg:size-[520px]"
       />
 
       <div className="relative mx-auto flex h-full max-w-[1280px] flex-col justify-between px-4 pt-4 pb-[52px] lg:px-8 lg:pt-6 lg:pb-16">

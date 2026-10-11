@@ -531,7 +531,15 @@ describe('GET /api/v1/restaurants/:restaurantId/branches (e2e)', () => {
 
       const data = (response.body as { data: Record<string, unknown>[] }).data;
       expect(data).toHaveLength(1);
-      expect(Object.keys(data[0]).sort()).toEqual(['address', 'id', 'name', 'phone', 'status', 'timezone']);
+      expect(Object.keys(data[0]).sort()).toEqual([
+        'address',
+        'id',
+        'name',
+        'phone',
+        'status',
+        'timezone',
+        'translations',
+      ]);
       const serialized = JSON.stringify(response.body);
       expect(serialized).not.toMatch(/restaurantId/i);
       expect(serialized).not.toMatch(/createdAt/i);

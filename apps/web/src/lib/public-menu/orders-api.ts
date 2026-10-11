@@ -73,6 +73,8 @@ export async function submitGuestOrder(
   clientRequestId: string,
   items: SubmitGuestOrderItem[],
   pickup: SubmitPickupCheckout | null = null,
+  /** The menu content language the Guest is browsing in; the Backend localizes Branch and zone names in the confirmation with it. Display only. */
+  locale: string | null = null,
 ): Promise<SubmitGuestOrderResult> {
   try {
     const body = await apiFetch<{ data: GuestOrderView }>(
@@ -81,6 +83,7 @@ export async function submitGuestOrder(
         method: 'POST',
         body: {
           clientRequestId,
+          ...(locale ? { locale } : {}),
           items,
           ...(pickup
             ? {

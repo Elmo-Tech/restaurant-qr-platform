@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { resolveLocalizedName } from '../common/name-translations';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import type { OrderStatus, OrderType } from '../generated/prisma/client';
@@ -20,6 +21,8 @@ export interface CreateGuestOrderItemInput {
 export interface CreateGuestOrderInput {
   publicCode: string;
   clientRequestId: string;
+  /** The Guest's resolved menu content language (display only): used to localize Branch and zone names in the confirmation. Never authority. */
+  locale?: string;
   items: CreateGuestOrderItemInput[];
   /** FT-7, GENERIC QR (Pickup) only: the Guest's chosen Pickup Branch. Never authority -- always re-validated against the Restaurant's ACTIVE Branches. Ignored entirely for a TABLE QR. */
   branchId?: string;
@@ -109,7 +112,9 @@ interface OrderViewRow {
   deliveryFeeAmount: Prisma.Decimal;
   deliveryZoneNameSnapshot: string | null;
   table: { tableNumber: string } | null;
-  branch: { name: string };
+  branch: { name: string; translations?: { locale: string; name: string }[] };
+  restaurant?: { defaultLocale: string };
+  deliveryZone?: { translations: { locale: string; name: string }[] } | null;
   items: {
     productId: string;
     productNameSnapshot: string;
@@ -135,7 +140,13 @@ const ORDER_VIEW_SELECT = {
   deliveryFeeAmount: true,
   deliveryZoneNameSnapshot: true,
   table: { select: { tableNumber: true } },
-  branch: { select: { name: true } },
+  branch: {
+    select: { name: true, translations: { select: { locale: true, name: true } } },
+  },
+  restaurant: { select: { defaultLocale: true } },
+  deliveryZone: {
+    select: { translations: { select: { locale: true, name: true } } },
+  },
   items: {
     select: {
       productId: true,
@@ -155,7 +166,25 @@ const ORDER_VIEW_SELECT = {
   },
 } satisfies Prisma.OrderSelect;
 
-function toGuestOrderView(order: OrderViewRow): GuestOrderView {
+function toGuestOrderView(order: OrderViewRow, locale?: string): GuestOrderView {
+  const defaultLocale = order.restaurant?.defaultLocale ?? 'en';
+  const requestedLocale = locale ?? defaultLocale;
+  // Display names follow the Guest's content language (requested -> default ->
+  // legacy name). The zone falls back to the order's own historical snapshot,
+  // never to a live rename.
+  const branchName = resolveLocalizedName({
+    requestedLocale,
+    defaultLocale,
+    translations: order.branch.translations ?? [],
+    legacyName: order.branch.name,
+  });
+  const zoneName = (snapshot: string): string =>
+    resolveLocalizedName({
+      requestedLocale,
+      defaultLocale,
+      translations: order.deliveryZone?.translations ?? [],
+      legacyName: snapshot,
+    });
   return {
     id: order.id,
     status: order.status,
@@ -167,10 +196,10 @@ function toGuestOrderView(order: OrderViewRow): GuestOrderView {
     createdAt: order.createdAt.toISOString(),
     type: order.type,
     table: order.table ? { number: order.table.tableNumber } : null,
-    pickupBranch: order.type === 'PICKUP' ? { name: order.branch.name } : null,
+    pickupBranch: order.type === 'PICKUP' ? { name: branchName } : null,
     delivery:
       order.type === 'DELIVERY' && order.deliveryZoneNameSnapshot !== null
-        ? { branchName: order.branch.name, zoneName: order.deliveryZoneNameSnapshot }
+        ? { branchName, zoneName: zoneName(order.deliveryZoneNameSnapshot) }
         : null,
     subtotal: order.subtotalAmount.toFixed(2),
     deliveryFee: order.deliveryFeeAmount.toFixed(2),
@@ -410,7 +439,7 @@ export class PublicOrdersService {
       select: ORDER_VIEW_SELECT,
     });
     if (existing) {
-      return { outcome: 'created', data: toGuestOrderView(existing) };
+      return { outcome: 'created', data: toGuestOrderView(existing, input.locale) };
     }
 
     try {
@@ -631,13 +660,29 @@ export class PublicOrdersService {
         if (orderType === 'DELIVERY') {
           const zone = await tx.deliveryZone.findFirst({
             where: { id: deliveryZoneId ?? '', restaurantId, branchId, status: 'ACTIVE' },
-            select: { name: true, deliveryFee: true, minimumOrder: true },
+            select: {
+              name: true,
+              deliveryFee: true,
+              minimumOrder: true,
+              translations: { select: { locale: true, name: true } },
+              restaurant: { select: { defaultLocale: true } },
+            },
           });
           if (!zone) {
             throw new DeliveryZoneInvalidError();
           }
           if (subtotal.lessThan(zone.minimumOrder)) {
-            throw new MinimumOrderNotMetError(zone.name, zone.minimumOrder);
+            // The Guest-facing message uses their content language; the order
+            // snapshot below always keeps the zone's default-locale name.
+            throw new MinimumOrderNotMetError(
+              resolveLocalizedName({
+                requestedLocale: input.locale ?? zone.restaurant.defaultLocale,
+                defaultLocale: zone.restaurant.defaultLocale,
+                translations: zone.translations,
+                legacyName: zone.name,
+              }),
+              zone.minimumOrder,
+            );
           }
           deliveryFee = zone.deliveryFee;
           deliveryZoneNameSnapshot = zone.name;
@@ -685,7 +730,7 @@ export class PublicOrdersService {
         });
       });
 
-      return { outcome: 'created', data: toGuestOrderView(created) };
+      return { outcome: 'created', data: toGuestOrderView(created, input.locale) };
     } catch (error) {
       if (error instanceof ItemsUnavailableError) {
         return { outcome: 'itemsUnavailable' };
@@ -722,7 +767,7 @@ export class PublicOrdersService {
           select: ORDER_VIEW_SELECT,
         });
         if (winner) {
-          return { outcome: 'created', data: toGuestOrderView(winner) };
+          return { outcome: 'created', data: toGuestOrderView(winner, input.locale) };
         }
       }
       throw error;

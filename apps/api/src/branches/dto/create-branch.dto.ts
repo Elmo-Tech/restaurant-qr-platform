@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsNotEmpty, IsOptional, IsString, IsTimeZone } from 'class-validator';
+import { NameTranslationDto, NameTranslationsProperty } from '../../common/name-translations';
 
 /** Trims a string value; leaves non-string values untouched for @IsString() to reject. */
 function trim(value: unknown): unknown {
@@ -31,6 +32,10 @@ export class CreateBranchDto {
   @IsString()
   @IsNotEmpty({ message: 'name should not be empty' })
   name!: string;
+
+  /** Optional per-locale names (Bilingual Branch names). `name` stays the default-locale name. */
+  @NameTranslationsProperty()
+  translations?: NameTranslationDto[];
 
   @Transform(({ value }) => trim(value))
   @IsString()

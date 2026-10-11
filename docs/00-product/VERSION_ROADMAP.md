@@ -99,6 +99,7 @@ Introduce advanced AI, automation, experimentation, and enterprise capabilities.
 | Realtime (Socket.IO); Staff Orders poll every ~10 seconds | V1.1 |
 | Product Variants, Dietary, Allergens, Nutrition metadata | V1.1 |
 | Online payments, discounts, coupons | V2 or later |
+| Restaurant cover image; bilingual Branch and Delivery zone names | Done (V1 Final Features, Batch 1, 2026-10-11) |
 | Payment recording, settlement, voids, unpaid balances (Table Sessions ledger) | Deferred: not V1 (DEC-035); replaced by restaurant POS integration, see `docs/05-future-proposals/POS_INTEGRATION.md` |
 | Driver management, maps/GPS, distance-based fees, scheduled orders | later |
 | Staff & Access UI, Branch management UI, General settings, Branding | next release batches |

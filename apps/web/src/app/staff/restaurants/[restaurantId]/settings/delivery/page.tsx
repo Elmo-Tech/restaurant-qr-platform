@@ -60,6 +60,7 @@ export default async function DeliverySettingsPage({ params }: DeliverySettingsP
   return (
     <DeliveryWorkspace
       restaurantId={restaurantId}
+      defaultLocale={membership.restaurant.defaultLocale}
       currencyCode={membership.restaurant.currencyCode}
       // Same rule as Languages: `restaurant.manage` AND full Branch scope.
       canManage={canManageLanguages(membership)}

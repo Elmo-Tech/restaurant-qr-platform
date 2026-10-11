@@ -14,6 +14,7 @@ const GENERIC_QR_ROW = {
     defaultLocale: 'en',
     currencyCode: 'EGP',
     logoAssetPath: null,
+    coverAssetPath: null,
   },
   branch: null,
   table: null,
@@ -22,7 +23,7 @@ const GENERIC_QR_ROW = {
 const TABLE_QR_ROW = {
   ...GENERIC_QR_ROW,
   type: 'TABLE' as const,
-  branch: { name: 'Downtown Branch' },
+  branch: { name: 'Downtown Branch', translations: [] },
   tableId: 'table-1',
   table: { tableNumber: '12', status: 'ACTIVE' as const, staffOpenRequired: false },
 };
@@ -80,12 +81,19 @@ function buildPrismaMock() {
   const tableSessionFindFirst = jest.fn().mockResolvedValue(null);
   const categoryFindMany = jest.fn().mockResolvedValue([buildCategoryRow()]);
   const branchFindMany = jest.fn().mockResolvedValue([
-    { id: 'branch-a', name: 'Downtown', deliveryZones: [] },
+    { id: 'branch-a', name: 'Downtown', translations: [], deliveryZones: [] },
     {
       id: 'branch-b',
       name: 'Uptown',
+      translations: [],
       deliveryZones: [
-        { id: 'zone-1', name: 'University District', deliveryFee: decimal('25.00'), minimumOrder: decimal('100.00') },
+        {
+          id: 'zone-1',
+          name: 'University District',
+          translations: [],
+          deliveryFee: decimal('25.00'),
+          minimumOrder: decimal('100.00'),
+        },
       ],
     },
   ]);
@@ -185,6 +193,132 @@ describe('PublicMenuService.getPublicMenu', () => {
     expect(result.data.context.restaurant.logoAssetPath).toBe('/media/logo.png');
   });
 
+  it('passes the Restaurant coverAssetPath through to the Guest context (null keeps the default hero)', async () => {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue({
+      ...GENERIC_QR_ROW,
+      restaurant: { ...GENERIC_QR_ROW.restaurant, coverAssetPath: '/media/cover.jpg' },
+    });
+    const withCover = await buildService(mock).getPublicMenu({
+      publicCode: 'generic-qr',
+      explicitLang: null,
+      acceptLanguageHeader: null,
+    });
+    const without = await buildService(buildPrismaMock()).getPublicMenu({
+      publicCode: 'generic-qr',
+      explicitLang: null,
+      acceptLanguageHeader: null,
+    });
+
+    expect(withCover.outcome === 'found' && withCover.data.context.restaurant.coverAssetPath).toBe(
+      '/media/cover.jpg',
+    );
+    expect(without.outcome === 'found' && without.data.context.restaurant.coverAssetPath).toBeNull();
+  });
+
+  describe('bilingual Branch and Delivery zone names', () => {
+    function localizedMock() {
+      const mock = buildPrismaMock();
+      mock.branchFindMany.mockResolvedValue([
+        {
+          id: 'branch-a',
+          name: 'Downtown',
+          translations: [
+            { locale: 'en', name: 'Downtown' },
+            { locale: 'ar', name: 'وسط البلد' },
+          ],
+          deliveryZones: [
+            {
+              id: 'zone-1',
+              name: 'University District',
+              translations: [
+                { locale: 'en', name: 'University District' },
+                { locale: 'ar', name: 'حي الجامعة' },
+              ],
+              deliveryFee: decimal('25.00'),
+              minimumOrder: decimal('100.00'),
+            },
+          ],
+        },
+        // legacy single-language data: no translation rows at all
+        { id: 'branch-b', name: 'Uptown', translations: [], deliveryZones: [] },
+        // only the default locale translated: the Arabic Guest falls back to it
+        {
+          id: 'branch-c',
+          name: 'Heliopolis',
+          translations: [{ locale: 'en', name: 'Heliopolis' }],
+          deliveryZones: [],
+        },
+      ]);
+      return mock;
+    }
+
+    it('returns the Arabic names to an Arabic Guest', async () => {
+      const result = await buildService(localizedMock()).getPublicMenu({
+        publicCode: 'generic-qr',
+        explicitLang: 'ar',
+        acceptLanguageHeader: null,
+      });
+
+      expect(result.outcome).toBe('found');
+      if (result.outcome !== 'found') return;
+      expect(result.data.context.pickupBranches).toEqual([
+        { id: 'branch-a', name: 'وسط البلد' },
+        { id: 'branch-b', name: 'Uptown' },
+        { id: 'branch-c', name: 'Heliopolis' },
+      ]);
+      expect(result.data.context.deliveryBranches?.[0]).toMatchObject({
+        name: 'وسط البلد',
+        zones: [expect.objectContaining({ id: 'zone-1', name: 'حي الجامعة' })],
+      });
+    });
+
+    it('returns the English names to an English Guest', async () => {
+      const result = await buildService(localizedMock()).getPublicMenu({
+        publicCode: 'generic-qr',
+        explicitLang: 'en',
+        acceptLanguageHeader: null,
+      });
+
+      expect(result.outcome).toBe('found');
+      if (result.outcome !== 'found') return;
+      expect(result.data.context.pickupBranches?.map((b) => b.name)).toEqual([
+        'Downtown',
+        'Uptown',
+        'Heliopolis',
+      ]);
+    });
+
+    it('localizes the TABLE QR Branch name too, with the legacy name as the last fallback', async () => {
+      const mock = buildPrismaMock();
+      mock.qrCodeFindUnique.mockResolvedValue({
+        ...TABLE_QR_ROW,
+        branch: {
+          name: 'Downtown Branch',
+          translations: [{ locale: 'ar', name: 'فرع وسط البلد' }],
+        },
+      });
+
+      const arabic = await buildService(mock).getPublicMenu({
+        publicCode: 'table-qr',
+        explicitLang: 'ar',
+        acceptLanguageHeader: null,
+      });
+      const english = await buildService(mock).getPublicMenu({
+        publicCode: 'table-qr',
+        explicitLang: 'en',
+        acceptLanguageHeader: null,
+      });
+
+      expect(arabic.outcome === 'found' && arabic.data.context.branch).toEqual({
+        name: 'فرع وسط البلد',
+      });
+      expect(english.outcome === 'found' && english.data.context.branch).toEqual({
+        name: 'Downtown Branch',
+      });
+    });
+  });
+
   it('resolves a TABLE QR with its Branch/Table context', async () => {
     const mock = buildPrismaMock();
     mock.qrCodeFindUnique.mockResolvedValue(TABLE_QR_ROW);
@@ -200,7 +334,7 @@ describe('PublicMenuService.getPublicMenu', () => {
     if (result.outcome !== 'found') return;
     expect(result.data.context).toEqual({
       qrType: 'TABLE',
-      restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null },
+      restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null, coverAssetPath: null },
       tableOrdering: 'AVAILABLE',
       branch: { name: 'Downtown Branch' },
       table: { number: '12' },
@@ -224,7 +358,7 @@ describe('PublicMenuService.getPublicMenu', () => {
     expect(result.data.context).toEqual({
       qrType: 'GENERIC',
       tableOrdering: null,
-      restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null },
+      restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null, coverAssetPath: null },
       branch: null,
       table: null,
       pickupBranches: [

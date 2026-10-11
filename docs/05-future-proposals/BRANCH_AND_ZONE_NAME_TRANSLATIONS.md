@@ -1,6 +1,13 @@
 # Proposal: Bilingual Branch and Delivery Zone Names
 
-Status: **PROPOSAL ONLY. Not approved, not implemented.** No schema, API or UI change accompanies this document.
+Status: **IMPLEMENTED (V1 Final Features, Batch 1, 2026-10-11).** The "expand" and "dual-read" steps below shipped; the "contract" step is intentionally not done. Migration `20261010120000_add_cover_image_and_name_translations`. Implementation notes:
+
+- `name` stays the Restaurant default-locale name and the legacy fallback; it is kept equal to the default-locale translation on every write.
+- Staff create/update DTOs accept `translations: [{ locale, name }]`. A non-empty name upserts that locale, an empty name removes it, the default locale can never be removed (`400 DEFAULT_TRANSLATION_REQUIRED`), and a default-locale entry is authoritative for `name`. A legacy client that sends only `name` keeps working.
+- Branch and zone responses (Staff) carry `translations`; `/auth/me` branches carry them too so the Staff UI can show its own language with fallback to `name`.
+- The public menu resolves requested locale, then default locale, then legacy `name` for the TABLE QR branch, Pickup branches, Delivery branches and zones. The order endpoint accepts an optional display-only `locale` so the confirmation matches the menu language.
+- `orders.delivery_zone_name_snapshot` still stores the zone's default-locale name at order time and is never rewritten.
+- Backfill: one default-locale row per existing Branch and zone, copied from `name`.
 
 Origin: Guest Menu Final Polish (FT-13B).
 

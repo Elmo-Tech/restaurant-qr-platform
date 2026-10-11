@@ -444,6 +444,7 @@ describe('PATCH /api/v1/restaurants/:restaurantId/branches/:branchId (e2e)', () 
       expect(data).toEqual({
         id: branch.id,
         name: 'Unchanged Name',
+        translations: [],
         status: 'ACTIVE',
         timezone: 'Africa/Cairo',
         phone: '123',
@@ -482,7 +483,7 @@ describe('PATCH /api/v1/restaurants/:restaurantId/branches/:branchId (e2e)', () 
 
       const data = (response.body as { data: Record<string, unknown> }).data;
       expect(Object.keys(data).sort()).toEqual(
-        ['address', 'id', 'name', 'phone', 'status', 'timezone'].sort(),
+        ['address', 'id', 'name', 'phone', 'status', 'timezone', 'translations'].sort(),
       );
       const serialized = JSON.stringify(response.body);
       expect(serialized).not.toMatch(/restaurantId/i);

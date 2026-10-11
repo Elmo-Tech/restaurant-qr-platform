@@ -13,6 +13,7 @@ import {
   YAxis,
 } from 'recharts';
 import { useStaffI18n } from '../../../../lib/i18n/client';
+import { localizedName } from '../../../../lib/i18n/localized-name';
 import type { MessageKey } from '../../../../lib/i18n/messages';
 import * as dashboardApi from '../../../../lib/dashboard/api';
 import type { DashboardMetrics } from '../../../../lib/dashboard/types';
@@ -138,7 +139,7 @@ export function DashboardWorkspace({ restaurantId, branches, currencyCode }: Das
             <option value={ALL_BRANCHES}>{t('orders.filter.allBranches')}</option>
             {branches.map((branch) => (
               <option key={branch.id} value={branch.id}>
-                {branch.name}
+                {localizedName(branch, locale)}
               </option>
             ))}
           </select>

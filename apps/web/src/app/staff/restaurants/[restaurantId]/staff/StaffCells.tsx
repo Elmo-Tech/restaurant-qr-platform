@@ -1,6 +1,7 @@
 'use client';
 
 import { useStaffI18n } from '../../../../../lib/i18n/client';
+import { localizedName } from '../../../../../lib/i18n/localized-name';
 import type { RestaurantMembershipRole } from '../../../../../lib/auth/types';
 import { roleDisplayName } from '../../../../../lib/staff/role-display';
 import type { MembershipStatus, StaffBranchRef } from '../../../../../lib/staff/types';
@@ -33,7 +34,7 @@ export function BranchAccessCell({
   allBranches: boolean;
   branches: StaffBranchRef[];
 }) {
-  const { t } = useStaffI18n();
+  const { t, locale } = useStaffI18n();
 
   if (allBranches) {
     return <Badge variant="primary">{t('staff.branchAccess.all')}</Badge>;
@@ -50,8 +51,8 @@ export function BranchAccessCell({
           <Badge variant="neutral" className={branch.status === 'ACTIVE' ? undefined : 'opacity-60'}>
             <span dir="auto">
               {branch.status === 'ACTIVE'
-                ? branch.name
-                : t('staff.branchAccess.inactiveSuffix', { name: branch.name })}
+                ? localizedName(branch, locale)
+                : t('staff.branchAccess.inactiveSuffix', { name: localizedName(branch, locale) })}
             </span>
           </Badge>
         </li>

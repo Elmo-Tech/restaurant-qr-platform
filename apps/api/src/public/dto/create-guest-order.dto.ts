@@ -8,6 +8,7 @@
 // belongs here, at the actual point of need, rather than as a global Jest
 // `setupFiles` change affecting every test in the repo.
 import 'reflect-metadata';
+import { PLATFORM_SUPPORTED_LOCALES } from '../../restaurants/platform-locales';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -26,6 +27,10 @@ import {
 
 function trim(value: unknown): unknown {
   return typeof value === 'string' ? value.trim() : value;
+}
+
+function trimLower(value: unknown): unknown {
+  return typeof value === 'string' ? value.trim().toLowerCase() : value;
 }
 
 /**
@@ -76,6 +81,14 @@ export class CreateGuestOrderItemDto {
 export class CreateGuestOrderDto {
   @IsUUID('all', { message: 'clientRequestId must be a well-formed UUID' })
   clientRequestId!: string;
+
+  /** Display-only content language the Guest is browsing in; localizes Branch and zone names in the confirmation. */
+  @IsOptional()
+  @Transform(({ value }) => trimLower(value))
+  @IsIn(PLATFORM_SUPPORTED_LOCALES, {
+    message: `locale must be one of: ${PLATFORM_SUPPORTED_LOCALES.join(', ')}`,
+  })
+  locale?: string;
 
   @ValidateNested({ each: true })
   @Type(() => CreateGuestOrderItemDto)

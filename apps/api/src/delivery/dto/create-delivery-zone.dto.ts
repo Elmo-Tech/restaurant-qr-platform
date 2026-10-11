@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsNotEmpty, IsOptional, IsString, MaxLength, Min } from 'class-validator';
+import { NameTranslationDto, NameTranslationsProperty } from '../../common/name-translations';
 import { IsMoneyDecimalString } from '../../menu/money-decimal';
 
 function trim(value: unknown): unknown {
@@ -22,6 +23,10 @@ export class CreateDeliveryZoneDto {
   @IsNotEmpty({ message: 'name should not be empty' })
   @MaxLength(100, { message: 'name must be at most 100 characters' })
   name!: string;
+
+  /** Optional per-locale names (Bilingual zone names). `name` stays the default-locale name. */
+  @NameTranslationsProperty()
+  translations?: NameTranslationDto[];
 
   @IsMoneyDecimalString()
   deliveryFee!: string;

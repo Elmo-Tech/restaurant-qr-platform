@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import type { BranchStatus } from '../generated/prisma/client';
+import {
+  planNameTranslations,
+  type NameTranslationView,
+} from '../common/name-translations';
 import { createBranchPublicId } from './branch-public-id';
 
 /**
@@ -15,12 +19,20 @@ import { createBranchPublicId } from './branch-public-id';
  */
 export interface BranchListItem {
   id: string;
+  /** The default-locale name (also the legacy single-language value). */
   name: string;
+  /** Per-locale display names (Bilingual Branch names); always includes the default locale. */
+  translations: NameTranslationView[];
   status: BranchStatus;
   timezone: string;
   phone: string | null;
   address: string | null;
 }
+
+const BRANCH_TRANSLATIONS_SELECT = {
+  select: { locale: true, name: true },
+  orderBy: { locale: 'asc' },
+} as const;
 
 const BRANCH_LIST_SELECT = {
   id: true,
@@ -29,6 +41,7 @@ const BRANCH_LIST_SELECT = {
   timezone: true,
   phone: true,
   address: true,
+  translations: BRANCH_TRANSLATIONS_SELECT,
 } as const;
 
 /**
@@ -46,11 +59,20 @@ export interface AuthorizedBranchScope {
 export interface CreatedBranch {
   id: string;
   name: string;
+  translations: NameTranslationView[];
   status: BranchStatus;
   timezone: string;
   phone: string | null;
   address: string | null;
 }
+
+export type CreateBranchResult =
+  | { outcome: 'created'; data: CreatedBranch }
+  | { outcome: 'defaultNameRequired' };
+
+export type UpdateBranchResult =
+  | { outcome: 'updated'; data: UpdatedBranch }
+  | { outcome: 'defaultNameRequired' };
 
 /**
  * Client-writable Create Branch input, already DTO-validated and
@@ -61,6 +83,8 @@ export interface CreatedBranch {
 export interface CreateBranchInput {
   restaurantId: string;
   name: string;
+  /** Optional per-locale names (empty name removes that locale); see `name-translations.ts`. */
+  translations?: NameTranslationView[];
   timezone: string;
   phone: string | null;
   address: string | null;
@@ -85,6 +109,7 @@ export interface ActivateBranchInput {
 export interface UpdatedBranch {
   id: string;
   name: string;
+  translations: NameTranslationView[];
   status: BranchStatus;
   timezone: string;
   phone: string | null;
@@ -105,8 +130,11 @@ export interface UpdatedBranch {
  * becomes persistence authority and `status` can never appear here at all.
  */
 export interface UpdateBranchInput {
+  /** The caller's Restaurant (from `request.restaurantAccess`); only used to read its default locale. */
+  restaurantId: string;
   branchId: string;
   name?: string;
+  translations?: NameTranslationView[];
   timezone?: string;
   phone?: string | null;
   address?: string | null;
@@ -168,26 +196,43 @@ export class BranchesService {
    * object is built explicitly field-by-field, never a spread of the
    * input, so DTO growth can never silently become persistence authority.
    */
-  async createBranch(input: CreateBranchInput): Promise<CreatedBranch> {
-    return this.prisma.branch.create({
+  async createBranch(input: CreateBranchInput): Promise<CreateBranchResult> {
+    const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
+      where: { id: input.restaurantId },
+      select: { defaultLocale: true },
+    });
+    const planned = planNameTranslations({
+      defaultLocale: restaurant.defaultLocale,
+      name: input.name,
+      translations: input.translations,
+    });
+    if (!planned.ok) {
+      return { outcome: 'defaultNameRequired' };
+    }
+    const { plan } = planned;
+
+    const data = await this.prisma.branch.create({
       data: {
         restaurantId: input.restaurantId,
         publicId: createBranchPublicId(),
-        name: input.name,
+        name: plan.name ?? input.name,
         status: 'INACTIVE',
         timezone: input.timezone,
         phone: input.phone,
         address: input.address,
+        translations: { create: plan.upserts },
       },
       select: {
         id: true,
         name: true,
+        translations: BRANCH_TRANSLATIONS_SELECT,
         status: true,
         timezone: true,
         phone: true,
         address: true,
       },
     });
+    return { outcome: 'created', data };
   }
 
   /**
@@ -249,7 +294,21 @@ export class BranchesService {
    * (verified against this repository's real database in Foundation N's
    * E2E suite). No Table or QrCode row is touched.
    */
-  async updateBranch(input: UpdateBranchInput): Promise<UpdatedBranch> {
+  async updateBranch(input: UpdateBranchInput): Promise<UpdateBranchResult> {
+    const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
+      where: { id: input.restaurantId },
+      select: { defaultLocale: true },
+    });
+    const planned = planNameTranslations({
+      defaultLocale: restaurant.defaultLocale,
+      name: input.name,
+      translations: input.translations,
+    });
+    if (!planned.ok) {
+      return { outcome: 'defaultNameRequired' };
+    }
+    const { plan } = planned;
+
     const data: {
       name?: string;
       timezone?: string;
@@ -257,8 +316,8 @@ export class BranchesService {
       address?: string | null;
     } = {};
 
-    if (input.name !== undefined) {
-      data.name = input.name;
+    if (plan.name !== undefined) {
+      data.name = plan.name;
     }
     if (input.timezone !== undefined) {
       data.timezone = input.timezone;
@@ -270,17 +329,38 @@ export class BranchesService {
       data.address = input.address;
     }
 
-    return this.prisma.branch.update({
-      where: { id: input.branchId },
-      data,
-      select: {
-        id: true,
-        name: true,
-        status: true,
-        timezone: true,
-        phone: true,
-        address: true,
-      },
+    // The row update and its translation writes commit together (the branch id
+    // is the already-authorized `request.branchAccess.branchId`, so every
+    // translation row is scoped to that Restaurant's own Branch).
+    const updated = await this.prisma.$transaction(async (tx) => {
+      for (const row of plan.upserts) {
+        await tx.branchTranslation.upsert({
+          where: {
+            branchId_locale: { branchId: input.branchId, locale: row.locale },
+          },
+          create: { branchId: input.branchId, locale: row.locale, name: row.name },
+          update: { name: row.name },
+        });
+      }
+      if (plan.deleteLocales.length > 0) {
+        await tx.branchTranslation.deleteMany({
+          where: { branchId: input.branchId, locale: { in: plan.deleteLocales } },
+        });
+      }
+      return tx.branch.update({
+        where: { id: input.branchId },
+        data,
+        select: {
+          id: true,
+          name: true,
+          translations: BRANCH_TRANSLATIONS_SELECT,
+          status: true,
+          timezone: true,
+          phone: true,
+          address: true,
+        },
+      });
     });
+    return { outcome: 'updated', data: updated };
   }
 }

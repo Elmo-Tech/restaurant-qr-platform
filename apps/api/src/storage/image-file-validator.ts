@@ -3,6 +3,7 @@ import {
   ALLOWED_IMAGE_MIME_TYPES,
   MAX_IMAGE_BYTES,
 } from './image-storage.service';
+import { readImageDimensions } from './image-dimensions';
 import type { UploadedImageFile } from './uploaded-image-file';
 
 const PNG_SIGNATURE = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
@@ -76,6 +77,62 @@ export function assertValidImageUpload(
       error: {
         code: 'IMAGE_TOO_LARGE',
         message: 'Image must be 5 MB or smaller.',
+      },
+    });
+  }
+}
+
+/**
+ * Restaurant cover image rules. The Guest hero is a wide, full-bleed banner
+ * (about 1280x400 on desktop, cropped with `object-fit: cover`), so the image
+ * must be wide enough to stay sharp and within a banner-friendly aspect ratio.
+ * Recommended: 1600x900 (16:9). Format, size and signature checks reuse
+ * `assertValidImageUpload` first; these are the extra dimension rules.
+ */
+export const COVER_IMAGE_MIN_WIDTH = 800;
+export const COVER_IMAGE_MIN_HEIGHT = 300;
+export const COVER_IMAGE_MAX_DIMENSION = 6000;
+export const COVER_IMAGE_MIN_ASPECT_RATIO = 1.3;
+export const COVER_IMAGE_MAX_ASPECT_RATIO = 3.2;
+
+export function assertValidCoverImageUpload(
+  file: UploadedImageFile | undefined,
+): asserts file is UploadedImageFile {
+  assertValidImageUpload(file);
+
+  const dimensions = readImageDimensions(file.buffer, file.mimetype);
+  if (dimensions === null) {
+    throw new BadRequestException({
+      error: {
+        code: 'IMAGE_UNREADABLE',
+        message: 'The image could not be read. Upload a different file.',
+      },
+    });
+  }
+  const { width, height } = dimensions;
+  if (width > COVER_IMAGE_MAX_DIMENSION || height > COVER_IMAGE_MAX_DIMENSION) {
+    throw new BadRequestException({
+      error: {
+        code: 'COVER_IMAGE_DIMENSIONS_TOO_LARGE',
+        message: `The cover image must be at most ${COVER_IMAGE_MAX_DIMENSION}px on each side.`,
+      },
+    });
+  }
+  if (width < COVER_IMAGE_MIN_WIDTH || height < COVER_IMAGE_MIN_HEIGHT) {
+    throw new BadRequestException({
+      error: {
+        code: 'COVER_IMAGE_TOO_SMALL',
+        message: `The cover image must be at least ${COVER_IMAGE_MIN_WIDTH}x${COVER_IMAGE_MIN_HEIGHT}px.`,
+      },
+    });
+  }
+  const ratio = width / height;
+  if (ratio < COVER_IMAGE_MIN_ASPECT_RATIO || ratio > COVER_IMAGE_MAX_ASPECT_RATIO) {
+    throw new BadRequestException({
+      error: {
+        code: 'COVER_IMAGE_INVALID_ASPECT_RATIO',
+        message:
+          'The cover image must be a landscape banner between 1.3:1 and 3.2:1 (recommended 16:9, for example 1600x900).',
       },
     });
   }

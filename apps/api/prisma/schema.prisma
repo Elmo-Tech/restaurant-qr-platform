@@ -211,21 +211,24 @@ enum TableSessionActorType {
 // -----------------------------------------------------------------------------
 
 model Restaurant {
-  id            String           @id @default(uuid()) @db.Uuid
-  publicId      String           @unique @map("public_id")
-  name          String
+  id             String           @id @default(uuid()) @db.Uuid
+  publicId       String           @unique @map("public_id")
+  name           String
   // No database default: DATABASE_SPEC.md #24 defines the allowed values but
   // not a creation default. Restaurant creation must explicitly choose the
   // initial status at the application/domain layer.
-  status        RestaurantStatus
+  status         RestaurantStatus
   // Authoritative default locale (DATABASE_SPEC.md #26). restaurant_locales
   // stores supported locales only and does not maintain a second isDefault
   // flag.
-  defaultLocale String           @map("default_locale")
-  currencyCode  String           @map("currency_code") @db.Char(3)
-  logoAssetPath String?          @map("logo_asset_path")
-  createdAt     DateTime         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt     DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+  defaultLocale  String           @map("default_locale")
+  currencyCode   String           @map("currency_code") @db.Char(3)
+  logoAssetPath  String?          @map("logo_asset_path")
+  // Guest Menu hero cover image (same media storage as logoAssetPath). Null
+  // keeps the existing branded hero background.
+  coverAssetPath String?          @map("cover_asset_path")
+  createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
   locales               RestaurantLocale[]
   branches              Branch[]
@@ -291,6 +294,7 @@ model Branch {
   qrCodes            QrCode[]
   orders             Order[]
   deliveryZones      DeliveryZone[]
+  translations       BranchTranslation[]
 
   @@index([restaurantId])
   @@map("branches")
@@ -1038,13 +1042,42 @@ model DeliveryZone {
   createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz
 
-  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
-  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
-  orders     Order[]
+  restaurant   Restaurant                @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  branch       Branch                    @relation(fields: [branchId], references: [id], onDelete: Restrict)
+  orders       Order[]
+  translations DeliveryZoneTranslation[]
 
   @@index([restaurantId])
   @@index([branchId, status])
   @@map("delivery_zones")
+}
+
+// Bilingual (per-locale) display names. `branches.name` / `delivery_zones.name`
+// stay as the default-locale name and the legacy fallback, so older readers and
+// existing single-language data keep working. Pure translation children:
+// Cascade, like every other *_translations table.
+model BranchTranslation {
+  id       String @id @default(uuid()) @db.Uuid
+  branchId String @map("branch_id") @db.Uuid
+  locale   String
+  name     String
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@unique([branchId, locale])
+  @@map("branch_translations")
+}
+
+model DeliveryZoneTranslation {
+  id             String @id @default(uuid()) @db.Uuid
+  deliveryZoneId String @map("delivery_zone_id") @db.Uuid
+  locale         String
+  name           String
+
+  deliveryZone DeliveryZone @relation(fields: [deliveryZoneId], references: [id], onDelete: Cascade)
+
+  @@unique([deliveryZoneId, locale])
+  @@map("delivery_zone_translations")
 }
 
 model OrderItem {

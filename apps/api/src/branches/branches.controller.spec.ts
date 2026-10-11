@@ -67,12 +67,16 @@ describe('BranchesController', () => {
     branchesService = {
       listBranches: jest.fn().mockResolvedValue([]),
       createBranch: jest.fn().mockResolvedValue({
-        id: 'new-branch-id',
-        name: 'Maadi',
-        status: 'INACTIVE',
-        timezone: 'Africa/Cairo',
-        phone: null,
-        address: null,
+        outcome: 'created',
+        data: {
+          id: 'new-branch-id',
+          name: 'Maadi',
+          translations: [],
+          status: 'INACTIVE',
+          timezone: 'Africa/Cairo',
+          phone: null,
+          address: null,
+        },
       }),
       activateBranch: jest
         .fn()
@@ -81,12 +85,16 @@ describe('BranchesController', () => {
         .fn()
         .mockResolvedValue({ id: 'branch-1', status: 'INACTIVE' }),
       updateBranch: jest.fn().mockResolvedValue({
-        id: 'branch-1',
-        name: 'Maadi',
-        status: 'ACTIVE',
-        timezone: 'Africa/Cairo',
-        phone: null,
-        address: null,
+        outcome: 'updated',
+        data: {
+          id: 'branch-1',
+          name: 'Maadi',
+          translations: [],
+          status: 'ACTIVE',
+          timezone: 'Africa/Cairo',
+          phone: null,
+          address: null,
+        },
       }),
     };
     controller = new BranchesController(branchesService as never);
@@ -214,12 +222,16 @@ describe('BranchesController', () => {
       const created = {
         id: 'b1',
         name: 'Maadi',
+        translations: [],
         status: 'INACTIVE' as const,
         timezone: 'Africa/Cairo',
         phone: null,
         address: null,
       };
-      branchesService.createBranch.mockResolvedValue(created);
+      branchesService.createBranch.mockResolvedValue({
+        outcome: 'created',
+        data: created,
+      });
 
       const body = await controller.createBranch(
         DTO,
@@ -478,8 +490,10 @@ describe('BranchesController', () => {
       );
 
       expect(branchesService.updateBranch).toHaveBeenCalledWith({
+        restaurantId: 'restaurant-1',
         branchId: 'branch-1',
         name: 'Nasr City',
+        translations: undefined,
         timezone: 'Africa/Cairo',
         phone: null,
         address: '1 Nile Street',
@@ -496,8 +510,10 @@ describe('BranchesController', () => {
       );
 
       expect(branchesService.updateBranch).toHaveBeenCalledWith({
+        restaurantId: 'restaurant-1',
         branchId: 'branch-1',
         name: undefined,
+        translations: undefined,
         timezone: undefined,
         phone: undefined,
         address: undefined,
@@ -521,8 +537,10 @@ describe('BranchesController', () => {
       );
 
       expect(branchesService.updateBranch).toHaveBeenCalledWith({
+        restaurantId: 'restaurant-1',
         branchId: 'authorized-branch',
         name: 'Legitimate Name',
+        translations: undefined,
         timezone: undefined,
         phone: undefined,
         address: undefined,
@@ -533,12 +551,16 @@ describe('BranchesController', () => {
       const updated = {
         id: 'branch-1',
         name: 'Nasr City',
+        translations: [],
         status: 'ACTIVE' as const,
         timezone: 'Africa/Cairo',
         phone: null,
         address: null,
       };
-      branchesService.updateBranch.mockResolvedValue(updated);
+      branchesService.updateBranch.mockResolvedValue({
+        outcome: 'updated',
+        data: updated,
+      });
 
       const body = await controller.updateBranch(
         EMPTY_DTO,

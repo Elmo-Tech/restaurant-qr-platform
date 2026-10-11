@@ -1,5 +1,6 @@
 import { Transform } from 'class-transformer';
 import { IsIn, IsInt, IsNotEmpty, IsString, MaxLength, Min, ValidateIf } from 'class-validator';
+import { NameTranslationDto, NameTranslationsProperty } from '../../common/name-translations';
 import { IsMoneyDecimalString } from '../../menu/money-decimal';
 import { DELIVERY_ZONE_STATUSES, type DeliveryZoneStatusInput } from './create-delivery-zone.dto';
 
@@ -15,6 +16,10 @@ export class UpdateDeliveryZoneDto {
   @IsNotEmpty({ message: 'name should not be empty' })
   @MaxLength(100, { message: 'name must be at most 100 characters' })
   name?: string;
+
+  /** Optional per-locale names; an empty name removes that locale. The default locale cannot be removed. */
+  @NameTranslationsProperty()
+  translations?: NameTranslationDto[];
 
   @ValidateIf((o: UpdateDeliveryZoneDto) => o.deliveryFee !== undefined)
   @IsMoneyDecimalString()

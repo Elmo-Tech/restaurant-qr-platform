@@ -71,6 +71,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
   const dir = locale === 'ar' ? 'rtl' : 'ltr';
   const currency = data.context.restaurant.currencyCode;
   const logoUrl = resolveAssetUrl(data.context.restaurant.logoAssetPath);
+  const coverUrl = resolveAssetUrl(data.context.restaurant.coverAssetPath);
   const copy = getPublicMenuCopy(locale);
   const hasCategories = data.menu.categories.length > 0;
   // FT-7/FT-8: a TABLE QR orders exactly as before (DINE_IN); a GENERIC QR
@@ -656,7 +657,13 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     // which would silently defeat the Backend's idempotency guarantee on
     // the most important case (an ambiguous network failure).
     const clientRequestId = resolveClientRequestId(publicCode, items, checkout, generateUuid);
-    const result = await submitGuestOrder(publicCode, clientRequestId, items, checkout);
+    const result = await submitGuestOrder(
+      publicCode,
+      clientRequestId,
+      items,
+      checkout,
+      data.locale.resolved,
+    );
     setIsSubmitting(false);
 
     if (result.outcome === 'success') {
@@ -758,6 +765,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
           sentinelRef={navigation.headerRef}
           restaurantName={data.context.restaurant.name}
           logoUrl={logoUrl}
+          coverUrl={coverUrl}
           tableNumber={data.context.table?.number ?? null}
           branchLine={branchLine}
           copy={copy}

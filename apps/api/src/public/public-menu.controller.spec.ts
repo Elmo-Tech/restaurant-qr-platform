@@ -5,7 +5,7 @@ const SAMPLE_DATA: PublicMenuData = {
   context: {
     qrType: 'GENERIC',
     tableOrdering: null,
-    restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null },
+    restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null, coverAssetPath: null },
     branch: null,
     table: null,
     pickupBranches: [],

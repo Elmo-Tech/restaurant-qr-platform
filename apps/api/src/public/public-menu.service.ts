@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { resolveLocalizedName } from '../common/name-translations';
 import { PrismaService } from '../database/prisma.service';
 import type { ProductAvailability, QrType } from '../generated/prisma/client';
 import {
@@ -29,7 +30,14 @@ export interface PublicMenuContext {
    * never exposes session, bill or payment data.
    */
   tableOrdering: GuestTableOrdering | null;
-  restaurant: { name: string; currencyCode: string; logoAssetPath: string | null };
+  restaurant: {
+    name: string;
+    currencyCode: string;
+    logoAssetPath: string | null;
+    /** Guest hero cover image; null keeps the default branded hero. */
+    coverAssetPath: string | null;
+  };
+  /** The Branch display name, already resolved to the menu content language (requested -> default -> legacy name). */
   branch: { name: string } | null;
   table: { number: string } | null;
   /**
@@ -201,9 +209,16 @@ export class PublicMenuService {
             defaultLocale: true,
             currencyCode: true,
             logoAssetPath: true,
+            coverAssetPath: true,
           },
         },
-        branch: { select: { name: true } },
+        // At most one row per platform locale, so no extra filtering is needed.
+        branch: {
+          select: {
+            name: true,
+            translations: { select: { locale: true, name: true } },
+          },
+        },
         table: { select: { tableNumber: true, staffOpenRequired: true } },
       },
     });
@@ -433,26 +448,49 @@ export class PublicMenuService {
             select: {
               id: true,
               name: true,
+              translations: { select: { locale: true, name: true } },
               deliveryZones: {
                 where: { status: 'ACTIVE' },
                 orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
-                select: { id: true, name: true, deliveryFee: true, minimumOrder: true },
+                select: {
+                  id: true,
+                  name: true,
+                  deliveryFee: true,
+                  minimumOrder: true,
+                  translations: { select: { locale: true, name: true } },
+                },
               },
             },
           })
         : null;
+    // Display names resolve to the menu content language, then the Restaurant
+    // default language, then the legacy single-language name -- so existing
+    // data and a missing translation never produce an empty label.
+    const displayName = (
+      legacyName: string,
+      translations: { locale: string; name: string }[],
+    ): string =>
+      resolveLocalizedName({
+        requestedLocale: resolved,
+        defaultLocale,
+        translations,
+        legacyName,
+      });
     const pickupBranches = activeBranches
-      ? activeBranches.map((branch) => ({ id: branch.id, name: branch.name }))
+      ? activeBranches.map((branch) => ({
+          id: branch.id,
+          name: displayName(branch.name, branch.translations),
+        }))
       : null;
     const deliveryBranches = activeBranches
       ? activeBranches
           .filter((branch) => branch.deliveryZones.length > 0)
           .map((branch) => ({
             id: branch.id,
-            name: branch.name,
+            name: displayName(branch.name, branch.translations),
             zones: branch.deliveryZones.map((zone) => ({
               id: zone.id,
-              name: zone.name,
+              name: displayName(zone.name, zone.translations),
               deliveryFee: zone.deliveryFee.toFixed(2),
               minimumOrder: zone.minimumOrder.toFixed(2),
             })),
@@ -469,8 +507,11 @@ export class PublicMenuService {
             name: qr.restaurant.name,
             currencyCode: qr.restaurant.currencyCode,
             logoAssetPath: qr.restaurant.logoAssetPath,
+            coverAssetPath: qr.restaurant.coverAssetPath,
           },
-          branch: qr.branch ? { name: qr.branch.name } : null,
+          branch: qr.branch
+            ? { name: displayName(qr.branch.name, qr.branch.translations) }
+            : null,
           table: qr.table ? { number: qr.table.tableNumber } : null,
           pickupBranches,
           deliveryBranches,

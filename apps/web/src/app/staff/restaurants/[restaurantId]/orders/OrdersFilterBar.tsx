@@ -5,6 +5,7 @@ import { ChipGroup, type ChipOption } from '../../../../../components/ui/ChipGro
 import type { AuthContextBranch } from '../../../../../lib/auth/types';
 import type { OrderStatus, OrderType } from '../../../../../lib/orders/types';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
+import { localizedName } from '../../../../../lib/i18n/localized-name';
 import { orderStatusLabel } from './StatusBadge';
 import { orderTypeLabel } from './OrderTypeBadge';
 
@@ -61,7 +62,7 @@ export function OrdersFilterBar({
   onBranchChange,
   onClear,
 }: OrdersFilterBarProps) {
-  const { t } = useStaffI18n();
+  const { t, locale } = useStaffI18n();
 
   const typeTotal = TYPE_OPTIONS.reduce((sum, option) => sum + typeCounts[option], 0);
   const typeChipOptions: ChipOption<OrderType | 'ALL'>[] = [
@@ -111,7 +112,7 @@ export function OrdersFilterBar({
               <option value={ALL_BRANCHES}>{t('orders.filter.allBranches')}</option>
               {branches.map((branch) => (
                 <option key={branch.id} value={branch.id}>
-                  {branch.name}
+                  {localizedName(branch, locale)}
                 </option>
               ))}
             </select>

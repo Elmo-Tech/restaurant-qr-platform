@@ -2553,3 +2553,11 @@ Staff UX is acceptable when:
 # Staff Experience Principle
 
 > Show every employee the smallest clear set of information and actions needed to run the Restaurant well right now, while keeping tenant context, permissions, and operational state impossible to misunderstand.
+
+---
+
+# Amendment 2026-10-11: Restaurant cover image and bilingual names (V1 Final Features, Batch 1)
+
+- **Settings -> Profile** has a "Cover image" card beside the logo: upload, wide preview, replace, remove (with confirmation). Client-side checks mirror the server (JPEG / PNG / WebP, 5 MB, at least 800 x 300 px, at most 6000 px, aspect ratio 1.3:1 to 3.2:1; recommended 1600 x 900); the Backend remains authoritative. Only users with `restaurant.manage` and Restaurant-wide scope can change it.
+- **Branch and Delivery area forms** show one name field per active content language, default language first (required), others optional, each with its own text direction. Clearing a non-default name removes that translation.
+- **Everywhere a Branch or Delivery area name is shown** (Dashboard, Orders filter and cards, Tables, Staff branch access, Branches, Delivery) the Staff language's own name is used, falling back to the default-language name.

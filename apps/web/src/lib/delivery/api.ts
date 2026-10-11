@@ -9,7 +9,9 @@ export type DeliveryZoneStatus = 'ACTIVE' | 'INACTIVE';
 
 export interface DeliveryZone {
   id: string;
+  /** The Restaurant default-locale name (also the legacy single-language value). */
   name: string;
+  translations: { locale: string; name: string }[];
   deliveryFee: string;
   minimumOrder: string;
   status: DeliveryZoneStatus;
@@ -21,12 +23,15 @@ export interface DeliveryZone {
 export interface DeliveryBranch {
   id: string;
   name: string;
+  translations: { locale: string; name: string }[];
   status: 'ACTIVE' | 'INACTIVE';
   zones: DeliveryZone[];
 }
 
 export interface DeliveryZoneInput {
   name: string;
+  /** Other active locales: an empty name removes that locale's translation. */
+  translations?: { locale: string; name: string }[];
   deliveryFee: string;
   minimumOrder: string;
   status?: DeliveryZoneStatus;

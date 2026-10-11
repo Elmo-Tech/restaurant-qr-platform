@@ -1,6 +1,7 @@
 'use client';
 
 import { useStaffI18n } from '../../../../../lib/i18n/client';
+import { localizedName } from '../../../../../lib/i18n/localized-name';
 import type { BranchItem } from '../../../../../lib/branches/types';
 import type { BranchScopeInput } from '../../../../../lib/staff/types';
 
@@ -30,7 +31,7 @@ export function BranchScopeField({
   error,
   disabled,
 }: BranchScopeFieldProps) {
-  const { t } = useStaffI18n();
+  const { t, locale } = useStaffI18n();
 
   function toggleBranch(branchId: string) {
     const next = value.branchIds.includes(branchId)
@@ -94,8 +95,8 @@ export function BranchScopeField({
                   />
                   <span dir="auto" className="min-w-0 truncate text-foreground">
                     {branch.status === 'ACTIVE'
-                      ? branch.name
-                      : t('staff.branchAccess.inactiveSuffix', { name: branch.name })}
+                      ? localizedName(branch, locale)
+                      : t('staff.branchAccess.inactiveSuffix', { name: localizedName(branch, locale) })}
                   </span>
                 </label>
               </li>

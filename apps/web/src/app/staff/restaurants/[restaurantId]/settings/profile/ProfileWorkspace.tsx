@@ -6,6 +6,7 @@ import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import * as settingsApi from '../../../../../../lib/settings/api';
 import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
 import { validateImageFile } from '../../../../../../lib/menu/image-validation';
+import { validateCoverImageFile } from '../../../../../../lib/menu/cover-image-validation';
 import {
   describeError,
   isUnauthenticatedError,
@@ -27,6 +28,7 @@ export interface ProfileWorkspaceProps {
   restaurantId: string;
   initialName: string;
   initialLogoAssetPath: string | null;
+  initialCoverAssetPath: string | null;
   currencyCode: string;
   /** `restaurant.manage` AND `allBranches === true`. */
   canManage: boolean;
@@ -45,6 +47,7 @@ export function ProfileWorkspace({
   restaurantId,
   initialName,
   initialLogoAssetPath,
+  initialCoverAssetPath,
   currencyCode,
   canManage,
   hasRestaurantManagePermission,
@@ -62,6 +65,12 @@ export function ProfileWorkspace({
   const [logoError, setLogoError] = useState<string | null>(null);
   const [confirmRemove, setConfirmRemove] = useState(false);
   const [removeError, setRemoveError] = useState<string | null>(null);
+
+  const [coverAssetPath, setCoverAssetPath] = useState(initialCoverAssetPath);
+  const [isCoverBusy, setIsCoverBusy] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const [confirmRemoveCover, setConfirmRemoveCover] = useState(false);
+  const [removeCoverError, setRemoveCoverError] = useState<string | null>(null);
 
   const [notice, setNotice] = useState<string | null>(null);
   const [formError, setFormError] = useState<string | null>(null);
@@ -142,6 +151,53 @@ export function ProfileWorkspace({
       setRemoveError(describeError(error));
     } finally {
       setIsLogoBusy(false);
+    }
+  }
+
+  async function handleSelectCover(file: File) {
+    if (isCoverBusy || !canManage) return;
+    setNotice(null);
+    setCoverError(null);
+    setIsCoverBusy(true);
+    try {
+      const validationError = await validateCoverImageFile(file);
+      if (validationError) {
+        setCoverError(validationError);
+        return;
+      }
+      const profile = await settingsApi.uploadRestaurantCover(restaurantId, file);
+      setCoverAssetPath(profile.coverAssetPath);
+      setNotice(t('profile.cover.saved'));
+      router.refresh();
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setCoverError(describeError(error));
+    } finally {
+      setIsCoverBusy(false);
+    }
+  }
+
+  async function handleRemoveCover() {
+    if (isCoverBusy) return;
+    setIsCoverBusy(true);
+    setRemoveCoverError(null);
+    try {
+      await settingsApi.removeRestaurantCover(restaurantId);
+      setCoverAssetPath(null);
+      setConfirmRemoveCover(false);
+      setNotice(t('profile.cover.removed'));
+      router.refresh();
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setRemoveCoverError(describeError(error));
+    } finally {
+      setIsCoverBusy(false);
     }
   }
 
@@ -226,6 +282,56 @@ export function ProfileWorkspace({
           )}
         </div>
       </SectionCard>
+
+      <SectionCard title={t('profile.cover.heading')} description={t('profile.cover.description')}>
+        <div className="flex max-w-xl flex-col gap-3">
+          {canManage ? (
+            <ImageField
+              idPrefix="restaurant-cover"
+              imageUrl={resolveAssetUrl(coverAssetPath)}
+              previewShape="wide"
+              onSelectFile={(file) => void handleSelectCover(file)}
+              onRemove={
+                coverAssetPath
+                  ? () => {
+                      setRemoveCoverError(null);
+                      setConfirmRemoveCover(true);
+                    }
+                  : undefined
+              }
+              isBusy={isCoverBusy}
+              error={coverError}
+              selectLabel={coverAssetPath ? t('profile.cover.replace') : t('profile.cover.upload')}
+              removeLabel={t('profile.cover.remove')}
+              helperText={
+                coverAssetPath
+                  ? t('profile.cover.helper')
+                  : `${t('profile.cover.empty')} ${t('profile.cover.helper')}`
+              }
+            />
+          ) : resolveAssetUrl(coverAssetPath) ? (
+            // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image.
+            <img
+              src={resolveAssetUrl(coverAssetPath) ?? undefined}
+              alt=""
+              className="h-28 w-full max-w-[16rem] rounded-lg border border-border object-cover"
+            />
+          ) : (
+            <p className="text-sm text-muted-foreground">{t('profile.cover.empty')}</p>
+          )}
+        </div>
+      </SectionCard>
+
+      <ConfirmDialog
+        open={confirmRemoveCover}
+        title={t('profile.cover.removeConfirm.title')}
+        description={t('profile.cover.removeConfirm.description')}
+        confirmLabel={t('profile.cover.remove')}
+        isSubmitting={isCoverBusy}
+        error={removeCoverError}
+        onConfirm={() => void handleRemoveCover()}
+        onClose={() => setConfirmRemoveCover(false)}
+      />
 
       <ConfirmDialog
         open={confirmRemove}

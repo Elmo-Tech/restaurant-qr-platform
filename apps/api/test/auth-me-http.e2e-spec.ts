@@ -351,7 +351,7 @@ describe('GET /api/v1/auth/me (e2e)', () => {
       const data = await getMeData(cookiePair);
 
       expect(data.memberships[0].branches).toEqual([
-        { id: assignedInactive.id, name: 'Assigned', status: 'INACTIVE' },
+        { id: assignedInactive.id, name: 'Assigned', translations: [], status: 'INACTIVE' },
       ]);
     });
 
@@ -565,7 +565,7 @@ describe('GET /api/v1/auth/me (e2e)', () => {
       const data = await getMeData(cookiePair);
 
       expect(Object.keys(data.memberships[0].restaurant).sort()).toEqual(
-        ['currencyCode', 'defaultLocale', 'id', 'logoAssetPath', 'name', 'status'].sort(),
+        ['coverAssetPath', 'currencyCode', 'defaultLocale', 'id', 'logoAssetPath', 'name', 'status'].sort(),
       );
       const serialized = JSON.stringify(data);
       expect(serialized).not.toContain('publicId');

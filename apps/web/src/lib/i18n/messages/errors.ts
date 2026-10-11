@@ -17,6 +17,11 @@ export const errorMessages = defineMessages({
     'error.DELIVERY_ZONE_INVALID': 'This delivery area is not valid.',
     'error.DELIVERY_ZONE_NOT_FOUND': 'Delivery area not found.',
     'error.GENERIC_QR_NOT_FOUND': 'This restaurant does not have a Restaurant QR yet.',
+    'error.COVER_IMAGE_TOO_SMALL': 'The cover image is too small. Use at least 800 × 300 px.',
+    'error.COVER_IMAGE_DIMENSIONS_TOO_LARGE': 'The cover image is too large. Use at most 6000 px on each side.',
+    'error.COVER_IMAGE_INVALID_ASPECT_RATIO':
+      'Use a landscape cover image between 1.3:1 and 3.2:1 (recommended 16:9).',
+    'error.IMAGE_UNREADABLE': 'This image could not be read. Try another file.',
     'error.IMAGE_REQUIRED': 'Please choose an image.',
     'error.IMAGE_TOO_LARGE': 'Image must be 5 MB or smaller.',
     'error.INVALID_IMAGE_TYPE': 'Only JPEG, PNG, and WebP images are supported.',
@@ -51,6 +56,11 @@ export const errorMessages = defineMessages({
     'error.DELIVERY_ZONE_INVALID': 'منطقة التوصيل هذه غير صالحة.',
     'error.DELIVERY_ZONE_NOT_FOUND': 'منطقة التوصيل غير موجودة.',
     'error.GENERIC_QR_NOT_FOUND': 'ليس لدى هذا المطعم رمز QR للمطعم بعد.',
+    'error.COVER_IMAGE_TOO_SMALL': 'صورة الغلاف صغيرة جدًا. استخدم 800 × 300 بكسل على الأقل.',
+    'error.COVER_IMAGE_DIMENSIONS_TOO_LARGE': 'صورة الغلاف كبيرة جدًا. استخدم 6000 بكسل كحد أقصى لكل ضلع.',
+    'error.COVER_IMAGE_INVALID_ASPECT_RATIO':
+      'استخدم صورة غلاف أفقية بنسبة بين 1.3:1 و3.2:1 (يُفضّل 16:9).',
+    'error.IMAGE_UNREADABLE': 'تعذرت قراءة هذه الصورة. جرّب ملفًا آخر.',
     'error.IMAGE_REQUIRED': 'يرجى اختيار صورة.',
     'error.IMAGE_TOO_LARGE': 'يجب ألا يتجاوز حجم الصورة 5 ميجابايت.',
     'error.INVALID_IMAGE_TYPE': 'يُدعم فقط صور JPEG وPNG وWebP.',

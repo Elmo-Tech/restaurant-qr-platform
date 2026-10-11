@@ -6,6 +6,7 @@ import {
   IsTimeZone,
   ValidateIf,
 } from 'class-validator';
+import { NameTranslationDto, NameTranslationsProperty } from '../../common/name-translations';
 
 /** Trims a string value; leaves non-string values (including undefined/null) untouched. */
 function trim(value: unknown): unknown {
@@ -51,6 +52,10 @@ export class UpdateBranchDto {
   @IsString()
   @IsNotEmpty({ message: 'name should not be empty' })
   name?: string;
+
+  /** Optional per-locale names; an empty name removes that locale. The default locale cannot be removed. */
+  @NameTranslationsProperty()
+  translations?: NameTranslationDto[];
 
   @ValidateIf((o: UpdateBranchDto) => o.timezone !== undefined)
   @Transform(({ value }) => trim(value))

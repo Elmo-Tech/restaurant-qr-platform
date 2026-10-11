@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
+import { localizedName } from '../../../../../lib/i18n/localized-name';
 import * as tablesApi from '../../../../../lib/tables/api';
 import type { TableRow } from '../../../../../lib/tables/types';
 import type { AuthContextBranch } from '../../../../../lib/auth/types';
@@ -79,7 +80,7 @@ export function TablesWorkspace({
   webOrigin,
   sessionCaps,
 }: TablesWorkspaceProps) {
-  const { t } = useStaffI18n();
+  const { t, locale } = useStaffI18n();
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(
     branches[0]?.id ?? null,
   );
@@ -298,12 +299,13 @@ export function TablesWorkspace({
   }
 
   const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) ?? null;
+  const selectedBranchName = selectedBranch ? localizedName(selectedBranch, locale) : null;
 
   const dialog = (
     <Dialog
       open={mode !== 'idle'}
       title={mode === 'create' ? t('tables.new') : t('tables.edit')}
-      subtitle={selectedBranch?.name}
+      subtitle={selectedBranchName ?? undefined}
       isSubmitting={isSubmitting}
       submitLabel={
         isSubmitting
@@ -371,7 +373,7 @@ export function TablesWorkspace({
                 >
                   {branches.map((branch) => (
                     <option key={branch.id} value={branch.id}>
-                      {branch.name}
+                      {localizedName(branch, locale)}
                     </option>
                   ))}
                 </Select>
@@ -459,7 +461,7 @@ export function TablesWorkspace({
                 <TableCard
                   key={table.id}
                   table={table}
-                  branchName={selectedBranch?.name ?? null}
+                  branchName={selectedBranchName}
                   canManage={canManage}
                   onEdit={() => startEdit(table)}
                   onViewQr={() => setQrTarget(table)}
@@ -511,7 +513,7 @@ export function TablesWorkspace({
         <QrPreviewDialog
           target={{
             restaurantName,
-            branchName: selectedBranch?.name ?? null,
+            branchName: selectedBranchName,
             tableNumber: qrTarget.tableNumber,
             publicCode: qrTarget.qr.publicCode,
           }}

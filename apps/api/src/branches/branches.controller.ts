@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Get,
@@ -28,6 +29,13 @@ import type {
 } from './branches.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { UpdateBranchDto } from './dto/update-branch.dto';
+
+const DEFAULT_NAME_REQUIRED_RESPONSE = {
+  error: {
+    code: 'DEFAULT_TRANSLATION_REQUIRED',
+    message: 'The name in the Restaurant default language is required and cannot be removed.',
+  },
+};
 
 interface BranchListResponseBody {
   data: BranchListItem[];
@@ -109,15 +117,19 @@ export class BranchesController {
     @Body() dto: CreateBranchDto,
     @Req() request: RestaurantAuthorizedRequest,
   ): Promise<CreateBranchResponseBody> {
-    const data = await this.branchesService.createBranch({
+    const result = await this.branchesService.createBranch({
       restaurantId: request.restaurantAccess.restaurantId,
       name: dto.name,
+      translations: dto.translations,
       timezone: dto.timezone,
       phone: dto.phone ?? null,
       address: dto.address ?? null,
     });
+    if (result.outcome === 'defaultNameRequired') {
+      throw new BadRequestException(DEFAULT_NAME_REQUIRED_RESPONSE);
+    }
 
-    return { data };
+    return { data: result.data };
   }
 
   /**
@@ -226,14 +238,19 @@ export class BranchesController {
     @Body() dto: UpdateBranchDto,
     @Req() request: BranchAuthorizedRequest,
   ): Promise<UpdateBranchResponseBody> {
-    const data = await this.branchesService.updateBranch({
+    const result = await this.branchesService.updateBranch({
+      restaurantId: request.restaurantAccess.restaurantId,
       branchId: request.branchAccess.branchId,
       name: dto.name,
+      translations: dto.translations,
       timezone: dto.timezone,
       phone: dto.phone,
       address: dto.address,
     });
+    if (result.outcome === 'defaultNameRequired') {
+      throw new BadRequestException(DEFAULT_NAME_REQUIRED_RESPONSE);
+    }
 
-    return { data };
+    return { data: result.data };
   }
 }

@@ -15,7 +15,13 @@ export async function listBranches(restaurantId: string): Promise<BranchItem[]> 
 export async function createBranch(restaurantId: string, values: BranchFormValues): Promise<BranchItem> {
   const body = await apiFetch<{ data: BranchItem }>(branchesPath(restaurantId), {
     method: 'POST',
-    body: { name: values.name, timezone: values.timezone, phone: values.phone, address: values.address },
+    body: {
+      name: values.name,
+      ...(values.translations ? { translations: values.translations } : {}),
+      timezone: values.timezone,
+      phone: values.phone,
+      address: values.address,
+    },
   });
   return body.data;
 }
@@ -27,7 +33,13 @@ export async function updateBranch(
 ): Promise<BranchItem> {
   const body = await apiFetch<{ data: BranchItem }>(`${branchesPath(restaurantId)}/${branchId}`, {
     method: 'PATCH',
-    body: { name: values.name, timezone: values.timezone, phone: values.phone, address: values.address },
+    body: {
+      name: values.name,
+      ...(values.translations ? { translations: values.translations } : {}),
+      timezone: values.timezone,
+      phone: values.phone,
+      address: values.address,
+    },
   });
   return body.data;
 }

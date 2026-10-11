@@ -1,5 +1,9 @@
 import { Injectable } from '@nestjs/common';
 import { isWellFormedUuid } from '../common/is-uuid';
+import {
+  planNameTranslations,
+  type NameTranslationView,
+} from '../common/name-translations';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import type { BranchStatus, DeliveryZoneStatus } from '../generated/prisma/client';
@@ -7,7 +11,10 @@ import type { BranchStatus, DeliveryZoneStatus } from '../generated/prisma/clien
 /** Safe Staff-facing Delivery zone. Money is always an exact decimal string. */
 export interface DeliveryZoneView {
   id: string;
+  /** The default-locale name (also the legacy single-language value). */
   name: string;
+  /** Per-locale display names; always includes the default locale. */
+  translations: NameTranslationView[];
   deliveryFee: string;
   minimumOrder: string;
   status: DeliveryZoneStatus;
@@ -19,6 +26,8 @@ export interface DeliveryZoneView {
 export interface DeliveryBranchView {
   id: string;
   name: string;
+  /** The Branch's per-locale names, so the Delivery screen can show the right language. */
+  translations: NameTranslationView[];
   status: BranchStatus;
   zones: DeliveryZoneView[];
 }
@@ -34,6 +43,7 @@ export interface CreateDeliveryZoneInput {
   restaurantId: string;
   branchId: string;
   name: string;
+  translations?: NameTranslationView[];
   deliveryFee: string;
   minimumOrder: string;
   status: DeliveryZoneStatus;
@@ -44,6 +54,7 @@ export interface UpdateDeliveryZoneInput {
   restaurantId: string;
   zoneId: string;
   name?: string;
+  translations?: NameTranslationView[];
   deliveryFee?: string;
   minimumOrder?: string;
   status?: DeliveryZoneStatus;
@@ -52,20 +63,28 @@ export interface UpdateDeliveryZoneInput {
 
 export type CreateDeliveryZoneResult =
   | { outcome: 'created'; data: DeliveryZoneView }
-  | { outcome: 'branchNotFound' };
+  | { outcome: 'branchNotFound' }
+  | { outcome: 'defaultNameRequired' };
 
 export type UpdateDeliveryZoneResult =
   | { outcome: 'updated'; data: DeliveryZoneView }
-  | { outcome: 'zoneNotFound' };
+  | { outcome: 'zoneNotFound' }
+  | { outcome: 'defaultNameRequired' };
 
 export type DeleteDeliveryZoneResult =
   | { outcome: 'deleted' }
   | { outcome: 'zoneNotFound' }
   | { outcome: 'hasOrders' };
 
+const TRANSLATIONS_SELECT = {
+  select: { locale: true, name: true },
+  orderBy: { locale: 'asc' },
+} as const;
+
 const ZONE_SELECT = {
   id: true,
   name: true,
+  translations: TRANSLATIONS_SELECT,
   deliveryFee: true,
   minimumOrder: true,
   status: true,
@@ -76,6 +95,7 @@ const ZONE_SELECT = {
 function toZoneView(zone: {
   id: string;
   name: string;
+  translations: NameTranslationView[];
   deliveryFee: Prisma.Decimal;
   minimumOrder: Prisma.Decimal;
   status: DeliveryZoneStatus;
@@ -85,6 +105,7 @@ function toZoneView(zone: {
   return {
     id: zone.id,
     name: zone.name,
+    translations: zone.translations,
     deliveryFee: zone.deliveryFee.toFixed(2),
     minimumOrder: zone.minimumOrder.toFixed(2),
     status: zone.status,
@@ -132,6 +153,7 @@ export class DeliveryZonesService {
       select: {
         id: true,
         name: true,
+        translations: TRANSLATIONS_SELECT,
         status: true,
         deliveryZones: {
           where: { restaurantId: scope.restaurantId },
@@ -144,6 +166,7 @@ export class DeliveryZonesService {
     return branches.map((branch) => ({
       id: branch.id,
       name: branch.name,
+      translations: branch.translations,
       status: branch.status,
       zones: branch.deliveryZones.map(toZoneView),
     }));
@@ -155,17 +178,30 @@ export class DeliveryZonesService {
     }
     const branch = await this.prisma.branch.findFirst({
       where: { id: input.branchId, restaurantId: input.restaurantId },
-      select: { id: true, _count: { select: { deliveryZones: true } } },
+      select: {
+        id: true,
+        restaurant: { select: { defaultLocale: true } },
+        _count: { select: { deliveryZones: true } },
+      },
     });
     if (!branch) {
       return { outcome: 'branchNotFound' };
+    }
+    const planned = planNameTranslations({
+      defaultLocale: branch.restaurant.defaultLocale,
+      name: input.name,
+      translations: input.translations,
+    });
+    if (!planned.ok) {
+      return { outcome: 'defaultNameRequired' };
     }
 
     const created = await this.prisma.deliveryZone.create({
       data: {
         restaurantId: input.restaurantId,
         branchId: branch.id,
-        name: input.name,
+        name: planned.plan.name ?? input.name,
+        translations: { create: planned.plan.upserts },
         deliveryFee: new Prisma.Decimal(input.deliveryFee),
         minimumOrder: new Prisma.Decimal(input.minimumOrder),
         status: input.status,
@@ -182,16 +218,40 @@ export class DeliveryZonesService {
     }
     const existing = await this.prisma.deliveryZone.findFirst({
       where: { id: input.zoneId, restaurantId: input.restaurantId },
-      select: { id: true },
+      select: { id: true, restaurant: { select: { defaultLocale: true } } },
     });
     if (!existing) {
       return { outcome: 'zoneNotFound' };
     }
+    const planned = planNameTranslations({
+      defaultLocale: existing.restaurant.defaultLocale,
+      name: input.name,
+      translations: input.translations,
+    });
+    if (!planned.ok) {
+      return { outcome: 'defaultNameRequired' };
+    }
+    const { plan } = planned;
 
-    const updated = await this.prisma.deliveryZone.update({
+    const updated = await this.prisma.$transaction(async (tx) => {
+      for (const row of plan.upserts) {
+        await tx.deliveryZoneTranslation.upsert({
+          where: {
+            deliveryZoneId_locale: { deliveryZoneId: existing.id, locale: row.locale },
+          },
+          create: { deliveryZoneId: existing.id, locale: row.locale, name: row.name },
+          update: { name: row.name },
+        });
+      }
+      if (plan.deleteLocales.length > 0) {
+        await tx.deliveryZoneTranslation.deleteMany({
+          where: { deliveryZoneId: existing.id, locale: { in: plan.deleteLocales } },
+        });
+      }
+      return tx.deliveryZone.update({
       where: { id: existing.id },
       data: {
-        ...(input.name !== undefined ? { name: input.name } : {}),
+        ...(plan.name !== undefined ? { name: plan.name } : {}),
         ...(input.deliveryFee !== undefined
           ? { deliveryFee: new Prisma.Decimal(input.deliveryFee) }
           : {}),
@@ -202,6 +262,7 @@ export class DeliveryZonesService {
         ...(input.displayOrder !== undefined ? { displayOrder: input.displayOrder } : {}),
       },
       select: ZONE_SELECT,
+      });
     });
     return { outcome: 'updated', data: toZoneView(updated) };
   }

@@ -77,6 +77,8 @@ const PRODUCT_WITH_SIZE_ROW = {
 
 const ZONE_ROW = {
   name: 'University District',
+  translations: [] as { locale: string; name: string }[],
+  restaurant: { defaultLocale: 'en' },
   deliveryFee: decimal('25.00'),
   minimumOrder: decimal('100.00'),
 };

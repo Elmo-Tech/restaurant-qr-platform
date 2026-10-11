@@ -146,6 +146,7 @@ export class PublicOrdersController {
     const result = await this.publicOrdersService.createOrder({
       publicCode,
       clientRequestId: dto.clientRequestId,
+      locale: dto.locale,
       items: dto.items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,

@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -33,6 +34,13 @@ const BRANCH_NOT_FOUND_RESPONSE = {
 /** One stable existence-hiding response for a malformed, unknown, or foreign-Restaurant zone id. */
 const ZONE_NOT_FOUND_RESPONSE = {
   error: { code: 'DELIVERY_ZONE_NOT_FOUND', message: 'Delivery zone not found.' },
+};
+
+const DEFAULT_NAME_REQUIRED_RESPONSE = {
+  error: {
+    code: 'DEFAULT_TRANSLATION_REQUIRED',
+    message: 'The name in the Restaurant default language is required and cannot be removed.',
+  },
 };
 
 const ZONE_HAS_ORDERS_RESPONSE = {
@@ -80,6 +88,7 @@ export class DeliveryZonesController {
       restaurantId: request.restaurantAccess.restaurantId,
       branchId,
       name: dto.name,
+      translations: dto.translations,
       deliveryFee: dto.deliveryFee,
       minimumOrder: dto.minimumOrder,
       status: dto.status ?? 'ACTIVE',
@@ -87,6 +96,9 @@ export class DeliveryZonesController {
     });
     if (result.outcome === 'branchNotFound') {
       throw new NotFoundException(BRANCH_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'defaultNameRequired') {
+      throw new BadRequestException(DEFAULT_NAME_REQUIRED_RESPONSE);
     }
     return { data: result.data };
   }
@@ -103,6 +115,7 @@ export class DeliveryZonesController {
       restaurantId: request.restaurantAccess.restaurantId,
       zoneId,
       name: dto.name,
+      translations: dto.translations,
       deliveryFee: dto.deliveryFee,
       minimumOrder: dto.minimumOrder,
       status: dto.status,
@@ -110,6 +123,9 @@ export class DeliveryZonesController {
     });
     if (result.outcome === 'zoneNotFound') {
       throw new NotFoundException(ZONE_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'defaultNameRequired') {
+      throw new BadRequestException(DEFAULT_NAME_REQUIRED_RESPONSE);
     }
     return { data: result.data };
   }
