@@ -776,6 +776,40 @@ keep authoritative. **Impact:** `TABLE_SESSION_SPEC.md` (amendment v4) wins over
 earlier payment text; DEC-007 and the Table Session UX/API sections carry
 cross-reference notes.
 
+### DEC-036 — Product Discounts V1 (Product-Level Subset of Promotions)
+
+**Status:** Accepted (2026-10-11)
+
+V1 ships product-level discounts only: a percentage or fixed-amount discount on
+a Product with an optional start / end date and a manual enable switch.
+Category and order promotions, priority, stacking, coupons, BOGO and combos are
+not part of this decision.
+
+**Rules:** the Backend is the only price authority; Decimal-safe math;
+percentage rounded half-up to 2 decimals per unit; discount capped at the unit
+price; paid Modifier options are never discounted; dates are calendar days,
+inclusive, in the Branch timezone, evaluated at read time (no job); order lines
+snapshot the original unit price, the applied discount and its configuration, so
+later edits, expiry or removal never change history.
+
+**Resolved conflict:** `PROMOTIONS_SPEC.md` #21 evaluates Promotion minimums on
+the pre-discount subtotal. Product Discounts V1 has no promotion minimum; the
+**Delivery Zone minimum order** is evaluated on the **net payable items
+subtotal**. **Reason:** the minimum exists to protect the order value the
+restaurant actually collects for items, and a Guest must not be allowed to
+reach a delivery zone's minimum with money that is discounted away.
+**To reverse:** evaluate `subtotal + discountTotal` in the delivery minimum
+check (one expression in the order-creation transaction) and update the Guest
+shortfall message source.
+
+**Stale totals:** orders may send `expectedTotal`; a mismatch returns
+`422 PRICE_CHANGED` (API_CONVENTIONS.md #75) and creates nothing.
+
+**Impact:** additive migration `20261011090000_add_product_discounts`;
+`PROMOTIONS_SPEC.md` amendment lists every difference from the full model;
+`PRODUCT_DISCOUNTS_AND_OFFERS.md` Phase A is implemented, Phase B stays a
+proposal.
+
 ---
 
 ## Change Policy

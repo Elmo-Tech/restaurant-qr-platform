@@ -81,10 +81,19 @@ function buildPrismaMock() {
   const tableSessionFindFirst = jest.fn().mockResolvedValue(null);
   const categoryFindMany = jest.fn().mockResolvedValue([buildCategoryRow()]);
   const branchFindMany = jest.fn().mockResolvedValue([
-    { id: 'branch-a', name: 'Downtown', translations: [], deliveryZones: [] },
+    {
+      id: 'branch-a',
+      name: 'Downtown',
+      timezone: 'Africa/Cairo',
+      createdAt: new Date('2026-01-01T00:00:00Z'),
+      translations: [],
+      deliveryZones: [],
+    },
     {
       id: 'branch-b',
       name: 'Uptown',
+      timezone: 'Africa/Cairo',
+      createdAt: new Date('2026-01-02T00:00:00Z'),
       translations: [],
       deliveryZones: [
         {
@@ -223,6 +232,8 @@ describe('PublicMenuService.getPublicMenu', () => {
         {
           id: 'branch-a',
           name: 'Downtown',
+          timezone: 'Africa/Cairo',
+          createdAt: new Date('2026-01-01T00:00:00Z'),
           translations: [
             { locale: 'en', name: 'Downtown' },
             { locale: 'ar', name: 'وسط البلد' },
@@ -241,11 +252,20 @@ describe('PublicMenuService.getPublicMenu', () => {
           ],
         },
         // legacy single-language data: no translation rows at all
-        { id: 'branch-b', name: 'Uptown', translations: [], deliveryZones: [] },
+        {
+          id: 'branch-b',
+          name: 'Uptown',
+          timezone: 'Africa/Cairo',
+          createdAt: new Date('2026-01-02T00:00:00Z'),
+          translations: [],
+          deliveryZones: [],
+        },
         // only the default locale translated: the Arabic Guest falls back to it
         {
           id: 'branch-c',
           name: 'Heliopolis',
+          timezone: 'Africa/Cairo',
+          createdAt: new Date('2026-01-03T00:00:00Z'),
           translations: [{ locale: 'en', name: 'Heliopolis' }],
           deliveryZones: [],
         },

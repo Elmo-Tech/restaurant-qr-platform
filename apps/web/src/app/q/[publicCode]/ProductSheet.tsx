@@ -9,6 +9,7 @@ import {
   GuestIconStar,
 } from '../../../components/guest/icons';
 import { Price } from '../../../components/guest/Price';
+import { DiscountBadge, DiscountedPrice } from '../../../components/guest/DiscountedPrice';
 import { Sheet } from '../../../components/guest/Sheet';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
@@ -109,7 +110,7 @@ export function ProductSheet({
       .filter((option) => selectedIds.has(option.id))
       .reduce((s, option) => s + toMinorUnits(option.priceAdjustment), ZERO_MINOR_UNITS);
     return sum + groupSum;
-  }, toMinorUnits(product.basePrice));
+  }, toMinorUnits(product.discount ? product.discount.discountedPrice : product.basePrice));
   const totalDisplay = fromMinorUnits(unitMinorUnits * BigInt(quantity));
 
   function handleConfirm() {
@@ -138,12 +139,21 @@ export function ProductSheet({
       >
         <bdi>{product.name}</bdi>
       </h2>
-      <Price
-        amount={product.basePrice}
-        currency={currency}
-        className={`g-num shrink-0 text-2xl [font-weight:900] ${showPhoto ? 'text-[#f7b548]' : 'text-g-price'}`}
-        currencyClassName="text-[13px] font-semibold"
-      />
+      <span className="flex shrink-0 flex-col items-end gap-1">
+        {product.discount ? (
+          <DiscountBadge discount={product.discount} currency={currency} copy={copy} />
+        ) : null}
+        <DiscountedPrice
+          original={product.basePrice}
+          current={product.discount ? product.discount.discountedPrice : product.basePrice}
+          discounted={product.discount !== null}
+          currency={currency}
+          copy={copy}
+          className={`g-num text-2xl [font-weight:900] ${showPhoto ? 'text-[#f7b548]' : 'text-g-price'}`}
+          currencyClassName="text-[13px] font-semibold"
+          originalClassName={`g-num text-[13px] font-semibold ${showPhoto ? 'text-white/75' : 'text-g-text-3'}`}
+        />
+      </span>
     </>
   );
 

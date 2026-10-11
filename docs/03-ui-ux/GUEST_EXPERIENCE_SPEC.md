@@ -700,6 +700,18 @@ Example:
 
 10% off.
 
+**Implemented (Product Discounts V1):** a product with an active discount shows a
+badge ("20% OFF" / "Save 25 EGP"), the original price struck through and the
+discounted price prominent, on product cards, Featured banners, the product
+sheet (live total includes paid extras, which are not discounted), the cart
+lines, the order summary (items subtotal, discount, total) and the order
+confirmation. A disabled, scheduled or expired discount shows the normal price
+and no badge (#64). If prices change while the cart is open the Guest sees
+"Prices changed while you were ordering", the menu is refetched and the order
+is sent only after the Guest confirms the new total. All numbers come from the
+Backend; the cart arithmetic is display-only (BigInt minor units). Verified in
+EN and AR (RTL), Light and Dark, at 375 px.
+
 ---
 
 # 64. Promotion Honesty

@@ -3,7 +3,7 @@
 import { memo, useState } from 'react';
 import { DishFallback } from '../../../components/guest/DishFallback';
 import { GuestIconPlus } from '../../../components/guest/icons';
-import { Price } from '../../../components/guest/Price';
+import { DiscountBadge, DiscountedPrice } from '../../../components/guest/DiscountedPrice';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
@@ -119,12 +119,20 @@ function ProductCardImpl({
         ) : null}
 
         <div className="mt-auto flex items-center justify-between gap-2 pt-1.5">
-          <Price
-            amount={product.basePrice}
-            currency={currency}
-            className={`g-num text-[20px] md:text-[22px] ${isSoldOut ? 'text-g-text-3' : 'text-g-price'}`}
-            currencyClassName="text-[12px] font-semibold md:text-[13px]"
-          />
+          <div className="flex min-w-0 flex-col items-start gap-1">
+            {product.discount && !isSoldOut ? (
+              <DiscountBadge discount={product.discount} currency={currency} copy={copy} />
+            ) : null}
+            <DiscountedPrice
+              original={product.basePrice}
+              current={product.discount ? product.discount.discountedPrice : product.basePrice}
+              discounted={product.discount !== null && !isSoldOut}
+              currency={currency}
+              copy={copy}
+              className={`g-num text-[20px] md:text-[22px] ${isSoldOut ? 'text-g-text-3' : 'text-g-price'}`}
+              currencyClassName="text-[12px] font-semibold md:text-[13px]"
+            />
+          </div>
           {isSoldOut ? (
             <span className="text-[12.5px] font-semibold text-g-text-3">{copy.unavailableNow}</span>
           ) : interactive ? (

@@ -23,10 +23,14 @@ export interface CartLine {
   hasModifierGroups: boolean;
   /** The product photo, or null (the cart row then shows the shared dish tile). */
   imageAssetPath: string | null;
-  /** Product.basePrice PLUS every selected Option's priceAdjustment -- display-only. */
+  /** The CHARGED unit price: the (discounted) product price PLUS every selected Option's priceAdjustment -- display-only. */
   unitPrice: string;
   /** unitPrice * quantity -- display-only, exact via BigInt minor units. */
   lineTotal: string;
+  /** Product Discounts V1: the same line before the discount (original price + options) * quantity; equals `lineTotal` when not discounted. */
+  originalLineTotal: string;
+  /** True while a product discount applies to this line. */
+  discounted: boolean;
   selections: CartLineSelection[];
   /** SOLD_OUT since being added to the Cart: stays visible, blocks submit until removed. */
   blocked: boolean;

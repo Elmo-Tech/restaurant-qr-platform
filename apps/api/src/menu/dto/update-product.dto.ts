@@ -11,6 +11,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { IsMoneyDecimalString } from '../money-decimal';
+import { ProductDiscountDto, ProductDiscountProperty } from './product-discount.dto';
 import {
   PRODUCT_STATUSES,
   type ProductStatusInput,
@@ -94,4 +95,8 @@ export class UpdateProductDto {
   @ValidateIf((o: UpdateProductDto) => o.featured !== undefined)
   @IsBoolean()
   featured?: boolean;
+
+  /** Product Discounts V1: omitted = leave the discount unchanged, null = remove it, an object = replace it. */
+  @ProductDiscountProperty()
+  discount?: ProductDiscountDto | null;
 }

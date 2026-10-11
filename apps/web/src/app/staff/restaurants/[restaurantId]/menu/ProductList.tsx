@@ -276,9 +276,7 @@ export function ProductList({
                           </div>
                         </TableCell>
                         <TableCell className="whitespace-nowrap font-medium text-foreground">
-                          <bdi dir="ltr">
-                            {product.basePrice} {currencyCode}
-                          </bdi>
+                          <ProductPrice product={product} currencyCode={currencyCode} />
                         </TableCell>
                         <TableCell>
                           <AvailabilityBadge availability={product.availability} />
@@ -332,9 +330,7 @@ export function ProductList({
                           {product.featured ? <FeaturedBadge /> : null}
                         </p>
                         <p className="mt-0.5 text-sm text-secondary-foreground">
-                          <bdi dir="ltr">
-                            {product.basePrice} {currencyCode}
-                          </bdi>
+                          <ProductPrice product={product} currencyCode={currencyCode} />
                         </p>
                         <div className="mt-1.5 flex items-center gap-1.5">
                           <AvailabilityBadge availability={product.availability} />
@@ -375,5 +371,43 @@ export function ProductList({
         </>
       )}
     </SectionCard>
+  );
+}
+
+/** The list price: the original struck through with the discounted price while a discount is active, and a small state badge otherwise. */
+function ProductPrice({ product, currencyCode }: { product: Product; currencyCode: string }) {
+  const { t } = useStaffI18n();
+  const discount = product.discount;
+  if (!discount) {
+    return (
+      <bdi dir="ltr">
+        {product.basePrice} {currencyCode}
+      </bdi>
+    );
+  }
+  return (
+    <span className="flex flex-col items-start gap-0.5">
+      {discount.state === 'ACTIVE' && discount.discountedPrice ? (
+        <>
+          <bdi dir="ltr" className="text-xs font-normal text-muted-foreground line-through">
+            {product.basePrice} {currencyCode}
+          </bdi>
+          <bdi dir="ltr">
+            {discount.discountedPrice} {currencyCode}
+          </bdi>
+        </>
+      ) : (
+        <bdi dir="ltr">
+          {product.basePrice} {currencyCode}
+        </bdi>
+      )}
+      <span
+        className={`rounded-full px-1.5 py-0.5 text-[11px] font-medium ${
+          discount.state === 'ACTIVE' ? 'bg-success-soft text-success' : 'bg-muted text-muted-foreground'
+        }`}
+      >
+        {t(`product.discount.listBadge.${discount.state}` as const)}
+      </span>
+    </span>
   );
 }

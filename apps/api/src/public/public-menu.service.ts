@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { resolveLocalizedName } from '../common/name-translations';
+import {
+  dateOnlyString,
+  localDateIn,
+  resolveActiveDiscount,
+} from '../menu/product-discount';
 import { PrismaService } from '../database/prisma.service';
 import type { ProductAvailability, QrType } from '../generated/prisma/client';
 import {
@@ -93,11 +98,31 @@ export interface PublicMenuModifierGroup {
   options: PublicMenuModifierOption[];
 }
 
+export interface PublicProductDiscount {
+  type: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  /** The configured value: a percentage (e.g. "20.00") or an amount. */
+  value: string;
+  /** Amount taken off one unit of `basePrice`. */
+  amountOff: string;
+  /** Unit price after the discount (before any paid extras). */
+  discountedPrice: string;
+  /** Last day the discount applies (YYYY-MM-DD, Branch timezone), or null when open-ended. */
+  endsOn: string | null;
+}
+
 export interface PublicMenuProduct {
   id: string;
   name: string;
   description: string | null;
+  /** The ORIGINAL price. When `discount` is present the Guest is charged `discount.discountedPrice` per unit instead. */
   basePrice: string;
+  /**
+   * Product Discounts V1: present only while a discount currently applies
+   * (enabled, inside its date window in the Branch timezone). Never a fake
+   * markdown: it is absent when it would take nothing off. Display data only --
+   * order creation re-resolves it from the database.
+   */
+  discount: PublicProductDiscount | null;
   primaryImageAssetPath: string | null;
   availability: ProductAvailability;
   featured: boolean;
@@ -216,6 +241,7 @@ export class PublicMenuService {
         branch: {
           select: {
             name: true,
+            timezone: true,
             translations: { select: { locale: true, name: true } },
           },
         },
@@ -285,6 +311,47 @@ export class PublicMenuService {
       menuDefaultTranslation,
     );
 
+    // One query for a GENERIC QR: every ACTIVE Branch (Pickup) plus its
+    // ACTIVE Delivery zones (Delivery-eligible = at least one). TABLE QRs
+    // skip it entirely.
+    const activeBranches =
+      qr.type === 'GENERIC'
+        ? await this.prisma.branch.findMany({
+            where: { restaurantId: qr.restaurantId, status: 'ACTIVE' },
+            orderBy: [{ name: 'asc' }, { id: 'asc' }],
+            select: {
+              id: true,
+              name: true,
+              timezone: true,
+              createdAt: true,
+              translations: { select: { locale: true, name: true } },
+              deliveryZones: {
+                where: { status: 'ACTIVE' },
+                orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+                select: {
+                  id: true,
+                  name: true,
+                  deliveryFee: true,
+                  minimumOrder: true,
+                  translations: { select: { locale: true, name: true } },
+                },
+              },
+            },
+          })
+        : null;
+
+    // Product Discounts V1: "today" is evaluated in the Branch timezone -- the
+    // table's own Branch for a TABLE QR, otherwise the Restaurant's oldest ACTIVE
+    // Branch (a GENERIC QR menu is shown before a Branch is chosen; order creation
+    // re-evaluates with the chosen Branch's own timezone). Never the server's.
+    const menuTimezone =
+      qr.type === 'TABLE'
+        ? (qr.branch?.timezone ?? 'UTC')
+        : ([...(activeBranches ?? [])].sort(
+            (x, y) => x.createdAt.getTime() - y.createdAt.getTime(),
+          )[0]?.timezone ?? 'UTC');
+    const today = localDateIn(menuTimezone, new Date());
+
     // One nested query for every ACTIVE Category and, within each, every
     // ACTIVE Product plus both locales' translations -- Section 6/10: never
     // a query per Category or per Product. Sort order is left entirely to
@@ -306,6 +373,11 @@ export class PublicMenuService {
           select: {
             id: true,
             basePrice: true,
+            discountType: true,
+            discountValue: true,
+            discountEnabled: true,
+            discountStartsOn: true,
+            discountEndsOn: true,
             primaryImageAssetPath: true,
             availability: true,
             featured: true,
@@ -421,6 +493,28 @@ export class PublicMenuService {
           // CLAUDE.md #27) -- Prisma.Decimal's own `toFixed` matches the
           // API-wide 2-fractional-digit money contract.
           basePrice: product.basePrice.toFixed(2),
+          discount: (() => {
+            const applied = resolveActiveDiscount(
+              product.basePrice,
+              {
+                type: product.discountType,
+                value: product.discountValue,
+                enabled: product.discountEnabled,
+                startsOn: dateOnlyString(product.discountStartsOn),
+                endsOn: dateOnlyString(product.discountEndsOn),
+              },
+              today,
+            );
+            return applied
+              ? {
+                  type: applied.type,
+                  value: applied.value.toFixed(2),
+                  amountOff: applied.unitDiscount.toFixed(2),
+                  discountedPrice: applied.discountedPrice.toFixed(2),
+                  endsOn: dateOnlyString(product.discountEndsOn),
+                }
+              : null;
+          })(),
           primaryImageAssetPath: product.primaryImageAssetPath,
           availability: product.availability,
           featured: product.featured,
@@ -437,32 +531,6 @@ export class PublicMenuService {
       });
     }
 
-    // One query for a GENERIC QR: every ACTIVE Branch (Pickup) plus its
-    // ACTIVE Delivery zones (Delivery-eligible = at least one). TABLE QRs
-    // skip it entirely.
-    const activeBranches =
-      qr.type === 'GENERIC'
-        ? await this.prisma.branch.findMany({
-            where: { restaurantId: qr.restaurantId, status: 'ACTIVE' },
-            orderBy: [{ name: 'asc' }, { id: 'asc' }],
-            select: {
-              id: true,
-              name: true,
-              translations: { select: { locale: true, name: true } },
-              deliveryZones: {
-                where: { status: 'ACTIVE' },
-                orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
-                select: {
-                  id: true,
-                  name: true,
-                  deliveryFee: true,
-                  minimumOrder: true,
-                  translations: { select: { locale: true, name: true } },
-                },
-              },
-            },
-          })
-        : null;
     // Display names resolve to the menu content language, then the Restaurant
     // default language, then the legacy single-language name -- so existing
     // data and a missing translation never produce an empty label.

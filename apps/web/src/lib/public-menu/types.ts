@@ -18,6 +18,18 @@ export interface PublicMenuContext {
   deliveryBranches: PublicDeliveryBranch[] | null;
 }
 
+export interface PublicProductDiscount {
+  type: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  /** The configured value: a percentage ("20.00") or an amount. */
+  value: string;
+  /** Amount taken off one unit of `basePrice`. */
+  amountOff: string;
+  /** Unit price after the discount (before paid extras). */
+  discountedPrice: string;
+  /** Last day the discount applies (YYYY-MM-DD), or null when open-ended. */
+  endsOn: string | null;
+}
+
 export interface PublicDeliveryZone {
   id: string;
   name: string;
@@ -61,7 +73,10 @@ export interface PublicMenuProduct {
   id: string;
   name: string;
   description: string | null;
+  /** The ORIGINAL price. While `discount` is present the Guest pays `discount.discountedPrice` per unit instead. */
   basePrice: string;
+  /** Product Discounts V1: present only while a discount currently applies; absent means normal pricing. */
+  discount: PublicProductDiscount | null;
   primaryImageAssetPath: string | null;
   availability: PublicProductAvailability;
   featured: boolean;
@@ -98,7 +113,10 @@ export interface GuestOrderItemView {
   productId: string;
   name: string;
   quantity: number;
+  /** Price of one unit BEFORE any product discount. */
   unitPrice: string;
+  /** Product Discounts V1: total discount taken off this line ("0.00" when none). `lineTotal` is already net of it. */
+  discountAmount: string;
   lineTotal: string;
   modifiers: GuestOrderItemModifierView[];
 }
@@ -127,8 +145,10 @@ export interface GuestOrderView {
   pickupBranch: { name: string } | null;
   /** FT-8: DELIVERY only. */
   delivery: { branchName: string; zoneName: string } | null;
-  /** FT-8: exact breakdown -- subtotal + deliveryFee = total. */
+  /** FT-8: exact breakdown -- subtotal + deliveryFee = total. `subtotal` is net of product discounts. */
   subtotal: string;
   deliveryFee: string;
+  /** Product Discounts V1: sum of the items' discounts ("0.00" when none). */
+  discountTotal: string;
   items: GuestOrderItemView[];
 }

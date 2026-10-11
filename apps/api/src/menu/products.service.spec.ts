@@ -22,6 +22,11 @@ const SAFE_PRODUCT_ROW = {
   displayOrder: 0,
   allowCustomerNotes: true,
   featured: false,
+  discountType: null,
+  discountValue: null,
+  discountEnabled: false,
+  discountStartsOn: null,
+  discountEndsOn: null,
 };
 
 function buildPrismaMock() {
@@ -79,6 +84,7 @@ function buildPrismaMock() {
   return {
     prisma: {
       restaurant: { findUniqueOrThrow: restaurantFindUniqueOrThrow },
+      branch: { findFirst: jest.fn().mockResolvedValue({ timezone: 'Africa/Cairo' }) },
       product: {
         findMany: productFindMany,
         findFirst: productFindFirst,
@@ -437,6 +443,7 @@ describe('ProductsService', () => {
           displayOrder: 0,
           allowCustomerNotes: true,
           featured: false,
+          discount: null,
           translation: {
             locale: DEFAULT_LOCALE,
             name: 'برجر',

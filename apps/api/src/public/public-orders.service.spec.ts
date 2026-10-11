@@ -354,12 +354,14 @@ describe('PublicOrdersService.createOrder', () => {
         delivery: null,
         subtotal: '100.00',
         deliveryFee: '0.00',
+        discountTotal: '0.00',
         items: [
           {
             productId: 'product-1',
             name: 'Burger',
             quantity: 1,
             unitPrice: '100.00',
+            discountAmount: '0.00',
             lineTotal: '100.00',
             modifiers: [],
           },
@@ -997,5 +999,218 @@ describe('PublicOrdersService.createOrder -- Table Sessions wiring (Slice 1)', (
 
     expect(result).toEqual({ outcome: 'itemsUnavailable' });
     expect(mock.orderCreate).not.toHaveBeenCalled();
+  });
+});
+
+describe('PublicOrdersService.createOrder -- product discounts', () => {
+  const NOW = new Date('2026-10-11T10:00:00.000Z');
+
+  beforeEach(() => {
+    jest.useFakeTimers({
+      now: NOW,
+      doNotFake: [
+        'nextTick',
+        'setImmediate',
+        'clearImmediate',
+        'setInterval',
+        'clearInterval',
+        'setTimeout',
+        'clearTimeout',
+        'queueMicrotask',
+        'hrtime',
+        'performance',
+      ],
+    });
+  });
+
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  function withProduct(overrides: Record<string, unknown>, qrBranchTimezone = 'UTC') {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue({
+      ...TABLE_QR_ROW,
+      branch: { timezone: qrBranchTimezone },
+    });
+    mock.productFindMany.mockResolvedValue([
+      {
+        ...PRODUCT_ROW,
+        discountType: 'PERCENTAGE',
+        discountValue: decimal('20'),
+        discountEnabled: true,
+        discountStartsOn: null,
+        discountEndsOn: null,
+        ...overrides,
+      },
+    ]);
+    return mock;
+  }
+
+  function createdData(mock: ReturnType<typeof buildPrismaMock>) {
+    const calls = mock.orderCreate.mock.calls as unknown[][];
+    return (calls[0][0] as { data: Record<string, unknown> }).data as {
+      subtotalAmount: Prisma.Decimal;
+      totalAmount: Prisma.Decimal;
+      discountTotalAmount: Prisma.Decimal;
+      items: {
+        create: {
+          unitPrice: Prisma.Decimal;
+          lineTotal: Prisma.Decimal;
+          discountAmount: Prisma.Decimal;
+          discountTypeSnapshot: string | null;
+          discountValueSnapshot: Prisma.Decimal | null;
+        }[];
+      };
+    };
+  }
+
+  it('percentage: snapshots the ORIGINAL unit price, the discount and the net line total', async () => {
+    const mock = withProduct({});
+    const service = buildService(mock);
+
+    await service.createOrder({ ...VALID_INPUT, items: [{ productId: 'product-1', quantity: 2 }] });
+
+    const data = createdData(mock);
+    const item = data.items.create[0];
+    expect(item.unitPrice.toFixed(2)).toBe('100.00');
+    expect(item.discountAmount.toFixed(2)).toBe('40.00');
+    expect(item.lineTotal.toFixed(2)).toBe('160.00');
+    expect(item.discountTypeSnapshot).toBe('PERCENTAGE');
+    expect(item.discountValueSnapshot?.toFixed(2)).toBe('20.00');
+    expect(data.subtotalAmount.toFixed(2)).toBe('160.00');
+    expect(data.totalAmount.toFixed(2)).toBe('160.00');
+    expect(data.discountTotalAmount.toFixed(2)).toBe('40.00');
+  });
+
+  it('fixed amount with a paid extra: the extra is never discounted and quantity multiplies the net unit', async () => {
+    const mock = withProduct({
+      basePrice: decimal('180.00'),
+      discountType: 'FIXED_AMOUNT',
+      discountValue: decimal('30'),
+      modifierGroups: [
+        {
+          id: 'group-1',
+          minimumSelections: 0,
+          maximumSelections: 1,
+          displayOrder: 0,
+          translations: [{ name: 'Extras' }],
+          options: [
+            {
+              id: 'option-1',
+              priceAdjustment: decimal('15.00'),
+              displayOrder: 0,
+              translations: [{ name: 'Extra cheese' }],
+            },
+          ],
+        },
+      ],
+    });
+    const service = buildService(mock);
+
+    await service.createOrder({
+      ...VALID_INPUT,
+      items: [{ productId: 'product-1', quantity: 2, modifierOptionIds: ['option-1'] }],
+    });
+
+    const item = createdData(mock).items.create[0];
+    // (180 - 30 + 15) * 2 = 330 ; discount 30 * 2 = 60 ; unit price stays 180
+    expect(item.unitPrice.toFixed(2)).toBe('180.00');
+    expect(item.discountAmount.toFixed(2)).toBe('60.00');
+    expect(item.lineTotal.toFixed(2)).toBe('330.00');
+  });
+
+  it('a fixed discount larger than the price is capped: the line is free, never negative', async () => {
+    const mock = withProduct({
+      basePrice: decimal('40.00'),
+      discountType: 'FIXED_AMOUNT',
+      discountValue: decimal('50'),
+    });
+    const service = buildService(mock);
+
+    await service.createOrder(VALID_INPUT);
+
+    const item = createdData(mock).items.create[0];
+    expect(item.discountAmount.toFixed(2)).toBe('40.00');
+    expect(item.lineTotal.toFixed(2)).toBe('0.00');
+  });
+
+  it.each([
+    ['disabled', { discountEnabled: false }],
+    ['not yet started', { discountStartsOn: new Date('2026-10-12T00:00:00Z') }],
+    ['expired', { discountEndsOn: new Date('2026-10-10T00:00:00Z') }],
+  ])('a %s discount charges the normal price and records no discount', async (_label, overrides) => {
+    const mock = withProduct(overrides);
+    const service = buildService(mock);
+
+    await service.createOrder(VALID_INPUT);
+
+    const data = createdData(mock);
+    const item = data.items.create[0];
+    expect(item.lineTotal.toFixed(2)).toBe('100.00');
+    expect(item.discountAmount.toFixed(2)).toBe('0.00');
+    expect(item.discountTypeSnapshot).toBeNull();
+    expect(data.discountTotalAmount.toFixed(2)).toBe('0.00');
+  });
+
+  it('the end date is inclusive: a discount ending today still applies today', async () => {
+    const mock = withProduct({ discountEndsOn: new Date('2026-10-11T00:00:00Z') });
+    const service = buildService(mock);
+
+    await service.createOrder(VALID_INPUT);
+
+    expect(createdData(mock).items.create[0].lineTotal.toFixed(2)).toBe('80.00');
+  });
+
+  it('evaluates the date in the Branch timezone, not the server timezone', async () => {
+    // 2026-10-10T22:30Z is still 10 Oct in UTC but already 11 Oct 01:30 in Cairo.
+    jest.setSystemTime(new Date('2026-10-10T22:30:00.000Z'));
+    const endsOnTenth = { discountEndsOn: new Date('2026-10-10T00:00:00Z') };
+
+    const utcBranch = withProduct(endsOnTenth, 'UTC');
+    await buildService(utcBranch).createOrder(VALID_INPUT);
+    const cairoBranch = withProduct(endsOnTenth, 'Africa/Cairo');
+    await buildService(cairoBranch).createOrder(VALID_INPUT);
+
+    expect(createdData(utcBranch).items.create[0].lineTotal.toFixed(2)).toBe('80.00');
+    expect(createdData(cairoBranch).items.create[0].lineTotal.toFixed(2)).toBe('100.00');
+  });
+
+  describe('price staleness (expectedTotal)', () => {
+    it('a stale displayed total creates NOTHING and returns the current total', async () => {
+      const mock = withProduct({ discountEnabled: false });
+      const service = buildService(mock);
+
+      // the Guest still sees the 20% discount (80.00) but it is off now (100.00)
+      const result = await service.createOrder({ ...VALID_INPUT, expectedTotal: '80.00' });
+
+      expect(result).toEqual({
+        outcome: 'priceChanged',
+        pricing: expect.objectContaining({ discountTotal: '0.00', total: '100.00' }),
+      });
+      expect(mock.orderCreate).not.toHaveBeenCalled();
+    });
+
+    it('a matching displayed total proceeds; omitting it (old clients) never blocks', async () => {
+      const matching = withProduct({});
+      const omitted = withProduct({});
+
+      const ok = await buildService(matching).createOrder({ ...VALID_INPUT, expectedTotal: '80.00' });
+      const legacy = await buildService(omitted).createOrder(VALID_INPUT);
+
+      expect(ok.outcome).toBe('created');
+      expect(legacy.outcome).toBe('created');
+    });
+
+    it('an idempotent retry returns the ORIGINAL order even if prices changed since', async () => {
+      const mock = withProduct({ discountEnabled: false });
+      mock.orderFindFirst.mockResolvedValue(CREATED_ORDER_ROW);
+      const service = buildService(mock);
+
+      const result = await service.createOrder({ ...VALID_INPUT, expectedTotal: '1.00' });
+
+      expect(result.outcome).toBe('created');
+      expect(mock.orderCreate).not.toHaveBeenCalled();
+    });
   });
 });

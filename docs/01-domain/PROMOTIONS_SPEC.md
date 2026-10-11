@@ -24,6 +24,38 @@ This specification is the source of truth for V1 Promotion behavior.
 
 ---
 
+## Implementation Amendment: Product Discounts V1 (2026-10-11)
+
+The first implemented slice of this specification is **Product Discounts V1**: a
+product-level percentage or fixed-amount discount with an optional start / end
+date and a manual enable switch (decision DEC-036). It is a deliberate,
+forward-compatible **subset** of the full Promotion model below. Everything not
+listed here (ORDER and CATEGORY targets, Promotion entity, priority, stacking,
+coupons, time-of-day windows, minimum-order promotions, bundles, BOGO) remains
+**not implemented** and keeps the semantics of the sections that follow.
+
+Where the full text and the implemented subset differ, this amendment wins for
+Product Discounts V1:
+
+| Topic | Full spec | Product Discounts V1 (implemented) |
+| --- | --- | --- |
+| Storage (#11) | `Promotion` entity + target tables | Five columns on `products` (type, value, enabled, starts-on, ends-on). One discount per product, so priority / tie-breaking (#26-29) never arises. |
+| Scheduling (#13, #15) | start / end instants, daily windows | Calendar **dates**, inclusive on both ends, evaluated in the **Branch timezone** at read time. "Automatic expiry" is the date comparison itself, so no scheduled job exists. |
+| Which Branch timezone | per Branch | TABLE QR: the table's Branch. Order creation: the chosen Branch. GENERIC menu display (no Branch chosen yet): the oldest ACTIVE Branch. Staff discount state labels: the same oldest-Branch "reference timezone". |
+| Variants (#35) | adjustments are discountable | The platform has no Product Variant in V1; the discount applies to the product price only. |
+| Extras (#36-37) | not discounted by default | Same: paid Modifier options are never discounted. |
+| Rounding (#42) | open | Percentage discount is rounded **half-up to 2 decimals per unit**; a fixed amount is capped at the unit price; the unit price never goes below 0. |
+| Calculation order | open | unit price = base - unit discount; line = (unit price + paid modifiers) x quantity; subtotal = sum of lines; delivery fee is added afterwards. |
+| Cart changed while open (#46-48) | pricing-change response | Guest orders may send `expectedTotal`; a mismatch creates nothing and returns `422 PRICE_CHANGED` with `details.pricing` (API_CONVENTIONS.md #75). The Guest app refetches the menu and asks the Guest to confirm again. `expectedTotal` is optional so older clients keep working. |
+| Minimum amount (#21) | pre-promotion subtotal for **Promotion** minimums | Product Discounts V1 has no promotion minimum. The **Delivery Zone minimum order** is evaluated on the **net payable items subtotal** (after discounts), because it protects what the restaurant actually collects for the items. See DEC-036. |
+| Snapshot (#49) | promotion reference + configuration | `order_items.unit_price` stays the price **before** discount; `discount_amount` (line total discount), `discount_type_snapshot`, `discount_value_snapshot`; `orders.discount_total_amount`. `orders.subtotal_amount` stays the net payable items subtotal, so `subtotal + delivery fee = total` is unchanged. |
+
+Authority: the Backend (`apps/api/src/menu/product-discount.ts`) is the only
+place a discount is resolved or calculated. The Staff editor preview and the
+Guest cart are display-only and are recomputed on submission.
+
+---
+
 # 1. Core Principle
 
 A Promotion is a backend-controlled pricing rule.

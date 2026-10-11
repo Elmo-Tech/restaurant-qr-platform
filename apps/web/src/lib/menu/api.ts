@@ -186,6 +186,15 @@ export async function listProducts(
   return body.data;
 }
 
+/** Write shape of a product discount (omit on create for none; `null` on update removes it). */
+export interface ProductDiscountInput {
+  enabled: boolean;
+  type: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  value: string;
+  startsOn: string | null;
+  endsOn: string | null;
+}
+
 export interface CreateProductInput {
   categoryId: string;
   name: string;
@@ -196,6 +205,7 @@ export interface CreateProductInput {
   displayOrder: number;
   allowCustomerNotes: boolean;
   featured: boolean;
+  discount?: ProductDiscountInput | null;
 }
 
 export async function createProduct(
@@ -218,6 +228,8 @@ export interface UpdateProductInput {
   displayOrder?: number;
   allowCustomerNotes?: boolean;
   featured?: boolean;
+  /** Omitted = unchanged; `null` = remove the discount. */
+  discount?: ProductDiscountInput | null;
 }
 
 export async function updateProduct(

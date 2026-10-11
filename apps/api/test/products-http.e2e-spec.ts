@@ -1262,12 +1262,15 @@ describe('Products (e2e)', () => {
       expect(serialized).not.toMatch(/createdAt/i);
       expect(serialized).not.toMatch(/updatedAt/i);
       const data = (response.body as { data: Record<string, unknown> }).data;
+      // Product Discounts V1: a Product without a discount reports `discount: null`.
+      expect(data.discount).toBeNull();
       expect(Object.keys(data).sort()).toEqual(
         [
           'allowCustomerNotes',
           'availability',
           'basePrice',
           'categoryId',
+          'discount',
           'displayOrder',
           'featured',
           'id',

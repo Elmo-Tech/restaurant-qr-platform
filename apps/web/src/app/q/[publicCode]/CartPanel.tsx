@@ -11,6 +11,8 @@ import {
   GuestIconTrash,
 } from '../../../components/guest/icons';
 import { Price } from '../../../components/guest/Price';
+import { fromMinorUnits, toMinorUnits } from '../../../lib/public-menu/money';
+import { DiscountedPrice } from '../../../components/guest/DiscountedPrice';
 import { Sheet } from '../../../components/guest/Sheet';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
@@ -39,7 +41,10 @@ export interface CartPanelProps {
   lines: CartLine[];
   /** Total units in the cart (the badge next to the title). */
   count: number;
+  /** Items subtotal AFTER product discounts (what the Guest pays for the items). */
   totalDisplay: string;
+  /** Product Discounts V1: the total discount across the cart, or null when nothing is discounted. */
+  discountDisplay: string | null;
   isSubmitting: boolean;
   canSubmit: boolean;
   submitError: string | null;
@@ -120,9 +125,13 @@ function CartItemRow({
             </p>
           ) : null}
           <div className="mt-1 flex flex-wrap items-center gap-x-3">
-            <Price
-              amount={line.lineTotal}
+            <DiscountedPrice
+              original={line.originalLineTotal}
+              current={line.lineTotal}
+              discounted={line.discounted}
               currency={currency}
+              copy={copy}
+              direction="row"
               className="g-num text-base text-g-price"
               currencyClassName="text-[0.65em] font-semibold"
             />
@@ -197,11 +206,16 @@ function OrderRecap({
                 <span className="g-num text-g-accent-text">{line.quantity}×</span>{' '}
                 <bdi>{line.name}</bdi>
               </span>
-              <Price
-                amount={line.lineTotal}
+              <DiscountedPrice
+                original={line.originalLineTotal}
+                current={line.lineTotal}
+                discounted={line.discounted}
                 currency={currency}
+                copy={copy}
+                direction="row"
                 className="g-num shrink-0 text-g-text-2"
                 currencyClassName="text-[0.7em] font-semibold"
+                originalClassName="g-num text-[12.5px] text-g-text-3"
               />
             </li>
           ))}
@@ -247,6 +261,7 @@ export function CartPanel({
   lines,
   count,
   totalDisplay,
+  discountDisplay,
   isSubmitting,
   canSubmit,
   submitError,
@@ -417,7 +432,23 @@ export function CartPanel({
 
             <CheckoutSection title={copy.orderSummary} id="cart-summary-title">
               <div className="flex flex-col gap-2.5 rounded-[22px] border border-g-line bg-g-surface p-4">
-                <SummaryRow label={copy.itemsSubtotal} amount={totalDisplay} currency={currency} />
+                {discountDisplay ? (
+                  <>
+                    <SummaryRow
+                      label={copy.itemsSubtotal}
+                      amount={addMoney(totalDisplay, discountDisplay)}
+                      currency={currency}
+                    />
+                    <SummaryRow
+                      label={copy.discountLabel}
+                      amount={discountDisplay}
+                      currency={currency}
+                      negative
+                    />
+                  </>
+                ) : (
+                  <SummaryRow label={copy.itemsSubtotal} amount={totalDisplay} currency={currency} />
+                )}
                 {isDelivery ? (
                   <p className="text-[12.5px] text-g-text-3">{copy.deliveryFeeNextStep}</p>
                 ) : null}
@@ -472,11 +503,27 @@ export function CartPanel({
 
                 <CheckoutSection title={copy.orderSummary} id="cart-final-summary-title">
                   <div className="flex flex-col gap-2.5 rounded-[22px] border border-g-line bg-g-surface p-4">
-                    <SummaryRow
-                      label={copy.itemsSubtotal}
-                      amount={checkout.subtotalDisplay}
-                      currency={currency}
-                    />
+                    {discountDisplay ? (
+                      <>
+                        <SummaryRow
+                          label={copy.itemsSubtotal}
+                          amount={addMoney(checkout.subtotalDisplay, discountDisplay)}
+                          currency={currency}
+                        />
+                        <SummaryRow
+                          label={copy.discountLabel}
+                          amount={discountDisplay}
+                          currency={currency}
+                          negative
+                        />
+                      </>
+                    ) : (
+                      <SummaryRow
+                        label={copy.itemsSubtotal}
+                        amount={checkout.subtotalDisplay}
+                        currency={currency}
+                      />
+                    )}
                     {isDelivery && checkout.deliveryFeeDisplay !== null ? (
                       <SummaryRow
                         label={copy.deliveryFee}
@@ -673,20 +720,39 @@ function Confirmation({
                   </p>
                 ) : null}
               </div>
-              <Price
-                amount={item.lineTotal}
+              <DiscountedPrice
+                original={addMoney(item.lineTotal, item.discountAmount)}
+                current={item.lineTotal}
+                discounted={item.discountAmount !== '0.00'}
                 currency={currency}
+                copy={copy}
+                direction="row"
                 className="g-num shrink-0 text-[15px] text-g-text"
                 currencyClassName="text-[0.65em] font-semibold"
+                originalClassName="g-num text-[13px] text-g-text-3"
               />
             </li>
           ))}
         </ul>
         <div className="mt-4 flex flex-col gap-2.5">
-          {order.type === 'DELIVERY' ? (
+          {order.discountTotal !== '0.00' || order.type === 'DELIVERY' ? (
             <>
-              <SummaryRow label={copy.itemsSubtotal} amount={order.subtotal} currency={currency} />
-              <SummaryRow label={copy.deliveryFee} amount={order.deliveryFee} currency={currency} />
+              <SummaryRow
+                label={copy.itemsSubtotal}
+                amount={addMoney(order.subtotal, order.discountTotal)}
+                currency={currency}
+              />
+              {order.discountTotal !== '0.00' ? (
+                <SummaryRow
+                  label={copy.discountLabel}
+                  amount={order.discountTotal}
+                  currency={currency}
+                  negative
+                />
+              ) : null}
+              {order.type === 'DELIVERY' ? (
+                <SummaryRow label={copy.deliveryFee} amount={order.deliveryFee} currency={currency} />
+              ) : null}
               <div className="my-1 h-px bg-g-line" />
             </>
           ) : null}
@@ -695,4 +761,9 @@ function Confirmation({
       </section>
     </div>
   );
+}
+
+/** Exact decimal addition of two Backend money strings (BigInt minor units; display only). */
+function addMoney(a: string, b: string): string {
+  return fromMinorUnits(toMinorUnits(a) + toMinorUnits(b));
 }

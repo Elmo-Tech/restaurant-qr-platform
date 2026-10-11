@@ -7,6 +7,15 @@ import type {
   ProductStatus,
 } from '../generated/prisma/client';
 import { createProductPublicId } from './product-public-id';
+import {
+  dateOnlyString,
+  dateOnlyToDate,
+  discountState,
+  localDateIn,
+  resolveActiveDiscount,
+  type ProductDiscountKind,
+  type ProductDiscountState,
+} from './product-discount';
 import { isRestaurantLocaleActive } from './menu-translation.helper';
 import type { TranslationView } from './menu-translation.helper';
 import type { PlatformSupportedLocale } from '../restaurants/platform-locales';
@@ -23,6 +32,36 @@ export interface ProductTranslationView {
   description: string | null;
 }
 
+/**
+ * Product Discounts V1: the configured discount as Staff see it. `state` is
+ * evaluated for today's date in the Restaurant's reference (oldest Branch)
+ * timezone; `discountedPrice` is the unit price Guests are charged right now
+ * (null unless the discount is ACTIVE).
+ */
+export interface ProductDiscountView {
+  enabled: boolean;
+  type: ProductDiscountKind;
+  value: string;
+  startsOn: string | null;
+  endsOn: string | null;
+  state: ProductDiscountState;
+  discountedPrice: string | null;
+}
+
+/** Product Discounts V1 write input (already DTO-validated shape; price-dependent rules are checked here). */
+export interface ProductDiscountInput {
+  enabled: boolean;
+  type: ProductDiscountKind;
+  value: string;
+  startsOn?: string | null;
+  endsOn?: string | null;
+}
+
+export type ProductDiscountErrorCode =
+  | 'DISCOUNT_VALUE_INVALID'
+  | 'DISCOUNT_EXCEEDS_PRICE'
+  | 'DISCOUNT_DATES_INVALID';
+
 /** Safe Product shape shared by List, Create, and Update. Never `restaurantId`, `createdAt`, `updatedAt`, or a raw Prisma entity. */
 export interface ProductWithTranslation {
   id: string;
@@ -35,6 +74,8 @@ export interface ProductWithTranslation {
   displayOrder: number;
   allowCustomerNotes: boolean;
   featured: boolean;
+  /** Product Discounts V1; null when the product has no discount configured. */
+  discount: ProductDiscountView | null;
   translation: ProductTranslationView;
 }
 
@@ -49,6 +90,11 @@ interface ProductRowForResponse {
   displayOrder: number;
   allowCustomerNotes: boolean;
   featured: boolean;
+  discountType: ProductDiscountKind | null;
+  discountValue: Prisma.Decimal | null;
+  discountEnabled: boolean;
+  discountStartsOn: Date | null;
+  discountEndsOn: Date | null;
 }
 
 /**
@@ -62,7 +108,28 @@ interface ProductRowForResponse {
 function toProductWithTranslation(
   product: ProductRowForResponse,
   translation: ProductTranslationView,
+  today: string,
 ): ProductWithTranslation {
+  let discount: ProductDiscountView | null = null;
+  if (product.discountType !== null && product.discountValue !== null) {
+    const config = {
+      type: product.discountType,
+      value: product.discountValue,
+      enabled: product.discountEnabled,
+      startsOn: dateOnlyString(product.discountStartsOn),
+      endsOn: dateOnlyString(product.discountEndsOn),
+    };
+    const applied = resolveActiveDiscount(product.basePrice, config, today);
+    discount = {
+      enabled: config.enabled,
+      type: product.discountType,
+      value: formatMoney(product.discountValue),
+      startsOn: config.startsOn,
+      endsOn: config.endsOn,
+      state: discountState(config, today),
+      discountedPrice: applied ? formatMoney(applied.discountedPrice) : null,
+    };
+  }
   return {
     id: product.id,
     publicId: product.publicId,
@@ -74,7 +141,61 @@ function toProductWithTranslation(
     displayOrder: product.displayOrder,
     allowCustomerNotes: product.allowCustomerNotes,
     featured: product.featured,
+    discount,
     translation,
+  };
+}
+
+/**
+ * Price-dependent validation of the resulting discount (the DTO already checked
+ * the shape). A PERCENTAGE is 0 < v <= 100; a FIXED_AMOUNT is 0 < v <= the
+ * product's base price (a fixed discount can never make a price negative); the
+ * end date must not be before the start date.
+ */
+function validateDiscount(
+  discount: ProductDiscountInput,
+  basePrice: Prisma.Decimal,
+): ProductDiscountErrorCode | null {
+  const value = new Prisma.Decimal(discount.value);
+  if (!value.greaterThan(0)) return 'DISCOUNT_VALUE_INVALID';
+  if (discount.type === 'PERCENTAGE' && value.greaterThan(100)) {
+    return 'DISCOUNT_VALUE_INVALID';
+  }
+  if (discount.type === 'FIXED_AMOUNT' && value.greaterThan(basePrice)) {
+    return 'DISCOUNT_EXCEEDS_PRICE';
+  }
+  if (
+    discount.startsOn &&
+    discount.endsOn &&
+    discount.endsOn < discount.startsOn
+  ) {
+    return 'DISCOUNT_DATES_INVALID';
+  }
+  return null;
+}
+
+function discountColumns(discount: ProductDiscountInput | null): {
+  discountType: ProductDiscountKind | null;
+  discountValue: Prisma.Decimal | null;
+  discountEnabled: boolean;
+  discountStartsOn: Date | null;
+  discountEndsOn: Date | null;
+} {
+  if (discount === null) {
+    return {
+      discountType: null,
+      discountValue: null,
+      discountEnabled: false,
+      discountStartsOn: null,
+      discountEndsOn: null,
+    };
+  }
+  return {
+    discountType: discount.type,
+    discountValue: new Prisma.Decimal(discount.value),
+    discountEnabled: discount.enabled,
+    discountStartsOn: discount.startsOn ? dateOnlyToDate(discount.startsOn) : null,
+    discountEndsOn: discount.endsOn ? dateOnlyToDate(discount.endsOn) : null,
   };
 }
 
@@ -89,6 +210,11 @@ const PRODUCT_SAFE_SELECT = {
   displayOrder: true,
   allowCustomerNotes: true,
   featured: true,
+  discountType: true,
+  discountValue: true,
+  discountEnabled: true,
+  discountStartsOn: true,
+  discountEndsOn: true,
 } as const;
 
 /** The minimum safe authorized scope this query needs, plus the optional client-supplied `categoryId` filter. */
@@ -117,11 +243,14 @@ export interface CreateProductInput {
   displayOrder: number;
   allowCustomerNotes: boolean;
   featured: boolean;
+  /** Product Discounts V1: optional; omitted or null creates the product without a discount. */
+  discount?: ProductDiscountInput | null;
 }
 
 export type CreateProductResult =
   | { outcome: 'created'; data: ProductWithTranslation }
-  | { outcome: 'categoryNotFound' };
+  | { outcome: 'categoryNotFound' }
+  | { outcome: 'invalidDiscount'; code: ProductDiscountErrorCode };
 
 /**
  * `productId` is the raw, unauthorized `:productId` route parameter --
@@ -140,12 +269,15 @@ export interface UpdateProductInput {
   displayOrder?: number;
   allowCustomerNotes?: boolean;
   featured?: boolean;
+  /** Product Discounts V1: undefined = unchanged, null = remove the discount, an object = replace it. */
+  discount?: ProductDiscountInput | null;
 }
 
 export type UpdateProductResult =
   | { outcome: 'updated'; data: ProductWithTranslation }
   | { outcome: 'productNotFound' }
-  | { outcome: 'categoryNotFound' };
+  | { outcome: 'categoryNotFound' }
+  | { outcome: 'invalidDiscount'; code: ProductDiscountErrorCode };
 
 export interface AuthorizedProductEntityScope {
   restaurantId: string;
@@ -228,6 +360,20 @@ export type ClearProductImageResult =
 export class ProductsService {
   constructor(private readonly prisma: PrismaService) {}
 
+  /**
+   * Today's calendar date in the Restaurant's reference timezone (its oldest
+   * Branch), used only to label a discount's state for Staff. Guest pricing and
+   * order creation use the order's own Branch timezone instead.
+   */
+  private async referenceToday(restaurantId: string): Promise<string> {
+    const branch = await this.prisma.branch.findFirst({
+      where: { restaurantId },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      select: { timezone: true },
+    });
+    return localDateIn(branch?.timezone ?? 'UTC', new Date());
+  }
+
   async listProducts(
     input: ListProductsInput,
   ): Promise<ProductWithTranslation[]> {
@@ -235,6 +381,7 @@ export class ProductsService {
       where: { id: input.restaurantId },
       select: { defaultLocale: true },
     });
+    const today = await this.referenceToday(input.restaurantId);
 
     // Tenant-scoped by the query itself regardless of whether the optional
     // categoryId filter is present -- a well-formed but foreign-Restaurant
@@ -268,6 +415,7 @@ export class ProductsService {
           name: '',
           description: null,
         },
+        today,
       ),
     );
   }
@@ -277,6 +425,14 @@ export class ProductsService {
       where: { id: input.restaurantId },
       select: { defaultLocale: true },
     });
+    const discount = input.discount ?? null;
+    if (discount !== null) {
+      const code = validateDiscount(discount, new Prisma.Decimal(input.basePrice));
+      if (code !== null) {
+        return { outcome: 'invalidDiscount', code };
+      }
+    }
+    const today = await this.referenceToday(input.restaurantId);
 
     return this.prisma.$transaction(async (tx) => {
       // Category identity + Tenant check together, before any write: an
@@ -305,6 +461,7 @@ export class ProductsService {
           displayOrder: input.displayOrder,
           allowCustomerNotes: input.allowCustomerNotes,
           featured: input.featured,
+          ...discountColumns(discount),
         },
         select: PRODUCT_SAFE_SELECT,
       });
@@ -321,7 +478,7 @@ export class ProductsService {
 
       return {
         outcome: 'created',
-        data: toProductWithTranslation(product, translation),
+        data: toProductWithTranslation(product, translation, today),
       };
     });
   }
@@ -339,6 +496,7 @@ export class ProductsService {
       where: { id: input.restaurantId },
       select: { defaultLocale: true },
     });
+    const today = await this.referenceToday(input.restaurantId);
 
     return this.prisma.$transaction(async (tx) => {
       // Product identity + Tenant check together, in one query -- never
@@ -365,6 +523,43 @@ export class ProductsService {
         }
       }
 
+      // Product Discounts V1: validate the RESULTING discount against the
+      // resulting price, so lowering a price can never leave a fixed discount
+      // above it, and a discount can never be written invalid.
+      let discountData: ReturnType<typeof discountColumns> | null = null;
+      if (input.discount !== undefined || input.basePrice !== undefined) {
+        const nextPrice =
+          input.basePrice !== undefined
+            ? new Prisma.Decimal(input.basePrice)
+            : existing.basePrice;
+        let nextDiscount: ProductDiscountInput | null;
+        if (input.discount !== undefined) {
+          nextDiscount = input.discount;
+        } else if (
+          existing.discountType !== null &&
+          existing.discountValue !== null
+        ) {
+          nextDiscount = {
+            enabled: existing.discountEnabled,
+            type: existing.discountType,
+            value: existing.discountValue.toFixed(2),
+            startsOn: dateOnlyString(existing.discountStartsOn),
+            endsOn: dateOnlyString(existing.discountEndsOn),
+          };
+        } else {
+          nextDiscount = null;
+        }
+        if (nextDiscount !== null) {
+          const code = validateDiscount(nextDiscount, nextPrice);
+          if (code !== null) {
+            return { outcome: 'invalidDiscount', code };
+          }
+        }
+        if (input.discount !== undefined) {
+          discountData = discountColumns(nextDiscount);
+        }
+      }
+
       // Explicit field-by-field `data` object, never a spread of `input` --
       // matches `updateBranch`'s established convention so no future field
       // ever silently becomes persistence authority (`availability`,
@@ -377,7 +572,7 @@ export class ProductsService {
         displayOrder?: number;
         allowCustomerNotes?: boolean;
         featured?: boolean;
-      } = {};
+      } & Partial<ReturnType<typeof discountColumns>> = {};
       if (input.categoryId !== undefined) {
         productData.categoryId = input.categoryId;
       }
@@ -395,6 +590,9 @@ export class ProductsService {
       }
       if (input.featured !== undefined) {
         productData.featured = input.featured;
+      }
+      if (discountData !== null) {
+        Object.assign(productData, discountData);
       }
 
       const translationData: { name?: string; description?: string | null } =
@@ -450,7 +648,7 @@ export class ProductsService {
 
       return {
         outcome: 'updated',
-        data: toProductWithTranslation(updatedProduct, translation),
+        data: toProductWithTranslation(updatedProduct, translation, today),
       };
     });
   }

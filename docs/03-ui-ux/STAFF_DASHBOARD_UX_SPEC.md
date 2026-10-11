@@ -1471,6 +1471,17 @@ Advanced options can follow.
 
 # 138. Product Edit Sections
 
+**Implemented (Product Discounts V1):** the Product editor has a "Pricing & Discount"
+section: price, discount type (none / percentage / fixed amount), value, an
+enable switch ("pause without losing settings"), optional start and end dates
+(Branch local time, both days inclusive; the discount stops by itself after the
+end date) and a live preview of original price, price after discount and the
+guest's saving. Remove the discount by choosing "No discount". The product
+list shows the discounted price with the original struck through and a state
+chip (scheduled / paused / expired). Order detail and the printable receipt show
+a discount line per item and a discount row in the totals. The preview is
+display-only; the Backend validates and calculates.
+
 Suggested sections:
 
 - Basic Information

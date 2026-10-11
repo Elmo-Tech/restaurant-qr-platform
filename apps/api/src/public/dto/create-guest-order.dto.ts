@@ -9,6 +9,7 @@
 // `setupFiles` change affecting every test in the repo.
 import 'reflect-metadata';
 import { PLATFORM_SUPPORTED_LOCALES } from '../../restaurants/platform-locales';
+import { IsMoneyDecimalString } from '../../menu/money-decimal';
 import { Transform, Type } from 'class-transformer';
 import {
   ArrayMaxSize,
@@ -89,6 +90,11 @@ export class CreateGuestOrderDto {
     message: `locale must be one of: ${PLATFORM_SUPPORTED_LOCALES.join(', ')}`,
   })
   locale?: string;
+
+  /** The total payable the Guest was shown (decimal string). Staleness check only: a mismatch returns 422 PRICE_CHANGED and creates nothing. */
+  @IsOptional()
+  @IsMoneyDecimalString()
+  expectedTotal?: string;
 
   @ValidateNested({ each: true })
   @Type(() => CreateGuestOrderItemDto)

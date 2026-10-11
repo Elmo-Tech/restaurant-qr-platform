@@ -46,6 +46,21 @@ export interface ProductTranslation {
   description: string | null;
 }
 
+export type ProductDiscountType = 'PERCENTAGE' | 'FIXED_AMOUNT';
+export type ProductDiscountState = 'DISABLED' | 'SCHEDULED' | 'ACTIVE' | 'EXPIRED';
+
+/** Product Discounts V1 as Staff see it. `discountedPrice` is the unit price Guests pay right now (null unless ACTIVE). */
+export interface ProductDiscount {
+  enabled: boolean;
+  type: ProductDiscountType;
+  /** Decimal string: a percentage ("20.00") or an amount. */
+  value: string;
+  startsOn: string | null;
+  endsOn: string | null;
+  state: ProductDiscountState;
+  discountedPrice: string | null;
+}
+
 /** `basePrice` is the Backend's authoritative decimal string -- never run through Number()/parseFloat() (CLAUDE.md #27). */
 export interface Product {
   id: string;
@@ -58,6 +73,8 @@ export interface Product {
   displayOrder: number;
   allowCustomerNotes: boolean;
   featured: boolean;
+  /** Null when no discount is configured. */
+  discount: ProductDiscount | null;
   translation: ProductTranslation;
 }
 

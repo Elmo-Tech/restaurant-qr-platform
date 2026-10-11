@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { GuestIconPlus, GuestIconStar } from '../../../components/guest/icons';
 import { Price } from '../../../components/guest/Price';
+import { DiscountBadge } from '../../../components/guest/DiscountedPrice';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import type { PublicMenuProduct } from '../../../lib/public-menu/types';
@@ -99,6 +100,20 @@ function Banner({
               {product.description}
             </p>
           ) : null}
+          {product.discount ? (
+            <p className="relative z-10 mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
+              <DiscountBadge discount={product.discount} currency={currency} copy={copy} />
+              <s className="decoration-white/70">
+                <span className="sr-only">{copy.originalPriceAria}</span>
+                <Price
+                  amount={product.basePrice}
+                  currency={currency}
+                  className="g-num text-[13px] font-semibold text-white/80"
+                  currencyClassName="text-[0.78em] font-semibold"
+                />
+              </s>
+            </p>
+          ) : null}
         </div>
         {canOrder ? (
           <button
@@ -111,7 +126,7 @@ function Banner({
           >
             {single ? <span className="hidden text-[15.5px] lg:inline">{copy.add} ·</span> : null}
             <Price
-              amount={product.basePrice}
+              amount={product.discount ? product.discount.discountedPrice : product.basePrice}
               currency={currency}
               className="g-num text-lg"
               currencyClassName="text-xs font-bold"

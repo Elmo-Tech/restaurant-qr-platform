@@ -1401,6 +1401,8 @@ Example:
 
 Guest confirms again.
 
+**Implemented (Product Discounts V1):** `POST /public/qr/{publicCode}/orders` returns this response when the optional `expectedTotal` no longer matches the authoritative total. `details.pricing` carries `subtotal` (net of discounts), `discountTotal`, `total` and `currencyCode`. Nothing is created and the idempotency record is not consumed, so the Guest may confirm the new total with the same request id.
+
 ---
 
 # 76. Idempotency Header
@@ -2024,6 +2026,10 @@ Never returned: `restaurantId`, `createdAt`, `updatedAt`, or a raw `ProductTrans
 ```
 
 Never a distinguishable `PRODUCT_ACCESS_DENIED`/`PRODUCT_WRONG_RESTAURANT`/`INVALID_PRODUCT_ID`. Authorization guards run before this identity lookup.
+
+**Product Discount (Product Discounts V1)**: Create and Generic Update accept an optional `discount` object `{ enabled, type: "PERCENTAGE" | "FIXED_AMOUNT", value: "<decimal string>", startsOn: "YYYY-MM-DD" | null, endsOn: "YYYY-MM-DD" | null }`. On Update an omitted `discount` leaves it unchanged and explicit `null` removes it (the one exception to the "null is rejected" rule above). Staff Product responses return `discount` as `null` or `{ ...same fields, state: "ACTIVE" | "DISABLED" | "SCHEDULED" | "EXPIRED", discountedPrice: "<string>" | null }` (state and price are computed server-side in the reference timezone). Validation: `400 DISCOUNT_VALUE_INVALID` (not a positive 2-decimal string, or a percentage above 100), `400 DISCOUNT_EXCEEDS_PRICE` (fixed amount above the base price, including when `basePrice` is lowered below an existing fixed discount), `400 DISCOUNT_DATES_INVALID` (malformed date or end before start). Permission is unchanged (`menu.manage`, all-branches scope).
+
+**Public menu and orders (Product Discounts V1)**: each public product returns `basePrice` (always the ORIGINAL price) and `discount` (`null` unless a discount applies right now: `{ type, value, amountOff, discountedPrice, endsOn }`). `POST /public/qr/{publicCode}/orders` accepts an optional `expectedTotal` (decimal string); a mismatch with the authoritative total returns `422 PRICE_CHANGED` (#75) and creates nothing. Order views (Guest and Staff) add `discountTotal` and per-item `discountAmount`; `subtotal` is net of discounts and `unitPrice` is before discount.
 
 **Availability Update** (`PATCH .../products/{productId}/availability`, settles #110): body is exactly `{ "availability": "AVAILABLE" | "SOLD_OUT" }`, no other writable field. Changes ONLY `Product.availability` -- never `status`/`basePrice`/`categoryId`/translation/`featured`/`allowCustomerNotes`/`primaryImageAssetPath`. Success is a focused `200 OK`:
 

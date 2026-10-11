@@ -13,6 +13,7 @@ const SAMPLE_DATA: GuestOrderView = {
   delivery: null,
   subtotal: '100.00',
   deliveryFee: '0.00',
+  discountTotal: '0.00',
   items: [],
 };
 
@@ -78,6 +79,26 @@ describe('PublicOrdersController', () => {
     ).rejects.toMatchObject({
       status: 409,
       response: { error: { code: 'TABLE_ORDERING_UNAVAILABLE' } },
+    });
+  });
+
+  it('maps priceChanged to 422 PRICE_CHANGED with the refreshed pricing', async () => {
+    const pricing = {
+      subtotal: '100.00',
+      discountTotal: '0.00',
+      total: '100.00',
+      currencyCode: 'EGP',
+    };
+    publicOrdersService.createOrder.mockResolvedValue({
+      outcome: 'priceChanged',
+      pricing,
+    });
+
+    await expect(
+      controller.createOrder('code-1', { clientRequestId: 'req-1', items: [] }),
+    ).rejects.toMatchObject({
+      status: 422,
+      response: { error: { code: 'PRICE_CHANGED', details: { pricing } } },
     });
   });
 

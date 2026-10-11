@@ -467,6 +467,11 @@ Staff can:
 
 ## V1 Promotions
 
+**Status (2026-10-11): Product Discounts V1 is implemented** as the product-level
+subset (percentage or fixed amount, optional start / end dates, enable switch;
+decision DEC-036). Category / order-level promotions, time-of-day windows,
+minimum-order promotions, coupons, BOGO and combos remain future work.
+
 Initial rules:
 
 - Percentage discount

@@ -37,6 +37,11 @@ import { ImageField } from '../../../../../../components/menu/ImageField';
 import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
 import { validateImageFile } from '../../../../../../lib/menu/image-validation';
 import { ModifiersSection } from './ModifiersSection';
+import {
+  previewDiscount,
+  validateDiscountForm,
+} from '../../../../../../lib/menu/discount';
+import type { ProductDiscountInput } from '../../../../../../lib/menu/api';
 
 /** Mirrors the Backend's accepted decimal-string shape (money-decimal.ts) -- helpful client validation only, never authoritative (CLAUDE.md #27). */
 const MONEY_DECIMAL_PATTERN = /^(0|[1-9]\d{0,11})(\.\d{1,2})?$/;
@@ -60,6 +65,12 @@ interface ProductFormState {
   displayOrder: string;
   allowCustomerNotes: boolean;
   featured: boolean;
+  /** Product Discounts V1: NONE = no discount configured. */
+  discountMode: 'NONE' | 'PERCENTAGE' | 'FIXED_AMOUNT';
+  discountEnabled: boolean;
+  discountValue: string;
+  discountStartsOn: string;
+  discountEndsOn: string;
 }
 
 const EMPTY_FORM: ProductFormState = {
@@ -72,7 +83,24 @@ const EMPTY_FORM: ProductFormState = {
   displayOrder: '0',
   allowCustomerNotes: false,
   featured: false,
+  discountMode: 'NONE',
+  discountEnabled: true,
+  discountValue: '',
+  discountStartsOn: '',
+  discountEndsOn: '',
 };
+
+/** The write shape for the form's discount section (`null` removes the discount). */
+function toDiscountInput(form: ProductFormState): ProductDiscountInput | null {
+  if (form.discountMode === 'NONE') return null;
+  return {
+    enabled: form.discountEnabled,
+    type: form.discountMode,
+    value: form.discountValue.trim(),
+    startsOn: form.discountStartsOn === '' ? null : form.discountStartsOn,
+    endsOn: form.discountEndsOn === '' ? null : form.discountEndsOn,
+  };
+}
 
 function toFormState(product: Product): ProductFormState {
   return {
@@ -85,6 +113,11 @@ function toFormState(product: Product): ProductFormState {
     displayOrder: String(product.displayOrder),
     allowCustomerNotes: product.allowCustomerNotes,
     featured: product.featured,
+    discountMode: product.discount ? product.discount.type : 'NONE',
+    discountEnabled: product.discount ? product.discount.enabled : true,
+    discountValue: product.discount ? product.discount.value : '',
+    discountStartsOn: product.discount?.startsOn ?? '',
+    discountEndsOn: product.discount?.endsOn ?? '',
   };
 }
 
@@ -348,6 +381,19 @@ export function ProductEditor({
       setFormError(t('product.priceInvalid'));
       return;
     }
+    if (form.discountMode !== 'NONE') {
+      const discountError = validateDiscountForm({
+        type: form.discountMode,
+        value: form.discountValue,
+        basePrice: form.basePrice,
+        startsOn: form.discountStartsOn,
+        endsOn: form.discountEndsOn,
+      });
+      if (discountError) {
+        setFormError(t(`product.discount.error.${discountError}` as const));
+        return;
+      }
+    }
 
     setIsSubmitting(true);
     setFormError(null);
@@ -364,6 +410,7 @@ export function ProductEditor({
           displayOrder,
           allowCustomerNotes: form.allowCustomerNotes,
           featured: form.featured,
+          ...(form.discountMode === 'NONE' ? {} : { discount: toDiscountInput(form) }),
         });
 
         // Secondary-locale translations are only created once the Product
@@ -444,6 +491,7 @@ export function ProductEditor({
         displayOrder,
         allowCustomerNotes: form.allowCustomerNotes,
         featured: form.featured,
+        discount: toDiscountInput(form),
       });
 
       let finalAvailability = updated.availability;
@@ -615,6 +663,107 @@ export function ProductEditor({
                 disabled={isBusy}
               />
             </FormField>
+
+            <div className="mt-1 flex flex-col gap-4 border-t border-border pt-4">
+              <FormField label={t('product.discount.type')} htmlFor="product-discount-type">
+                <Select
+                  id="product-discount-type"
+                  value={form.discountMode}
+                  onChange={(event) =>
+                    setForm((prev) => ({
+                      ...prev,
+                      discountMode: event.target.value as ProductFormState['discountMode'],
+                    }))
+                  }
+                  disabled={isBusy}
+                >
+                  <option value="NONE">{t('product.discount.none')}</option>
+                  <option value="PERCENTAGE">{t('product.discount.percentage')}</option>
+                  <option value="FIXED_AMOUNT">{t('product.discount.fixed')}</option>
+                </Select>
+              </FormField>
+
+              {form.discountMode !== 'NONE' ? (
+                <>
+                  <FormField
+                    label={
+                      form.discountMode === 'PERCENTAGE'
+                        ? t('product.discount.valuePercent')
+                        : t('product.discount.valueFixed', { currency: currencyCode })
+                    }
+                    htmlFor="product-discount-value"
+                  >
+                    <Input
+                      id="product-discount-value"
+                      inputMode="decimal"
+                      dir="ltr"
+                      value={form.discountValue}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, discountValue: event.target.value }))
+                      }
+                      disabled={isBusy}
+                    />
+                  </FormField>
+
+                  <label className="flex cursor-pointer items-start gap-2.5 text-sm">
+                    <input
+                      id="product-discount-enabled"
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4 accent-primary"
+                      checked={form.discountEnabled}
+                      onChange={(event) =>
+                        setForm((prev) => ({ ...prev, discountEnabled: event.target.checked }))
+                      }
+                      disabled={isBusy}
+                    />
+                    <span>
+                      <span className="block font-medium text-foreground">
+                        {t('product.discount.enabled')}
+                      </span>
+                      <span className="block text-xs text-muted-foreground">
+                        {t('product.discount.enabledHint')}
+                      </span>
+                    </span>
+                  </label>
+
+                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                    <FormField label={t('product.discount.startsOn')} htmlFor="product-discount-starts">
+                      <Input
+                        id="product-discount-starts"
+                        type="date"
+                        dir="ltr"
+                        value={form.discountStartsOn}
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, discountStartsOn: event.target.value }))
+                        }
+                        disabled={isBusy}
+                      />
+                    </FormField>
+                    <FormField label={t('product.discount.endsOn')} htmlFor="product-discount-ends">
+                      <Input
+                        id="product-discount-ends"
+                        type="date"
+                        dir="ltr"
+                        value={form.discountEndsOn}
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, discountEndsOn: event.target.value }))
+                        }
+                        disabled={isBusy}
+                      />
+                    </FormField>
+                  </div>
+                  <p className="text-xs text-muted-foreground">{t('product.discount.datesHint')}</p>
+
+                  <DiscountPreview
+                    currencyCode={currencyCode}
+                    basePrice={form.basePrice}
+                    type={form.discountMode}
+                    value={form.discountValue}
+                    savedDiscount={product?.discount ?? null}
+                  />
+                </>
+              ) : null}
+            </div>
           </FormSection>
         </Card>
 
@@ -939,5 +1088,82 @@ function ProductTranslationSection({
         />
       )}
     </FormSection>
+  );
+}
+
+/**
+ * The guest price preview inside the Pricing & discount section: the original
+ * price crossed out, the discounted price prominently, and -- when this product
+ * already has a saved discount -- its current state. Display only; the Backend
+ * calculates every real price.
+ */
+function DiscountPreview({
+  currencyCode,
+  basePrice,
+  type,
+  value,
+  savedDiscount,
+}: {
+  currencyCode: string;
+  basePrice: string;
+  type: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  value: string;
+  savedDiscount: Product['discount'];
+}) {
+  const { t } = useStaffI18n();
+  const preview = previewDiscount(basePrice, type, value);
+  const isActiveNow = savedDiscount?.state === 'ACTIVE';
+
+  return (
+    <div className="flex flex-col gap-2 rounded-lg border border-border bg-muted/40 p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-semibold text-foreground">{t('product.discount.previewTitle')}</p>
+        {savedDiscount ? (
+          <span
+            className={`rounded-full px-2 py-0.5 text-xs font-medium ${
+              isActiveNow ? 'bg-success-soft text-success' : 'bg-muted text-muted-foreground'
+            }`}
+          >
+            {t(`product.discount.state.${savedDiscount.state}` as const)}
+          </span>
+        ) : null}
+      </div>
+      {preview ? (
+        <>
+          <div className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
+            <span className="sr-only">{t('product.discount.original')}</span>
+            <bdi dir="ltr" className="text-sm text-muted-foreground line-through">
+              {basePrice} {currencyCode}
+            </bdi>
+            <span className="sr-only">{t('product.discount.discounted')}</span>
+            <bdi dir="ltr" className="text-xl font-bold text-foreground">
+              {preview.discountedPrice} {currencyCode}
+            </bdi>
+            {preview.percentLabel ? (
+              <span className="rounded-md bg-primary px-1.5 py-0.5 text-xs font-bold text-primary-foreground">
+                <bdi dir="ltr">-{preview.percentLabel}</bdi>
+              </span>
+            ) : null}
+          </div>
+          <p className="text-xs text-muted-foreground">
+            {t('product.discount.saving', { amount: preview.unitDiscount, currency: currencyCode })}
+          </p>
+        </>
+      ) : (
+        <p className="text-xs text-muted-foreground">{t('product.discount.error.valueRequired')}</p>
+      )}
+      {savedDiscount && !isActiveNow ? (
+        <p className="text-xs text-muted-foreground">{t('product.discount.previewInactive')}</p>
+      ) : null}
+      {savedDiscount?.discountedPrice ? (
+        <p className="text-xs font-medium text-foreground">
+          {t('product.discount.currentPrice', {
+            price: savedDiscount.discountedPrice,
+            currency: currencyCode,
+          })}
+        </p>
+      ) : null}
+      <p className="text-xs text-muted-foreground">{t('product.discount.previewNote')}</p>
+    </div>
   );
 }

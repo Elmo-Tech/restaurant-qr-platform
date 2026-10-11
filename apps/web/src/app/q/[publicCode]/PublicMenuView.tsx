@@ -1,5 +1,6 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { GuestIconInfo } from '../../../components/guest/icons';
 import { GuestLocaleProvider } from '../../../components/guest/GuestLocale';
@@ -67,6 +68,7 @@ const MAX_QUANTITY = 99;
  * -- everything inside mirrors for Arabic through logical utilities only.
  */
 export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; publicCode: string }) {
+  const router = useRouter();
   const locale = data.locale.resolved;
   const dir = locale === 'ar' ? 'rtl' : 'ltr';
   const currency = data.context.restaurant.currencyCode;
@@ -533,7 +535,13 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
           }
         }
       }
-      const unitPrice = fromMinorUnits(toMinorUnits(product.basePrice) + modifiersMinorUnits);
+      // Product Discounts V1: the discount applies to the product price only, never to
+      // paid extras. Display only -- the Backend recomputes every amount on submit.
+      const discounted = product.discount !== null;
+      const originalUnitPrice = fromMinorUnits(toMinorUnits(product.basePrice) + modifiersMinorUnits);
+      const unitPrice = discounted
+        ? fromMinorUnits(toMinorUnits(product.discount!.discountedPrice) + modifiersMinorUnits)
+        : originalUnitPrice;
 
       return {
         lineKey: cartLineKey(item.productId, item.modifierOptionIds),
@@ -545,6 +553,8 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
         imageAssetPath: product.primaryImageAssetPath,
         unitPrice,
         lineTotal: fromMinorUnits(lineTotalMinorUnits(unitPrice, item.quantity)),
+        originalLineTotal: fromMinorUnits(lineTotalMinorUnits(originalUnitPrice, item.quantity)),
+        discounted,
         selections,
         blocked: product.availability === 'SOLD_OUT',
       };
@@ -558,6 +568,14 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     ZERO_MINOR_UNITS,
   );
   const totalDisplay = fromMinorUnits(totalMinorUnits);
+  const originalTotalMinorUnits = orderableLines.reduce(
+    (sum, line) => sum + toMinorUnits(line.originalLineTotal),
+    ZERO_MINOR_UNITS,
+  );
+  const discountDisplay =
+    originalTotalMinorUnits > totalMinorUnits
+      ? fromMinorUnits(originalTotalMinorUnits - totalMinorUnits)
+      : null;
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
   // FT-8 display-only breakdown (exact BigInt minor units). The Backend
   // recomputes the fee, minimum and total from the zone row on submit.
@@ -663,6 +681,9 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       items,
       checkout,
       data.locale.resolved,
+      // The total the Guest is looking at: if a discount changed meanwhile the Backend
+      // answers 409 instead of silently charging a different amount.
+      isDelivery ? grandTotalDisplay : totalDisplay,
     );
     setIsSubmitting(false);
 
@@ -677,6 +698,13 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       // pending attempt are kept, so the SAME request id is reused if ordering reopens.
       setOrderingOverride('CLOSED');
       setOrderingRecheck('idle');
+      return;
+    }
+    if (result.outcome === 'priceChanged') {
+      // A discount started, ended or changed. Nothing was created: refetch the menu so
+      // the cart shows the current prices, and ask the Guest to review before ordering.
+      setSubmitError(copy.priceChangedError);
+      router.refresh();
       return;
     }
     if (result.outcome === 'itemsUnavailable') {
@@ -908,6 +936,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
             lines={cartLines}
             count={cartCount}
             totalDisplay={totalDisplay}
+            discountDisplay={discountDisplay}
             isSubmitting={isSubmitting}
             canSubmit={canSubmit}
             submitError={submitError}

@@ -8,6 +8,7 @@ import {
   NotFoundException,
   Param,
   Post,
+  UnprocessableEntityException,
 } from '@nestjs/common';
 import { RATE_LIMIT_GROUPS, RateLimitGroup } from '../common/rate-limit/rate-limit-group';
 import { CreateGuestOrderDto } from './dto/create-guest-order.dto';
@@ -147,6 +148,7 @@ export class PublicOrdersController {
       publicCode,
       clientRequestId: dto.clientRequestId,
       locale: dto.locale,
+      expectedTotal: dto.expectedTotal,
       items: dto.items.map((item) => ({
         productId: item.productId,
         quantity: item.quantity,
@@ -190,6 +192,17 @@ export class PublicOrdersController {
     }
     if (result.outcome === 'tableOrderingUnavailable') {
       throw new ConflictException(TABLE_ORDERING_UNAVAILABLE_RESPONSE);
+    }
+    if (result.outcome === 'priceChanged') {
+      // API_CONVENTIONS.md #75: 422 PRICE_CHANGED with the refreshed pricing.
+      throw new UnprocessableEntityException({
+        error: {
+          code: 'PRICE_CHANGED',
+          message:
+            'The price of an item changed while you were ordering. Review the updated total and confirm again.',
+          details: { pricing: result.pricing },
+        },
+      });
     }
     if (result.outcome === 'pickupUnavailable') {
       throw new ConflictException(PICKUP_UNAVAILABLE_RESPONSE);

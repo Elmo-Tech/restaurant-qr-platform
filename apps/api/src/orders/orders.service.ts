@@ -41,8 +41,11 @@ export interface OrderItemModifierView {
 export interface OrderItemView {
   productId: string;
   productNameSnapshot: string;
+  /** Price of one unit BEFORE any product discount (snapshot). */
   unitPrice: string;
   quantity: number;
+  /** Product Discounts V1: total discount taken off this line ("0.00" when none); `lineTotal` is already net of it. */
+  discountAmount: string;
   lineTotal: string;
   modifiers: OrderItemModifierView[];
 }
@@ -72,6 +75,8 @@ export interface OrderDetail {
   /** FT-8: exact money breakdown: subtotal + deliveryFee = totalAmount. */
   subtotalAmount: string;
   deliveryFee: string;
+  /** Product Discounts V1: sum of the items' discounts ("0.00" when none); `subtotalAmount` is already net of it. */
+  discountTotal: string;
   currencyCode: string;
   totalAmount: string;
   items: OrderItemView[];
@@ -121,6 +126,7 @@ const ORDER_ITEM_VIEW_SELECT = {
   unitPrice: true,
   quantity: true,
   lineTotal: true,
+  discountAmount: true,
   modifiers: {
     select: {
       modifierGroupNameSnapshot: true,
@@ -137,6 +143,7 @@ function toOrderItemView(item: {
   unitPrice: { toFixed(digits: number): string };
   quantity: number;
   lineTotal: { toFixed(digits: number): string };
+  discountAmount?: { toFixed(digits: number): string };
   modifiers: {
     modifierGroupNameSnapshot: string;
     modifierOptionNameSnapshot: string;
@@ -148,6 +155,7 @@ function toOrderItemView(item: {
     productNameSnapshot: item.productNameSnapshot,
     unitPrice: formatMoney(item.unitPrice),
     quantity: item.quantity,
+    discountAmount: item.discountAmount ? formatMoney(item.discountAmount) : '0.00',
     lineTotal: formatMoney(item.lineTotal),
     modifiers: item.modifiers.map((modifier) => ({
       groupName: modifier.modifierGroupNameSnapshot,
@@ -253,6 +261,7 @@ export class OrdersService {
         customerNotesSnapshot: true,
         subtotalAmount: true,
         deliveryFeeAmount: true,
+        discountTotalAmount: true,
         deliveryZoneNameSnapshot: true,
         deliveryAddressSnapshot: true,
         deliveryBuildingSnapshot: true,
@@ -317,6 +326,9 @@ export class OrdersService {
             : null,
         subtotalAmount: formatMoney(order.subtotalAmount),
         deliveryFee: formatMoney(order.deliveryFeeAmount),
+        discountTotal: order.discountTotalAmount
+          ? formatMoney(order.discountTotalAmount)
+          : '0.00',
         totalAmount: formatMoney(order.totalAmount),
         items: order.items.map(toOrderItemView),
         statusHistory: order.statusEvents,

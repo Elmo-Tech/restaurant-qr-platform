@@ -436,11 +436,14 @@ export function SummaryRow({
   amount,
   currency,
   strong = false,
+  negative = false,
 }: {
   label: string;
   amount: string;
   currency: string;
   strong?: boolean;
+  /** Shows the amount as a deduction (a discount row). */
+  negative?: boolean;
 }) {
   return (
     <div
@@ -452,7 +455,14 @@ export function SummaryRow({
       <Price
         amount={amount}
         currency={currency}
-        className={strong ? 'g-num text-2xl text-g-price' : 'g-num text-g-text'}
+        prefix={negative ? '−' : ''}
+        className={
+          strong
+            ? 'g-num text-2xl text-g-price'
+            : negative
+              ? 'g-num text-g-accent-text'
+              : 'g-num text-g-text'
+        }
         currencyClassName="text-[0.65em] font-semibold"
       />
     </div>

@@ -1,6 +1,13 @@
 # Proposal: Product Discounts and Offers
 
-Status: **PROPOSAL ONLY. Not approved, not implemented.** No pricing logic, schema or UI change accompanies this document.
+Status: **Phase A (product-level discounts) is IMPLEMENTED as the Product-only subset "Product Discounts V1" (2026-10-11, DEC-036; see the amendment at the top of `PROMOTIONS_SPEC.md`). Phase B (advanced offers: quantity promos, BOGO, combos, coupons, stacking) remains a PROPOSAL ONLY, not approved, not implemented.**
+
+Decisions that were open here are now resolved:
+
+1. Phase A shipped as a Product-only subset (columns on `products`), not the full Promotion entity.
+2. Percentage rounding: half-up to 2 decimals per unit.
+3. The discounted price feeds the delivery-zone minimum check (net payable items subtotal). This intentionally differs from the "keep pre-promotion" default below; DEC-036 records why and how to reverse it.
+4. `Order.totalAmount` semantics are unchanged (final payable total).
 
 Origin: Guest Menu Final Polish (FT-13B).
 

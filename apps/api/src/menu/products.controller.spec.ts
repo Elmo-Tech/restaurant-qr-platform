@@ -44,6 +44,7 @@ const SAMPLE_PRODUCT: ProductWithTranslation = {
   displayOrder: 0,
   allowCustomerNotes: true,
   featured: false,
+  discount: null,
   translation: { locale: 'ar', name: 'برجر', description: null },
 };
 

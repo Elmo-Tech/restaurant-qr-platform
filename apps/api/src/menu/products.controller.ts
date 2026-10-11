@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   ConflictException,
   Controller,
@@ -45,8 +46,23 @@ import {
 } from './menu-translation.helper';
 import type { TranslationView } from './menu-translation.helper';
 import { ProductsService } from './products.service';
-import type { ProductWithTranslation } from './products.service';
+import type {
+  ProductDiscountErrorCode,
+  ProductWithTranslation,
+} from './products.service';
 import type { ProductAvailability } from '../generated/prisma/client';
+
+const DISCOUNT_ERROR_MESSAGES: Record<ProductDiscountErrorCode, string> = {
+  DISCOUNT_VALUE_INVALID:
+    'A percentage discount must be above 0% and at most 100%, and a fixed discount must be above zero.',
+  DISCOUNT_EXCEEDS_PRICE: 'A fixed discount cannot be larger than the product price.',
+  DISCOUNT_DATES_INVALID: 'The discount end date cannot be before its start date.',
+};
+
+/** Product Discounts V1: stable, machine-readable validation errors for an invalid discount. */
+function discountErrorResponse(code: ProductDiscountErrorCode) {
+  return { error: { code, message: DISCOUNT_ERROR_MESSAGES[code] } };
+}
 
 /**
  * Day 1 Menu Vertical Slice, Batch D, settled contract: one stable
@@ -173,10 +189,14 @@ export class ProductsController {
       displayOrder: dto.displayOrder,
       allowCustomerNotes: dto.allowCustomerNotes,
       featured: dto.featured,
+      discount: dto.discount,
     });
 
     if (result.outcome === 'categoryNotFound') {
       throw new NotFoundException(CATEGORY_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'invalidDiscount') {
+      throw new BadRequestException(discountErrorResponse(result.code));
     }
 
     return { data: result.data };
@@ -216,6 +236,7 @@ export class ProductsController {
       displayOrder: dto.displayOrder,
       allowCustomerNotes: dto.allowCustomerNotes,
       featured: dto.featured,
+      discount: dto.discount,
     });
 
     if (result.outcome === 'productNotFound') {
@@ -223,6 +244,9 @@ export class ProductsController {
     }
     if (result.outcome === 'categoryNotFound') {
       throw new NotFoundException(CATEGORY_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'invalidDiscount') {
+      throw new BadRequestException(discountErrorResponse(result.code));
     }
 
     return { data: result.data };

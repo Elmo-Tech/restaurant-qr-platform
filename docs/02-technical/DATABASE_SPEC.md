@@ -1601,6 +1601,26 @@ Not implemented in Batch B, deliberately deferred to a later slice: `spicyLevel`
 
 ---
 
+# 62B. Product Discount (Implemented, Product Discounts V1)
+
+Migration `20261011090000_add_product_discounts` (purely additive):
+
+| Table | Column | Notes |
+| --- | --- | --- |
+| `products` | `discount_type` (`product_discount_type`: PERCENTAGE / FIXED_AMOUNT), `discount_value` DECIMAL(14,2), `discount_enabled` BOOLEAN NOT NULL DEFAULT false, `discount_starts_on` DATE, `discount_ends_on` DATE | All NULL / false for existing products. Dates are calendar dates in the Branch timezone, inclusive both ends. |
+| `order_items` | `discount_amount` DECIMAL(14,2) NOT NULL DEFAULT 0, `discount_type_snapshot`, `discount_value_snapshot` | `unit_price` keeps meaning "price before discount". |
+| `orders` | `discount_total_amount` DECIMAL(14,2) NOT NULL DEFAULT 0 | `subtotal_amount` stays the net payable items subtotal. |
+
+CHECK constraints (defense in depth; the application validates first):
+`products_discount_shape_check` (type and value both set or both null; value > 0; percentage <= 100), `products_discount_enabled_needs_value_check`, `products_discount_dates_check` (end >= start), `order_items_discount_amount_non_negative`, `orders_discount_total_non_negative`.
+
+No backfill: `discount_amount = 0` is correct for every existing order, and
+`line_total = (unit_price + modifiers) * quantity - discount_amount` reduces to
+the historical formula. Rollback before any discount exists: drop the columns
+and the enum; afterwards disable (`discount_enabled = false`) instead.
+
+---
+
 # 63. Product Status (Implemented, Day 1 Menu Vertical Slice Batch B)
 
 `product_status` enum:

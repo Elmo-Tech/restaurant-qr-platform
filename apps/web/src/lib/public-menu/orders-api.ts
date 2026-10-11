@@ -38,6 +38,12 @@ export type SubmitGuestOrderResult =
   | { outcome: 'deliveryZoneInvalid' }
   | { outcome: 'deliveryUnavailable' }
   | { outcome: 'minimumNotMet'; zoneName: string | null; minimumOrder: string | null }
+  /**
+   * Product Discounts V1: a discount started, ended or changed since the Guest
+   * saw the total (422 PRICE_CHANGED, API_CONVENTIONS.md #75). Nothing was created; `total` is the
+   * Backend's current total payable (display hint only -- the menu is refetched).
+   */
+  | { outcome: 'priceChanged'; total: string | null }
   | { outcome: 'networkError' };
 
 /**
@@ -75,6 +81,8 @@ export async function submitGuestOrder(
   pickup: SubmitPickupCheckout | null = null,
   /** The menu content language the Guest is browsing in; the Backend localizes Branch and zone names in the confirmation with it. Display only. */
   locale: string | null = null,
+  /** The total payable the Guest was shown (a staleness check only -- the Backend recomputes every amount). */
+  expectedTotal: string | null = null,
 ): Promise<SubmitGuestOrderResult> {
   try {
     const body = await apiFetch<{ data: GuestOrderView }>(
@@ -84,6 +92,7 @@ export async function submitGuestOrder(
         body: {
           clientRequestId,
           ...(locale ? { locale } : {}),
+          ...(expectedTotal ? { expectedTotal } : {}),
           items,
           ...(pickup
             ? {
@@ -141,6 +150,11 @@ export async function submitGuestOrder(
       }
       if (error.code === 'TABLE_ORDERING_UNAVAILABLE') {
         return { outcome: 'tableOrderingUnavailable' };
+      }
+      if (error.code === 'PRICE_CHANGED') {
+        const details = (error.details ?? {}) as { pricing?: { total?: unknown } };
+        const total = details.pricing?.total;
+        return { outcome: 'priceChanged', total: typeof total === 'string' ? total : null };
       }
       if (error.code === 'QR_NOT_FOUND') {
         return { outcome: 'notFound' };

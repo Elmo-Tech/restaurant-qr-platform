@@ -255,6 +255,7 @@ describe('OrdersService.getOrderDetail', () => {
         delivery: null,
         subtotalAmount: '100.00',
         deliveryFee: '0.00',
+        discountTotal: '0.00',
         currencyCode: 'EGP',
         totalAmount: '100.00',
         items: [
@@ -263,6 +264,7 @@ describe('OrdersService.getOrderDetail', () => {
             productNameSnapshot: 'Burger',
             unitPrice: '100.00',
             quantity: 1,
+            discountAmount: '0.00',
             lineTotal: '100.00',
             modifiers: [],
           },

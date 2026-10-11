@@ -3,6 +3,7 @@
 import type { ReactNode } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { createPortal } from 'react-dom';
+import { fromMinorUnits, toMinorUnits } from '../../../../../lib/public-menu/money';
 import type { OrderDetail } from '../../../../../lib/orders/types';
 import { orderStatusLabel } from './StatusBadge';
 import { orderTypeLabel } from './OrderTypeBadge';
@@ -45,6 +46,7 @@ export function OrderReceipt({ order, logoUrl = null }: { order: OrderDetail; lo
   if (typeof document === 'undefined') return null;
 
   const isDelivery = order.type === 'DELIVERY';
+  const hasDiscount = order.discountTotal !== '0.00';
   const isDineIn = order.type === 'DINE_IN';
   const money = (amount: string) => (
     <Num>
@@ -145,6 +147,14 @@ export function OrderReceipt({ order, logoUrl = null }: { order: OrderDetail; lo
                 <p>
                   {money(item.unitPrice)} {t('orders.receipt.each')}
                 </p>
+                {item.discountAmount !== '0.00' ? (
+                  <p className="flex justify-between gap-2">
+                    <span>{t('orders.receipt.discount')}</span>
+                    <span className="whitespace-nowrap">
+                      <Num>{`−${item.discountAmount}`}</Num>
+                    </span>
+                  </p>
+                ) : null}
                 {item.modifiers.map((modifier, modifierIndex) => (
                   <p key={modifierIndex} className="flex justify-between gap-2">
                     <span>
@@ -165,10 +175,27 @@ export function OrderReceipt({ order, logoUrl = null }: { order: OrderDetail; lo
         <Divider />
 
         <dl className="flex flex-col gap-0.5">
-          {isDelivery ? (
+          {isDelivery || hasDiscount ? (
             <>
-              <Row label={t('orders.receipt.subtotal')} value={money(order.subtotalAmount)} />
-              <Row label={t('orders.receipt.deliveryFee')} value={money(order.deliveryFee)} />
+              <Row
+                label={t('orders.receipt.subtotal')}
+                value={money(
+                  hasDiscount
+                    ? fromMinorUnits(
+                        toMinorUnits(order.subtotalAmount) + toMinorUnits(order.discountTotal),
+                      )
+                    : order.subtotalAmount,
+                )}
+              />
+              {hasDiscount ? (
+                <Row
+                  label={t('orders.receipt.discount')}
+                  value={`−${money(order.discountTotal)}`}
+                />
+              ) : null}
+              {isDelivery ? (
+                <Row label={t('orders.receipt.deliveryFee')} value={money(order.deliveryFee)} />
+              ) : null}
             </>
           ) : null}
           <div className="flex items-baseline justify-between gap-2 pt-1 text-[16px] font-bold">

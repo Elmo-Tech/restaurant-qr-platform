@@ -108,6 +108,12 @@ export interface PublicMenuCopy {
   yourDetails: string;
   deliveryAddressSection: string;
   minimumShortfall: (amount: string, currency: string) => string;
+  discountPercentOff: (percent: string) => string;
+  discountAmountOff: (amount: string, currency: string) => string;
+  discountLabel: string;
+  originalPriceAria: string;
+  discountedPriceAria: string;
+  priceChangedError: string;
   orderSummary: string;
   selectBranchFirst: string;
   notAvailableNow: string;
@@ -250,6 +256,13 @@ const EN_COPY: PublicMenuCopy = {
   yourDetails: 'Your details',
   deliveryAddressSection: 'Address',
   minimumShortfall: (amount, currency) => `Add ${amount} ${currency} more to place a delivery order.`,
+  discountPercentOff: (percent) => `${percent}% OFF`,
+  discountAmountOff: (amount, currency) => `Save ${amount} ${currency}`,
+  discountLabel: 'Discount',
+  originalPriceAria: 'Original price',
+  discountedPriceAria: 'Price now',
+  priceChangedError:
+    'Prices changed while you were ordering. Your total has been updated: please review it and place your order again.',
   orderSummary: 'Order summary',
   selectBranchFirst: 'Choose a branch to see delivery areas.',
   notAvailableNow: 'Not available right now',
@@ -388,6 +401,13 @@ const AR_COPY: PublicMenuCopy = {
   yourDetails: 'بياناتك',
   deliveryAddressSection: 'العنوان',
   minimumShortfall: (amount, currency) => `أضف ${amount} ${currency} لإتمام طلب التوصيل.`,
+  discountPercentOff: (percent) => `خصم ${percent}%`,
+  discountAmountOff: (amount, currency) => `وفّر ${amount} ${currency}`,
+  discountLabel: 'الخصم',
+  originalPriceAria: 'السعر الأصلي',
+  discountedPriceAria: 'السعر الآن',
+  priceChangedError:
+    'تغيّرت الأسعار أثناء طلبك. تم تحديث الإجمالي، يرجى مراجعته ثم إرسال الطلب مرة أخرى.',
   orderSummary: 'ملخص الطلب',
   selectBranchFirst: 'اختر الفرع لعرض مناطق التوصيل.',
   notAvailableNow: 'غير متاح حاليًا',

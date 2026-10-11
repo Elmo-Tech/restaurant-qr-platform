@@ -5,6 +5,7 @@ import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
 import { IconClose } from '../../../../../components/staff/icons';
+import { fromMinorUnits, toMinorUnits } from '../../../../../lib/public-menu/money';
 import type { OrderDetail, OrderStatus } from '../../../../../lib/orders/types';
 import type { OrderTransitionOption } from '../../../../../lib/orders/transitions';
 import type { MessageKey } from '../../../../../lib/i18n/messages';
@@ -100,6 +101,7 @@ export function OrderDetailDialog({
     return t(TRANSITION_KEYS[to]);
   }
   const showFee = isDelivery;
+  const hasDiscount = order.discountTotal !== '0.00';
 
   return (
     <>
@@ -293,6 +295,16 @@ export function OrderDetailDialog({
                             {t('orders.detail.each', { price: item.unitPrice, currency: order.currencyCode })}
                           </bdi>
                         </p>
+                        {item.discountAmount !== '0.00' ? (
+                          <p className="mt-0.5 text-xs font-semibold text-success">
+                            <bdi dir="ltr">
+                              {t('orders.detail.itemDiscount', {
+                                amount: item.discountAmount,
+                                currency: order.currencyCode,
+                              })}
+                            </bdi>
+                          </p>
+                        ) : null}
                       </div>
                     </div>
                     <p className="flex-shrink-0 text-sm font-semibold text-foreground">
@@ -308,20 +320,36 @@ export function OrderDetailDialog({
             <OrderTimeline history={order.statusHistory} type={order.type} />
 
             <div className="flex flex-col gap-2 rounded-lg bg-muted px-4 py-3">
-              {showFee ? (
+              {showFee || hasDiscount ? (
                 <>
                   <div className="flex items-baseline justify-between text-sm text-muted-foreground">
                     <span>{t('orders.detail.subtotal')}</span>
                     <bdi dir="ltr">
-                      {order.subtotalAmount} {order.currencyCode}
+                      {hasDiscount
+                        ? fromMinorUnits(
+                            toMinorUnits(order.subtotalAmount) + toMinorUnits(order.discountTotal),
+                          )
+                        : order.subtotalAmount}{' '}
+                      {order.currencyCode}
                     </bdi>
                   </div>
-                  <div className="flex items-baseline justify-between text-sm text-muted-foreground">
-                    <span>{t('orders.detail.deliveryFee')}</span>
-                    <bdi dir="ltr">
-                      {order.deliveryFee} {order.currencyCode}
-                    </bdi>
-                  </div>
+                  {hasDiscount ? (
+                    <div className="flex items-baseline justify-between text-sm font-semibold text-success">
+                      <span>{t('orders.detail.discount')}</span>
+                      <bdi dir="ltr">
+                        {'−'}
+                        {order.discountTotal} {order.currencyCode}
+                      </bdi>
+                    </div>
+                  ) : null}
+                  {showFee ? (
+                    <div className="flex items-baseline justify-between text-sm text-muted-foreground">
+                      <span>{t('orders.detail.deliveryFee')}</span>
+                      <bdi dir="ltr">
+                        {order.deliveryFee} {order.currencyCode}
+                      </bdi>
+                    </div>
+                  ) : null}
                 </>
               ) : null}
               <div className="flex items-baseline justify-between">

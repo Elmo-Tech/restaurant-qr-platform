@@ -108,6 +108,14 @@ enum ProductAvailability {
   @@map("product_availability")
 }
 
+// Product Discounts V1 (PROMOTIONS_SPEC.md #3): the only two discount types.
+enum ProductDiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+
+  @@map("product_discount_type")
+}
+
 // FT-5: matches ORDER_LIFECYCLE_SPEC.md #16 and the already-established
 // `orders.accept`/`orders.reject`/`orders.cancel`/`orders.markServed`/
 // `kitchen.update` Permission constants exactly -- these values are the
@@ -394,10 +402,10 @@ model CategoryTranslation {
 }
 
 model Product {
-  id                    String              @id @default(uuid()) @db.Uuid
-  publicId              String              @unique @map("public_id")
-  restaurantId          String              @map("restaurant_id") @db.Uuid
-  categoryId            String              @map("category_id") @db.Uuid
+  id                    String               @id @default(uuid()) @db.Uuid
+  publicId              String               @unique @map("public_id")
+  restaurantId          String               @map("restaurant_id") @db.Uuid
+  categoryId            String               @map("category_id") @db.Uuid
   // No database default, mirrors Menu/Category.status.
   status                ProductStatus
   // Independent from status (DATABASE_SPEC.md #63-64, MENU_SPEC.md #11):
@@ -408,13 +416,23 @@ model Product {
   // Fixed-precision money (DATABASE_SPEC.md #13-14) -- never Float/Double.
   // Non-negative enforced by the products_base_price_non_negative CHECK
   // constraint (custom migration SQL), not by application validation alone.
-  basePrice             Decimal             @map("base_price") @db.Decimal(14, 2)
-  primaryImageAssetPath String?             @map("primary_image_asset_path")
-  displayOrder          Int                 @map("display_order")
-  allowCustomerNotes    Boolean             @map("allow_customer_notes")
+  basePrice             Decimal              @map("base_price") @db.Decimal(14, 2)
+  primaryImageAssetPath String?              @map("primary_image_asset_path")
+  displayOrder          Int                  @map("display_order")
+  allowCustomerNotes    Boolean              @map("allow_customer_notes")
   featured              Boolean
-  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+  // Product Discounts V1: one optional product-level discount. The shape,
+  // 0 < value (<= 100 for PERCENTAGE) and end >= start are CHECK constraints in
+  // the migration. Dates are calendar dates interpreted in the Branch timezone
+  // when pricing is evaluated (never stored as instants), so expiry is
+  // automatic and needs no job. `discountEnabled` is the manual switch.
+  discountType          ProductDiscountType? @map("discount_type")
+  discountValue         Decimal?             @map("discount_value") @db.Decimal(14, 2)
+  discountEnabled       Boolean              @default(false) @map("discount_enabled")
+  discountStartsOn      DateTime?            @map("discount_starts_on") @db.Date
+  discountEndsOn        DateTime?            @map("discount_ends_on") @db.Date
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz
 
   // Product.restaurantId == Category.restaurantId is a cross-row Tenant
   // invariant enforced by Batch D application write logic and Tenant-scoped
@@ -827,6 +845,9 @@ model Order {
   // Orders were backfilled that way).
   subtotalAmount            Decimal     @map("subtotal_amount") @db.Decimal(14, 2)
   deliveryFeeAmount         Decimal     @map("delivery_fee_amount") @db.Decimal(14, 2)
+  // Product Discounts V1: sum of the items' discountAmount (informational;
+  // `subtotalAmount` is already the payable items total after discounts).
+  discountTotalAmount       Decimal     @default(0) @map("discount_total_amount") @db.Decimal(14, 2)
   // FT-8: DELIVERY-only snapshots (null otherwise). The zone reference is
   // for traceability only -- historical rendering always uses the snapshots.
   deliveryZoneId            String?     @map("delivery_zone_id") @db.Uuid
@@ -1081,20 +1102,28 @@ model DeliveryZoneTranslation {
 }
 
 model OrderItem {
-  id                  String   @id @default(uuid()) @db.Uuid
-  orderId             String   @map("order_id") @db.Uuid
-  productId           String   @map("product_id") @db.Uuid
+  id                    String               @id @default(uuid()) @db.Uuid
+  orderId               String               @map("order_id") @db.Uuid
+  productId             String               @map("product_id") @db.Uuid
   // Section 9/ORDER_LIFECYCLE_SPEC.md #39: the Restaurant default-locale
   // Product name at submission time -- a later Product rename must never
   // rewrite historical Order meaning.
-  productNameSnapshot String   @map("product_name_snapshot")
+  productNameSnapshot   String               @map("product_name_snapshot")
   // Product.basePrice at submission time (Section 8) -- same exact
   // Decimal(14,2) shape as Product itself, never Float/Double.
-  unitPrice           Decimal  @map("unit_price") @db.Decimal(14, 2)
-  quantity            Int
-  // unitPrice * quantity, computed server-side only.
-  lineTotal           Decimal  @map("line_total") @db.Decimal(14, 2)
-  createdAt           DateTime @default(now()) @map("created_at") @db.Timestamptz
+  unitPrice             Decimal              @map("unit_price") @db.Decimal(14, 2)
+  quantity              Int
+  // (unitPrice - unit discount + modifiers) * quantity, computed server-side
+  // only; equals the historical (unitPrice + modifiers) * quantity when
+  // discountAmount is 0.
+  lineTotal             Decimal              @map("line_total") @db.Decimal(14, 2)
+  // Product Discounts V1: the TOTAL discount taken off this line
+  // (unit discount * quantity) and the configuration that produced it. Pure
+  // history -- later product or discount edits never touch these.
+  discountAmount        Decimal              @default(0) @map("discount_amount") @db.Decimal(14, 2)
+  discountTypeSnapshot  ProductDiscountType? @map("discount_type_snapshot")
+  discountValueSnapshot Decimal?             @map("discount_value_snapshot") @db.Decimal(14, 2)
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz
 
   order     Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
   // Restrict, mirroring every other Product foreign key in this schema --

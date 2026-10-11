@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { resolveLocalizedName } from '../common/name-translations';
+import {
+  dateOnlyString,
+  localDateIn,
+  resolveActiveDiscount,
+} from '../menu/product-discount';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import type { OrderStatus, OrderType } from '../generated/prisma/client';
@@ -23,6 +28,13 @@ export interface CreateGuestOrderInput {
   clientRequestId: string;
   /** The Guest's resolved menu content language (display only): used to localize Branch and zone names in the confirmation. Never authority. */
   locale?: string;
+  /**
+   * The total payable the Guest was shown (decimal string). A staleness check
+   * only: when it differs from the Backend's own total (a discount started,
+   * ended or changed while the cart was open) NOTHING is created and the
+   * current total is returned (PROMOTIONS_SPEC.md #46-48). Never used as a price.
+   */
+  expectedTotal?: string;
   items: CreateGuestOrderItemInput[];
   /** FT-7, GENERIC QR (Pickup) only: the Guest's chosen Pickup Branch. Never authority -- always re-validated against the Restaurant's ACTIVE Branches. Ignored entirely for a TABLE QR. */
   branchId?: string;
@@ -51,7 +63,10 @@ export interface GuestOrderItemView {
   productId: string;
   name: string;
   quantity: number;
+  /** The price of one unit BEFORE any product discount. */
   unitPrice: string;
+  /** Product Discounts V1: the total discount taken off this line ("0.00" when none). `lineTotal` is already net of it. */
+  discountAmount: string;
   lineTotal: string;
   modifiers: GuestOrderItemModifierView[];
 }
@@ -71,9 +86,11 @@ export interface GuestOrderView {
   pickupBranch: { name: string } | null;
   /** FT-8: DELIVERY only -- Branch and zone display names (null otherwise). */
   delivery: { branchName: string; zoneName: string } | null;
-  /** FT-8: exact money breakdown -- subtotal + deliveryFee = total. deliveryFee is 0.00 for DINE_IN/PICKUP. */
+  /** FT-8: exact money breakdown -- subtotal + deliveryFee = total. deliveryFee is 0.00 for DINE_IN/PICKUP. `subtotal` is already net of product discounts. */
   subtotal: string;
   deliveryFee: string;
+  /** Product Discounts V1: sum of the items' discounts ("0.00" when none). */
+  discountTotal: string;
   items: GuestOrderItemView[];
 }
 
@@ -98,6 +115,17 @@ export type CreateGuestOrderResult =
   | { outcome: 'deliveryZoneInvalid' }
   /** FT-8: items subtotal is below the zone's minimum order. Values come from the Backend's own zone row. */
   | { outcome: 'minimumOrderNotMet'; zoneName: string; minimumOrder: string }
+  /** Product Discounts V1: the displayed total is stale; `total` is the Backend's current payable total. Nothing was created. */
+  | {
+      outcome: 'priceChanged';
+      /** The CURRENT authoritative amounts (API_CONVENTIONS.md #75 `details.pricing`). */
+      pricing: {
+        subtotal: string;
+        discountTotal: string;
+        total: string;
+        currencyCode: string;
+      };
+    }
   /** Table Sessions: a TABLE QR whose table is locked by staff (no OPEN session and a staff open is required). Never produced for Pickup/Delivery. */
   | { outcome: 'tableOrderingUnavailable' };
 
@@ -110,6 +138,7 @@ interface OrderViewRow {
   type: OrderType;
   subtotalAmount: Prisma.Decimal;
   deliveryFeeAmount: Prisma.Decimal;
+  discountTotalAmount?: Prisma.Decimal;
   deliveryZoneNameSnapshot: string | null;
   table: { tableNumber: string } | null;
   branch: { name: string; translations?: { locale: string; name: string }[] };
@@ -121,6 +150,7 @@ interface OrderViewRow {
     unitPrice: Prisma.Decimal;
     quantity: number;
     lineTotal: Prisma.Decimal;
+    discountAmount?: Prisma.Decimal;
     modifiers: {
       modifierGroupNameSnapshot: string;
       modifierOptionNameSnapshot: string;
@@ -138,6 +168,7 @@ const ORDER_VIEW_SELECT = {
   type: true,
   subtotalAmount: true,
   deliveryFeeAmount: true,
+  discountTotalAmount: true,
   deliveryZoneNameSnapshot: true,
   table: { select: { tableNumber: true } },
   branch: {
@@ -154,6 +185,7 @@ const ORDER_VIEW_SELECT = {
       unitPrice: true,
       quantity: true,
       lineTotal: true,
+      discountAmount: true,
       modifiers: {
         select: {
           modifierGroupNameSnapshot: true,
@@ -203,11 +235,13 @@ function toGuestOrderView(order: OrderViewRow, locale?: string): GuestOrderView 
         : null,
     subtotal: order.subtotalAmount.toFixed(2),
     deliveryFee: order.deliveryFeeAmount.toFixed(2),
+    discountTotal: (order.discountTotalAmount ?? new Prisma.Decimal(0)).toFixed(2),
     items: order.items.map((item) => ({
       productId: item.productId,
       name: item.productNameSnapshot,
       quantity: item.quantity,
       unitPrice: item.unitPrice.toFixed(2),
+      discountAmount: (item.discountAmount ?? new Prisma.Decimal(0)).toFixed(2),
       lineTotal: item.lineTotal.toFixed(2),
       modifiers: item.modifiers.map((modifier) => ({
         groupName: modifier.modifierGroupNameSnapshot,
@@ -229,6 +263,17 @@ class ItemsUnavailableError extends Error {}
 
 /** FT-8: thrown inside the transaction when the zone is not a valid ACTIVE zone of the resolved Branch. */
 class DeliveryZoneInvalidError extends Error {}
+
+/** Product Discounts V1: thrown inside the transaction when the displayed total is stale; rolls everything back. */
+class PriceChangedError extends Error {
+  constructor(
+    readonly subtotal: Prisma.Decimal,
+    readonly discountTotal: Prisma.Decimal,
+    readonly total: Prisma.Decimal,
+  ) {
+    super('displayed total no longer matches the current price');
+  }
+}
 
 /** FT-8: thrown inside the transaction when the items subtotal is below the zone minimum. */
 class MinimumOrderNotMetError extends Error {
@@ -327,6 +372,7 @@ export class PublicOrdersService {
         restaurant: {
           select: { status: true, defaultLocale: true, currencyCode: true },
         },
+        branch: { select: { timezone: true } },
         table: { select: { tableNumber: true, status: true } },
       },
     });
@@ -342,6 +388,9 @@ export class PublicOrdersService {
     // Order type and where Branch/Table authority comes from.
     let orderType: OrderType;
     let branchId: string;
+    // Product Discounts V1: the date window is evaluated in THIS Branch's
+    // timezone (never the server's); UTC only if a timezone cannot be read.
+    let branchTimezone = 'UTC';
     let tableId: string | null;
     let customerName: string | null = null;
     let customerPhone: string | null = null;
@@ -369,6 +418,7 @@ export class PublicOrdersService {
       orderType = 'DINE_IN';
       branchId = qr.branchId;
       tableId = qr.tableId;
+      branchTimezone = qr.branch?.timezone ?? 'UTC';
     } else {
       // GENERIC QR -> PICKUP (default) or DELIVERY (no Table). The Guest
       // chooses only the fulfillment MODE; anything else about the Order
@@ -403,7 +453,7 @@ export class PublicOrdersService {
         where: isDelivery
           ? { restaurantId, status: 'ACTIVE', deliveryZones: { some: { status: 'ACTIVE' } } }
           : { restaurantId, status: 'ACTIVE' },
-        select: { id: true },
+        select: { id: true, timezone: true },
       });
       if (eligibleBranches.length === 0) {
         return { outcome: isDelivery ? 'deliveryUnavailable' : 'pickupUnavailable' };
@@ -418,6 +468,8 @@ export class PublicOrdersService {
       } else {
         return { outcome: 'branchRequired' };
       }
+      branchTimezone =
+        eligibleBranches.find((branch) => branch.id === branchId)?.timezone ?? 'UTC';
       orderType = isDelivery ? 'DELIVERY' : 'PICKUP';
       tableId = null;
     }
@@ -482,6 +534,11 @@ export class PublicOrdersService {
           select: {
             id: true,
             basePrice: true,
+            discountType: true,
+            discountValue: true,
+            discountEnabled: true,
+            discountStartsOn: true,
+            discountEndsOn: true,
             translations: {
               where: { locale: defaultLocale },
               select: { name: true },
@@ -531,7 +588,11 @@ export class PublicOrdersService {
           throw new ItemsUnavailableError();
         }
 
+        // Product Discounts V1: today's calendar date in the order Branch's
+        // timezone, shared by every line of this order.
+        const today = localDateIn(branchTimezone, new Date());
         let total = new Prisma.Decimal(0);
+        let discountTotal = new Prisma.Decimal(0);
         const itemsData = input.items.map((item) => {
           const product = productById.get(item.productId);
           const productNameSnapshot = product?.translations[0]?.name;
@@ -627,8 +688,29 @@ export class PublicOrdersService {
             (sum, selection) => sum.plus(selection.priceAdjustment),
             new Prisma.Decimal(0),
           );
-          const lineTotal = unitPrice.plus(modifiersTotal).times(item.quantity);
+          // Product Discounts V1: the discount comes only from the product row
+          // read inside this transaction -- never from the request. It applies
+          // to the base price per unit (paid extras are never discounted); the
+          // line is (price - unit discount + extras) * quantity.
+          const applied = resolveActiveDiscount(
+            product.basePrice,
+            {
+              type: product.discountType,
+              value: product.discountValue,
+              enabled: product.discountEnabled,
+              startsOn: dateOnlyString(product.discountStartsOn),
+              endsOn: dateOnlyString(product.discountEndsOn),
+            },
+            today,
+          );
+          const unitDiscount = applied?.unitDiscount ?? new Prisma.Decimal(0);
+          const lineDiscount = unitDiscount.times(item.quantity);
+          const lineTotal = unitPrice
+            .minus(unitDiscount)
+            .plus(modifiersTotal)
+            .times(item.quantity);
           total = total.plus(lineTotal);
+          discountTotal = discountTotal.plus(lineDiscount);
 
           return {
             productId: item.productId,
@@ -636,6 +718,9 @@ export class PublicOrdersService {
             unitPrice,
             quantity: item.quantity,
             lineTotal,
+            discountAmount: lineDiscount,
+            discountTypeSnapshot: applied?.type ?? null,
+            discountValueSnapshot: applied?.value ?? null,
             modifiers: {
               create: selections.map((selection, index) => ({
                 modifierGroupId: selection.groupId,
@@ -688,6 +773,16 @@ export class PublicOrdersService {
           deliveryZoneNameSnapshot = zone.name;
         }
 
+        // Product Discounts V1 (PROMOTIONS_SPEC.md #46-48): if the total the Guest
+        // was shown no longer matches (a discount started, ended or changed), do
+        // not silently charge the new amount -- roll back and report it.
+        if (input.expectedTotal !== undefined) {
+          const authoritativeTotal = subtotal.plus(deliveryFee);
+          if (!new Prisma.Decimal(input.expectedTotal).equals(authoritativeTotal)) {
+            throw new PriceChangedError(subtotal, discountTotal, authoritativeTotal);
+          }
+        }
+
         return tx.order.create({
           data: {
             restaurantId,
@@ -709,6 +804,7 @@ export class PublicOrdersService {
             currencyCode,
             subtotalAmount: subtotal,
             deliveryFeeAmount: deliveryFee,
+            discountTotalAmount: discountTotal,
             totalAmount: subtotal.plus(deliveryFee),
             deliveryZoneId: orderType === 'DELIVERY' ? deliveryZoneId : null,
             deliveryZoneNameSnapshot,
@@ -748,6 +844,17 @@ export class PublicOrdersService {
       }
       if (error instanceof DeliveryZoneInvalidError) {
         return { outcome: 'deliveryZoneInvalid' };
+      }
+      if (error instanceof PriceChangedError) {
+        return {
+          outcome: 'priceChanged',
+          pricing: {
+            subtotal: error.subtotal.toFixed(2),
+            discountTotal: error.discountTotal.toFixed(2),
+            total: error.total.toFixed(2),
+            currencyCode,
+          },
+        };
       }
       if (error instanceof MinimumOrderNotMetError) {
         return {

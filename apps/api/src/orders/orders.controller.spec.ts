@@ -37,6 +37,7 @@ const SAMPLE_DETAIL: OrderDetail = {
   delivery: null,
   subtotalAmount: '100.00',
   deliveryFee: '0.00',
+  discountTotal: '0.00',
   currencyCode: 'EGP',
   totalAmount: '100.00',
   items: [],

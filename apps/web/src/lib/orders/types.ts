@@ -40,6 +40,8 @@ export interface OrderItemView {
   productNameSnapshot: string;
   unitPrice: string;
   quantity: number;
+  /** Product Discounts V1: total discount taken off this line ("0.00" when none); `lineTotal` is already net of it. `unitPrice` is the price BEFORE the discount. */
+  discountAmount: string;
   lineTotal: string;
   modifiers: OrderItemModifierView[];
 }
@@ -68,6 +70,8 @@ export interface OrderDetail {
   /** FT-8: exact money breakdown -- subtotalAmount + deliveryFee = totalAmount. */
   subtotalAmount: string;
   deliveryFee: string;
+  /** Product Discounts V1: sum of the items' discounts ("0.00" when none); `subtotalAmount` is already net of it. */
+  discountTotal: string;
   currencyCode: string;
   totalAmount: string;
   items: OrderItemView[];

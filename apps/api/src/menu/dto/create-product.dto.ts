@@ -10,6 +10,7 @@ import {
   Min,
 } from 'class-validator';
 import { IsMoneyDecimalString } from '../money-decimal';
+import { ProductDiscountDto, ProductDiscountProperty } from './product-discount.dto';
 
 /** Trims a string value; leaves non-string values untouched for @IsString() to reject. */
 function trim(value: unknown): unknown {
@@ -86,4 +87,8 @@ export class CreateProductDto {
 
   @IsBoolean()
   featured!: boolean;
+
+  /** Product Discounts V1: optional product-level discount (omitted or null = none). */
+  @ProductDiscountProperty()
+  discount?: ProductDiscountDto | null;
 }
