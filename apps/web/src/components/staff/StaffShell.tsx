@@ -92,7 +92,9 @@ export function StaffShell({
           {
             label: pathname.includes('/settings/delivery')
               ? t('settings.tab.delivery')
-              : pathname.includes('/settings/branches')
+              : pathname.includes('/settings/guest-qr')
+                ? t('settings.tab.guestQr')
+                : pathname.includes('/settings/branches')
                 ? t('settings.tab.branches')
                 : pathname.includes('/settings/languages')
                   ? t('settings.tab.languages')
@@ -118,7 +120,10 @@ export function StaffShell({
         ];
 
   return (
-    <div className="flex min-h-screen bg-background">
+    // `overflow-x-clip`: nothing inside the shell (a wide row, an off-screen element) may ever
+    // make the page scroll sideways. The content column itself is `min-w-0 flex-1`, so it can
+    // only ever take the width left beside the sidebar.
+    <div className="flex min-h-screen w-full max-w-full overflow-x-clip bg-background">
       <RestaurantSidebar
         restaurantId={restaurantId}
         restaurantName={restaurantName}
@@ -134,7 +139,7 @@ export function StaffShell({
         onCloseMobile={() => setIsMobileNavOpen(false)}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-w-0 max-w-full flex-1 flex-col">
         <StaffTopbar
           onOpenMobileNav={() => setIsMobileNavOpen(true)}
           userEmail={userEmail}
@@ -148,7 +153,7 @@ export function StaffShell({
             left gutter on wide viewports. Left-anchored with a generous
             (not huge) max-width instead: content starts right after the
             page gutter, and only stops growing on very large monitors. */}
-        <main className="w-full max-w-[1600px] flex-1 px-4 py-6 sm:px-8 lg:px-10">
+        <main className="w-full min-w-0 max-w-[1600px] flex-1 px-4 py-6 sm:px-8 lg:px-10">
           {children}
         </main>
       </div>

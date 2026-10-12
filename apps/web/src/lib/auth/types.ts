@@ -34,6 +34,16 @@ export interface AuthContextRestaurant {
   logoAssetPath: string | null;
   /** Backend-relative asset path of the Guest Menu cover image, or `null` when none is set. */
   coverAssetPath: string | null;
+  /** Restaurant QR order types (Settings -> Restaurant QR): `false` stops that type of order. */
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+  /** QR appearance (Settings -> Restaurant QR): applied to the Restaurant QR and the table QR panels. */
+  qrStyle: {
+    foregroundColor: string;
+    backgroundColor: string;
+    showLogo: boolean;
+    showName: boolean;
+  };
 }
 
 export interface AuthContextBranch {

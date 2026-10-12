@@ -1,4 +1,26 @@
+import type { MessageKey } from '../i18n/messages';
 import type { OrderStatus, OrderType } from './types';
+
+/**
+ * The action label for a target status -- shared by the Orders page and the
+ * Table Session panel so both read exactly the same. (Pickup / Delivery word
+ * SERVED differently; that stays in the Orders detail view.)
+ */
+export const TRANSITION_LABEL_KEYS = {
+  PENDING: 'orders.action.reopen',
+  ACCEPTED: 'orders.action.accept',
+  PREPARING: 'orders.action.startPreparing',
+  READY: 'orders.action.markReady',
+  OUT_FOR_DELIVERY: 'orders.action.outForDelivery',
+  SERVED: 'orders.action.markServed',
+  REJECTED: 'orders.action.reject',
+  CANCELLED: 'orders.action.cancel',
+} as const satisfies Record<OrderStatus, MessageKey>;
+
+/** Reject / Cancel end the order: shown apart from the forward action. */
+export function isDestructiveTransition(to: OrderStatus): boolean {
+  return to === 'REJECTED' || to === 'CANCELLED';
+}
 
 /**
  * FT-5: a client-side MIRROR of the Backend's `order-transitions.ts` --

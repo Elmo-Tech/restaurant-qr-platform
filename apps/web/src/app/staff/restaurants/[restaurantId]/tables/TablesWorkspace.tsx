@@ -4,7 +4,9 @@ import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react'
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { localizedName } from '../../../../../lib/i18n/localized-name';
 import * as tablesApi from '../../../../../lib/tables/api';
-import type { TableRow } from '../../../../../lib/tables/types';
+import type { TableQr, TableRow } from '../../../../../lib/tables/types';
+import { resolveAssetUrl } from '../../../../../lib/media/asset-url';
+import type { QrStyle } from '../../../../../lib/qr/style';
 import type { AuthContextBranch } from '../../../../../lib/auth/types';
 import {
   describeError,
@@ -12,31 +14,25 @@ import {
   redirectToLogin,
 } from '../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../components/ui/Alert';
-import { Badge } from '../../../../../components/ui/Badge';
 import { Button } from '../../../../../components/ui/Button';
-import { Card } from '../../../../../components/ui/Card';
+import { ChipGroup, type ChipOption } from '../../../../../components/ui/ChipGroup';
+import { EmptyState } from '../../../../../components/ui/EmptyState';
 import { Dialog } from '../../../../../components/ui/Dialog';
 import { FormField } from '../../../../../components/ui/FormField';
 import { Input } from '../../../../../components/ui/Input';
 import { Select } from '../../../../../components/ui/Select';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../components/ui/PageHeader';
-import { IconPencil, IconPlus, IconQr } from '../../../../../components/staff/icons';
-import { GenericQrCard } from './GenericQrCard';
+import { IconPlus, IconSearch, IconTable } from '../../../../../components/staff/icons';
 import { QrPreviewDialog } from './QrPreviewDialog';
 import * as sessionsApi from '../../../../../lib/table-sessions/api';
 import type { SessionCapabilities } from '../../../../../lib/table-sessions/capabilities';
 import type { TableBoardRow } from '../../../../../lib/table-sessions/types';
-import { minutesBetween, useNow } from '../../../../../lib/table-sessions/use-now';
+import { useNow } from '../../../../../lib/table-sessions/use-now';
 import { OpenSessionDialog } from './SessionActionDialogs';
-import {
-  LifecycleBadge,
-  Money,
-  OrderingBadge,
-  useDurationLabel,
-} from './SessionBadges';
 import { SessionDrawer, type SessionDrawerIntent } from './SessionDrawer';
 import { SessionHistoryPanel } from './SessionHistoryPanel';
+import { TableCard, tableViewState, type TableViewState } from './TableCard';
 
 export interface TablesWorkspaceProps {
   restaurantId: string;
@@ -45,11 +41,15 @@ export interface TablesWorkspaceProps {
   branches: AuthContextBranch[];
   /** `tables.manage`, Branch-scoped (Section 5/6) -- Table management is authorized per-assigned-Branch on the Backend, unlike Menu's Restaurant-wide `allBranches` requirement. */
   canManage: boolean;
-  /** FT-9: `tables.manage` AND full Restaurant branch scope -- the Restaurant-wide Generic QR is not Branch-scoped. */
-  canManageGenericQr: boolean;
   webOrigin: string;
   /** Table Sessions: UX-only capabilities derived from the Membership permissions (the Backend enforces). */
   sessionCaps: SessionCapabilities;
+  /** The Membership's permission keys: the session panel offers only the order actions they allow (UX only). */
+  permissions: string[];
+  /** The Restaurant's saved QR appearance, applied to the table QR panel. */
+  qrStyle: QrStyle;
+  /** Restaurant logo path (drawn in the QR center when the style asks for it). */
+  logoAssetPath: string | null;
 }
 
 interface TableFormState {
@@ -57,6 +57,30 @@ interface TableFormState {
 }
 
 const EMPTY_FORM: TableFormState = { tableNumber: '' };
+
+/** Status filter chips. Counts and matching use only the board data already loaded. */
+type TableFilter = 'all' | 'open' | 'pending' | 'closed' | 'idle';
+const FILTERS: readonly TableFilter[] = ['all', 'open', 'pending', 'closed', 'idle'];
+
+/** Operational filters over the board data already loaded. They describe the session, so they also hold for a table that was deactivated while a session was still open. */
+function matchesFilter(
+  entry: { state: TableViewState | null; board: TableBoardRow | null },
+  filter: TableFilter,
+): boolean {
+  const board = entry.board;
+  switch (filter) {
+    case 'all':
+      return true;
+    case 'open':
+      return board?.openSession != null;
+    case 'pending':
+      return (board?.openSession?.pendingOrderCount ?? 0) > 0;
+    case 'closed':
+      return board?.ordering === 'CLOSED_BY_STAFF';
+    case 'idle':
+      return board !== null && board.openSession === null;
+  }
+}
 
 /**
  * FT-4: the Staff Tables & QR workspace. Owns Branch selection and Table
@@ -76,9 +100,11 @@ export function TablesWorkspace({
   restaurantName,
   branches,
   canManage,
-  canManageGenericQr,
   webOrigin,
   sessionCaps,
+  permissions,
+  qrStyle,
+  logoAssetPath,
 }: TablesWorkspaceProps) {
   const { t, locale } = useStaffI18n();
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(
@@ -99,6 +125,8 @@ export function TablesWorkspace({
   // from the Backend per Branch; sessions are viewed in a panel, never on a second
   // disconnected screen. Past sessions stay reachable through the history view.
   const [view, setView] = useState<'tables' | 'past'>('tables');
+  const [search, setSearch] = useState('');
+  const [statusFilter, setStatusFilter] = useState<TableFilter>('all');
   const [board, setBoard] = useState<TableBoardRow[] | null>(null);
   const [boardError, setBoardError] = useState<string | null>(null);
   const [drawerTarget, setDrawerTarget] = useState<{
@@ -113,6 +141,16 @@ export function TablesWorkspace({
   const boardRequestRef = useRef(0);
 
   const tablesRequestRef = useRef(0);
+
+  // Lazy per-card QR status: `undefined` = not asked yet, `'error'` = the lookup failed
+  // (shown as "unavailable", never as "no active QR"), `null` = confirmed none.
+  const [qrByTable, setQrByTable] = useState<Record<string, TableQr | null | 'error'>>({});
+  const [qrError, setQrError] = useState<string | null>(null);
+  const qrQueueRef = useRef<string[]>([]);
+  const qrSeenRef = useRef<Set<string>>(new Set());
+  const qrActiveRef = useRef(0);
+  const qrGenerationRef = useRef(0);
+  const selectedBranchRef = useRef<string | null>(null);
   const tableNumberRef = useRef<HTMLInputElement>(null);
 
   const loadTables = useCallback(
@@ -122,21 +160,16 @@ export function TablesWorkspace({
       setTablesError(null);
       try {
         const list = await tablesApi.listTables(restaurantId, branchId);
-        const enriched = await Promise.all(
-          list.map(async (row) => {
-            try {
-              const detail = await tablesApi.getTableDetail(restaurantId, branchId, row.id);
-              return { ...row, qr: detail.qr };
-            } catch {
-              // A per-row QR lookup failing must never blank out the whole
-              // list -- the row still renders, just without a known QR
-              // status (treated as "no active QR" until a retry succeeds).
-              return { ...row, qr: null };
-            }
-          }),
-        );
         if (tablesRequestRef.current !== requestId) return;
-        setTables(enriched);
+        // The list carries no QR information (a settled Backend contract). A
+        // card asks for its own QR status when it scrolls into view -- never
+        // one request per table up front, which for 50 tables is 50 requests
+        // on every load and trips the rate limit.
+        qrGenerationRef.current += 1;
+        qrQueueRef.current = [];
+        qrSeenRef.current = new Set();
+        setQrByTable({});
+        setTables(list.map((row) => ({ ...row, qr: null })));
       } catch (error) {
         if (tablesRequestRef.current !== requestId) return;
         if (isUnauthenticatedError(error)) {
@@ -147,6 +180,48 @@ export function TablesWorkspace({
       }
     },
     [restaurantId],
+  );
+
+  const pumpQr = useCallback(() => {
+    // At most 4 lookups in flight; each finished one starts the next queued one.
+    function pump() {
+      const branchId = selectedBranchRef.current;
+      if (!branchId) return;
+      while (qrActiveRef.current < 4 && qrQueueRef.current.length > 0) {
+        const tableId = qrQueueRef.current.shift() as string;
+        const generation = qrGenerationRef.current;
+        qrActiveRef.current += 1;
+        tablesApi
+          .getTableDetail(restaurantId, branchId, tableId)
+          .then((detail) => {
+            if (qrGenerationRef.current !== generation) return;
+            setQrByTable((prev) => ({ ...prev, [tableId]: detail.qr }));
+          })
+          .catch((error: unknown) => {
+            if (qrGenerationRef.current !== generation) return;
+            if (isUnauthenticatedError(error)) {
+              redirectToLogin();
+              return;
+            }
+            setQrByTable((prev) => ({ ...prev, [tableId]: 'error' }));
+          })
+          .finally(() => {
+            qrActiveRef.current -= 1;
+            pump();
+          });
+      }
+    }
+    pump();
+  }, [restaurantId]);
+
+  const requestQr = useCallback(
+    (tableId: string) => {
+      if (qrSeenRef.current.has(tableId)) return;
+      qrSeenRef.current.add(tableId);
+      qrQueueRef.current.push(tableId);
+      pumpQr();
+    },
+    [pumpQr],
   );
 
   const loadBoard = useCallback(
@@ -172,6 +247,10 @@ export function TablesWorkspace({
     },
     [restaurantId, sessionCaps.canView],
   );
+
+  useEffect(() => {
+    selectedBranchRef.current = selectedBranchId;
+  }, [selectedBranchId]);
 
   useEffect(() => {
     // `queueMicrotask` here is purely to satisfy eslint-plugin-react-hooks'
@@ -226,6 +305,29 @@ export function TablesWorkspace({
     }
   }
 
+  async function handleViewQr(table: TableRow) {
+    let qr = qrByTable[table.id];
+    if ((qr === undefined || qr === 'error') && selectedBranchId) {
+      setQrError(null);
+      try {
+        const detail = await tablesApi.getTableDetail(restaurantId, selectedBranchId, table.id);
+        qr = detail.qr;
+        setQrByTable((prev) => ({ ...prev, [table.id]: detail.qr }));
+      } catch (error) {
+        if (isUnauthenticatedError(error)) {
+          redirectToLogin();
+          return;
+        }
+        setQrByTable((prev) => ({ ...prev, [table.id]: 'error' }));
+        setQrError(describeError(error));
+        return;
+      }
+    }
+    if (qr && qr !== 'error') {
+      setQrTarget({ ...table, qr });
+    }
+  }
+
   const boardByTable = new Map((board ?? []).map((row) => [row.table.id, row]));
   const showTables = view === 'tables';
 
@@ -269,6 +371,8 @@ export function TablesWorkspace({
         // Section 8: the new Table's QR is already known from the Create
         // response itself -- inserted immediately, never a full refetch
         // the User has to wait on to see confirmation.
+        setQrByTable((prev) => ({ ...prev, [created.table.id]: created.qr }));
+        qrSeenRef.current.add(created.table.id);
         setTables((prev) => {
           const next = [
             ...(prev ?? []),
@@ -300,6 +404,25 @@ export function TablesWorkspace({
 
   const selectedBranch = branches.find((branch) => branch.id === selectedBranchId) ?? null;
   const selectedBranchName = selectedBranch ? localizedName(selectedBranch, locale) : null;
+
+  // ---- search + status filter, over data that is already loaded -------------
+  const now = useNow();
+  const entries = (tables ?? []).map((table) => {
+    const board = sessionCaps.canView ? (boardByTable.get(table.id) ?? null) : null;
+    return { table, board, state: tableViewState(table, board) };
+  });
+  const query = search.trim().toLowerCase();
+  const searched = entries.filter(
+    (entry) => query === '' || entry.table.tableNumber.toLowerCase().includes(query),
+  );
+  const visibleEntries = searched.filter((entry) => matchesFilter(entry, statusFilter));
+  const showFilters =
+    sessionCaps.canView && board !== null && tables !== null && tables.length > 0;
+  const filterOptions: ChipOption<TableFilter>[] = FILTERS.map((value) => ({
+    value,
+    label: t(`tables.filter.${value}` as const),
+    count: searched.filter((entry) => matchesFilter(entry, value)).length,
+  }));
 
   const dialog = (
     <Dialog
@@ -337,7 +460,7 @@ export function TablesWorkspace({
   );
 
   return (
-    <div className="flex flex-col gap-6">
+    <div className="flex min-w-0 max-w-full flex-col gap-5">
       <PageHeader
         title={t('tables.title')}
         description={t('tables.subtitle')}
@@ -350,67 +473,85 @@ export function TablesWorkspace({
         }
       />
 
-      <GenericQrCard
-        restaurantId={restaurantId}
-        restaurantName={restaurantName}
-        canManage={canManageGenericQr}
-        webOrigin={webOrigin}
-      />
-
       {branches.length === 0 ? (
         <Alert variant="error">
           {t('guard.noBranch')}
         </Alert>
       ) : (
         <>
-          {branches.length > 1 && showTables ? (
-            <div className="max-w-xs">
-              <FormField label={t('tables.branch')} htmlFor="branch-select">
-                <Select
-                  id="branch-select"
-                  value={selectedBranchId ?? ''}
-                  onChange={(event) => setSelectedBranchId(event.target.value)}
-                >
-                  {branches.map((branch) => (
-                    <option key={branch.id} value={branch.id}>
-                      {localizedName(branch, locale)}
-                    </option>
-                  ))}
-                </Select>
-              </FormField>
-            </div>
-          ) : null}
+          {/* one toolbar: view, branch, search, refresh */}
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-3">
+            {sessionCaps.canView ? (
+              <ChipGroup
+                variant="segmented"
+                ariaLabel={t('tables.title')}
+                value={view}
+                onChange={setView}
+                options={[
+                  { value: 'tables', label: t('sessions.view.tables') },
+                  { value: 'past', label: t('sessions.view.past') },
+                ]}
+              />
+            ) : null}
 
-          {sessionCaps.canView ? (
-            <div role="group" aria-label={t('tables.title')} className="flex flex-wrap items-center gap-2">
-              {(['tables', 'past'] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  aria-pressed={view === option}
-                  onClick={() => setView(option)}
-                  className={`h-9 rounded-md border px-3 text-sm font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring ${
-                    view === option
-                      ? 'border-primary bg-accent text-accent-foreground'
-                      : 'border-border bg-secondary text-secondary-foreground hover:bg-muted'
-                  }`}
-                >
-                  {t(`sessions.view.${option}` as const)}
-                </button>
-              ))}
+            {branches.length > 1 && showTables ? (
+              <Select
+                aria-label={t('tables.branch')}
+                className="w-full sm:w-52"
+                value={selectedBranchId ?? ''}
+                onChange={(event) => {
+                  setSelectedBranchId(event.target.value);
+                  setStatusFilter('all');
+                }}
+              >
+                {branches.map((branch) => (
+                  <option key={branch.id} value={branch.id}>
+                    {localizedName(branch, locale)}
+                  </option>
+                ))}
+              </Select>
+            ) : null}
+
+            {showTables ? (
+              <div role="search" className="relative min-w-[200px] flex-1 sm:max-w-xs">
+                <IconSearch className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  type="search"
+                  value={search}
+                  onChange={(event) => setSearch(event.target.value)}
+                  aria-label={t('tables.search.label')}
+                  placeholder={t('tables.search.placeholder')}
+                  className="ps-9"
+                  dir="auto"
+                />
+              </div>
+            ) : null}
+
+            {sessionCaps.canView ? (
               <Button
                 variant="ghost"
-                size="sm"
+                className="ms-auto"
                 onClick={() => selectedBranchId && handleSessionChanged()}
               >
                 {t('sessions.refresh')}
               </Button>
-            </div>
+            ) : null}
+          </div>
+
+          {showTables && showFilters ? (
+            <ChipGroup
+              ariaLabel={t('tables.filter.aria')}
+              options={filterOptions}
+              value={statusFilter}
+              onChange={setStatusFilter}
+            />
           ) : null}
 
           {sessionCaps.canView && boardError && showTables ? (
             <Alert variant="error">{boardError}</Alert>
           ) : null}
+
+          {showTables && qrError ? <Alert variant="error">{qrError}</Alert> : null}
 
           {sessionCaps.canView && view === 'past' ? (
             <SessionHistoryPanel
@@ -444,29 +585,64 @@ export function TablesWorkspace({
           ) : null}
 
           {showTables && tables !== null && tables.length === 0 ? (
-            <Card className="flex flex-col items-center gap-2 py-10 text-center">
-              <p className="text-sm font-medium text-foreground">{t('tables.empty.title')}</p>
-              <p className="text-sm text-muted-foreground">{t('tables.empty.hint')}</p>
-              {canManage ? (
-                <Button className="mt-2" onClick={startCreate}>
-                  <IconPlus className="me-1.5 h-4 w-4" /> {t('tables.new')}
-                </Button>
-              ) : null}
-            </Card>
+            <EmptyState
+              compact
+              icon={<IconTable className="h-6 w-6" />}
+              title={t('tables.empty.title')}
+              description={t('tables.empty.hint')}
+              action={
+                canManage ? (
+                  <Button onClick={startCreate}>
+                    <IconPlus className="me-1.5 h-4 w-4" /> {t('tables.new')}
+                  </Button>
+                ) : undefined
+              }
+            />
           ) : null}
 
-          {showTables && tables !== null && tables.length > 0 ? (
-            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-              {tables.map((table) => (
+          {showTables && tables !== null && tables.length > 0 && visibleEntries.length === 0 ? (
+            <EmptyState
+              compact
+              icon={<IconSearch className="h-6 w-6" />}
+              title={t('tables.filter.noMatch.title')}
+              description={t('tables.filter.noMatch.hint')}
+              action={
+                <Button
+                  variant="secondary"
+                  onClick={() => {
+                    setSearch('');
+                    setStatusFilter('all');
+                  }}
+                >
+                  {t('tables.filter.clear')}
+                </Button>
+              }
+            />
+          ) : null}
+
+          {showTables && visibleEntries.length > 0 ? (
+            <div className="@container min-w-0">
+            <div className="grid grid-cols-1 gap-4 @[41rem]:grid-cols-2 @[58rem]:grid-cols-3">
+              {visibleEntries.map(({ table: listed, board }) => {
+                const qrEntry = qrByTable[listed.id];
+                const table: TableRow = {
+                  ...listed,
+                  qr: qrEntry && qrEntry !== 'error' ? qrEntry : null,
+                };
+                const qrState =
+                  qrEntry === undefined ? 'loading' : qrEntry === 'error' ? 'error' : 'known';
+                return (
                 <TableCard
                   key={table.id}
                   table={table}
-                  branchName={selectedBranchName}
+                  qrState={qrState}
+                  onNeedQr={requestQr}
                   canManage={canManage}
                   onEdit={() => startEdit(table)}
-                  onViewQr={() => setQrTarget(table)}
-                  board={sessionCaps.canView ? (boardByTable.get(table.id) ?? null) : null}
+                  onViewQr={() => void handleViewQr(table)}
+                  board={board}
                   sessionCaps={sessionCaps}
+                  now={now}
                   onOpenSession={() => {
                     setOpenError(null);
                     setOpenTarget(table);
@@ -477,7 +653,9 @@ export function TablesWorkspace({
                     setView('past');
                   }}
                 />
-              ))}
+                );
+              })}
+            </div>
             </div>
           ) : null}
         </>
@@ -503,6 +681,7 @@ export function TablesWorkspace({
           restaurantId={restaurantId}
           sessionId={drawerTarget.id}
           caps={sessionCaps}
+          permissions={permissions}
           intent={drawerTarget.intent}
           onClose={() => setDrawerTarget(null)}
           onChanged={handleSessionChanged}
@@ -518,163 +697,11 @@ export function TablesWorkspace({
             publicCode: qrTarget.qr.publicCode,
           }}
           guestUrl={`${webOrigin}/q/${qrTarget.qr.publicCode}`}
+          qrStyle={qrStyle}
+          logoUrl={resolveAssetUrl(logoAssetPath)}
           onClose={() => setQrTarget(null)}
         />
       ) : null}
     </div>
-  );
-}
-
-function TableCard({
-  table,
-  branchName,
-  canManage,
-  onEdit,
-  onViewQr,
-  board,
-  sessionCaps,
-  onOpenSession,
-  onViewSession,
-  onViewHistory,
-}: {
-  table: TableRow;
-  branchName: string | null;
-  canManage: boolean;
-  onEdit: () => void;
-  onViewQr: () => void;
-  /** Table Sessions board row for this table (null when sessions are not viewable or still loading). */
-  board: TableBoardRow | null;
-  sessionCaps: SessionCapabilities;
-  onOpenSession: () => void;
-  onViewSession: (sessionId: string, intent?: SessionDrawerIntent) => void;
-  onViewHistory: () => void;
-}) {
-  const { t, tp } = useStaffI18n();
-  const now = useNow();
-  const durationLabel = useDurationLabel();
-  const hasActiveQr = table.qr !== null && table.qr.status === 'ACTIVE';
-  const open = board?.openSession ?? null;
-
-  return (
-    <Card className="flex flex-col gap-3">
-      <div className="flex items-start justify-between gap-2">
-        <div className="min-w-0">
-          <p dir="auto" className="truncate text-start text-base font-semibold text-foreground">
-            {t('tables.card.title', { number: table.tableNumber })}
-          </p>
-          {branchName ? (
-            <p dir="auto" className="text-start text-xs text-muted-foreground">
-              {branchName}
-            </p>
-          ) : null}
-        </div>
-        {canManage ? (
-          <button
-            type="button"
-            onClick={onEdit}
-            aria-label={t('tables.card.editAria', { number: table.tableNumber })}
-            className="inline-flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted hover:text-primary"
-          >
-            <IconPencil className="h-3.5 w-3.5" />
-          </button>
-        ) : null}
-      </div>
-
-      <div className="flex flex-wrap items-center gap-2">
-        <Badge variant={table.status === 'ACTIVE' ? 'success' : 'neutral'}>
-          {table.status === 'ACTIVE' ? t('common.active') : t('common.inactive')}
-        </Badge>
-        <Badge variant={hasActiveQr ? 'primary' : 'neutral'}>
-          {hasActiveQr ? t('tables.card.activeQr') : t('tables.card.noActiveQr')}
-        </Badge>
-      </div>
-
-      {board ? (
-        <div className="flex flex-col gap-2.5 border-t border-border pt-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <OrderingBadge state={board.ordering} />
-            {open ? (
-              <LifecycleBadge status={open.status} />
-            ) : null}
-          </div>
-
-          {open ? (
-            <dl className="grid grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
-              <div>
-                <dt className="text-muted-foreground">{t('sessions.card.acceptedTotal')}</dt>
-                <dd className="text-sm font-semibold text-foreground">
-                  <Money amount={open.totals.acceptedTotal} currency={open.currencyCode} />
-                </dd>
-              </div>
-              <div>
-                <dt className="text-muted-foreground">{t('sessions.detail.duration')}</dt>
-                <dd className="text-sm font-medium text-foreground">
-                  <bdi dir="auto">{durationLabel(minutesBetween(open.openedAt, now))}</bdi>
-                </dd>
-              </div>
-              <div>
-                <dt className="sr-only">{t('sessions.detail.rounds')}</dt>
-                <dd className="text-foreground">{tp('sessions.card.orders', open.orderCount)}</dd>
-              </div>
-              {open.pendingOrderCount > 0 ? (
-                <div>
-                  <dd className="font-medium text-warning">
-                    {tp('sessions.card.pending', open.pendingOrderCount)}
-                  </dd>
-                </div>
-              ) : null}
-            </dl>
-          ) : board.ordering === 'CLOSED_BY_STAFF' ? (
-            <p className="text-xs text-muted-foreground">
-              {t('sessions.availabilityHint.CLOSED_BY_STAFF')}
-            </p>
-          ) : (
-            <p className="text-xs text-muted-foreground">{t('sessions.noOpenSession')}</p>
-          )}
-
-          <div className="flex flex-wrap gap-2">
-            {open ? (
-              <>
-                <Button variant="secondary" size="sm" onClick={() => onViewSession(open.id)}>
-                  {t('sessions.action.view')}
-                </Button>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  onClick={() => onViewSession(open.id, 'summary')}
-                >
-                  {t('sessions.action.summary')}
-                </Button>
-                {sessionCaps.canClose ? (
-                  <Button
-                    variant="secondary"
-                    size="sm"
-                    onClick={() => onViewSession(open.id, 'close')}
-                  >
-                    {t('sessions.action.close')}
-                  </Button>
-                ) : null}
-              </>
-            ) : null}
-            {!open && board.ordering !== 'UNAVAILABLE' && sessionCaps.canOpen ? (
-              <Button size="sm" onClick={onOpenSession}>
-                {t('sessions.action.open')}
-              </Button>
-            ) : null}
-            <Button variant="ghost" size="sm" onClick={onViewHistory}>
-              {t('sessions.action.history')}
-            </Button>
-          </div>
-        </div>
-      ) : null}
-
-      {hasActiveQr ? (
-        <Button variant="secondary" className="mt-1 justify-center" onClick={onViewQr}>
-          <IconQr className="me-1.5 h-4 w-4" /> {t('tables.card.viewQr')}
-        </Button>
-      ) : (
-        <p className="mt-1 text-xs text-muted-foreground">{t('tables.card.noQrHint')}</p>
-      )}
-    </Card>
   );
 }

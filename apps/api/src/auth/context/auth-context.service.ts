@@ -33,6 +33,16 @@ export interface AuthContextRestaurant {
   logoAssetPath: string | null;
   /** Guest Menu cover image (Restaurant Settings -> Profile). Null when none has been uploaded. */
   coverAssetPath: string | null;
+  /** Restaurant QR order types (Restaurant Settings -> Restaurant QR). False stops that type of order. */
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+  /** QR appearance (Settings -> Restaurant QR), applied to the Restaurant QR and Table QR panels. */
+  qrStyle: {
+    foregroundColor: string;
+    backgroundColor: string;
+    showLogo: boolean;
+    showName: boolean;
+  };
 }
 
 /**
@@ -131,6 +141,12 @@ export class AuthContextService {
             defaultLocale: true,
             logoAssetPath: true,
             coverAssetPath: true,
+            pickupEnabled: true,
+            deliveryEnabled: true,
+            qrForegroundColor: true,
+            qrBackgroundColor: true,
+            qrShowLogo: true,
+            qrShowName: true,
           },
         },
       },
@@ -252,6 +268,14 @@ export class AuthContextService {
           defaultLocale: membership.restaurant.defaultLocale,
           logoAssetPath: membership.restaurant.logoAssetPath,
           coverAssetPath: membership.restaurant.coverAssetPath,
+          pickupEnabled: membership.restaurant.pickupEnabled,
+          deliveryEnabled: membership.restaurant.deliveryEnabled,
+          qrStyle: {
+            foregroundColor: membership.restaurant.qrForegroundColor,
+            backgroundColor: membership.restaurant.qrBackgroundColor,
+            showLogo: membership.restaurant.qrShowLogo,
+            showName: membership.restaurant.qrShowName,
+          },
         },
         branches: membership.allBranches
           ? (branchesByRestaurantId.get(membership.restaurant.id) ?? [])

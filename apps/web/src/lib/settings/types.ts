@@ -24,3 +24,9 @@ export interface RestaurantProfile {
   logoAssetPath: string | null;
   coverAssetPath: string | null;
 }
+
+/** Mirrors the Backend's `PATCH /restaurants/:id/ordering-options` response. */
+export interface RestaurantOrderingOptions {
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+}

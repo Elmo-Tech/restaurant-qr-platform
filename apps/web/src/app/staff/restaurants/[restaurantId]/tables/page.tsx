@@ -1,11 +1,7 @@
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../lib/auth/session';
 import { getStaffI18n } from '../../../../../lib/i18n/server';
-import {
-  canManageGenericQr,
-  canManageTables,
-  canViewTables,
-} from '../../../../../lib/tables/capabilities';
+import { canManageTables, canViewTables } from '../../../../../lib/tables/capabilities';
 import { getWebOrigin } from '../../../../../lib/env/web-origin';
 import { sessionCapabilities } from '../../../../../lib/table-sessions/capabilities';
 import { Alert } from '../../../../../components/ui/Alert';
@@ -72,9 +68,11 @@ export default async function TablesPage({ params }: TablesPageProps) {
       restaurantName={membership.restaurant.name}
       branches={membership.branches}
       canManage={canManageTables(membership)}
-      canManageGenericQr={canManageGenericQr(membership)}
       webOrigin={getWebOrigin()}
       sessionCaps={sessionCapabilities(membership)}
+      permissions={membership.permissions}
+      qrStyle={membership.restaurant.qrStyle}
+      logoAssetPath={membership.restaurant.logoAssetPath}
     />
   );
 }

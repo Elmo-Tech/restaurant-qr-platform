@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
-import QRCode from 'qrcode';
+import { useEffect, useRef } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { Button } from '../../../../../components/ui/Button';
 import { Alert } from '../../../../../components/ui/Alert';
 import { IconClose } from '../../../../../components/staff/icons';
+import { DEFAULT_QR_STYLE, type QrStyle } from '../../../../../lib/qr/style';
+import { useQrImage } from '../../../../../lib/qr/use-qr-image';
 
 export interface QrPreviewTarget {
   restaurantName: string;
@@ -43,31 +44,40 @@ function sanitizeFilenameSegment(value: string): string {
 export function QrPreviewDialog({
   target,
   guestUrl,
+  qrStyle = DEFAULT_QR_STYLE,
+  logoUrl = null,
   onClose,
 }: {
   target: QrPreviewTarget;
   guestUrl: string;
+  /** The Restaurant's saved QR appearance (Settings > Restaurant QR). */
+  qrStyle?: QrStyle;
+  /** Absolute URL of the restaurant logo, drawn in the center when the style asks for it. */
+  logoUrl?: string | null;
   onClose: () => void;
 }) {
   const { t } = useStaffI18n();
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
-  const [dataUrl, setDataUrl] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  // The same renderer as the Restaurant QR designer: colors, centered logo, quiet zone,
+  // error correction level H. The name / table lines around it stay real, printable text.
+  const image = useQrImage({
+    url: guestUrl,
+    foregroundColor: qrStyle.foregroundColor,
+    backgroundColor: qrStyle.backgroundColor,
+    logoUrl: qrStyle.showLogo ? logoUrl : null,
+    size: 640,
+  });
+  const dataUrl = image.dataUrl;
+  const error = image.failed ? t('tables.qr.generateError') : null;
 
+  // Hand focus back to whatever opened the panel when it goes away (keyboard users keep their place).
   useEffect(() => {
-    let cancelled = false;
-    QRCode.toDataURL(guestUrl, { width: 320, margin: 1 })
-      .then((url) => {
-        if (!cancelled) setDataUrl(url);
-      })
-      .catch(() => {
-        if (!cancelled) setError(t('tables.qr.generateError'));
-      });
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     return () => {
-      cancelled = true;
+      if (opener && opener.isConnected && opener !== document.body) opener.focus();
     };
-  }, [guestUrl, t]);
+  }, []);
 
   useEffect(() => {
     closeButtonRef.current?.focus();
@@ -140,9 +150,11 @@ export function QrPreviewDialog({
         id="qr-print-section"
         className="hidden print:fixed print:inset-0 print:z-[100] print:flex print:flex-col print:items-center print:justify-center print:gap-3 print:bg-white print:text-center"
       >
-        <p dir="auto" className="text-base font-semibold text-foreground">
-          {target.restaurantName}
-        </p>
+        {qrStyle.showName ? (
+          <p dir="auto" className="text-base font-semibold text-foreground">
+            {target.restaurantName}
+          </p>
+        ) : null}
         {target.branchName ? (
           <p dir="auto" className="text-sm text-muted-foreground">
             {target.branchName}
@@ -207,9 +219,11 @@ export function QrPreviewDialog({
               {error ? <Alert variant="error">{error}</Alert> : null}
 
               <div className="flex w-full flex-col items-center gap-3 text-center">
-                <p dir="auto" className="text-sm font-semibold text-foreground">
-                  {target.restaurantName}
-                </p>
+                {qrStyle.showName ? (
+                  <p dir="auto" className="text-sm font-semibold text-foreground">
+                    {target.restaurantName}
+                  </p>
+                ) : null}
                 {target.branchName ? (
                   <p dir="auto" className="-mt-2 text-xs text-muted-foreground">
                     {target.branchName}

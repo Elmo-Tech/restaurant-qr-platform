@@ -370,7 +370,13 @@ export class PublicOrdersService {
         branchId: true,
         tableId: true,
         restaurant: {
-          select: { status: true, defaultLocale: true, currencyCode: true },
+          select: {
+            status: true,
+            defaultLocale: true,
+            currencyCode: true,
+            pickupEnabled: true,
+            deliveryEnabled: true,
+          },
         },
         branch: { select: { timezone: true } },
         table: { select: { tableNumber: true, status: true } },
@@ -424,6 +430,15 @@ export class PublicOrdersService {
       // chooses only the fulfillment MODE; anything else about the Order
       // type/Branch/fee is resolved here from the database.
       const isDelivery = input.fulfillment === 'DELIVERY';
+      // Restaurant-wide switch (Settings -> Restaurant QR): a type staff switched off
+      // is refused before anything else, with the same outcome as "no eligible branch".
+      if (
+        isDelivery
+          ? qr.restaurant.deliveryEnabled === false
+          : qr.restaurant.pickupEnabled === false
+      ) {
+        return { outcome: isDelivery ? 'deliveryUnavailable' : 'pickupUnavailable' };
+      }
       customerName = input.customerName?.trim() || null;
       customerPhone = input.customerPhone?.trim() || null;
       customerNotes = input.customerNotes?.trim() || null;

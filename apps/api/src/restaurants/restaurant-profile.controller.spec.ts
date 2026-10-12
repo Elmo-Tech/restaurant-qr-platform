@@ -130,3 +130,103 @@ describe('RestaurantProfileController', () => {
     });
   });
 });
+
+describe('RestaurantProfileController.updateOrderingOptions', () => {
+  /* eslint-disable @typescript-eslint/unbound-method */
+  const handler = RestaurantProfileController.prototype.updateOrderingOptions;
+  /* eslint-enable @typescript-eslint/unbound-method */
+
+  it('declares the Restaurant-structural guard chain and restaurant.manage', () => {
+    const guards = Reflect.getMetadata(GUARDS_METADATA, handler) as unknown[];
+    expect(guards).toEqual([
+      AuthGuard,
+      CsrfGuard,
+      RestaurantAccessGuard,
+      PermissionGuard,
+      AllBranchesRequiredGuard,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSION_KEY, handler)).toBe(
+      PERMISSIONS.RESTAURANT_MANAGE,
+    );
+  });
+
+  it('scopes by the authorized restaurantId and wraps the result in a data envelope', async () => {
+    const service = {
+      updateOrderingOptions: jest
+        .fn()
+        .mockResolvedValue({ pickupEnabled: false, deliveryEnabled: true }),
+    };
+    const controller = new RestaurantProfileController(service as never, {} as never);
+
+    const body = await controller.updateOrderingOptions(
+      { pickupEnabled: false },
+      buildRequest('restaurant-1'),
+    );
+
+    expect(service.updateOrderingOptions).toHaveBeenCalledWith({
+      restaurantId: 'restaurant-1',
+      pickupEnabled: false,
+      deliveryEnabled: undefined,
+    });
+    expect(body).toEqual({ data: { pickupEnabled: false, deliveryEnabled: true } });
+  });
+});
+
+describe('RestaurantProfileController.updateQrStyle', () => {
+  /* eslint-disable @typescript-eslint/unbound-method */
+  const handler = RestaurantProfileController.prototype.updateQrStyle;
+  /* eslint-enable @typescript-eslint/unbound-method */
+
+  it('declares the Restaurant-structural guard chain and restaurant.manage', () => {
+    const guards = Reflect.getMetadata(GUARDS_METADATA, handler) as unknown[];
+    expect(guards).toEqual([
+      AuthGuard,
+      CsrfGuard,
+      RestaurantAccessGuard,
+      PermissionGuard,
+      AllBranchesRequiredGuard,
+    ]);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSION_KEY, handler)).toBe(
+      PERMISSIONS.RESTAURANT_MANAGE,
+    );
+  });
+
+  it('wraps an accepted style in a data envelope, scoped by the authorized restaurantId', async () => {
+    const style = {
+      foregroundColor: '#14532D',
+      backgroundColor: '#F0FDF4',
+      showLogo: false,
+      showName: true,
+    };
+    const service = {
+      updateQrStyle: jest.fn().mockResolvedValue({ outcome: 'updated', data: style }),
+    };
+    const controller = new RestaurantProfileController(service as never, {} as never);
+
+    const body = await controller.updateQrStyle(
+      { foregroundColor: '#14532D' },
+      buildRequest('restaurant-1'),
+    );
+
+    expect(service.updateQrStyle).toHaveBeenCalledWith(
+      expect.objectContaining({ restaurantId: 'restaurant-1', foregroundColor: '#14532D' }),
+    );
+    expect(body).toEqual({ data: style });
+  });
+
+  it('maps a refused style to 400 with its stable code', async () => {
+    const service = {
+      updateQrStyle: jest
+        .fn()
+        .mockResolvedValue({ outcome: 'invalid', code: 'QR_STYLE_LOW_CONTRAST' }),
+    };
+    const controller = new RestaurantProfileController(service as never, {} as never);
+
+    await expect(
+      controller.updateQrStyle({ foregroundColor: '#BBBBBB' }, buildRequest('restaurant-1')),
+    ).rejects.toMatchObject({
+      status: 400,
+      response: { error: { code: 'QR_STYLE_LOW_CONTRAST' } },
+    });
+  });
+});

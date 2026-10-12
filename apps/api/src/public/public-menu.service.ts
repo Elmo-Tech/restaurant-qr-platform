@@ -235,6 +235,8 @@ export class PublicMenuService {
             currencyCode: true,
             logoAssetPath: true,
             coverAssetPath: true,
+            pickupEnabled: true,
+            deliveryEnabled: true,
           },
         },
         // At most one row per platform locale, so no extra filtering is needed.
@@ -544,14 +546,19 @@ export class PublicMenuService {
         translations,
         legacyName,
       });
+    // Staff can switch Pickup and / or Delivery off for the whole Restaurant: the
+    // Guest then sees no branch for that type, exactly as if none were eligible.
+    // (`!== false`: only an explicit off switches a type off.)
+    const pickupOffered = qr.restaurant.pickupEnabled !== false;
+    const deliveryOffered = qr.restaurant.deliveryEnabled !== false;
     const pickupBranches = activeBranches
-      ? activeBranches.map((branch) => ({
+      ? (pickupOffered ? activeBranches : []).map((branch) => ({
           id: branch.id,
           name: displayName(branch.name, branch.translations),
         }))
       : null;
     const deliveryBranches = activeBranches
-      ? activeBranches
+      ? (deliveryOffered ? activeBranches : [])
           .filter((branch) => branch.deliveryZones.length > 0)
           .map((branch) => ({
             id: branch.id,

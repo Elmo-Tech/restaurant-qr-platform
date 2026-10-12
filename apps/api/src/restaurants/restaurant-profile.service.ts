@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { validateQrStyle, type QrStyle, type QrStyleErrorCode } from './qr-style';
 
 /** Safe Restaurant Profile shape -- never `publicId`, `status`, `currencyCode`/`defaultLocale` mutation authority, `createdAt`/`updatedAt`. */
 export interface RestaurantProfile {
@@ -8,6 +9,30 @@ export interface RestaurantProfile {
   /** Guest Menu hero cover image; null keeps the default branded hero. */
   coverAssetPath: string | null;
 }
+
+/** The two Restaurant QR order-type switches. */
+export interface RestaurantOrderingOptions {
+  pickupEnabled: boolean;
+  deliveryEnabled: boolean;
+}
+
+export interface UpdateOrderingOptionsInput {
+  restaurantId: string;
+  pickupEnabled?: boolean;
+  deliveryEnabled?: boolean;
+}
+
+export interface UpdateQrStyleInput {
+  restaurantId: string;
+  foregroundColor?: string;
+  backgroundColor?: string;
+  showLogo?: boolean;
+  showName?: boolean;
+}
+
+export type UpdateQrStyleResult =
+  | { outcome: 'updated'; data: QrStyle }
+  | { outcome: 'invalid'; code: QrStyleErrorCode };
 
 export interface UpdateRestaurantProfileInput {
   restaurantId: string;
@@ -65,6 +90,61 @@ export type ClearRestaurantCoverResult = {
 @Injectable()
 export class RestaurantProfileService {
   constructor(private readonly prisma: PrismaService) {}
+
+  /**
+   * Change the QR appearance. The sent fields are merged onto the stored style and
+   * the RESULT must stay scannable (dark modules, enough contrast) and must not
+   * show a logo the Restaurant does not have -- otherwise nothing is written.
+   */
+  async updateQrStyle(input: UpdateQrStyleInput): Promise<UpdateQrStyleResult> {
+    const current = await this.prisma.restaurant.findUniqueOrThrow({
+      where: { id: input.restaurantId },
+      select: {
+        qrForegroundColor: true,
+        qrBackgroundColor: true,
+        qrShowLogo: true,
+        qrShowName: true,
+        logoAssetPath: true,
+      },
+    });
+
+    const next: QrStyle = {
+      foregroundColor: input.foregroundColor ?? current.qrForegroundColor,
+      backgroundColor: input.backgroundColor ?? current.qrBackgroundColor,
+      showLogo: input.showLogo ?? current.qrShowLogo,
+      showName: input.showName ?? current.qrShowName,
+    };
+    const code = validateQrStyle(next, current.logoAssetPath !== null);
+    if (code) {
+      return { outcome: 'invalid', code };
+    }
+
+    await this.prisma.restaurant.update({
+      where: { id: input.restaurantId },
+      data: {
+        qrForegroundColor: next.foregroundColor,
+        qrBackgroundColor: next.backgroundColor,
+        qrShowLogo: next.showLogo,
+        qrShowName: next.showName,
+      },
+    });
+    return { outcome: 'updated', data: next };
+  }
+
+  /** Switch Pickup and / or Delivery on or off. Only the fields that were sent are written. */
+  async updateOrderingOptions(
+    input: UpdateOrderingOptionsInput,
+  ): Promise<RestaurantOrderingOptions> {
+    const data: { pickupEnabled?: boolean; deliveryEnabled?: boolean } = {};
+    if (input.pickupEnabled !== undefined) data.pickupEnabled = input.pickupEnabled;
+    if (input.deliveryEnabled !== undefined) data.deliveryEnabled = input.deliveryEnabled;
+
+    return this.prisma.restaurant.update({
+      where: { id: input.restaurantId },
+      data,
+      select: { pickupEnabled: true, deliveryEnabled: true },
+    });
+  }
 
   async updateProfile(input: UpdateRestaurantProfileInput): Promise<RestaurantProfile> {
     return this.prisma.restaurant.update({

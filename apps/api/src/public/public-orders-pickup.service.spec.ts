@@ -434,3 +434,65 @@ describe('PublicOrdersService.createOrder -- Pickup idempotency (FT-7)', () => {
     );
   });
 });
+
+describe('PublicOrdersService.createOrder -- restaurant ordering options', () => {
+  const pickupInput = {
+    ...BASE_INPUT,
+    fulfillment: 'PICKUP' as const,
+    customerName: 'Mona',
+    customerPhone: '01000000000',
+  };
+
+  function genericQr(flags: { pickupEnabled?: boolean; deliveryEnabled?: boolean }) {
+    return {
+      ...GENERIC_QR_ROW,
+      restaurant: { ...GENERIC_QR_ROW.restaurant, ...flags },
+    };
+  }
+
+  it('refuses a Pickup order while Pickup is switched off, creating nothing', async () => {
+    const mock = buildMock({ qr: genericQr({ pickupEnabled: false }) });
+
+    const result = await buildService(mock).createOrder(pickupInput);
+
+    expect(result).toEqual({ outcome: 'pickupUnavailable' });
+    expect(mock.orderCreate).not.toHaveBeenCalled();
+    // refused before any Branch lookup
+    expect(mock.branchFindMany).not.toHaveBeenCalled();
+  });
+
+  it('refuses a Delivery order while Delivery is switched off, creating nothing', async () => {
+    const mock = buildMock({ qr: genericQr({ deliveryEnabled: false }) });
+
+    const result = await buildService(mock).createOrder({
+      ...pickupInput,
+      fulfillment: 'DELIVERY' as const,
+      deliveryAddress: '1 Nile St',
+      deliveryZoneId: '11111111-1111-4111-8111-0000000000aa',
+    });
+
+    expect(result).toEqual({ outcome: 'deliveryUnavailable' });
+    expect(mock.orderCreate).not.toHaveBeenCalled();
+  });
+
+  it('Pickup keeps working when only Delivery is switched off', async () => {
+    const mock = buildMock({ qr: genericQr({ deliveryEnabled: false }) });
+
+    const result = await buildService(mock).createOrder(pickupInput);
+
+    expect(result.outcome).toBe('created');
+  });
+
+  it('a Table QR (Dine-in) is not affected by either switch', async () => {
+    const mock = buildMock({
+      qr: {
+        ...TABLE_QR_ROW,
+        restaurant: { ...TABLE_QR_ROW.restaurant, pickupEnabled: false, deliveryEnabled: false },
+      },
+    });
+
+    const result = await buildService(mock).createOrder(BASE_INPUT);
+
+    expect(result.outcome).toBe('created');
+  });
+});

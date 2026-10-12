@@ -58,6 +58,11 @@ async function bootstrap() {
     prefix: MEDIA_PUBLIC_PATH_PREFIX,
     index: false,
     redirect: false,
+    // These are public images (Guests already load them). A CORS read header lets the
+    // Staff QR designer draw the restaurant logo into the QR image without tainting it.
+    setHeaders: (res) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    },
   });
 
   // TECH_STACK.md #28: class-validator/class-transformer DTO validation is

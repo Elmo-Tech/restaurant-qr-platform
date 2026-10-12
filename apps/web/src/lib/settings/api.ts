@@ -1,5 +1,10 @@
 import { apiFetch, apiFetchFormData } from '../api/client';
-import type { RestaurantLocalesResponse, RestaurantProfile } from './types';
+import type { QrStyle } from '../qr/style';
+import type {
+  RestaurantLocalesResponse,
+  RestaurantOrderingOptions,
+  RestaurantProfile,
+} from './types';
 
 /**
  * Thin Restaurant Settings request layer (LOC-3, Section 12), mirroring
@@ -41,6 +46,30 @@ export async function updateRestaurantProfile(
     method: 'PATCH',
     body: input,
   });
+  return body.data;
+}
+
+/** Save the Restaurant QR appearance; the Backend refuses a style that would not scan. */
+export async function updateQrStyle(
+  restaurantId: string,
+  input: Partial<QrStyle>,
+): Promise<QrStyle> {
+  const body = await apiFetch<{ data: QrStyle }>(`${restaurantPath(restaurantId)}/qr-style`, {
+    method: 'PATCH',
+    body: input,
+  });
+  return body.data;
+}
+
+/** Switch Pickup and / or Delivery on or off for the whole Restaurant (omitted fields stay unchanged). */
+export async function updateOrderingOptions(
+  restaurantId: string,
+  input: { pickupEnabled?: boolean; deliveryEnabled?: boolean },
+): Promise<RestaurantOrderingOptions> {
+  const body = await apiFetch<{ data: RestaurantOrderingOptions }>(
+    `${restaurantPath(restaurantId)}/ordering-options`,
+    { method: 'PATCH', body: input },
+  );
   return body.data;
 }
 

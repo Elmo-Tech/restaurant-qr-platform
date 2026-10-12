@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -26,12 +27,28 @@ import {
 } from '../storage/image-file-validator';
 import { ImageStorageService, MAX_IMAGE_BYTES } from '../storage/image-storage.service';
 import type { UploadedImageFile } from '../storage/uploaded-image-file';
+import { UpdateOrderingOptionsDto } from './dto/update-ordering-options.dto';
+import { UpdateQrStyleDto } from './dto/update-qr-style.dto';
+import type { QrStyle, QrStyleErrorCode } from './qr-style';
 import { UpdateRestaurantProfileDto } from './dto/update-restaurant-profile.dto';
-import { RestaurantProfileService, type RestaurantProfile } from './restaurant-profile.service';
+import {
+  RestaurantProfileService,
+  type RestaurantOrderingOptions,
+  type RestaurantProfile,
+} from './restaurant-profile.service';
 
 interface RestaurantProfileResponseBody {
   data: RestaurantProfile;
 }
+
+const QR_STYLE_MESSAGES: Record<QrStyleErrorCode, string> = {
+  QR_STYLE_LOW_CONTRAST:
+    'The QR color and background are too close: phones may not be able to scan it. Choose a darker QR color or a lighter background.',
+  QR_STYLE_INVERTED:
+    'The QR color must be darker than its background: many scanners cannot read a light code on a dark background.',
+  QR_STYLE_LOGO_REQUIRED:
+    'Upload a restaurant logo first (Settings > Profile) to show it in the QR code.',
+};
 
 /**
  * FT-12: Restaurant Profile -- `PATCH /restaurants/{restaurantId}` (name),
@@ -64,6 +81,60 @@ export class RestaurantProfileController {
     const data = await this.restaurantProfileService.updateProfile({
       restaurantId: request.restaurantAccess.restaurantId,
       name: dto.name,
+    });
+
+    return { data };
+  }
+
+  /**
+   * Restaurant QR appearance (colors, centered logo, restaurant name). Same
+   * authority as the rest of this controller (`restaurant.manage` AND
+   * Restaurant-wide scope). Styles that would not scan are refused with a
+   * stable code and nothing is written.
+   */
+  @Patch('qr-style')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.RESTAURANT_MANAGE)
+  async updateQrStyle(
+    @Body() dto: UpdateQrStyleDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: QrStyle }> {
+    const result = await this.restaurantProfileService.updateQrStyle({
+      restaurantId: request.restaurantAccess.restaurantId,
+      foregroundColor: dto.foregroundColor,
+      backgroundColor: dto.backgroundColor,
+      showLogo: dto.showLogo,
+      showName: dto.showName,
+    });
+
+    if (result.outcome === 'invalid') {
+      throw new BadRequestException({
+        error: { code: result.code, message: QR_STYLE_MESSAGES[result.code] },
+      });
+    }
+
+    return { data: result.data };
+  }
+
+  /**
+   * Restaurant QR order types: stop (or resume) accepting Pickup and / or
+   * Delivery orders. A Restaurant-structural change, so the same authority as
+   * the rest of this controller: `restaurant.manage` AND Restaurant-wide
+   * Branch scope. Dine-in (Table QR) is not affected.
+   */
+  @Patch('ordering-options')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.RESTAURANT_MANAGE)
+  async updateOrderingOptions(
+    @Body() dto: UpdateOrderingOptionsDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: RestaurantOrderingOptions }> {
+    const data = await this.restaurantProfileService.updateOrderingOptions({
+      restaurantId: request.restaurantAccess.restaurantId,
+      pickupEnabled: dto.pickupEnabled,
+      deliveryEnabled: dto.deliveryEnabled,
     });
 
     return { data };

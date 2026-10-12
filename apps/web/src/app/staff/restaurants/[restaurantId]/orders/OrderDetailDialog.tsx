@@ -7,28 +7,16 @@ import { Button } from '../../../../../components/ui/Button';
 import { IconClose } from '../../../../../components/staff/icons';
 import { fromMinorUnits, toMinorUnits } from '../../../../../lib/public-menu/money';
 import type { OrderDetail, OrderStatus } from '../../../../../lib/orders/types';
-import type { OrderTransitionOption } from '../../../../../lib/orders/transitions';
-import type { MessageKey } from '../../../../../lib/i18n/messages';
+import {
+  isDestructiveTransition as isDestructive,
+  TRANSITION_LABEL_KEYS as TRANSITION_KEYS,
+  type OrderTransitionOption,
+} from '../../../../../lib/orders/transitions';
 import { formatOrderTime } from '../../../../../lib/orders/order-views';
 import { OrderReceipt } from './OrderReceipt';
 import { OrderTimeline } from './OrderTimeline';
 import { OrderTypeBadge } from './OrderTypeBadge';
 import { StatusBadge } from './StatusBadge';
-
-const TRANSITION_KEYS = {
-  PENDING: 'orders.action.reopen',
-  ACCEPTED: 'orders.action.accept',
-  PREPARING: 'orders.action.startPreparing',
-  READY: 'orders.action.markReady',
-  OUT_FOR_DELIVERY: 'orders.action.outForDelivery',
-  SERVED: 'orders.action.markServed',
-  REJECTED: 'orders.action.reject',
-  CANCELLED: 'orders.action.cancel',
-} as const satisfies Record<OrderStatus, MessageKey>;
-
-function isDestructive(status: OrderStatus): boolean {
-  return status === 'REJECTED' || status === 'CANCELLED';
-}
 
 /**
  * FT-5/FT-7B, Section 26: a focused, non-form Order detail panel --

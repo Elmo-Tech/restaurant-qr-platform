@@ -704,3 +704,44 @@ describe('PublicMenuService Table QR ordering availability (Table Sessions)', ()
     });
   });
 });
+
+describe('PublicMenuService -- restaurant ordering options', () => {
+  async function menuFor(flags: { pickupEnabled?: boolean; deliveryEnabled?: boolean }) {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue({
+      ...GENERIC_QR_ROW,
+      restaurant: { ...GENERIC_QR_ROW.restaurant, ...flags },
+    });
+    const result = await buildService(mock).getPublicMenu({
+      publicCode: 'generic-qr',
+      explicitLang: null,
+      acceptLanguageHeader: null,
+    });
+    if (result.outcome !== 'found') throw new Error('expected found');
+    return result.data.context;
+  }
+
+  it('offers both types by default', async () => {
+    const context = await menuFor({});
+    expect(context.pickupBranches?.length).toBeGreaterThan(0);
+    expect(context.deliveryBranches?.length).toBeGreaterThan(0);
+  });
+
+  it('offers no Pickup branch while Pickup is switched off (Delivery stays)', async () => {
+    const context = await menuFor({ pickupEnabled: false });
+    expect(context.pickupBranches).toEqual([]);
+    expect(context.deliveryBranches?.length).toBeGreaterThan(0);
+  });
+
+  it('offers no Delivery branch while Delivery is switched off (Pickup stays)', async () => {
+    const context = await menuFor({ deliveryEnabled: false });
+    expect(context.deliveryBranches).toEqual([]);
+    expect(context.pickupBranches?.length).toBeGreaterThan(0);
+  });
+
+  it('offers nothing when both are switched off: the menu is browse-only', async () => {
+    const context = await menuFor({ pickupEnabled: false, deliveryEnabled: false });
+    expect(context.pickupBranches).toEqual([]);
+    expect(context.deliveryBranches).toEqual([]);
+  });
+});

@@ -235,6 +235,17 @@ model Restaurant {
   // Guest Menu hero cover image (same media storage as logoAssetPath). Null
   // keeps the existing branded hero background.
   coverAssetPath String?          @map("cover_asset_path")
+  // Restaurant-wide switches for the two Guest order types that come in through
+  // the Restaurant QR. Both default to true (nothing changes for existing
+  // restaurants). Dine-in (Table QR) is never affected by them.
+  pickupEnabled   Boolean         @default(true) @map("pickup_enabled")
+  deliveryEnabled Boolean         @default(true) @map("delivery_enabled")
+  // Restaurant QR appearance (applied to the Restaurant QR and the Table QR panels).
+  // The defaults are today's plain black-on-white QR with the restaurant name.
+  qrForegroundColor String        @default("#000000") @map("qr_foreground_color") @db.Char(7)
+  qrBackgroundColor String        @default("#FFFFFF") @map("qr_background_color") @db.Char(7)
+  qrShowLogo        Boolean       @default(false) @map("qr_show_logo")
+  qrShowName        Boolean       @default(true) @map("qr_show_name")
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
