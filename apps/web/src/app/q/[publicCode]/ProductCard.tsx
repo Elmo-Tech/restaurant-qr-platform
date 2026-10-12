@@ -3,7 +3,7 @@
 import { memo, useState } from 'react';
 import { DishFallback } from '../../../components/guest/DishFallback';
 import { GuestIconPlus } from '../../../components/guest/icons';
-import { DiscountBadge, DiscountedPrice } from '../../../components/guest/DiscountedPrice';
+import { DiscountedPrice } from '../../../components/guest/DiscountedPrice';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
@@ -57,6 +57,9 @@ function ProductCardImpl({
   const showStepper = interactive && !hasModifiers && simpleQuantity > 0;
   const showPhoto = imageUrl !== null && !imageFailed;
   const dimmed = isSoldOut ? 'opacity-50 grayscale' : '';
+  // A discounted card gives the price lockup its own row and moves the Add control to a row
+  // of its own below; a plain card keeps price and Add side by side.
+  const discounted = product.discount !== null && !isSoldOut;
 
   return (
     <article
@@ -118,25 +121,28 @@ function ProductCardImpl({
           </p>
         ) : null}
 
-        <div className="mt-auto flex items-center justify-between gap-2 pt-1.5">
-          <div className="flex min-w-0 flex-col items-start gap-1">
-            {product.discount && !isSoldOut ? (
-              <DiscountBadge discount={product.discount} currency={currency} copy={copy} />
-            ) : null}
+        <div
+          className={`mt-auto pt-1.5 ${
+            discounted ? 'flex flex-col gap-2.5' : 'flex items-center justify-between gap-2'
+          }`}
+        >
+          <div className="min-w-0">
             <DiscountedPrice
               original={product.basePrice}
               current={product.discount ? product.discount.discountedPrice : product.basePrice}
-              discounted={product.discount !== null && !isSoldOut}
+              discounted={discounted}
+              badge={discounted ? product.discount : null}
               currency={currency}
               copy={copy}
-              className={`g-num text-[20px] md:text-[22px] ${isSoldOut ? 'text-g-text-3' : 'text-g-price'}`}
+              className={`g-num text-[20px] [font-weight:800] md:text-[22px] ${isSoldOut ? 'text-g-text-3' : 'text-g-price'}`}
               currencyClassName="text-[12px] font-semibold md:text-[13px]"
+              originalClassName="g-num text-[13px] font-semibold text-g-text-3 md:text-sm"
             />
           </div>
           {isSoldOut ? (
             <span className="text-[12.5px] font-semibold text-g-text-3">{copy.unavailableNow}</span>
           ) : interactive ? (
-            <div className="relative z-10">
+            <div className={`relative z-10 ${discounted ? 'self-end' : ''}`}>
               {showStepper ? (
                 <Stepper
                   variant="accent"

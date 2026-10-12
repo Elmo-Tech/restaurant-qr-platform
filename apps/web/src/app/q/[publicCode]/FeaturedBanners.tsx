@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { GuestIconPlus, GuestIconStar } from '../../../components/guest/icons';
 import { Price } from '../../../components/guest/Price';
-import { DiscountBadge } from '../../../components/guest/DiscountedPrice';
+import { DiscountBadge, OriginalPrice } from '../../../components/guest/DiscountedPrice';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import type { PublicMenuProduct } from '../../../lib/public-menu/types';
@@ -77,14 +77,14 @@ function Banner({
       >
         <div className="min-w-0">
           <h3
-            className={`g-display text-[25px] leading-[1.2] ${single ? 'lg:text-[40px] lg:leading-[1.15]' : 'lg:text-[28px]'}`}
+            className={`g-display line-clamp-2 text-[25px] leading-[1.2] ${single ? 'lg:text-[40px] lg:leading-[1.15]' : 'lg:text-[28px]'}`}
           >
             {canOrder ? (
               <button
                 type="button"
                 data-open
                 onClick={() => onOpen(product)}
-                className="text-start outline-none after:absolute after:inset-0 after:content-['']"
+                className="line-clamp-2 text-start outline-none after:absolute after:inset-0 after:content-['']"
               >
                 <bdi>{product.name}</bdi>
               </button>
@@ -100,38 +100,43 @@ function Banner({
               {product.description}
             </p>
           ) : null}
-          {product.discount ? (
-            <p className="relative z-10 mt-1.5 flex flex-wrap items-center gap-x-2.5 gap-y-1">
-              <DiscountBadge discount={product.discount} currency={currency} copy={copy} />
-              <s className="decoration-white/70">
-                <span className="sr-only">{copy.originalPriceAria}</span>
-                <Price
+          {/* The price lives on the photo itself, never inside the Add control. */}
+          <div className="relative z-10 mt-2 flex flex-col items-start gap-1.5 lg:mt-3">
+            {product.discount ? (
+              <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
+                <DiscountBadge discount={product.discount} currency={currency} copy={copy} />
+                <OriginalPrice
                   amount={product.basePrice}
                   currency={currency}
-                  className="g-num text-[13px] font-semibold text-white/80"
-                  currencyClassName="text-[0.78em] font-semibold"
+                  copy={copy}
+                  className="g-num text-[13px] font-semibold text-white/75 lg:text-[15px]"
                 />
-              </s>
-            </p>
-          ) : null}
+              </span>
+            ) : null}
+            <span className="flex items-baseline">
+              <span className="sr-only">{product.discount ? copy.discountedPriceAria : ''} </span>
+              <Price
+                amount={product.discount ? product.discount.discountedPrice : product.basePrice}
+                currency={currency}
+                className={`g-num text-[28px] leading-none text-[#f7b548] [font-weight:900] [text-shadow:0_1px_10px_rgba(0,0,0,.55)] ${single ? 'lg:text-[36px]' : ''}`}
+                currencyClassName="text-[13px] font-bold text-white/90"
+              />
+            </span>
+          </div>
         </div>
         {canOrder ? (
           <button
             type="button"
             onClick={() => onQuickAdd(product)}
             aria-label={copy.addAria(product.name)}
-            className={`relative z-10 flex h-[46px] shrink-0 items-center gap-1.5 rounded-[23px] bg-g-accent px-4 font-extrabold text-[#1c1205] transition-transform active:scale-95 ${
-              single ? 'lg:mt-1.5 lg:h-[52px] lg:gap-2.5 lg:rounded-[26px] lg:px-[22px]' : ''
+            className={`relative z-10 flex size-[48px] shrink-0 items-center justify-center rounded-full bg-g-accent font-extrabold text-[#1c1205] shadow-[0_4px_14px_rgba(0,0,0,.35)] transition-transform active:scale-95 ${
+              single
+                ? 'lg:mt-1.5 lg:h-[52px] lg:w-auto lg:gap-2 lg:rounded-[26px] lg:px-[22px]'
+                : ''
             }`}
           >
-            {single ? <span className="hidden text-[15.5px] lg:inline">{copy.add} ·</span> : null}
-            <Price
-              amount={product.discount ? product.discount.discountedPrice : product.basePrice}
-              currency={currency}
-              className="g-num text-lg"
-              currencyClassName="text-xs font-bold"
-            />
-            <GuestIconPlus className="size-[18px]" strokeWidth={2.6} />
+            {single ? <span className="hidden text-[15.5px] lg:inline">{copy.add}</span> : null}
+            <GuestIconPlus className="size-5" strokeWidth={2.8} />
           </button>
         ) : null}
       </div>
