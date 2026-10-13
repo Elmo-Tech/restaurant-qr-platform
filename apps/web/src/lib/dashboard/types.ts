@@ -35,6 +35,14 @@ export interface DashboardTimeSeriesPoint {
   revenue: string;
 }
 
+/** Best sellers: units and line value over non-rejected, non-cancelled Orders in range. */
+export interface DashboardTopProduct {
+  productId: string;
+  name: string;
+  quantity: number;
+  amount: string;
+}
+
 export interface DashboardMetrics {
   range: { from: string; to: string };
   kpis: DashboardKpis;
@@ -42,4 +50,5 @@ export interface DashboardMetrics {
   byStatus: Record<OrderStatus, number>;
   timing: DashboardTiming;
   timeSeries: DashboardTimeSeriesPoint[];
+  topProducts: DashboardTopProduct[];
 }

@@ -21,6 +21,10 @@ export const ordersMessages = defineMessages({
     'orders.filter.all': 'All',
     'orders.filter.allBranches': 'All branches',
     'orders.filter.clear': 'Clear filters',
+    'orders.filter.sort': 'Sort',
+    'orders.sort.newest': 'Newest first',
+    'orders.sort.oldest': 'Oldest first',
+    'orders.summary': 'Orders: {count} · from {first} to {last}',
 
     'orders.type.DINE_IN': 'Dine in',
     'orders.type.PICKUP': 'Pickup',
@@ -134,6 +138,10 @@ export const ordersMessages = defineMessages({
     'orders.filter.all': 'الكل',
     'orders.filter.allBranches': 'كل الفروع',
     'orders.filter.clear': 'مسح التصفية',
+    'orders.filter.sort': 'الترتيب',
+    'orders.sort.newest': 'الأحدث أولًا',
+    'orders.sort.oldest': 'الأقدم أولًا',
+    'orders.summary': 'عدد الطلبات: {count} · من {first} إلى {last}',
 
     'orders.type.DINE_IN': 'داخل المطعم',
     'orders.type.PICKUP': 'استلام',

@@ -62,6 +62,17 @@ export interface DashboardTimeSeriesPoint {
   revenue: string;
 }
 
+/** One of the best-selling products of the period (REJECTED / CANCELLED orders excluded; amounts are net of discounts). */
+export interface DashboardTopProduct {
+  productId: string;
+  name: string;
+  quantity: number;
+  amount: string;
+}
+
+/** How many top products the Dashboard shows. */
+const TOP_PRODUCTS_LIMIT = 5;
+
 export interface DashboardMetrics {
   range: { from: string; to: string };
   kpis: DashboardKpis;
@@ -69,6 +80,7 @@ export interface DashboardMetrics {
   byStatus: Record<OrderStatus, number>;
   timing: DashboardTiming;
   timeSeries: DashboardTimeSeriesPoint[];
+  topProducts: DashboardTopProduct[];
 }
 
 /**
@@ -187,6 +199,51 @@ export class DashboardService {
 
     const timeSeries = buildTimeSeries(ordersInRange, from, to, isSingleDay);
 
+    // Best sellers: one bounded read of the period's item snapshots (never the live
+    // Product, so renamed / repriced / deleted products still report what was sold).
+    const revenueOrderIds = revenueOrders.map((order) => order.id);
+    const soldItems =
+      revenueOrderIds.length > 0
+        ? await this.prisma.orderItem.findMany({
+            where: { orderId: { in: revenueOrderIds } },
+            select: {
+              productId: true,
+              productNameSnapshot: true,
+              quantity: true,
+              lineTotal: true,
+            },
+          })
+        : [];
+    const byProduct = new Map<
+      string,
+      { name: string; quantity: number; amount: Prisma.Decimal }
+    >();
+    for (const item of soldItems) {
+      const entry = byProduct.get(item.productId) ?? {
+        name: item.productNameSnapshot,
+        quantity: 0,
+        amount: new Prisma.Decimal(0),
+      };
+      entry.quantity += item.quantity;
+      entry.amount = entry.amount.plus(item.lineTotal);
+      byProduct.set(item.productId, entry);
+    }
+    const topProducts: DashboardTopProduct[] = [...byProduct.entries()]
+      .map(([productId, entry]) => ({
+        productId,
+        name: entry.name,
+        quantity: entry.quantity,
+        amount: entry.amount,
+      }))
+      .sort(
+        (a, b) =>
+          b.quantity - a.quantity ||
+          b.amount.comparedTo(a.amount) ||
+          a.name.localeCompare(b.name),
+      )
+      .slice(0, TOP_PRODUCTS_LIMIT)
+      .map((entry) => ({ ...entry, amount: money(entry.amount) }));
+
     return {
       range: { from: from.toISOString(), to: to.toISOString() },
       kpis: {
@@ -199,6 +256,7 @@ export class DashboardService {
       byStatus,
       timing,
       timeSeries,
+      topProducts,
     };
   }
 }

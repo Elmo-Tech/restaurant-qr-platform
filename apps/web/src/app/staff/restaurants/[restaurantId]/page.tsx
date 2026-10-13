@@ -3,13 +3,18 @@ import { roleDisplayName } from '../../../../lib/staff/role-display';
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../lib/auth/session';
-import { canViewMenu } from '../../../../lib/menu/capabilities';
+import { canManageMenu, canViewMenu } from '../../../../lib/menu/capabilities';
 import { canViewOrders } from '../../../../lib/orders/capabilities';
-import { canViewTables } from '../../../../lib/tables/capabilities';
-import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
+import { canManageTables, canViewTables } from '../../../../lib/tables/capabilities';
+import { sessionCapabilities } from '../../../../lib/table-sessions/capabilities';
+import { getWebOrigin } from '../../../../lib/env/web-origin';
+import {
+  canManageLanguages,
+  canViewRestaurantSettings,
+} from '../../../../lib/settings/capabilities';
 import { canViewStaff } from '../../../../lib/staff/capabilities';
 import { canViewAnalytics } from '../../../../lib/dashboard/capabilities';
-import { DashboardWorkspace } from './DashboardWorkspace';
+import { OperationsDashboard, type DashboardAccess } from './dashboard/OperationsDashboard';
 import type { RestaurantStatus } from '../../../../lib/auth/types';
 import { Alert } from '../../../../components/ui/Alert';
 import { PageHeader } from '../../../../components/ui/PageHeader';
@@ -189,14 +194,26 @@ export default async function RestaurantLandingPage({
         ? t('dashboard.language.en')
         : restaurant.defaultLocale.toUpperCase();
 
-  const showAnalytics = restaurant.status === 'ACTIVE' && canViewAnalytics(membership);
+  const access: DashboardAccess = {
+    orders: canViewOrders(membership),
+    sessions: sessionCapabilities(membership).canView,
+    tables: canViewTables(membership),
+    manageTables: canManageTables(membership),
+    manageMenu: canManageMenu(membership),
+    manageRestaurant: canManageLanguages(membership),
+    settings: canViewRestaurantSettings(membership),
+    analytics: canViewAnalytics(membership),
+    money: membership.permissions.includes('orders.accept'),
+  };
+  const showOperations =
+    restaurant.status === 'ACTIVE' && (access.orders || access.sessions || access.analytics);
 
   return (
     <div className="flex flex-col gap-8">
       <PageHeader
         title={t('dashboard.title')}
         description={
-          showAnalytics
+          showOperations
             ? t('dashboard.nav.subtitle', { name: restaurant.name })
             : t('dashboard.subtitle', { name: restaurant.name })
         }
@@ -213,11 +230,15 @@ export default async function RestaurantLandingPage({
             state: restaurant.status === 'SUSPENDED' ? t('guard.state.suspended') : t('guard.state.inactive'),
           })}
         </Alert>
-      ) : showAnalytics ? (
-        <DashboardWorkspace
+      ) : showOperations ? (
+        <OperationsDashboard
           restaurantId={restaurantId}
-          branches={membership.branches}
           currencyCode={restaurant.currencyCode}
+          branches={membership.branches}
+          initialPickupEnabled={restaurant.pickupEnabled}
+          initialDeliveryEnabled={restaurant.deliveryEnabled}
+          webOrigin={getWebOrigin()}
+          access={access}
         />
       ) : (
         <>

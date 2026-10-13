@@ -23,6 +23,17 @@ export function isCompletedStatus(status: OrderStatus): boolean {
   return COMPLETED_STATUSES.includes(status);
 }
 
+/** Newest first is the working default; oldest first answers "which one has been waiting longest / what came in first". */
+export type OrdersSort = 'newest' | 'oldest';
+
+/**
+ * When the Dashboard's "needs attention" flags an order: a PENDING order
+ * nobody accepted for `PENDING_LATE_MINUTES`, or a READY order not handed
+ * over for `READY_LATE_MINUTES`. Age counts from when it was placed.
+ */
+export const PENDING_LATE_MINUTES = 5;
+export const READY_LATE_MINUTES = 10;
+
 export interface OrdersFilters {
   view: OrdersView;
   /** `null` = all types. Typed as the list item's own type so a future DELIVERY value needs no change here. */
@@ -30,6 +41,7 @@ export interface OrdersFilters {
   /** `null` = every status of the current view. */
   status: OrderStatus | null;
   search: string;
+  sort?: OrdersSort;
 }
 
 /** Case-insensitive match on Table number, customer name/phone, and (from 4 characters) the Order id. Phone also matches ignoring spaces/dashes. */
@@ -53,13 +65,17 @@ function matchesSearch(order: OrderListItem, rawSearch: string): boolean {
 
 export function filterOrders(orders: OrderListItem[], filters: OrdersFilters): OrderListItem[] {
   const viewStatuses = statusesForView(filters.view);
+  const direction = filters.sort === 'oldest' ? 1 : -1;
   return orders
     .filter((order) => viewStatuses.includes(order.status))
     .filter((order) => filters.status === null || order.status === filters.status)
     .filter((order) => filters.type === null || order.type === filters.type)
     .filter((order) => matchesSearch(order, filters.search))
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+    .sort(
+      (a, b) => direction * (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+    );
 }
+
 
 export function countByView(orders: OrderListItem[]): Record<OrdersView, number> {
   let active = 0;

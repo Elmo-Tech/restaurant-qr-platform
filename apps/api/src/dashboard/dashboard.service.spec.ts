@@ -20,14 +20,18 @@ function order(overrides: Partial<Record<string, unknown>> = {}) {
   };
 }
 
-function buildMocks(options: { orders?: ReturnType<typeof order>[]; events?: unknown[] } = {}) {
+function buildMocks(
+  options: { orders?: ReturnType<typeof order>[]; events?: unknown[]; items?: unknown[] } = {},
+) {
   const branchFindMany = jest.fn().mockResolvedValue([{ id: BRANCH_ID, timezone: 'Asia/Dubai' }]);
   const orderCount = jest.fn().mockResolvedValue(0);
   const orderFindMany = jest.fn().mockResolvedValue(options.orders ?? []);
   const orderStatusEventFindMany = jest.fn().mockResolvedValue(options.events ?? []);
   const restaurantMembershipBranchFindMany = jest.fn().mockResolvedValue([]);
+  const orderItemFindMany = jest.fn().mockResolvedValue(options.items ?? []);
 
   const prisma = {
+    orderItem: { findMany: orderItemFindMany },
     branch: { findMany: branchFindMany },
     order: { count: orderCount, findMany: orderFindMany },
     orderStatusEvent: { findMany: orderStatusEventFindMany },
@@ -41,6 +45,7 @@ function buildMocks(options: { orders?: ReturnType<typeof order>[]; events?: unk
     orderFindMany,
     orderStatusEventFindMany,
     restaurantMembershipBranchFindMany,
+    orderItemFindMany,
   };
 }
 
@@ -172,5 +177,64 @@ describe('DashboardService.getMetrics', () => {
 
     expect(result.kpis.activeOrders).toBe(3);
     expect(mocks.orderCount.mock.calls[0][0].where.createdAt).toBeUndefined();
+  });
+
+  describe('top products', () => {
+    const item = (productId: string, name: string, quantity: number, lineTotal: string) => ({
+      productId,
+      productNameSnapshot: name,
+      quantity,
+      lineTotal: decimal(lineTotal),
+    });
+
+    it('ranks best sellers by quantity from the revenue orders only, with exact net amounts', async () => {
+      const mocks = buildMocks({
+        orders: [
+          order({ id: 'o1', status: 'SERVED' }),
+          order({ id: 'o2', status: 'REJECTED' }),
+        ],
+        items: [
+          item('p-burger', 'Burger', 2, '90.00'),
+          item('p-burger', 'Burger', 1, '45.00'),
+          item('p-fries', 'Fries', 5, '75.00'),
+          item('p-cola', 'Cola', 1, '10.00'),
+        ],
+      });
+      const service = buildService(mocks);
+
+      const result = await service.getMetrics(ALL_BRANCHES_SCOPE, { range: 'today' });
+
+      // only the non-rejected order's items are read
+      expect(mocks.orderItemFindMany.mock.calls[0][0].where).toEqual({ orderId: { in: ['o1'] } });
+      expect(result.topProducts).toEqual([
+        { productId: 'p-fries', name: 'Fries', quantity: 5, amount: '75.00' },
+        { productId: 'p-burger', name: 'Burger', quantity: 3, amount: '135.00' },
+        { productId: 'p-cola', name: 'Cola', quantity: 1, amount: '10.00' },
+      ]);
+    });
+
+    it('returns an empty list (and reads no items) when there are no revenue orders', async () => {
+      const mocks = buildMocks({ orders: [order({ id: 'o1', status: 'REJECTED' })] });
+      const service = buildService(mocks);
+
+      const result = await service.getMetrics(ALL_BRANCHES_SCOPE, { range: 'today' });
+
+      expect(result.topProducts).toEqual([]);
+      expect(mocks.orderItemFindMany).not.toHaveBeenCalled();
+    });
+
+    it('keeps only the five best', async () => {
+      const mocks = buildMocks({
+        orders: [order({ id: 'o1' })],
+        items: Array.from({ length: 8 }, (_, i) =>
+          item(`p${i}`, `P${i}`, 10 - i, '10.00'),
+        ),
+      });
+      const service = buildService(mocks);
+
+      const result = await service.getMetrics(ALL_BRANCHES_SCOPE, { range: 'today' });
+
+      expect(result.topProducts.map((p) => p.productId)).toEqual(['p0', 'p1', 'p2', 'p3', 'p4']);
+    });
   });
 });

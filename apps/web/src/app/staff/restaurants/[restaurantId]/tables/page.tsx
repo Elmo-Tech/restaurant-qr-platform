@@ -9,6 +9,8 @@ import { TablesWorkspace } from './TablesWorkspace';
 
 interface TablesPageProps {
   params: Promise<{ restaurantId: string }>;
+  /** `?session=` opens that Table Session's panel (Dashboard deep link). */
+  searchParams: Promise<{ session?: string | string[] }>;
 }
 
 /**
@@ -23,8 +25,10 @@ interface TablesPageProps {
  * prop so the QR panel can build the exact `${webOrigin}/q/{publicCode}`
  * Guest URL without hardcoding `localhost`.
  */
-export default async function TablesPage({ params }: TablesPageProps) {
+export default async function TablesPage({ params, searchParams }: TablesPageProps) {
   const { restaurantId } = await params;
+  const { session } = await searchParams;
+  const initialSessionId = typeof session === 'string' && session !== '' ? session : null;
   const { t } = await getStaffI18n();
   const sessionState = await getAuthSessionState();
 
@@ -73,6 +77,7 @@ export default async function TablesPage({ params }: TablesPageProps) {
       permissions={membership.permissions}
       qrStyle={membership.restaurant.qrStyle}
       logoAssetPath={membership.restaurant.logoAssetPath}
+      initialSessionId={initialSessionId}
     />
   );
 }

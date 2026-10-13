@@ -50,6 +50,8 @@ export interface TablesWorkspaceProps {
   qrStyle: QrStyle;
   /** Restaurant logo path (drawn in the QR center when the style asks for it). */
   logoAssetPath: string | null;
+  /** Deep link from the Dashboard (`?session=`): opens that session's panel on load. */
+  initialSessionId?: string | null;
 }
 
 interface TableFormState {
@@ -105,6 +107,7 @@ export function TablesWorkspace({
   permissions,
   qrStyle,
   logoAssetPath,
+  initialSessionId = null,
 }: TablesWorkspaceProps) {
   const { t, locale } = useStaffI18n();
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(
@@ -132,7 +135,7 @@ export function TablesWorkspace({
   const [drawerTarget, setDrawerTarget] = useState<{
     id: string;
     intent?: SessionDrawerIntent;
-  } | null>(null);
+  } | null>(initialSessionId ? { id: initialSessionId } : null);
   const [openTarget, setOpenTarget] = useState<TableRow | null>(null);
   const [isOpening, setIsOpening] = useState(false);
   const [openError, setOpenError] = useState<string | null>(null);

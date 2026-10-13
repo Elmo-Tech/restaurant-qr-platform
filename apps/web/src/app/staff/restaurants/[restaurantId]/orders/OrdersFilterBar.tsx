@@ -4,6 +4,7 @@ import { IconSearch } from '../../../../../components/staff/icons';
 import { ChipGroup, type ChipOption } from '../../../../../components/ui/ChipGroup';
 import type { AuthContextBranch } from '../../../../../lib/auth/types';
 import type { OrderStatus, OrderType } from '../../../../../lib/orders/types';
+import type { OrdersSort } from '../../../../../lib/orders/order-views';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { localizedName } from '../../../../../lib/i18n/localized-name';
 import { orderStatusLabel } from './StatusBadge';
@@ -27,6 +28,7 @@ export interface OrdersFilterBarProps {
   /** Same, scoped to the current view's statuses, for the Status chips. */
   statusCounts: Partial<Record<OrderStatus, number>>;
   search: string;
+  sort: OrdersSort;
   branchId: string;
   /** Already scoped to this Membership's authorized Branches; the Branch control only renders for more than one. */
   branches: AuthContextBranch[];
@@ -34,6 +36,7 @@ export interface OrdersFilterBarProps {
   onTypeChange: (type: OrderType | null) => void;
   onStatusChange: (status: OrderStatus | null) => void;
   onSearchChange: (search: string) => void;
+  onSortChange: (sort: OrdersSort) => void;
   onBranchChange: (branchId: string) => void;
   onClear: () => void;
 }
@@ -53,12 +56,14 @@ export function OrdersFilterBar({
   typeCounts,
   statusCounts,
   search,
+  sort,
   branchId,
   branches,
   hasActiveFilters,
   onTypeChange,
   onStatusChange,
   onSearchChange,
+  onSortChange,
   onBranchChange,
   onClear,
 }: OrdersFilterBarProps) {
@@ -99,6 +104,18 @@ export function OrdersFilterBar({
               className={INPUT_CLASS}
             />
           </span>
+        </label>
+
+        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+          <span>{t('orders.filter.sort')}</span>
+          <select
+            value={sort}
+            onChange={(event) => onSortChange(event.target.value as OrdersSort)}
+            className="h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring"
+          >
+            <option value="newest">{t('orders.sort.newest')}</option>
+            <option value="oldest">{t('orders.sort.oldest')}</option>
+          </select>
         </label>
 
         {branches.length > 1 ? (

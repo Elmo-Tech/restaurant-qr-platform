@@ -17,6 +17,7 @@ import {
   countByView,
   filterOrders,
   statusesForView,
+  type OrdersSort,
   type OrdersView,
 } from '../../../../../lib/orders/order-views';
 import type { AuthContextBranch } from '../../../../../lib/auth/types';
@@ -40,6 +41,13 @@ import { orderTypeLabel } from './OrderTypeBadge';
 const POLL_INTERVAL_MS = 10_000;
 const VIEWS: readonly OrdersView[] = ['active', 'completed', 'all'];
 
+/** Filters a deep link (the Dashboard's "needs attention") can open the workspace with. */
+export interface OrdersInitialFilters {
+  view?: OrdersView;
+  status?: OrderStatus | null;
+  sort?: OrdersSort;
+}
+
 export interface OrdersWorkspaceProps {
   restaurantId: string;
   /** Already scoped to this Membership's authorized Branches by `/auth/me`. */
@@ -47,6 +55,10 @@ export interface OrdersWorkspaceProps {
   permissions: string[];
   /** The Restaurant's CURRENT logo (not part of any Order snapshot), shown only on the printed receipt header. */
   restaurantLogoUrl?: string | null;
+  /** Deep link from the Dashboard (`?order=`): opens that Order's detail on load. */
+  initialOrderId?: string | null;
+  /** Deep link filters (`?status=`, `?sort=`). */
+  initialFilters?: OrdersInitialFilters;
 }
 
 /**
@@ -69,8 +81,10 @@ export function OrdersWorkspace({
   branches,
   permissions,
   restaurantLogoUrl = null,
+  initialOrderId = null,
+  initialFilters = {},
 }: OrdersWorkspaceProps) {
-  const { t, locale } = useStaffI18n();
+  const { t, locale, formatDateTime } = useStaffI18n();
   // Order DTOs carry the default-locale Branch name; the Staff language's own
   // name comes from the Memberships' Branch list (falls back to the DTO name).
   function withBranchLabel<T extends { branch: { id: string; name: string } }>(order: T): T {
@@ -84,10 +98,13 @@ export function OrdersWorkspace({
   const [ordersError, setOrdersError] = useState<string | null>(null);
   const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const [view, setView] = useState<OrdersView>('active');
+  const [view, setView] = useState<OrdersView>(initialFilters.view ?? 'active');
   const [typeFilter, setTypeFilter] = useState<OrderType | null>(null);
-  const [statusFilter, setStatusFilter] = useState<OrderStatus | null>(null);
+  const [statusFilter, setStatusFilter] = useState<OrderStatus | null>(
+    initialFilters.status ?? null,
+  );
   const [search, setSearch] = useState('');
+  const [sort, setSort] = useState<OrdersSort>(initialFilters.sort ?? 'newest');
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [orderDetail, setOrderDetail] = useState<OrderDetail | null>(null);
@@ -135,6 +152,30 @@ export function OrdersWorkspace({
     }, POLL_INTERVAL_MS);
     return () => window.clearInterval(interval);
   }, [loadOrders]);
+
+  useEffect(() => {
+    if (!initialOrderId) return;
+    let cancelled = false;
+    ordersApi
+      .getOrderDetail(restaurantId, initialOrderId)
+      .then((detail) => {
+        if (cancelled) return;
+        setSelectedOrderId(initialOrderId);
+        setOrderDetail(detail);
+      })
+      .catch((error: unknown) => {
+        if (cancelled) return;
+        if (isUnauthenticatedError(error)) {
+          redirectToLogin();
+          return;
+        }
+        setSelectedOrderId(initialOrderId);
+        setDetailError(describeError(error));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initialOrderId, restaurantId]);
 
   async function openOrder(orderId: string) {
     setSelectedOrderId(orderId);
@@ -228,9 +269,25 @@ export function OrdersWorkspace({
   const statusCounts = useMemo(() => countByStatus(countableOrders), [countableOrders]);
   const visibleOrders = useMemo(
     () =>
-      filterOrders(orders ?? [], { view, type: typeFilter, status: statusFilter, search }),
-    [orders, view, typeFilter, statusFilter, search],
+      filterOrders(orders ?? [], {
+        view,
+        type: typeFilter,
+        status: statusFilter,
+        search,
+        sort,
+      }),
+    [orders, view, typeFilter, statusFilter, search, sort],
   );
+  const span = useMemo(() => {
+    if (visibleOrders.length === 0) return null;
+    let first = visibleOrders[0].createdAt;
+    let last = visibleOrders[0].createdAt;
+    for (const order of visibleOrders) {
+      if (order.createdAt < first) first = order.createdAt;
+      if (order.createdAt > last) last = order.createdAt;
+    }
+    return { first, last };
+  }, [visibleOrders]);
 
   const viewChipOptions: ChipOption<OrdersView>[] = VIEWS.map((option) => ({
     value: option,
@@ -273,12 +330,14 @@ export function OrdersWorkspace({
         typeCounts={typeCounts}
         statusCounts={statusCounts}
         search={search}
+        sort={sort}
         branchId={branchFilter}
         branches={branches}
         hasActiveFilters={hasActiveFilters}
         onTypeChange={setTypeFilter}
         onStatusChange={setStatusFilter}
         onSearchChange={setSearch}
+        onSortChange={setSort}
         onBranchChange={setBranchFilter}
         onClear={clearFilters}
       />
@@ -304,6 +363,16 @@ export function OrdersWorkspace({
           hasAnyOrders={orders.length > 0}
           onClear={clearFilters}
         />
+      ) : null}
+
+      {span ? (
+        <p className="text-sm text-muted-foreground">
+          {t('orders.summary', {
+            count: visibleOrders.length,
+            first: formatDateTime(span.first),
+            last: formatDateTime(span.last),
+          })}
+        </p>
       ) : null}
 
       {visibleOrders.length > 0 ? (
