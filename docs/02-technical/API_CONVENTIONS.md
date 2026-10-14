@@ -2107,6 +2107,16 @@ Never returned: a raw `RestaurantLocale` `id`/`restaurantId`. The default locale
 
 ---
 
+# 108D-0. Ordering Availability Per Channel (DEC-038, 2026-10-14)
+
+`PATCH /api/v1/restaurants/{restaurantId}/ordering-options` accepts any of `{ "pickupEnabled": boolean, "deliveryEnabled": boolean, "tableOrderingEnabled": boolean }` (omitted fields stay unchanged; an empty body is a no-op that returns the current values) and returns all three. Permission `restaurant.manage` with Restaurant-wide scope, CSRF-protected, as before. `/auth/me` restaurants carry `tableOrderingEnabled`.
+
+**Guest Menu.** `GET /public/qr/{publicCode}` `context.tableOrdering` is `"AVAILABLE" | "CLOSED" | "DISABLED" | null` (null for a Restaurant QR). `DISABLED` means the Restaurant switched Table ordering off: the Guest UI renders a view-only menu. `GET /public/qr/{publicCode}/table-ordering` returns the same three values.
+
+**Orders.** `POST /public/qr/{publicCode}/orders` on a TABLE QR with Table ordering off returns `409 ORDERING_DISABLED` and creates nothing (no Order, no Table Session). It is evaluated before the table-lock check.
+
+---
+
 # 108D-1. Restaurant Cover Image, Bilingual Branch / Zone Names (V1 Final Features Batch 1, 2026-10-11)
 
 **Cover image.** `POST /api/v1/restaurants/{restaurantId}/cover` (multipart field `image`) and `DELETE /api/v1/restaurants/{restaurantId}/cover`. Permission `restaurant.manage` with Restaurant-wide scope (`AllBranchesRequiredGuard`), CSRF-protected, exactly like the logo. The file is saved first, then the row updated, then the previous file removed best-effort. Validation reuses the image rules (JPEG / PNG / WebP by signature, 5 MB) and adds banner rules: width and height at least 800 x 300 px, at most 6000 px on a side, aspect ratio between 1.3:1 and 3.2:1 (recommended 16:9). Stable codes: `COVER_IMAGE_TOO_SMALL`, `COVER_IMAGE_DIMENSIONS_TOO_LARGE`, `COVER_IMAGE_INVALID_ASPECT_RATIO`, `IMAGE_UNREADABLE`, plus `IMAGE_REQUIRED`, `INVALID_IMAGE_TYPE`, `IMAGE_TOO_LARGE`. `PATCH /restaurants/{id}`, `POST .../logo` and `POST .../cover` responses carry `{ name, logoAssetPath, coverAssetPath }`; `/auth/me` restaurants and the public menu `context.restaurant` carry `coverAssetPath` (null when none).

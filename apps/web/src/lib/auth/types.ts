@@ -37,6 +37,8 @@ export interface AuthContextRestaurant {
   /** Restaurant QR order types (Settings -> Restaurant QR): `false` stops that type of order. */
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
+  /** Table (dine-in) channel; false = the table QR shows a view-only menu. */
+  tableOrderingEnabled: boolean;
   /** QR appearance (Settings -> Restaurant QR): applied to the Restaurant QR and the table QR panels. */
   qrStyle: {
     foregroundColor: string;

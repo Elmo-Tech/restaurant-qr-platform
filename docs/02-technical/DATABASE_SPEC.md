@@ -559,6 +559,8 @@ Potential fields:
 
 > **Added 2026-10-11 (V1 Final Features, Batch 1):** `restaurants.cover_asset_path` (nullable TEXT); `branch_translations` (`branch_id`, `locale`, `name`; unique `(branch_id, locale)`; FK ON DELETE CASCADE) and `delivery_zone_translations` (`delivery_zone_id`, `locale`, `name`; unique `(delivery_zone_id, locale)`; FK ON DELETE CASCADE). `branches.name` and `delivery_zones.name` are unchanged and remain the default-locale / legacy fallback name. Migration `20261010120000_add_cover_image_and_name_translations` also backfills one default-locale translation row per existing Branch and zone. Tenant scope is inherited from the parent row (no `restaurant_id` on the translation tables, like the other translation tables).
 
+> **Added 2026-10-14 (DEC-038):** `restaurants.table_ordering_enabled` (BOOLEAN NOT NULL DEFAULT TRUE). Migration `20261014090000_add_table_ordering_enabled`. When FALSE the Table channel is view-only: TABLE QR orders are refused and the Guest Menu is browse-only. It is independent of `pickup_enabled` / `delivery_enabled` (Online channel) and of Table Session state.
+
 # 24. Restaurant Status
 
 Initial values:

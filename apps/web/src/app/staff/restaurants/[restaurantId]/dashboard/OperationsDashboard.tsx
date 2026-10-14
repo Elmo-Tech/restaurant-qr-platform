@@ -69,7 +69,7 @@ export interface DashboardAccess {
   money: boolean;
 }
 
-type OrderType = 'pickup' | 'delivery';
+type OrderType = 'pickup' | 'delivery' | 'table';
 
 /**
  * The operations Dashboard: what is happening and what needs doing right now,
@@ -84,6 +84,7 @@ export function OperationsDashboard({
   branches,
   initialPickupEnabled,
   initialDeliveryEnabled,
+  initialTableOrderingEnabled,
   webOrigin,
   access,
 }: {
@@ -93,6 +94,7 @@ export function OperationsDashboard({
   branches: AuthContextBranch[];
   initialPickupEnabled: boolean;
   initialDeliveryEnabled: boolean;
+  initialTableOrderingEnabled: boolean;
   webOrigin: string;
   access: DashboardAccess;
 }) {
@@ -113,6 +115,7 @@ export function OperationsDashboard({
 
   const [pickupEnabled, setPickupEnabled] = useState(initialPickupEnabled);
   const [deliveryEnabled, setDeliveryEnabled] = useState(initialDeliveryEnabled);
+  const [tableOrderingEnabled, setTableOrderingEnabled] = useState(initialTableOrderingEnabled);
   const [toggleBusy, setToggleBusy] = useState<OrderType | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [soldOutOpen, setSoldOutOpen] = useState(false);
@@ -202,10 +205,15 @@ export function OperationsDashboard({
     try {
       const saved = await settingsApi.updateOrderingOptions(
         restaurantId,
-        type === 'pickup' ? { pickupEnabled: next } : { deliveryEnabled: next },
+        type === 'pickup'
+          ? { pickupEnabled: next }
+          : type === 'delivery'
+            ? { deliveryEnabled: next }
+            : { tableOrderingEnabled: next },
       );
       setPickupEnabled(saved.pickupEnabled);
       setDeliveryEnabled(saved.deliveryEnabled);
+      setTableOrderingEnabled(saved.tableOrderingEnabled);
     } catch (caught) {
       if (isUnauthenticatedError(caught)) {
         redirectToLogin();
@@ -376,6 +384,7 @@ export function OperationsDashboard({
       <StatusStrip
         pickupEnabled={pickupEnabled}
         deliveryEnabled={deliveryEnabled}
+        tableOrderingEnabled={tableOrderingEnabled}
         canManage={access.manageRestaurant}
         busy={toggleBusy}
         onToggle={(type, next) => void toggleOrdering(type, next)}

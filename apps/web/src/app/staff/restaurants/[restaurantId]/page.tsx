@@ -237,6 +237,7 @@ export default async function RestaurantLandingPage({
           branches={membership.branches}
           initialPickupEnabled={restaurant.pickupEnabled}
           initialDeliveryEnabled={restaurant.deliveryEnabled}
+          initialTableOrderingEnabled={restaurant.tableOrderingEnabled}
           webOrigin={getWebOrigin()}
           access={access}
         />

@@ -34,6 +34,8 @@ export type SubmitGuestOrderResult =
   | { outcome: 'pickupUnavailable' }
   /** Table Sessions: staff closed ordering for this table (409 TABLE_ORDERING_UNAVAILABLE). Nothing was created. */
   | { outcome: 'tableOrderingUnavailable' }
+  /** DEC-038: the Restaurant switched ordering off for this channel (409 ORDERING_DISABLED). Nothing was created. */
+  | { outcome: 'orderingDisabled' }
   | { outcome: 'deliveryDetailsRequired' }
   | { outcome: 'deliveryZoneInvalid' }
   | { outcome: 'deliveryUnavailable' }
@@ -54,11 +56,12 @@ export type SubmitGuestOrderResult =
  */
 export async function getTableOrdering(
   publicCode: string,
-): Promise<'AVAILABLE' | 'CLOSED' | 'unknown'> {
+): Promise<'AVAILABLE' | 'CLOSED' | 'DISABLED' | 'unknown'> {
   try {
-    const body = await apiFetch<{ data: { tableOrdering: 'AVAILABLE' | 'CLOSED' } }>(
-      `/public/qr/${encodeURIComponent(publicCode)}/table-ordering`,
-    );
+    const body = await apiFetch<{
+      data: { tableOrdering: 'AVAILABLE' | 'CLOSED' | 'DISABLED' };
+    }>(`/public/qr/${encodeURIComponent(publicCode)}/table-ordering`);
+    if (body.data.tableOrdering === 'DISABLED') return 'DISABLED';
     return body.data.tableOrdering === 'CLOSED' ? 'CLOSED' : 'AVAILABLE';
   } catch {
     return 'unknown';
@@ -150,6 +153,9 @@ export async function submitGuestOrder(
       }
       if (error.code === 'TABLE_ORDERING_UNAVAILABLE') {
         return { outcome: 'tableOrderingUnavailable' };
+      }
+      if (error.code === 'ORDERING_DISABLED') {
+        return { outcome: 'orderingDisabled' };
       }
       if (error.code === 'PRICE_CHANGED') {
         const details = (error.details ?? {}) as { pricing?: { total?: unknown } };

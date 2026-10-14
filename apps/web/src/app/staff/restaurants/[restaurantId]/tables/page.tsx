@@ -78,6 +78,7 @@ export default async function TablesPage({ params, searchParams }: TablesPagePro
       qrStyle={membership.restaurant.qrStyle}
       logoAssetPath={membership.restaurant.logoAssetPath}
       initialSessionId={initialSessionId}
+      tableOrderingEnabled={membership.restaurant.tableOrderingEnabled}
     />
   );
 }

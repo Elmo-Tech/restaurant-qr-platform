@@ -745,3 +745,42 @@ describe('PublicMenuService -- restaurant ordering options', () => {
     expect(context.deliveryBranches).toEqual([]);
   });
 });
+
+describe('PublicMenuService -- Table channel view-only (DEC-038)', () => {
+  async function tableMenu(restaurantFlags: { tableOrderingEnabled?: boolean }) {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue({
+      ...TABLE_QR_ROW,
+      restaurant: { ...TABLE_QR_ROW.restaurant, ...restaurantFlags },
+    });
+    const result = await buildService(mock).getPublicMenu({
+      publicCode: 'table-qr',
+      explicitLang: null,
+      acceptLanguageHeader: null,
+    });
+    if (result.outcome !== 'found') throw new Error('expected found');
+    return result.data.context;
+  }
+
+  it('reports DISABLED for a TABLE QR while Table ordering is switched off', async () => {
+    const context = await tableMenu({ tableOrderingEnabled: false });
+    expect(context.tableOrdering).toBe('DISABLED');
+  });
+
+  it('keeps the normal availability state while Table ordering is on', async () => {
+    const context = await tableMenu({ tableOrderingEnabled: true });
+    expect(context.tableOrdering).not.toBe('DISABLED');
+  });
+
+  it('the advisory re-check also reports DISABLED, without touching sessions', async () => {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue({
+      ...TABLE_QR_ROW,
+      restaurant: { ...TABLE_QR_ROW.restaurant, tableOrderingEnabled: false },
+    });
+
+    const result = await buildService(mock).getTableOrdering('table-qr');
+
+    expect(result).toEqual({ outcome: 'found', tableOrdering: 'DISABLED' });
+  });
+});

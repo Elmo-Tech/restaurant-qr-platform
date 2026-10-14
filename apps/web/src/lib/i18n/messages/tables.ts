@@ -24,6 +24,8 @@ export const tablesMessages = defineMessages({
     'tables.card.noQrHint': 'No active QR for this Table yet.',
     'tables.card.moreAria': 'More actions for Table {number}',
     'tables.card.closeHint': 'Closing the session stops ordering from this table.',
+    'tables.orderingOffNotice':
+      'Table ordering is switched off: guests who scan a table QR code see a view-only menu. You can turn it back on in Settings > Restaurant QR.',
     'tables.card.openHint': 'Opens a session and lets guests order from this table.',
     'tables.card.qrChecking': 'Checking QR status…',
     'tables.card.qrUnavailable': 'QR status unavailable',
@@ -89,6 +91,8 @@ export const tablesMessages = defineMessages({
     'tables.card.noQrHint': 'لا يوجد رمز QR مفعّل لهذه الطاولة بعد.',
     'tables.card.moreAria': 'المزيد من الإجراءات للطاولة {number}',
     'tables.card.closeHint': 'إغلاق الجلسة يوقف الطلب من هذه الطاولة.',
+    'tables.orderingOffNotice':
+      'الطلب من الطاولات معطّل: الضيف الذي يمسح رمز QR الطاولة يرى منيو للعرض فقط. يمكنك إعادة تفعيله من الإعدادات > رمز QR للمطعم.',
     'tables.card.openHint': 'يفتح جلسة ويسمح للضيوف بالطلب من هذه الطاولة.',
     'tables.card.qrChecking': 'جارٍ التحقق من رمز QR…',
     'tables.card.qrUnavailable': 'تعذّر معرفة حالة رمز QR',

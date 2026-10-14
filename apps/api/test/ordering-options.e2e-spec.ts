@@ -253,7 +253,11 @@ describeSandbox('Restaurant ordering options (real PostgreSQL)', () => {
 
     const off = await patchOptions(owner, r, { deliveryEnabled: false });
     expect(off.status).toBe(200);
-    expect(off.body.data).toEqual({ pickupEnabled: true, deliveryEnabled: false });
+    expect(off.body.data).toEqual({
+      pickupEnabled: true,
+      deliveryEnabled: false,
+      tableOrderingEnabled: true,
+    });
 
     const me1 = await request(app.getHttpServer())
       .get('/api/v1/auth/me')
@@ -264,7 +268,11 @@ describeSandbox('Restaurant ordering options (real PostgreSQL)', () => {
     // an empty body is a no-op that returns the current values
     const noop = await patchOptions(owner, r, {});
     expect(noop.status).toBe(200);
-    expect(noop.body.data).toEqual({ pickupEnabled: true, deliveryEnabled: false });
+    expect(noop.body.data).toEqual({
+      pickupEnabled: true,
+      deliveryEnabled: false,
+      tableOrderingEnabled: true,
+    });
   });
 
   it('rejects non-boolean values and unknown fields are ignored', async () => {
@@ -341,6 +349,60 @@ describeSandbox('Restaurant ordering options (real PostgreSQL)', () => {
     // only the refused attempts were refused: exactly one Pickup, one Delivery and one Dine-in exist
     const orders = await prisma.order.findMany({ where: { restaurantId: r } });
     expect(orders.map((order) => order.type).sort()).toEqual(['DELIVERY', 'DINE_IN', 'PICKUP']);
+  });
+
+  it('Table ordering off: the Table menu is view-only and orders are refused, Online is unaffected (DEC-038)', async () => {
+    const world = await seedWorld('options-table');
+    const owner = await addStaff(world.restaurantId, 'OWNER');
+    const r = world.restaurantId;
+    const items = [{ productId: world.productId, quantity: 1 }];
+    const pickup = {
+      items,
+      fulfillment: 'PICKUP',
+      customerName: 'Mona',
+      customerPhone: '01000000000',
+    };
+
+    // on by default, and the switch shows in /auth/me
+    const me0 = await request(app.getHttpServer())
+      .get('/api/v1/auth/me')
+      .set('Cookie', await login(owner));
+    expect(me0.body.data.memberships[0].restaurant.tableOrderingEnabled).toBe(true);
+    const before = await publicMenu(world.tableQr);
+    expect(before.body.data.context.tableOrdering).not.toBe('DISABLED');
+
+    const off = await patchOptions(owner, r, { tableOrderingEnabled: false });
+    expect(off.status).toBe(200);
+    expect(off.body.data.tableOrderingEnabled).toBe(false);
+    // the other two switches are untouched
+    expect(off.body.data.pickupEnabled).toBe(true);
+    expect(off.body.data.deliveryEnabled).toBe(true);
+
+    // the Table menu is still complete, but reports DISABLED
+    const view = await publicMenu(world.tableQr);
+    expect(view.status).toBe(200);
+    expect(view.body.data.context.tableOrdering).toBe('DISABLED');
+    expect(view.body.data.menu.categories.length).toBeGreaterThan(0);
+
+    // the advisory re-check says the same
+    const recheck = await request(app.getHttpServer()).get(
+      `/api/v1/public/qr/${world.tableQr}/table-ordering`,
+    );
+    expect(recheck.body.data.tableOrdering).toBe('DISABLED');
+
+    // a Dine-in order is refused and creates neither an Order nor a Table Session
+    const refused = await placeOrder(world.tableQr, { items });
+    expect(refused.status).toBe(409);
+    expect(refused.body.error.code).toBe('ORDERING_DISABLED');
+    expect(await prisma.order.count({ where: { restaurantId: r } })).toBe(0);
+    expect(await prisma.tableSession.count({ where: { restaurantId: r } })).toBe(0);
+
+    // Online ordering is independent
+    expect((await placeOrder(world.genericQr, pickup)).status).toBe(201);
+
+    // and it comes back
+    await patchOptions(owner, r, { tableOrderingEnabled: true });
+    expect((await placeOrder(world.tableQr, { items })).status).toBe(201);
   });
 
   it('requires restaurant.manage with Restaurant-wide scope, a session and CSRF; never crosses tenants', async () => {

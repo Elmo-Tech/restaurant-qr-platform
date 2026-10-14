@@ -13,9 +13,10 @@ export const opsMessages = defineMessages({
 
     // status strip
     'ops.status.title': 'Restaurant status',
-    'ops.status.ordering.open': 'Open for online orders',
+    'ops.status.tables': 'Table ordering',
+    'ops.status.ordering.open': 'Open for orders',
     'ops.status.ordering.partial': 'Partly open',
-    'ops.status.ordering.paused': 'Online ordering is paused',
+    'ops.status.ordering.paused': 'Menu is view-only',
     'ops.status.pickup': 'Pickup',
     'ops.status.delivery': 'Delivery',
     'ops.status.on': 'On',
@@ -105,9 +106,10 @@ export const opsMessages = defineMessages({
     'ops.refresh': 'تحديث',
 
     'ops.status.title': 'حالة المطعم',
-    'ops.status.ordering.open': 'مفتوح لطلبات الإنترنت',
+    'ops.status.tables': 'الطلب من الطاولات',
+    'ops.status.ordering.open': 'مفتوح للطلبات',
     'ops.status.ordering.partial': 'مفتوح جزئيًا',
-    'ops.status.ordering.paused': 'الطلب عبر الإنترنت متوقف',
+    'ops.status.ordering.paused': 'المنيو للعرض فقط',
     'ops.status.pickup': 'الاستلام',
     'ops.status.delivery': 'التوصيل',
     'ops.status.on': 'مفعّل',

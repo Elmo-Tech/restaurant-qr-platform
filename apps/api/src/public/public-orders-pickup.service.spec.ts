@@ -483,6 +483,33 @@ describe('PublicOrdersService.createOrder -- restaurant ordering options', () =>
     expect(result.outcome).toBe('created');
   });
 
+  it('refuses a Dine-in order while Table ordering is switched off, creating nothing (DEC-038)', async () => {
+    const mock = buildMock({
+      qr: {
+        ...TABLE_QR_ROW,
+        restaurant: { ...TABLE_QR_ROW.restaurant, tableOrderingEnabled: false },
+      },
+    });
+
+    const result = await buildService(mock).createOrder(BASE_INPUT);
+
+    expect(result).toEqual({ outcome: 'tableOrderingDisabled' });
+    expect(mock.orderCreate).not.toHaveBeenCalled();
+  });
+
+  it('Table ordering off does not stop Pickup from the Restaurant QR', async () => {
+    const mock = buildMock({
+      qr: {
+        ...GENERIC_QR_ROW,
+        restaurant: { ...GENERIC_QR_ROW.restaurant, tableOrderingEnabled: false },
+      },
+    });
+
+    const result = await buildService(mock).createOrder(pickupInput);
+
+    expect(result.outcome).toBe('created');
+  });
+
   it('a Table QR (Dine-in) is not affected by either switch', async () => {
     const mock = buildMock({
       qr: {

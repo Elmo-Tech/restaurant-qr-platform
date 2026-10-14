@@ -1707,6 +1707,33 @@ QR implementation is acceptable when:
 
 ---
 
+# Amendment — Ordering Availability Per Channel (DEC-038, 2026-10-14)
+
+A QR always identifies where the guest came from; whether that entry may
+**order** is a Restaurant setting per **channel**:
+
+| Channel | QR type | Orders it can create | Switch |
+|---|---|---|---|
+| Table | `TABLE` | Dine-In | `restaurants.tableOrderingEnabled` |
+| Online | `GENERIC` | Pickup, Delivery | `pickupEnabled`, `deliveryEnabled` |
+
+- A channel that cannot order is **view-only**: the Guest Menu is complete
+  (categories, products, prices, images, search) but exposes no cart, no add
+  actions and no checkout.
+- **Online is view-only when both Pickup and Delivery are off** (no new switch).
+- Table ordering is independent of Online ordering, in both directions.
+- This is separate from Table Session availability: a Table channel that is
+  *enabled* may still be *closed for this table* by staff (TABLE_SESSION_SPEC.md).
+  A disabled channel never creates or resolves a Table Session.
+- The Backend enforces it: a TABLE QR order is refused with
+  `409 ORDERING_DISABLED` (nothing is created); Pickup / Delivery keep their
+  existing `409` outcomes. The Guest Menu response states the table channel as
+  `DISABLED` so the UI never has to guess.
+- QR scanning, QR codes and printed QR output are unaffected; a view-only
+  channel keeps working as a digital menu.
+
+---
+
 # QR Principle
 
 > The QR identifies where the guest entered from; the backend decides what that guest is allowed to do now.

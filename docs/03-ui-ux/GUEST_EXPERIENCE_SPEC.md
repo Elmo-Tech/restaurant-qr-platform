@@ -2537,6 +2537,24 @@ Guest Experience is acceptable when:
 
 ---
 
+# Amendment — View-Only Menu (DEC-038, 2026-10-14)
+
+When the channel a Guest entered through cannot order (Table ordering switched
+off, or Pickup and Delivery both off for a Restaurant QR), the Guest sees a
+**browse-only** menu:
+
+- No cart bar, no add buttons or quick-add, no quantity controls, no checkout,
+  no order tracking prompts.
+- Product detail still opens in full (description, price, options, allergens).
+- One calm notice near the top: "Ordering isn't available through the menu right
+  now. You can still browse the menu." (localized). It is informational, not an
+  error, and never blocks browsing, search or language switching.
+- This is a different state from a **closed table** (staff closed ordering for
+  this table, "Check again" applies) and from a **sold-out** product.
+- Prices and discounts render exactly as in the ordering menu.
+
+---
+
 # Guest Experience Principle
 
 > Scan, discover, order, and continue the meal with as little software friction as possible, while the Platform quietly protects pricing, table identity, session integrity, and Restaurant operations in the background.

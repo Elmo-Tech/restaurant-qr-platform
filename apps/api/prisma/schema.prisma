@@ -240,6 +240,10 @@ model Restaurant {
   // restaurants). Dine-in (Table QR) is never affected by them.
   pickupEnabled   Boolean         @default(true) @map("pickup_enabled")
   deliveryEnabled Boolean         @default(true) @map("delivery_enabled")
+  // Table (dine-in) channel switch (DEC-038). False = the Table QR menu is
+  // view-only and TABLE QR orders are refused. Independent of the two switches
+  // above and of Table Session state.
+  tableOrderingEnabled Boolean    @default(true) @map("table_ordering_enabled")
   // Restaurant QR appearance (applied to the Restaurant QR and the Table QR panels).
   // The defaults are today's plain black-on-white QR with the restaurant name.
   qrForegroundColor String        @default("#000000") @map("qr_foreground_color") @db.Char(7)

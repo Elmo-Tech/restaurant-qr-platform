@@ -42,9 +42,16 @@ export const settingsMessages = defineMessages({
     'settings.qr.deactivateWarning': 'Printed codes will stop working for guests.',
     'settings.qr.deactivateConfirm': 'Yes, deactivate',
 
-    'settings.ordering.title': 'Order types',
+    'settings.ordering.title': 'Ordering',
     'settings.ordering.description':
-      'Choose which orders guests can place from the Restaurant QR. Dine-in orders from table QR codes are not affected.',
+      'Choose where guests can place orders. A channel that is switched off shows a view-only menu: guests can browse it but cannot order.',
+    'settings.ordering.group.table': 'Tables',
+    'settings.ordering.group.online': 'Online (Restaurant QR)',
+    'settings.ordering.table': 'Order from the table',
+    'settings.ordering.tableHint': 'Guests scan the table QR code and order from their phone.',
+    'settings.ordering.summary.tableOn': 'Guests at a table can order from the table QR code.',
+    'settings.ordering.summary.tableOff':
+      'Table QR codes show a view-only menu. Guests can browse but cannot order; staff take their orders.',
     'settings.ordering.pickup': 'Pickup from a branch',
     'settings.ordering.pickupHint': 'Guests order online and collect from the branch.',
     'settings.ordering.delivery': 'Delivery',
@@ -164,9 +171,16 @@ export const settingsMessages = defineMessages({
     'settings.qr.deactivateWarning': 'ستتوقف الأكواد المطبوعة عن العمل للضيوف.',
     'settings.qr.deactivateConfirm': 'نعم، تعطيل',
 
-    'settings.ordering.title': 'أنواع الطلبات',
+    'settings.ordering.title': 'الطلب',
     'settings.ordering.description':
-      'اختر أنواع الطلبات التي يمكن للضيوف إرسالها من رمز QR للمطعم. الطلب داخل المطعم عبر رموز الطاولات لا يتأثر.',
+      'اختر أين يمكن للضيوف إرسال الطلبات. القناة المعطّلة يظهر لها منيو للعرض فقط: يتصفحه الضيف ولا يطلب منه.',
+    'settings.ordering.group.table': 'الطاولات',
+    'settings.ordering.group.online': 'عبر الإنترنت (رمز QR للمطعم)',
+    'settings.ordering.table': 'الطلب من الطاولة',
+    'settings.ordering.tableHint': 'يمسح الضيف رمز QR الطاولة ويطلب من هاتفه.',
+    'settings.ordering.summary.tableOn': 'يمكن لضيف الطاولة الطلب عبر رمز QR الطاولة.',
+    'settings.ordering.summary.tableOff':
+      'رموز QR للطاولات تعرض منيو للعرض فقط. يتصفح الضيف ولا يطلب، ويأخذ الموظفون طلبه.',
     'settings.ordering.pickup': 'الاستلام من الفرع',
     'settings.ordering.pickupHint': 'يطلب الضيف عبر الإنترنت ويستلم من الفرع.',
     'settings.ordering.delivery': 'التوصيل',

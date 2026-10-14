@@ -90,7 +90,12 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
   );
   const pickupAvailable = pickupBranches.length > 0;
   const deliveryAvailable = deliveryBranches.length > 0;
-  const canOrder = !isGenericQr || pickupAvailable || deliveryAvailable;
+  // DEC-038: a Table channel the Restaurant switched off is a view-only menu. The page value
+  // is advisory; a refused order (ORDERING_DISABLED) or "Check again" can also set it.
+  const [serverOrderingDisabled, setServerOrderingDisabled] = useState(false);
+  const tableChannelDisabled =
+    !isGenericQr && (data.context.tableOrdering === 'DISABLED' || serverOrderingDisabled);
+  const canOrder = isGenericQr ? pickupAvailable || deliveryAvailable : !tableChannelDisabled;
 
   const orderingContext: OrderingContextView = {
     kind: isGenericQr ? 'GENERIC' : 'TABLE',
@@ -639,6 +644,10 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       setOrderingRecheck('failed');
       return;
     }
+    if (result === 'DISABLED') {
+      setServerOrderingDisabled(true);
+      return;
+    }
     setOrderingOverride(result);
     setSubmitError(null);
     if (result === 'CLOSED') {
@@ -698,6 +707,12 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       // pending attempt are kept, so the SAME request id is reused if ordering reopens.
       setOrderingOverride('CLOSED');
       setOrderingRecheck('idle');
+      return;
+    }
+    if (result.outcome === 'orderingDisabled') {
+      // The Restaurant switched ordering off since this page loaded: nothing was created.
+      // The menu stays browsable and the notice explains why the cart is gone.
+      setServerOrderingDisabled(true);
       return;
     }
     if (result.outcome === 'priceChanged') {

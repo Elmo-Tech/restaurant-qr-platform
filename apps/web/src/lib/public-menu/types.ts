@@ -2,7 +2,7 @@
 export interface PublicMenuContext {
   qrType: 'TABLE' | 'GENERIC';
   /** Table Sessions: TABLE QR only (null for GENERIC). Advisory -- the order endpoint re-checks. */
-  tableOrdering: 'AVAILABLE' | 'CLOSED' | null;
+  tableOrdering: 'AVAILABLE' | 'CLOSED' | 'DISABLED' | null;
   restaurant: {
     name: string;
     currencyCode: string;

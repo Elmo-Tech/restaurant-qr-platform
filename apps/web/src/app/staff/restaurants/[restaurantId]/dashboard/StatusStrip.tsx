@@ -7,7 +7,7 @@ import type { GenericQr } from '../../../../../lib/qr/api';
 import { Switch } from '../../../../../components/ui/Switch';
 import { IconBag, IconQr, IconTable, IconTruck } from '../../../../../components/staff/icons';
 
-type OrderType = 'pickup' | 'delivery';
+type OrderType = 'pickup' | 'delivery' | 'table';
 
 const TILE = 'flex min-w-0 items-center gap-3 rounded-xl border border-border bg-card px-4 py-3 shadow-sm';
 
@@ -52,6 +52,7 @@ function Medallion({ on, children }: { on: boolean; children: ReactNode }) {
 export function StatusStrip({
   pickupEnabled,
   deliveryEnabled,
+  tableOrderingEnabled,
   canManage,
   busy,
   onToggle,
@@ -63,6 +64,7 @@ export function StatusStrip({
 }: {
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
+  tableOrderingEnabled: boolean;
   /** `restaurant.manage` with Restaurant-wide scope: the switches are live. */
   canManage: boolean;
   busy: OrderType | null;
@@ -76,8 +78,8 @@ export function StatusStrip({
   tablesHref: string | null;
 }) {
   const { t } = useStaffI18n();
-  const overall =
-    pickupEnabled && deliveryEnabled ? 'open' : pickupEnabled || deliveryEnabled ? 'partial' : 'paused';
+  const enabledChannels = [tableOrderingEnabled, pickupEnabled, deliveryEnabled].filter(Boolean).length;
+  const overall = enabledChannels === 3 ? 'open' : enabledChannels > 0 ? 'partial' : 'paused';
   const overallTone =
     overall === 'open'
       ? 'bg-success-soft text-success'
@@ -88,6 +90,7 @@ export function StatusStrip({
     overall === 'open' ? 'bg-success' : overall === 'partial' ? 'bg-warning' : 'bg-destructive';
 
   const switches: { type: OrderType; enabled: boolean; label: string; icon: ReactNode }[] = [
+    { type: 'table', enabled: tableOrderingEnabled, label: t('ops.status.tables'), icon: <IconTable /> },
     { type: 'pickup', enabled: pickupEnabled, label: t('ops.status.pickup'), icon: <IconBag /> },
     { type: 'delivery', enabled: deliveryEnabled, label: t('ops.status.delivery'), icon: <IconTruck /> },
   ];
@@ -106,7 +109,7 @@ export function StatusStrip({
         </span>
       </div>
 
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
         {switches.map((entry) => (
           <Tile key={entry.type}>
             <Medallion on={entry.enabled}>{entry.icon}</Medallion>

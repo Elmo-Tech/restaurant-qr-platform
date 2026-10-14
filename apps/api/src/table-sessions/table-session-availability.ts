@@ -16,6 +16,13 @@ import type { PrismaService } from '../database/prisma.service';
  */
 export type GuestTableOrdering = 'AVAILABLE' | 'CLOSED';
 
+/**
+ * What the Guest Menu reports for a TABLE QR. `DISABLED` (DEC-038) is a
+ * Restaurant setting -- the Table channel is view-only -- and is distinct from
+ * `CLOSED`, which is staff closing ordering for one table.
+ */
+export type GuestTableOrderingState = GuestTableOrdering | 'DISABLED';
+
 export async function resolveTableOrderingAvailability(
   prisma: Pick<PrismaService, 'tableSession'>,
   table: { tableId: string; staffOpenRequired: boolean },

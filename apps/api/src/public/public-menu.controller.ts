@@ -80,13 +80,13 @@ export class PublicMenuController {
   /**
    * Table Sessions: the advisory Table QR ordering availability, for the Guest
    * "Check again" action. Read-only and unauthenticated like the menu; reveals
-   * only `AVAILABLE | CLOSED`, never session, bill or payment data.
+   * only `AVAILABLE | CLOSED | DISABLED`, never session, bill or payment data.
    */
   @Get(':publicCode/table-ordering')
   @HttpCode(HttpStatus.OK)
   async getTableOrdering(
     @Param('publicCode') publicCode: string,
-  ): Promise<{ data: { tableOrdering: 'AVAILABLE' | 'CLOSED' } }> {
+  ): Promise<{ data: { tableOrdering: 'AVAILABLE' | 'CLOSED' | 'DISABLED' } }> {
     const result = await this.publicMenuService.getTableOrdering(publicCode);
     if (result.outcome === 'qrNotFound') {
       throw new NotFoundException(QR_NOT_FOUND_RESPONSE);

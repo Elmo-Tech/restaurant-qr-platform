@@ -10,16 +10,18 @@ export interface RestaurantProfile {
   coverAssetPath: string | null;
 }
 
-/** The two Restaurant QR order-type switches. */
+/** The Restaurant QR order-type switches and the Table (dine-in) channel switch. */
 export interface RestaurantOrderingOptions {
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
+  tableOrderingEnabled: boolean;
 }
 
 export interface UpdateOrderingOptionsInput {
   restaurantId: string;
   pickupEnabled?: boolean;
   deliveryEnabled?: boolean;
+  tableOrderingEnabled?: boolean;
 }
 
 export interface UpdateQrStyleInput {
@@ -131,18 +133,25 @@ export class RestaurantProfileService {
     return { outcome: 'updated', data: next };
   }
 
-  /** Switch Pickup and / or Delivery on or off. Only the fields that were sent are written. */
+  /** Switch Pickup, Delivery and / or Table ordering on or off. Only the fields that were sent are written. */
   async updateOrderingOptions(
     input: UpdateOrderingOptionsInput,
   ): Promise<RestaurantOrderingOptions> {
-    const data: { pickupEnabled?: boolean; deliveryEnabled?: boolean } = {};
+    const data: {
+      pickupEnabled?: boolean;
+      deliveryEnabled?: boolean;
+      tableOrderingEnabled?: boolean;
+    } = {};
     if (input.pickupEnabled !== undefined) data.pickupEnabled = input.pickupEnabled;
     if (input.deliveryEnabled !== undefined) data.deliveryEnabled = input.deliveryEnabled;
+    if (input.tableOrderingEnabled !== undefined) {
+      data.tableOrderingEnabled = input.tableOrderingEnabled;
+    }
 
     return this.prisma.restaurant.update({
       where: { id: input.restaurantId },
       data,
-      select: { pickupEnabled: true, deliveryEnabled: true },
+      select: { pickupEnabled: true, deliveryEnabled: true, tableOrderingEnabled: true },
     });
   }
 

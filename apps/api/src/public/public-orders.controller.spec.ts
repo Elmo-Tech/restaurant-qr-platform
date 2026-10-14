@@ -82,6 +82,19 @@ describe('PublicOrdersController', () => {
     });
   });
 
+  it('maps tableOrderingDisabled to 409 ORDERING_DISABLED (DEC-038)', async () => {
+    publicOrdersService.createOrder.mockResolvedValue({
+      outcome: 'tableOrderingDisabled',
+    });
+
+    await expect(
+      controller.createOrder('code-1', { clientRequestId: 'req-1', items: [] }),
+    ).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'ORDERING_DISABLED' } },
+    });
+  });
+
   it('maps priceChanged to 422 PRICE_CHANGED with the refreshed pricing', async () => {
     const pricing = {
       subtotal: '100.00',

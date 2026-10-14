@@ -20,6 +20,7 @@ export function GuestQrWorkspace({
   canManageOrderTypes,
   pickupEnabled,
   deliveryEnabled,
+  tableOrderingEnabled,
   qrStyle,
   logoAssetPath,
   webOrigin,
@@ -32,6 +33,7 @@ export function GuestQrWorkspace({
   canManageOrderTypes: boolean;
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
+  tableOrderingEnabled: boolean;
   qrStyle: QrStyle;
   logoAssetPath: string | null;
   webOrigin: string;
@@ -47,6 +49,7 @@ export function GuestQrWorkspace({
         restaurantId={restaurantId}
         initialPickupEnabled={pickupEnabled}
         initialDeliveryEnabled={deliveryEnabled}
+        initialTableOrderingEnabled={tableOrderingEnabled}
         canManage={canManageOrderTypes}
       />
 

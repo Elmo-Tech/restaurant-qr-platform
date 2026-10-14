@@ -49,4 +49,5 @@ export interface RestaurantProfile {
 export interface RestaurantOrderingOptions {
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
+  tableOrderingEnabled: boolean;
 }

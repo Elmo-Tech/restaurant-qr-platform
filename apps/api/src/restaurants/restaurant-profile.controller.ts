@@ -118,10 +118,10 @@ export class RestaurantProfileController {
   }
 
   /**
-   * Restaurant QR order types: stop (or resume) accepting Pickup and / or
-   * Delivery orders. A Restaurant-structural change, so the same authority as
-   * the rest of this controller: `restaurant.manage` AND Restaurant-wide
-   * Branch scope. Dine-in (Table QR) is not affected.
+   * Ordering channels: stop (or resume) accepting Pickup, Delivery and / or
+   * Table (dine-in) orders; a channel that is off is a view-only menu
+   * (DEC-038). A Restaurant-structural change, so the same authority as the
+   * rest of this controller: `restaurant.manage` AND Restaurant-wide Branch scope.
    */
   @Patch('ordering-options')
   @HttpCode(HttpStatus.OK)
@@ -135,6 +135,7 @@ export class RestaurantProfileController {
       restaurantId: request.restaurantAccess.restaurantId,
       pickupEnabled: dto.pickupEnabled,
       deliveryEnabled: dto.deliveryEnabled,
+      tableOrderingEnabled: dto.tableOrderingEnabled,
     });
 
     return { data };

@@ -70,6 +70,14 @@ const PICKUP_UNAVAILABLE_RESPONSE = {
 };
 
 /** Table Sessions: the table is locked by staff (a session was closed and no new one has been opened). Stable code for the Guest UI (decision P1); the message is a fallback only. */
+/** DEC-038: the Restaurant switched Table ordering off; the Guest Menu is view-only. */
+const ORDERING_DISABLED_RESPONSE = {
+  error: {
+    code: 'ORDERING_DISABLED',
+    message: 'Ordering is not available through the menu right now.',
+  },
+};
+
 const TABLE_ORDERING_UNAVAILABLE_RESPONSE = {
   error: {
     code: 'TABLE_ORDERING_UNAVAILABLE',
@@ -192,6 +200,9 @@ export class PublicOrdersController {
     }
     if (result.outcome === 'tableOrderingUnavailable') {
       throw new ConflictException(TABLE_ORDERING_UNAVAILABLE_RESPONSE);
+    }
+    if (result.outcome === 'tableOrderingDisabled') {
+      throw new ConflictException(ORDERING_DISABLED_RESPONSE);
     }
     if (result.outcome === 'priceChanged') {
       // API_CONVENTIONS.md #75: 422 PRICE_CHANGED with the refreshed pricing.

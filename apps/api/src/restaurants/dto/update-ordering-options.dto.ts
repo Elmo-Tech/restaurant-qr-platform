@@ -1,8 +1,8 @@
 import { IsBoolean, IsOptional } from 'class-validator';
 
 /**
- * Restaurant ordering options: switch the two Restaurant QR order types on or
- * off. Each field is optional; an omitted one is left unchanged, and an empty
+ * Restaurant ordering options: switch the two Restaurant QR order types and the
+ * Table (dine-in) channel on or off. Each field is optional; an omitted one is left unchanged, and an empty
  * body is a safe no-op that returns the current values.
  */
 export class UpdateOrderingOptionsDto {
@@ -15,4 +15,9 @@ export class UpdateOrderingOptionsDto {
   @IsOptional()
   @IsBoolean()
   deliveryEnabled?: boolean;
+
+  /** Table (dine-in) ordering from the Table QR; off = a view-only table menu (DEC-038). */
+  @IsOptional()
+  @IsBoolean()
+  tableOrderingEnabled?: boolean;
 }

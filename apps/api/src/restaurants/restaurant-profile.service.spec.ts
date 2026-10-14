@@ -159,7 +159,11 @@ describe('RestaurantProfileService cover image', () => {
 describe('RestaurantProfileService.updateOrderingOptions', () => {
   it('writes only the fields that were sent, scoped by the authorized restaurantId', async () => {
     const mocks = buildMocks();
-    mocks.update.mockResolvedValue({ pickupEnabled: true, deliveryEnabled: false });
+    mocks.update.mockResolvedValue({
+      pickupEnabled: true,
+      deliveryEnabled: false,
+      tableOrderingEnabled: true,
+    });
     const service = buildService(mocks);
 
     const result = await service.updateOrderingOptions({
@@ -170,9 +174,25 @@ describe('RestaurantProfileService.updateOrderingOptions', () => {
     expect(mocks.update).toHaveBeenCalledWith({
       where: { id: RESTAURANT_ID },
       data: { deliveryEnabled: false },
-      select: { pickupEnabled: true, deliveryEnabled: true },
+      select: { pickupEnabled: true, deliveryEnabled: true, tableOrderingEnabled: true },
     });
-    expect(result).toEqual({ pickupEnabled: true, deliveryEnabled: false });
+    expect(result).toEqual({
+      pickupEnabled: true,
+      deliveryEnabled: false,
+      tableOrderingEnabled: true,
+    });
+  });
+
+  it('writes the Table ordering switch on its own (DEC-038)', async () => {
+    const mocks = buildMocks();
+    const service = buildService(mocks);
+
+    await service.updateOrderingOptions({
+      restaurantId: RESTAURANT_ID,
+      tableOrderingEnabled: false,
+    });
+
+    expect(mocks.update.mock.calls[0][0].data).toEqual({ tableOrderingEnabled: false });
   });
 
   it('writes both switches when both are sent', async () => {

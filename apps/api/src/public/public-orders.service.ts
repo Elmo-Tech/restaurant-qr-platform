@@ -127,7 +127,9 @@ export type CreateGuestOrderResult =
       };
     }
   /** Table Sessions: a TABLE QR whose table is locked by staff (no OPEN session and a staff open is required). Never produced for Pickup/Delivery. */
-  | { outcome: 'tableOrderingUnavailable' };
+  | { outcome: 'tableOrderingUnavailable' }
+  /** DEC-038: the Restaurant switched Table ordering off (view-only Table channel). */
+  | { outcome: 'tableOrderingDisabled' };
 
 interface OrderViewRow {
   id: string;
@@ -376,6 +378,7 @@ export class PublicOrdersService {
             currencyCode: true,
             pickupEnabled: true,
             deliveryEnabled: true,
+            tableOrderingEnabled: true,
           },
         },
         branch: { select: { timezone: true } },
@@ -409,6 +412,11 @@ export class PublicOrdersService {
     let deliveryLandmark: string | null = null;
 
     if (qr.type === 'TABLE') {
+      // Table channel switched off by the Restaurant (DEC-038): a view-only menu.
+      // Refused before anything else, so no Order and no Table Session can result.
+      if (qr.restaurant.tableOrderingEnabled === false) {
+        return { outcome: 'tableOrderingDisabled' };
+      }
       // DINE_IN, exactly as FT-5: Branch/Table come from the QR/Table only.
       // Any `branchId`/customer field a client sent is IGNORED here, never
       // read -- a TABLE QR cannot be turned into a Pickup Order or have its

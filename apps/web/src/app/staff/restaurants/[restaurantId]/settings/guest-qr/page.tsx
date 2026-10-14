@@ -71,6 +71,7 @@ export default async function GuestQrSettingsPage({ params }: GuestQrSettingsPag
       canManageOrderTypes={canManageLanguages(membership)}
       pickupEnabled={membership.restaurant.pickupEnabled}
       deliveryEnabled={membership.restaurant.deliveryEnabled}
+      tableOrderingEnabled={membership.restaurant.tableOrderingEnabled}
       qrStyle={membership.restaurant.qrStyle}
       logoAssetPath={membership.restaurant.logoAssetPath}
       webOrigin={getWebOrigin()}

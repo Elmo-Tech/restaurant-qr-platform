@@ -50,6 +50,8 @@ export interface TablesWorkspaceProps {
   qrStyle: QrStyle;
   /** Restaurant logo path (drawn in the QR center when the style asks for it). */
   logoAssetPath: string | null;
+  /** DEC-038: false = guests see a view-only menu on table QR codes. Informational only here. */
+  tableOrderingEnabled?: boolean;
   /** Deep link from the Dashboard (`?session=`): opens that session's panel on load. */
   initialSessionId?: string | null;
 }
@@ -108,6 +110,7 @@ export function TablesWorkspace({
   qrStyle,
   logoAssetPath,
   initialSessionId = null,
+  tableOrderingEnabled = true,
 }: TablesWorkspaceProps) {
   const { t, locale } = useStaffI18n();
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(
@@ -475,6 +478,10 @@ export function TablesWorkspace({
           ) : undefined
         }
       />
+
+      {!tableOrderingEnabled ? (
+        <Alert variant="info">{t('tables.orderingOffNotice')}</Alert>
+      ) : null}
 
       {branches.length === 0 ? (
         <Alert variant="error">

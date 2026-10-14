@@ -13,7 +13,7 @@ import {
 } from '../restaurants/platform-locales';
 import {
   resolveTableOrderingAvailability,
-  type GuestTableOrdering,
+  type GuestTableOrderingState,
 } from '../table-sessions/table-session-availability';
 import { resolvePublicLocale } from './public-locale';
 import { resolvePublicField } from './public-translation-fallback';
@@ -34,7 +34,7 @@ export interface PublicMenuContext {
    * currently open. Advisory (the order endpoint re-checks under the table lock);
    * never exposes session, bill or payment data.
    */
-  tableOrdering: GuestTableOrdering | null;
+  tableOrdering: GuestTableOrderingState | null;
   restaurant: {
     name: string;
     currencyCode: string;
@@ -180,7 +180,7 @@ export class PublicMenuService {
   async getTableOrdering(
     publicCode: string,
   ): Promise<
-    | { outcome: 'found'; tableOrdering: GuestTableOrdering }
+    | { outcome: 'found'; tableOrdering: GuestTableOrderingState }
     | { outcome: 'qrNotFound' }
   > {
     const qr = await this.prisma.qrCode.findUnique({
@@ -189,7 +189,7 @@ export class PublicMenuService {
         type: true,
         status: true,
         tableId: true,
-        restaurant: { select: { status: true } },
+        restaurant: { select: { status: true, tableOrderingEnabled: true } },
         table: { select: { status: true, staffOpenRequired: true } },
       },
     });
@@ -203,6 +203,9 @@ export class PublicMenuService {
       qr.table.status !== 'ACTIVE'
     ) {
       return { outcome: 'qrNotFound' };
+    }
+    if (qr.restaurant.tableOrderingEnabled === false) {
+      return { outcome: 'found', tableOrdering: 'DISABLED' };
     }
     return {
       outcome: 'found',
@@ -237,6 +240,7 @@ export class PublicMenuService {
             coverAssetPath: true,
             pickupEnabled: true,
             deliveryEnabled: true,
+            tableOrderingEnabled: true,
           },
         },
         // At most one row per platform locale, so no extra filtering is needed.
@@ -255,12 +259,14 @@ export class PublicMenuService {
       return { outcome: 'qrNotFound' };
     }
 
-    const tableOrdering: GuestTableOrdering | null =
+    const tableOrdering: GuestTableOrderingState | null =
       qr.type === 'TABLE' && qr.tableId && qr.table
-        ? await resolveTableOrderingAvailability(this.prisma, {
-            tableId: qr.tableId,
-            staffOpenRequired: qr.table.staffOpenRequired === true,
-          })
+        ? qr.restaurant.tableOrderingEnabled === false
+          ? 'DISABLED'
+          : await resolveTableOrderingAvailability(this.prisma, {
+              tableId: qr.tableId,
+              staffOpenRequired: qr.table.staffOpenRequired === true,
+            })
         : null;
 
     const activeLocaleRows = await this.prisma.restaurantLocale.findMany({

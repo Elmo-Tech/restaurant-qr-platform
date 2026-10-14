@@ -36,6 +36,8 @@ export interface AuthContextRestaurant {
   /** Restaurant QR order types (Restaurant Settings -> Restaurant QR). False stops that type of order. */
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
+  /** Table (dine-in) channel; false = a view-only table menu (DEC-038). */
+  tableOrderingEnabled: boolean;
   /** QR appearance (Settings -> Restaurant QR), applied to the Restaurant QR and Table QR panels. */
   qrStyle: {
     foregroundColor: string;
@@ -143,6 +145,7 @@ export class AuthContextService {
             coverAssetPath: true,
             pickupEnabled: true,
             deliveryEnabled: true,
+            tableOrderingEnabled: true,
             qrForegroundColor: true,
             qrBackgroundColor: true,
             qrShowLogo: true,
@@ -270,6 +273,7 @@ export class AuthContextService {
           coverAssetPath: membership.restaurant.coverAssetPath,
           pickupEnabled: membership.restaurant.pickupEnabled,
           deliveryEnabled: membership.restaurant.deliveryEnabled,
+          tableOrderingEnabled: membership.restaurant.tableOrderingEnabled,
           qrStyle: {
             foregroundColor: membership.restaurant.qrForegroundColor,
             backgroundColor: membership.restaurant.qrBackgroundColor,
