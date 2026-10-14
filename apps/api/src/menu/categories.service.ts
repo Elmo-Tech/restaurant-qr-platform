@@ -46,6 +46,19 @@ export interface CreateCategoryInput {
   displayOrder: number;
 }
 
+/** Reorder one Menu's Categories: the full desired order. */
+export interface ReorderCategoriesInput {
+  restaurantId: string;
+  menuId: string;
+  categoryIds: string[];
+}
+
+export type ReorderCategoriesResult =
+  | { outcome: 'reordered'; data: { categoryIds: string[] } }
+  | { outcome: 'menuNotFound' }
+  /** The list is not exactly this Menu's current Categories (someone added, removed or moved one). Nothing was written. */
+  | { outcome: 'orderMismatch' };
+
 /**
  * A plain outcome, never an HTTP exception -- the controller alone decides
  * how each outcome maps to its HTTP status/body (mirrors Business
@@ -636,4 +649,51 @@ export class CategoriesService {
       return { outcome: 'deleted' };
     });
   }
+
+  /**
+   * Staff drag-and-drop ordering. Tenant-scoped (menu and categories are
+   * resolved with `restaurantId`), all-or-nothing, and rejected as a
+   * `orderMismatch` unless `categoryIds` is exactly the Menu's current set --
+   * so a stale client never reorders over a concurrent change. Writes
+   * `displayOrder = position` (0-based); nothing else about a Category moves.
+   */
+  async reorderCategories(
+    input: ReorderCategoriesInput,
+  ): Promise<ReorderCategoriesResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const menu = await tx.menu.findFirst({
+        where: { id: input.menuId, restaurantId: input.restaurantId },
+        select: { id: true },
+      });
+      if (!menu) {
+        return { outcome: 'menuNotFound' } as const;
+      }
+
+      const current = await tx.category.findMany({
+        where: { menuId: input.menuId, restaurantId: input.restaurantId },
+        select: { id: true, displayOrder: true },
+      });
+      const currentIds = new Set(current.map((row) => row.id));
+      const sameSet =
+        input.categoryIds.length === currentIds.size &&
+        input.categoryIds.every((id) => currentIds.has(id));
+      if (!sameSet) {
+        return { outcome: 'orderMismatch' } as const;
+      }
+
+      const orderById = new Map(current.map((row) => [row.id, row.displayOrder]));
+      for (const [position, id] of input.categoryIds.entries()) {
+        if (orderById.get(id) === position) continue;
+        await tx.category.update({
+          where: { id },
+          data: { displayOrder: position },
+        });
+      }
+      return {
+        outcome: 'reordered',
+        data: { categoryIds: input.categoryIds },
+      } as const;
+    });
+  }
+
 }

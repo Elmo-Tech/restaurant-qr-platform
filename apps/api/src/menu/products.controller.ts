@@ -38,6 +38,7 @@ import type { UploadedImageFile } from '../storage/uploaded-image-file';
 import { CreateProductDto } from './dto/create-product.dto';
 import { ListProductsQueryDto } from './dto/list-products-query.dto';
 import { PutTranslationDto } from './dto/put-translation.dto';
+import { ReorderProductsDto } from './dto/reorder-products.dto';
 import { UpdateProductAvailabilityDto } from './dto/update-product-availability.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import {
@@ -84,6 +85,14 @@ const CATEGORY_NOT_FOUND_RESPONSE = {
  * `productId` -- never a distinguishable `PRODUCT_ACCESS_DENIED`/
  * `PRODUCT_WRONG_RESTAURANT`/`INVALID_PRODUCT_ID`.
  */
+/** The submitted order is not exactly the Category's current Products: reload and retry. */
+const ORDER_MISMATCH_RESPONSE = {
+  error: {
+    code: 'ORDER_MISMATCH',
+    message: 'The list changed. Reload and try again.',
+  },
+};
+
 const PRODUCT_NOT_FOUND_RESPONSE = {
   error: {
     code: 'PRODUCT_NOT_FOUND',
@@ -257,6 +266,36 @@ export class ProductsController {
    * used here -- that is a future Guest/Order business-behavior concern, not
    * this Staff configuration endpoint.
    */
+  @Put('order')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async reorderProducts(
+    @Body() dto: ReorderProductsDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: { productIds: string[] } }> {
+    const result = await this.productsService.reorderProducts({
+      restaurantId: request.restaurantAccess.restaurantId,
+      categoryId: dto.categoryId,
+      productIds: dto.productIds,
+    });
+
+    if (result.outcome === 'categoryNotFound') {
+      throw new NotFoundException(CATEGORY_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'orderMismatch') {
+      throw new ConflictException(ORDER_MISMATCH_RESPONSE);
+    }
+
+    return { data: result.data };
+  }
+
   @Patch(':productId/availability')
   @HttpCode(HttpStatus.OK)
   @UseGuards(

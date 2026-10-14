@@ -38,6 +38,7 @@ import { CategoriesService } from './categories.service';
 import type { CategoryWithTranslation } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
 import { ListCategoriesQueryDto } from './dto/list-categories-query.dto';
+import { ReorderCategoriesDto } from './dto/reorder-categories.dto';
 import { PutTranslationDto } from './dto/put-translation.dto';
 import { UpdateCategoryDto } from './dto/update-category.dto';
 import {
@@ -67,6 +68,14 @@ const MENU_NOT_FOUND_RESPONSE = {
  * `CATEGORY_ACCESS_DENIED`/`CATEGORY_WRONG_RESTAURANT`/`INVALID_CATEGORY_ID`
  * (mirrors the existing `PRODUCT_NOT_FOUND` convention).
  */
+/** The submitted order is not exactly the Menu's current Categories: reload and retry. */
+const ORDER_MISMATCH_RESPONSE = {
+  error: {
+    code: 'ORDER_MISMATCH',
+    message: 'The list changed. Reload and try again.',
+  },
+};
+
 const CATEGORY_NOT_FOUND_RESPONSE = {
   error: {
     code: 'CATEGORY_NOT_FOUND',
@@ -163,6 +172,40 @@ export class CategoriesController {
 
     if (result.outcome === 'menuNotFound') {
       throw new NotFoundException(MENU_NOT_FOUND_RESPONSE);
+    }
+
+    return { data: result.data };
+  }
+
+  /**
+   * Staff drag-and-drop ordering of one Menu's Categories. Restaurant-
+   * structural, so the same guard chain as Create/Update.
+   */
+  @Put('order')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async reorderCategories(
+    @Body() dto: ReorderCategoriesDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: { categoryIds: string[] } }> {
+    const result = await this.categoriesService.reorderCategories({
+      restaurantId: request.restaurantAccess.restaurantId,
+      menuId: dto.menuId,
+      categoryIds: dto.categoryIds,
+    });
+
+    if (result.outcome === 'menuNotFound') {
+      throw new NotFoundException(MENU_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'orderMismatch') {
+      throw new ConflictException(ORDER_MISMATCH_RESPONSE);
     }
 
     return { data: result.data };

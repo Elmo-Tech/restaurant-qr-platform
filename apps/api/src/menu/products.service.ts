@@ -20,6 +20,19 @@ import { isRestaurantLocaleActive } from './menu-translation.helper';
 import type { TranslationView } from './menu-translation.helper';
 import type { PlatformSupportedLocale } from '../restaurants/platform-locales';
 
+/** Reorder one Category's Products: the full desired order. */
+export interface ReorderProductsInput {
+  restaurantId: string;
+  categoryId: string;
+  productIds: string[];
+}
+
+export type ReorderProductsResult =
+  | { outcome: 'reordered'; data: { productIds: string[] } }
+  | { outcome: 'categoryNotFound' }
+  /** The list is not exactly this Category's current Products. Nothing was written. */
+  | { outcome: 'orderMismatch' };
+
 /** Converts a Prisma Decimal (or any Decimal-constructible value) to the exact 2-fractional-digit decimal-string API contract (API_CONVENTIONS.md #48). Never JavaScript floating-point arithmetic. */
 function formatMoney(value: Prisma.Decimal): string {
   return value.toFixed(2);
@@ -937,4 +950,49 @@ export class ProductsService {
       return { outcome: 'deleted' };
     });
   }
+
+  /**
+   * Staff drag-and-drop ordering of one Category's Products. Tenant-scoped,
+   * all-or-nothing, `orderMismatch` unless `productIds` is exactly the
+   * Category's current Products. Writes `displayOrder = position` (0-based).
+   */
+  async reorderProducts(
+    input: ReorderProductsInput,
+  ): Promise<ReorderProductsResult> {
+    return this.prisma.$transaction(async (tx) => {
+      const category = await tx.category.findFirst({
+        where: { id: input.categoryId, restaurantId: input.restaurantId },
+        select: { id: true },
+      });
+      if (!category) {
+        return { outcome: 'categoryNotFound' } as const;
+      }
+
+      const current = await tx.product.findMany({
+        where: { categoryId: input.categoryId, restaurantId: input.restaurantId },
+        select: { id: true, displayOrder: true },
+      });
+      const currentIds = new Set(current.map((row) => row.id));
+      const sameSet =
+        input.productIds.length === currentIds.size &&
+        input.productIds.every((id) => currentIds.has(id));
+      if (!sameSet) {
+        return { outcome: 'orderMismatch' } as const;
+      }
+
+      const orderById = new Map(current.map((row) => [row.id, row.displayOrder]));
+      for (const [position, id] of input.productIds.entries()) {
+        if (orderById.get(id) === position) continue;
+        await tx.product.update({
+          where: { id },
+          data: { displayOrder: position },
+        });
+      }
+      return {
+        outcome: 'reordered',
+        data: { productIds: input.productIds },
+      } as const;
+    });
+  }
+
 }

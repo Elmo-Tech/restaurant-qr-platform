@@ -39,9 +39,11 @@ import { Textarea } from '../../../../../components/ui/Textarea';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { IconImage, IconPencil, IconPlus } from '../../../../../components/staff/icons';
 import { LanguageTabs, type LanguageTabOption } from '../../../../../components/menu/LanguageTabs';
+import { DragGrip, MoveArrows, useDragReorder } from '../../../../../components/menu/reorder';
 import { TranslationFields } from '../../../../../components/menu/TranslationFields';
 import { ImageField } from '../../../../../components/menu/ImageField';
 import { resolveAssetUrl } from '../../../../../lib/media/asset-url';
+import { ALL_PRODUCTS } from '../../../../../lib/menu/all-products';
 import { validateImageFile } from '../../../../../lib/menu/image-validation';
 
 const KEEP_CURRENT_MENU = '__keep_current_menu__';
@@ -63,6 +65,10 @@ interface CategoryNavigationProps {
   onMoved: (category: Category) => void;
   onCategoryNotFound: () => void;
   onMenuNotFound: () => void;
+  /** Product count per Category id; `null` until loaded (counts are then simply not shown). */
+  productCounts: Record<string, number> | null;
+  /** Drag-and-drop / arrow ordering: gets the full new order of this Menu's Categories. */
+  onReorder: (categoryIds: string[]) => void;
 }
 
 interface CategoryFormState {
@@ -153,8 +159,16 @@ export function CategoryNavigation({
   onMoved,
   onCategoryNotFound,
   onMenuNotFound,
+  productCounts,
+  onReorder,
 }: CategoryNavigationProps) {
   const { t } = useStaffI18n();
+  // Touch / small screens: ordering is an explicit mode (arrows), because a row of
+  // chips has no room for per-item controls. Desktop uses the drag grip directly.
+  const [reorderMode, setReorderMode] = useState(false);
+  const categoryIds = useMemo(() => (categories ?? []).map((category) => category.id), [categories]);
+  const canReorder = canManage && categoryIds.length > 1;
+  const reorder = useDragReorder({ ids: categoryIds, enabled: canReorder, onReorder });
   const [mode, setMode] = useState<'idle' | 'create' | 'edit'>('idle');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<CategoryFormState>(EMPTY_FORM);
@@ -498,15 +512,28 @@ export function CategoryNavigation({
       title={t('menu.categories.title')}
       actions={
         canManage && menuId ? (
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={startCreate}
-            aria-label={t('menu.categories.add')}
-          >
-            <IconPlus className="h-4 w-4" />
-          </Button>
+          <>
+            {canReorder ? (
+              <Button
+                type="button"
+                variant={reorderMode ? 'primary' : 'secondary'}
+                size="sm"
+                className="xl:hidden"
+                onClick={() => setReorderMode((value) => !value)}
+              >
+                {reorderMode ? t('menu.reorder.done') : t('menu.reorder.start')}
+              </Button>
+            ) : null}
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              onClick={startCreate}
+              aria-label={t('menu.categories.add')}
+            >
+              <IconPlus className="h-4 w-4" />
+            </Button>
+          </>
         ) : undefined
       }
     >
@@ -544,18 +571,72 @@ export function CategoryNavigation({
           ) : null}
 
           {categories !== null && categories.length > 0 ? (
-            <ul className="flex gap-2 overflow-x-auto pb-1 xl:flex-col xl:gap-1 xl:overflow-visible xl:pb-0">
-              {categories.map((category) => {
+            <ul
+              className={`flex gap-2 pb-1 xl:flex-col xl:gap-1 xl:overflow-visible xl:pb-0 ${
+                reorderMode ? 'flex-col' : 'overflow-x-auto'
+              }`}
+            >
+              <li className="shrink-0 xl:shrink">
+                <div
+                  className={`relative flex items-center gap-1 rounded-md border px-1 transition-colors xl:px-1.5 ${
+                    selectedCategoryId === ALL_PRODUCTS
+                      ? 'border-primary/30 bg-accent'
+                      : 'border-border bg-card hover:bg-muted xl:border-transparent'
+                  }`}
+                >
+                  <button
+                    type="button"
+                    onClick={() => onSelectCategory(ALL_PRODUCTS)}
+                    aria-current={selectedCategoryId === ALL_PRODUCTS ? 'true' : undefined}
+                    className={`flex items-center justify-between gap-3 whitespace-nowrap rounded-md py-2 ps-2 pe-1 text-start text-sm outline-none focus-visible:ring-2 focus-visible:ring-ring xl:w-full ${
+                      selectedCategoryId === ALL_PRODUCTS
+                        ? 'font-semibold text-primary'
+                        : 'text-secondary-foreground'
+                    }`}
+                  >
+                    <span dir="auto" className="truncate">
+                      {t('menu.products.all')}
+                    </span>
+                    {productCounts ? (
+                      <span
+                        className={`inline-flex min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-semibold ${
+                          selectedCategoryId === ALL_PRODUCTS
+                            ? 'bg-primary text-primary-foreground'
+                            : 'bg-muted text-muted-foreground'
+                        }`}
+                      >
+                        {categories.reduce((sum, category) => sum + (productCounts[category.id] ?? 0), 0)}
+                      </span>
+                    ) : null}
+                  </button>
+                </div>
+              </li>
+              {categories.map((category, index) => {
                 const isSelected = category.id === selectedCategoryId;
+                const count = productCounts ? (productCounts[category.id] ?? 0) : null;
+                const isDragging = reorder.draggingId === category.id;
+                const isOver = reorder.overId === category.id;
                 return (
-                  <li key={category.id} className="shrink-0 xl:shrink">
+                  <li
+                    key={category.id}
+                    data-reorder-row
+                    {...reorder.rowProps(category.id)}
+                    className={`shrink-0 xl:shrink ${isDragging ? 'opacity-50' : ''}`}
+                  >
                     <div
                       className={`group relative flex items-center gap-1 rounded-md border px-1 transition-colors xl:px-1.5 ${
                         isSelected
                           ? 'border-primary/30 bg-accent'
                           : 'border-border bg-card hover:bg-muted xl:border-transparent'
-                      }`}
+                      } ${isOver ? 'outline outline-2 -outline-offset-2 outline-primary' : ''}`}
                     >
+                      {canReorder ? (
+                        <DragGrip
+                          name={category.translation.name}
+                          handleProps={reorder.handleProps(category.id)}
+                          className="hidden xl:inline-flex"
+                        />
+                      ) : null}
                       {isSelected ? (
                         <span
                           aria-hidden="true"
@@ -576,12 +657,33 @@ export function CategoryNavigation({
                             {category.translation.name}
                           </span>
                         </span>
-                        {category.status === 'INACTIVE' ? (
-                          <span className="text-xs text-muted-foreground">{t('common.inactive')}</span>
-                        ) : (
-                          <span className="hidden text-xs text-muted-foreground xl:inline">{t('common.active')}</span>
-                        )}
+                        <span className="flex flex-shrink-0 items-center gap-1.5">
+                          {category.status === 'INACTIVE' ? (
+                            <span className="text-xs text-muted-foreground">{t('common.inactive')}</span>
+                          ) : null}
+                          {count !== null ? (
+                            <span
+                              title={t('menu.categories.productCount', { count })}
+                              className={`inline-flex min-w-6 items-center justify-center rounded-full px-1.5 text-xs font-semibold ${
+                                isSelected
+                                  ? 'bg-primary text-primary-foreground'
+                                  : 'bg-muted text-muted-foreground'
+                              }`}
+                            >
+                              {count}
+                            </span>
+                          ) : null}
+                        </span>
                       </button>
+                      {reorderMode && canReorder ? (
+                        <MoveArrows
+                          name={category.translation.name}
+                          index={index}
+                          count={categoryIds.length}
+                          onMove={(delta) => reorder.moveBy(category.id, delta)}
+                          className="xl:hidden"
+                        />
+                      ) : null}
                       {canManage ? (
                         <button
                           type="button"

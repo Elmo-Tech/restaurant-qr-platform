@@ -378,10 +378,10 @@ export function MenuContextBar({
 
   return (
     <>
-      <Card className="flex flex-col gap-4">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-          <div className="flex flex-1 flex-col gap-1.5 sm:max-w-sm">
-            <label htmlFor="menu-context-select" className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+      <div className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-3 shadow-sm">
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          <div className="flex min-w-0 flex-1 basis-48 items-center gap-3 sm:max-w-sm">
+            <label htmlFor="menu-context-select" className="flex-shrink-0 text-xs font-semibold text-muted-foreground">
               {t('menu.menus.label')}
             </label>
             <Select
@@ -405,7 +405,7 @@ export function MenuContextBar({
           ) : null}
 
           {canManage && selectedMenu ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="ms-auto flex flex-wrap items-center gap-2">
               {!selectedMenu.isPrimary ? (
                 <Button
                   variant="secondary"
@@ -419,7 +419,7 @@ export function MenuContextBar({
               <Button variant="secondary" size="sm" onClick={() => startEdit(selectedMenu)}>
                 {t('menu.menus.edit')}
               </Button>
-              <Button size="sm" onClick={startCreate}>
+              <Button variant="secondary" size="sm" onClick={startCreate}>
                 <IconPlus className="h-3.5 w-3.5" /> {t('menu.menus.new')}
               </Button>
             </div>
@@ -427,7 +427,7 @@ export function MenuContextBar({
         </div>
 
         {primaryError ? <Alert variant="error">{primaryError}</Alert> : null}
-      </Card>
+      </div>
       {dialog}
     </>
   );

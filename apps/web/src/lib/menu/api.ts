@@ -186,6 +186,30 @@ export async function listProducts(
   return body.data;
 }
 
+/** Drag-and-drop ordering: the complete new order of one Menu's Categories. `409 ORDER_MISMATCH` when the list changed meanwhile. */
+export async function reorderCategories(
+  restaurantId: string,
+  menuId: string,
+  categoryIds: string[],
+): Promise<void> {
+  await apiFetch<{ data: { categoryIds: string[] } }>(
+    `${restaurantPath(restaurantId)}/categories/order`,
+    { method: 'PUT', body: { menuId, categoryIds } },
+  );
+}
+
+/** Drag-and-drop ordering: the complete new order of one Category's Products. `409 ORDER_MISMATCH` when the list changed meanwhile. */
+export async function reorderProducts(
+  restaurantId: string,
+  categoryId: string,
+  productIds: string[],
+): Promise<void> {
+  await apiFetch<{ data: { productIds: string[] } }>(
+    `${restaurantPath(restaurantId)}/products/order`,
+    { method: 'PUT', body: { categoryId, productIds } },
+  );
+}
+
 /** Write shape of a product discount (omit on create for none; `null` on update removes it). */
 export interface ProductDiscountInput {
   enabled: boolean;

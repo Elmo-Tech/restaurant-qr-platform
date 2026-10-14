@@ -7,6 +7,7 @@ import { MenuSectionTabs } from './MenuSectionTabs';
 import * as menuApi from '../../../../../lib/menu/api';
 import * as settingsApi from '../../../../../lib/settings/api';
 import type { Category, Menu, Product } from '../../../../../lib/menu/types';
+import { ALL_PRODUCTS } from '../../../../../lib/menu/all-products';
 import type { RestaurantLocalesResponse } from '../../../../../lib/settings/types';
 import {
   describeError,
@@ -87,6 +88,10 @@ export function MenuWorkspace({
 
   const [products, setProducts] = useState<Product[] | null>(null);
   const [productsError, setProductsError] = useState<string | null>(null);
+  // Per-Category product counts for the rail. A display aid only: it is read once for the
+  // whole Restaurant and refreshed after ordering; it never gates anything.
+  const [productCounts, setProductCounts] = useState<Record<string, number> | null>(null);
+  const [orderError, setOrderError] = useState<string | null>(null);
 
   // Restaurant Languages (FT-1, Section 4): the sole authority for which
   // secondary-locale translation tabs the Menu/Category editors show. Loaded
@@ -98,6 +103,9 @@ export function MenuWorkspace({
     null,
   );
 
+  // Mirrors `categories` synchronously: the "All products" load needs the current Menu's
+  // Category ids and order at the moment it starts, before React has re-rendered.
+  const categoriesRef = useRef<Category[] | null>(null);
   const selectedMenuIdRef = useRef<string | null>(null);
   const selectedCategoryIdRef = useRef<string | null>(null);
   const menusRequestRef = useRef(0);
@@ -120,7 +128,24 @@ export function MenuWorkspace({
       }
       const requestId = ++productsRequestRef.current;
       try {
-        const data = await menuApi.listProducts(restaurantId, categoryId);
+        let data: Product[];
+        if (categoryId === ALL_PRODUCTS) {
+          // Every Product of the SELECTED Menu: the Restaurant-wide list narrowed to this
+          // Menu's Categories, in Category order and then product order.
+          const all = await menuApi.listProducts(restaurantId);
+          const order = new Map(
+            (categoriesRef.current ?? []).map((category, index) => [category.id, index] as const),
+          );
+          data = all
+            .filter((product) => order.has(product.categoryId))
+            .sort(
+              (a, b) =>
+                (order.get(a.categoryId) ?? 0) - (order.get(b.categoryId) ?? 0) ||
+                a.displayOrder - b.displayOrder,
+            );
+        } else {
+          data = await menuApi.listProducts(restaurantId, categoryId);
+        }
         if (
           productsRequestRef.current !== requestId ||
           selectedCategoryIdRef.current !== categoryId
@@ -183,17 +208,22 @@ export function MenuWorkspace({
         ) {
           return;
         }
+        categoriesRef.current = data;
         setCategories(data);
         setCategoriesError(null);
         const nextCategoryId =
           selectId && data.some((category) => category.id === selectId)
             ? selectId
-            : selectedCategoryIdRef.current &&
-                data.some(
-                  (category) => category.id === selectedCategoryIdRef.current,
-                )
-              ? selectedCategoryIdRef.current
-              : (data[0]?.id ?? null);
+            : selectedCategoryIdRef.current === ALL_PRODUCTS && data.length > 0
+              ? ALL_PRODUCTS
+              : selectedCategoryIdRef.current &&
+                  data.some(
+                    (category) => category.id === selectedCategoryIdRef.current,
+                  )
+                ? selectedCategoryIdRef.current
+                : data.length > 0
+                  ? ALL_PRODUCTS
+                  : null;
         if (nextCategoryId !== selectedCategoryIdRef.current) {
           selectCategory(nextCategoryId);
         }
@@ -227,6 +257,7 @@ export function MenuWorkspace({
       productsRequestRef.current += 1;
       selectedMenuIdRef.current = menuId;
       selectedCategoryIdRef.current = null;
+      categoriesRef.current = null;
       setSelectedMenuId(menuId);
       setCategories(null);
       setCategoriesError(null);
@@ -314,6 +345,68 @@ export function MenuWorkspace({
     });
   }, [restaurantId]);
 
+  const loadProductCounts = useCallback(async () => {
+    try {
+      const all = await menuApi.listProducts(restaurantId);
+      const counts: Record<string, number> = {};
+      for (const product of all) {
+        counts[product.categoryId] = (counts[product.categoryId] ?? 0) + 1;
+      }
+      setProductCounts(counts);
+    } catch {
+      // Counts are a convenience: without them the rail simply shows no numbers.
+    }
+  }, [restaurantId]);
+
+  useEffect(() => {
+    queueMicrotask(() => {
+      void loadProductCounts();
+    });
+  }, [loadProductCounts, categories]);
+
+  /** Optimistic: the new order shows immediately, is saved, and the list is reloaded if saving fails. */
+  async function handleReorderCategories(categoryIds: string[]) {
+    if (!selectedMenuId || !categories) return;
+    const byId = new Map(categories.map((category) => [category.id, category]));
+    const reordered = categoryIds
+      .map((id) => byId.get(id))
+      .filter((category): category is Category => category !== undefined);
+    categoriesRef.current = reordered;
+    setCategories(reordered);
+    setOrderError(null);
+    try {
+      await menuApi.reorderCategories(restaurantId, selectedMenuId, categoryIds);
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setOrderError(t('menu.reorder.failed'));
+      void loadCategories(selectedMenuId);
+    }
+  }
+
+  async function handleReorderProducts(productIds: string[]) {
+    if (!selectedCategoryId || !products) return;
+    const byId = new Map(products.map((product) => [product.id, product]));
+    setProducts(
+      productIds
+        .map((id) => byId.get(id))
+        .filter((product): product is Product => product !== undefined),
+    );
+    setOrderError(null);
+    try {
+      await menuApi.reorderProducts(restaurantId, selectedCategoryId, productIds);
+    } catch (error) {
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setOrderError(t('menu.reorder.failed'));
+      void loadProducts(selectedCategoryId);
+    }
+  }
+
   function handleCategoryMoved(movedCategory: Category) {
     if (movedCategory.menuId === selectedMenuId) {
       // Defensive: the "move to" control excludes the current Menu, so this
@@ -338,7 +431,12 @@ export function MenuWorkspace({
     );
   }
 
+  const isAllProducts = selectedCategoryId === ALL_PRODUCTS;
   const selectedCategory = categories?.find((category) => category.id === selectedCategoryId);
+  const categoryNames: Record<string, string> = {};
+  for (const category of categories ?? []) {
+    categoryNames[category.id] = category.translation.name;
+  }
   const selectedMenu = menus?.find((menu) => menu.id === selectedMenuId);
 
   return (
@@ -369,6 +467,8 @@ export function MenuWorkspace({
         onPrimaryChanged={() => void loadMenus()}
         onMenuNotFound={() => void loadMenus()}
       />
+
+      {orderError ? <Alert variant="error">{orderError}</Alert> : null}
 
       {/* Responsive fix: the Category rail + Product workspace split waits
           for `xl` (1280px), not `lg` (1024px) -- `lg` is also where the
@@ -410,12 +510,16 @@ export function MenuWorkspace({
             if (selectedMenuId) void loadCategories(selectedMenuId);
           }}
           onMenuNotFound={() => void loadMenus()}
+          productCounts={productCounts}
+          onReorder={(categoryIds) => void handleReorderCategories(categoryIds)}
         />
         {/* Section 1C: same reasoning, keyed by the selected Category. */}
         <ProductList
           key={`category-${selectedCategoryId ?? 'none'}`}
           restaurantId={restaurantId}
-          categoryId={selectedCategoryId}
+          categoryId={isAllProducts ? null : selectedCategoryId}
+          isAllProducts={isAllProducts}
+          categoryNames={categoryNames}
           categoryName={selectedCategory?.translation.name}
           menuName={selectedMenu?.translation.name}
           products={products}
@@ -431,6 +535,7 @@ export function MenuWorkspace({
           onProductNotFound={() => {
             if (selectedCategoryId) void loadProducts(selectedCategoryId);
           }}
+          onReorder={(productIds) => void handleReorderProducts(productIds)}
         />
       </div>
     </div>

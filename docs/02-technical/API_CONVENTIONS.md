@@ -2043,6 +2043,17 @@ No new Audit event, realtime event, or notification infrastructure. Variants, Mo
 
 ---
 
+# 108C-1. Menu Ordering (Categories and Products, 2026-10-14)
+
+Staff reorder with drag and drop; the Backend stores the result as `displayOrder = position` (0-based). Both routes are Restaurant-structural: `menu.manage` with Restaurant-wide scope, guard order `AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard`.
+
+`PUT /api/v1/restaurants/{restaurantId}/categories/order` body `{ "menuId": uuid, "categoryIds": [uuid, ...] }` (1-500, unique).
+`PUT /api/v1/restaurants/{restaurantId}/products/order` body `{ "categoryId": uuid, "productIds": [uuid, ...] }` (1-1000, unique).
+
+The list must be **exactly** the parent's current set of children (every Category of the Menu / every Product of the Category, any status). Otherwise nothing is written and the response is `409 ORDER_MISMATCH` -- the client reloads the list and retries, so a stale screen can never drop or invent an item. An unknown or foreign Menu / Category is `404 MENU_NOT_FOUND` / `404 CATEGORY_NOT_FOUND`; a foreign id inside the list is a mismatch. Success: `200 { "data": { "categoryIds": [...] } }` (or `productIds`). Only rows whose position changed are written, in one transaction.
+
+---
+
 # 108D. Restaurant Languages (Settled, LOC-2A)
 
 `GET`/`PUT /api/v1/restaurants/{restaurantId}/locales[/{locale}]`.
