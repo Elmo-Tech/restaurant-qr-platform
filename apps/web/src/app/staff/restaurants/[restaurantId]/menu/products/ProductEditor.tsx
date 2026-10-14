@@ -37,6 +37,9 @@ import { ImageField } from '../../../../../../components/menu/ImageField';
 import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
 import { validateImageFile } from '../../../../../../lib/menu/image-validation';
 import { ModifiersSection } from './ModifiersSection';
+import { ProductPreview } from './ProductPreview';
+import { Switch } from '../../../../../../components/ui/Switch';
+import type { PublicProductDiscount } from '../../../../../../lib/public-menu/types';
 import {
   previewDiscount,
   validateDiscountForm,
@@ -121,6 +124,15 @@ function toFormState(product: Product): ProductFormState {
   };
 }
 
+/** A product added to (or moved into) a Category goes to the end of it. Drag-and-drop ordering in the Menu workspace is the way to place it elsewhere. */
+function nextDisplayOrder(products: readonly Product[], categoryId: string): number {
+  let max = -1;
+  for (const product of products) {
+    if (product.categoryId === categoryId && product.displayOrder > max) max = product.displayOrder;
+  }
+  return max + 1;
+}
+
 /** One in-progress, not-yet-saved secondary-locale translation typed while creating (FT-1 correction 2, Section 4). */
 interface SecondaryDraft {
   name: string;
@@ -174,10 +186,30 @@ export function ProductEditor({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [saveNotice, setSaveNotice] = useState<string | null>(null);
   const [secondaryDrafts, setSecondaryDrafts] = useState<SecondaryDrafts>({});
+  // The content language tab being edited: shared with the preview so it shows (in the right
+  // language and direction) exactly what is being typed.
+  const [activeLocale, setActiveLocale] = useState<string>('__default__');
+  const [allProducts, setAllProducts] = useState<Product[]>([]);
 
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
   const [imageUploadBusy, setImageUploadBusy] = useState(false);
   const [imageError, setImageError] = useState<string | null>(null);
+
+  const secondaryLocales = useMemo(
+    () =>
+      locales?.locales.filter((row) => !row.isDefault && row.isActive).map((row) => row.locale) ?? [],
+    [locales],
+  );
+  // Saved translations (edit mode). Lifted here so the preview can show the language being
+  // edited; the editor section below only renders them.
+  const translations = useTranslationsEditor({
+    restaurantId,
+    entityId: mode === 'edit' ? (productId ?? null) : null,
+    locales: secondaryLocales,
+    list: menuApi.getProductTranslations,
+    put: menuApi.putProductTranslation,
+    remove: menuApi.deleteProductTranslation,
+  });
 
   const requestRef = useRef(0);
 
@@ -190,13 +222,14 @@ export function ProductEditor({
         menuApi.listMenus(restaurantId),
         menuApi.listCategories(restaurantId),
         settingsApi.getRestaurantLocales(restaurantId),
-        mode === 'edit' ? menuApi.listProducts(restaurantId) : Promise.resolve<Product[]>([]),
+        menuApi.listProducts(restaurantId),
       ]);
       if (requestRef.current !== requestId) return; // superseded -- discard.
 
       setMenus(menusData);
       setCategories(categoriesData);
       setLocales(localesData);
+      setAllProducts(productsData);
 
       if (mode === 'edit') {
         const found = productsData.find((candidate) => candidate.id === productId);
@@ -239,7 +272,11 @@ export function ProductEditor({
           initialCategoryIdParam && categoriesData.some((category) => category.id === initialCategoryIdParam)
             ? initialCategoryIdParam
             : (categoriesData[0]?.id ?? '');
-        setForm({ ...EMPTY_FORM, categoryId: preselected });
+        setForm({
+          ...EMPTY_FORM,
+          categoryId: preselected,
+          displayOrder: String(nextDisplayOrder(productsData, preselected)),
+        });
       }
       setStatus('loaded');
     } catch (error) {
@@ -572,34 +609,101 @@ export function ProductEditor({
   const displayImageUrl = pendingImagePreviewUrl ?? resolveAssetUrl(product?.primaryImageAssetPath);
   const hasRemovableImage = mode === 'create' ? pendingImageFile !== null : product?.primaryImageAssetPath != null;
 
+  // ---- live preview: the form as guests would see it, in the language being edited ----
+  const defaultLocaleCode = locales?.defaultLocale ?? 'en';
+  const previewLocale = activeLocale === '__default__' ? defaultLocaleCode : activeLocale;
+  const secondaryDraftText =
+    activeLocale === '__default__'
+      ? null
+      : mode === 'create'
+        ? (secondaryDrafts[activeLocale] ?? null)
+        : (translations.drafts[activeLocale] ?? null);
+  const secondaryHasName = secondaryDraftText !== null && secondaryDraftText.name.trim() !== '';
+  const previewName = secondaryHasName ? secondaryDraftText.name : form.name;
+  const previewDescription = secondaryHasName ? secondaryDraftText.description : form.description;
+  const previewDiscountResult =
+    form.discountMode !== 'NONE' && form.discountEnabled
+      ? previewDiscount(form.basePrice, form.discountMode, form.discountValue)
+      : null;
+  const previewGuestDiscount: PublicProductDiscount | null = previewDiscountResult
+    ? {
+        type: form.discountMode === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED_AMOUNT',
+        value: form.discountValue.trim(),
+        amountOff: previewDiscountResult.unitDiscount,
+        discountedPrice: previewDiscountResult.discountedPrice,
+        endsOn: form.discountEndsOn === '' ? null : form.discountEndsOn,
+      }
+    : null;
+
+  const sections: { id: string; label: string }[] = [
+    { id: 'product-section-basics', label: t('product.nav.basics') },
+    { id: 'product-section-pricing', label: t('product.nav.pricing') },
+    { id: 'product-section-visibility', label: t('product.nav.visibility') },
+    { id: 'product-section-addons', label: t('product.nav.addons') },
+  ];
+  function scrollToSection(id: string) {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+
+  function changeCategory(categoryId: string) {
+    setForm((prev) => ({
+      ...prev,
+      categoryId,
+      // Moving a product to another Category puts it at the end of that Category.
+      displayOrder:
+        categoryId === (product?.categoryId ?? '')
+          ? String(product?.displayOrder ?? 0)
+          : String(nextDisplayOrder(allProducts, categoryId)),
+    }));
+  }
+
   return (
-    <form onSubmit={handleSubmit} className="flex flex-col gap-6">
-      <div className="flex items-center justify-between gap-4">
-        <div>
-          <Link href={backHref} className="text-sm text-primary hover:underline">
-            <span aria-hidden="true" className="inline-block rtl:rotate-180">
-              ←
-            </span>{' '}
-            {t('product.backToMenu')}
-          </Link>
-          <h1 className="mt-1 text-lg font-semibold text-foreground">
-            {mode === 'create'
-              ? t('product.createTitle')
-              : t('product.editTitle', {
-                  name: `\u2068${product?.translation.name ?? t('product.fallbackName')}\u2069`,
-                })}
-          </h1>
+    <form onSubmit={handleSubmit} className="flex flex-col gap-5">
+      {/* Always-visible header: where you are, what you can jump to, and Save. */}
+      <div className="sticky top-2 z-20 flex flex-col gap-3 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-sm backdrop-blur">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <Link href={backHref} className="text-sm text-primary hover:underline">
+              <span aria-hidden="true" className="inline-block rtl:rotate-180">
+                ←
+              </span>{' '}
+              {t('product.backToMenu')}
+            </Link>
+            <h1 className="mt-0.5 truncate text-lg font-semibold text-foreground">
+              {mode === 'create'
+                ? t('product.createTitle')
+                : t('product.editTitle', {
+                    name: `\u2068${product?.translation.name ?? t('product.fallbackName')}\u2069`,
+                  })}
+            </h1>
+          </div>
+          <div className="flex items-center gap-3">
+            {saveNotice ? (
+              <span role="status" className="text-sm text-success">
+                {saveNotice}
+              </span>
+            ) : null}
+            <Button type="submit" disabled={isBusy}>
+              {isSubmitting
+                ? t('common.saving')
+                : mode === 'create'
+                  ? t('product.createContinue')
+                  : t('menu.form.saveChanges')}
+            </Button>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {saveNotice ? <span className="text-sm text-success">{saveNotice}</span> : null}
-          <Button type="submit" disabled={isBusy}>
-            {isSubmitting
-              ? t('common.saving')
-              : mode === 'create'
-                ? t('product.createContinue')
-                : t('menu.form.saveChanges')}
-          </Button>
-        </div>
+        <nav aria-label={t('product.nav.label')} className="flex flex-wrap gap-1.5">
+          {sections.map((section) => (
+            <button
+              key={section.id}
+              type="button"
+              onClick={() => scrollToSection(section.id)}
+              className="rounded-full border border-border bg-background px-3 py-1 text-xs font-medium text-secondary-foreground outline-none transition-colors hover:border-primary hover:text-primary focus-visible:ring-2 focus-visible:ring-ring"
+            >
+              {section.label}
+            </button>
+          ))}
+        </nav>
       </div>
 
       {!canManage ? (
@@ -608,278 +712,281 @@ export function ProductEditor({
 
       {formError ? <Alert variant="error">{formError}</Alert> : null}
 
-      <Card className="flex flex-col gap-6">
-        <FormSection title={t('menu.form.image')}>
-          <ImageField
-            idPrefix="product"
-            imageUrl={displayImageUrl}
-            onSelectFile={handleSelectImageFile}
-            onRemove={hasRemovableImage ? () => void handleRemoveImage() : undefined}
-            isBusy={imageUploadBusy}
-            error={imageError}
-            selectLabel={displayImageUrl ? t('menu.form.replaceImage') : t('menu.form.chooseImage')}
-            helperText={
-              mode === 'create'
-                ? t('product.imageHintCreate')
-                : t('menu.form.imageHint')
-            }
-          />
-        </FormSection>
-      </Card>
-
-      <Card className="flex flex-col gap-6">
-        {mode === 'create' ? (
-          <ProductCreateLanguages
-            form={form}
-            setForm={setForm}
-            isBusy={isBusy}
-            locales={locales}
-            secondaryDrafts={secondaryDrafts}
-            setSecondaryDrafts={setSecondaryDrafts}
-          />
-        ) : (
-          <ProductTranslationSection
-            restaurantId={restaurantId}
-            entityId={productId ?? ''}
-            locales={locales}
-            form={form}
-            setForm={setForm}
-            isBusy={isBusy}
-          />
-        )}
-      </Card>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <FormSection title={t('product.section.pricing')}>
-            <FormField label={t('product.price', { currency: currencyCode })} htmlFor="product-basePrice">
-              <Input
-                id="product-basePrice"
-                inputMode="decimal"
-                dir="ltr"
-                required
-                value={form.basePrice}
-                onChange={(event) => setForm((prev) => ({ ...prev, basePrice: event.target.value }))}
-                disabled={isBusy}
+      <div className="grid grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <div className="flex min-w-0 flex-col gap-5">
+          {/* 1. Basics: image, then the name and description per language. */}
+          <Card id="product-section-basics" className="scroll-mt-40 flex flex-col gap-6">
+            <FormSection title={t('menu.form.image')}>
+              <ImageField
+                idPrefix="product"
+                imageUrl={displayImageUrl}
+                onSelectFile={handleSelectImageFile}
+                onRemove={hasRemovableImage ? () => void handleRemoveImage() : undefined}
+                isBusy={imageUploadBusy}
+                error={imageError}
+                selectLabel={displayImageUrl ? t('menu.form.replaceImage') : t('menu.form.chooseImage')}
+                helperText={
+                  mode === 'create'
+                    ? t('product.imageHintCreate')
+                    : t('menu.form.imageHint')
+                }
               />
-            </FormField>
+            </FormSection>
 
-            <div className="mt-1 flex flex-col gap-4 border-t border-border pt-4">
-              <FormField label={t('product.discount.type')} htmlFor="product-discount-type">
+            {mode === 'create' ? (
+              <ProductCreateLanguages
+                form={form}
+                setForm={setForm}
+                isBusy={isBusy}
+                locales={locales}
+                secondaryDrafts={secondaryDrafts}
+                setSecondaryDrafts={setSecondaryDrafts}
+                activeLocale={activeLocale}
+                onActiveLocaleChange={setActiveLocale}
+              />
+            ) : (
+              <ProductTranslationSection
+                locales={locales}
+                form={form}
+                setForm={setForm}
+                isBusy={isBusy}
+                translations={translations}
+                secondaryLocales={secondaryLocales}
+                activeLocale={activeLocale}
+                onActiveLocaleChange={setActiveLocale}
+              />
+            )}
+          </Card>
+
+          {/* 2. Pricing and discount. */}
+          <Card id="product-section-pricing" className="scroll-mt-40">
+            <FormSection title={t('product.section.pricing')}>
+              <FormField label={t('product.price', { currency: currencyCode })} htmlFor="product-basePrice">
+                <Input
+                  id="product-basePrice"
+                  inputMode="decimal"
+                  dir="ltr"
+                  required
+                  value={form.basePrice}
+                  onChange={(event) => setForm((prev) => ({ ...prev, basePrice: event.target.value }))}
+                  disabled={isBusy}
+                />
+              </FormField>
+
+              <div className="mt-1 flex flex-col gap-4 border-t border-border pt-4">
+                <FormField label={t('product.discount.type')} htmlFor="product-discount-type">
+                  <Select
+                    id="product-discount-type"
+                    value={form.discountMode}
+                    onChange={(event) =>
+                      setForm((prev) => ({
+                        ...prev,
+                        discountMode: event.target.value as ProductFormState['discountMode'],
+                      }))
+                    }
+                    disabled={isBusy}
+                  >
+                    <option value="NONE">{t('product.discount.none')}</option>
+                    <option value="PERCENTAGE">{t('product.discount.percentage')}</option>
+                    <option value="FIXED_AMOUNT">{t('product.discount.fixed')}</option>
+                  </Select>
+                </FormField>
+
+                {form.discountMode !== 'NONE' ? (
+                  <>
+                    <FormField
+                      label={
+                        form.discountMode === 'PERCENTAGE'
+                          ? t('product.discount.valuePercent')
+                          : t('product.discount.valueFixed', { currency: currencyCode })
+                      }
+                      htmlFor="product-discount-value"
+                    >
+                      <Input
+                        id="product-discount-value"
+                        inputMode="decimal"
+                        dir="ltr"
+                        value={form.discountValue}
+                        onChange={(event) =>
+                          setForm((prev) => ({ ...prev, discountValue: event.target.value }))
+                        }
+                        disabled={isBusy}
+                      />
+                    </FormField>
+
+                    <SwitchRow
+                      label={t('product.discount.enabled')}
+                      hint={t('product.discount.enabledHint')}
+                      checked={form.discountEnabled}
+                      disabled={isBusy}
+                      onChange={(next) => setForm((prev) => ({ ...prev, discountEnabled: next }))}
+                    />
+
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                      <FormField label={t('product.discount.startsOn')} htmlFor="product-discount-starts">
+                        <Input
+                          id="product-discount-starts"
+                          type="date"
+                          dir="ltr"
+                          value={form.discountStartsOn}
+                          onChange={(event) =>
+                            setForm((prev) => ({ ...prev, discountStartsOn: event.target.value }))
+                          }
+                          disabled={isBusy}
+                        />
+                      </FormField>
+                      <FormField label={t('product.discount.endsOn')} htmlFor="product-discount-ends">
+                        <Input
+                          id="product-discount-ends"
+                          type="date"
+                          dir="ltr"
+                          value={form.discountEndsOn}
+                          onChange={(event) =>
+                            setForm((prev) => ({ ...prev, discountEndsOn: event.target.value }))
+                          }
+                          disabled={isBusy}
+                        />
+                      </FormField>
+                    </div>
+                    <p className="text-xs text-muted-foreground">{t('product.discount.datesHint')}</p>
+
+                    <DiscountPreview
+                      currencyCode={currencyCode}
+                      basePrice={form.basePrice}
+                      type={form.discountMode}
+                      value={form.discountValue}
+                      savedDiscount={product?.discount ?? null}
+                    />
+                  </>
+                ) : null}
+              </div>
+            </FormSection>
+          </Card>
+
+          {/* 3. Where it lives and who sees it: one place, switches for the on/off facts. */}
+          <Card id="product-section-visibility" className="scroll-mt-40">
+            <FormSection title={t('product.section.visibility')}>
+              <FormField label={t('product.category')} htmlFor="product-category">
                 <Select
-                  id="product-discount-type"
-                  value={form.discountMode}
-                  onChange={(event) =>
-                    setForm((prev) => ({
-                      ...prev,
-                      discountMode: event.target.value as ProductFormState['discountMode'],
-                    }))
-                  }
+                  id="product-category"
+                  required
+                  value={form.categoryId}
+                  onChange={(event) => changeCategory(event.target.value)}
                   disabled={isBusy}
                 >
-                  <option value="NONE">{t('product.discount.none')}</option>
-                  <option value="PERCENTAGE">{t('product.discount.percentage')}</option>
-                  <option value="FIXED_AMOUNT">{t('product.discount.fixed')}</option>
+                  {form.categoryId === '' ? <option value="">{t('product.selectCategory')}</option> : null}
+                  {categoryGroups.map((group) => (
+                    <optgroup key={group.menu.id} label={group.menu.translation.name}>
+                      {group.categories.map((category) => (
+                        <option key={category.id} value={category.id}>
+                          {category.translation.name}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
                 </Select>
               </FormField>
 
-              {form.discountMode !== 'NONE' ? (
-                <>
-                  <FormField
-                    label={
-                      form.discountMode === 'PERCENTAGE'
-                        ? t('product.discount.valuePercent')
-                        : t('product.discount.valueFixed', { currency: currencyCode })
-                    }
-                    htmlFor="product-discount-value"
-                  >
-                    <Input
-                      id="product-discount-value"
-                      inputMode="decimal"
-                      dir="ltr"
-                      value={form.discountValue}
-                      onChange={(event) =>
-                        setForm((prev) => ({ ...prev, discountValue: event.target.value }))
-                      }
-                      disabled={isBusy}
-                    />
-                  </FormField>
+              <div className="flex flex-col divide-y divide-border rounded-lg border border-border px-4">
+                <SwitchRow
+                  label={t('product.switch.active')}
+                  hint={form.status === 'INACTIVE' ? t('product.inactiveHint') : t('product.switch.activeHint')}
+                  checked={form.status === 'ACTIVE'}
+                  disabled={isBusy}
+                  onChange={(next) =>
+                    setForm((prev) => ({ ...prev, status: next ? 'ACTIVE' : 'INACTIVE' }))
+                  }
+                />
+                <SwitchRow
+                  label={t('product.switch.available')}
+                  hint={t('product.switch.availableHint')}
+                  checked={form.availability === 'AVAILABLE'}
+                  disabled={isBusy}
+                  onChange={(next) =>
+                    setForm((prev) => ({ ...prev, availability: next ? 'AVAILABLE' : 'SOLD_OUT' }))
+                  }
+                />
+                <SwitchRow
+                  label={t('menu.badge.featured')}
+                  hint={t('product.switch.featuredHint')}
+                  checked={form.featured}
+                  disabled={isBusy}
+                  onChange={(next) => setForm((prev) => ({ ...prev, featured: next }))}
+                />
+                <SwitchRow
+                  label={t('product.allowNotes')}
+                  hint={t('product.switch.notesHint')}
+                  checked={form.allowCustomerNotes}
+                  disabled={isBusy}
+                  onChange={(next) => setForm((prev) => ({ ...prev, allowCustomerNotes: next }))}
+                />
+              </div>
+            </FormSection>
+          </Card>
 
-                  <label className="flex cursor-pointer items-start gap-2.5 text-sm">
-                    <input
-                      id="product-discount-enabled"
-                      type="checkbox"
-                      className="mt-0.5 h-4 w-4 accent-primary"
-                      checked={form.discountEnabled}
-                      onChange={(event) =>
-                        setForm((prev) => ({ ...prev, discountEnabled: event.target.checked }))
-                      }
-                      disabled={isBusy}
-                    />
-                    <span>
-                      <span className="block font-medium text-foreground">
-                        {t('product.discount.enabled')}
-                      </span>
-                      <span className="block text-xs text-muted-foreground">
-                        {t('product.discount.enabledHint')}
-                      </span>
-                    </span>
-                  </label>
-
-                  <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                    <FormField label={t('product.discount.startsOn')} htmlFor="product-discount-starts">
-                      <Input
-                        id="product-discount-starts"
-                        type="date"
-                        dir="ltr"
-                        value={form.discountStartsOn}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, discountStartsOn: event.target.value }))
-                        }
-                        disabled={isBusy}
-                      />
-                    </FormField>
-                    <FormField label={t('product.discount.endsOn')} htmlFor="product-discount-ends">
-                      <Input
-                        id="product-discount-ends"
-                        type="date"
-                        dir="ltr"
-                        value={form.discountEndsOn}
-                        onChange={(event) =>
-                          setForm((prev) => ({ ...prev, discountEndsOn: event.target.value }))
-                        }
-                        disabled={isBusy}
-                      />
-                    </FormField>
-                  </div>
-                  <p className="text-xs text-muted-foreground">{t('product.discount.datesHint')}</p>
-
-                  <DiscountPreview
-                    currencyCode={currencyCode}
-                    basePrice={form.basePrice}
-                    type={form.discountMode}
-                    value={form.discountValue}
-                    savedDiscount={product?.discount ?? null}
-                  />
-                </>
-              ) : null}
-            </div>
-          </FormSection>
-        </Card>
-
-        <Card>
-          <FormSection title={t('product.section.availability')}>
-            <FormField label={t('menu.form.status')} htmlFor="product-status">
-              <Select
-                id="product-status"
-                value={form.status}
-                onChange={(event) => setForm((prev) => ({ ...prev, status: event.target.value as ProductStatus }))}
-                disabled={isBusy}
-              >
-                <option value="ACTIVE">{t('common.active')}</option>
-                <option value="INACTIVE">{t('common.inactive')}</option>
-              </Select>
-              {form.status === 'INACTIVE' ? (
-                <p className="mt-1 text-xs text-muted-foreground">{t('product.inactiveHint')}</p>
-              ) : null}
-            </FormField>
-            <FormField label={t('product.availability')} htmlFor="product-availability">
-              <Select
-                id="product-availability"
-                value={form.availability}
-                onChange={(event) =>
-                  setForm((prev) => ({ ...prev, availability: event.target.value as ProductAvailability }))
-                }
-                disabled={isBusy}
-              >
-                <option value="AVAILABLE">{t('menu.badge.available')}</option>
-                <option value="SOLD_OUT">{t('menu.badge.soldOut')}</option>
-              </Select>
-            </FormField>
-          </FormSection>
-        </Card>
-      </div>
-
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-        <Card>
-          <FormSection title={t('product.section.placement')}>
-            <FormField label={t('product.category')} htmlFor="product-category">
-              <Select
-                id="product-category"
-                required
-                value={form.categoryId}
-                onChange={(event) => setForm((prev) => ({ ...prev, categoryId: event.target.value }))}
-                disabled={isBusy}
-              >
-                {form.categoryId === '' ? <option value="">{t('product.selectCategory')}</option> : null}
-                {categoryGroups.map((group) => (
-                  <optgroup key={group.menu.id} label={group.menu.translation.name}>
-                    {group.categories.map((category) => (
-                      <option key={category.id} value={category.id}>
-                        {category.translation.name}
-                      </option>
-                    ))}
-                  </optgroup>
-                ))}
-              </Select>
-            </FormField>
-            <FormField label={t('menu.form.displayOrder')} htmlFor="product-displayOrder">
-              <Input
-                id="product-displayOrder"
-                type="number"
-                min={0}
-                step={1}
-                required
-                value={form.displayOrder}
-                onChange={(event) => setForm((prev) => ({ ...prev, displayOrder: event.target.value }))}
-                disabled={isBusy}
+          {/* 4. Add-ons: configured on the saved product, in this same page. */}
+          <Card id="product-section-addons" className="scroll-mt-40 flex flex-col gap-6">
+            {mode === 'edit' && productId ? (
+              <ModifiersSection
+                restaurantId={restaurantId}
+                productId={productId}
+                currencyCode={currencyCode}
+                locales={locales}
+                canManage={canManage}
               />
-            </FormField>
-          </FormSection>
-        </Card>
+            ) : (
+              <FormSection title={t('mod.title')}>
+                <p className="text-sm text-muted-foreground">{t('product.modifiersCreateFirst')}</p>
+              </FormSection>
+            )}
+          </Card>
+        </div>
 
-        <Card>
-          <FormSection title={t('product.section.customer')}>
-            <label className="flex items-center gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={form.allowCustomerNotes}
-                onChange={(event) => setForm((prev) => ({ ...prev, allowCustomerNotes: event.target.checked }))}
-                disabled={isBusy}
-              />
-              {t('product.allowNotes')}
-            </label>
-            <label className="flex items-center gap-2 text-sm text-foreground">
-              <input
-                type="checkbox"
-                checked={form.featured}
-                onChange={(event) => setForm((prev) => ({ ...prev, featured: event.target.checked }))}
-                disabled={isBusy}
-              />
-              {t('menu.badge.featured')}
-            </label>
-          </FormSection>
-        </Card>
-      </div>
-
-      {mode === 'edit' && productId ? (
-        <Card className="flex flex-col gap-6">
-          <ModifiersSection
-            restaurantId={restaurantId}
-            productId={productId}
+        {/* The preview stays in view while the form scrolls (desktop); below the form on small screens. */}
+        <aside className="min-w-0 xl:sticky xl:top-32">
+          <ProductPreview
+            values={{
+              name: previewName,
+              description: previewDescription,
+              basePrice: MONEY_DECIMAL_PATTERN.test(form.basePrice) ? form.basePrice : '0.00',
+              discount: previewGuestDiscount,
+              imageUrl: displayImageUrl,
+              soldOut: form.availability === 'SOLD_OUT',
+              featured: form.featured,
+              active: form.status === 'ACTIVE',
+            }}
+            locale={previewLocale}
+            usingFallback={activeLocale !== '__default__' && !secondaryHasName}
             currencyCode={currencyCode}
-            locales={locales}
-            canManage={canManage}
           />
-        </Card>
-      ) : (
-        <Card className="flex flex-col gap-6">
-          <FormSection title={t('mod.title')}>
-            <p className="text-sm text-muted-foreground">{t('product.modifiersCreateFirst')}</p>
-          </FormSection>
-        </Card>
-      )}
+        </aside>
+      </div>
     </form>
+  );
+}
+
+/** A labelled on/off row: the switch is the control, the text says what it does. */
+function SwitchRow({
+  label,
+  hint,
+  checked,
+  disabled,
+  onChange,
+}: {
+  label: string;
+  hint?: string;
+  checked: boolean;
+  disabled: boolean;
+  onChange: (next: boolean) => void;
+}) {
+  return (
+    <div className="flex items-center gap-4 py-3">
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        {hint ? <p className="mt-0.5 text-xs text-muted-foreground">{hint}</p> : null}
+      </div>
+      <Switch checked={checked} label={label} disabled={disabled} onCheckedChange={onChange} />
+    </div>
   );
 }
 
@@ -899,6 +1006,8 @@ function ProductCreateLanguages({
   locales,
   secondaryDrafts,
   setSecondaryDrafts,
+  activeLocale,
+  onActiveLocaleChange,
 }: {
   form: ProductFormState;
   setForm: (updater: (prev: ProductFormState) => ProductFormState) => void;
@@ -906,6 +1015,8 @@ function ProductCreateLanguages({
   locales: RestaurantLocalesResponse | null;
   secondaryDrafts: SecondaryDrafts;
   setSecondaryDrafts: (updater: (prev: SecondaryDrafts) => SecondaryDrafts) => void;
+  activeLocale: string;
+  onActiveLocaleChange: (locale: string) => void;
 }) {
   const { t } = useStaffI18n();
   const defaultLocale = locales?.defaultLocale ?? null;
@@ -915,7 +1026,6 @@ function ProductCreateLanguages({
     [locales],
   );
 
-  const [activeLocale, setActiveLocale] = useState<string>('__default__');
   const isDefaultTab = activeLocale === '__default__';
   const currentLocale = isDefaultTab ? defaultLocale : activeLocale;
   const dir = currentLocale ? localeDirection(currentLocale) : 'ltr';
@@ -940,7 +1050,7 @@ function ProductCreateLanguages({
 
   return (
     <FormSection title={t('menu.form.contentLanguages')}>
-      <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
+      <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={onActiveLocaleChange} />
 
       {isDefaultTab ? (
         <>
@@ -999,41 +1109,27 @@ function ProductCreateLanguages({
  * backed by local drafts instead of the translation hook.
  */
 function ProductTranslationSection({
-  restaurantId,
-  entityId,
   locales,
   form,
   setForm,
   isBusy,
+  translations,
+  secondaryLocales,
+  activeLocale,
+  onActiveLocaleChange,
 }: {
-  restaurantId: string;
-  entityId: string;
   locales: RestaurantLocalesResponse | null;
   form: ProductFormState;
   setForm: (updater: (prev: ProductFormState) => ProductFormState) => void;
   isBusy: boolean;
+  /** The saved-translations editor state (owned by the Product Editor so the preview can read it). */
+  translations: ReturnType<typeof useTranslationsEditor>;
+  secondaryLocales: string[];
+  activeLocale: string;
+  onActiveLocaleChange: (locale: string) => void;
 }) {
   const { t } = useStaffI18n();
   const defaultLocale = locales?.defaultLocale ?? null;
-  // Memoized: see MenuContextBar's identical note -- an unstable array
-  // identity here would make useTranslationsEditor re-fetch (and wipe
-  // in-progress edits) on every keystroke in a translation field.
-  const secondaryLocales = useMemo(
-    () =>
-      locales?.locales.filter((row) => !row.isDefault && row.isActive).map((row) => row.locale) ?? [],
-    [locales],
-  );
-
-  const [activeLocale, setActiveLocale] = useState<string>('__default__');
-
-  const translations = useTranslationsEditor({
-    restaurantId,
-    entityId,
-    locales: secondaryLocales,
-    list: menuApi.getProductTranslations,
-    put: menuApi.putProductTranslation,
-    remove: menuApi.deleteProductTranslation,
-  });
 
   const isDefaultTab = activeLocale === '__default__';
   const currentLocale = isDefaultTab ? defaultLocale : activeLocale;
@@ -1052,7 +1148,7 @@ function ProductTranslationSection({
 
   return (
     <FormSection title={t('menu.form.contentLanguages')}>
-      <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={setActiveLocale} />
+      <LanguageTabs options={tabOptions} activeLocale={activeLocale} onSelect={onActiveLocaleChange} />
 
       {isDefaultTab ? (
         <>

@@ -35,7 +35,16 @@ function ProductCardImpl({
   onQuickAdd,
   onIncrement,
   onDecrement,
+  compact = false,
+  previewImageUrl = null,
 }: {
+  /**
+   * Staff product preview only: render the phone layout whatever the viewport is
+   * (every `md:` variant is dropped), and use a local image URL for an image that
+   * is not uploaded yet. Both are inert in the Guest Menu.
+   */
+  compact?: boolean;
+  previewImageUrl?: string | null;
   product: PublicMenuProduct;
   currency: string;
   copy: PublicMenuCopy;
@@ -49,7 +58,14 @@ function ProductCardImpl({
   onIncrement: (productId: string) => void;
   onDecrement: (productId: string) => void;
 }) {
-  const imageUrl = resolveAssetUrl(product.primaryImageAssetPath);
+  const imageUrl = previewImageUrl ?? resolveAssetUrl(product.primaryImageAssetPath);
+  const cx = (classes: string): string =>
+    compact
+      ? classes
+          .split(/\s+/)
+          .filter((token) => !token.startsWith('md:'))
+          .join(' ')
+      : classes;
   const [imageFailed, setImageFailed] = useState(false);
   const isSoldOut = product.availability === 'SOLD_OUT';
   const hasModifiers = product.modifierGroups.length > 0;
@@ -63,11 +79,11 @@ function ProductCardImpl({
 
   return (
     <article
-      className={`guest-anim-rise group relative flex gap-3.5 rounded-[22px] border border-g-line bg-g-surface p-3 md:flex-col md:gap-0 md:overflow-hidden md:rounded-[24px] md:p-0 md:transition-[transform,box-shadow] md:duration-300 has-[[data-open]:focus-visible]:outline-2 has-[[data-open]:focus-visible]:outline-offset-2 has-[[data-open]:focus-visible]:outline-g-accent-text ${
+      className={cx(`guest-anim-rise group relative flex gap-3.5 rounded-[22px] border border-g-line bg-g-surface p-3 md:flex-col md:gap-0 md:overflow-hidden md:rounded-[24px] md:p-0 md:transition-[transform,box-shadow] md:duration-300 has-[[data-open]:focus-visible]:outline-2 has-[[data-open]:focus-visible]:outline-offset-2 has-[[data-open]:focus-visible]:outline-g-accent-text ${
         interactive ? 'md:hover:-translate-y-[3px] md:hover:shadow-[var(--g-shadow)]' : ''
-      }`}
+      }`)}
     >
-      <div className="relative size-[118px] shrink-0 overflow-hidden rounded-2xl md:size-auto md:h-[200px] md:w-full md:rounded-none">
+      <div className={cx("relative size-[118px] shrink-0 overflow-hidden rounded-2xl md:size-auto md:h-[200px] md:w-full md:rounded-none")}>
         {showPhoto ? (
           // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image.
           <img
@@ -76,27 +92,27 @@ function ProductCardImpl({
             loading="lazy"
             decoding="async"
             onError={() => setImageFailed(true)}
-            className={`size-full object-cover transition-transform duration-500 ease-out md:group-hover:scale-105 ${dimmed}`}
+            className={cx(`size-full object-cover transition-transform duration-500 ease-out md:group-hover:scale-105 ${dimmed}`)}
           />
         ) : (
-          <DishFallback className={`size-full ${dimmed}`} iconClassName="size-10 md:size-14" />
+          <DishFallback className={`size-full ${dimmed}`} iconClassName={cx("size-10 md:size-14")} />
         )}
         {isSoldOut ? (
-          <span className="absolute start-2 top-2 rounded-full bg-[#111] px-[9px] py-[3px] text-[11px] font-bold text-white md:start-3 md:top-3 md:px-[11px] md:py-1 md:text-xs">
+          <span className={cx("absolute start-2 top-2 rounded-full bg-[#111] px-[9px] py-[3px] text-[11px] font-bold text-white md:start-3 md:top-3 md:px-[11px] md:py-1 md:text-xs")}>
             {copy.soldOut}
           </span>
         ) : product.featured ? (
-          <span className="absolute start-2 top-2 rounded-full bg-g-accent px-[9px] py-[3px] text-[11px] font-bold text-g-on-accent md:start-3 md:top-3 md:px-[11px] md:py-1 md:text-xs">
+          <span className={cx("absolute start-2 top-2 rounded-full bg-g-accent px-[9px] py-[3px] text-[11px] font-bold text-g-on-accent md:start-3 md:top-3 md:px-[11px] md:py-1 md:text-xs")}>
             {copy.featured}
           </span>
         ) : null}
       </div>
 
-      <div className="flex min-w-0 flex-1 flex-col gap-[5px] pt-0.5 md:gap-1.5 md:px-[18px] md:pb-[18px] md:pt-4">
+      <div className={cx("flex min-w-0 flex-1 flex-col gap-[5px] pt-0.5 md:gap-1.5 md:px-[18px] md:pb-[18px] md:pt-4")}>
         <h3
-          className={`text-[16.5px] font-bold leading-[1.4] md:text-[18px] ${
+          className={cx(`text-[16.5px] font-bold leading-[1.4] md:text-[18px] ${
             isSoldOut ? 'text-g-text-2' : 'text-g-text'
-          }`}
+          }`)}
         >
           {interactive ? (
             <button
@@ -115,7 +131,7 @@ function ProductCardImpl({
         {product.description ? (
           <p
             dir="auto"
-            className="line-clamp-2 text-[13px] leading-[1.65] text-g-text-2 md:text-sm"
+            className={cx("line-clamp-2 text-[13px] leading-[1.65] text-g-text-2 md:text-sm")}
           >
             {product.description}
           </p>
@@ -134,9 +150,9 @@ function ProductCardImpl({
               badge={discounted ? product.discount : null}
               currency={currency}
               copy={copy}
-              className={`g-num text-[20px] [font-weight:800] md:text-[22px] ${isSoldOut ? 'text-g-text-3' : 'text-g-price'}`}
-              currencyClassName="text-[12px] font-semibold md:text-[13px]"
-              originalClassName="g-num text-[13px] font-semibold text-g-text-3 md:text-sm"
+              className={cx(`g-num text-[20px] [font-weight:800] md:text-[22px] ${isSoldOut ? 'text-g-text-3' : 'text-g-price'}`)}
+              currencyClassName={cx("text-[12px] font-semibold md:text-[13px]")}
+              originalClassName={cx("g-num text-[13px] font-semibold text-g-text-3 md:text-sm")}
             />
           </div>
           {isSoldOut ? (
@@ -163,7 +179,7 @@ function ProductCardImpl({
                   type="button"
                   onClick={() => onQuickAdd(product)}
                   aria-label={copy.addAria(product.name)}
-                  className="group/add relative flex h-11 items-center gap-1.5 rounded-[22px] border border-g-accent bg-g-accent-soft px-4 text-sm font-bold text-g-text transition-colors hover:bg-g-accent hover:text-g-on-accent active:scale-95 md:px-[18px] md:text-[14.5px]"
+                  className={cx("group/add relative flex h-11 items-center gap-1.5 rounded-[22px] border border-g-accent bg-g-accent-soft px-4 text-sm font-bold text-g-text transition-colors hover:bg-g-accent hover:text-g-on-accent active:scale-95 md:px-[18px] md:text-[14.5px]")}
                 >
                   <GuestIconPlus
                     className="size-4 text-g-accent group-hover/add:text-g-on-accent"
