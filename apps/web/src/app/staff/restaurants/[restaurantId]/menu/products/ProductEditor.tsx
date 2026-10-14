@@ -9,6 +9,7 @@ import * as settingsApi from '../../../../../../lib/settings/api';
 import type {
   Category,
   Menu,
+  ModifierGroup,
   Product,
   ProductAvailability,
   ProductStatus,
@@ -38,6 +39,7 @@ import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
 import { validateImageFile } from '../../../../../../lib/menu/image-validation';
 import { ModifiersSection } from './ModifiersSection';
 import { ProductPreview } from './ProductPreview';
+import { useAddonsPreview } from './use-addons-preview';
 import { Switch } from '../../../../../../components/ui/Switch';
 import type { PublicProductDiscount } from '../../../../../../lib/public-menu/types';
 import {
@@ -190,6 +192,9 @@ export function ProductEditor({
   // language and direction) exactly what is being typed.
   const [activeLocale, setActiveLocale] = useState<string>('__default__');
   const [allProducts, setAllProducts] = useState<Product[]>([]);
+  // The product's add-ons (reported by the Add-ons section) and which preview view is open.
+  const [modifierGroups, setModifierGroups] = useState<ModifierGroup[] | null>(null);
+  const [previewView, setPreviewView] = useState<'card' | 'page'>('card');
 
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
   const [imageUploadBusy, setImageUploadBusy] = useState(false);
@@ -209,6 +214,15 @@ export function ProductEditor({
     list: menuApi.getProductTranslations,
     put: menuApi.putProductTranslation,
     remove: menuApi.deleteProductTranslation,
+  });
+
+  const addonsPreview = useAddonsPreview({
+    restaurantId,
+    productId: mode === 'edit' ? (productId ?? null) : null,
+    groups: modifierGroups,
+    locale: activeLocale === '__default__' ? (locales?.defaultLocale ?? 'en') : activeLocale,
+    defaultLocale: locales?.defaultLocale ?? 'en',
+    enabled: previewView === 'page',
   });
 
   const requestRef = useRef(0);
@@ -933,6 +947,7 @@ export function ProductEditor({
                 currencyCode={currencyCode}
                 locales={locales}
                 canManage={canManage}
+                onGroupsChange={setModifierGroups}
               />
             ) : (
               <FormSection title={t('mod.title')}>
@@ -958,6 +973,10 @@ export function ProductEditor({
             locale={previewLocale}
             usingFallback={activeLocale !== '__default__' && !secondaryHasName}
             currencyCode={currencyCode}
+            modifierGroups={addonsPreview}
+            addonsAvailable={mode === 'edit'}
+            view={previewView}
+            onViewChange={setPreviewView}
           />
         </aside>
       </div>

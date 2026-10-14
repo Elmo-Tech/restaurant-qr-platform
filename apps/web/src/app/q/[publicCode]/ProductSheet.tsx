@@ -54,7 +54,12 @@ export function ProductSheet({
   initial,
   onCancel,
   onConfirm,
+  inline = false,
+  previewImageUrl = null,
 }: {
+  /** Staff product preview only: show the sheet in normal flow, without its close control, and with a local image URL. */
+  inline?: boolean;
+  previewImageUrl?: string | null;
   product: PublicMenuProduct;
   currency: string;
   copy: PublicMenuCopy;
@@ -71,7 +76,7 @@ export function ProductSheet({
   const [showValidation, setShowValidation] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
 
-  const imageUrl = resolveAssetUrl(product.primaryImageAssetPath);
+  const imageUrl = previewImageUrl ?? resolveAssetUrl(product.primaryImageAssetPath);
   const showPhoto = imageUrl !== null && !imageFailed;
 
   function selectionsFor(groupId: string): string[] {
@@ -158,7 +163,7 @@ export function ProductSheet({
   );
 
   return (
-    <Sheet variant="sheet" dir={dir} labelledBy="product-sheet-title" onClose={onCancel}>
+    <Sheet variant="sheet" dir={dir} labelledBy="product-sheet-title" onClose={onCancel} inline={inline}>
       <div className="relative shrink-0">
         {showPhoto ? (
           <div className="relative h-[230px]">
@@ -184,18 +189,22 @@ export function ProductSheet({
         ) : (
           <DishFallback className="h-[150px] w-full" iconClassName="size-14" />
         )}
-        <span
-          aria-hidden="true"
-          className="absolute inset-x-0 top-2.5 mx-auto h-[5px] w-11 rounded-[3px] bg-white/75 sm:hidden"
-        />
-        <button
-          type="button"
-          onClick={onCancel}
-          aria-label={copy.close}
-          className="absolute end-4 top-[18px] flex size-11 items-center justify-center rounded-full border border-white/20 bg-[rgb(18_16_14/0.55)] text-white backdrop-blur-md"
-        >
-          <GuestIconClose className="size-[18px]" strokeWidth={2.2} />
-        </button>
+        {inline ? null : (
+          <>
+            <span
+              aria-hidden="true"
+              className="absolute inset-x-0 top-2.5 mx-auto h-[5px] w-11 rounded-[3px] bg-white/75 sm:hidden"
+            />
+            <button
+              type="button"
+              onClick={onCancel}
+              aria-label={copy.close}
+              className="absolute end-4 top-[18px] flex size-11 items-center justify-center rounded-full border border-white/20 bg-[rgb(18_16_14/0.55)] text-white backdrop-blur-md"
+            >
+              <GuestIconClose className="size-[18px]" strokeWidth={2.2} />
+            </button>
+          </>
+        )}
         {product.featured ? (
           <span className="absolute start-4 top-5 flex items-center gap-[5px] rounded-full bg-g-accent px-[11px] py-[5px] text-xs font-bold text-g-on-accent">
             <GuestIconStar className="size-3" />

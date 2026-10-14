@@ -40,6 +40,8 @@ export interface ModifiersSectionProps {
   canManage: boolean;
   /** Same Restaurant Languages response `ProductEditor` already fetches for its own `ProductTranslationSection` -- reused here rather than a second fetch. */
   locales: RestaurantLocalesResponse | null;
+  /** Called with the current Groups whenever they load or change, so the Product Editor's guest preview can show them. */
+  onGroupsChange?: (groups: ModifierGroup[]) => void;
 }
 
 /**
@@ -63,6 +65,7 @@ export function ModifiersSection({
   currencyCode,
   canManage,
   locales,
+  onGroupsChange,
 }: ModifiersSectionProps) {
   const { t } = useStaffI18n();
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
@@ -95,6 +98,10 @@ export function ModifiersSection({
       void load();
     });
   }, [load]);
+
+  useEffect(() => {
+    if (status === 'loaded') onGroupsChange?.(groups);
+  }, [groups, status, onGroupsChange]);
 
   if (status === 'loading') {
     return (

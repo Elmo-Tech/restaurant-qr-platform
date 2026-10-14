@@ -22,6 +22,40 @@ export function Sheet({
   labelledBy,
   onClose,
   children,
+  inline = false,
+}: {
+  variant: 'sheet' | 'drawer';
+  dir: 'ltr' | 'rtl';
+  labelledBy: string;
+  onClose: () => void;
+  children: ReactNode;
+  /**
+   * Staff preview only: render the panel in normal flow (no overlay, backdrop, focus trap,
+   * scroll lock or Escape handling) so the Product Editor can show the real sheet beside the
+   * form. The Guest Menu never sets this.
+   */
+  inline?: boolean;
+}) {
+  if (inline) {
+    return (
+      <div dir={dir} className="flex max-h-[640px] w-full flex-col overflow-hidden rounded-[26px] border border-g-line bg-g-bg text-g-text">
+        {children}
+      </div>
+    );
+  }
+  return (
+    <OverlaySheet variant={variant} dir={dir} labelledBy={labelledBy} onClose={onClose}>
+      {children}
+    </OverlaySheet>
+  );
+}
+
+function OverlaySheet({
+  variant,
+  dir,
+  labelledBy,
+  onClose,
+  children,
 }: {
   variant: 'sheet' | 'drawer';
   dir: 'ltr' | 'rtl';

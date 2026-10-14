@@ -2,11 +2,16 @@
 
 import { useState } from 'react';
 import { ProductCard } from '../../../../../q/[publicCode]/ProductCard';
+import { ProductSheet } from '../../../../../q/[publicCode]/ProductSheet';
 import { GuestLocaleProvider } from '../../../../../../components/guest/GuestLocale';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import { localeLabel } from '../../../../../../lib/settings/locale-labels';
 import { getPublicMenuCopy } from '../../../../../../lib/public-menu/copy';
-import type { PublicMenuProduct, PublicProductDiscount } from '../../../../../../lib/public-menu/types';
+import type {
+  PublicMenuModifierGroup,
+  PublicMenuProduct,
+  PublicProductDiscount,
+} from '../../../../../../lib/public-menu/types';
 
 export interface ProductPreviewValues {
   name: string;
@@ -37,7 +42,17 @@ export function ProductPreview({
   locale,
   usingFallback,
   currencyCode,
+  modifierGroups,
+  addonsAvailable,
+  view,
+  onViewChange,
 }: {
+  /** The product's guest-visible add-ons in the previewed language (empty when none). */
+  modifierGroups: PublicMenuModifierGroup[];
+  /** False in create mode: add-ons can only be configured once the product exists. */
+  addonsAvailable: boolean;
+  view: 'card' | 'page';
+  onViewChange: (view: 'card' | 'page') => void;
   values: ProductPreviewValues;
   /** The content language being edited; also sets direction and the card's labels. */
   locale: string;
@@ -61,7 +76,7 @@ export function ProductPreview({
     primaryImageAssetPath: null,
     availability: values.soldOut ? 'SOLD_OUT' : 'AVAILABLE',
     featured: values.featured,
-    modifierGroups: [],
+    modifierGroups,
   };
 
   const segment = (active: boolean) =>
@@ -76,15 +91,33 @@ export function ProductPreview({
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold text-foreground">{t('product.preview.title')}</h2>
+        <div role="group" aria-label={t('product.preview.view')} className="flex rounded-lg bg-muted p-0.5">
+          <button type="button" aria-pressed={view === 'card'} onClick={() => onViewChange('card')} className={segment(view === 'card')}>
+            {t('product.preview.viewCard')}
+          </button>
+          <button type="button" aria-pressed={view === 'page'} onClick={() => onViewChange('page')} className={segment(view === 'page')}>
+            {t('product.preview.viewPage')}
+            {modifierGroups.length > 0 ? (
+              <span className="ms-1.5 rounded-full bg-primary px-1.5 text-[10px] font-bold text-primary-foreground">
+                {modifierGroups.length}
+              </span>
+            ) : null}
+          </button>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-end gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <div role="group" aria-label={t('product.preview.layout')} className="flex rounded-lg bg-muted p-0.5">
-            <button type="button" aria-pressed={layout === 'phone'} onClick={() => setLayout('phone')} className={segment(layout === 'phone')}>
-              {t('product.preview.phone')}
-            </button>
-            <button type="button" aria-pressed={layout === 'wide'} onClick={() => setLayout('wide')} className={segment(layout === 'wide')}>
-              {t('product.preview.wide')}
-            </button>
-          </div>
+          {view === 'card' ? (
+            <div role="group" aria-label={t('product.preview.layout')} className="flex rounded-lg bg-muted p-0.5">
+              <button type="button" aria-pressed={layout === 'phone'} onClick={() => setLayout('phone')} className={segment(layout === 'phone')}>
+                {t('product.preview.phone')}
+              </button>
+              <button type="button" aria-pressed={layout === 'wide'} onClick={() => setLayout('wide')} className={segment(layout === 'wide')}>
+                {t('product.preview.wide')}
+              </button>
+            </div>
+          ) : null}
           <div role="group" aria-label={t('product.preview.theme')} className="flex rounded-lg bg-muted p-0.5">
             <button type="button" aria-pressed={theme === 'light'} onClick={() => setTheme('light')} className={segment(theme === 'light')}>
               {t('product.preview.light')}
@@ -102,24 +135,45 @@ export function ProductPreview({
         lang={guestLocale}
         className="guest-root g-body rounded-xl bg-g-bg p-4 text-g-text"
       >
-        <div inert className={layout === 'phone' ? 'mx-auto w-full max-w-[360px]' : 'mx-auto w-full max-w-[300px]'}>
-          <GuestLocaleProvider locale={guestLocale}>
-            <ProductCard
-              product={product}
-              currency={currencyCode}
-              copy={copy}
-              canOrder
-              compact={layout === 'phone'}
-              simpleQuantity={0}
-              totalQuantity={0}
-              onOpen={() => undefined}
-              onQuickAdd={() => undefined}
-              onIncrement={() => undefined}
-              onDecrement={() => undefined}
-              previewImageUrl={values.imageUrl}
-            />
-          </GuestLocaleProvider>
-        </div>
+        {view === 'card' ? (
+          <div inert className={layout === 'phone' ? 'mx-auto w-full max-w-[360px]' : 'mx-auto w-full max-w-[300px]'}>
+            <GuestLocaleProvider locale={guestLocale}>
+              <ProductCard
+                product={product}
+                currency={currencyCode}
+                copy={copy}
+                canOrder
+                compact={layout === 'phone'}
+                simpleQuantity={0}
+                totalQuantity={0}
+                onOpen={() => undefined}
+                onQuickAdd={() => undefined}
+                onIncrement={() => undefined}
+                onDecrement={() => undefined}
+                previewImageUrl={values.imageUrl}
+              />
+            </GuestLocaleProvider>
+          </div>
+        ) : (
+          // The product page a guest opens from the card, with its add-ons. It is the real
+          // sheet, so it can be tried (pick options, see the rules and the total); nothing
+          // is ordered.
+          <div className="mx-auto w-full max-w-[400px]">
+            <GuestLocaleProvider locale={guestLocale}>
+              <ProductSheet
+                key={`${guestLocale}-${modifierGroups.map((group) => group.id).join(',')}`}
+                product={product}
+                currency={currencyCode}
+                copy={copy}
+                dir={guestLocale === 'ar' ? 'rtl' : 'ltr'}
+                onCancel={() => undefined}
+                onConfirm={() => undefined}
+                inline
+                previewImageUrl={values.imageUrl}
+              />
+            </GuestLocaleProvider>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
@@ -129,7 +183,12 @@ export function ProductPreview({
         </p>
         {!values.active ? <p className="text-warning">{t('product.preview.inactive')}</p> : null}
         {values.discount ? <p>{t('product.preview.discountNote')}</p> : null}
-        <p>{t('product.preview.scope')}</p>
+        {view === 'page' && !addonsAvailable ? (
+          <p>{t('product.preview.addonsAfterCreate')}</p>
+        ) : view === 'page' && modifierGroups.length === 0 ? (
+          <p>{t('product.preview.noAddons')}</p>
+        ) : null}
+        <p>{view === 'page' ? t('product.preview.scopePage') : t('product.preview.scope')}</p>
       </div>
     </section>
   );
