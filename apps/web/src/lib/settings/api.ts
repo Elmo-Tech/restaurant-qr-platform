@@ -1,6 +1,7 @@
 import { apiFetch, apiFetchFormData } from '../api/client';
 import type { QrStyle } from '../qr/style';
 import type {
+  DefaultLocaleReadiness,
   RestaurantLocalesResponse,
   RestaurantOrderingOptions,
   RestaurantProfile,
@@ -34,6 +35,29 @@ export async function setRestaurantLocaleState(
   const body = await apiFetch<{ data: { locale: string; isActive: boolean } }>(
     `${restaurantPath(restaurantId)}/locales/${locale}`,
     { method: 'PUT', body: { isActive } },
+  );
+  return body.data;
+}
+
+/** DEC-037: how many items still lack a name in `locale` (read-only; `409 LOCALE_NOT_ACTIVE` when the language is off). */
+export async function getDefaultLocaleReadiness(
+  restaurantId: string,
+  locale: string,
+): Promise<DefaultLocaleReadiness> {
+  const body = await apiFetch<{ data: DefaultLocaleReadiness }>(
+    `${restaurantPath(restaurantId)}/locales/${locale}/default-readiness`,
+  );
+  return body.data;
+}
+
+/** DEC-037: make an enabled language the default (`409 DEFAULT_LOCALE_INCOMPLETE` while names are missing). */
+export async function setDefaultLocale(
+  restaurantId: string,
+  locale: string,
+): Promise<RestaurantLocalesResponse> {
+  const body = await apiFetch<{ data: RestaurantLocalesResponse }>(
+    `${restaurantPath(restaurantId)}/locales/${locale}/default`,
+    { method: 'POST' },
   );
   return body.data;
 }

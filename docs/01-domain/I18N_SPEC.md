@@ -687,6 +687,39 @@ Platform must validate that required customer-facing entities have sufficient co
 
 Do not allow the Restaurant to accidentally create a menu full of missing names.
 
+## 35A. V1 Behavior (DEC-037)
+
+The Restaurant admin chooses the Default Locale. The Platform never picks it
+for a Restaurant; provisioning sets the initial value and Settings > Languages
+changes it afterwards.
+
+**Preconditions (all must hold, else the change is refused and nothing is written):**
+
+- The target language is a Platform-supported locale and is **active** for the Restaurant.
+- Every entity below has a **non-empty name** in the target language:
+  Menus, Categories, Products, Modifier Groups, Modifier Options, Modifier Presets,
+  Modifier Preset Options, Branches and Delivery Zones. Entities are counted
+  regardless of status, so re-activating one later can never expose a missing name.
+
+**Outcome (one transaction):**
+
+- `restaurants.defaultLocale` is set to the target.
+- The target's `RestaurantLocale` row stays active.
+- `branches.name` and `delivery_zones.name`, which hold the Default-Locale name
+  (and the legacy fallback), are re-pointed to the target language's name.
+- No translation row is deleted or rewritten; Order snapshots are untouched.
+
+**Refusal:** `409 DEFAULT_LOCALE_INCOMPLETE` with the number of entities missing
+a name per entity type, so Staff can see what to complete. A preview endpoint
+returns the same counts without writing.
+
+**Single-language Restaurants:** after the change the previous Default may be
+disabled (#34). Forms then show one language and no language switcher; the Guest
+language selector is hidden (#10).
+
+**Not part of this change:** the Staff UI language (a per-user preference), and
+generating the missing names (a later AI-assisted workflow, #63).
+
 ---
 
 # 36. Platform UI Translations

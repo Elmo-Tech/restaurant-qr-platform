@@ -18,6 +18,26 @@ export interface RestaurantLocalesResponse {
   locales: RestaurantLocaleRow[];
 }
 
+/** DEC-037: the content kinds that need a name in a language before it can become the default. */
+export type DefaultLocaleEntityKind =
+  | 'menus'
+  | 'categories'
+  | 'products'
+  | 'modifierGroups'
+  | 'modifierOptions'
+  | 'modifierPresets'
+  | 'modifierPresetOptions'
+  | 'branches'
+  | 'deliveryZones';
+
+/** Mirrors `GET .../locales/:locale/default-readiness`. */
+export interface DefaultLocaleReadiness {
+  locale: string;
+  ready: boolean;
+  missing: Record<DefaultLocaleEntityKind, number>;
+  totalMissing: number;
+}
+
 /** Mirrors the Backend's Restaurant Profile response (`PATCH /restaurants/:id`, `POST /restaurants/:id/logo`). */
 export interface RestaurantProfile {
   name: string;

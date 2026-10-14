@@ -20,6 +20,8 @@ export interface DialogProps {
   submitLabel: string;
   /** `danger` for a destructive confirmation (e.g. deactivate / revoke). */
   submitVariant?: 'primary' | 'danger';
+  /** For an informational dialog whose only action closes it: one button, not Cancel plus a second "close". */
+  hideCancel?: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
   /** Fires for the close (X) button, backdrop click, and Escape -- never while `isSubmitting`. */
   onClose: () => void;
@@ -65,6 +67,7 @@ export function Dialog({
   isSubmitting,
   submitLabel,
   submitVariant = 'primary',
+  hideCancel = false,
   onSubmit,
   onClose,
   initialFocusRef,
@@ -178,9 +181,11 @@ export function Dialog({
           <form onSubmit={onSubmit} className="flex flex-1 flex-col overflow-hidden">
             <div className="flex-1 overflow-y-auto px-5 py-5 sm:px-6">{children}</div>
             <div className="flex flex-shrink-0 items-center justify-end gap-2 border-t border-border bg-muted/40 px-5 py-4 sm:px-6 sm:rounded-b-xl">
-              <Button type="button" variant="secondary" onClick={requestClose} disabled={isSubmitting}>
-                {t('common.cancel')}
-              </Button>
+              {hideCancel ? null : (
+                <Button type="button" variant="secondary" onClick={requestClose} disabled={isSubmitting}>
+                  {t('common.cancel')}
+                </Button>
+              )}
               <Button type="submit" variant={submitVariant} disabled={isSubmitting}>
                 {submitLabel}
               </Button>

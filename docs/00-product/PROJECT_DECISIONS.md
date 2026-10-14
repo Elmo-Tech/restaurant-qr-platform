@@ -810,6 +810,63 @@ shortfall message source.
 `PRODUCT_DISCOUNTS_AND_OFFERS.md` Phase A is implemented, Phase B stays a
 proposal.
 
+### DEC-037 — Restaurant Chooses Its Default Language
+
+**Status:** Accepted (2026-10-13)
+
+The Default Locale is a **per-Restaurant choice made by the Restaurant's
+admin**, not a Platform choice. One Restaurant may be Arabic only, another
+English only, another both; either may be the Default. The Default Locale is
+`restaurants.defaultLocale` (still the single authority, CLAUDE.md #30).
+
+**Rules:** the admin (`restaurant.manage` with Restaurant-wide Branch scope)
+may make any **active** language the Default; the change is blocked until every
+customer-facing entity has a name in the new Default (I18N_SPEC.md #35); it
+never deletes translations; the previous Default may then be disabled, which
+produces a single-language Restaurant. The Staff UI language is a separate,
+per-user preference and is not affected.
+
+**Reason:** restaurants differ in the language they write their menu in, and the
+Default is the content fallback, so it must follow the restaurant's real menu.
+**Impact:** `I18N_SPEC.md` #35 amended with the concrete V1 behavior;
+`API_CONVENTIONS.md` records the endpoints; no schema change.
+
+### DEC-038 — Ordering Availability Per Channel (View-Only Menu)
+
+**Status:** Accepted (2026-10-13)
+
+Ordering can be switched off per **channel**, independently: **Table ordering**
+(the table QR / dine-in) and **Online ordering** (Pickup and Delivery through
+the Restaurant QR, which keep their own two switches). A channel that is off is
+**view-only**: Guests can browse the menu but cannot build a cart or order.
+Both channels off gives a pure browse menu. This is a Backend rule, not only a
+UI state: a disabled channel rejects order creation with a stable error code.
+
+**Reason:** a menu-only venue, or a restaurant that takes table orders but not
+delivery (or the reverse), is a normal case; one global switch cannot express it.
+**Impact:** additive columns on `restaurants`; `QR_SPEC.md`,
+`GUEST_EXPERIENCE_SPEC.md` and `API_CONVENTIONS.md` are amended when it is
+implemented (planned step 2).
+
+### DEC-039 — AI-Assisted Menu Content Is Draft-Only and Priced Into the Subscription
+
+**Status:** Accepted as direction (2026-10-13); provider and model not chosen
+
+Two Staff features are planned: **AI translation** of menu content into another
+active language, and **AI menu import** from a file or photo. Both follow
+`I18N_SPEC.md` #63 and `MENU_SPEC.md` #78: output is a **Draft** that a
+Staff member reviews, edits and approves; nothing AI-generated reaches Guests
+unreviewed. The Backend stores and validates; n8n runs the model (DEC-016).
+Allergen and nutrition data is never auto-translated without explicit review.
+
+**Cost:** evaluate free models first, otherwise the cheapest paid one that
+meets quality on Arabic; estimate the cost per restaurant; apply per-restaurant
+usage limits and include the cost in the restaurant's subscription.
+
+**Impact:** a shared AI foundation (job endpoint, usage limits, draft/staging
+pattern) is built once before either feature. A separate decision records the
+chosen provider and the limits.
+
 ---
 
 ## Change Policy

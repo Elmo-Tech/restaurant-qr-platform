@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Post,
   Put,
   Req,
   UseGuards,
@@ -23,6 +24,7 @@ import { LocaleParamPipe } from './locale-param.pipe';
 import type { PlatformSupportedLocale } from './platform-locales';
 import {
   RestaurantLocalesService,
+  type DefaultLocaleReadiness,
   type RestaurantLocalesView,
 } from './restaurant-locales.service';
 
@@ -39,12 +41,24 @@ const DEFAULT_LOCALE_REQUIRED_RESPONSE = {
   },
 };
 
+/** DEC-037: the chosen Default must be an enabled language of this Restaurant. */
+const LOCALE_NOT_ACTIVE_RESPONSE = {
+  error: {
+    code: 'LOCALE_NOT_ACTIVE',
+    message: 'Enable this language before making it the default.',
+  },
+};
+
 interface RestaurantLocalesResponseBody {
   data: RestaurantLocalesView;
 }
 
 interface RestaurantLocaleResponseBody {
   data: { locale: string; isActive: boolean };
+}
+
+interface DefaultReadinessResponseBody {
+  data: DefaultLocaleReadiness;
 }
 
 /**
@@ -84,6 +98,68 @@ export class RestaurantsController {
     });
 
     return { data };
+  }
+
+  /**
+   * DEC-037: how complete a language's content is for becoming the Default.
+   * Declared before `PUT :locale`-style routes only for readability; the
+   * paths are distinct.
+   */
+  @Get(':locale/default-readiness')
+  @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
+  @RequirePermission(PERMISSIONS.RESTAURANT_VIEW)
+  async defaultReadiness(
+    @Param('locale', LocaleParamPipe) locale: PlatformSupportedLocale,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<DefaultReadinessResponseBody> {
+    const result = await this.restaurantLocalesService.getDefaultLocaleReadiness(
+      { restaurantId: request.restaurantAccess.restaurantId },
+      locale,
+    );
+    if (result.outcome === 'localeNotActive') {
+      throw new ConflictException(LOCALE_NOT_ACTIVE_RESPONSE);
+    }
+    return { data: result.data };
+  }
+
+  /**
+   * DEC-037: make an enabled language the Restaurant's Default Locale.
+   * `restaurant.manage` with Restaurant-wide Branch scope, like every other
+   * Restaurant-structural language mutation.
+   */
+  @Post(':locale/default')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.RESTAURANT_MANAGE)
+  async setDefaultLocale(
+    @Param('locale', LocaleParamPipe) locale: PlatformSupportedLocale,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<RestaurantLocalesResponseBody> {
+    const result = await this.restaurantLocalesService.setDefaultLocale(
+      { restaurantId: request.restaurantAccess.restaurantId },
+      locale,
+    );
+    if (result.outcome === 'localeNotActive') {
+      throw new ConflictException(LOCALE_NOT_ACTIVE_RESPONSE);
+    }
+    if (result.outcome === 'incomplete') {
+      throw new ConflictException({
+        error: {
+          code: 'DEFAULT_LOCALE_INCOMPLETE',
+          message:
+            'Add a name in this language to every item before making it the default.',
+          missing: result.data.missing,
+          totalMissing: result.data.totalMissing,
+        },
+      });
+    }
+    return { data: result.data };
   }
 
   @Put(':locale')

@@ -68,7 +68,28 @@ export const settingsMessages = defineMessages({
     'settings.languages.disableNote':
       'Disabling a language hides it from editing for now. Existing translations are kept and become available again if you re-enable it.',
     'settings.languages.default': 'Default',
-    'settings.languages.defaultNote': 'The default language is always active and cannot be disabled.',
+    'settings.languages.defaultNote':
+      'Your menu is written in this language. It is always active; make another language the default to change it.',
+    'settings.languages.makeDefault': 'Make default',
+    'settings.languages.makeDefaultAria': 'Make {language} the default language',
+    'settings.languages.makeDefaultTitle': 'Make {language} the default language?',
+    'settings.languages.makeDefaultChecking': 'Checking your menu…',
+    'settings.languages.makeDefaultConfirm': 'Make default',
+    'settings.languages.makeDefaultReady':
+      '{language} will become the main language of your menu, and the fallback wherever a name is missing in another language. Nothing is deleted and your other languages stay as they are.',
+    'settings.languages.makeDefaultMissingIntro':
+      'Before {language} can be the default, every item needs a name in it. Still missing:',
+    'settings.languages.makeDefaultMissingHint':
+      'Choose an item above, add its name in this language, then come back and try again.',
+    'settings.languages.missing.menus': 'Menus',
+    'settings.languages.missing.categories': 'Categories',
+    'settings.languages.missing.products': 'Products',
+    'settings.languages.missing.modifierGroups': 'Option groups',
+    'settings.languages.missing.modifierOptions': 'Options',
+    'settings.languages.missing.modifierPresets': 'Option group presets',
+    'settings.languages.missing.modifierPresetOptions': 'Preset options',
+    'settings.languages.missing.branches': 'Branches',
+    'settings.languages.missing.deliveryZones': 'Delivery zones',
     'settings.languages.activeNote': 'Staff can add translations in this language.',
     'settings.languages.inactiveNote': 'Not available for editing until re-enabled.',
     'settings.languages.enable': 'Enable',
@@ -169,7 +190,28 @@ export const settingsMessages = defineMessages({
     'settings.languages.disableNote':
       'تعطيل لغة يخفيها من التحرير مؤقتًا. تبقى الترجمات الموجودة محفوظة وتعود متاحة عند إعادة التفعيل.',
     'settings.languages.default': 'الافتراضية',
-    'settings.languages.defaultNote': 'اللغة الافتراضية مفعّلة دائمًا ولا يمكن تعطيلها.',
+    'settings.languages.defaultNote':
+      'قائمتك مكتوبة بهذه اللغة. هي مفعّلة دائمًا؛ اجعل لغة أخرى افتراضية لتغييرها.',
+    'settings.languages.makeDefault': 'جعلها الافتراضية',
+    'settings.languages.makeDefaultAria': 'جعل {language} اللغة الافتراضية',
+    'settings.languages.makeDefaultTitle': 'جعل {language} اللغة الافتراضية؟',
+    'settings.languages.makeDefaultChecking': 'جارٍ فحص قائمتك…',
+    'settings.languages.makeDefaultConfirm': 'جعلها الافتراضية',
+    'settings.languages.makeDefaultReady':
+      'ستصبح {language} اللغة الرئيسية لقائمتك، وهي البديل حيث ينقص اسم بلغة أخرى. لن يُحذف أي شيء وتبقى لغاتك الأخرى كما هي.',
+    'settings.languages.makeDefaultMissingIntro':
+      'قبل أن تصبح {language} هي الافتراضية، يجب أن يكون لكل عنصر اسم بها. الناقص حاليًا:',
+    'settings.languages.makeDefaultMissingHint':
+      'اختر عنصرًا من القائمة أعلاه، أضف اسمه بهذه اللغة، ثم ارجع وحاول مرة أخرى.',
+    'settings.languages.missing.menus': 'القوائم',
+    'settings.languages.missing.categories': 'الأقسام',
+    'settings.languages.missing.products': 'المنتجات',
+    'settings.languages.missing.modifierGroups': 'مجموعات الإضافات',
+    'settings.languages.missing.modifierOptions': 'الإضافات',
+    'settings.languages.missing.modifierPresets': 'قوالب مجموعات الإضافات',
+    'settings.languages.missing.modifierPresetOptions': 'خيارات القوالب',
+    'settings.languages.missing.branches': 'الفروع',
+    'settings.languages.missing.deliveryZones': 'مناطق التوصيل',
     'settings.languages.activeNote': 'يمكن للموظفين إضافة ترجمات بهذه اللغة.',
     'settings.languages.inactiveNote': 'غير متاحة للتحرير حتى تتم إعادة تفعيلها.',
     'settings.languages.enable': 'تفعيل',

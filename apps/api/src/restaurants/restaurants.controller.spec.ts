@@ -41,18 +41,24 @@ describe('RestaurantsController', () => {
   let restaurantLocalesService: {
     listLocales: jest.Mock;
     setLocaleState: jest.Mock;
+    setDefaultLocale: jest.Mock;
+    getDefaultLocaleReadiness: jest.Mock;
   };
   let controller: RestaurantsController;
 
   /* eslint-disable @typescript-eslint/unbound-method */
   const listHandler = RestaurantsController.prototype.listLocales;
   const putHandler = RestaurantsController.prototype.setLocaleState;
+  const defaultHandler = RestaurantsController.prototype.setDefaultLocale;
+  const readinessHandler = RestaurantsController.prototype.defaultReadiness;
   /* eslint-enable @typescript-eslint/unbound-method */
 
   beforeEach(() => {
     restaurantLocalesService = {
       listLocales: jest.fn().mockResolvedValue(SAMPLE_LOCALES),
       setLocaleState: jest.fn(),
+      setDefaultLocale: jest.fn(),
+      getDefaultLocaleReadiness: jest.fn(),
     };
     controller = new RestaurantsController(restaurantLocalesService as never);
   });
@@ -178,6 +184,102 @@ describe('RestaurantsController', () => {
           buildRequest('authorized-restaurant'),
         ),
       ).rejects.toBeInstanceOf(ConflictException);
+    });
+  });
+
+  describe('POST :locale/default (make default, DEC-037)', () => {
+    it('declares the Restaurant-structural guard chain and requires restaurant.manage', () => {
+      const guards = Reflect.getMetadata(GUARDS_METADATA, defaultHandler) as unknown[];
+
+      expect(guards).toEqual([
+        AuthGuard,
+        CsrfGuard,
+        RestaurantAccessGuard,
+        PermissionGuard,
+        AllBranchesRequiredGuard,
+      ]);
+      expect(Reflect.getMetadata(REQUIRED_PERMISSION_KEY, defaultHandler)).toBe(
+        PERMISSIONS.RESTAURANT_MANAGE,
+      );
+    });
+
+    it('scopes by the authorized Restaurant, never the route param', async () => {
+      restaurantLocalesService.setDefaultLocale.mockResolvedValue({
+        outcome: 'updated',
+        data: SAMPLE_LOCALES,
+      });
+
+      const body = await controller.setDefaultLocale(
+        'ar',
+        buildRequest('authorized-restaurant', 'attacker-supplied-value'),
+      );
+
+      expect(restaurantLocalesService.setDefaultLocale).toHaveBeenCalledWith(
+        { restaurantId: 'authorized-restaurant' },
+        'ar',
+      );
+      expect(body).toEqual({ data: SAMPLE_LOCALES });
+    });
+
+    it('maps a disabled language to 409 LOCALE_NOT_ACTIVE', async () => {
+      restaurantLocalesService.setDefaultLocale.mockResolvedValue({
+        outcome: 'localeNotActive',
+      });
+
+      await expect(
+        controller.setDefaultLocale('ar', buildRequest('restaurant-1')),
+      ).rejects.toMatchObject({
+        response: { error: { code: 'LOCALE_NOT_ACTIVE' } },
+      });
+    });
+
+    it('maps missing names to 409 DEFAULT_LOCALE_INCOMPLETE with the counts', async () => {
+      restaurantLocalesService.setDefaultLocale.mockResolvedValue({
+        outcome: 'incomplete',
+        data: { locale: 'ar', ready: false, totalMissing: 4, missing: { products: 4 } },
+      });
+
+      await expect(
+        controller.setDefaultLocale('ar', buildRequest('restaurant-1')),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'DEFAULT_LOCALE_INCOMPLETE',
+            totalMissing: 4,
+            missing: { products: 4 },
+          },
+        },
+      });
+    });
+  });
+
+  describe('GET :locale/default-readiness (DEC-037)', () => {
+    it('is a read-only route: no CSRF or AllBranches guard, restaurant.view', () => {
+      const guards = Reflect.getMetadata(GUARDS_METADATA, readinessHandler) as unknown[];
+
+      expect(guards).toEqual([AuthGuard, RestaurantAccessGuard, PermissionGuard]);
+      expect(Reflect.getMetadata(REQUIRED_PERMISSION_KEY, readinessHandler)).toBe(
+        PERMISSIONS.RESTAURANT_VIEW,
+      );
+    });
+
+    it('returns the readiness inside the data envelope', async () => {
+      const readiness = { locale: 'ar', ready: true, totalMissing: 0, missing: {} };
+      restaurantLocalesService.getDefaultLocaleReadiness.mockResolvedValue({
+        outcome: 'ok',
+        data: readiness,
+      });
+
+      const body = await controller.defaultReadiness(
+        'ar',
+        buildRequest('authorized-restaurant'),
+      );
+
+      expect(restaurantLocalesService.getDefaultLocaleReadiness).toHaveBeenCalledWith(
+        { restaurantId: 'authorized-restaurant' },
+        'ar',
+      );
+      expect(body).toEqual({ data: readiness });
     });
   });
 });

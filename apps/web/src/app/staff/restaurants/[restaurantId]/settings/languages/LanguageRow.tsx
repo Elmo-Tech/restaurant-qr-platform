@@ -13,22 +13,24 @@ export interface LanguageRowProps {
   /** This row's own toggle request is currently in flight -- disables the control and prevents a duplicate call (Section 16). */
   isPending: boolean;
   onToggle: (locale: string, nextIsActive: boolean) => void;
+  /** DEC-037: open the "make default" flow for this (enabled) language. */
+  onMakeDefault: (locale: string) => void;
 }
 
 /**
- * One Platform-supported locale row (LOC-3, Section 8-10). The default
- * locale never renders a working disable control -- not even a disabled
- * one -- since the Backend has no endpoint to change the default locale at
- * all (Section 9); a non-default locale renders an Enable/Disable `Button`
- * only when the current User can actually manage Languages, otherwise the
- * control is simply absent (Section 7) and a single shared explanatory note
- * is shown once by the parent workspace, not repeated per row.
+ * One Platform-supported locale row (LOC-3, Section 8-10; DEC-037). The
+ * default locale never renders a disable control: it stays active until the
+ * admin makes another language the default. A non-default locale renders
+ * Enable/Disable, plus "Make default" once it is enabled, only when the
+ * current User can actually manage Languages; otherwise the controls are
+ * simply absent (Section 7) and one shared note is shown by the workspace.
  */
 export function LanguageRow({
   row,
   canManage,
   isPending,
   onToggle,
+  onMakeDefault,
 }: LanguageRowProps) {
   const { t } = useStaffI18n();
   const label = localeLabel(row.locale);
@@ -58,23 +60,35 @@ export function LanguageRow({
       </div>
 
       {!row.isDefault && canManage ? (
-        <Button
-          type="button"
-          variant={row.isActive ? 'secondary' : 'primary'}
-          disabled={isPending}
-          onClick={() => onToggle(row.locale, !row.isActive)}
-          aria-label={t(
-            row.isActive ? 'settings.languages.disableAria' : 'settings.languages.enableAria',
-            { language: label },
-          )}
-          className="flex-shrink-0"
-        >
-          {isPending
-            ? t('settings.languages.working')
-            : row.isActive
-              ? t('settings.languages.disable')
-              : t('settings.languages.enable')}
-        </Button>
+        <div className="flex flex-shrink-0 flex-wrap items-center gap-2">
+          {row.isActive ? (
+            <Button
+              type="button"
+              variant="primary"
+              disabled={isPending}
+              onClick={() => onMakeDefault(row.locale)}
+              aria-label={t('settings.languages.makeDefaultAria', { language: label })}
+            >
+              {t('settings.languages.makeDefault')}
+            </Button>
+          ) : null}
+          <Button
+            type="button"
+            variant={row.isActive ? 'secondary' : 'primary'}
+            disabled={isPending}
+            onClick={() => onToggle(row.locale, !row.isActive)}
+            aria-label={t(
+              row.isActive ? 'settings.languages.disableAria' : 'settings.languages.enableAria',
+              { language: label },
+            )}
+          >
+            {isPending
+              ? t('settings.languages.working')
+              : row.isActive
+                ? t('settings.languages.disable')
+                : t('settings.languages.enable')}
+          </Button>
+        </div>
       ) : null}
     </div>
   );

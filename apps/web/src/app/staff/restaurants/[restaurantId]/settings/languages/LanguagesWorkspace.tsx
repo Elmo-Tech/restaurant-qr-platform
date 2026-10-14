@@ -16,6 +16,7 @@ import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { SectionCard } from '../../../../../../components/ui/SectionCard';
 import { SettingsTabs } from '../SettingsTabs';
 import { LanguageRow } from './LanguageRow';
+import { MakeDefaultDialog } from './MakeDefaultDialog';
 
 export interface LanguagesWorkspaceProps {
   restaurantId: string;
@@ -49,6 +50,7 @@ export function LanguagesWorkspace({
   const [data, setData] = useState<RestaurantLocalesResponse | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pendingLocale, setPendingLocale] = useState<string | null>(null);
+  const [makeDefaultLocale, setMakeDefaultLocale] = useState<string | null>(null);
   const [mutationError, setMutationError] = useState<{
     locale: string;
     message: string;
@@ -168,6 +170,7 @@ export function LanguagesWorkspace({
                     canManage={canManage}
                     isPending={pendingLocale === row.locale}
                     onToggle={handleToggle}
+                    onMakeDefault={setMakeDefaultLocale}
                   />
                 ))}
               </div>
@@ -177,6 +180,13 @@ export function LanguagesWorkspace({
               ) : null}
 
               <p className="text-xs text-muted-foreground">{t('settings.languages.disableNote')}</p>
+
+              <MakeDefaultDialog
+                restaurantId={restaurantId}
+                locale={makeDefaultLocale}
+                onClose={() => setMakeDefaultLocale(null)}
+                onChanged={() => void loadLocales()}
+              />
             </>
           )}
         </div>

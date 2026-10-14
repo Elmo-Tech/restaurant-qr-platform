@@ -2080,7 +2080,30 @@ Success:
 { "data": { "locale": "ar", "isActive": true } }
 ```
 
-Never returned: a raw `RestaurantLocale` `id`/`restaurantId`. Changing `Restaurant.defaultLocale` itself is out of scope in V1 (no endpoint exists for it). Menu/Category/Product Translation endpoints are documented separately (#108E, LOC-2B).
+Never returned: a raw `RestaurantLocale` `id`/`restaurantId`. The default locale is changed with the endpoints below (DEC-037). Menu/Category/Product Translation endpoints are documented separately (#108E, LOC-2B).
+
+**Changing the default locale (DEC-037, I18N_SPEC.md #35A).**
+
+`GET /api/v1/restaurants/{restaurantId}/locales/{locale}/default-readiness` -- `restaurant.view`, read-only (no CSRF, no `AllBranchesRequiredGuard`). Returns how many entities still lack a non-empty name in `{locale}`:
+
+```
+200 OK
+{ "data": { "locale": "ar", "ready": false, "totalMissing": 15,
+  "missing": { "menus": 0, "categories": 3, "products": 12, "modifierGroups": 0,
+               "modifierOptions": 0, "modifierPresets": 0, "modifierPresetOptions": 0,
+               "branches": 0, "deliveryZones": 0 } } }
+```
+
+`POST /api/v1/restaurants/{restaurantId}/locales/{locale}/default` -- no body; `restaurant.manage` with Restaurant-wide scope, guard order `AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard`. In one transaction it sets `restaurants.defaultLocale` and re-points `branches.name` / `delivery_zones.name` to the new default's name; no translation row is deleted. Making the current default the default again is a harmless `200`. Responses:
+
+```
+200 OK    { "data": { "defaultLocale": "ar", "locales": [ ... same shape as GET ... ] } }
+409       { "error": { "code": "LOCALE_NOT_ACTIVE", ... } }            -- the language is not enabled for this Restaurant
+409       { "error": { "code": "DEFAULT_LOCALE_INCOMPLETE", "message": "...",
+                       "missing": { ... same counts ... }, "totalMissing": 15 } }
+```
+
+`{locale}` is validated by `LocaleParamPipe` like every other locales route. Counts are always scoped by the authorized `restaurantId`.
 
 ---
 
