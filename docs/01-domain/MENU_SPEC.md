@@ -377,6 +377,8 @@ Extras and ingredient removal may be represented using Modifier Groups where app
 
 # 21. Variant
 
+> **Decision 2026-10-16 (DEC-041):** Variants are implemented in V1 for sizes. Adjustments are zero or positive, the smallest size normally has adjustment 0, a Variant needs a default-Locale name, and the Guest menu shows a "from" price. The Staff API is in `API_CONVENTIONS.md` #108C-2.
+
 A Variant represents a meaningful Product variation that usually changes the Product's commercial configuration.
 
 Examples:

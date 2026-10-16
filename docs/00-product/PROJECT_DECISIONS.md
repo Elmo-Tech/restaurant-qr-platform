@@ -900,7 +900,7 @@ Supplements DEC-039; `MENU_SPEC.md` #78 gets a cross-reference when accepted.
 
 ### DEC-041 — Product Variants V1 (Sizes)
 
-**Status:** Proposed (2026-10-16), awaiting review. Not implemented.
+**Status:** Accepted (2026-10-16); in implementation. Slice 1 (database and Staff API) is done; the Product editor, Guest menu, ordering and order views follow. The Product Discounts rule below is still to be confirmed before slice 3.
 
 Most restaurants sell the same item in several sizes at different prices (pizza,
 fiteer, crepe). V1 implements the Variant model that `MENU_SPEC.md` #21-#24 and

@@ -2054,6 +2054,32 @@ The list must be **exactly** the parent's current set of children (every Categor
 
 ---
 
+# 108C-2. Product Variants (DEC-041, Staff API implemented 2026-10-16)
+
+Variants (sizes) of one Product, nested under it exactly like Modifier Groups:
+`/api/v1/restaurants/{restaurantId}/products/{productId}/variants`.
+
+| Route | Purpose | Permission |
+|---|---|---|
+| `GET /` | list, ordered by `displayOrder`, with `canDelete` | `menu.view` |
+| `POST /` | create | `menu.manage` + Restaurant-wide scope |
+| `PATCH /{variantId}` | partial update (`name`, `status`, `priceAdjustment`, `displayOrder`, `isDefault`) | same |
+| `DELETE /{variantId}` | delete while no Order has used it | same |
+| `PUT /order` | complete desired order `{ variantIds }` | same |
+| `GET /{variantId}/translations` | all stored translations | `menu.view` |
+| `PUT /{variantId}/translations/{locale}` | replace one translation `{ name }` | `menu.manage` |
+| `DELETE /{variantId}/translations/{locale}` | delete one translation | `menu.manage` |
+
+Mutations use `AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard` (Variants are Restaurant-wide menu configuration, #108A). Every query is scoped by the authenticated `restaurantId` and the Product; a foreign or unknown Product or Variant is `404 PRODUCT_NOT_FOUND` / `404 VARIANT_NOT_FOUND`.
+
+Create body: `{ "name", "status": "ACTIVE|INACTIVE", "priceAdjustment": "0.00", "displayOrder": 0, "isDefault": false }`. `name` is stored as the Restaurant default-locale translation; the client never selects a locale. `priceAdjustment` is a **non-negative** decimal string added to the Product `basePrice` (the smallest size normally has `"0.00"`). Response `data`: `{ id, status, name, priceAdjustment, displayOrder, isDefault, canDelete }` (`priceAdjustment` always two decimals).
+
+**Rules:** at most one default Variant per Product; making a Variant the default clears the previous default in the same transaction; only an `ACTIVE` Variant can be the default (`400 VARIANT_DEFAULT_MUST_BE_ACTIVE`); deactivating the default clears it. Two concurrent default changes resolve through the partial unique index (`409 VARIANT_DEFAULT_CONFLICT`). `DELETE` answers `409 VARIANT_HAS_HISTORICAL_REFERENCES` once any Order Item references the Variant; deactivate it instead. `PUT /order` is all-or-nothing and `409 ORDER_MISMATCH` unless the list is exactly the Product's current Variants. Translation routes follow #108E (`409 LOCALE_NOT_ACTIVE`, `409 DEFAULT_TRANSLATION_REQUIRED`).
+
+Not part of this slice: the Guest menu, cart, order creation and Staff / Kitchen order views (DEC-041 slices 3-4).
+
+---
+
 # 108D. Restaurant Languages (Settled, LOC-2A)
 
 `GET`/`PUT /api/v1/restaurants/{restaurantId}/locales[/{locale}]`.

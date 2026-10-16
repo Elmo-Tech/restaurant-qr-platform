@@ -101,6 +101,13 @@ enum ProductStatus {
   @@map("product_status")
 }
 
+enum ProductVariantStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("product_variant_status")
+}
+
 enum ProductAvailability {
   AVAILABLE
   SOLD_OUT
@@ -266,6 +273,7 @@ model Restaurant {
   orders                Order[]
   modifierGroups        ModifierGroup[]
   modifierOptions       ModifierOption[]
+  productVariants       ProductVariant[]
   modifierPresets       ModifierPreset[]
   modifierPresetOptions ModifierPresetOption[]
   deliveryZones         DeliveryZone[]
@@ -457,6 +465,7 @@ model Product {
   translations   ProductTranslation[]
   orderItems     OrderItem[]
   modifierGroups ModifierGroup[]
+  variants       ProductVariant[]
 
   @@index([restaurantId])
   @@index([categoryId])
@@ -476,6 +485,59 @@ model ProductTranslation {
 
   @@unique([productId, locale])
   @@map("product_translations")
+}
+
+// -----------------------------------------------------------------------------
+// Product Variant (DEC-041; MENU_SPEC.md #21-24, DATABASE_SPEC.md #68-71, #111).
+// A meaningful variation of a Product -- typically a size (Small / Medium /
+// Large). Its price is a NON-NEGATIVE adjustment from Product.basePrice, so the
+// smallest size normally has adjustment 0. Translated names live in
+// ProductVariantTranslation (never name_ar / name_en columns). Never
+// hard-deleted once an Order references it (status deactivation instead), so a
+// historical OrderItem snapshot never loses its reference.
+// -----------------------------------------------------------------------------
+
+model ProductVariant {
+  id              String               @id @default(uuid()) @db.Uuid
+  restaurantId    String               @map("restaurant_id") @db.Uuid
+  productId       String               @map("product_id") @db.Uuid
+  // No database default, mirrors Product.status: an explicit choice at the
+  // application layer.
+  status          ProductVariantStatus
+  // Fixed-precision money, never Float/Double. Non-negative is enforced by the
+  // product_variants_price_adjustment_non_negative CHECK (custom migration SQL).
+  priceAdjustment Decimal              @map("price_adjustment") @db.Decimal(14, 2)
+  displayOrder    Int                  @map("display_order")
+  // At most one default Variant per Product: product_variants_one_default_per_product
+  // partial unique index (custom migration SQL; Prisma cannot express it).
+  isDefault       Boolean              @map("is_default")
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  // Variant.restaurantId == Product.restaurantId is a cross-row Tenant
+  // invariant enforced by application write logic and Tenant-scoped reads,
+  // never trusted from productId alone (mirrors ModifierGroup).
+  restaurant   Restaurant                  @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  product      Product                     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  translations ProductVariantTranslation[]
+  orderItems   OrderItem[]
+
+  @@index([restaurantId])
+  @@index([productId])
+  @@map("product_variants")
+}
+
+model ProductVariantTranslation {
+  id               String @id @default(uuid()) @db.Uuid
+  productVariantId String @map("product_variant_id") @db.Uuid
+  locale           String
+  name             String
+
+  // Pure translation child of ProductVariant -- Cascade (DATABASE_SPEC.md #136).
+  productVariant ProductVariant @relation(fields: [productVariantId], references: [id], onDelete: Cascade)
+
+  @@unique([productVariantId, locale])
+  @@map("product_variant_translations")
 }
 
 // -----------------------------------------------------------------------------
@@ -1138,6 +1200,14 @@ model OrderItem {
   discountAmount        Decimal              @default(0) @map("discount_amount") @db.Decimal(14, 2)
   discountTypeSnapshot  ProductDiscountType? @map("discount_type_snapshot")
   discountValueSnapshot Decimal?             @map("discount_value_snapshot") @db.Decimal(14, 2)
+  // Product Variants (DEC-041): the chosen Variant and its snapshot. All NULL for
+  // a Product without Variants and for every historical item. When a Variant is
+  // chosen, `unitPrice` is Product.basePrice + the Variant adjustment (the price
+  // of the chosen size before any discount); the adjustment is also kept
+  // separately for display.
+  variantId                 String?  @map("variant_id") @db.Uuid
+  variantNameSnapshot       String?  @map("variant_name_snapshot")
+  variantAdjustmentSnapshot Decimal? @map("variant_adjustment_snapshot") @db.Decimal(14, 2)
   createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz
 
   order     Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
@@ -1145,10 +1215,12 @@ model OrderItem {
   // never Cascade: a historical OrderItem must survive regardless of the
   // referenced Product's own lifecycle.
   product   Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant   ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: Restrict)
   modifiers OrderItemModifier[]
 
   @@index([orderId])
   @@index([productId])
+  @@index([variantId])
   @@map("order_items")
 }
 

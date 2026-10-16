@@ -1701,6 +1701,8 @@ Unique: `productId + locale`.
 
 ---
 
+> **Implemented 2026-10-16 (DEC-041, migration `20261016090000_add_product_variants`):** `product_variants` (`status`, `price_adjustment` `DECIMAL(14,2)`, `display_order`, `is_default`), `product_variant_translations` (unique `product_variant_id + locale`) and nullable `order_items.variant_id`, `variant_name_snapshot`, `variant_adjustment_snapshot`. Custom SQL: `price_adjustment >= 0`; only an `ACTIVE` Variant can be the default; one default per Product (partial unique index `product_variants_one_default_per_product`); an Order Item snapshot is all-or-nothing. Foreign keys from `order_items` and the Product are `RESTRICT`; translations `CASCADE`. When a Variant is chosen, `order_items.unit_price` is `base_price + adjustment` (the price of the chosen size before discount), so `line_total = (unit_price - unit discount + modifiers) * quantity` is unchanged.
+
 # 68. Product Variant
 
 Table:
