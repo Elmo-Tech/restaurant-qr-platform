@@ -1343,6 +1343,8 @@ It may be introduced later to improve onboarding.
 
 If added, imported content should be treated as Draft until Restaurant reviews it.
 
+> **Design proposed 2026-10-16 (DEC-040, awaiting review):** the import design (sources, Draft model, review and approval, limits) is in `MENU_IMPORT_SPEC.md`. It is not implemented and does not change V1 core behavior.
+
 ---
 
 # 79. Duplicate Product

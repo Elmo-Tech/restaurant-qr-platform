@@ -867,6 +867,72 @@ usage limits and include the cost in the restaurant's subscription.
 pattern) is built once before either feature. A separate decision records the
 chosen provider and the limits.
 
+### DEC-040 — Menu Import From a File (Design)
+
+**Status:** Proposed (2026-10-16), awaiting review. Not implemented.
+
+Staff with `menu.manage` and Restaurant-wide scope can create menu content from
+an **image, PDF or Excel file**. The Backend sends the file to n8n, which runs
+the model and returns a structured result; the result is stored as a **Draft**
+that Staff review, edit and **approve** before any Category or Product exists
+(DEC-039). The full design is `MENU_IMPORT_SPEC.md`.
+
+**Rules:** the languages written on the file are detected, never chosen by Staff
+and never translated by the import; each item carries one translation per
+language actually written, mapped to the Restaurant's active Locales and
+requiring a name in the default Locale; a missing price is a blocker and is
+never invented; existing content is never changed (matching products are
+excluded by default); the source file is not stored; n8n holds no state and
+never sees the Restaurant; the Backend re-validates every result and approves
+in one transaction; one running import per Restaurant. Free for Restaurants
+and mostly a one-time action, so no allowance now; the Jobs table is the usage
+record and limits are decided during pricing. Sizes become Product Variants
+(DEC-041), which are built first.
+
+**Reason:** onboarding cost is dominated by typing the menu; a reviewable Draft
+removes it without letting unverified model output reach Guests.
+
+**Impact:** additive Draft tables and one partial unique index; a new
+`menu-imports` API; a private n8n webhook entry; a Staff review screen. The
+owner's answers (publish by default, sizes as Variants, no cost work now,
+duplicates excluded, source file not stored) are in `MENU_IMPORT_SPEC.md` #27.
+Supplements DEC-039; `MENU_SPEC.md` #78 gets a cross-reference when accepted.
+
+### DEC-041 — Product Variants V1 (Sizes)
+
+**Status:** Proposed (2026-10-16), awaiting review. Not implemented.
+
+Most restaurants sell the same item in several sizes at different prices (pizza,
+fiteer, crepe). V1 implements the Variant model that `MENU_SPEC.md` #21-#24 and
+`DATABASE_SPEC.md` #68-#71 and #111 already specify: a Product may have Variants
+(for example Small / Medium / Large), each with a translated name, a **price
+adjustment** from the Product `basePrice`, a status, a display order and an
+optional default.
+
+**Rules:** a Product with active Variants requires exactly one Variant in the
+cart; the default Variant is preselected, otherwise the Guest must choose; the
+Backend recalculates the unit price as `basePrice + variant adjustment +
+modifiers` and ignores any client price; a Variant needs a name in the default
+Locale; at most one default Variant per Product; inactive Variants disappear
+from the Guest menu but never from history; Order Items snapshot the Variant id,
+name and adjustment. Adjustments are zero or positive in V1, so the smallest
+size normally has adjustment 0 and is the base price. The Guest menu shows a
+"from" price for a Product with Variants.
+
+**Product Discounts (DEC-036):** the discount applies to `basePrice + variant
+adjustment` (the price of the chosen size); paid Modifier options are still
+never discounted. *Proposed rule, to be confirmed by the owner.*
+
+**Reason:** sizes are central to real menus; modelling them as Modifiers would
+hide the size choice and break the "from" price and the menu import.
+
+**Impact:** additive tables `product_variants` and `product_variant_translations`
+and Variant snapshot columns on order items; Staff API and the Product editor
+(a Sizes section with live preview); Guest product sheet, cart and order
+creation; Staff and Kitchen order views; the menu import approval (DEC-040).
+Detailed API contracts are recorded in `API_CONVENTIONS.md` when each slice is
+implemented.
+
 ---
 
 ## Change Policy
