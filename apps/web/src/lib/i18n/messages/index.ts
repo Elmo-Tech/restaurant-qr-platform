@@ -15,6 +15,7 @@ import { sessionsMessages } from './sessions';
 import { settingsMessages } from './settings';
 import { staffMessages } from './staff';
 import { tablesMessages } from './tables';
+import { variantsMessages } from './variants';
 
 /**
  * FT-10A: the single merged Staff UI dictionary. Add a domain by importing its
@@ -40,6 +41,7 @@ const en = {
   ...settingsMessages.en,
   ...staffMessages.en,
   ...tablesMessages.en,
+  ...variantsMessages.en,
 };
 
 const ar = {
@@ -60,6 +62,7 @@ const ar = {
   ...settingsMessages.ar,
   ...staffMessages.ar,
   ...tablesMessages.ar,
+  ...variantsMessages.ar,
 };
 
 export const messages = { en, ar } as const;

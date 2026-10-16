@@ -2063,7 +2063,7 @@ Variants (sizes) of one Product, nested under it exactly like Modifier Groups:
 |---|---|---|
 | `GET /` | list, ordered by `displayOrder`, with `canDelete` | `menu.view` |
 | `POST /` | create | `menu.manage` + Restaurant-wide scope |
-| `PATCH /{variantId}` | partial update (`name`, `status`, `priceAdjustment`, `displayOrder`, `isDefault`) | same |
+| `PATCH /{variantId}` | partial update (`name`, `status`, `price`, `displayOrder`, `isDefault`, `discountApplies`) | same |
 | `DELETE /{variantId}` | delete while no Order has used it | same |
 | `PUT /order` | complete desired order `{ variantIds }` | same |
 | `GET /{variantId}/translations` | all stored translations | `menu.view` |
@@ -2072,7 +2072,7 @@ Variants (sizes) of one Product, nested under it exactly like Modifier Groups:
 
 Mutations use `AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard` (Variants are Restaurant-wide menu configuration, #108A). Every query is scoped by the authenticated `restaurantId` and the Product; a foreign or unknown Product or Variant is `404 PRODUCT_NOT_FOUND` / `404 VARIANT_NOT_FOUND`.
 
-Create body: `{ "name", "status": "ACTIVE|INACTIVE", "priceAdjustment": "0.00", "displayOrder": 0, "isDefault": false }`. `name` is stored as the Restaurant default-locale translation; the client never selects a locale. `priceAdjustment` is a **non-negative** decimal string added to the Product `basePrice` (the smallest size normally has `"0.00"`). Response `data`: `{ id, status, name, priceAdjustment, displayOrder, isDefault, canDelete }` (`priceAdjustment` always two decimals).
+Create body: `{ "name", "status": "ACTIVE|INACTIVE", "price": "60.00", "displayOrder": 0, "isDefault": false }`. `name` is stored as the Restaurant default-locale translation; the client never selects a locale. `price` is the **full, non-negative** decimal-string price of this size, as printed on the menu (it is not an adjustment). The Product `basePrice` is kept equal to the cheapest `ACTIVE` size in the same transaction as every create, update (price or status) and delete; `PATCH` on the Product with a different `basePrice` while it has an active size answers `409 PRODUCT_PRICE_MANAGED_BY_SIZES` (sending the unchanged price is accepted). Optional `discountApplies` (default `true`): whether the Product discount (DEC-036) applies to this size; `false` excludes it (DEC-041). Response `data`: `{ id, status, name, price, displayOrder, isDefault, discountApplies, canDelete }` (`price` always two decimals).
 
 **Rules:** at most one default Variant per Product; making a Variant the default clears the previous default in the same transaction; only an `ACTIVE` Variant can be the default (`400 VARIANT_DEFAULT_MUST_BE_ACTIVE`); deactivating the default clears it. Two concurrent default changes resolve through the partial unique index (`409 VARIANT_DEFAULT_CONFLICT`). `DELETE` answers `409 VARIANT_HAS_HISTORICAL_REFERENCES` once any Order Item references the Variant; deactivate it instead. `PUT /order` is all-or-nothing and `409 ORDER_MISMATCH` unless the list is exactly the Product's current Variants. Translation routes follow #108E (`409 LOCALE_NOT_ACTIVE`, `409 DEFAULT_TRANSLATION_REQUIRED`).
 

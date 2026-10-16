@@ -192,13 +192,13 @@ describe('Product variants (e2e)', () => {
 
   const variant = (
     name: string,
-    priceAdjustment: string,
+    price: string,
     displayOrder: number,
     extra = {},
   ) => ({
     name,
     status: 'ACTIVE',
-    priceAdjustment,
+    price,
     displayOrder,
     ...extra,
   });
@@ -230,12 +230,12 @@ describe('Product variants (e2e)', () => {
 
     expect(one(small)).toMatchObject({
       name: 'Small',
-      priceAdjustment: '0.00',
+      price: '0.00',
       isDefault: true,
       status: 'ACTIVE',
       canDelete: true,
     });
-    expect(one(large).priceAdjustment).toBe('25.50');
+    expect(one(large).price).toBe('25.50');
 
     const listed = await list(restaurant.id, product.id, cookie).expect(200);
     expect(many(listed).map((row) => row.name)).toEqual([
@@ -340,31 +340,134 @@ describe('Product variants (e2e)', () => {
 
     const updated = await send('patch', `${url}/${id}`, cookie, {
       name: 'Personal',
-      priceAdjustment: '7.25',
+      price: '7.25',
       displayOrder: 3,
     }).expect(200);
     expect(one(updated)).toMatchObject({
       name: 'Personal',
-      priceAdjustment: '7.25',
+      price: '7.25',
       displayOrder: 3,
     });
 
     await send('patch', `${url}/${id}`, cookie, {
-      priceAdjustment: '-1.00',
+      price: '-1.00',
     }).expect(400);
     await send('post', url, cookie, variant('Bad', '-5', 1)).expect(400);
     await send('post', url, cookie, variant('', '5', 1)).expect(400);
     await send('post', url, cookie, {
       name: 'X',
       status: 'WEIRD',
-      priceAdjustment: '1',
+      price: '1',
       displayOrder: 0,
     }).expect(400);
 
     const stored = await prisma.productVariant.findUniqueOrThrow({
       where: { id },
     });
-    expect(stored.priceAdjustment.toFixed(2)).toBe('7.25');
+    expect(stored.price.toFixed(2)).toBe('7.25');
+  });
+
+  it('lets Staff choose which sizes the Product discount applies to (all by default)', async () => {
+    const { restaurant, product } = await seed();
+    const cookie = await login(restaurant.id, 'OWNER');
+    const url = base(restaurant.id, product.id);
+
+    const small = await send(
+      'post',
+      url,
+      cookie,
+      variant('Small', '0', 0),
+    ).expect(201);
+    expect(one(small).discountApplies).toBe(true);
+
+    const large = await send(
+      'post',
+      url,
+      cookie,
+      variant('Large', '30', 1, { discountApplies: false }),
+    ).expect(201);
+    expect(one(large).discountApplies).toBe(false);
+
+    const toggled = await send('patch', `${url}/${idOf(small)}`, cookie, {
+      discountApplies: false,
+    }).expect(200);
+    expect(one(toggled).discountApplies).toBe(false);
+    await send('patch', `${url}/${idOf(large)}`, cookie, {
+      discountApplies: true,
+    }).expect(200);
+    await send('patch', `${url}/${idOf(large)}`, cookie, {
+      discountApplies: 'yes',
+    }).expect(400);
+
+    const listed = await list(restaurant.id, product.id, cookie).expect(200);
+    expect(many(listed).map((row) => row.discountApplies)).toEqual([
+      false,
+      true,
+    ]);
+  });
+
+  it('keeps the Product price equal to the cheapest active size and refuses typing it', async () => {
+    const { restaurant, product } = await seed();
+    const cookie = await login(restaurant.id, 'OWNER');
+    const url = base(restaurant.id, product.id);
+    const basePrice = async () =>
+      (
+        await prisma.product.findUniqueOrThrow({ where: { id: product.id } })
+      ).basePrice.toFixed(2);
+    expect(await basePrice()).toBe('100.00');
+
+    const large = await send(
+      'post',
+      url,
+      cookie,
+      variant('Large', '100', 2),
+    ).expect(201);
+    const small = await send(
+      'post',
+      url,
+      cookie,
+      variant('Small', '60', 0),
+    ).expect(201);
+    await send('post', url, cookie, variant('Medium', '80', 1)).expect(201);
+    // as printed on the menu: 60 / 80 / 100 -> the Product price is the smallest
+    expect(await basePrice()).toBe('60.00');
+
+    // hiding the smallest size moves the Product price to the next one
+    await send('patch', `${url}/${idOf(small)}`, cookie, {
+      status: 'INACTIVE',
+    }).expect(200);
+    expect(await basePrice()).toBe('80.00');
+
+    // changing a size price follows through
+    await send('patch', `${url}/${idOf(small)}`, cookie, {
+      status: 'ACTIVE',
+      price: '70',
+    }).expect(200);
+    expect(await basePrice()).toBe('70.00');
+
+    // the price cannot be typed while sizes exist
+    const productUrl = `/api/v1/restaurants/${restaurant.id}/products/${product.id}`;
+    const refused = await send('patch', productUrl, cookie, {
+      basePrice: '55.00',
+    }).expect(409);
+    expect(refused.body).toMatchObject({
+      error: { code: 'PRODUCT_PRICE_MANAGED_BY_SIZES' },
+    });
+    // sending the same price back (an unchanged form save) is fine
+    await send('patch', productUrl, cookie, { basePrice: '70.00' }).expect(200);
+
+    // deleting the smallest moves it up; with no sizes left the price is editable again
+    await send('delete', `${url}/${idOf(small)}`, cookie).expect(204);
+    expect(await basePrice()).toBe('80.00');
+    await send('delete', `${url}/${idOf(large)}`, cookie).expect(204);
+    const rest = await prisma.productVariant.findMany({
+      where: { productId: product.id },
+    });
+    for (const row of rest) {
+      await send('delete', `${url}/${row.id}`, cookie).expect(204);
+    }
+    await send('patch', productUrl, cookie, { basePrice: '55.00' }).expect(200);
+    expect(await basePrice()).toBe('55.00');
   });
 
   it('reorders the full set and refuses a stale or foreign list', async () => {
@@ -390,7 +493,7 @@ describe('Product variants (e2e)', () => {
         restaurantId: foreign.restaurant.id,
         productId: foreign.product.id,
         status: 'ACTIVE',
-        priceAdjustment: '0',
+        price: '0',
         displayOrder: 0,
         isDefault: false,
       },
@@ -488,7 +591,7 @@ describe('Product variants (e2e)', () => {
         lineTotal: '110.00',
         variantId: idOf(used),
         variantNameSnapshot: 'Used',
-        variantAdjustmentSnapshot: '10.00',
+        variantPriceSnapshot: '10.00',
       },
     });
 
@@ -566,7 +669,7 @@ describe('Product variants (e2e)', () => {
         restaurantId: foreign.restaurant.id,
         productId: foreign.product.id,
         status: 'ACTIVE',
-        priceAdjustment: '0',
+        price: '0',
         displayOrder: 0,
         isDefault: false,
         translations: { create: [{ locale: 'en', name: 'Secret' }] },

@@ -17,10 +17,12 @@ export interface ProductVariantView {
   status: ProductVariantStatus;
   /** Restaurant default-locale name. */
   name: string;
-  /** Non-negative amount added to the Product base price. */
-  priceAdjustment: string;
+  /** The full price of this size. */
+  price: string;
   displayOrder: number;
   isDefault: boolean;
+  /** Does the Product discount apply to this size (all sizes by default)? */
+  discountApplies: boolean;
   /** True only while no Order has ever referenced this Variant. */
   canDelete: boolean;
 }
@@ -42,17 +44,19 @@ export interface AuthorizedVariantScope extends AuthorizedProductScope {
 export interface CreateProductVariantInput extends AuthorizedProductScope {
   name: string;
   status: ProductVariantStatus;
-  priceAdjustment: string;
+  price: string;
   displayOrder: number;
   isDefault: boolean;
+  discountApplies: boolean;
 }
 
 export interface UpdateProductVariantInput extends AuthorizedVariantScope {
   name?: string;
   status?: ProductVariantStatus;
-  priceAdjustment?: string;
+  price?: string;
   displayOrder?: number;
   isDefault?: boolean;
+  discountApplies?: boolean;
 }
 
 export interface ReorderProductVariantsInput extends AuthorizedProductScope {
@@ -117,14 +121,36 @@ export type DeleteVariantTranslationResult =
 const VARIANT_SAFE_SELECT = {
   id: true,
   status: true,
-  priceAdjustment: true,
+  price: true,
   displayOrder: true,
   isDefault: true,
+  discountApplies: true,
 } as const;
 
 type VariantRow = Prisma.ProductVariantGetPayload<{
   select: typeof VARIANT_SAFE_SELECT;
 }>;
+
+/**
+ * Product.basePrice always equals the cheapest ACTIVE size, so product lists,
+ * the "from" price and every reader of basePrice stay correct without knowing
+ * about sizes. Called inside the same transaction as every size change.
+ */
+async function syncProductBasePrice(
+  tx: Prisma.TransactionClient,
+  productId: string,
+): Promise<void> {
+  const cheapest = await tx.productVariant.aggregate({
+    where: { productId, status: 'ACTIVE' },
+    _min: { price: true },
+  });
+  if (cheapest._min.price !== null) {
+    await tx.product.update({
+      where: { id: productId },
+      data: { basePrice: cheapest._min.price },
+    });
+  }
+}
 
 function isUniqueConstraintError(error: unknown): boolean {
   return (
@@ -149,9 +175,10 @@ function toView(
     id: row.id,
     status: row.status,
     name,
-    priceAdjustment: formatMoney(row.priceAdjustment),
+    price: formatMoney(row.price),
     displayOrder: row.displayOrder,
     isDefault: row.isDefault,
+    discountApplies: row.discountApplies,
     canDelete,
   };
 }
@@ -248,9 +275,10 @@ export class ProductVariantsService {
             restaurantId: input.restaurantId,
             productId: product.id,
             status: input.status,
-            priceAdjustment: new Prisma.Decimal(input.priceAdjustment),
+            price: new Prisma.Decimal(input.price),
             displayOrder: input.displayOrder,
             isDefault: input.isDefault,
+            discountApplies: input.discountApplies,
           },
           select: VARIANT_SAFE_SELECT,
         });
@@ -261,6 +289,7 @@ export class ProductVariantsService {
             name: input.name,
           },
         });
+        await syncProductBasePrice(tx, product.id);
         return toView(created, input.name, true);
       });
       return { outcome: 'created', data: view };
@@ -307,12 +336,14 @@ export class ProductVariantsService {
 
           const data: Prisma.ProductVariantUpdateInput = {};
           if (input.status !== undefined) data.status = input.status;
-          if (input.priceAdjustment !== undefined) {
-            data.priceAdjustment = new Prisma.Decimal(input.priceAdjustment);
+          if (input.price !== undefined) {
+            data.price = new Prisma.Decimal(input.price);
           }
           if (input.displayOrder !== undefined)
             data.displayOrder = input.displayOrder;
           if (nextDefault !== existing.isDefault) data.isDefault = nextDefault;
+          if (input.discountApplies !== undefined)
+            data.discountApplies = input.discountApplies;
 
           const restaurant = await tx.restaurant.findUniqueOrThrow({
             where: { id: input.restaurantId },
@@ -346,6 +377,7 @@ export class ProductVariantsService {
                 })
               : existing;
 
+          await syncProductBasePrice(tx, product.id);
           const translation = await tx.productVariantTranslation.findUnique({
             where: {
               productVariantId_locale: {
@@ -393,6 +425,7 @@ export class ProductVariantsService {
             return { outcome: 'hasHistoricalReferences' };
           }
           await tx.productVariant.delete({ where: { id: existing.id } });
+          await syncProductBasePrice(tx, product.id);
           return { outcome: 'deleted' };
         },
       );

@@ -139,3 +139,21 @@ export interface ModifierPreset {
   /** FT-6B closeout: true only when no Product currently uses this Preset -- "Delete" is offered only when true. */
   canDelete: boolean;
 }
+
+/** Product Variants (DEC-041): mirrors `apps/api/src/menu/product-variants.service.ts`'s `ProductVariantView`. `price` is the Backend's exact decimal string -- never run through Number()/parseFloat(). */
+export type ProductVariantStatus = 'ACTIVE' | 'INACTIVE';
+
+export interface ProductVariant {
+  id: string;
+  status: ProductVariantStatus;
+  /** The Restaurant default-locale name. */
+  name: string;
+  /** The FULL price of this size, as printed on the menu. */
+  price: string;
+  displayOrder: number;
+  isDefault: boolean;
+  /** Does the Product discount apply to this size? true = all sizes (default). */
+  discountApplies: boolean;
+  /** True only while no Order has ever used this size -- "Delete" is offered only when true. */
+  canDelete: boolean;
+}

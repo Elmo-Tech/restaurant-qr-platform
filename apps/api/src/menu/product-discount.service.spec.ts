@@ -40,6 +40,8 @@ function build(existing = ROW) {
   );
   const tx = {
     category: { findFirst: jest.fn().mockResolvedValue({ id: 'category-1' }) },
+    // No sizes: the Product price is editable (DEC-041).
+    productVariant: { count: jest.fn().mockResolvedValue(0) },
     product: {
       findFirst: jest.fn().mockResolvedValue(existing),
       create: productCreate,

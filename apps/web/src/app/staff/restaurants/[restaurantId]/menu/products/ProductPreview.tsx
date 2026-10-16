@@ -10,6 +10,7 @@ import { getPublicMenuCopy } from '../../../../../../lib/public-menu/copy';
 import type {
   PublicMenuModifierGroup,
   PublicMenuProduct,
+  PublicMenuVariant,
   PublicProductDiscount,
 } from '../../../../../../lib/public-menu/types';
 
@@ -43,10 +44,13 @@ export function ProductPreview({
   usingFallback,
   currencyCode,
   modifierGroups,
+  variants,
   addonsAvailable,
   view,
   onViewChange,
 }: {
+  /** The product's active sizes as a guest sees them, prices already discounted where the discount applies (empty = none). */
+  variants: PublicMenuVariant[];
   /** The product's guest-visible add-ons in the previewed language (empty when none). */
   modifierGroups: PublicMenuModifierGroup[];
   /** False in create mode: add-ons can only be configured once the product exists. */
@@ -77,6 +81,7 @@ export function ProductPreview({
     availability: values.soldOut ? 'SOLD_OUT' : 'AVAILABLE',
     featured: values.featured,
     modifierGroups,
+    variants,
   };
 
   const segment = (active: boolean) =>
@@ -161,7 +166,7 @@ export function ProductPreview({
           <div className="mx-auto w-full max-w-[400px]">
             <GuestLocaleProvider locale={guestLocale}>
               <ProductSheet
-                key={`${guestLocale}-${modifierGroups.map((group) => group.id).join(',')}`}
+                key={`${guestLocale}-${modifierGroups.map((group) => group.id).join(',')}-${variants.map((variant) => `${variant.id}:${variant.price}:${variant.discountedPrice ?? ''}:${variant.name}`).join(',')}`}
                 product={product}
                 currency={currencyCode}
                 copy={copy}
@@ -177,6 +182,7 @@ export function ProductPreview({
       </div>
 
       <div className="flex flex-col gap-1.5 text-xs text-muted-foreground">
+        {variants.length > 0 ? <p>{t('variants.previewNote')}</p> : null}
         <p>
           {t('product.preview.language', { language: localeLabel(locale) })}
           {usingFallback ? ` · ${t('product.preview.fallback')}` : ''}

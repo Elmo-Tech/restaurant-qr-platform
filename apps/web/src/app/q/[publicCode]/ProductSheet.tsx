@@ -65,12 +65,18 @@ export function ProductSheet({
   copy: PublicMenuCopy;
   dir: 'ltr' | 'rtl';
   /** Editing an existing cart line: start from its selections and quantity (the CTA then reads "Update order"). */
-  initial?: { selectedByGroup: Record<string, string[]>; quantity: number };
+  initial?: { selectedByGroup: Record<string, string[]>; quantity: number; variantId?: string | null };
   onCancel: () => void;
-  onConfirm: (selectedOptionIds: string[], quantity: number) => void;
+  onConfirm: (selectedOptionIds: string[], quantity: number, variantId?: string | null) => void;
 }) {
   const [selectedByGroup, setSelectedByGroup] = useState<Record<string, string[]>>(
     initial?.selectedByGroup ?? {},
+  );
+  const sizes = product.variants ?? [];
+  const hasSizes = sizes.length > 0;
+  // The default size is preselected; with no default the guest must choose.
+  const [variantId, setVariantId] = useState<string | null>(
+    initial?.variantId ?? sizes.find((size) => size.isDefault)?.id ?? null,
   );
   const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
   const [showValidation, setShowValidation] = useState(false);
@@ -107,7 +113,21 @@ export function ProductSheet({
       })
       .map((group) => group.id),
   );
-  const isValid = invalidGroupIds.size === 0;
+  const sizeMissing = hasSizes && variantId === null;
+  const isValid = invalidGroupIds.size === 0 && !sizeMissing;
+  const chosenSize = sizes.find((size) => size.id === variantId) ?? null;
+  // With sizes the price shown is the chosen size's; until one is chosen, the cheapest ("From").
+  const sizePriceOf = (size: (typeof sizes)[number]) => toMinorUnits(size.discountedPrice ?? size.price);
+  const shownSize =
+    chosenSize ??
+    (hasSizes ? sizes.reduce((best, size) => (sizePriceOf(size) < sizePriceOf(best) ? size : best)) : null);
+  const originalPrice = shownSize ? shownSize.price : product.basePrice;
+  const currentPrice = shownSize
+    ? (shownSize.discountedPrice ?? shownSize.price)
+    : product.discount
+      ? product.discount.discountedPrice
+      : product.basePrice;
+  const isDiscounted = shownSize ? shownSize.discountedPrice !== null : product.discount !== null;
 
   const unitMinorUnits = product.modifierGroups.reduce((sum, group) => {
     const selectedIds = new Set(selectionsFor(group.id));
@@ -115,12 +135,19 @@ export function ProductSheet({
       .filter((option) => selectedIds.has(option.id))
       .reduce((s, option) => s + toMinorUnits(option.priceAdjustment), ZERO_MINOR_UNITS);
     return sum + groupSum;
-  }, toMinorUnits(product.discount ? product.discount.discountedPrice : product.basePrice));
+  }, toMinorUnits(currentPrice));
   const totalDisplay = fromMinorUnits(unitMinorUnits * BigInt(quantity));
 
   function handleConfirm() {
     if (!isValid) {
       setShowValidation(true);
+      if (sizeMissing) {
+        document.getElementById('product-sizes')?.scrollIntoView({
+          block: 'center',
+          behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        });
+        return;
+      }
       const firstInvalid = product.modifierGroups.find((group) => invalidGroupIds.has(group.id));
       if (firstInvalid) {
         document.getElementById(`modgroup-${firstInvalid.id}`)?.scrollIntoView({
@@ -133,7 +160,7 @@ export function ProductSheet({
       return;
     }
     const selectedOptionIds = product.modifierGroups.flatMap((group) => selectionsFor(group.id));
-    onConfirm(selectedOptionIds, quantity);
+    onConfirm(selectedOptionIds, quantity, hasSizes ? variantId : null);
   }
 
   const titleBlock = (
@@ -145,13 +172,18 @@ export function ProductSheet({
         <bdi>{product.name}</bdi>
       </h2>
       <span className="flex shrink-0 flex-col items-end gap-1">
-        {product.discount ? (
+        {product.discount && isDiscounted ? (
           <DiscountBadge discount={product.discount} currency={currency} copy={copy} />
         ) : null}
+        {hasSizes && chosenSize === null ? (
+          <span className={`text-[11.5px] font-semibold ${showPhoto ? 'text-white/80' : 'text-g-text-3'}`}>
+            {copy.fromPrice}
+          </span>
+        ) : null}
         <DiscountedPrice
-          original={product.basePrice}
-          current={product.discount ? product.discount.discountedPrice : product.basePrice}
-          discounted={product.discount !== null}
+          original={originalPrice}
+          current={currentPrice}
+          discounted={isDiscounted}
           currency={currency}
           copy={copy}
           className={`g-num text-2xl [font-weight:900] ${showPhoto ? 'text-[#f7b548]' : 'text-g-price'}`}
@@ -221,6 +253,70 @@ export function ProductSheet({
           <p dir="auto" className="text-sm leading-[1.75] text-g-text-2">
             {product.description}
           </p>
+        ) : null}
+
+        {hasSizes ? (
+          <fieldset id="product-sizes" aria-labelledby="product-sizes-title" className="min-w-0">
+            <div className="mb-2.5 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <h3 id="product-sizes-title" className="text-[16.5px] font-bold text-g-text">
+                  {copy.chooseSize}
+                </h3>
+                <p
+                  className={`mt-0.5 text-[12.5px] ${
+                    showValidation && sizeMissing ? 'font-semibold text-g-danger' : 'text-g-text-3'
+                  }`}
+                >
+                  {copy.chooseOne}
+                </p>
+              </div>
+              <span
+                className={`rounded-full px-[11px] py-1 text-[11.5px] font-bold ${
+                  showValidation && sizeMissing
+                    ? 'border border-g-danger bg-g-danger-soft text-g-danger'
+                    : 'border border-g-accent bg-g-accent-soft text-g-accent-text'
+                }`}
+              >
+                {copy.required}
+              </span>
+            </div>
+            <div className="flex flex-col gap-2">
+              {sizes.map((size) => {
+                const isChecked = size.id === variantId;
+                return (
+                  <label
+                    key={size.id}
+                    className="flex min-h-[54px] cursor-pointer items-center gap-3 rounded-2xl border-[1.5px] border-transparent bg-g-surface-2 px-3.5 text-[15px] text-g-text transition-colors has-[:checked]:border-g-accent has-[:checked]:bg-g-accent-soft has-[:checked]:font-bold has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-g-accent-text"
+                  >
+                    <input
+                      type="radio"
+                      name="product-size"
+                      checked={isChecked}
+                      onChange={() => setVariantId(size.id)}
+                      className="peer sr-only"
+                    />
+                    <span
+                      aria-hidden="true"
+                      className="size-[22px] shrink-0 rounded-full border-2 border-g-text-3 transition-all peer-checked:border-[6px] peer-checked:border-g-accent peer-checked:bg-g-on-accent"
+                    />
+                    <span className="min-w-0 flex-1 leading-snug">
+                      <bdi>{size.name}</bdi>
+                    </span>
+                    <DiscountedPrice
+                      original={size.price}
+                      current={size.discountedPrice ?? size.price}
+                      discounted={size.discountedPrice !== null}
+                      currency={currency}
+                      copy={copy}
+                      className={`g-num text-sm [font-weight:800] ${isChecked ? 'text-g-price' : 'text-g-text-2'}`}
+                      currencyClassName="text-[0.85em] font-semibold"
+                      originalClassName="g-num text-xs font-semibold text-g-text-3"
+                    />
+                  </label>
+                );
+              })}
+            </div>
+          </fieldset>
         ) : null}
 
         {product.modifierGroups.map((group) => {

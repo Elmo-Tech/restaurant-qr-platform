@@ -36,6 +36,8 @@ export interface PublicMenuCopy {
   backToMenu: string;
   required: string;
   optional: string;
+  chooseSize: string;
+  fromPrice: string;
   chooseUpTo: string;
   chooseExactly: string;
   addToCart: string;
@@ -186,6 +188,8 @@ const EN_COPY: PublicMenuCopy = {
   backToMenu: 'Back to menu',
   required: 'Required',
   optional: 'Optional',
+  chooseSize: 'Size',
+  fromPrice: 'From',
   chooseUpTo: 'Choose up to',
   chooseExactly: 'Choose',
   addToCart: 'Add to cart',
@@ -331,6 +335,8 @@ const AR_COPY: PublicMenuCopy = {
   backToMenu: 'العودة إلى القائمة',
   required: 'مطلوب',
   optional: 'اختياري',
+  chooseSize: 'الحجم',
+  fromPrice: 'من',
   chooseUpTo: 'اختر حتى',
   chooseExactly: 'اختر',
   addToCart: 'أضف إلى طلبي',

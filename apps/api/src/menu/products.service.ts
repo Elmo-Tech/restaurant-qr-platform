@@ -290,7 +290,8 @@ export type UpdateProductResult =
   | { outcome: 'updated'; data: ProductWithTranslation }
   | { outcome: 'productNotFound' }
   | { outcome: 'categoryNotFound' }
-  | { outcome: 'invalidDiscount'; code: ProductDiscountErrorCode };
+  | { outcome: 'invalidDiscount'; code: ProductDiscountErrorCode }
+  | { outcome: 'priceManagedBySizes' };
 
 export interface AuthorizedProductEntityScope {
   restaurantId: string;
@@ -534,6 +535,18 @@ export class ProductsService {
         if (!category) {
           return { outcome: 'categoryNotFound' };
         }
+      }
+
+      // Product Variants (DEC-041): while the Product has active sizes its price
+      // is the cheapest size's price and is maintained from the sizes, never typed.
+      if (
+        input.basePrice !== undefined &&
+        !new Prisma.Decimal(input.basePrice).equals(existing.basePrice) &&
+        (await tx.productVariant.count({
+          where: { productId: existing.id, status: 'ACTIVE' },
+        })) > 0
+      ) {
+        return { outcome: 'priceManagedBySizes' };
       }
 
       // Product Discounts V1: validate the RESULTING discount against the

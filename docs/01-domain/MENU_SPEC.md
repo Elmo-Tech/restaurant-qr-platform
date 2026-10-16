@@ -443,6 +443,8 @@ Variant pricing and operational state are not duplicated in translation records.
 ---
 # 22. Variant Price
 
+> **Decision 2026-10-17 (DEC-041 amendment):** V1 uses the **absolute** option. A Variant stores its full price (as printed on a menu), and the Product price is the cheapest active size. The "adjustment" wording and example below are superseded.
+
 A Variant may define:
 
 - Absolute price

@@ -900,28 +900,36 @@ Supplements DEC-039; `MENU_SPEC.md` #78 gets a cross-reference when accepted.
 
 ### DEC-041 — Product Variants V1 (Sizes)
 
-**Status:** Accepted (2026-10-16); in implementation. Slice 1 (database and Staff API) is done; the Product editor, Guest menu, ordering and order views follow. The Product Discounts rule below is still to be confirmed before slice 3.
+**Status:** Accepted (2026-10-16); in implementation. Slices 1-2 (database, Staff API, Product editor) are done; the Guest menu, ordering and order views follow. **Amended 2026-10-17 (owner):** a size carries its FULL price, not an adjustment (see below).
 
 Most restaurants sell the same item in several sizes at different prices (pizza,
 fiteer, crepe). V1 implements the Variant model that `MENU_SPEC.md` #21-#24 and
 `DATABASE_SPEC.md` #68-#71 and #111 already specify: a Product may have Variants
-(for example Small / Medium / Large), each with a translated name, a **price
-adjustment** from the Product `basePrice`, a status, a display order and an
-optional default.
+(for example Small / Medium / Large), each with a translated name, its **full
+price** (Small 60, Medium 80, Large 100, exactly as a menu prints them), a
+status, a display order and an optional default. The Product `basePrice` is not
+typed while sizes exist: it always equals the **cheapest active size** (kept in
+sync by the Backend in the same transaction as every size change), so product
+lists, the "from" price and every reader of `basePrice` stay correct; changing it
+directly answers `409 PRODUCT_PRICE_MANAGED_BY_SIZES`.
 
 **Rules:** a Product with active Variants requires exactly one Variant in the
 cart; the default Variant is preselected, otherwise the Guest must choose; the
-Backend recalculates the unit price as `basePrice + variant adjustment +
-modifiers` and ignores any client price; a Variant needs a name in the default
-Locale; at most one default Variant per Product; inactive Variants disappear
-from the Guest menu but never from history; Order Items snapshot the Variant id,
-name and adjustment. Adjustments are zero or positive in V1, so the smallest
-size normally has adjustment 0 and is the base price. The Guest menu shows a
-"from" price for a Product with Variants.
+Backend recalculates the unit price as `variant price + modifiers` and ignores
+any client price; a Variant needs a name in the default Locale; at most one
+default Variant per Product; inactive Variants disappear from the Guest menu but
+never from history; Order Items snapshot the Variant id, name and price. The
+Guest menu shows a "from" price for a Product with Variants, and the size is the
+first choice on the product page, before Add-ons.
 
-**Product Discounts (DEC-036):** the discount applies to `basePrice + variant
-adjustment` (the price of the chosen size); paid Modifier options are still
-never discounted. *Proposed rule, to be confirmed by the owner.*
+**Product Discounts (DEC-036):** the Product keeps ONE discount (type, value,
+dates, enabled). It applies to **all sizes** (default) or to **selected sizes
+only**: each Variant carries `discountApplies` (default true), and a size is
+discounted when the Product discount is active and that flag is true. The
+discount is computed on the price of the chosen size;
+a fixed amount is taken off each selected size and capped at that size's price;
+paid Modifier options are still never discounted. The Guest "from" price is the
+lowest final price after the discount. Owner decision 2026-10-16.
 
 **Reason:** sizes are central to real menus; modelling them as Modifiers would
 hide the size choice and break the "from" price and the menu import.

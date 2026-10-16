@@ -13,6 +13,7 @@ import type {
   Product,
   ProductAvailability,
   ProductStatus,
+  ProductVariant,
 } from '../../../../../../lib/menu/types';
 import type { RestaurantLocalesResponse } from '../../../../../../lib/settings/types';
 import { localeDirection, localeLabel } from '../../../../../../lib/settings/locale-labels';
@@ -38,10 +39,15 @@ import { ImageField } from '../../../../../../components/menu/ImageField';
 import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
 import { validateImageFile } from '../../../../../../lib/menu/image-validation';
 import { ModifiersSection } from './ModifiersSection';
+import { DraftSizes, VariantsSection, type SizeDraft } from './VariantsSection';
 import { ProductPreview } from './ProductPreview';
+import { toMinorUnits } from '../../../../../../lib/public-menu/money';
 import { useAddonsPreview } from './use-addons-preview';
 import { Switch } from '../../../../../../components/ui/Switch';
-import type { PublicProductDiscount } from '../../../../../../lib/public-menu/types';
+import type {
+  PublicMenuVariant,
+  PublicProductDiscount,
+} from '../../../../../../lib/public-menu/types';
 import {
   previewDiscount,
   validateDiscountForm,
@@ -174,6 +180,7 @@ export function ProductEditor({
   const initialCategoryIdParam = searchParams.get('categoryId');
   const translationErrorParam = searchParams.get('translationError');
   const imageErrorParam = searchParams.get('imageError');
+  const sizeErrorParam = searchParams.get('sizeError');
   const createdParam = searchParams.get('created');
 
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
@@ -195,6 +202,37 @@ export function ProductEditor({
   // The product's add-ons (reported by the Add-ons section) and which preview view is open.
   const [modifierGroups, setModifierGroups] = useState<ModifierGroup[] | null>(null);
   const [previewView, setPreviewView] = useState<'card' | 'page'>('card');
+  // The product's sizes (reported by the Sizes section) for the guest preview.
+  const [variants, setVariants] = useState<ProductVariant[] | null>(null);
+  // Each size's name in the secondary content language being edited (for the preview).
+  const [variantNames, setVariantNames] = useState<{
+    locale: string | null;
+    names: Record<string, string>;
+  }>({ locale: null, names: {} });
+  const handleVariantNames = useCallback(
+    (locale: string | null, names: Record<string, string>) => setVariantNames({ locale, names }),
+    [],
+  );
+  // Create mode: sizes typed before the Product exists (saved right after it is created).
+  const [sizeDrafts, setSizeDrafts] = useState<SizeDraft[]>([]);
+  const handleDraftsChange = useCallback((drafts: SizeDraft[]) => {
+    setSizeDrafts(drafts);
+    if (drafts.length === 0) return;
+    const cheapest = drafts.reduce((best, draft) =>
+      toMinorUnits(draft.price) < toMinorUnits(best.price) ? draft : best,
+    );
+    setForm((prev) => (prev.basePrice === cheapest.price ? prev : { ...prev, basePrice: cheapest.price }));
+  }, []);
+  // While the Product has active sizes its price IS the cheapest size: keep the form's price in step.
+  const handleVariantsChange = useCallback((list: ProductVariant[]) => {
+    setVariants(list);
+    const active = list.filter((variant) => variant.status === 'ACTIVE');
+    if (active.length === 0) return;
+    const cheapest = active.reduce((best, variant) =>
+      toMinorUnits(variant.price) < toMinorUnits(best.price) ? variant : best,
+    );
+    setForm((prev) => (prev.basePrice === cheapest.price ? prev : { ...prev, basePrice: cheapest.price }));
+  }, []);
 
   const [pendingImageFile, setPendingImageFile] = useState<File | null>(null);
   const [imageUploadBusy, setImageUploadBusy] = useState(false);
@@ -254,7 +292,7 @@ export function ProductEditor({
         }
         setProduct(found);
         setForm(toFormState(found));
-        if (translationErrorParam || imageErrorParam) {
+        if (translationErrorParam || imageErrorParam || sizeErrorParam) {
           // Redirected here straight after Create because one or more
           // secondary-locale translations and/or the image upload failed
           // to save (FT-1 correction 2 / FT-2, Section 5/14) -- the
@@ -268,6 +306,9 @@ export function ProductEditor({
           }
           if (imageErrorParam) {
             failures.push(t('product.failImage'));
+          }
+          if (sizeErrorParam) {
+            failures.push(t('product.failSizes'));
           }
           setFormError(
             t('product.createdPartial', { problems: failures.join(t('menu.form.and')) }),
@@ -309,6 +350,7 @@ export function ProductEditor({
     initialCategoryIdParam,
     translationErrorParam,
     imageErrorParam,
+    sizeErrorParam,
     createdParam,
     t,
   ]);
@@ -501,6 +543,33 @@ export function ProductEditor({
           }
         }
 
+        // Sizes typed in the Sizes section are created now (DEC-041); the Backend keeps the
+        // Product price equal to the cheapest one. The first size is the default.
+        let sizesFailed = false;
+        for (const [index, draft] of sizeDrafts.entries()) {
+          try {
+            const createdSize = await menuApi.createProductVariant(restaurantId, created.id, {
+              name: draft.name,
+              status: 'ACTIVE',
+              price: draft.price,
+              displayOrder: index,
+              isDefault: index === 0,
+            });
+            for (const [locale, text] of Object.entries(draft.translations)) {
+              await menuApi.putProductVariantTranslation(restaurantId, created.id, createdSize.id, locale, {
+                name: text,
+              });
+            }
+          } catch (sizeError) {
+            if (isUnauthenticatedError(sizeError)) {
+              redirectToLogin();
+              return;
+            }
+            sizesFailed = true;
+            break;
+          }
+        }
+
         // The Product itself was created successfully either way -- never
         // duplicate-create it on retry (Section 5). A partial translation
         // and/or image failure sends the User to the Product Edit route
@@ -522,6 +591,9 @@ export function ProductEditor({
         }
         if (imageUploadFailed) {
           failureParams.set('imageError', '1');
+        }
+        if (sizesFailed) {
+          failureParams.set('sizeError', '1');
         }
         if (failureParams.size === 0) {
           failureParams.set('created', '1');
@@ -639,6 +711,42 @@ export function ProductEditor({
     form.discountMode !== 'NONE' && form.discountEnabled
       ? previewDiscount(form.basePrice, form.discountMode, form.discountValue)
       : null;
+  const discountIsOn = form.discountMode !== 'NONE' && form.discountEnabled;
+  // Saved sizes in edit mode; the not-yet-saved drafts in create mode.
+  const sizeSource: ProductVariant[] =
+    mode === 'create'
+      ? sizeDrafts.map((draft, index) => ({
+          id: draft.key,
+          status: 'ACTIVE' as const,
+          name: draft.name,
+          price: draft.price,
+          displayOrder: index,
+          isDefault: index === 0,
+          discountApplies: true,
+          canDelete: true,
+        }))
+      : (variants ?? []);
+  const hasActiveSizes = sizeSource.some((variant) => variant.status === 'ACTIVE');
+  // The sizes as a guest sees them: each size's own price, discounted only where the discount applies.
+  const previewVariants: PublicMenuVariant[] = sizeSource
+    .filter((variant) => variant.status === 'ACTIVE')
+    .map((variant) => {
+      const discount =
+        discountIsOn && variant.discountApplies && form.discountMode !== 'NONE'
+          ? previewDiscount(variant.price, form.discountMode, form.discountValue)
+          : null;
+      const localized =
+        variantNames.locale !== null && variantNames.locale === previewLocale
+          ? (variantNames.names[variant.id] ?? '')
+          : '';
+      return {
+        id: variant.id,
+        name: localized.trim() !== '' ? localized : variant.name,
+        price: variant.price,
+        discountedPrice: discount ? discount.discountedPrice : null,
+        isDefault: variant.isDefault,
+      };
+    });
   const previewGuestDiscount: PublicProductDiscount | null = previewDiscountResult
     ? {
         type: form.discountMode === 'PERCENTAGE' ? 'PERCENTAGE' : 'FIXED_AMOUNT',
@@ -652,6 +760,7 @@ export function ProductEditor({
   const sections: { id: string; label: string }[] = [
     { id: 'product-section-basics', label: t('product.nav.basics') },
     { id: 'product-section-pricing', label: t('product.nav.pricing') },
+    { id: 'product-section-sizes', label: t('product.nav.sizes') },
     { id: 'product-section-visibility', label: t('product.nav.visibility') },
     { id: 'product-section-addons', label: t('product.nav.addons') },
   ];
@@ -783,8 +892,11 @@ export function ProductEditor({
                   required
                   value={form.basePrice}
                   onChange={(event) => setForm((prev) => ({ ...prev, basePrice: event.target.value }))}
-                  disabled={isBusy}
+                  disabled={isBusy || hasActiveSizes}
                 />
+                {hasActiveSizes ? (
+                  <p className="text-xs text-muted-foreground">{t('product.priceFromSizes')}</p>
+                ) : null}
               </FormField>
 
               <div className="mt-1 flex flex-col gap-4 border-t border-border pt-4">
@@ -877,7 +989,32 @@ export function ProductEditor({
             </FormSection>
           </Card>
 
-          {/* 3. Where it lives and who sees it: one place, switches for the on/off facts. */}
+          {/* 3. Sizes: configured on the saved product, in this same page (DEC-041). */}
+          <Card id="product-section-sizes" className="scroll-mt-40 flex flex-col gap-6">
+            {mode === 'edit' && productId ? (
+              <VariantsSection
+                restaurantId={restaurantId}
+                productId={productId}
+                currencyCode={currencyCode}
+                canManage={canManage}
+                discountConfigured={form.discountMode !== 'NONE'}
+                locales={locales}
+                contentLocale={activeLocale}
+                onVariantsChange={handleVariantsChange}
+                onNamesChange={handleVariantNames}
+              />
+            ) : (
+              <DraftSizes
+                currencyCode={currencyCode}
+                locales={locales}
+                contentLocale={activeLocale}
+                drafts={sizeDrafts}
+                onChange={handleDraftsChange}
+              />
+            )}
+          </Card>
+
+          {/* 4. Where it lives and who sees it: one place, switches for the on/off facts. */}
           <Card id="product-section-visibility" className="scroll-mt-40">
             <FormSection title={t('product.section.visibility')}>
               <FormField label={t('product.category')} htmlFor="product-category">
@@ -938,7 +1075,7 @@ export function ProductEditor({
             </FormSection>
           </Card>
 
-          {/* 4. Add-ons: configured on the saved product, in this same page. */}
+          {/* 5. Add-ons: configured on the saved product, in this same page. */}
           <Card id="product-section-addons" className="scroll-mt-40 flex flex-col gap-6">
             {mode === 'edit' && productId ? (
               <ModifiersSection
@@ -974,6 +1111,7 @@ export function ProductEditor({
             usingFallback={activeLocale !== '__default__' && !secondaryHasName}
             currencyCode={currencyCode}
             modifierGroups={addonsPreview}
+            variants={previewVariants}
             addonsAvailable={mode === 'edit'}
             view={previewView}
             onViewChange={setPreviewView}

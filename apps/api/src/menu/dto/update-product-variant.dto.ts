@@ -32,9 +32,9 @@ export class UpdateProductVariantDto {
   })
   status?: ProductVariantStatusInput;
 
-  @ValidateIf((o: UpdateProductVariantDto) => o.priceAdjustment !== undefined)
+  @ValidateIf((o: UpdateProductVariantDto) => o.price !== undefined)
   @IsMoneyDecimalString()
-  priceAdjustment?: string;
+  price?: string;
 
   @ValidateIf((o: UpdateProductVariantDto) => o.displayOrder !== undefined)
   @IsInt({ message: 'displayOrder must be an integer' })
@@ -44,4 +44,8 @@ export class UpdateProductVariantDto {
   @ValidateIf((o: UpdateProductVariantDto) => o.isDefault !== undefined)
   @IsBoolean({ message: 'isDefault must be a boolean' })
   isDefault?: boolean;
+
+  @ValidateIf((o: UpdateProductVariantDto) => o.discountApplies !== undefined)
+  @IsBoolean({ message: 'discountApplies must be a boolean' })
+  discountApplies?: boolean;
 }

@@ -224,9 +224,9 @@ returns the smallest as the price and the sizes as `priceOptions`.
 Product Variants (DEC-041) are built **before** the import, so approval maps
 sizes to real Variants:
 
-- the smallest price becomes the Product `basePrice`;
-- each size becomes a Variant whose `priceAdjustment` is its price minus the
-  base price (Small 50, Large 70 gives base 50, Small +0, Large +20);
+- each size becomes a Variant with its printed price, unchanged (Small 60,
+  Medium 80, Large 100); the Product price follows automatically as the
+  cheapest active size;
 - the smallest size is the default Variant;
 - Variant names are translated like Products (one translation per detected
   language), and a Variant needs a name in the default Locale.

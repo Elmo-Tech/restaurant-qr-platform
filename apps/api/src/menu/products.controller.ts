@@ -72,6 +72,13 @@ function discountErrorResponse(code: ProductDiscountErrorCode) {
  * "belongs to another Restaurant" (mirrors the existing `MENU_NOT_FOUND`/
  * `BRANCH_NOT_FOUND` convention).
  */
+const PRICE_MANAGED_BY_SIZES_RESPONSE = {
+  error: {
+    code: 'PRODUCT_PRICE_MANAGED_BY_SIZES',
+    message:
+      'This product has sizes. Its price comes from the cheapest size; change the size prices instead.',
+  },
+};
 const CATEGORY_NOT_FOUND_RESPONSE = {
   error: {
     code: 'CATEGORY_NOT_FOUND',
@@ -256,6 +263,9 @@ export class ProductsController {
     }
     if (result.outcome === 'invalidDiscount') {
       throw new BadRequestException(discountErrorResponse(result.code));
+    }
+    if (result.outcome === 'priceManagedBySizes') {
+      throw new ConflictException(PRICE_MANAGED_BY_SIZES_RESPONSE);
     }
 
     return { data: result.data };

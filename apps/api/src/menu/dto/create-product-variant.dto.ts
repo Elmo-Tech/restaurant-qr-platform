@@ -23,8 +23,8 @@ export type ProductVariantStatusInput =
  * Client-writable fields for Variant creation. `name` is written as the
  * Restaurant's default-locale `ProductVariantTranslation` row (the client never
  * selects a locale); other locales go through the translation resource.
- * `priceAdjustment` is the NON-NEGATIVE amount added to the Product base price
- * (the smallest size normally has `"0.00"`).
+ * `price` is the FULL price of this size (non-negative), written as on the menu
+ * (Small 60, Medium 80, Large 100).
  */
 export class CreateProductVariantDto {
   @Transform(({ value }) => trim(value))
@@ -38,7 +38,7 @@ export class CreateProductVariantDto {
   status!: ProductVariantStatusInput;
 
   @IsMoneyDecimalString()
-  priceAdjustment!: string;
+  price!: string;
 
   @IsInt({ message: 'displayOrder must be an integer' })
   @Min(0, { message: 'displayOrder must not be negative' })
@@ -48,4 +48,9 @@ export class CreateProductVariantDto {
   @IsOptional()
   @IsBoolean({ message: 'isDefault must be a boolean' })
   isDefault?: boolean;
+
+  /** Does the Product discount apply to this size? Defaults to true (all sizes). */
+  @IsOptional()
+  @IsBoolean({ message: 'discountApplies must be a boolean' })
+  discountApplies?: boolean;
 }

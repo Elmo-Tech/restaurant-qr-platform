@@ -69,6 +69,18 @@ export interface PublicMenuModifierGroup {
   options: PublicMenuModifierOption[];
 }
 
+/**
+ * Product Variants (DEC-041): one size a Guest can pick. `price` is the size's full price;
+ * `discountedPrice` is present only when the Product discount currently applies to THIS size.
+ */
+export interface PublicMenuVariant {
+  id: string;
+  name: string;
+  price: string;
+  discountedPrice: string | null;
+  isDefault: boolean;
+}
+
 export interface PublicMenuProduct {
   id: string;
   name: string;
@@ -81,6 +93,8 @@ export interface PublicMenuProduct {
   availability: PublicProductAvailability;
   featured: boolean;
   modifierGroups: PublicMenuModifierGroup[];
+  /** Sizes (DEC-041). Absent or empty = a single price. */
+  variants?: PublicMenuVariant[];
 }
 
 export interface PublicMenuCategory {

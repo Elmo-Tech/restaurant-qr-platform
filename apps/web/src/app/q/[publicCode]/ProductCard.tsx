@@ -7,6 +7,7 @@ import { DiscountedPrice } from '../../../components/guest/DiscountedPrice';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
+import { toMinorUnits } from '../../../lib/public-menu/money';
 import type { PublicMenuProduct } from '../../../lib/public-menu/types';
 
 /**
@@ -68,14 +69,24 @@ function ProductCardImpl({
       : classes;
   const [imageFailed, setImageFailed] = useState(false);
   const isSoldOut = product.availability === 'SOLD_OUT';
-  const hasModifiers = product.modifierGroups.length > 0;
+  const sizes = product.variants ?? [];
+  const hasSizes = sizes.length > 0;
+  // A product with sizes always opens its page: the guest must pick a size first.
+  const hasModifiers = product.modifierGroups.length > 0 || hasSizes;
+  // With sizes the card shows the cheapest final price, marked "From".
+  const cheapest = hasSizes
+    ? sizes.reduce((best, size) => {
+        const price = (s: typeof size) => toMinorUnits(s.discountedPrice ?? s.price);
+        return price(size) < price(best) ? size : best;
+      })
+    : null;
   const interactive = canOrder && !isSoldOut;
   const showStepper = interactive && !hasModifiers && simpleQuantity > 0;
   const showPhoto = imageUrl !== null && !imageFailed;
   const dimmed = isSoldOut ? 'opacity-50 grayscale' : '';
   // A discounted card gives the price lockup its own row and moves the Add control to a row
   // of its own below; a plain card keeps price and Add side by side.
-  const discounted = product.discount !== null && !isSoldOut;
+  const discounted = (cheapest ? cheapest.discountedPrice !== null : product.discount !== null) && !isSoldOut;
 
   return (
     <article
@@ -143,9 +154,18 @@ function ProductCardImpl({
           }`}
         >
           <div className="min-w-0">
+            {cheapest ? (
+              <span className="block text-[11.5px] font-semibold text-g-text-3">{copy.fromPrice}</span>
+            ) : null}
             <DiscountedPrice
-              original={product.basePrice}
-              current={product.discount ? product.discount.discountedPrice : product.basePrice}
+              original={cheapest ? cheapest.price : product.basePrice}
+              current={
+                cheapest
+                  ? (cheapest.discountedPrice ?? cheapest.price)
+                  : product.discount
+                    ? product.discount.discountedPrice
+                    : product.basePrice
+              }
               discounted={discounted}
               badge={discounted ? product.discount : null}
               currency={currency}

@@ -132,9 +132,10 @@ export class ProductVariantsController {
       productId,
       name: dto.name,
       status: dto.status,
-      priceAdjustment: dto.priceAdjustment,
+      price: dto.price,
       displayOrder: dto.displayOrder,
       isDefault: dto.isDefault ?? false,
+      discountApplies: dto.discountApplies ?? true,
     });
     if (result.outcome === 'productNotFound') {
       throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
@@ -203,9 +204,10 @@ export class ProductVariantsController {
       variantId,
       name: dto.name,
       status: dto.status,
-      priceAdjustment: dto.priceAdjustment,
+      price: dto.price,
       displayOrder: dto.displayOrder,
       isDefault: dto.isDefault,
+      discountApplies: dto.discountApplies,
     });
     if (result.outcome === 'productNotFound') {
       throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
