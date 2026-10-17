@@ -159,6 +159,9 @@ export const envSchema = z
     RATE_LIMIT_LOGIN_LIMIT: z.coerce.number().int().min(1).default(10),
     // Public Guest order creation, per client IP, per window.
     RATE_LIMIT_PUBLIC_ORDER_LIMIT: z.coerce.number().int().min(1).default(30),
+    // Guest order tracking (status polling), and the "find my order by phone" lookup.
+    RATE_LIMIT_PUBLIC_TRACKING_LIMIT: z.coerce.number().int().min(1).default(120),
+    RATE_LIMIT_PUBLIC_LOOKUP_LIMIT: z.coerce.number().int().min(1).default(10),
 
     // Menu Import (DEC-040): the private n8n webhook that turns an uploaded menu file
     // into a structured Draft. Both are optional -- without them the import

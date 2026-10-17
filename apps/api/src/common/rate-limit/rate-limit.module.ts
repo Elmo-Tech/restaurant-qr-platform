@@ -17,6 +17,9 @@ export interface RateLimitSettings {
   defaultLimit: number;
   loginLimit: number;
   publicOrderLimit: number;
+  /** Optional so existing callers keep working; the defaults match the environment schema. */
+  publicTrackingLimit?: number;
+  publicLookupLimit?: number;
 }
 
 /**
@@ -57,6 +60,18 @@ export function buildThrottlerOptions(settings: RateLimitSettings): ThrottlerMod
         limit: settings.publicOrderLimit,
         skipIf: notInGroup(RATE_LIMIT_GROUPS.PUBLIC_ORDER),
       },
+      {
+        name: RATE_LIMIT_GROUPS.PUBLIC_TRACKING,
+        ttl,
+        limit: settings.publicTrackingLimit ?? 120,
+        skipIf: notInGroup(RATE_LIMIT_GROUPS.PUBLIC_TRACKING),
+      },
+      {
+        name: RATE_LIMIT_GROUPS.PUBLIC_LOOKUP,
+        ttl,
+        limit: settings.publicLookupLimit ?? 10,
+        skipIf: notInGroup(RATE_LIMIT_GROUPS.PUBLIC_LOOKUP),
+      },
     ],
   };
 }
@@ -72,6 +87,8 @@ export function buildThrottlerOptions(settings: RateLimitSettings): ThrottlerMod
           defaultLimit: config.get('RATE_LIMIT_DEFAULT_LIMIT', { infer: true }),
           loginLimit: config.get('RATE_LIMIT_LOGIN_LIMIT', { infer: true }),
           publicOrderLimit: config.get('RATE_LIMIT_PUBLIC_ORDER_LIMIT', { infer: true }),
+          publicTrackingLimit: config.get('RATE_LIMIT_PUBLIC_TRACKING_LIMIT', { infer: true }),
+          publicLookupLimit: config.get('RATE_LIMIT_PUBLIC_LOOKUP_LIMIT', { infer: true }),
         }),
     }),
   ],

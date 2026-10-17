@@ -39,6 +39,8 @@ import { CartPanel } from './CartPanel';
 import { CategoryChips, type ChipItem } from './CategoryChips';
 import { FeaturedBanners } from './FeaturedBanners';
 import { AnnouncementBar } from './AnnouncementBar';
+import { TrackOrderSheet } from './TrackOrderSheet';
+import { readTrackedOrders, rememberOrder } from '../../../lib/public-menu/tracking';
 import { GuestContact } from './GuestContact';
 import { GuestHero } from './GuestHero';
 import type {
@@ -206,6 +208,12 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
   // source of truth.
   const [requestedFulfillment, setRequestedFulfillment] = useState<Fulfillment>('PICKUP');
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
+  const [isTrackOpen, setIsTrackOpen] = useState(false);
+  const [hasActiveOrder, setHasActiveOrder] = useState(false);
+  useEffect(() => {
+    // Read after mount so the server render and the first client render are identical.
+    queueMicrotask(() => setHasActiveOrder(readTrackedOrders(publicCode).length > 0));
+  }, [publicCode]);
   const [selectedZoneId, setSelectedZoneId] = useState<string | null>(null);
   const [fields, setFields] = useState<Record<CheckoutFieldKey, string>>({
     customerName: '',
@@ -729,6 +737,8 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     setIsSubmitting(false);
 
     if (result.outcome === 'success') {
+      rememberOrder(publicCode, result.data.id);
+      setHasActiveOrder(true);
       setConfirmedOrder(result.data);
       persistCartCleared();
       clearPendingAttempt(publicCode);
@@ -809,6 +819,12 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     setSubmitError(copy.orderNetworkError);
   }
 
+  function openTracking() {
+    setIsCartOpen(false);
+    setConfirmedOrder(null);
+    setIsTrackOpen(true);
+  }
+
   function persistCartCleared() {
     setCart([]);
     saveCart(publicCode, []);
@@ -853,6 +869,8 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
           shareCode={data.context.restaurant.shareCode}
           contact={data.context.restaurant.contact}
           hours={data.context.restaurant.hours}
+          onTrack={openTracking}
+          hasActiveOrder={hasActiveOrder}
         />
 
         <div className="relative z-20 px-4 lg:px-8">
@@ -985,6 +1003,19 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
 
         <GuestContact contact={data.context.restaurant.contact} copy={copy} />
 
+        {isTrackOpen ? (
+          <TrackOrderSheet
+            publicCode={publicCode}
+            copy={copy}
+            locale={locale}
+            dir={dir}
+            onClose={() => {
+              setIsTrackOpen(false);
+              setHasActiveOrder(readTrackedOrders(publicCode).length > 0);
+            }}
+          />
+        ) : null}
+
         {showCartBar ? (
           <CartBar
             count={cartCount}
@@ -1056,6 +1087,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
             onEditLine={handleEditLine}
             onPlaceOrder={() => void handlePlaceOrder()}
             onClose={closeCart}
+            onTrackOrder={openTracking}
           />
         ) : null}
 

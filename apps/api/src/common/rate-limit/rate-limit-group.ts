@@ -11,6 +11,10 @@ import { SetMetadata } from '@nestjs/common';
 export const RATE_LIMIT_GROUPS = {
   LOGIN: 'login',
   PUBLIC_ORDER: 'publicOrder',
+  /** Guest order tracking: polled every few seconds, so a generous limit. */
+  PUBLIC_TRACKING: 'publicTracking',
+  /** Guest "find my order by phone": strict, it takes a phone number as input. */
+  PUBLIC_LOOKUP: 'publicLookup',
 } as const;
 
 export type RateLimitGroupName = (typeof RATE_LIMIT_GROUPS)[keyof typeof RATE_LIMIT_GROUPS];

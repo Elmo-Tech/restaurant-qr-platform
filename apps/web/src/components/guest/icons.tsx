@@ -225,3 +225,12 @@ export function GuestIconShare(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+export function GuestIconReceipt(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3z" />
+      <path d="M9 8h6M9 12h6" />
+    </Icon>
+  );
+}

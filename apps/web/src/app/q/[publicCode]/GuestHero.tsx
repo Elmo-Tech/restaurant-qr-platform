@@ -6,6 +6,7 @@ import {
   GuestIconDish,
   GuestIconMapPin,
   GuestIconMoon,
+  GuestIconReceipt,
   GuestIconSun,
 } from '../../../components/guest/icons';
 import { useGuestTheme } from '../../../components/guest/GuestTheme';
@@ -133,6 +134,8 @@ export function GuestHero({
   shareCode,
   contact,
   hours,
+  onTrack,
+  hasActiveOrder,
   sentinelRef,
 }: {
   restaurantName: string;
@@ -151,6 +154,10 @@ export function GuestHero({
   contact: RestaurantContact;
   /** Opening-hours summary, or null to show no badge. */
   hours: PublicHours | null;
+  /** Opens the order tracking sheet. */
+  onTrack: () => void;
+  /** This device has an order that is still in progress (shows a dot on the button). */
+  hasActiveOrder: boolean;
   sentinelRef: React.RefObject<HTMLElement | null>;
 }) {
   const hasArabicName = ARABIC_SCRIPT.test(restaurantName);
@@ -210,6 +217,18 @@ export function GuestHero({
             label={copy.language}
           />
           <div className="relative flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onTrack}
+              aria-label={copy.trackOrder}
+              title={copy.trackOrder}
+              className={`relative flex size-11 items-center justify-center rounded-full lg:size-[46px] ${GLASS}`}
+            >
+              <GuestIconReceipt className="size-5" />
+              {hasActiveOrder ? (
+                <span aria-hidden="true" className="absolute end-1 top-1 size-2.5 rounded-full bg-g-accent ring-2 ring-g-bg" />
+              ) : null}
+            </button>
             {shareCode ? (
               <ShareButton
                 shareCode={shareCode}

@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { PublicMenuController } from './public-menu.controller';
 import { PublicMenuService } from './public-menu.service';
+import { PublicOrderTrackingController } from './public-order-tracking.controller';
+import { PublicOrderTrackingService } from './public-order-tracking.service';
 import { PublicOrdersController } from './public-orders.controller';
 import { PublicOrdersService } from './public-orders.service';
 
@@ -15,7 +17,7 @@ import { PublicOrdersService } from './public-orders.service';
  */
 @Module({
   imports: [DatabaseModule],
-  controllers: [PublicMenuController, PublicOrdersController],
-  providers: [PublicMenuService, PublicOrdersService],
+  controllers: [PublicMenuController, PublicOrdersController, PublicOrderTrackingController],
+  providers: [PublicMenuService, PublicOrdersService, PublicOrderTrackingService],
 })
 export class PublicModule {}

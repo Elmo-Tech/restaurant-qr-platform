@@ -86,6 +86,27 @@ export interface PublicMenuCopy {
   language: string;
   /** Share button (the Restaurant menu link) and its confirmations. */
   share: string;
+  /** Order tracking (DEC-042). */
+  trackOrder: string;
+  trackTitle: string;
+  trackThisDevice: string;
+  trackNoneOnDevice: string;
+  trackOtherDevice: string;
+  trackOtherDeviceHint: string;
+  trackPhoneLabel: string;
+  trackFind: string;
+  trackFinding: string;
+  trackNoneFound: string;
+  trackInvalidPhone: string;
+  trackError: string;
+  trackRefresh: string;
+  trackRef: (ref: string) => string;
+  trackItems: (count: number) => string;
+  trackTypeLabel: (type: string) => string;
+  trackStatusLabel: (status: string, type: string) => string;
+  trackStatusHint: (status: string, type: string) => string | null;
+  trackUpdatedAt: (time: string) => string;
+  trackForget: string;
   announcementsLabel: string;
   dismissAnnouncement: string;
   pauseAnnouncements: string;
@@ -264,6 +285,66 @@ const EN_COPY: PublicMenuCopy = {
   browseOnly: 'Browse only',
   language: 'Language',
   share: 'Share',
+  trackOrder: 'Track order',
+  trackTitle: 'Track your order',
+  trackThisDevice: 'Your orders on this device',
+  trackNoneOnDevice: 'No orders from this device yet.',
+  trackOtherDevice: 'Ordered from another device?',
+  trackOtherDeviceHint: 'Enter the phone number you used for the order to see its status (orders from the last 24 hours).',
+  trackPhoneLabel: 'Phone number',
+  trackFind: 'Find my order',
+  trackFinding: 'Searching…',
+  trackNoneFound: 'No recent orders found for this number.',
+  trackInvalidPhone: 'Enter the full phone number you used for the order.',
+  trackError: 'Could not load the status. Check your connection and try again.',
+  trackRefresh: 'Refresh',
+  trackRef: (ref) => `Order #${ref}`,
+  trackItems: (count) => (count === 1 ? '1 item' : `${count} items`),
+  trackTypeLabel: (type) => (type === 'DELIVERY' ? 'Delivery' : type === 'PICKUP' ? 'Pickup' : 'Dine-in'),
+  trackStatusLabel: (status, type) => {
+    switch (status) {
+      case 'PENDING':
+        return 'Order received';
+      case 'ACCEPTED':
+        return 'Order accepted';
+      case 'PREPARING':
+        return 'Being prepared';
+      case 'READY':
+        return type === 'PICKUP' ? 'Ready for pickup' : 'Ready';
+      case 'OUT_FOR_DELIVERY':
+        return 'On the way';
+      case 'SERVED':
+        return type === 'DELIVERY' ? 'Delivered' : type === 'PICKUP' ? 'Picked up' : 'Served';
+      case 'REJECTED':
+        return 'Not accepted';
+      case 'CANCELLED':
+        return 'Cancelled';
+      default:
+        return status;
+    }
+  },
+  trackStatusHint: (status, type) => {
+    switch (status) {
+      case 'PENDING':
+        return 'Waiting for the restaurant to accept your order.';
+      case 'READY':
+        return type === 'PICKUP'
+          ? 'Your order is ready. Come and pick it up.'
+          : type === 'DELIVERY'
+            ? 'Your order is ready and will be on its way shortly.'
+            : null;
+      case 'OUT_FOR_DELIVERY':
+        return 'Your order is on its way to you.';
+      case 'REJECTED':
+        return 'The restaurant could not take this order. Please contact them.';
+      case 'CANCELLED':
+        return 'This order was cancelled.';
+      default:
+        return null;
+    }
+  },
+  trackUpdatedAt: (time) => `Updated ${time}`,
+  trackForget: 'Remove from this device',
   announcementsLabel: 'Announcements',
   dismissAnnouncement: 'Dismiss',
   pauseAnnouncements: 'Pause scrolling',
@@ -435,6 +516,66 @@ const AR_COPY: PublicMenuCopy = {
   browseOnly: 'تصفح فقط',
   language: 'اللغة',
   share: 'مشاركة',
+  trackOrder: 'تتبع الطلب',
+  trackTitle: 'تتبع طلبك',
+  trackThisDevice: 'طلباتك من هذا الجهاز',
+  trackNoneOnDevice: 'لا توجد طلبات من هذا الجهاز بعد.',
+  trackOtherDevice: 'طلبت من جهاز آخر؟',
+  trackOtherDeviceHint: 'اكتب رقم الهاتف الذي استخدمته في الطلب لتعرف حالته (طلبات آخر 24 ساعة).',
+  trackPhoneLabel: 'رقم الهاتف',
+  trackFind: 'ابحث عن طلبي',
+  trackFinding: 'جارٍ البحث…',
+  trackNoneFound: 'لا توجد طلبات حديثة لهذا الرقم.',
+  trackInvalidPhone: 'اكتب رقم الهاتف كاملًا كما استخدمته في الطلب.',
+  trackError: 'تعذّر تحميل الحالة. تأكد من الاتصال وحاول مرة أخرى.',
+  trackRefresh: 'تحديث',
+  trackRef: (ref) => `طلب رقم ${ref}`,
+  trackItems: (count) => (count === 1 ? 'صنف واحد' : count === 2 ? 'صنفان' : count <= 10 ? `${count} أصناف` : `${count} صنفًا`),
+  trackTypeLabel: (type) => (type === 'DELIVERY' ? 'توصيل' : type === 'PICKUP' ? 'استلام' : 'داخل المطعم'),
+  trackStatusLabel: (status, type) => {
+    switch (status) {
+      case 'PENDING':
+        return 'تم استلام الطلب';
+      case 'ACCEPTED':
+        return 'تم قبول الطلب';
+      case 'PREPARING':
+        return 'قيد التحضير';
+      case 'READY':
+        return type === 'PICKUP' ? 'جاهز للاستلام' : 'جاهز';
+      case 'OUT_FOR_DELIVERY':
+        return 'في الطريق إليك';
+      case 'SERVED':
+        return type === 'DELIVERY' ? 'تم التوصيل' : type === 'PICKUP' ? 'تم الاستلام' : 'تم التقديم';
+      case 'REJECTED':
+        return 'لم يُقبل الطلب';
+      case 'CANCELLED':
+        return 'ملغي';
+      default:
+        return status;
+    }
+  },
+  trackStatusHint: (status, type) => {
+    switch (status) {
+      case 'PENDING':
+        return 'بانتظار قبول المطعم لطلبك.';
+      case 'READY':
+        return type === 'PICKUP'
+          ? 'طلبك جاهز. تفضّل بالاستلام.'
+          : type === 'DELIVERY'
+            ? 'طلبك جاهز وسيكون في الطريق إليك قريبًا.'
+            : null;
+      case 'OUT_FOR_DELIVERY':
+        return 'طلبك في الطريق إليك.';
+      case 'REJECTED':
+        return 'تعذّر على المطعم قبول هذا الطلب. من فضلك تواصل معه.';
+      case 'CANCELLED':
+        return 'تم إلغاء هذا الطلب.';
+      default:
+        return null;
+    }
+  },
+  trackUpdatedAt: (time) => `آخر تحديث ${time}`,
+  trackForget: 'إزالة من هذا الجهاز',
   announcementsLabel: 'الإعلانات',
   dismissAnnouncement: 'إخفاء',
   pauseAnnouncements: 'إيقاف التحريك',

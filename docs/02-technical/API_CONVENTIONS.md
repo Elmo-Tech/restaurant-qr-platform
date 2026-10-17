@@ -2277,6 +2277,21 @@ Guest: `GET /public/qr/{publicCode}/menu` returns `context.announcements: [{ id,
 
 ---
 
+# 108K. Guest Order Tracking (DEC-042, 2026-10-21)
+
+Unauthenticated, under `/api/v1/public/qr/{publicCode}` (the QR must be ACTIVE and its Restaurant ACTIVE; everything is scoped to that Restaurant).
+
+- `GET /orders/{orderId}/tracking?lang=`: one order by the id the Guest received when placing it (an unguessable UUID, held by the Guest's own device). An unknown, malformed or other-Restaurant id answers the same `404 ORDER_NOT_FOUND`. Rate group `publicTracking` (default 120 per window per IP; the menu polls it about every 10 seconds).
+- `POST /orders/lookup` body `{ phone, locale? }`: for a Guest on another device. Returns the Restaurant's PICKUP and DELIVERY orders from the last 24 hours whose phone matches (compared on the last ten digits, so `01012345678`, `+20 10 1234 5678` and `201012345678` are the same line; fewer than seven digits `422 PHONE_INVALID`), newest first, at most 10. Dine-in orders are never returned. The order id is NOT returned, so a phone number alone never grants access to anything beyond this safe view. Rate group `publicLookup` (default 10 per window per IP).
+
+Response item (both): `{ ref, type, status, createdAt, updatedAt, flow, events: [{ status, at }], itemCount, total, currencyCode, branchName, tableNumber }`. `flow` is the ordered steps for the type (Delivery adds `OUT_FOR_DELIVERY`; `REJECTED` and `CANCELLED` are endings, not steps); `ref` is the first eight characters of the id, upper case, to read out (display only). No name, phone, address, notes, line items or internal ids are ever returned.
+
+Environment: `RATE_LIMIT_PUBLIC_TRACKING_LIMIT`, `RATE_LIMIT_PUBLIC_LOOKUP_LIMIT`.
+
+Guest menu: the device remembers the ids of the orders it placed (`localStorage`, 48 hours, at most five) and shows them in "Track your order"; the confirmation offers a "Track order" button.
+
+---
+
 # 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
 `Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.

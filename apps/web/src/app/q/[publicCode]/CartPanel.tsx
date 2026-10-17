@@ -65,6 +65,8 @@ export interface CartPanelProps {
   onEditLine: (lineKey: string) => void;
   onPlaceOrder: () => void;
   onClose: () => void;
+  /** Opens the order tracking sheet (offered on the confirmation). */
+  onTrackOrder: () => void;
 }
 
 type Step = 'review' | 'details';
@@ -277,6 +279,7 @@ export function CartPanel({
   onEditLine,
   onPlaceOrder,
   onClose,
+  onTrackOrder,
 }: CartPanelProps) {
   const [step, setStep] = useState<Step>('review');
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -395,7 +398,7 @@ export function CartPanel({
         className="flex-1 overflow-y-auto overscroll-contain px-4 py-[18px] lg:px-6"
       >
         {confirmedOrder ? (
-          <Confirmation copy={copy} currency={currency} order={confirmedOrder} />
+          <Confirmation copy={copy} currency={currency} order={confirmedOrder} onTrack={onTrackOrder} />
         ) : lines.length === 0 ? (
           <GuestEmptyState icon={<GuestIconBag />} title={copy.emptyCart} className="border-0" />
         ) : effectiveStep === 'review' ? (
@@ -652,10 +655,12 @@ function Confirmation({
   copy,
   currency,
   order,
+  onTrack,
 }: {
   copy: PublicMenuCopy;
   currency: string;
   order: GuestOrderView;
+  onTrack: () => void;
 }) {
   const pending =
     order.type === 'PICKUP'
@@ -701,6 +706,14 @@ function Confirmation({
           ) : null}
         </div>
       </div>
+
+      <button
+        type="button"
+        onClick={onTrack}
+        className="flex h-12 w-full items-center justify-center rounded-2xl bg-g-accent px-6 text-[15px] font-extrabold text-g-on-accent"
+      >
+        {copy.trackOrder}
+      </button>
 
       <section
         aria-label={copy.orderSummary}
