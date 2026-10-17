@@ -48,6 +48,8 @@ export interface SessionListItem {
 export interface SessionOrderItemView {
   productId: string;
   productNameSnapshot: string;
+  /** The size chosen for this line (DEC-041), or null for a product without sizes. */
+  variantName: string | null;
   unitPrice: string;
   quantity: number;
   lineTotal: string;
@@ -244,6 +246,7 @@ const DETAIL_SELECT = {
         select: {
           productId: true,
           productNameSnapshot: true,
+          variantNameSnapshot: true,
           unitPrice: true,
           quantity: true,
           lineTotal: true,
@@ -1116,6 +1119,7 @@ function toDetail(
         items: order.items.map((item) => ({
           productId: item.productId,
           productNameSnapshot: item.productNameSnapshot,
+          variantName: item.variantNameSnapshot ?? null,
           unitPrice: formatMoney(item.unitPrice),
           quantity: item.quantity,
           lineTotal: formatMoney(item.lineTotal),

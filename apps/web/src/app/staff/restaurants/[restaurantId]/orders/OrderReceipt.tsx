@@ -137,7 +137,7 @@ export function OrderReceipt({ order, logoUrl = null }: { order: OrderDetail; lo
             <li key={`${item.productId}-${index}`}>
               <div className="flex justify-between gap-2 font-bold">
                 <span>
-                  <Num>{item.quantity}×</Num> <Text>{item.productNameSnapshot}</Text>
+                  <Num>{item.quantity}×</Num> <Text>{item.productNameSnapshot}{item.variantName ? ` · ${item.variantName}` : ''}</Text>
                 </span>
                 <span className="whitespace-nowrap">
                   <Num>{item.lineTotal}</Num>

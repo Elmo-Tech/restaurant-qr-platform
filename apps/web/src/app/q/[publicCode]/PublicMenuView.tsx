@@ -271,6 +271,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     lineKey: string;
     selectedByGroup: Record<string, string[]>;
     quantity: number;
+    variantId: string | null;
   } | null>(null);
 
   // Section 21: load once on mount (localStorage does not exist during SSR)
@@ -309,6 +310,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       productId: item.productId,
       quantity: item.quantity,
       modifierOptionIds: item.modifierOptionIds,
+      variantId: item.variantId ?? null,
     }));
     const currentCheckout = JSON.parse(checkoutKey) as PendingOrderCheckout | null;
     if (!payloadMatchesPendingAttempt(publicCode, items, currentCheckout)) {
@@ -340,27 +342,27 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     const total = new Map<string, number>();
     for (const item of cart) {
       total.set(item.productId, (total.get(item.productId) ?? 0) + item.quantity);
-      if (item.modifierOptionIds.length === 0) simple.set(item.productId, item.quantity);
+      if (item.modifierOptionIds.length === 0 && !item.variantId) simple.set(item.productId, item.quantity);
     }
     return { simpleQuantityByProductId: simple, totalQuantityByProductId: total };
   }, [cart]);
 
   /** Adds `quantity` of `productId` with the given selections -- merges into an existing line with the SAME selections, otherwise starts a new distinct line. */
   const addLine = useCallback(
-    (productId: string, modifierOptionIds: string[], quantity = 1) => {
-      const key = cartLineKey(productId, modifierOptionIds);
+    (productId: string, modifierOptionIds: string[], quantity = 1, variantId: string | null = null) => {
+      const key = cartLineKey(productId, modifierOptionIds, variantId);
       updateCart((prev) => {
         const current = prev.find(
-          (item) => cartLineKey(item.productId, item.modifierOptionIds) === key,
+          (item) => cartLineKey(item.productId, item.modifierOptionIds, item.variantId) === key,
         );
         if (!current) {
           return [
             ...prev,
-            { productId, quantity: Math.min(quantity, MAX_QUANTITY), modifierOptionIds },
+            { productId, quantity: Math.min(quantity, MAX_QUANTITY), modifierOptionIds, variantId },
           ];
         }
         return prev.map((item) =>
-          cartLineKey(item.productId, item.modifierOptionIds) === key
+          cartLineKey(item.productId, item.modifierOptionIds, item.variantId) === key
             ? { ...item, quantity: Math.min(item.quantity + quantity, MAX_QUANTITY) }
             : item,
         );
@@ -372,7 +374,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
   /** The card's quick-add: a Product with Modifier Groups never adds blindly (it opens the sheet); one with none adds a plain no-selection line. */
   const handleQuickAdd = useCallback(
     (product: PublicMenuProduct) => {
-      if (product.modifierGroups.length > 0) {
+      if (product.modifierGroups.length > 0 || (product.variants?.length ?? 0) > 0) {
         setSheetProduct(product);
         return;
       }
@@ -386,12 +388,16 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     [setSheetProduct],
   );
 
-  function handleConfirmOptions(selectedOptionIds: string[], quantity: number) {
+  function handleConfirmOptions(
+    selectedOptionIds: string[],
+    quantity: number,
+    variantId: string | null = null,
+  ) {
     if (!sheetProduct) return;
     if (editing) {
-      replaceLine(editing.lineKey, sheetProduct.id, selectedOptionIds, quantity);
+      replaceLine(editing.lineKey, sheetProduct.id, selectedOptionIds, quantity, variantId);
     } else {
-      addLine(sheetProduct.id, selectedOptionIds, quantity);
+      addLine(sheetProduct.id, selectedOptionIds, quantity, variantId);
     }
     closeSheet();
   }
@@ -411,16 +417,17 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     productId: string,
     modifierOptionIds: string[],
     quantity: number,
+    variantId: string | null = null,
   ) {
-    const newKey = cartLineKey(productId, modifierOptionIds);
+    const newKey = cartLineKey(productId, modifierOptionIds, variantId);
     updateCart((prev) => {
       const index = prev.findIndex(
-        (item) => cartLineKey(item.productId, item.modifierOptionIds) === oldKey,
+        (item) => cartLineKey(item.productId, item.modifierOptionIds, item.variantId) === oldKey,
       );
       if (index === -1) return prev;
       const rest = prev.filter((_, position) => position !== index);
       const existing = rest.findIndex(
-        (item) => cartLineKey(item.productId, item.modifierOptionIds) === newKey,
+        (item) => cartLineKey(item.productId, item.modifierOptionIds, item.variantId) === newKey,
       );
       if (existing !== -1) {
         return rest.map((item, position) =>
@@ -433,6 +440,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
         productId,
         quantity: Math.min(quantity, MAX_QUANTITY),
         modifierOptionIds,
+        variantId,
       };
       return [...rest.slice(0, index), replacement, ...rest.slice(index)];
     });
@@ -440,7 +448,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
 
   function handleEditLine(lineKey: string) {
     const item = cart.find(
-      (entry) => cartLineKey(entry.productId, entry.modifierOptionIds) === lineKey,
+      (entry) => cartLineKey(entry.productId, entry.modifierOptionIds, entry.variantId) === lineKey,
     );
     const product = item ? productById.get(item.productId) : undefined;
     if (!item || !product) return;
@@ -450,7 +458,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
         .filter((option) => item.modifierOptionIds.includes(option.id))
         .map((option) => option.id);
     }
-    setEditing({ lineKey, selectedByGroup, quantity: item.quantity });
+    setEditing({ lineKey, selectedByGroup, quantity: item.quantity, variantId: item.variantId ?? null });
     setSheetProduct(product);
   }
 
@@ -458,7 +466,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     (lineKey: string) => {
       updateCart((prev) =>
         prev.map((item) =>
-          cartLineKey(item.productId, item.modifierOptionIds) === lineKey
+          cartLineKey(item.productId, item.modifierOptionIds, item.variantId) === lineKey
             ? { ...item, quantity: Math.min(item.quantity + 1, MAX_QUANTITY) }
             : item,
         ),
@@ -472,7 +480,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       updateCart((prev) =>
         prev
           .map((item) =>
-            cartLineKey(item.productId, item.modifierOptionIds) === lineKey
+            cartLineKey(item.productId, item.modifierOptionIds, item.variantId) === lineKey
               ? { ...item, quantity: item.quantity - 1 }
               : item,
           )
@@ -484,7 +492,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
 
   function handleRemove(lineKey: string) {
     updateCart((prev) =>
-      prev.filter((item) => cartLineKey(item.productId, item.modifierOptionIds) !== lineKey),
+      prev.filter((item) => cartLineKey(item.productId, item.modifierOptionIds, item.variantId) !== lineKey),
     );
   }
 
@@ -540,28 +548,41 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
           }
         }
       }
-      // Product Discounts V1: the discount applies to the product price only, never to
+      // DEC-041: a product with sizes is priced by the size in this line (its own price and
+      // discount); a size the menu no longer offers blocks the line until the Guest re-chooses.
+      const sizes = product.variants ?? [];
+      const size = item.variantId ? (sizes.find((entry) => entry.id === item.variantId) ?? null) : null;
+      const sizeMissing = sizes.length > 0 && size === null;
+      // Product Discounts V1: the discount applies to the product (or size) price only, never to
       // paid extras. Display only -- the Backend recomputes every amount on submit.
-      const discounted = product.discount !== null;
-      const originalUnitPrice = fromMinorUnits(toMinorUnits(product.basePrice) + modifiersMinorUnits);
-      const unitPrice = discounted
-        ? fromMinorUnits(toMinorUnits(product.discount!.discountedPrice) + modifiersMinorUnits)
+      const baseForLine = size ? size.price : product.basePrice;
+      const discountedForLine = size
+        ? size.discountedPrice
+        : product.discount
+          ? product.discount.discountedPrice
+          : null;
+      const discounted = discountedForLine !== null;
+      const originalUnitPrice = fromMinorUnits(toMinorUnits(baseForLine) + modifiersMinorUnits);
+      const unitPrice = discountedForLine !== null
+        ? fromMinorUnits(toMinorUnits(discountedForLine) + modifiersMinorUnits)
         : originalUnitPrice;
 
       return {
-        lineKey: cartLineKey(item.productId, item.modifierOptionIds),
+        lineKey: cartLineKey(item.productId, item.modifierOptionIds, item.variantId),
         productId: item.productId,
         quantity: item.quantity,
         modifierOptionIds: item.modifierOptionIds,
+        variantId: item.variantId ?? null,
+        variantName: size ? size.name : null,
         name: product.name,
-        hasModifierGroups: product.modifierGroups.length > 0,
+        hasModifierGroups: product.modifierGroups.length > 0 || sizes.length > 0,
         imageAssetPath: product.primaryImageAssetPath,
         unitPrice,
         lineTotal: fromMinorUnits(lineTotalMinorUnits(unitPrice, item.quantity)),
         originalLineTotal: fromMinorUnits(lineTotalMinorUnits(originalUnitPrice, item.quantity)),
         discounted,
         selections,
-        blocked: product.availability === 'SOLD_OUT',
+        blocked: product.availability === 'SOLD_OUT' || sizeMissing,
       };
     })
     .filter((line): line is CartLine => line !== null);
@@ -676,6 +697,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       productId: line.productId,
       quantity: line.quantity,
       modifierOptionIds: line.modifierOptionIds,
+      ...(line.variantId ? { variantId: line.variantId } : {}),
     }));
     // FT-5 critical fix: reuse the SAME clientRequestId as any still-
     // pending attempt for this exact Cart payload (a retry after a lost

@@ -374,7 +374,7 @@ export function SessionDrawer({
                             <div className="flex justify-between gap-3">
                               <span className="min-w-0">
                                 <bdi dir="ltr">{item.quantity}×</bdi>{' '}
-                                <bdi dir="auto">{item.productNameSnapshot}</bdi>
+                                <bdi dir="auto">{item.productNameSnapshot}{item.variantName ? ` · ${item.variantName}` : ''}</bdi>
                               </span>
                               <span className="whitespace-nowrap text-foreground">
                                 <Money amount={item.lineTotal} currency={round.order.currencyCode} />

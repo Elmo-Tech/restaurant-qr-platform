@@ -161,6 +161,7 @@ export class PublicOrdersController {
         productId: item.productId,
         quantity: item.quantity,
         modifierOptionIds: item.modifierOptionIds ?? [],
+        variantId: item.variantId ?? undefined,
       })),
       branchId: dto.branchId,
       customerName: dto.customerName,

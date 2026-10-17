@@ -126,6 +126,8 @@ export interface GuestOrderItemModifierView {
 export interface GuestOrderItemView {
   productId: string;
   name: string;
+  /** The chosen size (DEC-041), or null for a product without sizes. */
+  variantName: string | null;
   quantity: number;
   /** Price of one unit BEFORE any product discount. */
   unitPrice: string;

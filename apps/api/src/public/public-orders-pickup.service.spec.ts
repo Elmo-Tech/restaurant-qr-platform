@@ -50,11 +50,13 @@ const PRODUCT_ROW = {
   id: 'product-1',
   basePrice: decimal('100.00'),
   translations: [{ name: 'Burger' }],
+  variants: [] as unknown[],
   modifierGroups: [] as unknown[],
 };
 
 const PRODUCT_WITH_SIZE_ROW = {
   ...PRODUCT_ROW,
+  variants: [] as unknown[],
   modifierGroups: [
     {
       id: 'group-size',

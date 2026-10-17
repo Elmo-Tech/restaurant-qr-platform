@@ -1280,6 +1280,10 @@ Example response may include:
 
 ---
 
+> **Implemented 2026-10-17 (DEC-041, Product Variants):** each public Product carries `variants: [{ id, name, price, discountedPrice, isDefault }]`, the ACTIVE sizes in display order (empty when the Product has a single price). `price` is the size's full price; `discountedPrice` is present only while the Product discount currently applies to that size (`discountApplies`); `name` follows the field-level locale fallback. `basePrice` stays the cheapest size's price. `GuestOrderItemView` carries `variantName` (`null` without sizes).
+
+---
+
 # 69. Dashboard Menu API
 
 Dashboard Menu APIs may return:
@@ -1335,6 +1339,10 @@ Conceptually:
 The final DTO may evolve.
 
 Client does not submit authoritative price.
+
+---
+
+> **Implemented 2026-10-17 (DEC-041):** an order line is `{ productId, quantity, modifierOptionIds?, variantId? }`. `variantId` is the chosen size's identity only. When the Product has ACTIVE sizes it is required, and an unknown, foreign, hidden or missing size, or a size sent for a Product without sizes, rejects the whole order with the same generic `itemsUnavailable` answer as any unavailable item. The Backend prices the line from that size (`unitPrice` is the size price before discount), applies the Product discount only if the size's `discountApplies` is true, and snapshots `variantId`, `variantNameSnapshot` and `variantPriceSnapshot` on the Order Item. Line identity for duplicate detection is `productId + variantId + modifier options`. Staff order detail, the receipt and Table Session round items carry `variantName` (`null` without sizes); `unitPrice` there is the size price before discount.
 
 ---
 

@@ -70,6 +70,14 @@ export class CreateGuestOrderItemDto {
     message: 'modifierOptionIds must contain only well-formed UUIDs',
   })
   modifierOptionIds?: string[];
+
+  /**
+   * Product Variants (DEC-041): the chosen size's IDENTITY only -- never a price or name. Required by
+   * the service when the Product has active sizes; the Backend re-resolves the size and its price.
+   */
+  @IsOptional()
+  @IsUUID('all', { message: 'variantId must be a well-formed UUID' })
+  variantId?: string;
 }
 
 /**

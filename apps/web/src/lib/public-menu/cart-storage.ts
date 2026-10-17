@@ -16,6 +16,8 @@ export interface StoredCartItem {
   quantity: number;
   /** Canonical (sorted) order -- see `cartLineKey`. Empty for a Product with no Modifier Groups. */
   modifierOptionIds: string[];
+  /** The chosen size (DEC-041) -- identity only; absent/null for a product without sizes. */
+  variantId?: string | null;
 }
 
 function storageKey(publicCode: string): string {
@@ -23,8 +25,12 @@ function storageKey(publicCode: string): string {
 }
 
 /** Stable Cart-line identity: same Product AND the same exact set of selected Options. Sorted so submission order never matters. */
-export function cartLineKey(productId: string, modifierOptionIds: string[]): string {
-  return `${productId}::${[...modifierOptionIds].sort().join(',')}`;
+export function cartLineKey(
+  productId: string,
+  modifierOptionIds: string[],
+  variantId?: string | null,
+): string {
+  return `${productId}::${variantId ?? ''}::${[...modifierOptionIds].sort().join(',')}`;
 }
 
 function isStoredCartItem(value: unknown): value is StoredCartItem {
@@ -34,6 +40,9 @@ function isStoredCartItem(value: unknown): value is StoredCartItem {
     typeof candidate.productId === 'string' &&
     Number.isInteger(candidate.quantity) &&
     (candidate.quantity as number) > 0 &&
+    (candidate.variantId === undefined ||
+      candidate.variantId === null ||
+      typeof candidate.variantId === 'string') &&
     (candidate.modifierOptionIds === undefined ||
       (Array.isArray(candidate.modifierOptionIds) &&
         candidate.modifierOptionIds.every((id) => typeof id === 'string')))
@@ -42,7 +51,7 @@ function isStoredCartItem(value: unknown): value is StoredCartItem {
 
 /** Normalizes a validated-but-possibly-legacy stored row (from before FT-6A) to always carry a `modifierOptionIds` array. */
 function normalizeStoredCartItem(item: StoredCartItem): StoredCartItem {
-  return { ...item, modifierOptionIds: item.modifierOptionIds ?? [] };
+  return { ...item, modifierOptionIds: item.modifierOptionIds ?? [], variantId: item.variantId ?? null };
 }
 
 /** Never throws -- a private window, cleared storage, or malformed JSON all safely resolve to an empty Cart rather than crashing the page. */

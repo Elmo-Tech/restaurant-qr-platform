@@ -43,6 +43,8 @@ export interface SessionListItem {
 export interface SessionOrderItem {
   productId: string;
   productNameSnapshot: string;
+  /** The size chosen for this line (DEC-041), or null for a product without sizes. */
+  variantName: string | null;
   unitPrice: string;
   quantity: number;
   lineTotal: string;

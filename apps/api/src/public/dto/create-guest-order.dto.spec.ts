@@ -26,6 +26,20 @@ describe('CreateGuestOrderDto', () => {
     expect(errors).toHaveLength(0);
   });
 
+  it('accepts a size identity on a line, and rejects a non-UUID size', async () => {
+    const ok = await validateBody({
+      clientRequestId: WELL_FORMED_UUID,
+      items: [{ productId: WELL_FORMED_UUID, quantity: 1, variantId: WELL_FORMED_UUID }],
+    });
+    expect(ok).toHaveLength(0);
+
+    const bad = await validateBody({
+      clientRequestId: WELL_FORMED_UUID,
+      items: [{ productId: WELL_FORMED_UUID, quantity: 1, variantId: 'Large' }],
+    });
+    expect(bad.length).toBeGreaterThan(0);
+  });
+
   it('rejects a non-UUID clientRequestId', async () => {
     const errors = await validateBody({
       clientRequestId: 'not-a-uuid',

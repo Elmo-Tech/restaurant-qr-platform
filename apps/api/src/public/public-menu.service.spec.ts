@@ -55,6 +55,7 @@ function buildCategoryRow(overrides: Partial<Record<string, unknown>> = {}) {
           { locale: 'en', name: 'Cheeseburger', description: 'Beef, cheddar, pickles.' },
           { locale: 'ar', name: 'تشيز برجر', description: null },
         ],
+        variants: [] as unknown[],
         modifierGroups: [] as {
           id: string;
           minimumSelections: number;
@@ -485,6 +486,7 @@ describe('PublicMenuService.getPublicMenu', () => {
             availability: 'SOLD_OUT',
             featured: false,
             translations: [{ locale: 'en', name: 'Fries', description: null }],
+            variants: [] as unknown[],
             modifierGroups: [],
           },
         ],

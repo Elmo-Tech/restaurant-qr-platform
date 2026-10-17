@@ -7,6 +7,8 @@ export interface SubmitGuestOrderItem {
   quantity: number;
   /** Selected Modifier Option IDENTITY only -- never a price/name (CRITICAL MONEY RULE, CLAUDE.md #27). */
   modifierOptionIds: string[];
+  /** The chosen size IDENTITY (DEC-041) -- never a price or name; omitted for a product without sizes. */
+  variantId?: string | null;
 }
 
 /** FT-7: Pickup-only checkout fields; omitted entirely for a TABLE QR. */

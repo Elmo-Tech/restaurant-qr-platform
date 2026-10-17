@@ -41,7 +41,9 @@ export interface OrderItemModifierView {
 export interface OrderItemView {
   productId: string;
   productNameSnapshot: string;
-  /** Price of one unit BEFORE any product discount (snapshot). */
+  /** The size chosen for this line (DEC-041), or null for a product without sizes. */
+  variantName: string | null;
+  /** Price of one unit BEFORE any product discount (snapshot; the size price when it has sizes). */
   unitPrice: string;
   quantity: number;
   /** Product Discounts V1: total discount taken off this line ("0.00" when none); `lineTotal` is already net of it. */
@@ -123,6 +125,7 @@ function formatMoney(value: { toFixed(digits: number): string }): string {
 const ORDER_ITEM_VIEW_SELECT = {
   productId: true,
   productNameSnapshot: true,
+  variantNameSnapshot: true,
   unitPrice: true,
   quantity: true,
   lineTotal: true,
@@ -140,6 +143,7 @@ const ORDER_ITEM_VIEW_SELECT = {
 function toOrderItemView(item: {
   productId: string;
   productNameSnapshot: string;
+  variantNameSnapshot?: string | null;
   unitPrice: { toFixed(digits: number): string };
   quantity: number;
   lineTotal: { toFixed(digits: number): string };
@@ -153,6 +157,7 @@ function toOrderItemView(item: {
   return {
     productId: item.productId,
     productNameSnapshot: item.productNameSnapshot,
+    variantName: item.variantNameSnapshot ?? null,
     unitPrice: formatMoney(item.unitPrice),
     quantity: item.quantity,
     discountAmount: item.discountAmount ? formatMoney(item.discountAmount) : '0.00',

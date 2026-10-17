@@ -21,6 +21,8 @@ export interface CreateGuestOrderItemInput {
   quantity: number;
   /** Option IDENTITY only -- never a price/name (CRITICAL MONEY RULE). Omitted/undefined is normalized to no selections. */
   modifierOptionIds?: string[];
+  /** Chosen size IDENTITY only (DEC-041); required when the Product has active sizes. */
+  variantId?: string;
 }
 
 export interface CreateGuestOrderInput {
@@ -62,8 +64,10 @@ export interface GuestOrderItemModifierView {
 export interface GuestOrderItemView {
   productId: string;
   name: string;
+  /** The chosen size (DEC-041), or null for a product without sizes. */
+  variantName: string | null;
   quantity: number;
-  /** The price of one unit BEFORE any product discount. */
+  /** The price of one unit BEFORE any product discount (the chosen size's price when it has sizes). */
   unitPrice: string;
   /** Product Discounts V1: the total discount taken off this line ("0.00" when none). `lineTotal` is already net of it. */
   discountAmount: string;
@@ -153,6 +157,7 @@ interface OrderViewRow {
     quantity: number;
     lineTotal: Prisma.Decimal;
     discountAmount?: Prisma.Decimal;
+    variantNameSnapshot?: string | null;
     modifiers: {
       modifierGroupNameSnapshot: string;
       modifierOptionNameSnapshot: string;
@@ -188,6 +193,7 @@ const ORDER_VIEW_SELECT = {
       quantity: true,
       lineTotal: true,
       discountAmount: true,
+      variantNameSnapshot: true,
       modifiers: {
         select: {
           modifierGroupNameSnapshot: true,
@@ -241,6 +247,7 @@ function toGuestOrderView(order: OrderViewRow, locale?: string): GuestOrderView 
     items: order.items.map((item) => ({
       productId: item.productId,
       name: item.productNameSnapshot,
+      variantName: item.variantNameSnapshot ?? null,
       quantity: item.quantity,
       unitPrice: item.unitPrice.toFixed(2),
       discountAmount: (item.discountAmount ?? new Prisma.Decimal(0)).toFixed(2),
@@ -341,7 +348,7 @@ export class PublicOrdersService {
     // SAME Product with the SAME selections in two items is a duplicate.
     const lineKeys = input.items.map((item) => {
       const optionIds = item.modifierOptionIds ?? [];
-      return `${item.productId}::${[...optionIds].sort().join(',')}`;
+      return `${item.productId}::${item.variantId ?? ''}::${[...optionIds].sort().join(',')}`;
     });
     if (new Set(lineKeys).size !== lineKeys.length) {
       return { outcome: 'duplicateItems' };
@@ -567,6 +574,21 @@ export class PublicOrdersService {
               select: { name: true },
               take: 1,
             },
+            // DEC-041: only ACTIVE sizes are authoritative for a submission; a size that was
+            // hidden since the Guest loaded the menu is treated like an unknown id.
+            variants: {
+              where: { status: 'ACTIVE' },
+              select: {
+                id: true,
+                price: true,
+                discountApplies: true,
+                translations: {
+                  where: { locale: defaultLocale },
+                  select: { name: true },
+                  take: 1,
+                },
+              },
+            },
             // FT-6A: only ACTIVE Groups/Options are ever authoritative for
             // a submission -- a Group/Option deactivated since the Guest
             // loaded the Menu is treated exactly like a foreign/unknown id
@@ -706,7 +728,27 @@ export class PublicOrdersService {
           // alone (ORDER_LIFECYCLE_SPEC.md #42's "Base item price"); Modifier
           // adjustments are summed separately into `lineTotal` and preserved
           // individually via the OrderItemModifier snapshot rows below.
-          const unitPrice = product.basePrice;
+          // DEC-041 CRITICAL MONEY RULE: a Product with active sizes is priced by the size the
+          // Guest chose, re-resolved here (never trusted from the request). The size is required;
+          // an unknown, foreign or no-longer-active size, or a size sent for a Product that has
+          // none, all converge on the same whole-order `itemsUnavailable` rejection.
+          let size: { id: string; nameSnapshot: string; price: Prisma.Decimal; discountApplies: boolean } | null = null;
+          if (product.variants.length > 0) {
+            const chosen = product.variants.find((variant) => variant.id === item.variantId);
+            const chosenName = chosen?.translations[0]?.name;
+            if (chosen === undefined || chosenName === undefined) {
+              throw new ItemsUnavailableError();
+            }
+            size = {
+              id: chosen.id,
+              nameSnapshot: chosenName,
+              price: chosen.price,
+              discountApplies: chosen.discountApplies,
+            };
+          } else if (item.variantId !== undefined) {
+            throw new ItemsUnavailableError();
+          }
+          const unitPrice = size ? size.price : product.basePrice;
           const modifiersTotal = selections.reduce(
             (sum, selection) => sum.plus(selection.priceAdjustment),
             new Prisma.Decimal(0),
@@ -715,8 +757,8 @@ export class PublicOrdersService {
           // read inside this transaction -- never from the request. It applies
           // to the base price per unit (paid extras are never discounted); the
           // line is (price - unit discount + extras) * quantity.
-          const applied = resolveActiveDiscount(
-            product.basePrice,
+          const applied = size !== null && !size.discountApplies ? null : resolveActiveDiscount(
+            unitPrice,
             {
               type: product.discountType,
               value: product.discountValue,
@@ -744,6 +786,9 @@ export class PublicOrdersService {
             discountAmount: lineDiscount,
             discountTypeSnapshot: applied?.type ?? null,
             discountValueSnapshot: applied?.value ?? null,
+            variantId: size?.id ?? null,
+            variantNameSnapshot: size?.nameSnapshot ?? null,
+            variantPriceSnapshot: size?.price ?? null,
             modifiers: {
               create: selections.map((selection, index) => ({
                 modifierGroupId: selection.groupId,

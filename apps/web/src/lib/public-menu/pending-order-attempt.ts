@@ -21,6 +21,8 @@ export interface PendingOrderItem {
   quantity: number;
   /** FT-6A: part of the payload identity -- a Cart mutation that only changes selected Options (not productId/quantity) must still count as "changed", generating a fresh id rather than reusing a stale one. */
   modifierOptionIds: string[];
+  /** The chosen size (DEC-041), identity only. */
+  variantId?: string | null;
 }
 
 /**
@@ -131,10 +133,11 @@ function canonicalizeItems(items: PendingOrderItem[]): PendingOrderItem[] {
       productId: item.productId,
       quantity: item.quantity,
       modifierOptionIds: [...item.modifierOptionIds].sort(),
+      variantId: item.variantId ?? null,
     }))
     .sort((a, b) =>
-      `${a.productId}::${a.modifierOptionIds.join(',')}`.localeCompare(
-        `${b.productId}::${b.modifierOptionIds.join(',')}`,
+      `${a.productId}::${a.variantId ?? ''}::${a.modifierOptionIds.join(',')}`.localeCompare(
+        `${b.productId}::${b.variantId ?? ''}::${b.modifierOptionIds.join(',')}`,
       ),
     );
 }
@@ -148,6 +151,7 @@ function itemsEqual(a: PendingOrderItem[], b: PendingOrderItem[]): boolean {
     return (
       item.productId === other.productId &&
       item.quantity === other.quantity &&
+      item.variantId === other.variantId &&
       item.modifierOptionIds.length === other.modifierOptionIds.length &&
       item.modifierOptionIds.every((id, i) => id === other.modifierOptionIds[i])
     );
@@ -161,7 +165,10 @@ function isPendingOrderItem(value: unknown): value is PendingOrderItem {
     typeof candidate.productId === 'string' &&
     Number.isInteger(candidate.quantity) &&
     Array.isArray(candidate.modifierOptionIds) &&
-    candidate.modifierOptionIds.every((id) => typeof id === 'string')
+    candidate.modifierOptionIds.every((id) => typeof id === 'string') &&
+    (candidate.variantId === undefined ||
+      candidate.variantId === null ||
+      typeof candidate.variantId === 'string')
   );
 }
 

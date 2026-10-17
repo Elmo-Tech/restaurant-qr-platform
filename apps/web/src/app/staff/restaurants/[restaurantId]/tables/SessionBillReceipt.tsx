@@ -164,7 +164,7 @@ export function SessionBillView({
               <li key={`${item.productId}-${index}`}>
                 <div className="flex justify-between gap-2">
                   <span>
-                    <Num>{item.quantity}×</Num> <Text>{item.productNameSnapshot}</Text>
+                    <Num>{item.quantity}×</Num> <Text>{item.productNameSnapshot}{item.variantName ? ` · ${item.variantName}` : ''}</Text>
                   </span>
                   <span className="whitespace-nowrap">
                     <Num>{item.lineTotal}</Num>
@@ -215,7 +215,7 @@ export function SessionBillView({
                 </p>
                 {round.items.map((item, index) => (
                   <p key={index} className="ps-3">
-                    <Num>{item.quantity}×</Num> <Text>{item.productNameSnapshot}</Text>
+                    <Num>{item.quantity}×</Num> <Text>{item.productNameSnapshot}{item.variantName ? ` · ${item.variantName}` : ''}</Text>
                   </p>
                 ))}
               </div>

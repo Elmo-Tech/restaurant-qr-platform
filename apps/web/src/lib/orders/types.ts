@@ -38,6 +38,8 @@ export interface OrderItemModifierView {
 export interface OrderItemView {
   productId: string;
   productNameSnapshot: string;
+  /** The size chosen for this line (DEC-041), or null for a product without sizes. */
+  variantName: string | null;
   unitPrice: string;
   quantity: number;
   /** Product Discounts V1: total discount taken off this line ("0.00" when none); `lineTotal` is already net of it. `unitPrice` is the price BEFORE the discount. */

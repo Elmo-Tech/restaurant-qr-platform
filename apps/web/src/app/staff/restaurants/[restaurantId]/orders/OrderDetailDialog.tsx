@@ -259,7 +259,7 @@ export function OrderDetailDialog({
                       </span>
                       <div className="min-w-0">
                         <p dir="auto" className="text-start text-sm font-semibold text-foreground">
-                          {item.productNameSnapshot}
+                          {item.productNameSnapshot}{item.variantName ? ` · ${item.variantName}` : ''}
                         </p>
                         {/* FT-6A, ORDER_LIFECYCLE_SPEC.md #41: the exact
                             Modifier selections snapshotted at submission

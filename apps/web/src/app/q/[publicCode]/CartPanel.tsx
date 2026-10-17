@@ -96,7 +96,9 @@ function CartItemRow({
 }) {
   const imageUrl = resolveAssetUrl(line.imageAssetPath);
   const [imageFailed, setImageFailed] = useState(false);
-  const modifiers = line.selections.map((selection) => selection.optionName).join(' · ');
+  const modifiers = [line.variantName, ...line.selections.map((selection) => selection.optionName)]
+    .filter((part): part is string => part !== null && part !== '')
+    .join(' · ');
   return (
     <li className="border-t border-g-line first:border-t-0">
       <div className="flex items-center gap-3 p-3.5">
@@ -714,9 +716,11 @@ function Confirmation({
                 <p dir="auto" className="text-[15px] font-bold text-g-text">
                   <span className="g-num text-g-accent-text">{item.quantity}×</span> {item.name}
                 </p>
-                {item.modifiers.length > 0 ? (
+                {item.variantName !== null || item.modifiers.length > 0 ? (
                   <p dir="auto" className="mt-0.5 text-[12.5px] text-g-text-2">
-                    {item.modifiers.map((modifier) => modifier.optionName).join(' · ')}
+                    {[item.variantName, ...item.modifiers.map((modifier) => modifier.optionName)]
+                      .filter((part): part is string => part !== null && part !== '')
+                      .join(' · ')}
                   </p>
                 ) : null}
               </div>

@@ -110,6 +110,15 @@ export interface PublicProductDiscount {
   endsOn: string | null;
 }
 
+export interface PublicMenuVariant {
+  id: string;
+  name: string;
+  /** The full price of this size. */
+  price: string;
+  discountedPrice: string | null;
+  isDefault: boolean;
+}
+
 export interface PublicMenuProduct {
   id: string;
   name: string;
@@ -127,6 +136,12 @@ export interface PublicMenuProduct {
   availability: ProductAvailability;
   featured: boolean;
   modifierGroups: PublicMenuModifierGroup[];
+  /**
+   * Product Variants (DEC-041): the ACTIVE sizes, in display order. Empty = a single price (`basePrice`).
+   * Each size carries its full price; `discountedPrice` is present only while the Product discount
+   * currently applies to THIS size.
+   */
+  variants: PublicMenuVariant[];
 }
 
 export interface PublicMenuCategory {
@@ -393,6 +408,21 @@ export class PublicMenuService {
               where: { locale: { in: localesToLoad } },
               select: { locale: true, name: true, description: true },
             },
+            // DEC-041: only ACTIVE sizes are ever offered to a Guest.
+            variants: {
+              where: { status: 'ACTIVE' },
+              orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+              select: {
+                id: true,
+                price: true,
+                isDefault: true,
+                discountApplies: true,
+                translations: {
+                  where: { locale: { in: localesToLoad } },
+                  select: { locale: true, name: true },
+                },
+              },
+            },
             // FT-6A: only ACTIVE Groups/Options are ever offered to a
             // Guest -- an INACTIVE (deactivated) Group or Option is hidden
             // entirely, never shown disabled (mirrors Category/Product
@@ -490,6 +520,37 @@ export class PublicMenuService {
           });
         }
 
+        // DEC-041: each ACTIVE size with its own price; the discount is computed on THIS size's
+        // price and only for sizes the Product discount applies to.
+        const discountConfig = {
+          type: product.discountType,
+          value: product.discountValue,
+          enabled: product.discountEnabled,
+          startsOn: dateOnlyString(product.discountStartsOn),
+          endsOn: dateOnlyString(product.discountEndsOn),
+        };
+        const variants: PublicMenuVariant[] = [];
+        for (const variant of product.variants) {
+          const variantRows: PublicTranslatableRow[] = variant.translations.map((row) => ({
+            locale: row.locale,
+            name: row.name,
+            description: null,
+          }));
+          const variantDefault = pickRow(variantRows, defaultLocale);
+          if (!variantDefault) continue; // Defensive only -- a default-locale name always exists.
+          const variantFields = resolvePublicField(pickRow(variantRows, resolved), variantDefault);
+          const appliedToSize = variant.discountApplies
+            ? resolveActiveDiscount(variant.price, discountConfig, today)
+            : null;
+          variants.push({
+            id: variant.id,
+            name: variantFields.name,
+            price: variant.price.toFixed(2),
+            discountedPrice: appliedToSize ? appliedToSize.discountedPrice.toFixed(2) : null,
+            isDefault: variant.isDefault,
+          });
+        }
+
         // SOLD_OUT Products stay visible (Section 6) -- `availability` is
         // never used as a visibility filter, only `status` is (already
         // applied in the query's `where` above).
@@ -527,6 +588,7 @@ export class PublicMenuService {
           availability: product.availability,
           featured: product.featured,
           modifierGroups,
+          variants,
         });
       }
 

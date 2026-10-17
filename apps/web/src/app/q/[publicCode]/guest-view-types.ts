@@ -18,6 +18,9 @@ export interface CartLine {
   productId: string;
   quantity: number;
   modifierOptionIds: string[];
+  /** The chosen size (DEC-041) and its current name; null for a product without sizes. */
+  variantId: string | null;
+  variantName: string | null;
   name: string;
   /** The product has Modifier Groups, so the cart row offers "Edit" (re-open the sheet with these selections). */
   hasModifierGroups: boolean;
