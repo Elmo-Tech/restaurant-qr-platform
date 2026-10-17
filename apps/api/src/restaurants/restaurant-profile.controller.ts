@@ -8,6 +8,7 @@ import {
   Patch,
   Post,
   Req,
+  UnprocessableEntityException,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -27,9 +28,14 @@ import {
 } from '../storage/image-file-validator';
 import { ImageStorageService, MAX_IMAGE_BYTES } from '../storage/image-storage.service';
 import type { UploadedImageFile } from '../storage/uploaded-image-file';
+import { UpdateContactDto } from './dto/update-contact.dto';
 import { UpdateOrderingOptionsDto } from './dto/update-ordering-options.dto';
 import { UpdateQrStyleDto } from './dto/update-qr-style.dto';
 import type { QrStyle, QrStyleErrorCode } from './qr-style';
+import {
+  ContactValidationError,
+  type RestaurantContact,
+} from './restaurant-contact';
 import { UpdateRestaurantProfileDto } from './dto/update-restaurant-profile.dto';
 import {
   RestaurantProfileService,
@@ -139,6 +145,42 @@ export class RestaurantProfileController {
     });
 
     return { data };
+  }
+
+  /**
+   * Guest Menu contact details (phone, WhatsApp number, social links). A
+   * Restaurant-structural change: `restaurant.manage` AND Restaurant-wide scope.
+   * An invalid phone / link answers `422` with a stable code and the field name.
+   */
+  @Patch('contact')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.RESTAURANT_MANAGE)
+  async updateContact(
+    @Body() dto: UpdateContactDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: RestaurantContact }> {
+    try {
+      const data = await this.restaurantProfileService.updateContact(
+        request.restaurantAccess.restaurantId,
+        dto,
+      );
+      return { data };
+    } catch (error) {
+      if (error instanceof ContactValidationError) {
+        throw new UnprocessableEntityException({
+          error: {
+            code: error.code,
+            details: { field: error.field },
+            message:
+              error.code === 'INVALID_PHONE'
+                ? 'Enter a valid phone number (digits, optionally starting with +).'
+                : 'Enter a valid https link on the correct site.',
+          },
+        });
+      }
+      throw error;
+    }
   }
 
   /**

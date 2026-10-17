@@ -3,7 +3,8 @@
 import { memo, useState } from 'react';
 import { DishFallback } from '../../../components/guest/DishFallback';
 import { GuestIconPlus } from '../../../components/guest/icons';
-import { DiscountedPrice } from '../../../components/guest/DiscountedPrice';
+import { DiscountedPrice, OriginalPrice } from '../../../components/guest/DiscountedPrice';
+import { Price } from '../../../components/guest/Price';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
@@ -80,13 +81,17 @@ function ProductCardImpl({
         return price(size) < price(best) ? size : best;
       })
     : null;
+  // Two or more sizes: the card lists every size with its price instead of one "From" price.
+  const showSizeList = sizes.length >= 2;
+  const visibleSizes = sizes.slice(0, 4);
   const interactive = canOrder && !isSoldOut;
   const showStepper = interactive && !hasModifiers && simpleQuantity > 0;
   const showPhoto = imageUrl !== null && !imageFailed;
   const dimmed = isSoldOut ? 'opacity-50 grayscale' : '';
   // A discounted card gives the price lockup its own row and moves the Add control to a row
   // of its own below; a plain card keeps price and Add side by side.
-  const discounted = (cheapest ? cheapest.discountedPrice !== null : product.discount !== null) && !isSoldOut;
+  const discounted =
+    !showSizeList && (cheapest ? cheapest.discountedPrice !== null : product.discount !== null) && !isSoldOut;
 
   return (
     <article
@@ -148,12 +153,46 @@ function ProductCardImpl({
           </p>
         ) : null}
 
+        {showSizeList ? (
+          <ul className={cx(`mt-1 flex flex-col gap-1 ${isSoldOut ? 'opacity-60' : ''}`)}>
+            {visibleSizes.map((size) => (
+              <li key={size.id} className="flex items-baseline gap-2 text-[13px] md:text-sm">
+                <span className="min-w-0 truncate font-semibold text-g-text-2">
+                  <bdi>{size.name}</bdi>
+                </span>
+                <span aria-hidden="true" className="min-w-3 flex-1 translate-y-[-3px] border-b border-dotted border-g-line" />
+                <span className="flex shrink-0 items-baseline gap-1.5">
+                  {size.discountedPrice !== null ? (
+                    <OriginalPrice
+                      amount={size.price}
+                      currency={currency}
+                      copy={copy}
+                      className="g-num text-[11.5px] font-semibold text-g-text-3"
+                    />
+                  ) : null}
+                  <Price
+                    amount={size.discountedPrice ?? size.price}
+                    currency={currency}
+                    className={`g-num text-[15px] [font-weight:800] md:text-base ${isSoldOut ? 'text-g-text-3' : 'text-g-price'}`}
+                    currencyClassName="text-[11px] font-semibold"
+                  />
+                </span>
+              </li>
+            ))}
+            {sizes.length > visibleSizes.length ? (
+              <li className="text-[12px] font-semibold text-g-text-3">
+                {copy.moreSizes(sizes.length - visibleSizes.length)}
+              </li>
+            ) : null}
+          </ul>
+        ) : null}
+
         <div
           className={`mt-auto pt-1.5 ${
             discounted ? 'flex flex-col gap-2.5' : 'flex items-center justify-between gap-2'
           }`}
         >
-          <div className="min-w-0">
+          <div className={showSizeList ? 'hidden' : 'min-w-0'}>
             {cheapest ? (
               <span className="block text-[11.5px] font-semibold text-g-text-3">{copy.fromPrice}</span>
             ) : null}
@@ -178,7 +217,7 @@ function ProductCardImpl({
           {isSoldOut ? (
             <span className="text-[12.5px] font-semibold text-g-text-3">{copy.unavailableNow}</span>
           ) : interactive ? (
-            <div className={`relative z-10 ${discounted ? 'self-end' : ''}`}>
+            <div className={`relative z-10 ${discounted ? 'self-end' : showSizeList ? 'ms-auto' : ''}`}>
               {showStepper ? (
                 <Stepper
                   variant="accent"

@@ -62,6 +62,7 @@ export default async function ProfileSettingsPage({ params }: ProfileSettingsPag
       initialName={membership.restaurant.name}
       initialLogoAssetPath={membership.restaurant.logoAssetPath}
       initialCoverAssetPath={membership.restaurant.coverAssetPath}
+      initialContact={membership.restaurant.contact}
       currencyCode={membership.restaurant.currencyCode}
       canManage={hasRestaurantManagePermission(membership) && membership.allBranches === true}
       hasRestaurantManagePermission={hasRestaurantManagePermission(membership)}

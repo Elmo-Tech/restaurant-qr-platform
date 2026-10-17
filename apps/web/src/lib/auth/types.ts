@@ -1,3 +1,4 @@
+import type { RestaurantContact } from '../contact/types';
 /**
  * Types mirroring the Backend's `GET /auth/me` response shape
  * (`apps/api/src/auth/context/auth-context.service.ts`) exactly -- typing
@@ -39,6 +40,8 @@ export interface AuthContextRestaurant {
   deliveryEnabled: boolean;
   /** Table (dine-in) channel; false = the table QR shows a view-only menu. */
   tableOrderingEnabled: boolean;
+  /** Guest Menu contact details (Settings -> Profile). */
+  contact: RestaurantContact;
   /** QR appearance (Settings -> Restaurant QR): applied to the Restaurant QR and the table QR panels. */
   qrStyle: {
     foregroundColor: string;

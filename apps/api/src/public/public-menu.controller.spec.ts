@@ -1,11 +1,19 @@
 import { PublicMenuController } from './public-menu.controller';
+import { EMPTY_CONTACT } from '../restaurants/restaurant-contact';
 import type { PublicMenuData } from './public-menu.service';
 
 const SAMPLE_DATA: PublicMenuData = {
   context: {
     qrType: 'GENERIC',
     tableOrdering: null,
-    restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null, coverAssetPath: null },
+    restaurant: {
+      name: 'Elmo Bistro',
+      currencyCode: 'EGP',
+      logoAssetPath: null,
+      coverAssetPath: null,
+      contact: EMPTY_CONTACT,
+      shareCode: null,
+    },
     branch: null,
     table: null,
     pickupBranches: [],

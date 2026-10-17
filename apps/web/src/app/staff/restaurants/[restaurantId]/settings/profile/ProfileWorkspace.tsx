@@ -21,6 +21,8 @@ import { Input } from '../../../../../../components/ui/Input';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { SectionCard } from '../../../../../../components/ui/SectionCard';
 import { SettingsTabs } from '../SettingsTabs';
+import { ContactCard } from './ContactCard';
+import type { RestaurantContact } from '../../../../../../lib/contact/types';
 
 const NAME_MAX_LENGTH = 200;
 
@@ -29,6 +31,7 @@ export interface ProfileWorkspaceProps {
   initialName: string;
   initialLogoAssetPath: string | null;
   initialCoverAssetPath: string | null;
+  initialContact: RestaurantContact;
   currencyCode: string;
   /** `restaurant.manage` AND `allBranches === true`. */
   canManage: boolean;
@@ -48,6 +51,7 @@ export function ProfileWorkspace({
   initialName,
   initialLogoAssetPath,
   initialCoverAssetPath,
+  initialContact,
   currencyCode,
   canManage,
   hasRestaurantManagePermission,
@@ -321,6 +325,8 @@ export function ProfileWorkspace({
           )}
         </div>
       </SectionCard>
+
+      <ContactCard restaurantId={restaurantId} initialContact={initialContact} canManage={canManage} />
 
       <ConfirmDialog
         open={confirmRemoveCover}

@@ -1,6 +1,7 @@
 import { accountMessages } from './account';
 import { branchesMessages } from './branches';
 import { commonMessages } from './common';
+import { contactMessages } from './contact';
 import { dashboardMessages } from './dashboard';
 import { kitchenMessages } from './kitchen';
 import { opsMessages } from './ops';
@@ -29,6 +30,7 @@ const en = {
   ...accountMessages.en,
   ...branchesMessages.en,
   ...commonMessages.en,
+  ...contactMessages.en,
   ...dashboardMessages.en,
   ...kitchenMessages.en,
   ...opsMessages.en,
@@ -52,6 +54,7 @@ const ar = {
   ...accountMessages.ar,
   ...branchesMessages.ar,
   ...commonMessages.ar,
+  ...contactMessages.ar,
   ...dashboardMessages.ar,
   ...kitchenMessages.ar,
   ...opsMessages.ar,

@@ -38,6 +38,8 @@ export interface PublicMenuCopy {
   optional: string;
   chooseSize: string;
   fromPrice: string;
+  /** "+2 more sizes" under the size price list of a product card. */
+  moreSizes: (count: number) => string;
   chooseUpTo: string;
   chooseExactly: string;
   addToCart: string;
@@ -82,6 +84,17 @@ export interface PublicMenuCopy {
   chooseAtCheckout: string;
   browseOnly: string;
   language: string;
+  /** Share button (the Restaurant menu link) and its confirmations. */
+  share: string;
+  shareTitle: (restaurantName: string) => string;
+  linkCopied: string;
+  /** Contact block at the bottom of the menu. */
+  findUs: string;
+  callUs: string;
+  hotlineLabel: string;
+  whatsappUs: string;
+  contactMaps: string;
+  contactWebsite: string;
   searchMenu: string;
   searchPlaceholder: string;
   clearSearch: string;
@@ -190,6 +203,7 @@ const EN_COPY: PublicMenuCopy = {
   optional: 'Optional',
   chooseSize: 'Size',
   fromPrice: 'From',
+  moreSizes: (count) => (count === 1 ? '+1 more size' : `+${count} more sizes`),
   chooseUpTo: 'Choose up to',
   chooseExactly: 'Choose',
   addToCart: 'Add to cart',
@@ -234,6 +248,15 @@ const EN_COPY: PublicMenuCopy = {
   chooseAtCheckout: 'Choose at checkout',
   browseOnly: 'Browse only',
   language: 'Language',
+  share: 'Share',
+  shareTitle: (name) => `${name} menu`,
+  linkCopied: 'Link copied',
+  findUs: 'Find us',
+  callUs: 'Call us',
+  hotlineLabel: 'Hotline',
+  whatsappUs: 'WhatsApp',
+  contactMaps: 'Location',
+  contactWebsite: 'Website',
   searchMenu: 'Search the menu',
   searchPlaceholder: 'Search dishes or drinks',
   clearSearch: 'Clear search',
@@ -337,6 +360,8 @@ const AR_COPY: PublicMenuCopy = {
   optional: 'اختياري',
   chooseSize: 'الحجم',
   fromPrice: 'من',
+  moreSizes: (count) =>
+    count === 1 ? '+ مقاس آخر' : count === 2 ? '+ مقاسان آخران' : count <= 10 ? `+ ${count} مقاسات أخرى` : `+ ${count} مقاسًا آخر`,
   chooseUpTo: 'اختر حتى',
   chooseExactly: 'اختر',
   addToCart: 'أضف إلى طلبي',
@@ -381,6 +406,15 @@ const AR_COPY: PublicMenuCopy = {
   chooseAtCheckout: 'اختر عند إتمام الطلب',
   browseOnly: 'تصفح فقط',
   language: 'اللغة',
+  share: 'مشاركة',
+  shareTitle: (name) => `منيو ${name}`,
+  linkCopied: 'تم نسخ الرابط',
+  findUs: 'تواصل معنا',
+  callUs: 'اتصل بنا',
+  hotlineLabel: 'الخط الساخن',
+  whatsappUs: 'واتساب',
+  contactMaps: 'الموقع',
+  contactWebsite: 'الموقع الإلكتروني',
   searchMenu: 'ابحث في القائمة',
   searchPlaceholder: 'ابحث عن طبق أو مشروب',
   clearSearch: 'مسح البحث',

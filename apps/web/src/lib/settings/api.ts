@@ -1,3 +1,4 @@
+import type { ContactField, RestaurantContact } from '../contact/types';
 import { apiFetch, apiFetchFormData } from '../api/client';
 import type { QrStyle } from '../qr/style';
 import type {
@@ -92,6 +93,18 @@ export async function updateOrderingOptions(
 ): Promise<RestaurantOrderingOptions> {
   const body = await apiFetch<{ data: RestaurantOrderingOptions }>(
     `${restaurantPath(restaurantId)}/ordering-options`,
+    { method: 'PATCH', body: input },
+  );
+  return body.data;
+}
+
+/** Save the Guest Menu contact details (omitted fields stay unchanged; null or blank clears one). */
+export async function updateContact(
+  restaurantId: string,
+  input: Partial<Record<ContactField, string | null>>,
+): Promise<RestaurantContact> {
+  const body = await apiFetch<{ data: RestaurantContact }>(
+    `${restaurantPath(restaurantId)}/contact`,
     { method: 'PATCH', body: input },
   );
   return body.data;

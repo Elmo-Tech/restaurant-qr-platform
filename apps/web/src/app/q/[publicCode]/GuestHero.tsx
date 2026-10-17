@@ -10,6 +10,9 @@ import {
 } from '../../../components/guest/icons';
 import { useGuestTheme } from '../../../components/guest/GuestTheme';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
+import { ShareButton } from './ShareButton';
+import { HeroContactIcons } from './GuestContact';
+import type { RestaurantContact } from '../../../lib/contact/types';
 
 /** Platform locales stay exactly `en`/`ar`; Arabic is listed first, as in the design. */
 const LOCALE_LABELS: Record<string, { short: string; full: string }> = {
@@ -125,6 +128,8 @@ export function GuestHero({
   copy,
   locale,
   publicCode,
+  shareCode,
+  contact,
   sentinelRef,
 }: {
   restaurantName: string;
@@ -138,6 +143,9 @@ export function GuestHero({
   copy: PublicMenuCopy;
   locale: { available: string[]; resolved: string };
   publicCode: string;
+  /** The Restaurant menu link code to share, or null to hide the Share button. */
+  shareCode: string | null;
+  contact: RestaurantContact;
   sentinelRef: React.RefObject<HTMLElement | null>;
 }) {
   const hasArabicName = ARABIC_SCRIPT.test(restaurantName);
@@ -196,7 +204,17 @@ export function GuestHero({
             publicCode={publicCode}
             label={copy.language}
           />
-          <ThemeToggle copy={copy} />
+          <div className="relative flex items-center gap-2">
+            {shareCode ? (
+              <ShareButton
+                shareCode={shareCode}
+                restaurantName={restaurantName}
+                copy={copy}
+                className={`flex size-11 items-center justify-center rounded-full lg:size-[46px] ${GLASS}`}
+              />
+            ) : null}
+            <ThemeToggle copy={copy} />
+          </div>
         </div>
 
         <div className="flex items-end gap-3.5 lg:gap-[22px]">
@@ -228,6 +246,7 @@ export function GuestHero({
                 </span>
               </p>
             ) : null}
+            <HeroContactIcons contact={contact} copy={copy} />
           </div>
         </div>
       </div>

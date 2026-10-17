@@ -941,6 +941,68 @@ creation; Staff and Kitchen order views; the menu import approval (DEC-040).
 Detailed API contracts are recorded in `API_CONVENTIONS.md` when each slice is
 implemented.
 
+### DEC-042 — Guest Menu Growth Features (Plan, 2026-10-17)
+
+**Status:** Accepted (owner, 2026-10-17). Built one slice at a time; each slice records its contract in the specs when implemented.
+
+Owner-approved order of work: (1) size prices on the product card; (2) contact
+details, social links and a Share button; (3) working hours and Open / Closed;
+(4) announcements; (5) Guest order tracking; (6) feature entitlements
+foundation (DEC-043); (7) WhatsApp ordering; (8) upselling; (9) menu designs.
+
+- **Share:** shares the link to the Restaurant menu (the Restaurant QR link),
+  never a Table QR link, so a shared link can never place an order on someone's
+  table. Native share sheet where the browser offers one (Web Share API), copy-link
+  otherwise.
+- **Working hours:** a weekly schedule per Branch (several intervals per day,
+  overnight allowed, "always open", and a manual "temporarily closed"). A closed
+  Branch shows a "Closed, opens at ..." badge; the menu stays browsable but
+  ordering is blocked with a clear message.
+- **Tracking:** automatic on the same device (the Guest Session's own orders); on
+  another device the Guest enters the phone number used for the order and sees
+  the status of their recent orders only (no personal data, rate limited). No
+  long codes.
+- **Announcements:** up to 3 active per Restaurant, per-language text, a style,
+  optional start / end dates; a dismissible banner at the top of the menu.
+- **WhatsApp ordering:** NOT an integration. When the Guest finishes the cart the
+  Backend re-prices it and builds the formatted message; the Guest's phone opens
+  WhatsApp on the Restaurant's number (`wa.me` link) with the message ready to send.
+  No order is stored in this mode. It is a Restaurant setting (on / off).
+- **Upselling:** suggestions in the cart ("Complete your meal"). Two sources the
+  Restaurant controls: manual rules per product, and automatic "bought together"
+  computed by the Backend from the Restaurant's own completed orders (Tenant
+  scoped, aggregate only, shown only above a minimum amount of data). The
+  Restaurant can turn the feature off, or choose manual only, automatic only or both.
+  No AI.
+- **Menu designs:** several selectable designs with a live preview on the
+  Restaurant's own menu; the last slice.
+
+**Reason:** these features raise order conversion and fit the smaller packages
+(display only; display + WhatsApp; full dashboard ordering).
+
+**Impact:** new Restaurant / Branch settings tables and Guest endpoints, added
+slice by slice. Changes the earlier roadmap that listed WhatsApp under V3
+(that entry meant an API integration, which is still not built).
+
+---
+
+### DEC-043 — Feature Entitlements Foundation
+
+**Status:** Accepted (owner, 2026-10-17); built before WhatsApp ordering.
+
+Packages will decide what each Restaurant can use (for example: menu display
+only; display + WhatsApp ordering; everything including dashboard orders and
+tables). The Backend gets ONE place that answers "may this Restaurant use
+feature X", and every new feature asks it. Until the platform control dashboard
+exists, every Restaurant has every feature (current behavior is unchanged);
+later that dashboard only edits the stored entitlements. The existing channel
+switches (pickup, delivery, table ordering) stay as the Restaurant's own on/off
+choices; an entitlement is the platform's permission, the switch is the
+Restaurant's choice, and both must be on. The platform control dashboard itself
+is not started until the product is complete.
+
+---
+
 ---
 
 ## Change Policy

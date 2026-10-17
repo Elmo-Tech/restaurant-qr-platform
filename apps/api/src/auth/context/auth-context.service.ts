@@ -1,5 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import {
+  CONTACT_COLUMNS,
+  contactFromColumns,
+  type RestaurantContact,
+} from '../../restaurants/restaurant-contact';
 import type {
   BranchStatus,
   RestaurantMembershipRole,
@@ -38,6 +43,8 @@ export interface AuthContextRestaurant {
   deliveryEnabled: boolean;
   /** Table (dine-in) channel; false = a view-only table menu (DEC-038). */
   tableOrderingEnabled: boolean;
+  /** Guest Menu contact details (Settings -> Profile). */
+  contact: RestaurantContact;
   /** QR appearance (Settings -> Restaurant QR), applied to the Restaurant QR and Table QR panels. */
   qrStyle: {
     foregroundColor: string;
@@ -146,6 +153,7 @@ export class AuthContextService {
             pickupEnabled: true,
             deliveryEnabled: true,
             tableOrderingEnabled: true,
+            ...CONTACT_COLUMNS,
             qrForegroundColor: true,
             qrBackgroundColor: true,
             qrShowLogo: true,
@@ -274,6 +282,7 @@ export class AuthContextService {
           pickupEnabled: membership.restaurant.pickupEnabled,
           deliveryEnabled: membership.restaurant.deliveryEnabled,
           tableOrderingEnabled: membership.restaurant.tableOrderingEnabled,
+          contact: contactFromColumns(membership.restaurant),
           qrStyle: {
             foregroundColor: membership.restaurant.qrForegroundColor,
             backgroundColor: membership.restaurant.qrBackgroundColor,

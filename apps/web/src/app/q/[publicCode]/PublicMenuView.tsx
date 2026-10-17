@@ -38,6 +38,7 @@ import { CartBar } from './CartBar';
 import { CartPanel } from './CartPanel';
 import { CategoryChips, type ChipItem } from './CategoryChips';
 import { FeaturedBanners } from './FeaturedBanners';
+import { GuestContact } from './GuestContact';
 import { GuestHero } from './GuestHero';
 import type {
   CartLine,
@@ -836,6 +837,8 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
           copy={copy}
           locale={data.locale}
           publicCode={publicCode}
+          shareCode={data.context.restaurant.shareCode}
+          contact={data.context.restaurant.contact}
         />
 
         <div className="relative z-20 px-4 lg:px-8">
@@ -951,6 +954,8 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
             />
           </div>
         </main>
+
+        <GuestContact contact={data.context.restaurant.contact} copy={copy} />
 
         {showCartBar ? (
           <CartBar

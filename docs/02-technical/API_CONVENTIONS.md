@@ -2247,6 +2247,16 @@ Stable errors: `IMPORT_FILE_INVALID` 422, `IMPORT_FILE_TOO_LARGE` 413, `IMPORT_A
 
 ---
 
+# 108H. Restaurant Contact Details (DEC-042, 2026-10-18)
+
+`PATCH /api/v1/restaurants/{restaurantId}/contact` -- permission `restaurant.manage` with Restaurant-wide scope and CSRF (like the rest of Restaurant Settings). Body: any of `phone`, `whatsapp`, `hotline`, `facebookUrl`, `instagramUrl`, `tiktokUrl`, `telegramUrl`, `youtubeUrl`, `xUrl`, `snapchatUrl`, `mapsUrl`, `websiteUrl` (omitted = unchanged; `null` or blank = clear). Response `{ data: { ...every field, null when unset } }`. One phone serves all Branches.
+
+Validation (Backend only): a hotline / short number such as 16512 is 3 to 8 digits with no `+` (spaces and dashes are removed); a phone is 6 to 15 digits with an optional leading `+` (spaces, dashes and brackets are removed); the WhatsApp number must include the `+` country code (a `wa.me` link needs it); a link must be `https`, without credentials, at most 300 characters, and on the platform's own domain (for example Instagram only on instagram.com; Maps on google.com, goo.gl, maps.app.goo.gl, g.page or apple.com); a bare `instagram.com/x` gets `https://` added; the website may be any https host with a dot. Failure: `422 { error: { code: INVALID_PHONE | INVALID_URL, details: { field } } }` and nothing is written.
+
+Read: `GET /auth/me` -> `restaurant.contact` (Staff) and the public menu `context.restaurant.contact` (Guest). The public menu also returns `context.restaurant.shareCode`: the public code of the Restaurant's own active generic QR, used by the Guest Share button; it is never a Table QR code, and null when the Restaurant has no active generic QR (the button is hidden).
+
+---
+
 # 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
 `Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.

@@ -257,6 +257,22 @@ model Restaurant {
   qrBackgroundColor String        @default("#FFFFFF") @map("qr_background_color") @db.Char(7)
   qrShowLogo        Boolean       @default(false) @map("qr_show_logo")
   qrShowName        Boolean       @default(true) @map("qr_show_name")
+  // Guest Menu contact details (DEC-042): one phone for the whole Restaurant, a
+  // WhatsApp number (also used by WhatsApp ordering later) and public links. All
+  // optional; validated and normalized by the Backend (restaurant-contact.ts).
+  contactPhone      String?       @map("contact_phone")
+  whatsappNumber    String?       @map("whatsapp_number")
+  // Short / hotline number such as 16512 (digits only, no country code).
+  hotlineNumber     String?       @map("hotline_number")
+  facebookUrl       String?       @map("facebook_url")
+  instagramUrl      String?       @map("instagram_url")
+  tiktokUrl         String?       @map("tiktok_url")
+  telegramUrl       String?       @map("telegram_url")
+  youtubeUrl        String?       @map("youtube_url")
+  xUrl              String?       @map("x_url")
+  snapchatUrl       String?       @map("snapchat_url")
+  mapsUrl           String?       @map("maps_url")
+  websiteUrl        String?       @map("website_url")
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 

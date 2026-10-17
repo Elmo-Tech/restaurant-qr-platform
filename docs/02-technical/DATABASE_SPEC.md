@@ -1730,6 +1730,12 @@ Custom SQL: a partial unique index `menu_import_jobs_one_processing_per_restaura
 
 ---
 
+# 68B. Restaurant Contact Columns (DEC-042, 2026-10-18)
+
+Migration `20261018090000_restaurant_contact` (additive): nullable `restaurants.contact_phone`, `whatsapp_number`, `facebook_url`, `instagram_url`, `tiktok_url`, `telegram_url`, `youtube_url`, `x_url`, `snapchat_url`, `maps_url`, `website_url`. Values are validated and normalized by the Backend before they are stored. Migration `20261018120000_restaurant_hotline` adds the nullable `hotline_number` (a short number such as 16512). The WhatsApp number is reused by WhatsApp ordering (DEC-042, later slice).
+
+---
+
 # 69. Variant Price
 
 V1 uses:

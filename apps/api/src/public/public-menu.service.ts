@@ -18,6 +18,11 @@ import {
 import { resolvePublicLocale } from './public-locale';
 import { resolvePublicField } from './public-translation-fallback';
 import type { PublicTranslatableRow } from './public-translation-fallback';
+import {
+  CONTACT_COLUMNS,
+  contactFromColumns,
+  type RestaurantContact,
+} from '../restaurants/restaurant-contact';
 
 export interface GetPublicMenuInput {
   publicCode: string;
@@ -41,6 +46,10 @@ export interface PublicMenuContext {
     logoAssetPath: string | null;
     /** Guest hero cover image; null keeps the default branded hero. */
     coverAssetPath: string | null;
+    /** Contact details for the Guest Menu (DEC-042); a field is null when not set. */
+    contact: RestaurantContact;
+    /** Public code of the Restaurant's own (generic) QR: the link the Guest may share. Never a Table QR code. Null when the Restaurant has no active generic QR. */
+    shareCode: string | null;
   };
   /** The Branch display name, already resolved to the menu content language (requested -> default -> legacy name). */
   branch: { name: string } | null;
@@ -256,6 +265,7 @@ export class PublicMenuService {
             pickupEnabled: true,
             deliveryEnabled: true,
             tableOrderingEnabled: true,
+            ...CONTACT_COLUMNS,
           },
         },
         // At most one row per platform locale, so no extra filtering is needed.
@@ -640,6 +650,16 @@ export class PublicMenuService {
           }))
       : null;
 
+    const shareCode =
+      qr.type === 'GENERIC'
+        ? input.publicCode
+        : ((
+            await this.prisma.qrCode.findFirst({
+              where: { restaurantId: qr.restaurantId, type: 'GENERIC', status: 'ACTIVE' },
+              select: { publicCode: true },
+            })
+          )?.publicCode ?? null);
+
     return {
       outcome: 'found',
       data: {
@@ -651,6 +671,8 @@ export class PublicMenuService {
             currencyCode: qr.restaurant.currencyCode,
             logoAssetPath: qr.restaurant.logoAssetPath,
             coverAssetPath: qr.restaurant.coverAssetPath,
+            contact: contactFromColumns(qr.restaurant),
+            shareCode,
           },
           branch: qr.branch
             ? { name: displayName(qr.branch.name, qr.branch.translations) }

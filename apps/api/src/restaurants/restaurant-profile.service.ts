@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import {
+  CONTACT_COLUMNS,
+  contactColumnUpdates,
+  contactFromColumns,
+  type ContactField,
+  type RestaurantContact,
+} from './restaurant-contact';
 import { validateQrStyle, type QrStyle, type QrStyleErrorCode } from './qr-style';
 
 /** Safe Restaurant Profile shape -- never `publicId`, `status`, `currencyCode`/`defaultLocale` mutation authority, `createdAt`/`updatedAt`. */
@@ -153,6 +160,24 @@ export class RestaurantProfileService {
       data,
       select: { pickupEnabled: true, deliveryEnabled: true, tableOrderingEnabled: true },
     });
+  }
+
+  /**
+   * Contact details shown on the Guest Menu. Only the fields that were sent are
+   * written (null or blank clears one). Throws `ContactValidationError` before any
+   * write when a value is not a valid phone / link.
+   */
+  async updateContact(
+    restaurantId: string,
+    patch: Partial<Record<ContactField, string | null | undefined>>,
+  ): Promise<RestaurantContact> {
+    const updates = contactColumnUpdates(patch);
+    const row = await this.prisma.restaurant.update({
+      where: { id: restaurantId },
+      data: updates,
+      select: CONTACT_COLUMNS,
+    });
+    return contactFromColumns(row);
   }
 
   async updateProfile(input: UpdateRestaurantProfileInput): Promise<RestaurantProfile> {

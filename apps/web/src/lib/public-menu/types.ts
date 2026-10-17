@@ -1,3 +1,5 @@
+import type { RestaurantContact } from '../contact/types';
+
 /** Mirrors the Backend's public Guest Menu response shape exactly (FT-3) -- never a Staff `menu/types.ts` type, since the public payload's shape (flattened, already-resolved names/descriptions, no translation rows) is genuinely different. */
 export interface PublicMenuContext {
   qrType: 'TABLE' | 'GENERIC';
@@ -9,6 +11,10 @@ export interface PublicMenuContext {
     logoAssetPath: string | null;
     /** Guest hero cover image; `null` keeps the default branded hero. */
     coverAssetPath: string | null;
+    /** Contact details for the Guest Menu; a field is null when not set. */
+    contact: RestaurantContact;
+    /** Public code of the Restaurant's own (generic) QR: the link the Guest may share; never a Table QR. Null = nothing to share. */
+    shareCode: string | null;
   };
   branch: { name: string } | null;
   table: { number: string } | null;

@@ -1,3 +1,4 @@
+import { EMPTY_CONTACT } from '../restaurants/restaurant-contact';
 import { PublicMenuService } from './public-menu.service';
 
 function decimal(value: string) {
@@ -15,6 +16,18 @@ const GENERIC_QR_ROW = {
     currencyCode: 'EGP',
     logoAssetPath: null,
     coverAssetPath: null,
+    contactPhone: null,
+    whatsappNumber: null,
+    hotlineNumber: null,
+    facebookUrl: null,
+    instagramUrl: null,
+    tiktokUrl: null,
+    telegramUrl: null,
+    youtubeUrl: null,
+    xUrl: null,
+    snapchatUrl: null,
+    mapsUrl: null,
+    websiteUrl: null,
   },
   branch: null,
   table: null,
@@ -116,7 +129,10 @@ function buildPrismaMock() {
   // not just the individual assertions below.
   return {
     prisma: {
-      qrCode: { findUnique: qrCodeFindUnique },
+      qrCode: {
+        findUnique: qrCodeFindUnique,
+        findFirst: jest.fn().mockResolvedValue({ publicCode: 'generic-qr' }),
+      },
       restaurantLocale: { findMany: restaurantLocaleFindMany },
       menu: { findFirst: menuFindFirst },
       category: { findMany: categoryFindMany },
@@ -355,7 +371,14 @@ describe('PublicMenuService.getPublicMenu', () => {
     if (result.outcome !== 'found') return;
     expect(result.data.context).toEqual({
       qrType: 'TABLE',
-      restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null, coverAssetPath: null },
+      restaurant: {
+        name: 'Elmo Bistro',
+        currencyCode: 'EGP',
+        logoAssetPath: null,
+        coverAssetPath: null,
+        contact: EMPTY_CONTACT,
+        shareCode: 'generic-qr',
+      },
       tableOrdering: 'AVAILABLE',
       branch: { name: 'Downtown Branch' },
       table: { number: '12' },
@@ -379,7 +402,14 @@ describe('PublicMenuService.getPublicMenu', () => {
     expect(result.data.context).toEqual({
       qrType: 'GENERIC',
       tableOrdering: null,
-      restaurant: { name: 'Elmo Bistro', currencyCode: 'EGP', logoAssetPath: null, coverAssetPath: null },
+      restaurant: {
+        name: 'Elmo Bistro',
+        currencyCode: 'EGP',
+        logoAssetPath: null,
+        coverAssetPath: null,
+        contact: EMPTY_CONTACT,
+        shareCode: 'generic-qr',
+      },
       branch: null,
       table: null,
       pickupBranches: [
