@@ -86,6 +86,17 @@ export interface PublicMenuCopy {
   language: string;
   /** Share button (the Restaurant menu link) and its confirmations. */
   share: string;
+  /** Opening-hours badge (DEC-042). Times are already formatted for the Guest. */
+  openNow: string;
+  openUntil: (time: string) => string;
+  closedNow: string;
+  temporarilyClosed: string;
+  closedOpensToday: (time: string) => string;
+  closedOpensTomorrow: (time: string) => string;
+  closedOpensOn: (day: string, time: string) => string;
+  /** Shown near the cart when the chosen branch is closed. */
+  branchClosedHint: string;
+  branchClosedNotice: string;
   shareTitle: (restaurantName: string) => string;
   linkCopied: string;
   /** Contact block at the bottom of the menu. */
@@ -249,6 +260,15 @@ const EN_COPY: PublicMenuCopy = {
   browseOnly: 'Browse only',
   language: 'Language',
   share: 'Share',
+  openNow: 'Open now',
+  openUntil: (time) => `Open now · until ${time}`,
+  closedNow: 'Closed',
+  temporarilyClosed: 'Temporarily closed',
+  closedOpensToday: (time) => `Closed · opens today at ${time}`,
+  closedOpensTomorrow: (time) => `Closed · opens tomorrow at ${time}`,
+  closedOpensOn: (day, time) => `Closed · opens ${day} at ${time}`,
+  branchClosedHint: 'This branch is closed right now, so it cannot take orders.',
+  branchClosedNotice: 'This branch is closed right now. You can browse the menu, but orders are not accepted until it opens.',
   shareTitle: (name) => `${name} menu`,
   linkCopied: 'Link copied',
   findUs: 'Find us',
@@ -407,6 +427,15 @@ const AR_COPY: PublicMenuCopy = {
   browseOnly: 'تصفح فقط',
   language: 'اللغة',
   share: 'مشاركة',
+  openNow: 'مفتوح الآن',
+  openUntil: (time) => `مفتوح الآن · حتى ${time}`,
+  closedNow: 'مغلق',
+  temporarilyClosed: 'مغلق مؤقتًا',
+  closedOpensToday: (time) => `مغلق · يفتح اليوم الساعة ${time}`,
+  closedOpensTomorrow: (time) => `مغلق · يفتح غدًا الساعة ${time}`,
+  closedOpensOn: (day, time) => `مغلق · يفتح ${day} الساعة ${time}`,
+  branchClosedHint: 'هذا الفرع مغلق الآن ولا يستقبل الطلبات.',
+  branchClosedNotice: 'هذا الفرع مغلق الآن. يمكنك تصفح المنيو ولكن لا تُقبل الطلبات حتى يفتح.',
   shareTitle: (name) => `منيو ${name}`,
   linkCopied: 'تم نسخ الرابط',
   findUs: 'تواصل معنا',

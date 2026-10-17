@@ -300,9 +300,9 @@ describe('PublicMenuService.getPublicMenu', () => {
       expect(result.outcome).toBe('found');
       if (result.outcome !== 'found') return;
       expect(result.data.context.pickupBranches).toEqual([
-        { id: 'branch-a', name: 'وسط البلد' },
-        { id: 'branch-b', name: 'Uptown' },
-        { id: 'branch-c', name: 'Heliopolis' },
+        { id: 'branch-a', name: 'وسط البلد', hours: null },
+        { id: 'branch-b', name: 'Uptown', hours: null },
+        { id: 'branch-c', name: 'Heliopolis', hours: null },
       ]);
       expect(result.data.context.deliveryBranches?.[0]).toMatchObject({
         name: 'وسط البلد',
@@ -378,6 +378,7 @@ describe('PublicMenuService.getPublicMenu', () => {
         coverAssetPath: null,
         contact: EMPTY_CONTACT,
         shareCode: 'generic-qr',
+        hours: null,
       },
       tableOrdering: 'AVAILABLE',
       branch: { name: 'Downtown Branch' },
@@ -409,18 +410,20 @@ describe('PublicMenuService.getPublicMenu', () => {
         coverAssetPath: null,
         contact: EMPTY_CONTACT,
         shareCode: 'generic-qr',
+        hours: null,
       },
       branch: null,
       table: null,
       pickupBranches: [
-        { id: 'branch-a', name: 'Downtown' },
-        { id: 'branch-b', name: 'Uptown' },
+        { id: 'branch-a', name: 'Downtown', hours: null },
+        { id: 'branch-b', name: 'Uptown', hours: null },
       ],
       // FT-8: only Branches with at least one ACTIVE zone, exact money strings.
       deliveryBranches: [
         {
           id: 'branch-b',
           name: 'Uptown',
+          hours: null,
           zones: [
             { id: 'zone-1', name: 'University District', deliveryFee: '25.00', minimumOrder: '100.00' },
           ],

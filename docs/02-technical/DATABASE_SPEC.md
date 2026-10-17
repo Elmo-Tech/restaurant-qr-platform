@@ -1736,6 +1736,12 @@ Migration `20261018090000_restaurant_contact` (additive): nullable `restaurants.
 
 ---
 
+# 68C. Branch Opening Hours (DEC-042, 2026-10-19)
+
+Migration `20261019090000_branch_opening_hours` (additive): enum `branch_hours_mode` (`ALWAYS_OPEN`, `SCHEDULE`); `branches.hours_mode` (default `ALWAYS_OPEN`, so nothing changes for existing Branches) and `branches.temporarily_closed` (default false, a manual override in both modes); table `branch_opening_hours` (`restaurant_id`, `branch_id` with ON DELETE CASCADE, `day_of_week` 0-6 with 0 = Sunday, `opens_minute` and `closes_minute` as minutes after local midnight; an interval that ends after midnight uses `closes_minute` above 1440 and belongs to the day it opens on). A CHECK enforces the ranges (`opens_minute` 0-1439, `closes_minute` greater than it and at most 24 hours later). Evaluation always uses the Branch's own IANA timezone.
+
+---
+
 # 69. Variant Price
 
 V1 uses:

@@ -13,6 +13,7 @@ const SAMPLE_DATA: PublicMenuData = {
       coverAssetPath: null,
       contact: EMPTY_CONTACT,
       shareCode: null,
+      hours: null,
     },
     branch: null,
     table: null,

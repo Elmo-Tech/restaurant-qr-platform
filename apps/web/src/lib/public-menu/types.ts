@@ -1,6 +1,16 @@
 import type { RestaurantContact } from '../contact/types';
 
 /** Mirrors the Backend's public Guest Menu response shape exactly (FT-3) -- never a Staff `menu/types.ts` type, since the public payload's shape (flattened, already-resolved names/descriptions, no translation rows) is genuinely different. */
+/** What the Backend says about a Branch's opening hours; clock strings are in the Branch's own time. */
+export interface PublicHours {
+  open: boolean;
+  temporarilyClosed: boolean;
+  /** The next opening: 0 = later today, 1 = tomorrow ... and the weekday it falls on (0 = Sunday). */
+  opensAt: { dayOffset: number; time: string; dayOfWeek: number } | null;
+  /** While open on a schedule: the closing clock "HH:MM". */
+  closesAt: string | null;
+}
+
 export interface PublicMenuContext {
   qrType: 'TABLE' | 'GENERIC';
   /** Table Sessions: TABLE QR only (null for GENERIC). Advisory -- the order endpoint re-checks. */
@@ -15,11 +25,13 @@ export interface PublicMenuContext {
     contact: RestaurantContact;
     /** Public code of the Restaurant's own (generic) QR: the link the Guest may share; never a Table QR. Null = nothing to share. */
     shareCode: string | null;
+    /** Opening-hours summary for the badge (DEC-042); null = always open, show nothing. */
+    hours: PublicHours | null;
   };
   branch: { name: string } | null;
   table: { number: string } | null;
   /** FT-7: GENERIC QR only (null for TABLE) -- the ACTIVE Branches eligible for Pickup. Empty = Pickup unavailable. */
-  pickupBranches: { id: string; name: string }[] | null;
+  pickupBranches: { id: string; name: string; hours: PublicHours | null }[] | null;
   /** FT-8: GENERIC QR only -- ACTIVE Branches with at least one ACTIVE Delivery zone. Empty = Delivery unavailable. Display data only: the Backend re-resolves fee/minimum on submit. */
   deliveryBranches: PublicDeliveryBranch[] | null;
 }
@@ -47,6 +59,8 @@ export interface PublicDeliveryZone {
 export interface PublicDeliveryBranch {
   id: string;
   name: string;
+  /** Opening hours of this Branch (DEC-042); null = always open. */
+  hours: PublicHours | null;
   zones: PublicDeliveryZone[];
 }
 

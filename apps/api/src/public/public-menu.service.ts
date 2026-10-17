@@ -15,6 +15,12 @@ import {
   resolveTableOrderingAvailability,
   type GuestTableOrderingState,
 } from '../table-sessions/table-session-availability';
+import {
+  evaluateHours,
+  summarizeHours,
+  toPublicHours,
+  type PublicHours,
+} from '../branches/branch-hours';
 import { resolvePublicLocale } from './public-locale';
 import { resolvePublicField } from './public-translation-fallback';
 import type { PublicTranslatableRow } from './public-translation-fallback';
@@ -50,6 +56,8 @@ export interface PublicMenuContext {
     contact: RestaurantContact;
     /** Public code of the Restaurant's own (generic) QR: the link the Guest may share. Never a Table QR code. Null when the Restaurant has no active generic QR. */
     shareCode: string | null;
+    /** Opening-hours summary for the badge; null = always open, show nothing. */
+    hours: PublicHours | null;
   };
   /** The Branch display name, already resolved to the menu content language (requested -> default -> legacy name). */
   branch: { name: string } | null;
@@ -61,7 +69,7 @@ export interface PublicMenuContext {
    * Modifier ids) and its display name. An empty array means Pickup is
    * unavailable. Order creation re-validates whatever id the Guest picks.
    */
-  pickupBranches: { id: string; name: string }[] | null;
+  pickupBranches: { id: string; name: string; hours: PublicHours | null }[] | null;
   /**
    * FT-8: GENERIC QR only (null for TABLE) -- the ACTIVE Branches that have
    * at least one ACTIVE Delivery zone, each with only its ACTIVE zones
@@ -79,9 +87,36 @@ export interface PublicMenuDeliveryZone {
   minimumOrder: string;
 }
 
+/** The Branch columns the opening-hours evaluation needs. */
+const HOURS_SELECT = { dayOfWeek: true, opensMinute: true, closesMinute: true } as const;
+
+function hoursOf(
+  branch: {
+    timezone: string;
+    hoursMode: 'ALWAYS_OPEN' | 'SCHEDULE';
+    temporarilyClosed: boolean;
+    openingHours: { dayOfWeek: number; opensMinute: number; closesMinute: number }[];
+  },
+  now: Date,
+): PublicHours | null {
+  return toPublicHours(
+    evaluateHours(
+      {
+        mode: branch.hoursMode ?? 'ALWAYS_OPEN',
+        temporarilyClosed: branch.temporarilyClosed ?? false,
+        intervals: branch.openingHours ?? [],
+      },
+      now,
+      branch.timezone,
+    ),
+  );
+}
+
 export interface PublicMenuDeliveryBranch {
   id: string;
   name: string;
+  /** Opening hours of this Branch (DEC-042); null = always open. */
+  hours: PublicHours | null;
   zones: PublicMenuDeliveryZone[];
 }
 
@@ -273,6 +308,9 @@ export class PublicMenuService {
           select: {
             name: true,
             timezone: true,
+            hoursMode: true,
+            temporarilyClosed: true,
+            openingHours: { select: HOURS_SELECT },
             translations: { select: { locale: true, name: true } },
           },
         },
@@ -356,6 +394,9 @@ export class PublicMenuService {
               id: true,
               name: true,
               timezone: true,
+              hoursMode: true,
+              temporarilyClosed: true,
+              openingHours: { select: HOURS_SELECT },
               createdAt: true,
               translations: { select: { locale: true, name: true } },
               deliveryZones: {
@@ -383,7 +424,8 @@ export class PublicMenuService {
         : ([...(activeBranches ?? [])].sort(
             (x, y) => x.createdAt.getTime() - y.createdAt.getTime(),
           )[0]?.timezone ?? 'UTC');
-    const today = localDateIn(menuTimezone, new Date());
+    const now = new Date();
+    const today = localDateIn(menuTimezone, now);
 
     // One nested query for every ACTIVE Category and, within each, every
     // ACTIVE Product plus both locales' translations -- Section 6/10: never
@@ -633,6 +675,7 @@ export class PublicMenuService {
       ? (pickupOffered ? activeBranches : []).map((branch) => ({
           id: branch.id,
           name: displayName(branch.name, branch.translations),
+          hours: hoursOf(branch, now),
         }))
       : null;
     const deliveryBranches = activeBranches
@@ -641,6 +684,7 @@ export class PublicMenuService {
           .map((branch) => ({
             id: branch.id,
             name: displayName(branch.name, branch.translations),
+            hours: hoursOf(branch, now),
             zones: branch.deliveryZones.map((zone) => ({
               id: zone.id,
               name: displayName(zone.name, zone.translations),
@@ -649,6 +693,18 @@ export class PublicMenuService {
             })),
           }))
       : null;
+
+    // Opening-hours badge: the Table's Branch, or all the Branches this QR can order from.
+    const offeredHours = [
+      ...(pickupBranches ?? []).map((branch) => branch.hours),
+      ...(deliveryBranches ?? []).map((branch) => branch.hours),
+    ];
+    const hours =
+      qr.type === 'TABLE'
+        ? qr.branch
+          ? hoursOf(qr.branch, now)
+          : null
+        : summarizeHours(offeredHours);
 
     const shareCode =
       qr.type === 'GENERIC'
@@ -673,6 +729,7 @@ export class PublicMenuService {
             coverAssetPath: qr.restaurant.coverAssetPath,
             contact: contactFromColumns(qr.restaurant),
             shareCode,
+            hours,
           },
           branch: qr.branch
             ? { name: displayName(qr.branch.name, qr.branch.translations) }

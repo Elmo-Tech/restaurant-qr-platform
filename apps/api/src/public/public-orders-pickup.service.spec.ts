@@ -120,7 +120,14 @@ function buildMock(options: { qr: unknown; activeBranchIds?: string[] }) {
     prisma: {
       qrCode: { findUnique: jest.fn().mockResolvedValue(options.qr) },
       order: { findFirst: orderFindFirst },
-      branch: { findMany: branchFindMany },
+      branch: {
+        findMany: branchFindMany,
+        findFirst: jest.fn().mockResolvedValue({
+          hoursMode: 'ALWAYS_OPEN',
+          temporarilyClosed: false,
+          openingHours: [],
+        }),
+      },
       $transaction: transaction,
     },
     orderFindFirst,

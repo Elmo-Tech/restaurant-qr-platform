@@ -2257,6 +2257,16 @@ Read: `GET /auth/me` -> `restaurant.contact` (Staff) and the public menu `contex
 
 ---
 
+# 108I. Branch Opening Hours (DEC-042, 2026-10-19)
+
+`GET /api/v1/restaurants/{restaurantId}/branches/{branchId}/hours` (`branches.view`) and `PUT` the same path (`branches.manage`, CSRF; same Branch access rule as `PATCH /branches/{branchId}`). `PUT` body: `{ mode: "ALWAYS_OPEN" | "SCHEDULE", temporarilyClosed: boolean, days?: [{ day: 0-6, intervals: [{ opens: "HH:MM", closes: "HH:MM" }] }] }` (0 = Sunday; at most 4 intervals per day; a `closes` at or before `opens` means after midnight, for example 22:00 to 02:00; `days` is required for `SCHEDULE` and ignored for `ALWAYS_OPEN`). The write replaces the whole schedule. Times are the Branch's own clock (its timezone). Response `{ data: { mode, temporarilyClosed, timezone, days[7], status } }` where `status` is the evaluation right now (null = always open and not closed).
+
+Errors: `422 INVALID_HOURS` (bad time, equal times, duplicate day, overlapping periods including across midnight), `422 HOURS_SCHEDULE_EMPTY`, `400` validation for malformed times.
+
+Guest: `GET /public/qr/{publicCode}/menu` returns `context.restaurant.hours` (summary for the badge; null = nothing to show) and `hours` on every `pickupBranches[]` / `deliveryBranches[]` entry: `{ open, temporarilyClosed, opensAt: { dayOffset, time, dayOfWeek } | null, closesAt: "HH:MM" | null }`. The summary is null if any offered Branch is always open, "open" if any is open, otherwise closed with the earliest next opening. A manual closure carries no `opensAt`. `POST /public/qr/{publicCode}/orders` answers `409 BRANCH_CLOSED` for a PICKUP or DELIVERY order whose Branch is closed right now (checked after the idempotent replay, so a retry of an order accepted while open still returns it); DINE_IN is never blocked by opening hours.
+
+---
+
 # 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
 `Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.

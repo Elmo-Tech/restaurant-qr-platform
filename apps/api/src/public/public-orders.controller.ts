@@ -16,6 +16,13 @@ import { PublicOrdersService } from './public-orders.service';
 import type { GuestOrderView } from './public-orders.service';
 
 /** Mirrors `PublicMenuController`'s exact QR_NOT_FOUND envelope -- the identical stable error for an unknown/inactive QR, a GENERIC QR, or an inactive Table (Section 3/5). */
+const BRANCH_CLOSED_RESPONSE = {
+  error: {
+    code: 'BRANCH_CLOSED',
+    message: 'This branch is closed right now and is not taking orders.',
+  },
+};
+
 const QR_NOT_FOUND_RESPONSE = {
   error: {
     code: 'QR_NOT_FOUND',
@@ -215,6 +222,9 @@ export class PublicOrdersController {
           details: { pricing: result.pricing },
         },
       });
+    }
+    if (result.outcome === 'branchClosed') {
+      throw new ConflictException(BRANCH_CLOSED_RESPONSE);
     }
     if (result.outcome === 'pickupUnavailable') {
       throw new ConflictException(PICKUP_UNAVAILABLE_RESPONSE);

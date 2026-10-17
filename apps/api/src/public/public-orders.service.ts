@@ -5,6 +5,7 @@ import {
   localDateIn,
   resolveActiveDiscount,
 } from '../menu/product-discount';
+import { isClosedNow } from '../branches/branch-hours';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import type { OrderStatus, OrderType } from '../generated/prisma/client';
@@ -107,6 +108,8 @@ export type CreateGuestOrderResult =
   | { outcome: 'customerDetailsRequired' }
   /** FT-7: GENERIC QR, more than one ACTIVE Branch, and no branchId supplied. */
   | { outcome: 'branchRequired' }
+  /** DEC-042: the Branch is closed right now (opening hours or manual closure); Pickup and Delivery only. */
+  | { outcome: 'branchClosed' }
   /** FT-7: supplied branchId is unknown, foreign, or INACTIVE -- deliberately one indistinguishable outcome. */
   | { outcome: 'branchInvalid' }
   /** FT-7: GENERIC QR whose Restaurant has zero ACTIVE Branches. */
@@ -522,6 +525,34 @@ export class PublicOrdersService {
     });
     if (existing) {
       return { outcome: 'created', data: toGuestOrderView(existing, input.locale) };
+    }
+
+    // Opening hours (DEC-042): a closed Branch takes no Pickup / Delivery orders. Dine-In is
+    // not blocked (the Guest is already seated). Checked after the idempotent replay above
+    // so a retry of an order accepted while open still returns it.
+    if (orderType !== 'DINE_IN') {
+      const branch = await this.prisma.branch.findFirst({
+        where: { id: branchId, restaurantId },
+        select: {
+          hoursMode: true,
+          temporarilyClosed: true,
+          openingHours: { select: { dayOfWeek: true, opensMinute: true, closesMinute: true } },
+        },
+      });
+      if (
+        branch &&
+        isClosedNow(
+          {
+            mode: branch.hoursMode,
+            temporarilyClosed: branch.temporarilyClosed,
+            intervals: branch.openingHours,
+          },
+          new Date(),
+          branchTimezone,
+        )
+      ) {
+        return { outcome: 'branchClosed' };
+      }
     }
 
     try {

@@ -34,6 +34,8 @@ export type SubmitGuestOrderResult =
   | { outcome: 'pickupDetailsRequired' }
   | { outcome: 'pickupBranchInvalid' }
   | { outcome: 'pickupUnavailable' }
+  /** DEC-042: the Branch is closed right now (409 BRANCH_CLOSED). Nothing was created. */
+  | { outcome: 'branchClosed' }
   /** Table Sessions: staff closed ordering for this table (409 TABLE_ORDERING_UNAVAILABLE). Nothing was created. */
   | { outcome: 'tableOrderingUnavailable' }
   /** DEC-038: the Restaurant switched ordering off for this channel (409 ORDERING_DISABLED). Nothing was created. */
@@ -149,6 +151,9 @@ export async function submitGuestOrder(
           zoneName: typeof details.zoneName === 'string' ? details.zoneName : null,
           minimumOrder: typeof details.minimumOrder === 'string' ? details.minimumOrder : null,
         };
+      }
+      if (error.code === 'BRANCH_CLOSED') {
+        return { outcome: 'branchClosed' };
       }
       if (error.code === 'PICKUP_UNAVAILABLE') {
         return { outcome: 'pickupUnavailable' };

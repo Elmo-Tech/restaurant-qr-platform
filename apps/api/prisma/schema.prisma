@@ -332,10 +332,15 @@ model Branch {
   timezone     String
   phone        String?
   address      String?
+  // Opening hours (DEC-042): ALWAYS_OPEN keeps today's behavior; SCHEDULE follows
+  // BranchOpeningHour rows. `temporarilyClosed` is a manual override in both modes.
+  hoursMode          BranchHoursMode @default(ALWAYS_OPEN) @map("hours_mode")
+  temporarilyClosed  Boolean         @default(false) @map("temporarily_closed")
   createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
   restaurant         Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  openingHours       BranchOpeningHour[]
   membershipBranches RestaurantMembershipBranch[]
   invitationBranches RestaurantInvitationBranch[]
   tables             Table[]
@@ -346,6 +351,32 @@ model Branch {
 
   @@index([restaurantId])
   @@map("branches")
+}
+
+enum BranchHoursMode {
+  ALWAYS_OPEN
+  SCHEDULE
+
+  @@map("branch_hours_mode")
+}
+
+/// One opening interval of a Branch on one weekday (0 = Sunday ... 6 = Saturday), in
+/// minutes after local midnight in the Branch timezone. `closesMinute` above 1440
+/// means the interval ends after midnight (it belongs to the day it opens on).
+/// The range rules are a CHECK constraint in the migration.
+model BranchOpeningHour {
+  id           String @id @default(uuid()) @db.Uuid
+  restaurantId String @map("restaurant_id") @db.Uuid
+  branchId     String @map("branch_id") @db.Uuid
+  dayOfWeek    Int    @map("day_of_week") @db.SmallInt
+  opensMinute  Int    @map("opens_minute")
+  closesMinute Int    @map("closes_minute")
+
+  branch Branch @relation(fields: [branchId], references: [id], onDelete: Cascade)
+
+  @@index([branchId, dayOfWeek])
+  @@index([restaurantId])
+  @@map("branch_opening_hours")
 }
 
 // -----------------------------------------------------------------------------

@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
+import { BranchHoursController } from './branch-hours.controller';
+import { BranchHoursService } from './branch-hours.service';
 import { BranchesController } from './branches.controller';
 import { BranchesService } from './branches.service';
 
@@ -12,7 +14,7 @@ import { BranchesService } from './branches.service';
  */
 @Module({
   imports: [DatabaseModule, AuthModule],
-  controllers: [BranchesController],
-  providers: [BranchesService],
+  controllers: [BranchesController, BranchHoursController],
+  providers: [BranchesService, BranchHoursService],
 })
 export class BranchesModule {}

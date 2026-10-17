@@ -11,6 +11,8 @@ import {
 import { useGuestTheme } from '../../../components/guest/GuestTheme';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import { ShareButton } from './ShareButton';
+import { HoursBadge } from './HoursBadge';
+import type { PublicHours } from '../../../lib/public-menu/types';
 import { HeroContactIcons } from './GuestContact';
 import type { RestaurantContact } from '../../../lib/contact/types';
 
@@ -130,6 +132,7 @@ export function GuestHero({
   publicCode,
   shareCode,
   contact,
+  hours,
   sentinelRef,
 }: {
   restaurantName: string;
@@ -146,6 +149,8 @@ export function GuestHero({
   /** The Restaurant menu link code to share, or null to hide the Share button. */
   shareCode: string | null;
   contact: RestaurantContact;
+  /** Opening-hours summary, or null to show no badge. */
+  hours: PublicHours | null;
   sentinelRef: React.RefObject<HTMLElement | null>;
 }) {
   const hasArabicName = ARABIC_SCRIPT.test(restaurantName);
@@ -246,6 +251,7 @@ export function GuestHero({
                 </span>
               </p>
             ) : null}
+            {hours ? <HoursBadge hours={hours} copy={copy} locale={locale.resolved} /> : null}
             <HeroContactIcons contact={contact} copy={copy} />
           </div>
         </div>

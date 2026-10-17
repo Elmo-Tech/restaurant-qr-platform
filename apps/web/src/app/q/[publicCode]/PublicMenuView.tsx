@@ -637,11 +637,17 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       fields.customerPhone.trim() !== '' &&
       (!isDelivery ||
         (resolvedZoneId !== null && fields.deliveryAddress.trim() !== '' && !belowMinimum)));
+  // Opening hours (DEC-042): a closed Branch takes no Pickup / Delivery orders. Advisory
+  // here; the Backend refuses with BRANCH_CLOSED either way.
+  const branchClosed =
+    isGenericQr &&
+    eligibleBranches.find((branch) => branch.id === resolvedBranchId)?.hours?.open === false;
   const canSubmit =
     cartLines.length > 0 &&
     !hasBlockedLines &&
     !isSubmitting &&
     checkoutDetailsComplete &&
+    !branchClosed &&
     !tableLocked;
   // Why the primary action is unavailable, in words (shown instead of a silently greyed button).
   // A locked table shows its own dedicated notice instead of this one-line hint.
@@ -649,7 +655,9 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     ? null
     : hasBlockedLines
     ? copy.placeOrderHintBlocked
-    : !checkoutDetailsComplete && !belowMinimum
+    : branchClosed
+      ? copy.branchClosedHint
+      : !checkoutDetailsComplete && !belowMinimum
       ? isDelivery
         ? copy.deliveryDetailsRequiredError
         : copy.pickupDetailsRequiredError
@@ -789,6 +797,10 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       setSubmitError(copy.pickupUnavailable);
       return;
     }
+    if (result.outcome === 'branchClosed') {
+      setSubmitError(copy.branchClosedHint);
+      return;
+    }
     // Network/unexpected failure (Section: Backend may have actually
     // created the Order despite a lost response) -- the pending attempt is
     // deliberately left in place so an unchanged retry reuses this same
@@ -839,6 +851,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
           publicCode={publicCode}
           shareCode={data.context.restaurant.shareCode}
           contact={data.context.restaurant.contact}
+          hours={data.context.restaurant.hours}
         />
 
         <div className="relative z-20 px-4 lg:px-8">
@@ -917,6 +930,13 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
               <p className="flex items-start gap-3 rounded-[22px] border border-g-line bg-g-surface px-4 py-3.5 text-[14px] leading-[1.7] text-g-text-2">
                 <GuestIconInfo className="mt-0.5 size-5 shrink-0 text-g-accent-text" />
                 {copy.pickupUnavailable}
+              </p>
+            ) : null}
+
+            {isGenericQr && canOrder && data.context.restaurant.hours?.open === false ? (
+              <p className="flex items-start gap-3 rounded-[22px] border border-g-line bg-g-surface px-4 py-3.5 text-[14px] leading-[1.7] text-g-text-2">
+                <GuestIconInfo className="mt-0.5 size-5 shrink-0 text-g-accent-text" />
+                {copy.branchClosedNotice}
               </p>
             ) : null}
 
