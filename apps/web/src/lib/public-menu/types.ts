@@ -11,6 +11,12 @@ export interface PublicHours {
   closesAt: string | null;
 }
 
+export interface PublicAnnouncement {
+  id: string;
+  style: 'INFO' | 'PROMO' | 'WARNING';
+  text: string;
+}
+
 export interface PublicMenuContext {
   qrType: 'TABLE' | 'GENERIC';
   /** Table Sessions: TABLE QR only (null for GENERIC). Advisory -- the order endpoint re-checks. */
@@ -30,6 +36,8 @@ export interface PublicMenuContext {
   };
   branch: { name: string } | null;
   table: { number: string } | null;
+  /** Live announcements for the banner (DEC-042), already in the Guest's language; at most three. */
+  announcements: PublicAnnouncement[];
   /** FT-7: GENERIC QR only (null for TABLE) -- the ACTIVE Branches eligible for Pickup. Empty = Pickup unavailable. */
   pickupBranches: { id: string; name: string; hours: PublicHours | null }[] | null;
   /** FT-8: GENERIC QR only -- ACTIVE Branches with at least one ACTIVE Delivery zone. Empty = Delivery unavailable. Display data only: the Backend re-resolves fee/minimum on submit. */

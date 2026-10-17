@@ -1,4 +1,5 @@
 import { accountMessages } from './account';
+import { announcementsMessages } from './announcements';
 import { branchesMessages } from './branches';
 import { commonMessages } from './common';
 import { contactMessages } from './contact';
@@ -29,6 +30,7 @@ import { variantsMessages } from './variants';
  */
 const en = {
   ...accountMessages.en,
+  ...announcementsMessages.en,
   ...branchesMessages.en,
   ...commonMessages.en,
   ...contactMessages.en,
@@ -54,6 +56,7 @@ const en = {
 
 const ar = {
   ...accountMessages.ar,
+  ...announcementsMessages.ar,
   ...branchesMessages.ar,
   ...commonMessages.ar,
   ...contactMessages.ar,

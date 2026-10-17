@@ -16,6 +16,12 @@ import {
   type GuestTableOrderingState,
 } from '../table-sessions/table-session-availability';
 import {
+  dateOnly,
+  isLiveOn,
+  MAX_ACTIVE_ANNOUNCEMENTS,
+  resolveAnnouncementText,
+} from '../announcements/announcements';
+import {
   evaluateHours,
   summarizeHours,
   toPublicHours,
@@ -62,6 +68,8 @@ export interface PublicMenuContext {
   /** The Branch display name, already resolved to the menu content language (requested -> default -> legacy name). */
   branch: { name: string } | null;
   table: { number: string } | null;
+  /** Live announcements for the banner (DEC-042): at most three, already in the Guest's language. */
+  announcements: PublicAnnouncement[];
   /**
    * FT-7: GENERIC QR only (null for TABLE) -- the Restaurant's ACTIVE
    * Branches eligible for Pickup, exposing only the Branch id (the same
@@ -110,6 +118,12 @@ function hoursOf(
       branch.timezone,
     ),
   );
+}
+
+export interface PublicAnnouncement {
+  id: string;
+  style: 'INFO' | 'PROMO' | 'WARNING';
+  text: string;
 }
 
 export interface PublicMenuDeliveryBranch {
@@ -706,6 +720,30 @@ export class PublicMenuService {
           : null
         : summarizeHours(offeredHours);
 
+    // Announcements: ACTIVE, inside their (inclusive) date range today, newest last, at most three.
+    const announcementRows = await this.prisma.restaurantAnnouncement.findMany({
+      where: { restaurantId: qr.restaurantId, status: 'ACTIVE' },
+      orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      take: MAX_ACTIVE_ANNOUNCEMENTS,
+      select: {
+        id: true,
+        status: true,
+        style: true,
+        startsOn: true,
+        endsOn: true,
+        translations: { select: { locale: true, text: true } },
+      },
+    });
+    const announcements: PublicAnnouncement[] = [];
+    for (const row of announcementRows) {
+      const live = isLiveOn(
+        { status: row.status, startsOn: dateOnly(row.startsOn), endsOn: dateOnly(row.endsOn) },
+        today,
+      );
+      const text = resolveAnnouncementText(row.translations, resolved, defaultLocale);
+      if (live && text !== null) announcements.push({ id: row.id, style: row.style, text });
+    }
+
     const shareCode =
       qr.type === 'GENERIC'
         ? input.publicCode
@@ -735,6 +773,7 @@ export class PublicMenuService {
             ? { name: displayName(qr.branch.name, qr.branch.translations) }
             : null,
           table: qr.table ? { number: qr.table.tableNumber } : null,
+          announcements,
           pickupBranches,
           deliveryBranches,
         },

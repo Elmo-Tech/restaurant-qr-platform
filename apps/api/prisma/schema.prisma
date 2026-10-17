@@ -278,6 +278,7 @@ model Restaurant {
 
   locales               RestaurantLocale[]
   branches              Branch[]
+  announcements         RestaurantAnnouncement[]
   memberships           RestaurantMembership[]
   roles                 RestaurantRole[]
   invitations           RestaurantInvitation[]
@@ -351,6 +352,54 @@ model Branch {
 
   @@index([restaurantId])
   @@map("branches")
+}
+
+enum AnnouncementStatus {
+  ACTIVE
+  INACTIVE
+
+  @@map("announcement_status")
+}
+
+enum AnnouncementStyle {
+  INFO
+  PROMO
+  WARNING
+
+  @@map("announcement_style")
+}
+
+/// A short message at the top of the Guest Menu (DEC-042). Dates are inclusive calendar
+/// dates read in the menu's timezone (like Product discounts). At most three ACTIVE per
+/// Restaurant is an application rule; the date order and text length are CHECK
+/// constraints in the migration.
+model RestaurantAnnouncement {
+  id           String             @id @default(uuid()) @db.Uuid
+  restaurantId String             @map("restaurant_id") @db.Uuid
+  status       AnnouncementStatus
+  style        AnnouncementStyle
+  startsOn     DateTime?          @map("starts_on") @db.Date
+  endsOn       DateTime?          @map("ends_on") @db.Date
+  createdAt    DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant   Restaurant                         @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  translations RestaurantAnnouncementTranslation[]
+
+  @@index([restaurantId, status])
+  @@map("restaurant_announcements")
+}
+
+model RestaurantAnnouncementTranslation {
+  id             String @id @default(uuid()) @db.Uuid
+  announcementId String @map("announcement_id") @db.Uuid
+  locale         String
+  text           String
+
+  announcement RestaurantAnnouncement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+
+  @@unique([announcementId, locale])
+  @@map("restaurant_announcement_translations")
 }
 
 enum BranchHoursMode {

@@ -38,6 +38,7 @@ import { CartBar } from './CartBar';
 import { CartPanel } from './CartPanel';
 import { CategoryChips, type ChipItem } from './CategoryChips';
 import { FeaturedBanners } from './FeaturedBanners';
+import { AnnouncementBar } from './AnnouncementBar';
 import { GuestContact } from './GuestContact';
 import { GuestHero } from './GuestHero';
 import type {
@@ -856,8 +857,15 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
 
         <div className="relative z-20 px-4 lg:px-8">
           <div className="mx-auto max-w-[1280px]">
+            <div className="announce-slot -mt-7 mb-3 empty:hidden">
+              <AnnouncementBar
+                announcements={data.context.announcements ?? []}
+                publicCode={publicCode}
+                copy={copy}
+              />
+            </div>
             <div
-              className={`${showModeSwitch ? 'flex' : 'hidden lg:flex'} g-shadow -mt-7 items-center justify-between gap-4 rounded-[30px] border border-g-line bg-g-surface p-[5px] lg:rounded-[32px] lg:p-2`}
+              className={`${showModeSwitch ? 'flex' : 'hidden lg:flex'} g-shadow -mt-7 [.announce-slot:not(:empty)+&]:mt-0 items-center justify-between gap-4 rounded-[30px] border border-g-line bg-g-surface p-[5px] lg:rounded-[32px] lg:p-2`}
             >
               {showModeSwitch ? (
                 <div className="flex min-w-0 flex-1 gap-1 lg:flex-none lg:rounded-[26px] lg:bg-g-surface-2 lg:p-0.5">

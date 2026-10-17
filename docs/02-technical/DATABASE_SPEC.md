@@ -1742,6 +1742,12 @@ Migration `20261019090000_branch_opening_hours` (additive): enum `branch_hours_m
 
 ---
 
+# 68D. Restaurant Announcements (DEC-042, 2026-10-20)
+
+Migration `20261020090000_restaurant_announcements` (additive): enums `announcement_status` (`ACTIVE`, `INACTIVE`) and `announcement_style` (`INFO`, `PROMO`, `WARNING`); `restaurant_announcements` (`restaurant_id`, `status`, `style`, `starts_on` and `ends_on` as DATE, timestamps) and `restaurant_announcement_translations` (`announcement_id` ON DELETE CASCADE, `locale`, `text`, unique per locale; never language columns). CHECK constraints: `ends_on >= starts_on`, and a translation is 1 to 200 characters after trimming. The three-active limit is an application rule.
+
+---
+
 # 69. Variant Price
 
 V1 uses:

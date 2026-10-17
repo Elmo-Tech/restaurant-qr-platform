@@ -400,3 +400,16 @@ html:has([data-guest-theme="light"]) {
   .menu-read-spark { animation: none; opacity: 0.8; }
   .menu-read-hint { animation: none; }
 }
+
+/* Guest announcements ticker: one seamless loop; the shift and duration are set per render. */
+.announce-track {
+  animation: announce-marquee var(--announce-duration, 20s) linear infinite;
+  will-change: transform;
+}
+@keyframes announce-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(var(--announce-shift, -50%)); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .announce-track { animation: none; }
+}

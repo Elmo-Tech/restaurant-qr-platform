@@ -86,6 +86,10 @@ export interface PublicMenuCopy {
   language: string;
   /** Share button (the Restaurant menu link) and its confirmations. */
   share: string;
+  announcementsLabel: string;
+  dismissAnnouncement: string;
+  pauseAnnouncements: string;
+  resumeAnnouncements: string;
   /** Opening-hours badge (DEC-042). Times are already formatted for the Guest. */
   openNow: string;
   openUntil: (time: string) => string;
@@ -260,6 +264,10 @@ const EN_COPY: PublicMenuCopy = {
   browseOnly: 'Browse only',
   language: 'Language',
   share: 'Share',
+  announcementsLabel: 'Announcements',
+  dismissAnnouncement: 'Dismiss',
+  pauseAnnouncements: 'Pause scrolling',
+  resumeAnnouncements: 'Resume scrolling',
   openNow: 'Open now',
   openUntil: (time) => `Open now · until ${time}`,
   closedNow: 'Closed',
@@ -427,6 +435,10 @@ const AR_COPY: PublicMenuCopy = {
   browseOnly: 'تصفح فقط',
   language: 'اللغة',
   share: 'مشاركة',
+  announcementsLabel: 'الإعلانات',
+  dismissAnnouncement: 'إخفاء',
+  pauseAnnouncements: 'إيقاف التحريك',
+  resumeAnnouncements: 'استئناف التحريك',
   openNow: 'مفتوح الآن',
   openUntil: (time) => `مفتوح الآن · حتى ${time}`,
   closedNow: 'مغلق',

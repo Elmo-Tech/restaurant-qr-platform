@@ -2267,6 +2267,16 @@ Guest: `GET /public/qr/{publicCode}/menu` returns `context.restaurant.hours` (su
 
 ---
 
+# 108J. Restaurant Announcements (DEC-042, 2026-10-20)
+
+`/api/v1/restaurants/{restaurantId}/announcements`: `GET` (`restaurant.view`), `POST`, `PATCH /{announcementId}`, `DELETE /{announcementId}` (`restaurant.manage` with Restaurant-wide scope and CSRF). Body for create / update: `{ status?: "ACTIVE" | "INACTIVE", style?: "INFO" | "PROMO" | "WARNING", startsOn?: "YYYY-MM-DD" | null, endsOn?: "YYYY-MM-DD" | null, texts?: { <locale>: string | null } }`. On update an omitted field is unchanged and `texts` is merged per language (null or blank removes that language). Text is plain (no HTML), whitespace-collapsed, at most 200 characters; the Restaurant default-language text is required; only active locales are accepted. Dates are inclusive calendar dates read in the menu's timezone (the Restaurant's first Branch), like Product discounts. Response item: `{ id, status, style, startsOn, endsOn, texts, state }` with `state` = `LIVE` | `SCHEDULED` | `EXPIRED` | `OFF`.
+
+Errors: `422 DEFAULT_TRANSLATION_REQUIRED`, `422 LOCALE_NOT_ACTIVE`, `422 ANNOUNCEMENT_DATES_INVALID`, `409 ANNOUNCEMENT_LIMIT_REACHED` (at most three ACTIVE at once; checked on create and when switching one on), `404 ANNOUNCEMENT_NOT_FOUND` (also for another Restaurant's id).
+
+Guest: `GET /public/qr/{publicCode}/menu` returns `context.announcements: [{ id, style, text }]`: only ACTIVE ones whose date range includes today, at most three, oldest first, the text already in the Guest's language (their language, else the default, else any). Never HTML.
+
+---
+
 # 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
 `Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.

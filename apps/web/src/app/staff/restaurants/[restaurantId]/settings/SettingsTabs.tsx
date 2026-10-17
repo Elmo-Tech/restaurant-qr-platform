@@ -4,7 +4,7 @@ import { useStaffI18n } from '../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../lib/i18n/messages';
 import { NavTabs } from '../../../../../components/ui/Tabs';
 
-export type SettingsSection = 'profile' | 'branches' | 'languages' | 'delivery' | 'hours' | 'guest-qr';
+export type SettingsSection = 'profile' | 'branches' | 'languages' | 'delivery' | 'hours' | 'announcements' | 'guest-qr';
 
 const TABS: { key: SettingsSection; label: MessageKey; path: string }[] = [
   { key: 'profile', label: 'settings.tab.profile', path: 'profile' },
@@ -12,6 +12,7 @@ const TABS: { key: SettingsSection; label: MessageKey; path: string }[] = [
   { key: 'languages', label: 'settings.tab.languages', path: 'languages' },
   { key: 'delivery', label: 'settings.tab.delivery', path: 'delivery' },
   { key: 'hours', label: 'settings.tab.hours', path: 'hours' },
+  { key: 'announcements', label: 'settings.tab.announcements', path: 'announcements' },
   { key: 'guest-qr', label: 'settings.tab.guestQr', path: 'guest-qr' },
 ];
 
