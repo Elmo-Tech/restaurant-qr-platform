@@ -268,6 +268,7 @@ model Restaurant {
   tables                Table[]
   qrCodes               QrCode[]
   menus                 Menu[]
+  menuImportJobs        MenuImportJob[]
   categories            Category[]
   products              Product[]
   orders                Order[]
@@ -359,6 +360,7 @@ model Menu {
   restaurant   Restaurant        @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   translations MenuTranslation[]
   categories   Category[]
+  importJobs   MenuImportJob[]
 
   @@index([restaurantId])
   @@map("menus")
@@ -1283,6 +1285,7 @@ model User {
   authSessions        AuthSession[]
   passwordResetTokens PasswordResetToken[]
   memberships         RestaurantMembership[]
+  menuImportJobs      MenuImportJob[]
   sentInvitations     RestaurantInvitation[] @relation("InvitedByUser")
 
   @@map("users")
@@ -1464,4 +1467,143 @@ model RestaurantInvitationBranch {
   @@id([restaurantInvitationId, branchId])
   @@index([branchId])
   @@map("restaurant_invitation_branches")
+}
+
+// -----------------------------------------------------------------------------
+// Menu Import (DEC-040, MENU_IMPORT_SPEC.md): an uploaded image / PDF / Excel
+// file is turned into a Draft that Staff review and approve. The source file is
+// never stored. Draft rows are Tenant scoped (restaurant_id on every table) and
+// translations use child tables, never language columns. `matched*Id` /
+// `created*Id` are plain references to real Menu rows (no foreign key): they are
+// only ever read after being re-verified against the Tenant, and a deleted
+// target must never block clearing a Draft.
+// -----------------------------------------------------------------------------
+
+enum MenuImportStatus {
+  PROCESSING
+  READY_FOR_REVIEW
+  APPROVED
+  DISCARDED
+  FAILED
+
+  @@map("menu_import_status")
+}
+
+enum MenuImportSourceType {
+  IMAGE
+  PDF
+  SPREADSHEET
+
+  @@map("menu_import_source_type")
+}
+
+enum MenuImportConfidence {
+  HIGH
+  MEDIUM
+  LOW
+
+  @@map("menu_import_confidence")
+}
+
+model MenuImportJob {
+  id              String               @id @default(uuid()) @db.Uuid
+  publicId        String               @unique @map("public_id")
+  restaurantId    String               @map("restaurant_id") @db.Uuid
+  targetMenuId    String               @map("target_menu_id") @db.Uuid
+  createdByUserId String               @map("created_by_user_id") @db.Uuid
+  status          MenuImportStatus
+  sourceType      MenuImportSourceType @map("source_type")
+  // Display only (sanitized); never used as a storage path.
+  sourceFileName  String               @map("source_file_name")
+  sourceMimeType  String               @map("source_mime_type")
+  sourceSizeBytes Int                  @map("source_size_bytes")
+  // 'auto' | 'ar' | 'en'
+  languageHint    String               @map("language_hint")
+  detectedLocales String[]             @default([]) @map("detected_locales")
+  modelName       String?              @map("model_name")
+  // A stable machine code only, never raw provider text.
+  errorCode       String?              @map("error_code")
+  warnings        String[]             @default([])
+  startedAt       DateTime             @default(now()) @map("started_at") @db.Timestamptz
+  finishedAt      DateTime?            @map("finished_at") @db.Timestamptz
+  approvedAt      DateTime?            @map("approved_at") @db.Timestamptz
+  createdAt       DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant Restaurant           @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  targetMenu Menu                 @relation(fields: [targetMenuId], references: [id], onDelete: Restrict)
+  createdBy  User                 @relation(fields: [createdByUserId], references: [id], onDelete: Restrict)
+  categories MenuImportCategory[]
+
+  @@index([restaurantId, createdAt])
+  @@map("menu_import_jobs")
+}
+
+model MenuImportCategory {
+  id                String   @id @default(uuid()) @db.Uuid
+  restaurantId      String   @map("restaurant_id") @db.Uuid
+  jobId             String   @map("job_id") @db.Uuid
+  displayOrder      Int      @map("display_order")
+  included          Boolean
+  // An existing category of the target Menu with the same default-locale name.
+  matchedCategoryId String?  @map("matched_category_id") @db.Uuid
+  // True = add the products to matchedCategoryId; false = create a new category.
+  useExisting       Boolean  @default(false) @map("use_existing")
+  createdCategoryId String?  @map("created_category_id") @db.Uuid
+
+  job          MenuImportJob                   @relation(fields: [jobId], references: [id], onDelete: Cascade)
+  translations MenuImportCategoryTranslation[]
+  products     MenuImportProduct[]
+
+  @@index([jobId])
+  @@map("menu_import_categories")
+}
+
+model MenuImportCategoryTranslation {
+  id         String @id @default(uuid()) @db.Uuid
+  categoryId String @map("category_id") @db.Uuid
+  locale     String
+  name       String
+
+  category MenuImportCategory @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+
+  @@unique([categoryId, locale])
+  @@map("menu_import_category_translations")
+}
+
+model MenuImportProduct {
+  id               String               @id @default(uuid()) @db.Uuid
+  restaurantId     String               @map("restaurant_id") @db.Uuid
+  categoryId       String               @map("category_id") @db.Uuid
+  displayOrder     Int                  @map("display_order")
+  // Null when the file showed no price: a blocker until Staff enter one.
+  price            Decimal?             @db.Decimal(14, 2)
+  // Sizes as extracted: [{ translations: { <locale>: { label } }, price }]. Read-only source for Variants.
+  priceOptions     Json                 @default("[]") @map("price_options")
+  confidence       MenuImportConfidence
+  included         Boolean
+  // Extraction-time flags only (MISSING_TRANSLATION); every other flag is computed on read.
+  flags            String[]             @default([])
+  matchedProductId String?              @map("matched_product_id") @db.Uuid
+  createdProductId String?              @map("created_product_id") @db.Uuid
+
+  category     MenuImportCategory             @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  translations MenuImportProductTranslation[]
+
+  @@index([categoryId])
+  @@index([restaurantId])
+  @@map("menu_import_products")
+}
+
+model MenuImportProductTranslation {
+  id          String  @id @default(uuid()) @db.Uuid
+  productId   String  @map("product_id") @db.Uuid
+  locale      String
+  name        String
+  description String?
+
+  product MenuImportProduct @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, locale])
+  @@map("menu_import_product_translations")
 }

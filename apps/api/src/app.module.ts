@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { BranchesModule } from './branches/branches.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DatabaseModule } from './database/database.module';
+import { MenuImportModule } from './menu-import/menu-import.module';
 import { MenuModule } from './menu/menu.module';
 import { OrdersModule } from './orders/orders.module';
 import { DeliveryModule } from './delivery/delivery.module';
@@ -40,6 +41,7 @@ const rootEnvFilePath = path.resolve(__dirname, '..', '..', '..', '.env');
     TablesModule,
     StaffModule,
     MenuModule,
+    MenuImportModule,
     OrdersModule,
     TableSessionsModule,
     DashboardModule,

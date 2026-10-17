@@ -869,7 +869,7 @@ chosen provider and the limits.
 
 ### DEC-040 — Menu Import From a File (Design)
 
-**Status:** Proposed (2026-10-16), awaiting review. Not implemented.
+**Status:** Accepted (2026-10-17); in implementation (backend first, then the Staff review screen).
 
 Staff with `menu.manage` and Restaurant-wide scope can create menu content from
 an **image, PDF or Excel file**. The Backend sends the file to n8n, which runs

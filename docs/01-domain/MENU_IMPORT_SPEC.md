@@ -1,7 +1,6 @@
 # Menu Import Specification
 
-> **Status: Proposed (2026-10-16), awaiting review.** Nothing in this document is
-> implemented. The owner's decisions on the open questions are recorded in
+> **Status: Accepted (2026-10-17); in implementation.** The owner's decisions on the open questions are recorded in
 > section 27. It becomes authoritative when DEC-040 is accepted, and the import
 > is built after Product Variants (DEC-041).
 

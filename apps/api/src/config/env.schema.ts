@@ -160,6 +160,22 @@ export const envSchema = z
     // Public Guest order creation, per client IP, per window.
     RATE_LIMIT_PUBLIC_ORDER_LIMIT: z.coerce.number().int().min(1).default(30),
 
+    // Menu Import (DEC-040): the private n8n webhook that turns an uploaded menu file
+    // into a structured Draft. Both are optional -- without them the import
+    // answers 503 AI_UNAVAILABLE and the rest of the Menu keeps working.
+    N8N_MENU_IMPORT_URL: z
+      .string()
+      .trim()
+      .url('N8N_MENU_IMPORT_URL must be a valid URL')
+      .optional(),
+    N8N_MENU_IMPORT_SECRET: z.string().trim().min(1).optional(),
+    MENU_IMPORT_TIMEOUT_SECONDS: z.coerce
+      .number()
+      .int()
+      .min(10)
+      .max(540)
+      .default(300),
+
     // FT-9: how many reverse-proxy hops to trust for the client IP
     // (`X-Forwarded-For`). 0 = trust none (direct connection, the local-dev
     // default). Set to 1 behind Nginx, otherwise every client shares the
