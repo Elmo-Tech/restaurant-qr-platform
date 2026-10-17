@@ -50,6 +50,16 @@ export function IconOrders({ className }: IconProps) {
   );
 }
 
+export function IconKitchen({ className }: IconProps) {
+  return (
+    <svg {...BASE_PROPS} className={className} aria-hidden="true">
+      <path d="M7 11.5V19h10v-7.5" />
+      <path d="M6 11.5h12" />
+      <path d="M8 11.5a2.5 2.5 0 0 1-.5-4.9 3.5 3.5 0 0 1 6.5-1.4 3 3 0 0 1 2.9 4.2" />
+    </svg>
+  );
+}
+
 export function IconStaff({ className }: IconProps) {
   return (
     <svg {...BASE_PROPS} className={className} aria-hidden="true">

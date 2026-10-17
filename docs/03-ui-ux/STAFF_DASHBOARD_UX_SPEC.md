@@ -1093,6 +1093,8 @@ Waiter should not see administrative controls such as:
 
 # 99. Kitchen Board
 
+> **Implemented 2026-10-17 (Kitchen View V1):** route `/staff/restaurants/{restaurantId}/kitchen`. One Branch at a time, columns New / Preparing / Ready (tabs below the large breakpoint), oldest ticket first, a per-ticket timer (warning at 10 min, alert at 20 min), the Guest note highlighted, items with quantity, size and options, one large action (Start preparing / Mark ready), automatic refresh every 5 seconds and when the tab becomes visible, and an opt-in new-ticket chime. A KITCHEN account lands on it. Not in V1: per-item cancel state, kitchen stations, printing.
+
 Kitchen Board is a specialized operational experience.
 
 ---

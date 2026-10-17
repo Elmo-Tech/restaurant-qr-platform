@@ -4,6 +4,7 @@ import type { RestaurantStatus } from '../../lib/auth/types';
 import {
   IconClose,
   IconDashboard,
+  IconKitchen,
   IconMenu,
   IconOrders,
   IconQr,
@@ -17,6 +18,7 @@ export type StaffSection =
   | 'menu'
   | 'tables'
   | 'orders'
+  | 'kitchen'
   | 'staff'
   | 'settings'
   | 'account'
@@ -47,6 +49,7 @@ interface RestaurantSidebarProps {
   canViewMenu: boolean;
   canViewTables: boolean;
   canViewOrders: boolean;
+  canViewKitchen: boolean;
   canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
   isMobileOpen: boolean;
@@ -127,6 +130,7 @@ function SidebarContent({
   canViewMenu,
   canViewTables,
   canViewOrders,
+  canViewKitchen,
   canViewStaff,
   canViewRestaurantSettings,
   onNavigate,
@@ -139,6 +143,7 @@ function SidebarContent({
   canViewMenu: boolean;
   canViewTables: boolean;
   canViewOrders: boolean;
+  canViewKitchen: boolean;
   canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
   onNavigate?: () => void;
@@ -254,6 +259,18 @@ function SidebarContent({
               }}
             />
           )}
+          {canViewKitchen ? (
+            <ActiveLink
+              item={{
+                key: 'kitchen',
+                label: t('nav.kitchen'),
+                href: `/staff/restaurants/${restaurantId}/kitchen`,
+                icon: <IconKitchen className={ICON_CLASS} />,
+              }}
+              isActive={currentSection === 'kitchen'}
+              onNavigate={onNavigate}
+            />
+          ) : null}
           {canViewStaff ? (
             <ActiveLink
               item={{
@@ -335,6 +352,7 @@ export function RestaurantSidebar({
   canViewMenu,
   canViewTables,
   canViewOrders,
+  canViewKitchen,
   canViewStaff,
   canViewRestaurantSettings,
   isMobileOpen,
@@ -353,6 +371,7 @@ export function RestaurantSidebar({
           canViewMenu={canViewMenu}
           canViewTables={canViewTables}
           canViewOrders={canViewOrders}
+          canViewKitchen={canViewKitchen}
           canViewStaff={canViewStaff}
           canViewRestaurantSettings={canViewRestaurantSettings}
         />
@@ -385,6 +404,7 @@ export function RestaurantSidebar({
               canViewMenu={canViewMenu}
               canViewTables={canViewTables}
               canViewOrders={canViewOrders}
+          canViewKitchen={canViewKitchen}
               canViewStaff={canViewStaff}
               canViewRestaurantSettings={canViewRestaurantSettings}
               onNavigate={onCloseMobile}

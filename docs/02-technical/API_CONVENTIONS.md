@@ -2221,6 +2221,14 @@ Existing generic Update (`PATCH .../menus/{menuId}`, `.../categories/{categoryId
 
 ---
 
+# 108F. Kitchen Board (Kitchen View V1, 2026-10-17)
+
+`GET /api/v1/restaurants/{restaurantId}/kitchen/orders?branchId=` -- permission `kitchen.view`; Branch scope is resolved exactly like the Orders list (`branchId` can only narrow within the Membership scope). Returns the **accepted** orders still in the kitchen: status `ACCEPTED` (new), `PREPARING` or `READY`, oldest first; `PENDING`, served, rejected and cancelled orders never appear. Each ticket: `{ id, status, type, roundNumber, createdAt, statusSince, branch, table, customerName, notes, items: [{ name, variantName, quantity, modifiers: [{ groupName, optionName }] }] }`. `statusSince` is when the order entered its current status (from `order_status_events`). The response carries no prices and no customer phone.
+
+Moving a ticket forward uses the existing `PATCH .../orders/{orderId}/status` (`ACCEPTED -> PREPARING` and `PREPARING -> READY` require `kitchen.update`; `READY -> SERVED` stays front of house). A stale or already-moved ticket answers `409`.
+
+---
+
 # 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
 `Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.

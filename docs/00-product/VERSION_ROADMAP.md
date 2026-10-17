@@ -91,7 +91,7 @@ Introduce advanced AI, automation, experimentation, and enterprise capabilities.
 |---|---|
 | Table Sessions and Order Rounds (Dine-in orders are standalone Orders) | V1.1 |
 | Service Requests (Call Waiter / Request Bill) | V1.1 (first candidate) |
-| Kitchen View (Staff use the Orders workspace with the kitchen permissions) | V1.1 |
+| Kitchen View (a dedicated Kitchen Board; **implemented 2026-10-17**, see API_CONVENTIONS.md #108F) | Done |
 | Promotions | V1.1 / later |
 | AI Restaurant Assistant Beta and n8n orchestration | V1.1 / later |
 | Analytics and QR scan tracking | V1.1 |

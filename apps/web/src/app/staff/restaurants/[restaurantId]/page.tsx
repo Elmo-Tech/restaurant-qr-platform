@@ -5,6 +5,7 @@ import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../lib/auth/session';
 import { canManageMenu, canViewMenu } from '../../../../lib/menu/capabilities';
 import { canViewOrders } from '../../../../lib/orders/capabilities';
+import { canViewKitchen } from '../../../../lib/kitchen/capabilities';
 import { canManageTables, canViewTables } from '../../../../lib/tables/capabilities';
 import { sessionCapabilities } from '../../../../lib/table-sessions/capabilities';
 import { getWebOrigin } from '../../../../lib/env/web-origin';
@@ -178,6 +179,11 @@ export default async function RestaurantLandingPage({
 
   if (!membership) {
     return <Alert variant="error">{t('guard.restaurantNotFound')}</Alert>;
+  }
+
+  // STAFF_DASHBOARD_UX_SPEC #101: a Kitchen account lands directly on the Kitchen Board.
+  if (membership.role === 'KITCHEN' && membership.restaurant.status === 'ACTIVE' && canViewKitchen(membership)) {
+    redirect(`/staff/restaurants/${restaurantId}/kitchen`);
   }
 
   const { restaurant, role } = membership;

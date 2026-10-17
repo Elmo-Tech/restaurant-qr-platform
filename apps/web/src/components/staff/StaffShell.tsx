@@ -17,6 +17,7 @@ interface StaffShellProps {
   canViewMenu: boolean;
   canViewTables: boolean;
   canViewOrders: boolean;
+  canViewKitchen: boolean;
   canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
   children: ReactNode;
@@ -27,6 +28,7 @@ function resolveSection(pathname: string, restaurantId: string): StaffSection {
   const menuPath = `${dashboardPath}/menu`;
   const tablesPath = `${dashboardPath}/tables`;
   const ordersPath = `${dashboardPath}/orders`;
+  const kitchenPath = `${dashboardPath}/kitchen`;
   const staffPath = `${dashboardPath}/staff`;
   const accountPath = `${dashboardPath}/account`;
   const settingsPath = `${dashboardPath}/settings`;
@@ -39,6 +41,9 @@ function resolveSection(pathname: string, restaurantId: string): StaffSection {
   }
   if (pathname === ordersPath || pathname.startsWith(`${ordersPath}/`)) {
     return 'orders';
+  }
+  if (pathname === kitchenPath || pathname.startsWith(`${kitchenPath}/`)) {
+    return 'kitchen';
   }
   if (pathname === staffPath || pathname.startsWith(`${staffPath}/`)) {
     return 'staff';
@@ -72,6 +77,7 @@ export function StaffShell({
   canViewMenu,
   canViewTables,
   canViewOrders,
+  canViewKitchen,
   canViewStaff,
   canViewRestaurantSettings,
   children,
@@ -111,7 +117,9 @@ export function StaffShell({
                   ? t('nav.tables')
                   : section === 'orders'
                     ? t('nav.orders')
-                    : section === 'staff'
+                    : section === 'kitchen'
+                      ? t('nav.kitchen')
+                      : section === 'staff'
                       ? t('nav.staff')
                       : section === 'account'
                         ? t('account.title')
@@ -133,6 +141,7 @@ export function StaffShell({
         canViewMenu={canViewMenu}
         canViewTables={canViewTables}
         canViewOrders={canViewOrders}
+        canViewKitchen={canViewKitchen}
         canViewStaff={canViewStaff}
         canViewRestaurantSettings={canViewRestaurantSettings}
         isMobileOpen={isMobileNavOpen}

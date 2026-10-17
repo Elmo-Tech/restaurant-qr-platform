@@ -4,6 +4,7 @@ import { getAuthSessionState } from '../../../../lib/auth/session';
 import { canViewMenu } from '../../../../lib/menu/capabilities';
 import { canViewTables } from '../../../../lib/tables/capabilities';
 import { canViewOrders } from '../../../../lib/orders/capabilities';
+import { canViewKitchen } from '../../../../lib/kitchen/capabilities';
 import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
 import { canViewStaff } from '../../../../lib/staff/capabilities';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
@@ -70,6 +71,7 @@ export default async function RestaurantWorkspaceLayout({
       canViewMenu={canViewMenu(membership)}
       canViewTables={canViewTables(membership)}
       canViewOrders={canViewOrders(membership)}
+      canViewKitchen={canViewKitchen(membership)}
       canViewStaff={canViewStaff(membership)}
       canViewRestaurantSettings={canViewRestaurantSettings(membership)}
     >
