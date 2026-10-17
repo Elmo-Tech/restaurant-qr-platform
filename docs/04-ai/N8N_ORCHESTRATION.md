@@ -2120,3 +2120,15 @@ n8n orchestration V1 is acceptable when:
 # n8n Orchestration Principle
 
 > n8n coordinates the AI conversation and tool loop, while NestJS remains the trusted authority for identity, tenancy, pricing, availability, promotions, authorization, and every business-state decision.
+
+---
+
+# Menu Extraction Webhook (Menu Import, DEC-040)
+
+A second, separate n8n workflow serves Menu Import: `infra/n8n/workflows/menu-extract-api.json` (generated, with an interactive twin `menu-extract-simple.json` for testing in the editor). It is not part of the Guest Assistant and shares none of its tools.
+
+- Private webhook `POST /webhook/menu-extract-v1`, protected by a Header Auth credential (the Backend sends `X-Service-Secret`; the value lives in n8n credentials and the Backend's `N8N_MENU_IMPORT_SECRET`, never in the workflow JSON).
+- Input: multipart `file` (image, PDF or Excel) and `languageHint`. n8n never sees the Restaurant, a user, or any Menu data, holds no state, and writes nothing.
+- It calls the model through the configured OpenAI-compatible endpoint and answers with `schemaVersion: 1`, `status` (`EXTRACTED` or `FAILED`), `errorCode`, detected `languages` and `categories -> products` with per-language `translations`, string prices, `priceOptions` and `confidence`.
+- The Backend treats the answer as untrusted: it re-validates and re-cleans it completely (`menu-import-extraction.ts`) and stores only a Draft that Staff approve. n8n owns no pricing, authorization, or Menu state.
+- Failure of this workflow or the model provider only fails the import job; the Menu and ordering are unaffected.

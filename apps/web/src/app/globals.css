@@ -355,3 +355,48 @@ html:has([data-guest-theme="dark"]) {
 html:has([data-guest-theme="light"]) {
   background-color: #fbf6ee;
 }
+
+/* Menu Import: the "reading your menu" animation (MenuReadingAnimation). */
+.menu-read-row {
+  animation: menu-read-row 4.4s ease-in-out infinite;
+  transform-box: fill-box;
+}
+.menu-read-beam {
+  animation: menu-read-beam 4.4s cubic-bezier(0.45, 0, 0.55, 1) infinite;
+}
+.menu-read-spark {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: menu-read-spark 2.6s ease-in-out infinite;
+}
+.menu-read-spark-late {
+  animation-delay: 1.3s;
+}
+.menu-read-hint {
+  animation: menu-read-hint 0.5s ease-out both;
+}
+@keyframes menu-read-row {
+  0%, 8% { opacity: 0; transform: translateX(-10px); }
+  28%, 82% { opacity: 1; transform: translateX(0); }
+  96%, 100% { opacity: 0; transform: translateX(0); }
+}
+@keyframes menu-read-beam {
+  0% { transform: translateY(0); opacity: 0; }
+  8% { opacity: 1; }
+  88% { opacity: 1; }
+  100% { transform: translateY(250px); opacity: 0; }
+}
+@keyframes menu-read-spark {
+  0%, 100% { opacity: 0.2; transform: scale(0.6); }
+  50% { opacity: 1; transform: scale(1.1); }
+}
+@keyframes menu-read-hint {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .menu-read-row { animation: none; opacity: 1; }
+  .menu-read-beam { animation: none; opacity: 0; }
+  .menu-read-spark { animation: none; opacity: 0.8; }
+  .menu-read-hint { animation: none; }
+}

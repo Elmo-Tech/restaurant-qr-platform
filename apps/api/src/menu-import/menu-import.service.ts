@@ -170,6 +170,33 @@ function money(value: string): Prisma.Decimal {
   return new Prisma.Decimal(value);
 }
 
+/**
+ * A menu written in only one language (say Arabic) still has to give the Restaurant's
+ * default language a name. When that language is missing, the name read from the file
+ * is used as-is (never translated); the item is flagged so Staff can add a translation.
+ */
+function defaultText(
+  names: Record<string, string>,
+  defaultLocale: string,
+): string | undefined {
+  if (names[defaultLocale]) return names[defaultLocale];
+  const first = Object.keys(names)
+    .sort()
+    .find((locale) => names[locale]);
+  return first === undefined ? undefined : names[first];
+}
+
+/** Translation rows for creation, with the default locale always present. */
+function withDefaultLocale<T extends { locale: string; name: string }>(
+  rows: T[],
+  defaultLocale: string,
+): T[] {
+  if (rows.length === 0 || rows.some((r) => r.locale === defaultLocale))
+    return rows;
+  const source = [...rows].sort((a, b) => a.locale.localeCompare(b.locale))[0];
+  return [...rows, { ...source, locale: defaultLocale }];
+}
+
 /** Valid sizes of a Draft product: a price and a default-locale label each, no duplicate labels. */
 function validSizes(
   options: NormalizedPriceOption[],
@@ -178,7 +205,7 @@ function validSizes(
   const seen = new Set<string>();
   const result: NormalizedPriceOption[] = [];
   for (const option of options) {
-    const label = option.labels[defaultLocale];
+    const label = defaultText(option.labels, defaultLocale);
     if (!label) continue;
     const key = matchKey(label);
     if (key === '' || seen.has(key)) continue;
@@ -425,7 +452,7 @@ export class MenuImportService {
       let categoryOrder = 0;
       for (const category of data.categories) {
         const names = keepActive(category.names);
-        const defaultName = names[defaultLocale];
+        const defaultName = defaultText(names, defaultLocale);
         const match = defaultName
           ? categoryByKey.get(matchKey(defaultName))
           : undefined;
@@ -453,7 +480,7 @@ export class MenuImportService {
               create: category.products.map((product, index) => {
                 const productNames = keepActive(product.names);
                 const productDescriptions = keepActive(product.descriptions);
-                const productDefault = productNames[defaultLocale];
+                const productDefault = defaultText(productNames, defaultLocale);
                 const matchedProductId = productDefault
                   ? (existingProducts.get(matchKey(productDefault)) ?? null)
                   : null;
@@ -571,7 +598,9 @@ export class MenuImportService {
     const names: Record<string, string> = {};
     for (const t of row.translations) names[t.locale] = t.name;
     const flags: DraftFlag[] = [];
-    if (!names[defaultLocale] && !row.useExisting) flags.push('MISSING_NAME');
+    if (!defaultText(names, defaultLocale) && !row.useExisting) {
+      flags.push('MISSING_NAME');
+    }
     return {
       id: row.id,
       included: row.included,
@@ -598,7 +627,7 @@ export class MenuImportService {
     const sizes = validSizes(readOptions(row.priceOptions), defaultLocale);
     const price = row.price === null ? null : row.price.toFixed(2);
     const flags: DraftFlag[] = [];
-    if (!names[defaultLocale]) flags.push('MISSING_NAME');
+    if (!defaultText(names, defaultLocale)) flags.push('MISSING_NAME');
     if (price === null && sizes.length < 1) flags.push('MISSING_PRICE');
     if (row.confidence === 'LOW') flags.push('LOW_CONFIDENCE');
     if (row.matchedProductId) flags.push('ALREADY_EXISTS');
@@ -918,9 +947,12 @@ export class MenuImportService {
               displayOrder: nextCategoryOrder++,
               imageAssetPath: null,
               translations: {
-                create: row.translations
-                  .filter((t) => active.has(t.locale))
-                  .map((t) => ({ locale: t.locale, name: t.name })),
+                create: withDefaultLocale(
+                  row.translations
+                    .filter((t) => active.has(t.locale))
+                    .map((t) => ({ locale: t.locale, name: t.name })),
+                  view.defaultLocale,
+                ),
               },
             },
             select: { id: true },
@@ -967,13 +999,16 @@ export class MenuImportService {
               allowCustomerNotes: true,
               featured: false,
               translations: {
-                create: draft.translations
-                  .filter((t) => active.has(t.locale))
-                  .map((t) => ({
-                    locale: t.locale,
-                    name: t.name,
-                    description: t.description,
-                  })),
+                create: withDefaultLocale(
+                  draft.translations
+                    .filter((t) => active.has(t.locale))
+                    .map((t) => ({
+                      locale: t.locale,
+                      name: t.name,
+                      description: t.description,
+                    })),
+                  view.defaultLocale,
+                ),
               },
             },
             select: { id: true },
@@ -1001,9 +1036,12 @@ export class MenuImportService {
                   isDefault: index === 0,
                   discountApplies: true,
                   translations: {
-                    create: Object.entries(size.names)
-                      .filter(([locale]) => active.has(locale))
-                      .map(([locale, name]) => ({ locale, name })),
+                    create: withDefaultLocale(
+                      Object.entries(size.names)
+                        .filter(([locale]) => active.has(locale))
+                        .map(([locale, name]) => ({ locale, name })),
+                      view.defaultLocale,
+                    ),
                   },
                 },
               });

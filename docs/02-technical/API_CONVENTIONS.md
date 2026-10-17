@@ -2229,6 +2229,24 @@ Moving a ticket forward uses the existing `PATCH .../orders/{orderId}/status` (`
 
 ---
 
+# 108G. Menu Import (DEC-040, 2026-10-17)
+
+Base `/api/v1/restaurants/{restaurantId}/menu-imports`. Full design: `docs/01-domain/MENU_IMPORT_SPEC.md`. Every route needs `menu.manage`; mutations also need CSRF and Restaurant-wide scope (`AllBranchesRequiredGuard`). Every query is scoped by the authenticated Restaurant.
+
+| Route | Result |
+|---|---|
+| `POST /` (multipart `file`, `targetMenuId`, optional `languageHint` = `auto`/`ar`/`en`) | `202 { data: { publicId, status } }`. The file is validated by content (JPG, PNG, WEBP, PDF, XLSX, XLS; at most 10 MB) and is never stored. Extraction runs in the background. |
+| `GET /`, `GET /{importId}` | Recent jobs / one job: `status` (`PROCESSING`, `READY_FOR_REVIEW`, `APPROVED`, `DISCARDED`, `FAILED`), `errorCode`, `warnings`, `detectedLocales`. A job still `PROCESSING` after 10 minutes becomes `FAILED` / `EXTRACTION_TIMEOUT` when read. |
+| `GET /{importId}/draft` | Only while `READY_FOR_REVIEW`. `{ job, defaultLocale, activeLocales, categories: [{ id, included, names, matchedCategoryId, useExisting, flags, products: [{ id, included, names, descriptions, price, sizes, confidence, flags, matchedProductId }] }], blockerCount }`. Names are `{ locale: text }`; money is a string. Flags are computed: `MISSING_PRICE` and `MISSING_NAME` block approval; `LOW_CONFIDENCE`, `ALREADY_EXISTS`, `MISSING_TRANSLATION` are advisory. |
+| `PATCH /{importId}/categories/{id}` | `{ included?, useExisting?, names? }` -> `204`. |
+| `PATCH /{importId}/products/{id}` | `{ included?, price? (string or null), names?, descriptions? }` -> `204`. A null or empty name removes that language. Only active Restaurant languages are accepted. |
+| `POST /{importId}/approve` body `{ productStatus: "ACTIVE" \| "INACTIVE" }` | `200 { data: { categoriesCreated, productsCreated } }`. One transaction; the first approve wins, a repeat answers `409 IMPORT_ALREADY_APPROVED`. Products with two or more sizes create Product Variants (smallest size is the default); the base price follows the cheapest size. |
+| `POST /{importId}/discard` | `204`; deletes the Draft. |
+
+Stable errors: `IMPORT_FILE_INVALID` 422, `IMPORT_FILE_TOO_LARGE` 413, `IMPORT_ALREADY_RUNNING` 409 (one running job per Restaurant), `IMPORT_NOT_FOUND` 404 (also for another Restaurant's job), `IMPORT_NOT_READY` 409, `IMPORT_DRAFT_INCOMPLETE` 422 (lists the blockers), `IMPORT_ALREADY_APPROVED` 409, `IMPORT_NO_MATCH` 422, `AI_UNAVAILABLE` 503 (extraction service not configured). Job `errorCode` values include `AI_UNAVAILABLE`, `EXTRACTION_TIMEOUT`, `EMPTY_RESULT`, `INVALID_EXTRACTION_RESULT`, `EXTRACTION_FAILED` and the extraction service's own codes (`EMPTY_SHEET`, `UNSUPPORTED_FILE`, `FILE_TOO_LARGE`, `TRUNCATED_OUTPUT`, `INVALID_MODEL_OUTPUT`, `MODEL_ERROR`).
+
+---
+
 # 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
 `Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
+import Link from 'next/link';
 import { OpenGuestMenuButton } from '../../../../../components/menu/OpenGuestMenuButton';
 import { MenuSectionTabs } from './MenuSectionTabs';
 import * as menuApi from '../../../../../lib/menu/api';
@@ -444,7 +445,16 @@ export function MenuWorkspace({
       <PageHeader
         title={t('menu.title')}
         description={t('menu.subtitle')}
-        actions={<OpenGuestMenuButton restaurantId={restaurantId} />}
+        actions={
+          <>
+            {canManage ? (
+              <Button asChild variant="secondary">
+                <Link href={`/staff/restaurants/${restaurantId}/menu/import`}>{t('import.entry')}</Link>
+              </Button>
+            ) : null}
+            <OpenGuestMenuButton restaurantId={restaurantId} />
+          </>
+        }
       />
 
       <MenuSectionTabs restaurantId={restaurantId} active="products" />

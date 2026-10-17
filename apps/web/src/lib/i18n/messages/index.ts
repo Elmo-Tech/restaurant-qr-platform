@@ -5,6 +5,7 @@ import { dashboardMessages } from './dashboard';
 import { kitchenMessages } from './kitchen';
 import { opsMessages } from './ops';
 import { errorMessages } from './errors';
+import { menuImportMessages } from './menuImport';
 import { menuMessages } from './menu';
 import { menuStructureMessages } from './menuStructure';
 import { ordersMessages } from './orders';
@@ -32,6 +33,7 @@ const en = {
   ...kitchenMessages.en,
   ...opsMessages.en,
   ...errorMessages.en,
+  ...menuImportMessages.en,
   ...menuMessages.en,
   ...menuStructureMessages.en,
   ...ordersMessages.en,
@@ -54,6 +56,7 @@ const ar = {
   ...kitchenMessages.ar,
   ...opsMessages.ar,
   ...errorMessages.ar,
+  ...menuImportMessages.ar,
   ...menuMessages.ar,
   ...menuStructureMessages.ar,
   ...ordersMessages.ar,

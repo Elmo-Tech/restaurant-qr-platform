@@ -563,4 +563,65 @@ describe('Menu import (e2e)', () => {
     const list = await get(url(b.restaurant.id), cookieB).expect(200);
     expect(data(list) as unknown as Obj[]).toHaveLength(0);
   });
+
+  it('accepts a menu written in only one language: no blocker, the default language reuses the name', async () => {
+    const { restaurant, menu } = await seed();
+    const cookie = await login(restaurant.id, 'OWNER');
+    fake.next = () =>
+      Promise.resolve({
+        schemaVersion: 1,
+        status: 'EXTRACTED',
+        languages: ['ar'],
+        categories: [
+          {
+            translations: { ar: { name: 'باسطة' } },
+            products: [
+              {
+                translations: { ar: { name: 'باسطة كريمة' } },
+                price: '20',
+                confidence: 'high',
+                priceOptions: [
+                  { translations: { ar: { label: 'صغير' } }, price: '20' },
+                  { translations: { ar: { label: 'كبير' } }, price: '30' },
+                ],
+              },
+            ],
+          },
+        ],
+      });
+    const started = await upload(restaurant.id, cookie, menu.id).expect(202);
+    const publicId = data(started).publicId as string;
+    await waitFor(restaurant.id, cookie, publicId, 'READY_FOR_REVIEW');
+    const draft = data(
+      await get(url(restaurant.id, `/${publicId}/draft`), cookie).expect(200),
+    );
+    expect(draft.blockerCount).toBe(0);
+    const product = draft.categories[0].products[0] as Obj;
+    expect(product.flags).toEqual([]);
+
+    await post(url(restaurant.id, `/${publicId}/approve`), cookie, {
+      productStatus: 'ACTIVE',
+    }).expect(200);
+    const created = await prisma.product.findFirstOrThrow({
+      where: {
+        restaurantId: restaurant.id,
+        translations: { some: { name: 'باسطة كريمة' } },
+      },
+      include: {
+        translations: true,
+        variants: { include: { translations: true } },
+      },
+    });
+    expect(created.translations.map((t) => t.locale).sort()).toEqual([
+      'ar',
+      'en',
+    ]);
+    expect(created.variants).toHaveLength(2);
+    for (const variant of created.variants) {
+      expect(variant.translations.map((t) => t.locale).sort()).toEqual([
+        'ar',
+        'en',
+      ]);
+    }
+  });
 });

@@ -35,16 +35,13 @@ export class N8nMenuImportExtractor extends MenuImportExtractor {
   }
 
   isConfigured(): boolean {
-    return Boolean(
-      this.config.get('N8N_MENU_IMPORT_URL', { infer: true }) &&
-      this.config.get('N8N_MENU_IMPORT_SECRET', { infer: true }),
-    );
+    return Boolean(this.config.get('N8N_MENU_IMPORT_URL', { infer: true }));
   }
 
   async extract(input: ExtractionInput): Promise<unknown> {
     const url = this.config.get('N8N_MENU_IMPORT_URL', { infer: true });
     const secret = this.config.get('N8N_MENU_IMPORT_SECRET', { infer: true });
-    if (!url || !secret) throw new ExtractorUnavailableError('not configured');
+    if (!url) throw new ExtractorUnavailableError('not configured');
     const timeoutMs =
       this.config.get('MENU_IMPORT_TIMEOUT_SECONDS', { infer: true }) * 1000;
 
@@ -62,7 +59,8 @@ export class N8nMenuImportExtractor extends MenuImportExtractor {
       // No database transaction is open while this call runs (CLAUDE.md #48).
       const response = await fetch(url, {
         method: 'POST',
-        headers: { 'X-Service-Secret': secret },
+        // The secret is optional: without it the webhook must be protected another way.
+        headers: secret ? { 'X-Service-Secret': secret } : {},
         body: form,
         signal: controller.signal,
       });

@@ -1722,6 +1722,14 @@ Potential fields:
 
 ---
 
+# 68A. Menu Import Draft Tables (DEC-040, 2026-10-17)
+
+Added by migration `20261017120000_add_menu_import` (additive only). `menu_import_jobs` (one row per import: status, source type and sanitized file name, language hint, detected locales, model name, stable `error_code`, warnings, timestamps), `menu_import_categories` and `menu_import_products` (the Draft rows, each carrying `restaurant_id`), and `menu_import_category_translations` / `menu_import_product_translations` (names and descriptions per locale; never language columns). `price` is `DECIMAL(14,2)`, null when the file showed none; `price_options` holds the extracted sizes as JSON. `matched_*_id` and `created_*_id` are plain references (no foreign key) and are re-verified against the Tenant before use. The uploaded file is never stored.
+
+Custom SQL: a partial unique index `menu_import_jobs_one_processing_per_restaurant` (at most one `PROCESSING` job per Restaurant) and a check that a Draft price is never negative.
+
+---
+
 # 69. Variant Price
 
 V1 uses:
