@@ -1,8 +1,10 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import Link from 'next/link';
+import { useEffect, useState, type ReactNode } from 'react';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import * as settingsApi from '../../../../../../lib/settings/api';
+import { listDeliveryBranches } from '../../../../../../lib/delivery/api';
 import {
   describeError,
   isUnauthenticatedError,
@@ -11,9 +13,9 @@ import {
 import { Alert } from '../../../../../../components/ui/Alert';
 import { Card } from '../../../../../../components/ui/Card';
 import { Switch } from '../../../../../../components/ui/Switch';
-import { IconBag, IconTable, IconTruck } from '../../../../../../components/staff/icons';
+import { IconBag, IconChat, IconTable, IconTruck } from '../../../../../../components/staff/icons';
 
-type OrderType = 'pickup' | 'delivery' | 'table';
+type OrderType = 'pickup' | 'delivery' | 'table' | 'whatsapp';
 
 /**
  * Restaurant ordering options (DEC-038): where guests may order. Two channels,
@@ -28,12 +30,17 @@ export function OrderingOptionsCard({
   initialPickupEnabled,
   initialDeliveryEnabled,
   initialTableOrderingEnabled,
+  initialWhatsappOrderingEnabled,
+  hasWhatsappNumber,
   canManage,
 }: {
   restaurantId: string;
   initialPickupEnabled: boolean;
   initialDeliveryEnabled: boolean;
   initialTableOrderingEnabled: boolean;
+  initialWhatsappOrderingEnabled: boolean;
+  /** The Restaurant has a WhatsApp number (WhatsApp orders cannot be switched on without one). */
+  hasWhatsappNumber: boolean;
   /** `restaurant.manage` with Restaurant-wide Branch scope (UX only; the Backend enforces). */
   canManage: boolean;
 }) {
@@ -41,8 +48,33 @@ export function OrderingOptionsCard({
   const [pickupEnabled, setPickupEnabled] = useState(initialPickupEnabled);
   const [deliveryEnabled, setDeliveryEnabled] = useState(initialDeliveryEnabled);
   const [tableOrderingEnabled, setTableOrderingEnabled] = useState(initialTableOrderingEnabled);
+  const [whatsappOrderingEnabled, setWhatsappOrderingEnabled] = useState(initialWhatsappOrderingEnabled);
   const [busy, setBusy] = useState<OrderType | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // The Guest menu offers delivery only where an ACTIVE zone exists (the zone carries the fee), so a
+  // switch that is on without any zone is explained here. `null` = not known (never a false warning).
+  const [hasDeliveryZone, setHasDeliveryZone] = useState<boolean | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    listDeliveryBranches(restaurantId)
+      .then((branches) => {
+        if (cancelled) return;
+        setHasDeliveryZone(
+          branches.some(
+            (branch) => branch.status === 'ACTIVE' && branch.zones.some((zone) => zone.status === 'ACTIVE'),
+          ),
+        );
+      })
+      .catch(() => {
+        if (!cancelled) setHasDeliveryZone(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [restaurantId]);
+
+  const deliveryWithoutZone = deliveryEnabled && hasDeliveryZone === false;
 
   async function change(type: OrderType, next: boolean) {
     if (busy) return;
@@ -55,11 +87,14 @@ export function OrderingOptionsCard({
           ? { pickupEnabled: next }
           : type === 'delivery'
             ? { deliveryEnabled: next }
-            : { tableOrderingEnabled: next },
+            : type === 'whatsapp'
+              ? { whatsappOrderingEnabled: next }
+              : { tableOrderingEnabled: next },
       );
       setPickupEnabled(saved.pickupEnabled);
       setDeliveryEnabled(saved.deliveryEnabled);
       setTableOrderingEnabled(saved.tableOrderingEnabled);
+      setWhatsappOrderingEnabled(saved.whatsappOrderingEnabled);
     } catch (caught) {
       if (isUnauthenticatedError(caught)) {
         redirectToLogin();
@@ -95,6 +130,16 @@ export function OrderingOptionsCard({
       title: t('settings.ordering.table'),
       hint: t('settings.ordering.tableHint'),
       icon: <IconTable className="h-5 w-5" />,
+    },
+  ];
+
+  const whatsappRows: Row[] = [
+    {
+      type: 'whatsapp',
+      enabled: whatsappOrderingEnabled,
+      title: t('settings.ordering.whatsapp'),
+      hint: t('settings.ordering.whatsappHint'),
+      icon: <IconChat className="h-5 w-5" />,
     },
   ];
 
@@ -141,7 +186,32 @@ export function OrderingOptionsCard({
       <section className="flex flex-col gap-2" aria-label={t('settings.ordering.group.online')}>
         <h3 className="text-sm font-semibold text-foreground">{t('settings.ordering.group.online')}</h3>
         <OrderingRows rows={rows} canManage={canManage} busy={busy} onChange={change} />
-        <Alert variant={pickupEnabled || deliveryEnabled ? 'info' : 'error'}>{t(summaryKey)}</Alert>
+        <Alert variant={pickupEnabled || deliveryEnabled ? 'info' : 'error'}>
+          {t(summaryKey)}
+        </Alert>
+        {deliveryWithoutZone ? (
+          <Alert variant="warning">
+            {t('settings.ordering.deliveryNoZones')}{' '}
+            <Link
+              href={`/staff/restaurants/${restaurantId}/settings/delivery`}
+              className="font-semibold underline"
+            >
+              {t('settings.ordering.deliveryNoZonesLink')}
+            </Link>
+          </Alert>
+        ) : null}
+      </section>
+
+      <section className="flex flex-col gap-2" aria-label={t('settings.ordering.group.whatsapp')}>
+        <h3 className="text-sm font-semibold text-foreground">{t('settings.ordering.group.whatsapp')}</h3>
+        <OrderingRows
+          rows={whatsappRows}
+          canManage={canManage && (hasWhatsappNumber || whatsappOrderingEnabled)}
+          busy={busy}
+          onChange={change}
+        />
+        {!hasWhatsappNumber ? <Alert variant="warning">{t('settings.ordering.whatsappNeedsNumber')}</Alert> : null}
+        {whatsappOrderingEnabled ? <Alert variant="info">{t('settings.ordering.summary.whatsappOn')}</Alert> : null}
       </section>
 
       {!canManage ? (

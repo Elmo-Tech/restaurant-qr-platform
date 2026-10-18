@@ -174,7 +174,12 @@ describe('RestaurantProfileService.updateOrderingOptions', () => {
     expect(mocks.update).toHaveBeenCalledWith({
       where: { id: RESTAURANT_ID },
       data: { deliveryEnabled: false },
-      select: { pickupEnabled: true, deliveryEnabled: true, tableOrderingEnabled: true },
+      select: {
+        pickupEnabled: true,
+        deliveryEnabled: true,
+        tableOrderingEnabled: true,
+        whatsappOrderingEnabled: true,
+      },
     });
     expect(result).toEqual({
       pickupEnabled: true,

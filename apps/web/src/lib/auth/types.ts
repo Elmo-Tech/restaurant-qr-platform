@@ -40,6 +40,8 @@ export interface AuthContextRestaurant {
   deliveryEnabled: boolean;
   /** Table (dine-in) channel; false = the table QR shows a view-only menu. */
   tableOrderingEnabled: boolean;
+  /** WhatsApp ordering (DEC-042): the Guest menu hands orders to WhatsApp. */
+  whatsappOrderingEnabled: boolean;
   /** Guest Menu contact details (Settings -> Profile). */
   contact: RestaurantContact;
   /** QR appearance (Settings -> Restaurant QR): applied to the Restaurant QR and the table QR panels. */

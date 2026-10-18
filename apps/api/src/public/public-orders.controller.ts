@@ -10,12 +10,47 @@ import {
   Post,
   UnprocessableEntityException,
 } from '@nestjs/common';
-import { RATE_LIMIT_GROUPS, RateLimitGroup } from '../common/rate-limit/rate-limit-group';
+import {
+  RATE_LIMIT_GROUPS,
+  RateLimitGroup,
+} from '../common/rate-limit/rate-limit-group';
 import { CreateGuestOrderDto } from './dto/create-guest-order.dto';
 import { PublicOrdersService } from './public-orders.service';
-import type { GuestOrderView } from './public-orders.service';
+import type {
+  CreateGuestOrderInput,
+  CreateGuestOrderResult,
+  GuestOrderView,
+} from './public-orders.service';
+import {
+  buildWhatsappMessage,
+  buildWhatsappUrl,
+} from './whatsapp-order-message';
 
 /** Mirrors `PublicMenuController`'s exact QR_NOT_FOUND envelope -- the identical stable error for an unknown/inactive QR, a GENERIC QR, or an inactive Table (Section 3/5). */
+/** What the Guest's device needs to hand the order to WhatsApp. */
+export interface WhatsappOrderView {
+  /** The full message, to show a preview or to copy. */
+  message: string;
+  /** wa.me link: opens WhatsApp on the Restaurant's number with the message ready to send. */
+  whatsappUrl: string;
+  total: string;
+  currencyCode: string;
+}
+
+const WHATSAPP_ONLY_RESPONSE = {
+  error: {
+    code: 'ORDER_VIA_WHATSAPP_ONLY',
+    message: 'This restaurant takes pickup and delivery orders on WhatsApp.',
+  },
+};
+
+const WHATSAPP_UNAVAILABLE_RESPONSE = {
+  error: {
+    code: 'WHATSAPP_ORDERING_UNAVAILABLE',
+    message: 'WhatsApp ordering is not available for this restaurant.',
+  },
+};
+
 const BRANCH_CLOSED_RESPONSE = {
   error: {
     code: 'BRANCH_CLOSED',
@@ -96,7 +131,8 @@ const TABLE_ORDERING_UNAVAILABLE_RESPONSE = {
 const DELIVERY_DETAILS_REQUIRED_RESPONSE = {
   error: {
     code: 'DELIVERY_DETAILS_REQUIRED',
-    message: 'Name, phone and delivery address are required for a delivery order.',
+    message:
+      'Name, phone and delivery address are required for a delivery order.',
   },
 };
 
@@ -159,7 +195,51 @@ export class PublicOrdersController {
     @Param('publicCode') publicCode: string,
     @Body() dto: CreateGuestOrderDto,
   ): Promise<GuestOrderResponseBody> {
-    const result = await this.publicOrdersService.createOrder({
+    const result = await this.publicOrdersService.createOrder(
+      this.toInput(publicCode, dto, {}),
+    );
+    this.refuse(result);
+    if (result.outcome !== 'created')
+      throw new NotFoundException(QR_NOT_FOUND_RESPONSE);
+    return { data: result.data };
+  }
+
+  /**
+   * DEC-042, WhatsApp ordering: the SAME validation and pricing as a real order (items, sizes,
+   * extras, discounts, delivery zone and fee, minimum, opening hours, expected total), then
+   * nothing is stored. The answer is the ready-to-send WhatsApp message and link, built from the
+   * Backend's own numbers. Only when the Restaurant switched WhatsApp ordering on.
+   */
+  @Post(':publicCode/whatsapp-order')
+  @HttpCode(HttpStatus.OK)
+  @RateLimitGroup(RATE_LIMIT_GROUPS.PUBLIC_ORDER)
+  async whatsappOrder(
+    @Param('publicCode') publicCode: string,
+    @Body() dto: CreateGuestOrderDto,
+  ): Promise<{ data: WhatsappOrderView }> {
+    const result = await this.publicOrdersService.createOrder(
+      this.toInput(publicCode, dto, { channel: 'WHATSAPP', dryRun: true }),
+    );
+    this.refuse(result);
+    if (result.outcome !== 'quoted')
+      throw new NotFoundException(QR_NOT_FOUND_RESPONSE);
+    const message = buildWhatsappMessage(result.quote);
+    return {
+      data: {
+        message,
+        whatsappUrl: buildWhatsappUrl(result.quote.whatsappNumber, message),
+        total: result.quote.total,
+        currencyCode: result.quote.currencyCode,
+      },
+    };
+  }
+
+  private toInput(
+    publicCode: string,
+    dto: CreateGuestOrderDto,
+    extra: { channel?: 'APP' | 'WHATSAPP'; dryRun?: boolean },
+  ): CreateGuestOrderInput {
+    return {
       publicCode,
       clientRequestId: dto.clientRequestId,
       locale: dto.locale,
@@ -181,8 +261,12 @@ export class PublicOrdersController {
       deliveryFloor: dto.deliveryFloor,
       deliveryApartment: dto.deliveryApartment,
       deliveryLandmark: dto.deliveryLandmark,
-    });
+      ...extra,
+    };
+  }
 
+  /** Turns every refusal into its stable HTTP error; returns only for `created` and `quoted`. */
+  private refuse(result: CreateGuestOrderResult): void {
     if (result.outcome === 'customerDetailsRequired') {
       throw new BadRequestException(CUSTOMER_DETAILS_REQUIRED_RESPONSE);
     }
@@ -223,6 +307,12 @@ export class PublicOrdersController {
         },
       });
     }
+    if (result.outcome === 'whatsappOnly') {
+      throw new ConflictException(WHATSAPP_ONLY_RESPONSE);
+    }
+    if (result.outcome === 'whatsappUnavailable') {
+      throw new ConflictException(WHATSAPP_UNAVAILABLE_RESPONSE);
+    }
     if (result.outcome === 'branchClosed') {
       throw new ConflictException(BRANCH_CLOSED_RESPONSE);
     }
@@ -238,7 +328,5 @@ export class PublicOrdersController {
     if (result.outcome === 'duplicateItems') {
       throw new BadRequestException(DUPLICATE_ITEMS_RESPONSE);
     }
-
-    return { data: result.data };
   }
 }

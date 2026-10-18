@@ -27,6 +27,14 @@ export interface SubmitPickupCheckout {
   deliveryLandmark: string;
 }
 
+/** WhatsApp ordering (DEC-042): the Backend's ready-to-send message and link for a priced cart. Nothing is stored. */
+export interface WhatsappOrderView {
+  message: string;
+  whatsappUrl: string;
+  total: string;
+  currencyCode: string;
+}
+
 export type SubmitGuestOrderResult =
   | { outcome: 'success'; data: GuestOrderView }
   | { outcome: 'itemsUnavailable' }
@@ -34,6 +42,10 @@ export type SubmitGuestOrderResult =
   | { outcome: 'pickupDetailsRequired' }
   | { outcome: 'pickupBranchInvalid' }
   | { outcome: 'pickupUnavailable' }
+  /** DEC-042: WhatsApp ordering is off (409 WHATSAPP_ORDERING_UNAVAILABLE). */
+  | { outcome: 'whatsappUnavailable' }
+  /** DEC-042: WhatsApp ordering is on, so the app takes no Pickup / Delivery order (409 ORDER_VIA_WHATSAPP_ONLY). */
+  | { outcome: 'whatsappOnly' }
   /** DEC-042: the Branch is closed right now (409 BRANCH_CLOSED). Nothing was created. */
   | { outcome: 'branchClosed' }
   /** Table Sessions: staff closed ordering for this table (409 TABLE_ORDERING_UNAVAILABLE). Nothing was created. */
@@ -86,14 +98,47 @@ export async function submitGuestOrder(
   clientRequestId: string,
   items: SubmitGuestOrderItem[],
   pickup: SubmitPickupCheckout | null = null,
+  locale: string | null = null,
+  expectedTotal: string | null = null,
+): Promise<SubmitGuestOrderResult> {
+  const result = await sendOrder('orders', publicCode, clientRequestId, items, pickup, locale, expectedTotal);
+  return result.outcome === 'whatsappSuccess' ? { outcome: 'networkError' } : result;
+}
+
+export type SubmitWhatsappOrderResult =
+  | { outcome: 'whatsappSuccess'; data: WhatsappOrderView }
+  | Exclude<SubmitGuestOrderResult, { outcome: 'success' }>;
+
+/**
+ * DEC-042: prices the cart exactly like a real order and returns the WhatsApp message and link;
+ * no order is created, so there is no idempotency to keep.
+ */
+export async function submitWhatsappOrder(
+  publicCode: string,
+  items: SubmitGuestOrderItem[],
+  pickup: SubmitPickupCheckout | null,
+  locale: string | null,
+  expectedTotal: string | null,
+  newRequestId: string,
+): Promise<SubmitWhatsappOrderResult> {
+  const result = await sendOrder('whatsapp-order', publicCode, newRequestId, items, pickup, locale, expectedTotal);
+  return result.outcome === 'success' ? { outcome: 'networkError' } : result;
+}
+
+async function sendOrder(
+  route: 'orders' | 'whatsapp-order',
+  publicCode: string,
+  clientRequestId: string,
+  items: SubmitGuestOrderItem[],
+  pickup: SubmitPickupCheckout | null = null,
   /** The menu content language the Guest is browsing in; the Backend localizes Branch and zone names in the confirmation with it. Display only. */
   locale: string | null = null,
   /** The total payable the Guest was shown (a staleness check only -- the Backend recomputes every amount). */
   expectedTotal: string | null = null,
-): Promise<SubmitGuestOrderResult> {
+): Promise<SubmitGuestOrderResult | { outcome: 'whatsappSuccess'; data: WhatsappOrderView }> {
   try {
-    const body = await apiFetch<{ data: GuestOrderView }>(
-      `/public/qr/${encodeURIComponent(publicCode)}/orders`,
+    const body = await apiFetch<{ data: GuestOrderView | WhatsappOrderView }>(
+      `/public/qr/${encodeURIComponent(publicCode)}/${route}`,
       {
         method: 'POST',
         body: {
@@ -123,7 +168,9 @@ export async function submitGuestOrder(
         },
       },
     );
-    return { outcome: 'success', data: body.data };
+    return route === 'whatsapp-order'
+      ? { outcome: 'whatsappSuccess', data: body.data as WhatsappOrderView }
+      : { outcome: 'success', data: body.data as GuestOrderView };
   } catch (error) {
     if (error instanceof ApiError) {
       if (error.code === 'ORDER_ITEM_UNAVAILABLE') {
@@ -154,6 +201,12 @@ export async function submitGuestOrder(
       }
       if (error.code === 'BRANCH_CLOSED') {
         return { outcome: 'branchClosed' };
+      }
+      if (error.code === 'ORDER_VIA_WHATSAPP_ONLY') {
+        return { outcome: 'whatsappOnly' };
+      }
+      if (error.code === 'WHATSAPP_ORDERING_UNAVAILABLE') {
+        return { outcome: 'whatsappUnavailable' };
       }
       if (error.code === 'PICKUP_UNAVAILABLE') {
         return { outcome: 'pickupUnavailable' };

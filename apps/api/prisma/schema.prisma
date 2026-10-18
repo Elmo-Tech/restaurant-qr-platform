@@ -251,6 +251,9 @@ model Restaurant {
   // view-only and TABLE QR orders are refused. Independent of the two switches
   // above and of Table Session state.
   tableOrderingEnabled Boolean    @default(true) @map("table_ordering_enabled")
+  // WhatsApp ordering (DEC-042): the Guest menu hands the priced order to WhatsApp (the
+  // Restaurant's whatsappNumber) instead of creating an Order. Needs that number; off by default.
+  whatsappOrderingEnabled Boolean @default(false) @map("whatsapp_ordering_enabled")
   // Restaurant QR appearance (applied to the Restaurant QR and the Table QR panels).
   // The defaults are today's plain black-on-white QR with the restaurant name.
   qrForegroundColor String        @default("#000000") @map("qr_foreground_color") @db.Char(7)

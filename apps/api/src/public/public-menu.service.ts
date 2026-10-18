@@ -71,6 +71,13 @@ export interface PublicMenuContext {
   /** Live announcements for the banner (DEC-042): at most three, already in the Guest's language. */
   announcements: PublicAnnouncement[];
   /**
+   * How a GENERIC QR order is taken (DEC-042); null for a TABLE QR. `pickup` / `delivery` are the
+   * Restaurant's own switches (what kinds of order it takes, whoever receives them). `whatsapp`
+   * says WHERE they go: true = the order is sent to the Restaurant on WhatsApp INSTEAD of the
+   * dashboard (nothing is created in the app); false = the dashboard, as always.
+   */
+  ordering: { pickup: boolean; delivery: boolean; whatsapp: boolean } | null;
+  /**
    * FT-7: GENERIC QR only (null for TABLE) -- the Restaurant's ACTIVE
    * Branches eligible for Pickup, exposing only the Branch id (the same
    * raw-id convention this response already uses for Category/Product/
@@ -314,6 +321,7 @@ export class PublicMenuService {
             pickupEnabled: true,
             deliveryEnabled: true,
             tableOrderingEnabled: true,
+            whatsappOrderingEnabled: true,
             ...CONTACT_COLUMNS,
           },
         },
@@ -683,8 +691,14 @@ export class PublicMenuService {
     // Staff can switch Pickup and / or Delivery off for the whole Restaurant: the
     // Guest then sees no branch for that type, exactly as if none were eligible.
     // (`!== false`: only an explicit off switches a type off.)
-    const pickupOffered = qr.restaurant.pickupEnabled !== false;
-    const deliveryOffered = qr.restaurant.deliveryEnabled !== false;
+    // WhatsApp ordering needs a number to send to; without one it is not offered.
+    const whatsappOrdering =
+      qr.restaurant.whatsappOrderingEnabled === true && !!qr.restaurant.whatsappNumber;
+    const appPickup = qr.restaurant.pickupEnabled !== false;
+    const appDelivery = qr.restaurant.deliveryEnabled !== false;
+    // WhatsApp only decides where an order goes, never which kinds are offered.
+    const pickupOffered = appPickup;
+    const deliveryOffered = appDelivery;
     const pickupBranches = activeBranches
       ? (pickupOffered ? activeBranches : []).map((branch) => ({
           id: branch.id,
@@ -774,6 +788,10 @@ export class PublicMenuService {
             : null,
           table: qr.table ? { number: qr.table.tableNumber } : null,
           announcements,
+          ordering:
+            qr.type === 'GENERIC'
+              ? { pickup: appPickup, delivery: appDelivery, whatsapp: whatsappOrdering }
+              : null,
           pickupBranches,
           deliveryBranches,
         },

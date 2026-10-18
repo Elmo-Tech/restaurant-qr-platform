@@ -6,6 +6,7 @@ import { GuestEmptyState } from '../../../components/guest/GuestEmptyState';
 import {
   GuestIconAlert,
   GuestIconBag,
+  GuestIconChat,
   GuestIconChevron,
   GuestIconClose,
   GuestIconTrash,
@@ -17,6 +18,7 @@ import { Sheet } from '../../../components/guest/Sheet';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
+import type { WhatsappOrderView } from '../../../lib/public-menu/orders-api';
 import type { GuestOrderView } from '../../../lib/public-menu/types';
 import {
   AddressSection,
@@ -67,6 +69,10 @@ export interface CartPanelProps {
   onClose: () => void;
   /** Opens the order tracking sheet (offered on the confirmation). */
   onTrackOrder: () => void;
+  /** WhatsApp ordering (DEC-042): when set, "send" prepares the WhatsApp message instead of placing an order. Null = the dashboard, as always. */
+  whatsapp: { onSend: () => void } | null;
+  /** The ready-to-send WhatsApp order (shown instead of the cart once it has been prepared). */
+  whatsappHandoff: WhatsappOrderView | null;
 }
 
 type Step = 'review' | 'details';
@@ -280,6 +286,8 @@ export function CartPanel({
   onPlaceOrder,
   onClose,
   onTrackOrder,
+  whatsapp,
+  whatsappHandoff,
 }: CartPanelProps) {
   const [step, setStep] = useState<Step>('review');
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -306,16 +314,23 @@ export function CartPanel({
     headingRef.current?.focus({ preventScroll: true });
   }, [effectiveStep]);
 
+  const whatsappOnly = whatsapp !== null;
   const ctaLabel = isSubmitting
-    ? copy.placingOrder
-    : checkout
+    ? whatsappOnly
+      ? copy.preparingWhatsapp
+      : copy.placingOrder
+    : whatsappOnly
+      ? copy.sendOnWhatsapp
+      : checkout
       ? checkout.fulfillment === 'DELIVERY'
         ? copy.placeDeliveryOrder
         : copy.placePickupOrder
       : copy.placeOrder;
   const grandTotal = checkout ? checkout.grandTotalDisplay : totalDisplay;
 
-  const titleText = confirmedOrder
+  const titleText = whatsappHandoff
+    ? copy.whatsappReadyTitle
+    : confirmedOrder
     ? orderTitle(confirmedOrder, copy)
     : effectiveStep === 'details'
       ? copy.stepDetails
@@ -397,7 +412,9 @@ export function CartPanel({
         ref={bodyRef}
         className="flex-1 overflow-y-auto overscroll-contain px-4 py-[18px] lg:px-6"
       >
-        {confirmedOrder ? (
+        {whatsappHandoff ? (
+          <WhatsappHandoff copy={copy} handoff={whatsappHandoff} />
+        ) : confirmedOrder ? (
           <Confirmation copy={copy} currency={currency} order={confirmedOrder} onTrack={onTrackOrder} />
         ) : lines.length === 0 ? (
           <GuestEmptyState icon={<GuestIconBag />} title={copy.emptyCart} className="border-0" />
@@ -552,7 +569,7 @@ export function CartPanel({
       </div>
 
       <div className="shrink-0 border-t border-g-line bg-g-surface px-4 pb-[max(1.375rem,env(safe-area-inset-bottom))] pt-3.5 lg:px-6">
-        {confirmedOrder ? (
+        {confirmedOrder || whatsappHandoff ? (
           <button
             type="button"
             onClick={onClose}
@@ -623,7 +640,7 @@ export function CartPanel({
                 <button
                   type="button"
                   disabled={!canSubmit}
-                  onClick={onPlaceOrder}
+                  onClick={whatsappOnly && whatsapp ? whatsapp.onSend : onPlaceOrder}
                   aria-describedby={submitHint && !canSubmit ? 'cart-submit-hint' : undefined}
                   className={`flex h-[58px] w-full items-center justify-between gap-3 rounded-[18px] px-[22px] text-[16.5px] font-extrabold transition-[background-color,color,transform] active:scale-[0.99] disabled:cursor-not-allowed ${
                     canSubmit
@@ -647,6 +664,53 @@ export function CartPanel({
         )}
       </div>
     </Sheet>
+  );
+}
+
+/** WhatsApp ordering: the ready-to-send message. The order is only placed once the Guest sends it in WhatsApp. */
+function WhatsappHandoff({ copy, handoff }: { copy: PublicMenuCopy; handoff: WhatsappOrderView }) {
+  const [copied, setCopied] = useState(false);
+  async function copyMessage() {
+    try {
+      await navigator.clipboard.writeText(handoff.message);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 2200);
+    } catch {
+      // Clipboard blocked: the message is on screen and can be selected by hand.
+    }
+  }
+  return (
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-col items-center gap-3 text-center">
+        <span className="guest-anim-bump flex size-16 items-center justify-center rounded-full bg-[#25D366] text-white">
+          <GuestIconChat className="size-8" strokeWidth={2.2} />
+        </span>
+        <p role="status" className="max-w-sm text-[15px] leading-[1.7] text-g-text-2">
+          {copy.whatsappReadyBody}
+        </p>
+      </div>
+      <a
+        href={handoff.whatsappUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        className="flex h-[54px] items-center justify-center gap-2.5 rounded-[18px] bg-[#25D366] text-[16.5px] font-extrabold text-white shadow-[0_10px_24px_rgb(37_211_102/0.28)]"
+      >
+        <GuestIconChat className="size-5" strokeWidth={2.4} />
+        {copy.whatsappOpen}
+      </a>
+      <section aria-label={copy.whatsappMessageLabel} className="rounded-[20px] border border-g-line bg-g-surface p-4">
+        <pre dir="auto" className="whitespace-pre-wrap break-words text-start font-[inherit] text-[13.5px] leading-[1.75] text-g-text">
+          {handoff.message}
+        </pre>
+      </section>
+      <button
+        type="button"
+        onClick={() => void copyMessage()}
+        className="h-11 rounded-2xl border border-g-line bg-g-surface-2 text-[14.5px] font-bold text-g-text"
+      >
+        {copied ? copy.whatsappCopied : copy.whatsappCopy}
+      </button>
+    </div>
   );
 }
 

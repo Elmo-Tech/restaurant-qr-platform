@@ -2292,6 +2292,16 @@ Guest menu: the device remembers the ids of the orders it placed (`localStorage`
 
 ---
 
+# 108L. WhatsApp Ordering (DEC-042, 2026-10-21)
+
+Not an integration: the Guest's phone opens WhatsApp on the Restaurant's own number with the order already written; the Restaurant reads it there. **No Order is created**, so these orders never appear in the dashboard, Kitchen or tracking.
+
+- Switch: `PATCH /restaurants/{restaurantId}/ordering-options` accepts `whatsappOrderingEnabled` (same authority as the other switches). Switching it on without a WhatsApp number answers `422 WHATSAPP_NUMBER_REQUIRED`; clearing the number (`PATCH .../contact`) switches it off. `GET /auth/me` returns `restaurant.whatsappOrderingEnabled`.
+- Guest menu: `context.ordering` (GENERIC QR only, null for a TABLE QR) = `{ pickup, delivery, whatsapp }`: `pickup` / `delivery` are the Restaurant's own switches (which kinds of order are offered, whoever receives them) and `whatsapp` says where they go (switch on AND a number set). While WhatsApp is on, Pickup and Delivery orders go to WhatsApp INSTEAD of the dashboard: `POST .../orders` answers `409 ORDER_VIA_WHATSAPP_ONLY` for them. A Table QR is unaffected (it keeps ordering through the app).
+- `POST /public/qr/{publicCode}/whatsapp-order`: same body as `POST .../orders`. The Backend runs the same validation and pricing as a real order (items, sizes, extras, discounts, delivery zone, fee and minimum, opening hours, `expectedTotal`), inside a transaction it always rolls back, and answers `200 { data: { message, whatsappUrl, total, currencyCode } }`. The message is built only from the Backend's own numbers, in the Restaurant's default language (labels, product, size and extra names), with the Guest's free text neutralized against WhatsApp formatting; `whatsappUrl` is `https://wa.me/<digits>?text=<encoded message>`. Refusals are the same codes as a real order (`PICKUP_UNAVAILABLE` / `DELIVERY_UNAVAILABLE` for a kind switched off, `ORDER_ITEM_UNAVAILABLE`, `BRANCH_CLOSED`, `PRICE_CHANGED`, validation, ...) plus `409 WHATSAPP_ORDERING_UNAVAILABLE` (off, or no number) and `404` for a Table QR. Counted by the `publicOrder` rate group.
+
+---
+
 # 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
 `Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.

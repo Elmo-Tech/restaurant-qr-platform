@@ -86,6 +86,18 @@ export interface PublicMenuCopy {
   language: string;
   /** Share button (the Restaurant menu link) and its confirmations. */
   share: string;
+  /** WhatsApp ordering (DEC-042). */
+  sendOnWhatsapp: string;
+  orderViaWhatsapp: string;
+  preparingWhatsapp: string;
+  whatsappReadyTitle: string;
+  whatsappReadyBody: string;
+  whatsappOpen: string;
+  whatsappCopy: string;
+  whatsappCopied: string;
+  whatsappMessageLabel: string;
+  whatsappUnavailable: string;
+  whatsappOnlyError: string;
   /** Order tracking (DEC-042). */
   trackOrder: string;
   trackTitle: string;
@@ -285,6 +297,17 @@ const EN_COPY: PublicMenuCopy = {
   browseOnly: 'Browse only',
   language: 'Language',
   share: 'Share',
+  sendOnWhatsapp: 'Send order on WhatsApp',
+  orderViaWhatsapp: 'Or send it on WhatsApp',
+  preparingWhatsapp: 'Preparing your message…',
+  whatsappReadyTitle: 'Send it on WhatsApp',
+  whatsappReadyBody: 'Your order is written and ready. Open WhatsApp and press send so the restaurant receives it. It is not placed until you send the message.',
+  whatsappOpen: 'Open WhatsApp',
+  whatsappCopy: 'Copy the message',
+  whatsappCopied: 'Message copied',
+  whatsappMessageLabel: 'Your order message',
+  whatsappUnavailable: 'Ordering on WhatsApp is not available right now.',
+  whatsappOnlyError: 'This restaurant now takes orders on WhatsApp. The page was refreshed: send your order again.',
   trackOrder: 'Track order',
   trackTitle: 'Track your order',
   trackThisDevice: 'Your orders on this device',
@@ -516,6 +539,17 @@ const AR_COPY: PublicMenuCopy = {
   browseOnly: 'تصفح فقط',
   language: 'اللغة',
   share: 'مشاركة',
+  sendOnWhatsapp: 'أرسل الطلب على واتساب',
+  orderViaWhatsapp: 'أو أرسله على واتساب',
+  preparingWhatsapp: 'جارٍ تجهيز رسالتك…',
+  whatsappReadyTitle: 'أرسله على واتساب',
+  whatsappReadyBody: 'طلبك مكتوب وجاهز. افتح واتساب واضغط إرسال ليصل الطلب إلى المطعم. لا يُعتبر الطلب مُرسلًا إلا بعد إرسال الرسالة.',
+  whatsappOpen: 'افتح واتساب',
+  whatsappCopy: 'انسخ الرسالة',
+  whatsappCopied: 'تم نسخ الرسالة',
+  whatsappMessageLabel: 'رسالة طلبك',
+  whatsappUnavailable: 'الطلب عبر واتساب غير متاح الآن.',
+  whatsappOnlyError: 'هذا المطعم يستقبل الطلبات الآن على واتساب. تم تحديث الصفحة: أرسل طلبك مرة أخرى.',
   trackOrder: 'تتبع الطلب',
   trackTitle: 'تتبع طلبك',
   trackThisDevice: 'طلباتك من هذا الجهاز',

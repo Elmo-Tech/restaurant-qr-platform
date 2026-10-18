@@ -43,6 +43,8 @@ export interface AuthContextRestaurant {
   deliveryEnabled: boolean;
   /** Table (dine-in) channel; false = a view-only table menu (DEC-038). */
   tableOrderingEnabled: boolean;
+  /** WhatsApp ordering (DEC-042): orders are handed to WhatsApp instead of the dashboard. */
+  whatsappOrderingEnabled: boolean;
   /** Guest Menu contact details (Settings -> Profile). */
   contact: RestaurantContact;
   /** QR appearance (Settings -> Restaurant QR), applied to the Restaurant QR and Table QR panels. */
@@ -153,6 +155,7 @@ export class AuthContextService {
             pickupEnabled: true,
             deliveryEnabled: true,
             tableOrderingEnabled: true,
+            whatsappOrderingEnabled: true,
             ...CONTACT_COLUMNS,
             qrForegroundColor: true,
             qrBackgroundColor: true,
@@ -282,6 +285,7 @@ export class AuthContextService {
           pickupEnabled: membership.restaurant.pickupEnabled,
           deliveryEnabled: membership.restaurant.deliveryEnabled,
           tableOrderingEnabled: membership.restaurant.tableOrderingEnabled,
+          whatsappOrderingEnabled: membership.restaurant.whatsappOrderingEnabled,
           contact: contactFromColumns(membership.restaurant),
           qrStyle: {
             foregroundColor: membership.restaurant.qrForegroundColor,

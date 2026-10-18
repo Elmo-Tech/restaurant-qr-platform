@@ -39,6 +39,7 @@ import { CartPanel } from './CartPanel';
 import { CategoryChips, type ChipItem } from './CategoryChips';
 import { FeaturedBanners } from './FeaturedBanners';
 import { AnnouncementBar } from './AnnouncementBar';
+import { submitWhatsappOrder, type SubmitGuestOrderResult, type WhatsappOrderView } from '../../../lib/public-menu/orders-api';
 import { TrackOrderSheet } from './TrackOrderSheet';
 import { readTrackedOrders, rememberOrder } from '../../../lib/public-menu/tracking';
 import { GuestContact } from './GuestContact';
@@ -209,6 +210,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
   const [requestedFulfillment, setRequestedFulfillment] = useState<Fulfillment>('PICKUP');
   const [selectedBranchId, setSelectedBranchId] = useState<string | null>(null);
   const [isTrackOpen, setIsTrackOpen] = useState(false);
+  const [whatsappHandoff, setWhatsappHandoff] = useState<WhatsappOrderView | null>(null);
   const [hasActiveOrder, setHasActiveOrder] = useState(false);
   useEffect(() => {
     // Read after mount so the server render and the first client render are identical.
@@ -658,6 +660,13 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     checkoutDetailsComplete &&
     !branchClosed &&
     !tableLocked;
+  // WhatsApp ordering (DEC-042): while it is on, a Restaurant QR order is sent to the Restaurant on
+  // WhatsApp INSTEAD of the dashboard (which kinds of order are offered is still the Restaurant's switches).
+  const whatsappAction =
+    isGenericQr && data.context.ordering?.whatsapp
+      ? { onSend: () => void handleSendWhatsapp() }
+      : null;
+
   // Why the primary action is unavailable, in words (shown instead of a silently greyed button).
   // A locked table shows its own dedicated notice instead of this one-line hint.
   const submitHint = tableLocked
@@ -744,6 +753,11 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       clearPendingAttempt(publicCode);
       return;
     }
+    reportFailure(result);
+  }
+
+  /** Why an order (or a WhatsApp order) was not accepted, in the Guest's words. Nothing was created. */
+  function reportFailure(result: Exclude<SubmitGuestOrderResult, { outcome: 'success' }>) {
     if (result.outcome === 'tableOrderingUnavailable') {
       // Staff closed ordering since this page loaded. Nothing was created; the cart and the
       // pending attempt are kept, so the SAME request id is reused if ordering reopens.
@@ -808,6 +822,16 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       setSubmitError(copy.pickupUnavailable);
       return;
     }
+    if (result.outcome === 'whatsappOnly') {
+      // The Restaurant switched to WhatsApp since this page loaded: refresh so the cart sends it there.
+      setSubmitError(copy.whatsappOnlyError);
+      router.refresh();
+      return;
+    }
+    if (result.outcome === 'whatsappUnavailable') {
+      setSubmitError(copy.whatsappUnavailable);
+      return;
+    }
     if (result.outcome === 'branchClosed') {
       setSubmitError(copy.branchClosedHint);
       return;
@@ -817,6 +841,41 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     // deliberately left in place so an unchanged retry reuses this same
     // `clientRequestId` above.
     setSubmitError(copy.orderNetworkError);
+  }
+
+  /** DEC-042: prices the cart on the Backend and hands the ready-to-send message to WhatsApp. No order is stored. */
+  async function handleSendWhatsapp() {
+    if (!canSubmit) return;
+    setIsSubmitting(true);
+    setSubmitError(null);
+    const items = orderableLines.map((line) => ({
+      productId: line.productId,
+      quantity: line.quantity,
+      modifierOptionIds: line.modifierOptionIds,
+      ...(line.variantId ? { variantId: line.variantId } : {}),
+    }));
+    const result = await submitWhatsappOrder(
+      publicCode,
+      items,
+      checkout,
+      data.locale.resolved,
+      isDelivery ? grandTotalDisplay : totalDisplay,
+      generateUuid(),
+    );
+    setIsSubmitting(false);
+    if (result.outcome === 'whatsappSuccess') {
+      setWhatsappHandoff(result.data);
+      persistCartCleared();
+      clearPendingAttempt(publicCode);
+      // Try to open WhatsApp at once; a browser may block it after the wait, so the panel also has a button.
+      try {
+        window.open(result.data.whatsappUrl, '_blank', 'noopener,noreferrer');
+      } catch {
+        // The button in the panel does the same.
+      }
+      return;
+    }
+    reportFailure(result);
   }
 
   function openTracking() {
@@ -832,6 +891,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
 
   function closeCart() {
     setIsCartOpen(false);
+    setWhatsappHandoff(null);
     if (confirmedOrder) {
       setConfirmedOrder(null);
       setSubmitError(null);
@@ -869,7 +929,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
           shareCode={data.context.restaurant.shareCode}
           contact={data.context.restaurant.contact}
           hours={data.context.restaurant.hours}
-          onTrack={openTracking}
+          onTrack={whatsappAction ? null : openTracking}
           hasActiveOrder={hasActiveOrder}
         />
 
@@ -1027,7 +1087,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
           />
         ) : null}
 
-        {canOrder && (isCartOpen || confirmedOrder) ? (
+        {canOrder && (isCartOpen || confirmedOrder || whatsappHandoff) ? (
           <CartPanel
             copy={copy}
             currency={currency}
@@ -1088,6 +1148,8 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
             onPlaceOrder={() => void handlePlaceOrder()}
             onClose={closeCart}
             onTrackOrder={openTracking}
+            whatsapp={whatsappAction}
+            whatsappHandoff={whatsappHandoff}
           />
         ) : null}
 

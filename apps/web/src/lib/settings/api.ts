@@ -89,7 +89,12 @@ export async function updateQrStyle(
 /** Switch Pickup and / or Delivery on or off for the whole Restaurant (omitted fields stay unchanged). */
 export async function updateOrderingOptions(
   restaurantId: string,
-  input: { pickupEnabled?: boolean; deliveryEnabled?: boolean; tableOrderingEnabled?: boolean },
+  input: {
+    pickupEnabled?: boolean;
+    deliveryEnabled?: boolean;
+    tableOrderingEnabled?: boolean;
+    whatsappOrderingEnabled?: boolean;
+  },
 ): Promise<RestaurantOrderingOptions> {
   const body = await apiFetch<{ data: RestaurantOrderingOptions }>(
     `${restaurantPath(restaurantId)}/ordering-options`,

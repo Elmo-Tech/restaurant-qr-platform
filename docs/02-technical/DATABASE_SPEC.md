@@ -1748,6 +1748,12 @@ Migration `20261020090000_restaurant_announcements` (additive): enums `announcem
 
 ---
 
+# 68E. WhatsApp Ordering Switch (DEC-042, 2026-10-21)
+
+Migration `20261021090000_whatsapp_ordering` (additive): `restaurants.whatsapp_ordering_enabled` BOOLEAN NOT NULL DEFAULT false. The number itself is `whatsapp_number` (see 68B). Orders sent through WhatsApp are not stored anywhere.
+
+---
+
 # 69. Variant Price
 
 V1 uses:

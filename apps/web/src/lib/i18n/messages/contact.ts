@@ -24,6 +24,15 @@ export const contactMessages = defineMessages({
     'contact.saved': 'Contact details saved.',
     'contact.error.phone': 'Enter a valid phone number (6 to 15 digits, optionally starting with +).',
     'contact.error.whatsapp': 'Enter the WhatsApp number with the country code, for example +20 10 1234 5678.',
+    'settings.ordering.group.whatsapp': 'WhatsApp',
+    'settings.ordering.whatsapp': 'WhatsApp orders',
+    'settings.ordering.whatsappHint':
+      'Pickup and delivery orders go to your WhatsApp instead of the dashboard: the guest fills in the order on the menu and WhatsApp opens with the whole order written, ready to send to your number. Nothing is saved in the dashboard. Table orders still go to the dashboard.',
+    'settings.ordering.whatsappNeedsNumber': 'Add your WhatsApp number first (Settings > Profile > Contact).',
+    'settings.ordering.summary.whatsappOn':
+      'Pickup and delivery orders are sent to your WhatsApp. The dashboard does not receive them.',
+    'error.WHATSAPP_NUMBER_REQUIRED': 'Add your WhatsApp number (Settings > Profile) before turning WhatsApp orders on.',
+    'error.WHATSAPP_ORDERING_UNAVAILABLE': 'WhatsApp ordering is not available for this restaurant.',
     'contact.error.hotline': 'Enter the hotline digits only (3 to 8 digits), for example 16512.',
     'contact.error.url': 'Enter a valid https link on the correct site.',
   },
@@ -49,6 +58,15 @@ export const contactMessages = defineMessages({
     'contact.saved': 'تم حفظ بيانات التواصل.',
     'contact.error.phone': 'أدخل رقم هاتف صحيحًا (من 6 إلى 15 رقمًا، ويمكن أن يبدأ بـ +).',
     'contact.error.whatsapp': 'أدخل رقم الواتساب مع رمز الدولة، مثل +20 10 1234 5678.',
+    'settings.ordering.group.whatsapp': 'واتساب',
+    'settings.ordering.whatsapp': 'الطلب عبر واتساب',
+    'settings.ordering.whatsappHint':
+      'طلبات الاستلام والتوصيل تصلك على واتساب بدل لوحة التحكم: يملأ الضيف طلبه في المنيو فيُفتح واتساب والطلب كاملًا مكتوب، جاهز للإرسال إلى رقمك. لا يُحفظ شيء في لوحة التحكم. وطلبات الطاولات تظل تصل إلى لوحة التحكم.',
+    'settings.ordering.whatsappNeedsNumber': 'أضف رقم الواتساب أولًا (الإعدادات > الملف الشخصي > التواصل).',
+    'settings.ordering.summary.whatsappOn':
+      'طلبات الاستلام والتوصيل تُرسل إلى واتساب الخاص بك. لا تصل إلى لوحة التحكم.',
+    'error.WHATSAPP_NUMBER_REQUIRED': 'أضف رقم الواتساب (الإعدادات > الملف الشخصي) قبل تفعيل طلبات واتساب.',
+    'error.WHATSAPP_ORDERING_UNAVAILABLE': 'الطلب عبر واتساب غير متاح لهذا المطعم.',
     'contact.error.hotline': 'أدخل أرقام الخط الساخن فقط (من 3 إلى 8 أرقام)، مثل 16512.',
     'contact.error.url': 'أدخل رابط https صحيحًا على الموقع الصحيح.',
   },

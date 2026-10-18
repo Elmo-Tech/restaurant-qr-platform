@@ -50,4 +50,6 @@ export interface RestaurantOrderingOptions {
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
   tableOrderingEnabled: boolean;
+  /** WhatsApp ordering (DEC-042). */
+  whatsappOrderingEnabled: boolean;
 }

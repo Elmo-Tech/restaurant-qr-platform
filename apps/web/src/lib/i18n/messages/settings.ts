@@ -56,6 +56,9 @@ export const settingsMessages = defineMessages({
     'settings.ordering.pickupHint': 'Guests order online and collect from the branch.',
     'settings.ordering.delivery': 'Delivery',
     'settings.ordering.deliveryHint': 'Guests order for delivery to their address.',
+    'settings.ordering.deliveryNoZones':
+      'Delivery is on but no delivery zone exists yet, so it does not appear on the menu. Add at least one active zone with its fee (a fee of 0 is fine).',
+    'settings.ordering.deliveryNoZonesLink': 'Add a delivery zone',
     'settings.ordering.on': 'On',
     'settings.ordering.off': 'Off',
     'settings.ordering.summary.both': 'Guests can order for pickup and for delivery.',
@@ -185,6 +188,9 @@ export const settingsMessages = defineMessages({
     'settings.ordering.pickupHint': 'يطلب الضيف عبر الإنترنت ويستلم من الفرع.',
     'settings.ordering.delivery': 'التوصيل',
     'settings.ordering.deliveryHint': 'يطلب الضيف ليصله الطلب إلى عنوانه.',
+    'settings.ordering.deliveryNoZones':
+      'التوصيل مفعّل لكن لا توجد منطقة توصيل بعد، لذلك لا يظهر في المنيو. أضف منطقة توصيل واحدة نشطة على الأقل مع رسومها (يمكن أن تكون الرسوم 0).',
+    'settings.ordering.deliveryNoZonesLink': 'إضافة منطقة توصيل',
     'settings.ordering.on': 'مفعّل',
     'settings.ordering.off': 'معطّل',
     'settings.ordering.summary.both': 'يمكن للضيوف الطلب للاستلام وللتوصيل.',

@@ -39,6 +39,7 @@ import {
 import { UpdateRestaurantProfileDto } from './dto/update-restaurant-profile.dto';
 import {
   RestaurantProfileService,
+  WhatsappNumberRequiredError,
   type RestaurantOrderingOptions,
   type RestaurantProfile,
 } from './restaurant-profile.service';
@@ -137,14 +138,26 @@ export class RestaurantProfileController {
     @Body() dto: UpdateOrderingOptionsDto,
     @Req() request: RestaurantAuthorizedRequest,
   ): Promise<{ data: RestaurantOrderingOptions }> {
-    const data = await this.restaurantProfileService.updateOrderingOptions({
-      restaurantId: request.restaurantAccess.restaurantId,
-      pickupEnabled: dto.pickupEnabled,
-      deliveryEnabled: dto.deliveryEnabled,
-      tableOrderingEnabled: dto.tableOrderingEnabled,
-    });
-
-    return { data };
+    try {
+      const data = await this.restaurantProfileService.updateOrderingOptions({
+        restaurantId: request.restaurantAccess.restaurantId,
+        pickupEnabled: dto.pickupEnabled,
+        deliveryEnabled: dto.deliveryEnabled,
+        tableOrderingEnabled: dto.tableOrderingEnabled,
+        whatsappOrderingEnabled: dto.whatsappOrderingEnabled,
+      });
+      return { data };
+    } catch (error) {
+      if (error instanceof WhatsappNumberRequiredError) {
+        throw new UnprocessableEntityException({
+          error: {
+            code: 'WHATSAPP_NUMBER_REQUIRED',
+            message: 'Add the restaurant WhatsApp number (Settings > Profile) before turning WhatsApp orders on.',
+          },
+        });
+      }
+      throw error;
+    }
   }
 
   /**

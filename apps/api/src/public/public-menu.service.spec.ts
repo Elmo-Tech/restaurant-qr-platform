@@ -385,6 +385,7 @@ describe('PublicMenuService.getPublicMenu', () => {
       branch: { name: 'Downtown Branch' },
       table: { number: '12' },
       announcements: [],
+      ordering: null,
       pickupBranches: null,
       deliveryBranches: null,
     });
@@ -417,6 +418,7 @@ describe('PublicMenuService.getPublicMenu', () => {
       branch: null,
       table: null,
       announcements: [],
+      ordering: { pickup: true, delivery: true, whatsapp: false },
       pickupBranches: [
         { id: 'branch-a', name: 'Downtown', hours: null },
         { id: 'branch-b', name: 'Uptown', hours: null },

@@ -21,6 +21,8 @@ export function GuestQrWorkspace({
   pickupEnabled,
   deliveryEnabled,
   tableOrderingEnabled,
+  whatsappOrderingEnabled,
+  hasWhatsappNumber,
   qrStyle,
   logoAssetPath,
   webOrigin,
@@ -34,6 +36,8 @@ export function GuestQrWorkspace({
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
   tableOrderingEnabled: boolean;
+  whatsappOrderingEnabled: boolean;
+  hasWhatsappNumber: boolean;
   qrStyle: QrStyle;
   logoAssetPath: string | null;
   webOrigin: string;
@@ -50,6 +54,8 @@ export function GuestQrWorkspace({
         initialPickupEnabled={pickupEnabled}
         initialDeliveryEnabled={deliveryEnabled}
         initialTableOrderingEnabled={tableOrderingEnabled}
+        initialWhatsappOrderingEnabled={whatsappOrderingEnabled}
+        hasWhatsappNumber={hasWhatsappNumber}
         canManage={canManageOrderTypes}
       />
 

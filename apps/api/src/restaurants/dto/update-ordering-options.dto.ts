@@ -20,4 +20,9 @@ export class UpdateOrderingOptionsDto {
   @IsOptional()
   @IsBoolean()
   tableOrderingEnabled?: boolean;
+
+  /** WhatsApp ordering (DEC-042): needs the Restaurant's WhatsApp number. */
+  @IsOptional()
+  @IsBoolean()
+  whatsappOrderingEnabled?: boolean;
 }

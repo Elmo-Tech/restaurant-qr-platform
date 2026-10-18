@@ -257,6 +257,7 @@ describeSandbox('Restaurant ordering options (real PostgreSQL)', () => {
       pickupEnabled: true,
       deliveryEnabled: false,
       tableOrderingEnabled: true,
+      whatsappOrderingEnabled: false,
     });
 
     const me1 = await request(app.getHttpServer())
@@ -272,6 +273,7 @@ describeSandbox('Restaurant ordering options (real PostgreSQL)', () => {
       pickupEnabled: true,
       deliveryEnabled: false,
       tableOrderingEnabled: true,
+      whatsappOrderingEnabled: false,
     });
   });
 

@@ -54,6 +54,46 @@ export interface CreateGuestOrderInput {
   deliveryFloor?: string;
   deliveryApartment?: string;
   deliveryLandmark?: string;
+  /**
+   * DEC-042: 'WHATSAPP' prices and validates the order exactly like a real one but never stores
+   * it (with `dryRun`): the Restaurant takes it on WhatsApp instead. GENERIC QR only.
+   */
+  channel?: 'APP' | 'WHATSAPP';
+  /** Validate and price everything, then roll back: nothing is created. */
+  dryRun?: boolean;
+}
+
+/** The authoritative priced order of a dry run: what the WhatsApp message is built from. */
+export interface OrderQuote {
+  restaurantName: string;
+  /** The Restaurant's WhatsApp number the message goes to (international, as stored). */
+  whatsappNumber: string;
+  defaultLocale: string;
+  currencyCode: string;
+  orderType: OrderType;
+  branchName: string;
+  deliveryZoneName: string | null;
+  items: {
+    name: string;
+    variantName: string | null;
+    quantity: number;
+    modifiers: string[];
+    unitPrice: string;
+    discountAmount: string;
+    lineTotal: string;
+  }[];
+  subtotal: string;
+  discountTotal: string;
+  deliveryFee: string;
+  total: string;
+  customerName: string | null;
+  customerPhone: string | null;
+  customerNotes: string | null;
+  deliveryAddress: string | null;
+  deliveryBuilding: string | null;
+  deliveryFloor: string | null;
+  deliveryApartment: string | null;
+  deliveryLandmark: string | null;
 }
 
 export interface GuestOrderItemModifierView {
@@ -101,6 +141,12 @@ export interface GuestOrderView {
 
 export type CreateGuestOrderResult =
   | { outcome: 'created'; data: GuestOrderView }
+  /** DEC-042 dry run: everything validated and priced, nothing stored. */
+  | { outcome: 'quoted'; quote: OrderQuote }
+  /** DEC-042: WhatsApp ordering is off, or the Restaurant has no WhatsApp number. */
+  | { outcome: 'whatsappUnavailable' }
+  /** DEC-042: WhatsApp ordering is on, so the app takes no Pickup / Delivery order (they go to WhatsApp). */
+  | { outcome: 'whatsappOnly' }
   | { outcome: 'qrNotFound' }
   | { outcome: 'itemsUnavailable' }
   | { outcome: 'duplicateItems' }
@@ -273,6 +319,13 @@ function toGuestOrderView(order: OrderViewRow, locale?: string): GuestOrderView 
  */
 class ItemsUnavailableError extends Error {}
 
+/** DEC-042: thrown at the end of a dry run to carry the priced order out of (and roll back) the transaction. */
+class QuotedSignal extends Error {
+  constructor(readonly quote: OrderQuote) {
+    super('QUOTED');
+  }
+}
+
 /** FT-8: thrown inside the transaction when the zone is not a valid ACTIVE zone of the resolved Branch. */
 class DeliveryZoneInvalidError extends Error {}
 
@@ -383,12 +436,15 @@ export class PublicOrdersService {
         tableId: true,
         restaurant: {
           select: {
+            name: true,
             status: true,
             defaultLocale: true,
             currencyCode: true,
             pickupEnabled: true,
             deliveryEnabled: true,
             tableOrderingEnabled: true,
+            whatsappOrderingEnabled: true,
+            whatsappNumber: true,
           },
         },
         branch: { select: { timezone: true } },
@@ -420,6 +476,15 @@ export class PublicOrdersService {
     let deliveryFloor: string | null = null;
     let deliveryApartment: string | null = null;
     let deliveryLandmark: string | null = null;
+
+    const viaWhatsapp = input.channel === 'WHATSAPP';
+    if (viaWhatsapp) {
+      // WhatsApp ordering is for the Restaurant QR only (a Table QR keeps ordering through the app).
+      if (qr.type !== 'GENERIC') return { outcome: 'qrNotFound' };
+      if (!qr.restaurant.whatsappOrderingEnabled || !qr.restaurant.whatsappNumber) {
+        return { outcome: 'whatsappUnavailable' };
+      }
+    }
 
     if (qr.type === 'TABLE') {
       // Table channel switched off by the Restaurant (DEC-038): a view-only menu.
@@ -456,6 +521,15 @@ export class PublicOrdersService {
           : qr.restaurant.pickupEnabled === false
       ) {
         return { outcome: isDelivery ? 'deliveryUnavailable' : 'pickupUnavailable' };
+      }
+      // DEC-042: while WhatsApp ordering is on, Pickup and Delivery orders go to WhatsApp INSTEAD
+      // of the dashboard, so the app endpoint creates none of them.
+      if (
+        !viaWhatsapp &&
+        qr.restaurant.whatsappOrderingEnabled &&
+        !!qr.restaurant.whatsappNumber
+      ) {
+        return { outcome: 'whatsappOnly' };
       }
       customerName = input.customerName?.trim() || null;
       customerPhone = input.customerPhone?.trim() || null;
@@ -519,10 +593,12 @@ export class PublicOrdersService {
     // every Pickup Branch, so the same client id for two different Branches
     // must stay two different Orders. For a TABLE QR, `branchId` is fixed by
     // the Table, so this changes nothing there.
-    const existing = await this.prisma.order.findFirst({
-      where: { qrCodeId: qr.id, branchId, clientRequestId: input.clientRequestId },
-      select: ORDER_VIEW_SELECT,
-    });
+    const existing = input.dryRun
+      ? null
+      : await this.prisma.order.findFirst({
+          where: { qrCodeId: qr.id, branchId, clientRequestId: input.clientRequestId },
+          select: ORDER_VIEW_SELECT,
+        });
     if (existing) {
       return { outcome: 'created', data: toGuestOrderView(existing, input.locale) };
     }
@@ -882,6 +958,46 @@ export class PublicOrdersService {
           }
         }
 
+        if (input.dryRun) {
+          const branch = await tx.branch.findFirst({
+            where: { id: branchId, restaurantId },
+            select: {
+              name: true,
+              translations: { where: { locale: defaultLocale }, select: { name: true }, take: 1 },
+            },
+          });
+          throw new QuotedSignal({
+            restaurantName: qr.restaurant.name,
+            whatsappNumber: qr.restaurant.whatsappNumber ?? '',
+            defaultLocale,
+            currencyCode,
+            orderType,
+            branchName: branch?.translations[0]?.name ?? branch?.name ?? '',
+            deliveryZoneName: deliveryZoneNameSnapshot,
+            items: itemsData.map((line) => ({
+              name: line.productNameSnapshot,
+              variantName: line.variantNameSnapshot,
+              quantity: line.quantity,
+              modifiers: line.modifiers.create.map((modifier) => modifier.modifierOptionNameSnapshot),
+              unitPrice: line.unitPrice.toFixed(2),
+              discountAmount: line.discountAmount.toFixed(2),
+              lineTotal: line.lineTotal.toFixed(2),
+            })),
+            subtotal: subtotal.toFixed(2),
+            discountTotal: discountTotal.toFixed(2),
+            deliveryFee: deliveryFee.toFixed(2),
+            total: subtotal.plus(deliveryFee).toFixed(2),
+            customerName,
+            customerPhone,
+            customerNotes,
+            deliveryAddress,
+            deliveryBuilding,
+            deliveryFloor,
+            deliveryApartment,
+            deliveryLandmark,
+          });
+        }
+
         return tx.order.create({
           data: {
             restaurantId,
@@ -927,6 +1043,9 @@ export class PublicOrdersService {
 
       return { outcome: 'created', data: toGuestOrderView(created, input.locale) };
     } catch (error) {
+      if (error instanceof QuotedSignal) {
+        return { outcome: 'quoted', quote: error.quote };
+      }
       if (error instanceof ItemsUnavailableError) {
         return { outcome: 'itemsUnavailable' };
       }

@@ -17,11 +17,20 @@ export interface RestaurantProfile {
   coverAssetPath: string | null;
 }
 
-/** The Restaurant QR order-type switches and the Table (dine-in) channel switch. */
+/** The Restaurant QR order-type switches, the Table (dine-in) channel switch and WhatsApp ordering. */
 export interface RestaurantOrderingOptions {
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
   tableOrderingEnabled: boolean;
+  whatsappOrderingEnabled: boolean;
+}
+
+/** WhatsApp ordering needs a WhatsApp number to send the order to. */
+export class WhatsappNumberRequiredError extends Error {
+  constructor() {
+    super('WHATSAPP_NUMBER_REQUIRED');
+    this.name = 'WhatsappNumberRequiredError';
+  }
 }
 
 export interface UpdateOrderingOptionsInput {
@@ -29,6 +38,7 @@ export interface UpdateOrderingOptionsInput {
   pickupEnabled?: boolean;
   deliveryEnabled?: boolean;
   tableOrderingEnabled?: boolean;
+  whatsappOrderingEnabled?: boolean;
 }
 
 export interface UpdateQrStyleInput {
@@ -148,6 +158,7 @@ export class RestaurantProfileService {
       pickupEnabled?: boolean;
       deliveryEnabled?: boolean;
       tableOrderingEnabled?: boolean;
+      whatsappOrderingEnabled?: boolean;
     } = {};
     if (input.pickupEnabled !== undefined) data.pickupEnabled = input.pickupEnabled;
     if (input.deliveryEnabled !== undefined) data.deliveryEnabled = input.deliveryEnabled;
@@ -155,10 +166,27 @@ export class RestaurantProfileService {
       data.tableOrderingEnabled = input.tableOrderingEnabled;
     }
 
+    if (input.whatsappOrderingEnabled !== undefined) {
+      if (input.whatsappOrderingEnabled) {
+        // Switching it on needs a number to send the orders to.
+        const current = await this.prisma.restaurant.findUniqueOrThrow({
+          where: { id: input.restaurantId },
+          select: { whatsappNumber: true },
+        });
+        if (!current.whatsappNumber) throw new WhatsappNumberRequiredError();
+      }
+      data.whatsappOrderingEnabled = input.whatsappOrderingEnabled;
+    }
+
     return this.prisma.restaurant.update({
       where: { id: input.restaurantId },
       data,
-      select: { pickupEnabled: true, deliveryEnabled: true, tableOrderingEnabled: true },
+      select: {
+        pickupEnabled: true,
+        deliveryEnabled: true,
+        tableOrderingEnabled: true,
+        whatsappOrderingEnabled: true,
+      },
     });
   }
 
@@ -174,7 +202,8 @@ export class RestaurantProfileService {
     const updates = contactColumnUpdates(patch);
     const row = await this.prisma.restaurant.update({
       where: { id: restaurantId },
-      data: updates,
+      // Without a WhatsApp number there is nowhere to send orders, so that ordering switches off.
+      data: updates.whatsappNumber === null ? { ...updates, whatsappOrderingEnabled: false } : updates,
       select: CONTACT_COLUMNS,
     });
     return contactFromColumns(row);
