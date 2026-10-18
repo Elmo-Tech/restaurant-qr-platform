@@ -39,7 +39,7 @@ const USER = {
 
 /** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
 const ENTITLEMENTS = {
-  forRestaurants: async (ids: string[]) => new Map(ids.map((id) => [id, ALL_FEATURES])),
+  forRestaurants: (ids: string[]) => Promise.resolve(new Map(ids.map((id) => [id, ALL_FEATURES]))),
 };
 
 describe('AuthContextService', () => {

@@ -78,6 +78,8 @@ export interface PublicMenuContext {
   suggestions: boolean;
   /** Order tracking is available (DEC-043): the Guest menu shows the track-order control only then. */
   tracking: boolean;
+  /** Menu templates other than Classic are allowed (DEC-043): the page then honours a template preview. */
+  templatesAllowed: boolean;
   /**
    * How a GENERIC QR order is taken (DEC-042); null for a TABLE QR. `pickup` / `delivery` are the
    * Restaurant's own switches (what kinds of order it takes, whoever receives them). `whatsapp`
@@ -809,6 +811,7 @@ export class PublicMenuService {
           announcements,
           suggestions: features.SMART_SUGGESTIONS && qr.restaurant.suggestionsMode !== 'OFF',
           tracking: features.ORDER_TRACKING,
+          templatesAllowed: features.MENU_TEMPLATES,
           ordering:
             qr.type === 'GENERIC'
               ? { pickup: appPickup, delivery: appDelivery, whatsapp: whatsappOrdering }

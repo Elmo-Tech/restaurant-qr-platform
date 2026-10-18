@@ -153,7 +153,7 @@ function buildPrismaMock() {
 }
 
 /** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
-const ENTITLEMENTS = { forRestaurant: async () => ALL_FEATURES };
+const ENTITLEMENTS = { forRestaurant: () => Promise.resolve(ALL_FEATURES) };
 
 function buildService(mock: ReturnType<typeof buildPrismaMock>): PublicMenuService {
   return new PublicMenuService(mock.prisma as never, ENTITLEMENTS as never);
@@ -394,6 +394,7 @@ describe('PublicMenuService.getPublicMenu', () => {
       announcements: [],
       suggestions: false,
       tracking: true,
+      templatesAllowed: true,
       ordering: null,
       pickupBranches: null,
       deliveryBranches: null,
@@ -430,6 +431,7 @@ describe('PublicMenuService.getPublicMenu', () => {
       announcements: [],
       suggestions: false,
       tracking: true,
+      templatesAllowed: true,
       ordering: { pickup: true, delivery: true, whatsapp: false },
       pickupBranches: [
         { id: 'branch-a', name: 'Downtown', hours: null },

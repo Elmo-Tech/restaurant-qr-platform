@@ -1,6 +1,6 @@
 import { RestaurantProfileService } from './restaurant-profile.service';
 /** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
-const ENTITLEMENTS = { isEnabled: async () => true };
+const ENTITLEMENTS = { isEnabled: () => Promise.resolve(true) };
 
 const RESTAURANT_ID = 'restaurant-1';
 

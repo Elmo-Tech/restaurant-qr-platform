@@ -123,7 +123,7 @@ function buildPrismaMock() {
 }
 
 /** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
-const ENTITLEMENTS = { forRestaurant: async () => ALL_FEATURES };
+const ENTITLEMENTS = { forRestaurant: () => Promise.resolve(ALL_FEATURES) };
 
 function buildService(mock: ReturnType<typeof buildPrismaMock>): PublicOrdersService {
   return new PublicOrdersService(mock.prisma as never, ENTITLEMENTS as never);

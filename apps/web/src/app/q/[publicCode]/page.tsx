@@ -48,7 +48,11 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
     <PublicMenuView
       data={result.data}
       publicCode={publicCode}
-      template={parseMenuTemplate(template ?? result.data.context.restaurant.menuTemplate)}
+      template={parseMenuTemplate(
+        // A template preview is honoured only where the package allows templates (DEC-043).
+        (result.data.context.templatesAllowed === false ? undefined : template) ??
+          result.data.context.restaurant.menuTemplate,
+      )}
     />
   );
 }

@@ -44,6 +44,8 @@ export interface PublicMenuContext {
   suggestions?: boolean;
   /** Order tracking is available (DEC-043); `false` hides the track-order control. */
   tracking?: boolean;
+  /** Menu templates other than Classic are allowed (DEC-043). */
+  templatesAllowed?: boolean;
   /** How a GENERIC QR order is taken (DEC-042); null for a TABLE QR. Absent on an older Backend = the app takes both, no WhatsApp. */
   ordering?: { pickup: boolean; delivery: boolean; whatsapp: boolean } | null;
   /** FT-7: GENERIC QR only (null for TABLE) -- the ACTIVE Branches eligible for Pickup. Empty = Pickup unavailable. */

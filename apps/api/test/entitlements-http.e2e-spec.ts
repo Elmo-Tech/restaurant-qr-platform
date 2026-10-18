@@ -245,6 +245,7 @@ describeSandbox('Feature entitlements (real PostgreSQL)', () => {
   interface MenuData {
     context: {
       tracking: boolean;
+      templatesAllowed: boolean;
       suggestions: boolean;
       tableOrdering: string | null;
       ordering: { pickup: boolean; delivery: boolean; whatsapp: boolean };
@@ -406,6 +407,8 @@ describeSandbox('Feature entitlements (real PostgreSQL)', () => {
     expect((await menu(world.genericQr)).context.restaurant.menuTemplate).toBe(
       'CLASSIC',
     );
+    // the page is told not to honour a template typed into the URL
+    expect((await menu(world.genericQr)).context.templatesAllowed).toBe(false);
     const refused = await send('patch', owner, `${r}/menu-template`, {
       menuTemplate: 'LIST',
     });
@@ -433,6 +436,7 @@ describeSandbox('Feature entitlements (real PostgreSQL)', () => {
     expect((await menu(world.genericQr)).context.restaurant.menuTemplate).toBe(
       'FLOATING',
     );
+    expect((await menu(world.genericQr)).context.templatesAllowed).toBe(true);
   });
 
   it('smart suggestions: cannot be turned on, and the cart gets none, without the feature', async () => {

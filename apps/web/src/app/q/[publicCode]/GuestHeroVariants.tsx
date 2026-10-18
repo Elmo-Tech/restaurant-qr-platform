@@ -126,7 +126,7 @@ export function GuestHeroFloating({ sentinelRef, ...p }: GuestHeroProps) {
         <TopRow {...p} />
       </div>
       <div className="relative z-10 -mt-12 px-4 lg:-mt-14 lg:px-8">
-        <div className="g-shadow mx-auto max-w-[1280px] rounded-[26px] border border-g-line bg-g-surface p-4 lg:p-6">
+        <div className="g-shadow mx-auto max-w-[1280px] rounded-[26px] border border-g-line bg-g-surface p-4 lg:flex lg:items-center lg:justify-between lg:gap-8 lg:p-6">
           <div className="flex items-center gap-3.5 lg:gap-5">
             <LogoTile
               name={p.restaurantName}
@@ -141,7 +141,7 @@ export function GuestHeroFloating({ sentinelRef, ...p }: GuestHeroProps) {
               ) : null}
             </div>
           </div>
-          <div className="mt-4 flex flex-col gap-3">
+          <div className="mt-4 flex flex-col gap-3 lg:mt-0 lg:items-end">
             <HeroContactButtons contact={p.contact} copy={p.copy} />
             <HeroContactIcons
               contact={p.contact}
