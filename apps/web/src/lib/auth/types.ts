@@ -1,4 +1,5 @@
 import type { RestaurantContact } from '../contact/types';
+import type { MenuTemplateApi } from '../public-menu/templates';
 /**
  * Types mirroring the Backend's `GET /auth/me` response shape
  * (`apps/api/src/auth/context/auth-context.service.ts`) exactly -- typing
@@ -42,6 +43,8 @@ export interface AuthContextRestaurant {
   tableOrderingEnabled: boolean;
   /** WhatsApp ordering (DEC-042): the Guest menu hands orders to WhatsApp. */
   whatsappOrderingEnabled: boolean;
+  /** Guest menu layout (DEC-044). */
+  menuTemplate: MenuTemplateApi;
   /** Guest Menu contact details (Settings -> Profile). */
   contact: RestaurantContact;
   /** QR appearance (Settings -> Restaurant QR): applied to the Restaurant QR and the table QR panels. */

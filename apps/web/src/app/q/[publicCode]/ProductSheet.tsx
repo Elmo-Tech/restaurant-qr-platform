@@ -56,10 +56,13 @@ export function ProductSheet({
   onConfirm,
   inline = false,
   previewImageUrl = null,
+  showPhotos = true,
 }: {
   /** Staff product preview only: show the sheet in normal flow, without its close control, and with a local image URL. */
   inline?: boolean;
   previewImageUrl?: string | null;
+  /** False in the photo-free `menu` template (DEC-044): the sheet then opens without the photo. Default true. */
+  showPhotos?: boolean;
   product: PublicMenuProduct;
   currency: string;
   copy: PublicMenuCopy;
@@ -83,7 +86,7 @@ export function ProductSheet({
   const [imageFailed, setImageFailed] = useState(false);
 
   const imageUrl = previewImageUrl ?? resolveAssetUrl(product.primaryImageAssetPath);
-  const showPhoto = imageUrl !== null && !imageFailed;
+  const showPhoto = showPhotos && imageUrl !== null && !imageFailed;
 
   function selectionsFor(groupId: string): string[] {
     return selectedByGroup[groupId] ?? [];
@@ -219,7 +222,11 @@ export function ProductSheet({
             </div>
           </div>
         ) : (
-          <DishFallback className="h-[150px] w-full" iconClassName="size-14" />
+          showPhotos ? (
+            <DishFallback className="h-[150px] w-full" iconClassName="size-14" />
+          ) : (
+            <div className="h-[68px] w-full" />
+          )
         )}
         {inline ? null : (
           <>

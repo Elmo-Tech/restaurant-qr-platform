@@ -29,6 +29,7 @@ import {
 import { ImageStorageService, MAX_IMAGE_BYTES } from '../storage/image-storage.service';
 import type { UploadedImageFile } from '../storage/uploaded-image-file';
 import { UpdateContactDto } from './dto/update-contact.dto';
+import { UpdateMenuTemplateDto } from './dto/update-menu-template.dto';
 import { UpdateOrderingOptionsDto } from './dto/update-ordering-options.dto';
 import { UpdateQrStyleDto } from './dto/update-qr-style.dto';
 import type { QrStyle, QrStyleErrorCode } from './qr-style';
@@ -158,6 +159,25 @@ export class RestaurantProfileController {
       }
       throw error;
     }
+  }
+
+  /**
+   * The Guest menu template (DEC-044): how the same menu is laid out. Presentation only; a
+   * Restaurant-wide choice, so `restaurant.manage` AND Restaurant-wide Branch scope.
+   */
+  @Patch('menu-template')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.RESTAURANT_MANAGE)
+  async updateMenuTemplate(
+    @Body() dto: UpdateMenuTemplateDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: { menuTemplate: UpdateMenuTemplateDto['menuTemplate'] } }> {
+    const data = await this.restaurantProfileService.updateMenuTemplate(
+      request.restaurantAccess.restaurantId,
+      dto.menuTemplate,
+    );
+    return { data };
   }
 
   /**

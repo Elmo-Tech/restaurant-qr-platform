@@ -160,6 +160,29 @@ enum DeliveryZoneStatus {
   @@map("delivery_zone_status")
 }
 
+// Smart suggestions in the Guest cart (DEC-042): which sources the Restaurant uses.
+enum SuggestionsMode {
+  OFF
+  MANUAL
+  AUTO
+  BOTH
+
+  @@map("suggestions_mode")
+}
+
+// How the Guest menu is laid out (DEC-044). Presentation only.
+enum MenuTemplate {
+  CLASSIC
+  LIST
+  GALLERY
+  MENU
+  FLOATING
+  CENTERED
+  COMPACT
+
+  @@map("menu_template")
+}
+
 // Table Sessions (Slice 1; TABLE_SESSION_CLOSURE_AND_PAYMENT_DESIGN.md v3).
 // The session lifecycle is deliberately only OPEN | CLOSED: payment status is a
 // separate, DERIVED concept (never stored here) and table QR ordering
@@ -254,6 +277,10 @@ model Restaurant {
   // WhatsApp ordering (DEC-042): the Guest menu hands the priced order to WhatsApp (the
   // Restaurant's whatsappNumber) instead of creating an Order. Needs that number; off by default.
   whatsappOrderingEnabled Boolean @default(false) @map("whatsapp_ordering_enabled")
+  // Guest menu layout (DEC-044). Presentation only; CLASSIC is the original look.
+  menuTemplate MenuTemplate @default(CLASSIC) @map("menu_template")
+  // Smart suggestions in the Guest cart (DEC-042). OFF until the Restaurant turns it on.
+  suggestionsMode SuggestionsMode @default(OFF) @map("suggestions_mode")
   // Restaurant QR appearance (applied to the Restaurant QR and the Table QR panels).
   // The defaults are today's plain black-on-white QR with the restaurant name.
   qrForegroundColor String        @default("#000000") @map("qr_foreground_color") @db.Char(7)
@@ -282,6 +309,7 @@ model Restaurant {
   locales               RestaurantLocale[]
   branches              Branch[]
   announcements         RestaurantAnnouncement[]
+  productSuggestions    ProductSuggestion[]
   memberships           RestaurantMembership[]
   roles                 RestaurantRole[]
   invitations           RestaurantInvitation[]
@@ -525,6 +553,25 @@ model CategoryTranslation {
   @@map("category_translations")
 }
 
+// Manual suggestion rule (DEC-042): when `product` is in the Guest cart, suggest `suggestedProduct`.
+// Same-Restaurant is enforced by the application (tenant-scoped writes), like other Product links.
+model ProductSuggestion {
+  id                 String   @id @default(uuid()) @db.Uuid
+  restaurantId       String   @map("restaurant_id") @db.Uuid
+  productId          String   @map("product_id") @db.Uuid
+  suggestedProductId String   @map("suggested_product_id") @db.Uuid
+  position           Int
+  createdAt          DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  restaurant       Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  product          Product    @relation("SuggestionTrigger", fields: [productId], references: [id], onDelete: Cascade)
+  suggestedProduct Product    @relation("SuggestionTarget", fields: [suggestedProductId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, suggestedProductId])
+  @@index([restaurantId, productId])
+  @@map("product_suggestions")
+}
+
 model Product {
   id                    String               @id @default(uuid()) @db.Uuid
   publicId              String               @unique @map("public_id")
@@ -567,6 +614,9 @@ model Product {
   orderItems     OrderItem[]
   modifierGroups ModifierGroup[]
   variants       ProductVariant[]
+  // Manual suggestion rules where this product is the trigger / the suggestion.
+  suggestions    ProductSuggestion[] @relation("SuggestionTrigger")
+  suggestedBy    ProductSuggestion[] @relation("SuggestionTarget")
 
   @@index([restaurantId])
   @@index([categoryId])

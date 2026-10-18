@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { GuestIconSearch, GuestIconStar } from '../../../components/guest/icons';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
+import { DEFAULT_MENU_TEMPLATE, layoutOf, type MenuTemplate } from '../../../lib/public-menu/templates';
 import { categoryDomId } from './useMenuNavigation';
 
 /** The category photo as a 22px round thumbnail; a broken image simply drops back to a text-only chip. */
@@ -43,6 +44,7 @@ export function CategoryChips({
   compact,
   onJumpToSearch,
   copy,
+  template = DEFAULT_MENU_TEMPLATE,
 }: {
   items: ChipItem[];
   activeId: string | null;
@@ -50,8 +52,11 @@ export function CategoryChips({
   compact: boolean;
   onJumpToSearch: () => void;
   copy: PublicMenuCopy;
+  /** The menu template (DEC-044): `menu` shows underlined text tabs, `list` squarer chips. */
+  template?: MenuTemplate;
 }) {
   const scrollerRef = useRef<HTMLElement>(null);
+  const chipStyle = layoutOf(template).chips;
 
   // Keep the active chip centred. `scrollBy` is physical, so the delta from bounding boxes
   // works identically in LTR and RTL.
@@ -109,11 +114,21 @@ export function CategoryChips({
                     event.preventDefault();
                     onSelect(item.id);
                   }}
-                  className={`flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 text-sm font-semibold transition-colors lg:h-[46px] lg:text-[14.5px] ${
-                    isActive
-                      ? 'border-g-accent bg-g-accent text-g-on-accent'
-                      : 'border-g-line bg-g-surface text-g-text hover:border-g-accent'
-                  }`}
+                  className={
+                    chipStyle === 'tabs'
+                      ? `flex h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-[15px] font-bold transition-colors lg:h-[46px] ${
+                          isActive
+                            ? 'border-g-accent text-g-text'
+                            : 'border-transparent text-g-text-2 hover:text-g-text'
+                        }`
+                      : `flex h-11 shrink-0 items-center gap-2 whitespace-nowrap border px-4 text-sm font-semibold transition-colors lg:h-[46px] lg:text-[14.5px] ${
+                          chipStyle === 'square' ? 'rounded-xl' : 'rounded-full'
+                        } ${
+                          isActive
+                            ? 'border-g-accent bg-g-accent text-g-on-accent'
+                            : 'border-g-line bg-g-surface text-g-text hover:border-g-accent'
+                        }`
+                  }
                 >
                   {item.isFeatured ? (
                     <GuestIconStar

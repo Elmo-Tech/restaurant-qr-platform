@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import type { MenuTemplate } from '../../generated/prisma/client';
 import {
   CONTACT_COLUMNS,
   contactFromColumns,
@@ -45,6 +46,8 @@ export interface AuthContextRestaurant {
   tableOrderingEnabled: boolean;
   /** WhatsApp ordering (DEC-042): orders are handed to WhatsApp instead of the dashboard. */
   whatsappOrderingEnabled: boolean;
+  /** Guest menu layout (DEC-044). */
+  menuTemplate: MenuTemplate;
   /** Guest Menu contact details (Settings -> Profile). */
   contact: RestaurantContact;
   /** QR appearance (Settings -> Restaurant QR), applied to the Restaurant QR and Table QR panels. */
@@ -156,6 +159,7 @@ export class AuthContextService {
             deliveryEnabled: true,
             tableOrderingEnabled: true,
             whatsappOrderingEnabled: true,
+            menuTemplate: true,
             ...CONTACT_COLUMNS,
             qrForegroundColor: true,
             qrBackgroundColor: true,
@@ -286,6 +290,7 @@ export class AuthContextService {
           deliveryEnabled: membership.restaurant.deliveryEnabled,
           tableOrderingEnabled: membership.restaurant.tableOrderingEnabled,
           whatsappOrderingEnabled: membership.restaurant.whatsappOrderingEnabled,
+          menuTemplate: membership.restaurant.menuTemplate,
           contact: contactFromColumns(membership.restaurant),
           qrStyle: {
             foregroundColor: membership.restaurant.qrForegroundColor,

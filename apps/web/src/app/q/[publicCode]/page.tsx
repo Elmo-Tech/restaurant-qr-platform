@@ -1,11 +1,12 @@
 import { getPublicMenu } from '../../../lib/public-menu/api';
 import { getPublicMenuCopy } from '../../../lib/public-menu/copy';
+import { parseMenuTemplate } from '../../../lib/public-menu/templates';
 import { GuestStatusPage } from './GuestStatusPage';
 import { PublicMenuView } from './PublicMenuView';
 
 interface PublicMenuPageProps {
   params: Promise<{ publicCode: string }>;
-  searchParams: Promise<{ lang?: string }>;
+  searchParams: Promise<{ lang?: string; template?: string }>;
 }
 
 /**
@@ -19,7 +20,7 @@ interface PublicMenuPageProps {
  */
 export default async function PublicMenuPage({ params, searchParams }: PublicMenuPageProps) {
   const { publicCode } = await params;
-  const { lang } = await searchParams;
+  const { lang, template } = await searchParams;
 
   const result = await getPublicMenu(publicCode, lang);
 
@@ -42,5 +43,12 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
     );
   }
 
-  return <PublicMenuView data={result.data} publicCode={publicCode} />;
+  // The Restaurant's saved template; `?template=` previews another layout (the Staff design picker uses it).
+  return (
+    <PublicMenuView
+      data={result.data}
+      publicCode={publicCode}
+      template={parseMenuTemplate(template ?? result.data.context.restaurant.menuTemplate)}
+    />
+  );
 }

@@ -1003,6 +1003,28 @@ is not started until the product is complete.
 
 ---
 
+### DEC-044 — Guest Menu Templates
+
+**Status:** Accepted (owner, 2026-10-18).
+
+The Guest menu is not one fixed layout: a Restaurant picks one of several
+templates, each a different way of showing the SAME menu. A template changes
+presentation only (the header at the top, how categories and product cards look); the cart, prices,
+discounts, availability, ordering rules, the product sheet and the checkout are
+shared by every template, so ordering behaves identically in all of them.
+Templates: `CLASSIC` (the original photo-card grid, the default), `LIST` (compact
+rows), `GALLERY` (large photo tiles), `MENU` (a typographic printed menu without
+photos), and three with their own header design: `FLOATING` (slim cover with a
+floating info card, labelled contact buttons, two-column photo grid), `CENTERED`
+(tall cover with logo and name centred) and `COMPACT` (thin cover and a one-line
+info bar, so the menu starts at once). One template per Restaurant, applied to the
+Restaurant QR and every Table QR. Staff pick it in Settings > Menu design with
+a live preview on the Restaurant's real menu (`?template=` previews a layout
+without saving). Further templates are added as new enum values plus a layout;
+which templates a package may use will be decided by DEC-043 entitlements later.
+
+---
+
 ---
 
 ## Change Policy

@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import type { MenuTemplate } from '../generated/prisma/client';
 import {
   CONTACT_COLUMNS,
   contactColumnUpdates,
@@ -187,6 +188,18 @@ export class RestaurantProfileService {
         tableOrderingEnabled: true,
         whatsappOrderingEnabled: true,
       },
+    });
+  }
+
+  /** The Guest menu template (DEC-044). */
+  async updateMenuTemplate(
+    restaurantId: string,
+    menuTemplate: MenuTemplate,
+  ): Promise<{ menuTemplate: MenuTemplate }> {
+    return this.prisma.restaurant.update({
+      where: { id: restaurantId },
+      data: { menuTemplate },
+      select: { menuTemplate: true },
     });
   }
 

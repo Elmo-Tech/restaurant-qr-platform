@@ -190,6 +190,8 @@ export interface PublicMenuCopy {
   tableOrderingReopened: string;
   // FT-13B "Ember & Saffron"
   ourPicks: string;
+  /** Cart suggestions (DEC-042): the row of products that go with the order. */
+  completeYourMeal: string;
   unavailableNow: string;
   chooseOne: string;
   upTo: (max: number) => string;
@@ -435,6 +437,7 @@ const EN_COPY: PublicMenuCopy = {
   tableOrderingCheckFailed: 'Could not check right now. Please try again.',
   tableOrderingReopened: 'Ordering is open again. You can send your order now.',
   ourPicks: 'Our picks',
+  completeYourMeal: 'Complete your meal',
   unavailableNow: 'Unavailable now',
   chooseOne: 'Choose 1',
   upTo: (max) => `Up to ${max}`,
@@ -677,6 +680,7 @@ const AR_COPY: PublicMenuCopy = {
   tableOrderingCheckFailed: 'تعذر التحقق الآن. من فضلك حاول مرة أخرى.',
   tableOrderingReopened: 'الطلب متاح مرة أخرى. يمكنك إرسال طلبك الآن.',
   ourPicks: 'مميز عندنا',
+  completeYourMeal: 'كمّل وجبتك',
   unavailableNow: 'غير متاح الآن',
   chooseOne: 'اختر واحد',
   upTo: (max) => `حتى ${max}`,

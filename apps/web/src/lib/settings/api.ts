@@ -1,3 +1,4 @@
+import type { MenuTemplateApi } from '../public-menu/templates';
 import type { ContactField, RestaurantContact } from '../contact/types';
 import { apiFetch, apiFetchFormData } from '../api/client';
 import type { QrStyle } from '../qr/style';
@@ -83,6 +84,18 @@ export async function updateQrStyle(
     method: 'PATCH',
     body: input,
   });
+  return body.data;
+}
+
+/** The Guest menu template (DEC-044): presentation only. */
+export async function updateMenuTemplate(
+  restaurantId: string,
+  menuTemplate: MenuTemplateApi,
+): Promise<{ menuTemplate: MenuTemplateApi }> {
+  const body = await apiFetch<{ data: { menuTemplate: MenuTemplateApi } }>(
+    `/restaurants/${restaurantId}/menu-template`,
+    { method: 'PATCH', body: { menuTemplate } },
+  );
   return body.data;
 }
 

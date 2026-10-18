@@ -5,7 +5,9 @@ import { GuestEmptyState } from '../../../components/guest/GuestEmptyState';
 import { GuestIconSearch, GuestIconUtensils } from '../../../components/guest/icons';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import type { PublicMenuCategory, PublicMenuProduct } from '../../../lib/public-menu/types';
+import { DEFAULT_MENU_TEMPLATE, layoutOf, type MenuTemplate } from '../../../lib/public-menu/templates';
 import { ProductCard } from './ProductCard';
+import { ProductLine, ProductRow, ProductTile, ProductTileDense } from './ProductVariants';
 import { categoryDomId } from './useMenuNavigation';
 
 const MIN_CARD_PX = 250;
@@ -62,8 +64,35 @@ function ProductGrid({ count, children }: { count: number; children: ReactNode }
   );
 }
 
-/** A section title: a saffron bar, the Lalezar title (27px phone / 34px desktop) and a quiet item count. */
-export function SectionHeading({ id, title, count }: { id: string; title: string; count: string }) {
+/**
+ * A section title: a saffron bar, the Lalezar title (27px phone / 34px desktop) and a quiet item
+ * count. With `variant="centered"` it is a centred heading between two thin rules (printed menu).
+ */
+export function SectionHeading({
+  id,
+  title,
+  count,
+  variant = 'bar',
+}: {
+  id: string;
+  title: string;
+  count: string;
+  variant?: 'bar' | 'centered';
+}) {
+  if (variant === 'centered') {
+    return (
+      <div className="mb-2 flex flex-col items-center gap-1.5 text-center">
+        <div className="flex w-full items-center gap-4">
+          <span aria-hidden="true" className="h-px flex-1 bg-g-line" />
+          <h2 id={id} className="g-display text-[28px] leading-[1.3] text-g-text lg:text-[34px]">
+            <bdi>{title}</bdi>
+          </h2>
+          <span aria-hidden="true" className="h-px flex-1 bg-g-line" />
+        </div>
+        <span className="text-[12.5px] text-g-text-3">{count}</span>
+      </div>
+    );
+  }
   return (
     <div className="mb-3.5 flex items-center justify-between gap-3 lg:mb-[18px]">
       <h2
@@ -96,7 +125,16 @@ interface MenuSectionsProps {
   onIncrement: (productId: string) => void;
   onDecrement: (productId: string) => void;
   onClearSearch: () => void;
+  /** How the menu is laid out (DEC-044). */
+  template?: MenuTemplate;
 }
+
+const CARD_CONTAINER = {
+  row: 'grid grid-cols-1 gap-2.5 lg:grid-cols-2 lg:gap-3',
+  tile: 'grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3 lg:gap-6',
+  'tile-dense': 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5',
+  line: 'mx-auto flex w-full max-w-[760px] flex-col',
+} as const;
 
 function MenuSectionsImpl({
   categories,
@@ -112,7 +150,9 @@ function MenuSectionsImpl({
   onIncrement,
   onDecrement,
   onClearSearch,
+  template = DEFAULT_MENU_TEMPLATE,
 }: MenuSectionsProps) {
+  const layout = layoutOf(template);
   if (menuCategoryCount === 0) {
     return (
       <GuestEmptyState
@@ -157,11 +197,16 @@ function MenuSectionsImpl({
               id={headingId}
               title={category.name}
               count={copy.itemsCount(category.products.length)}
+              variant={layout.headings}
             />
             {category.description ? (
               <p
                 dir="auto"
-                className="-mt-1.5 mb-3.5 text-[13px] leading-[1.65] text-g-text-2 lg:text-sm"
+                className={`text-[13px] leading-[1.65] text-g-text-2 lg:text-sm ${
+                  layout.headings === 'centered'
+                    ? 'mx-auto mb-2 max-w-[760px] text-center'
+                    : '-mt-1.5 mb-3.5'
+                }`}
               >
                 {category.description}
               </p>
@@ -171,7 +216,7 @@ function MenuSectionsImpl({
               <p className="rounded-[22px] border border-dashed border-g-line px-4 py-8 text-center text-sm text-g-text-2">
                 {copy.noItemsInCategory}
               </p>
-            ) : (
+            ) : layout.cards === 'classic' ? (
               <ProductGrid count={category.products.length}>
                 {category.products.map((product) => (
                   <ProductCard
@@ -189,6 +234,34 @@ function MenuSectionsImpl({
                   />
                 ))}
               </ProductGrid>
+            ) : (
+              <div className={CARD_CONTAINER[layout.cards]}>
+                {category.products.map((product) => {
+                  const Card =
+                    layout.cards === 'row'
+                      ? ProductRow
+                      : layout.cards === 'line'
+                        ? ProductLine
+                        : layout.cards === 'tile-dense'
+                          ? ProductTileDense
+                          : ProductTile;
+                  return (
+                    <Card
+                      key={product.id}
+                      product={product}
+                      currency={currency}
+                      copy={copy}
+                      canOrder={canOrder}
+                      simpleQuantity={simpleQuantityByProductId.get(product.id) ?? 0}
+                      totalQuantity={totalQuantityByProductId.get(product.id) ?? 0}
+                      onOpen={onOpen}
+                      onQuickAdd={onQuickAdd}
+                      onIncrement={onIncrement}
+                      onDecrement={onDecrement}
+                    />
+                  );
+                })}
+              </div>
             )}
           </section>
         );

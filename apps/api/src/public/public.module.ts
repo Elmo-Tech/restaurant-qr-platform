@@ -6,6 +6,8 @@ import { PublicOrderTrackingController } from './public-order-tracking.controlle
 import { PublicOrderTrackingService } from './public-order-tracking.service';
 import { PublicOrdersController } from './public-orders.controller';
 import { PublicOrdersService } from './public-orders.service';
+import { PublicSuggestionsController } from './public-suggestions.controller';
+import { PublicSuggestionsService } from './public-suggestions.service';
 
 /**
  * FT-3/FT-5: the public, unauthenticated Guest QR Menu + Guest Order
@@ -17,7 +19,17 @@ import { PublicOrdersService } from './public-orders.service';
  */
 @Module({
   imports: [DatabaseModule],
-  controllers: [PublicMenuController, PublicOrdersController, PublicOrderTrackingController],
-  providers: [PublicMenuService, PublicOrdersService, PublicOrderTrackingService],
+  controllers: [
+    PublicMenuController,
+    PublicOrdersController,
+    PublicOrderTrackingController,
+    PublicSuggestionsController,
+  ],
+  providers: [
+    PublicMenuService,
+    PublicOrdersService,
+    PublicOrderTrackingService,
+    PublicSuggestionsService,
+  ],
 })
 export class PublicModule {}

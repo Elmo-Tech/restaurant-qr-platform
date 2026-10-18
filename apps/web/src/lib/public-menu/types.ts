@@ -27,6 +27,8 @@ export interface PublicMenuContext {
     logoAssetPath: string | null;
     /** Guest hero cover image; `null` keeps the default branded hero. */
     coverAssetPath: string | null;
+    /** How the menu is laid out (DEC-044); presentation only. */
+    menuTemplate?: string;
     /** Contact details for the Guest Menu; a field is null when not set. */
     contact: RestaurantContact;
     /** Public code of the Restaurant's own (generic) QR: the link the Guest may share; never a Table QR. Null = nothing to share. */
@@ -38,6 +40,8 @@ export interface PublicMenuContext {
   table: { number: string } | null;
   /** Live announcements for the banner (DEC-042), already in the Guest's language; at most three. */
   announcements: PublicAnnouncement[];
+  /** Smart suggestions are on (DEC-042): the cart may ask for "Complete your meal" products. */
+  suggestions?: boolean;
   /** How a GENERIC QR order is taken (DEC-042); null for a TABLE QR. Absent on an older Backend = the app takes both, no WhatsApp. */
   ordering?: { pickup: boolean; delivery: boolean; whatsapp: boolean } | null;
   /** FT-7: GENERIC QR only (null for TABLE) -- the ACTIVE Branches eligible for Pickup. Empty = Pickup unavailable. */

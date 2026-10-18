@@ -4,7 +4,9 @@ import { branchesMessages } from './branches';
 import { commonMessages } from './common';
 import { contactMessages } from './contact';
 import { dashboardMessages } from './dashboard';
+import { designMessages } from './design';
 import { hoursMessages } from './hours';
+import { suggestionsMessages } from './suggestions';
 import { kitchenMessages } from './kitchen';
 import { opsMessages } from './ops';
 import { errorMessages } from './errors';
@@ -35,7 +37,9 @@ const en = {
   ...commonMessages.en,
   ...contactMessages.en,
   ...dashboardMessages.en,
+  ...designMessages.en,
   ...hoursMessages.en,
+  ...suggestionsMessages.en,
   ...kitchenMessages.en,
   ...opsMessages.en,
   ...errorMessages.en,
@@ -61,7 +65,9 @@ const ar = {
   ...commonMessages.ar,
   ...contactMessages.ar,
   ...dashboardMessages.ar,
+  ...designMessages.ar,
   ...hoursMessages.ar,
+  ...suggestionsMessages.ar,
   ...kitchenMessages.ar,
   ...opsMessages.ar,
   ...errorMessages.ar,

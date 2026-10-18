@@ -6,7 +6,7 @@ import {
   resolveActiveDiscount,
 } from '../menu/product-discount';
 import { PrismaService } from '../database/prisma.service';
-import type { ProductAvailability, QrType } from '../generated/prisma/client';
+import type { MenuTemplate, ProductAvailability, QrType } from '../generated/prisma/client';
 import {
   normalizePlatformLocale,
   type PlatformSupportedLocale,
@@ -58,6 +58,8 @@ export interface PublicMenuContext {
     logoAssetPath: string | null;
     /** Guest hero cover image; null keeps the default branded hero. */
     coverAssetPath: string | null;
+    /** How the menu is laid out (DEC-044); presentation only. */
+    menuTemplate: MenuTemplate;
     /** Contact details for the Guest Menu (DEC-042); a field is null when not set. */
     contact: RestaurantContact;
     /** Public code of the Restaurant's own (generic) QR: the link the Guest may share. Never a Table QR code. Null when the Restaurant has no active generic QR. */
@@ -70,6 +72,8 @@ export interface PublicMenuContext {
   table: { number: string } | null;
   /** Live announcements for the banner (DEC-042): at most three, already in the Guest's language. */
   announcements: PublicAnnouncement[];
+  /** Smart suggestions are on (DEC-042): the cart may ask for "Complete your meal" products. */
+  suggestions: boolean;
   /**
    * How a GENERIC QR order is taken (DEC-042); null for a TABLE QR. `pickup` / `delivery` are the
    * Restaurant's own switches (what kinds of order it takes, whoever receives them). `whatsapp`
@@ -322,6 +326,8 @@ export class PublicMenuService {
             deliveryEnabled: true,
             tableOrderingEnabled: true,
             whatsappOrderingEnabled: true,
+            menuTemplate: true,
+            suggestionsMode: true,
             ...CONTACT_COLUMNS,
           },
         },
@@ -779,6 +785,7 @@ export class PublicMenuService {
             currencyCode: qr.restaurant.currencyCode,
             logoAssetPath: qr.restaurant.logoAssetPath,
             coverAssetPath: qr.restaurant.coverAssetPath,
+            menuTemplate: qr.restaurant.menuTemplate,
             contact: contactFromColumns(qr.restaurant),
             shareCode,
             hours,
@@ -788,6 +795,7 @@ export class PublicMenuService {
             : null,
           table: qr.table ? { number: qr.table.tableNumber } : null,
           announcements,
+          suggestions: qr.restaurant.suggestionsMode !== 'OFF',
           ordering:
             qr.type === 'GENERIC'
               ? { pickup: appPickup, delivery: appDelivery, whatsapp: whatsappOrdering }

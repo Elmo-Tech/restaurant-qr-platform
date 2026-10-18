@@ -41,15 +41,18 @@ import { FeaturedBanners } from './FeaturedBanners';
 import { AnnouncementBar } from './AnnouncementBar';
 import { submitWhatsappOrder, type SubmitGuestOrderResult, type WhatsappOrderView } from '../../../lib/public-menu/orders-api';
 import { TrackOrderSheet } from './TrackOrderSheet';
+import { fetchSuggestions } from '../../../lib/public-menu/suggestions';
 import { readTrackedOrders, rememberOrder } from '../../../lib/public-menu/tracking';
 import { GuestContact } from './GuestContact';
-import { GuestHero } from './GuestHero';
+import { GuestHero, type GuestHeroProps } from './GuestHero';
+import { GuestHeroCentered, GuestHeroCompact, GuestHeroFloating } from './GuestHeroVariants';
 import type {
   CartLine,
   CheckoutFieldKey,
   Fulfillment,
   OrderingContextView,
 } from './guest-view-types';
+import { DEFAULT_MENU_TEMPLATE, layoutOf, type MenuTemplate } from '../../../lib/public-menu/templates';
 import { MenuSections } from './MenuSections';
 import { ModeSwitch } from './ModeSwitch';
 import { ProductSheet } from './ProductSheet';
@@ -72,7 +75,16 @@ const MAX_QUANTITY = 99;
  * `dir` is set on this component's own root, not the document `<html>` (shared with Staff)
  * -- everything inside mirrors for Arabic through logical utilities only.
  */
-export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; publicCode: string }) {
+export function PublicMenuView({
+  data,
+  publicCode,
+  template = DEFAULT_MENU_TEMPLATE,
+}: {
+  data: PublicMenuData;
+  publicCode: string;
+  /** How the menu is laid out (DEC-044); presentation only. */
+  template?: MenuTemplate;
+}) {
   const router = useRouter();
   const locale = data.locale.resolved;
   const dir = locale === 'ar' ? 'rtl' : 'ltr';
@@ -128,18 +140,26 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     return products;
   }, [data.menu.categories]);
 
-  // "Our picks": featured, still available, with a photo (the banner needs one).
+  // The template decides the header, the cards, the headings and the category strip (DEC-044).
+  // The printed-menu template shows no photos anywhere (cards, cart, product page, featured banners).
+  const layout = layoutOf(template);
+  const showPhotos = layout.photos;
+
+  // "Our picks": featured, still available, with a photo (the banner needs one). Photo banners do
+  // not exist in the photo-free template; a featured dish still carries its "Featured" tag there.
   const featuredProducts = useMemo(
     () =>
-      data.menu.categories
-        .flatMap((category) => category.products)
-        .filter(
-          (product) =>
-            product.featured &&
-            product.availability !== 'SOLD_OUT' &&
-            product.primaryImageAssetPath !== null,
-        ),
-    [data.menu.categories],
+      showPhotos && layout.featured
+        ? data.menu.categories
+            .flatMap((category) => category.products)
+            .filter(
+              (product) =>
+                product.featured &&
+                product.availability !== 'SOLD_OUT' &&
+                product.primaryImageAssetPath !== null,
+            )
+        : [],
+    [data.menu.categories, showPhotos, layout.featured],
   );
 
   // ---- search (client-side, over the already-loaded Menu) ----
@@ -184,7 +204,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     ...data.menu.categories.map((category) => ({
       id: category.id,
       name: category.name,
-      imageUrl: resolveAssetUrl(category.imageAssetPath),
+      imageUrl: showPhotos ? resolveAssetUrl(category.imageAssetPath) : null,
     })),
   ];
 
@@ -394,6 +414,38 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
     },
     [addLine, setSheetProduct],
   );
+
+  // "Complete your meal" (DEC-042): ask the Backend what goes with the cart while the cart is open.
+  // The answer is product ids of this very menu; a failed request just means no suggestions.
+  const suggestionsOn = data.context.suggestions === true;
+  const cartProductKey = useMemo(
+    () => [...new Set(cart.map((item) => item.productId))].sort().join(','),
+    [cart],
+  );
+  const [suggestionIds, setSuggestionIds] = useState<string[]>([]);
+  useEffect(() => {
+    if (!suggestionsOn || !isCartOpen || cartProductKey === '') return;
+    let cancelled = false;
+    const timer = window.setTimeout(() => {
+      void fetchSuggestions(publicCode, cartProductKey.split(',')).then((ids) => {
+        if (!cancelled) setSuggestionIds(ids);
+      });
+    }, 250);
+    return () => {
+      cancelled = true;
+      window.clearTimeout(timer);
+    };
+  }, [suggestionsOn, isCartOpen, cartProductKey, publicCode]);
+  const suggestedProducts = useMemo(() => {
+    if (!suggestionsOn || !isCartOpen || cartProductKey === '') return [];
+    const inCart = new Set(cartProductKey.split(','));
+    return suggestionIds
+      .map((id) => productById.get(id))
+      .filter(
+        (product): product is PublicMenuProduct =>
+          product !== undefined && product.availability !== 'SOLD_OUT' && !inCart.has(product.id),
+      );
+  }, [suggestionsOn, isCartOpen, cartProductKey, suggestionIds, productById]);
 
   const handleOpenProduct = useCallback(
     (product: PublicMenuProduct) => setSheetProduct(product),
@@ -913,29 +965,41 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
       : copy.pickup
     : `${copy.table} ${data.context.table?.number ?? ''}`.trim();
 
+  const heroProps: GuestHeroProps = {
+    sentinelRef: navigation.headerRef,
+    restaurantName: data.context.restaurant.name,
+    logoUrl,
+    coverUrl,
+    tableNumber: data.context.table?.number ?? null,
+    branchLine,
+    copy,
+    locale: data.locale,
+    publicCode,
+    shareCode: data.context.restaurant.shareCode,
+    contact: data.context.restaurant.contact,
+    hours: data.context.restaurant.hours,
+    onTrack: whatsappAction ? null : openTracking,
+    hasActiveOrder,
+  };
+  const Hero =
+    layout.hero === 'floating'
+      ? GuestHeroFloating
+      : layout.hero === 'centered'
+        ? GuestHeroCentered
+        : layout.hero === 'compact'
+          ? GuestHeroCompact
+          : GuestHero;
+  // Only the classic hero is tall enough for the announcement and order bars to overlap its edge.
+  const overlapsHero = layout.hero === 'classic';
+
   return (
     <GuestLocaleProvider locale={locale}>
       <div dir={dir} lang={locale} className="g-body relative">
-        <GuestHero
-          sentinelRef={navigation.headerRef}
-          restaurantName={data.context.restaurant.name}
-          logoUrl={logoUrl}
-          coverUrl={coverUrl}
-          tableNumber={data.context.table?.number ?? null}
-          branchLine={branchLine}
-          copy={copy}
-          locale={data.locale}
-          publicCode={publicCode}
-          shareCode={data.context.restaurant.shareCode}
-          contact={data.context.restaurant.contact}
-          hours={data.context.restaurant.hours}
-          onTrack={whatsappAction ? null : openTracking}
-          hasActiveOrder={hasActiveOrder}
-        />
+        <Hero {...heroProps} />
 
         <div className="relative z-20 px-4 lg:px-8">
           <div className="mx-auto max-w-[1280px]">
-            <div className="announce-slot -mt-7 mb-3 empty:hidden">
+            <div className={`announce-slot ${overlapsHero ? '-mt-7' : 'mt-4'} mb-3 empty:hidden`}>
               <AnnouncementBar
                 announcements={data.context.announcements ?? []}
                 publicCode={publicCode}
@@ -943,7 +1007,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
               />
             </div>
             <div
-              className={`${showModeSwitch ? 'flex' : 'hidden lg:flex'} g-shadow -mt-7 [.announce-slot:not(:empty)+&]:mt-0 items-center justify-between gap-4 rounded-[30px] border border-g-line bg-g-surface p-[5px] lg:rounded-[32px] lg:p-2`}
+              className={`${showModeSwitch ? 'flex' : 'hidden lg:flex'} g-shadow ${overlapsHero ? '-mt-7' : 'mt-4'} [.announce-slot:not(:empty)+&]:mt-0 items-center justify-between gap-4 rounded-[30px] border border-g-line bg-g-surface p-[5px] lg:rounded-[32px] lg:p-2`}
             >
               {showModeSwitch ? (
                 <div className="flex min-w-0 flex-1 gap-1 lg:flex-none lg:rounded-[26px] lg:bg-g-surface-2 lg:p-0.5">
@@ -1007,6 +1071,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
             compact={navigation.compact}
             onJumpToSearch={handleJumpToSearch}
             copy={copy}
+            template={template}
           />
         ) : null}
 
@@ -1057,6 +1122,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
               onIncrement={handleCardIncrement}
               onDecrement={handleCardDecrement}
               onClearSearch={handleClearSearch}
+              template={template}
             />
           </div>
         </main>
@@ -1148,6 +1214,9 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
             onPlaceOrder={() => void handlePlaceOrder()}
             onClose={closeCart}
             onTrackOrder={openTracking}
+            showPhotos={showPhotos}
+            suggestions={suggestedProducts}
+            onAddSuggestion={handleQuickAdd}
             whatsapp={whatsappAction}
             whatsappHandoff={whatsappHandoff}
           />
@@ -1161,6 +1230,7 @@ export function PublicMenuView({ data, publicCode }: { data: PublicMenuData; pub
             copy={copy}
             dir={dir}
             initial={editing ?? undefined}
+            showPhotos={showPhotos}
             onCancel={closeSheet}
             onConfirm={handleConfirmOptions}
           />

@@ -39,6 +39,7 @@ import { ImageField } from '../../../../../../components/menu/ImageField';
 import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
 import { validateImageFile } from '../../../../../../lib/menu/image-validation';
 import { ModifiersSection } from './ModifiersSection';
+import { SuggestionsSection } from './SuggestionsSection';
 import { DraftSizes, VariantsSection, type SizeDraft } from './VariantsSection';
 import { ProductPreview } from './ProductPreview';
 import { toMinorUnits } from '../../../../../../lib/public-menu/money';
@@ -449,6 +450,13 @@ export function ProductEditor({
   }, [menus, categories]);
 
   const selectedCategory = categories.find((category) => category.id === form.categoryId);
+  // Suggestions are picked from the same menu as this product (the Guest cart only offers that menu's dishes).
+  const menuCategoryIds = new Set(
+    categories
+      .filter((category) => category.menuId === selectedCategory?.menuId)
+      .map((category) => category.id),
+  );
+  const sameMenuProducts = allProducts.filter((candidate) => menuCategoryIds.has(candidate.categoryId));
   const backHref = selectedCategory
     ? `/staff/restaurants/${restaurantId}/menu?menuId=${selectedCategory.menuId}&categoryId=${selectedCategory.id}`
     : `/staff/restaurants/${restaurantId}/menu`;
@@ -763,6 +771,7 @@ export function ProductEditor({
     { id: 'product-section-sizes', label: t('product.nav.sizes') },
     { id: 'product-section-visibility', label: t('product.nav.visibility') },
     { id: 'product-section-addons', label: t('product.nav.addons') },
+    { id: 'product-section-suggestions', label: t('suggestions.product.title') },
   ];
   function scrollToSection(id: string) {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -1089,6 +1098,22 @@ export function ProductEditor({
             ) : (
               <FormSection title={t('mod.title')}>
                 <p className="text-sm text-muted-foreground">{t('product.modifiersCreateFirst')}</p>
+              </FormSection>
+            )}
+          </Card>
+
+          {/* 6. Suggestions: which dishes the Guest cart suggests with this product (saved on its own). */}
+          <Card id="product-section-suggestions" className="scroll-mt-40 flex flex-col gap-6">
+            {mode === 'edit' && productId ? (
+              <SuggestionsSection
+                restaurantId={restaurantId}
+                productId={productId}
+                allProducts={sameMenuProducts}
+                canManage={canManage}
+              />
+            ) : (
+              <FormSection title={t('suggestions.product.title')}>
+                <p className="text-sm text-muted-foreground">{t('suggestions.product.createFirst')}</p>
               </FormSection>
             )}
           </Card>

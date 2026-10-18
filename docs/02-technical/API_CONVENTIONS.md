@@ -2302,6 +2302,29 @@ Not an integration: the Guest's phone opens WhatsApp on the Restaurant's own num
 
 ---
 
+# 108M. Guest Menu Template (DEC-044, 2026-10-18)
+
+Presentation only: how the same menu is laid out (`CLASSIC`, `LIST`, `GALLERY`, `MENU`, `FLOATING`, `CENTERED`, `COMPACT`; default `CLASSIC`).
+
+- `PATCH /api/v1/restaurants/{restaurantId}/menu-template` body `{ "menuTemplate": "GALLERY" }` -> `200 { data: { menuTemplate } }`. Guard chain `AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard`, permission `restaurant.manage` (Restaurant-wide scope, like the other Restaurant-structural settings). An unknown or missing value is `400`; a Membership without the permission is `403`.
+- `GET /auth/me`: each membership's `restaurant.menuTemplate`.
+- Guest menu: `context.restaurant.menuTemplate`, for the Restaurant QR and every Table QR alike. It never affects pricing, availability or order validation.
+- Web only: `/q/{publicCode}?template=list` renders another layout without saving (used by the Staff preview); an unknown value falls back to the saved template.
+
+---
+
+# 108N. Smart Suggestions (DEC-042, 2026-10-18)
+
+"Complete your meal" in the Guest cart. Sources the Restaurant controls: manual rules per product, and automatic "bought together" learned from the Restaurant's OWN served orders. No AI. Mode per Restaurant: `OFF` (default), `MANUAL`, `AUTO`, `BOTH`.
+
+- Staff settings: `GET /restaurants/{restaurantId}/suggestions` (`restaurant.view`) -> `{ mode, automatic: { servedOrders, minimumOrders, windowDays, ready } }`; `PATCH .../suggestions` body `{ mode }` (`restaurant.manage` + Restaurant-wide scope, CSRF) -> the same shape. An unknown mode is `400`.
+- Manual rules: `GET /restaurants/{restaurantId}/products/{productId}/suggestions` (`menu.view`) -> `{ productIds }` in display order; `PUT` the same path body `{ productIds }` (`menu.manage` + Restaurant-wide scope, CSRF) replaces the list. At most 6 (more is `400`), each once and never the product itself, all of this Restaurant: otherwise `422 SUGGESTION_INVALID`. A product of another Restaurant, or a malformed id, is `404 PRODUCT_NOT_FOUND`.
+- Guest menu: `context.suggestions` is true when the mode is not `OFF`.
+- `POST /public/qr/{publicCode}/suggestions` body `{ productIds }` (1 to 50 UUIDs of the cart) -> `{ data: { productIds } }`: at most 4 ids of the menu the page already holds. Order: manual rules (cart order, then each rule's order), then automatic (strongest pair first). Never a product already in the cart, and only products that are ACTIVE and AVAILABLE in an ACTIVE category of the primary ACTIVE menu. Suggestions off, an unknown code or nothing to suggest answer `200` with an empty list. No name, price or order data is returned.
+- Automatic source: counts only this Restaurant's `SERVED` orders of the last 180 days. It answers nothing until the Restaurant has at least 30 such orders, and a pair needs at least 3 orders together. WhatsApp orders are not stored (108L), so they never count.
+
+---
+
 # 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
 `Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.

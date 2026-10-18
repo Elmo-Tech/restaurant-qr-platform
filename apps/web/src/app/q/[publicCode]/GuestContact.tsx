@@ -71,14 +71,18 @@ function buildChannels(contact: RestaurantContact, copy: PublicMenuCopy): Channe
 }
 
 /** The round app-style badge: the brand glyph on the brand colour (a phone or link glyph for the rest). */
-function Badge({ channel, size }: { channel: Channel; size: number }) {
-  const style: CSSProperties = { background: channel.background, color: channel.color, width: size, height: size };
-  const glyph = Math.round(size * 0.56);
+function Badge({ channel, size }: { channel: Channel; size: number | 'hero' }) {
+  // `hero`: the compact hero row -- 32px on a phone (six badges fit beside the logo on one line), 40px from `lg`.
+  const style: CSSProperties =
+    size === 'hero'
+      ? { background: channel.background, color: channel.color }
+      : { background: channel.background, color: channel.color, width: size, height: size };
+  const glyph = size === 'hero' ? '56%' : Math.round(size * 0.56);
   return (
     <span
       aria-hidden="true"
       style={style}
-      className={`inline-flex shrink-0 items-center justify-center rounded-full ${channel.ring ? 'ring-1 ring-white/25' : ''}`}
+      className={`inline-flex shrink-0 items-center justify-center rounded-full ${size === 'hero' ? 'size-8 lg:size-10' : ''} ${channel.ring ? 'ring-1 ring-white/25' : ''}`}
     >
       {channel.brand ? (
         <svg viewBox="0 0 24 24" width={glyph} height={glyph} fill="currentColor" focusable="false">
@@ -100,14 +104,33 @@ const LINK_PROPS = { target: '_blank', rel: 'noopener noreferrer' } as const;
  * (at most six, so it never crowds the header); the full list is in "Find us" below.
  * Each is a real link with an accessible name and a 40px touch target.
  */
-export function HeroContactIcons({ contact, copy }: { contact: RestaurantContact; copy: PublicMenuCopy }) {
+export function HeroContactIcons({
+  contact,
+  copy,
+  exclude = [],
+  limit = 6,
+  className = '',
+}: {
+  contact: RestaurantContact;
+  copy: PublicMenuCopy;
+  /** Channel keys already shown elsewhere (for example as labelled buttons). */
+  exclude?: readonly string[];
+  /** At most this many icons (default six). */
+  limit?: number;
+  /** Extra classes for the row (alignment, margin). */
+  className?: string;
+}) {
   // One call icon is enough up here: the hotline joins in only when there is no phone.
   const channels = buildChannels(contact, copy)
     .filter((channel) => !(channel.key === 'hotline' && contact.phone))
-    .slice(0, 6);
+    .filter((channel) => !exclude.includes(channel.key))
+    .slice(0, limit);
   if (channels.length === 0) return null;
   return (
-    <ul aria-label={copy.findUs} className="mt-3 flex flex-wrap items-center gap-2 lg:mt-4 lg:gap-2.5">
+    <ul
+      aria-label={copy.findUs}
+      className={`mt-3 flex flex-wrap items-center gap-[5px] lg:mt-4 lg:gap-2.5 ${className}`}
+    >
       {channels.map((channel) => (
         <li key={channel.key}>
           <a
@@ -115,9 +138,40 @@ export function HeroContactIcons({ contact, copy }: { contact: RestaurantContact
             aria-label={channel.label}
             title={channel.label}
             {...(channel.external ? LINK_PROPS : {})}
-            className="inline-flex size-10 items-center justify-center rounded-full transition-transform hover:scale-110 active:scale-95 lg:size-11"
+            className="relative inline-flex size-8 items-center justify-center rounded-full transition-transform after:absolute after:-inset-[3px] after:content-[''] hover:scale-110 active:scale-95 lg:size-11"
           >
-            <Badge channel={channel} size={36} />
+            <Badge channel={channel} size="hero" />
+          </a>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
+/** The channels HeroContactButtons shows, so the icon row can leave them out. */
+export const HERO_BUTTON_KEYS = ['phone', 'hotline', 'whatsapp', 'mapsUrl'] as const;
+
+/**
+ * The main ways to reach the restaurant as labelled buttons (call, WhatsApp, location) for the
+ * hero of the `floating` template. The hotline stands in for the phone only when there is none.
+ */
+export function HeroContactButtons({ contact, copy }: { contact: RestaurantContact; copy: PublicMenuCopy }) {
+  const channels = buildChannels(contact, copy)
+    .filter((channel) => (HERO_BUTTON_KEYS as readonly string[]).includes(channel.key))
+    .filter((channel) => !(channel.key === 'hotline' && contact.phone))
+    .slice(0, 3);
+  if (channels.length === 0) return null;
+  return (
+    <ul aria-label={copy.findUs} className="flex flex-wrap items-center gap-2">
+      {channels.map((channel) => (
+        <li key={channel.key}>
+          <a
+            href={channel.href}
+            {...(channel.external ? LINK_PROPS : {})}
+            className="inline-flex h-10 items-center gap-2 rounded-full border border-g-line bg-g-surface-2 ps-1.5 pe-3.5 text-[13px] font-bold text-g-text transition-colors hover:border-g-accent hover:bg-g-accent-soft"
+          >
+            <Badge channel={channel} size={28} />
+            {channel.label}
           </a>
         </li>
       ))}

@@ -1754,6 +1754,18 @@ Migration `20261021090000_whatsapp_ordering` (additive): `restaurants.whatsapp_o
 
 ---
 
+# 68F. Guest Menu Template (DEC-044, 2026-10-18)
+
+Migration `20261022090000_menu_template` (additive): enum `menu_template` (`CLASSIC`, `LIST`, `GALLERY`, `MENU`; `FLOATING`, `CENTERED`, `COMPACT` added by `20261023090000_menu_template_hero_variants`, additive; PostgreSQL cannot drop an enum value, so undo = move rows back to CLASSIC) and `restaurants.menu_template` NOT NULL DEFAULT `CLASSIC`, so every existing Restaurant keeps its current menu. Presentation only: no money, order or availability rule reads it. Rollback (before use): `ALTER TABLE "restaurants" DROP COLUMN "menu_template"; DROP TYPE "menu_template";`
+
+---
+
+# 68G. Smart Suggestions (DEC-042, 2026-10-18)
+
+Migration `20261024090000_product_suggestions` (additive): enum `suggestions_mode` (`OFF`, `MANUAL`, `AUTO`, `BOTH`) and `restaurants.suggestions_mode` NOT NULL DEFAULT `OFF`; table `product_suggestions` (`restaurant_id`, `product_id` the trigger, `suggested_product_id`, `position` >= 0, CHECK trigger <> suggested, UNIQUE (`product_id`, `suggested_product_id`), index (`restaurant_id`, `product_id`)). All three foreign keys are `ON DELETE CASCADE`: these are configuration rows, not history, and follow their products. That both products belong to `restaurant_id` is enforced by the application (tenant-scoped writes). The automatic source has no table: it aggregates `order_items` of `SERVED` orders on demand, scoped by `orders.restaurant_id`. Rollback (before use): `DROP TABLE "product_suggestions"; ALTER TABLE "restaurants" DROP COLUMN "suggestions_mode"; DROP TYPE "suggestions_mode";`
+
+---
+
 # 69. Variant Price
 
 V1 uses:

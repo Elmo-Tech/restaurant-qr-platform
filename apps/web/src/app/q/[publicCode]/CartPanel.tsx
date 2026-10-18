@@ -19,7 +19,8 @@ import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import type { WhatsappOrderView } from '../../../lib/public-menu/orders-api';
-import type { GuestOrderView } from '../../../lib/public-menu/types';
+import type { GuestOrderView, PublicMenuProduct } from '../../../lib/public-menu/types';
+import { CartSuggestions } from './CartSuggestions';
 import {
   AddressSection,
   BranchChooser,
@@ -73,6 +74,11 @@ export interface CartPanelProps {
   whatsapp: { onSend: () => void } | null;
   /** The ready-to-send WhatsApp order (shown instead of the cart once it has been prepared). */
   whatsappHandoff: WhatsappOrderView | null;
+  /** False in the photo-free `menu` template (DEC-044): cart rows then show no thumbnails. Default true. */
+  showPhotos?: boolean;
+  /** "Complete your meal" (DEC-042): products suggested for this cart, ready to show. */
+  suggestions?: PublicMenuProduct[];
+  onAddSuggestion?: (product: PublicMenuProduct) => void;
 }
 
 type Step = 'review' | 'details';
@@ -93,7 +99,9 @@ function CartItemRow({
   onDecrement,
   onRemove,
   onEditLine,
+  showPhotos,
 }: {
+  showPhotos: boolean;
   line: CartLine;
   currency: string;
   copy: PublicMenuCopy;
@@ -110,6 +118,7 @@ function CartItemRow({
   return (
     <li className="border-t border-g-line first:border-t-0">
       <div className="flex items-center gap-3 p-3.5">
+        {showPhotos ? (
         <div className="size-16 shrink-0 overflow-hidden rounded-[14px]">
           {imageUrl && !imageFailed ? (
             // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image.
@@ -125,6 +134,7 @@ function CartItemRow({
             <DishFallback className="size-full" iconClassName="size-7" />
           )}
         </div>
+        ) : null}
         <div className="min-w-0 flex-1">
           <p className="text-[15px] font-bold leading-snug text-g-text">
             <bdi>{line.name}</bdi>
@@ -288,6 +298,9 @@ export function CartPanel({
   onTrackOrder,
   whatsapp,
   whatsappHandoff,
+  showPhotos = true,
+  suggestions = [],
+  onAddSuggestion,
 }: CartPanelProps) {
   const [step, setStep] = useState<Step>('review');
   const headingRef = useRef<HTMLHeadingElement>(null);
@@ -448,9 +461,20 @@ export function CartPanel({
                   onDecrement={onDecrement}
                   onRemove={onRemove}
                   onEditLine={onEditLine}
+                  showPhotos={showPhotos}
                 />
               ))}
             </ul>
+
+            {onAddSuggestion ? (
+              <CartSuggestions
+                products={suggestions}
+                currency={currency}
+                copy={copy}
+                showPhotos={showPhotos}
+                onAdd={onAddSuggestion}
+              />
+            ) : null}
 
             <CheckoutSection title={copy.orderSummary} id="cart-summary-title">
               <div className="flex flex-col gap-2.5 rounded-[22px] border border-g-line bg-g-surface p-4">

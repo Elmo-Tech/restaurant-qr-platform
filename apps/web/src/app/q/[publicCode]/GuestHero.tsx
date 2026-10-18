@@ -23,13 +23,13 @@ const LOCALE_LABELS: Record<string, { short: string; full: string }> = {
   en: { short: 'EN', full: 'English' },
 };
 
-const ARABIC_SCRIPT = /[؀-ۿ]/;
+export const ARABIC_SCRIPT = /[؀-ۿ]/;
 
 /** Shared glass look for the two controls floating over the hero. */
-const GLASS =
+export const GLASS =
   'border border-g-line bg-[color-mix(in_srgb,var(--g-bg)_55%,transparent)] text-g-text backdrop-blur-md';
 
-function LanguageSwitch({
+export function LanguageSwitch({
   available,
   resolved,
   publicCode,
@@ -67,7 +67,7 @@ function LanguageSwitch({
   );
 }
 
-function ThemeToggle({ copy }: { copy: PublicMenuCopy }) {
+export function ThemeToggle({ copy }: { copy: PublicMenuCopy }) {
   const { theme, toggleTheme } = useGuestTheme();
   const label = theme === 'dark' ? copy.lightMode : copy.darkMode;
   return (
@@ -87,11 +87,19 @@ function ThemeToggle({ copy }: { copy: PublicMenuCopy }) {
   );
 }
 
-function LogoTile({ name, logoUrl }: { name: string; logoUrl: string | null }) {
+export function LogoTile({
+  name,
+  logoUrl,
+  className = 'size-[72px] rounded-[20px] lg:size-[112px] lg:rounded-[30px]',
+}: {
+  name: string;
+  logoUrl: string | null;
+  className?: string;
+}) {
   const [failed, setFailed] = useState(false);
   const initial = (name.trim().match(/[\p{L}\p{N}]/u)?.[0] ?? '•').toLocaleLowerCase();
   return (
-    <div className="g-shadow flex size-[72px] shrink-0 items-center justify-center overflow-hidden rounded-[20px] bg-white lg:size-[112px] lg:rounded-[30px]">
+    <div className={`g-shadow flex shrink-0 items-center justify-center overflow-hidden bg-white ${className}`}>
       {logoUrl && !failed ? (
         // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image.
         <img
@@ -112,6 +120,49 @@ function LogoTile({ name, logoUrl }: { name: string; logoUrl: string | null }) {
   );
 }
 
+/** The round glass controls at the end of the hero: track order, share, light / dark. */
+export function HeroActions({
+  copy,
+  restaurantName,
+  shareCode,
+  onTrack,
+  hasActiveOrder,
+}: {
+  copy: PublicMenuCopy;
+  restaurantName: string;
+  shareCode: string | null;
+  onTrack: (() => void) | null;
+  hasActiveOrder: boolean;
+}) {
+  return (
+    <div className="relative flex items-center gap-2">
+      {onTrack ? (
+        <button
+          type="button"
+          onClick={onTrack}
+          aria-label={copy.trackOrder}
+          title={copy.trackOrder}
+          className={`relative flex size-11 items-center justify-center rounded-full lg:size-[46px] ${GLASS}`}
+        >
+          <GuestIconReceipt className="size-5" />
+          {hasActiveOrder ? (
+            <span aria-hidden="true" className="absolute end-1 top-1 size-2.5 rounded-full bg-g-accent ring-2 ring-g-bg" />
+          ) : null}
+        </button>
+      ) : null}
+      {shareCode ? (
+        <ShareButton
+          shareCode={shareCode}
+          restaurantName={restaurantName}
+          copy={copy}
+          className={`flex size-11 items-center justify-center rounded-full lg:size-[46px] ${GLASS}`}
+        />
+      ) : null}
+      <ThemeToggle copy={copy} />
+    </div>
+  );
+}
+
 /**
  * The full-bleed hero (330px phone / 400px desktop). Without a restaurant cover image it is
  * the branded variant: the raised surface with a soft saffron glow and a faint cloche mark
@@ -122,22 +173,7 @@ function LogoTile({ name, logoUrl }: { name: string; logoUrl: string | null }) {
  * and the ordering context sit at the bottom. It shows only what exists in our data: no
  * ratings, hours, "open now" or tagline.
  */
-export function GuestHero({
-  restaurantName,
-  logoUrl,
-  coverUrl,
-  tableNumber,
-  branchLine,
-  copy,
-  locale,
-  publicCode,
-  shareCode,
-  contact,
-  hours,
-  onTrack,
-  hasActiveOrder,
-  sentinelRef,
-}: {
+export interface GuestHeroProps {
   restaurantName: string;
   logoUrl: string | null;
   /** The restaurant's cover image, or `null` for the default branded hero. */
@@ -159,7 +195,24 @@ export function GuestHero({
   /** This device has an order that is still in progress (shows a dot on the button). */
   hasActiveOrder: boolean;
   sentinelRef: React.RefObject<HTMLElement | null>;
-}) {
+}
+
+export function GuestHero({
+  restaurantName,
+  logoUrl,
+  coverUrl,
+  tableNumber,
+  branchLine,
+  copy,
+  locale,
+  publicCode,
+  shareCode,
+  contact,
+  hours,
+  onTrack,
+  hasActiveOrder,
+  sentinelRef,
+}: GuestHeroProps) {
   const hasArabicName = ARABIC_SCRIPT.test(restaurantName);
   const [coverFailed, setCoverFailed] = useState(false);
   const showCover = coverUrl !== null && !coverFailed;
@@ -216,31 +269,13 @@ export function GuestHero({
             publicCode={publicCode}
             label={copy.language}
           />
-          <div className="relative flex items-center gap-2">
-            {onTrack ? (
-              <button
-                type="button"
-                onClick={onTrack}
-                aria-label={copy.trackOrder}
-                title={copy.trackOrder}
-                className={`relative flex size-11 items-center justify-center rounded-full lg:size-[46px] ${GLASS}`}
-              >
-                <GuestIconReceipt className="size-5" />
-                {hasActiveOrder ? (
-                  <span aria-hidden="true" className="absolute end-1 top-1 size-2.5 rounded-full bg-g-accent ring-2 ring-g-bg" />
-                ) : null}
-              </button>
-            ) : null}
-            {shareCode ? (
-              <ShareButton
-                shareCode={shareCode}
-                restaurantName={restaurantName}
-                copy={copy}
-                className={`flex size-11 items-center justify-center rounded-full lg:size-[46px] ${GLASS}`}
-              />
-            ) : null}
-            <ThemeToggle copy={copy} />
-          </div>
+          <HeroActions
+            copy={copy}
+            restaurantName={restaurantName}
+            shareCode={shareCode}
+            onTrack={onTrack}
+            hasActiveOrder={hasActiveOrder}
+          />
         </div>
 
         <div className="flex items-end gap-3.5 lg:gap-[22px]">
