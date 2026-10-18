@@ -1,5 +1,6 @@
 import { EMPTY_CONTACT } from '../restaurants/restaurant-contact';
 import { PublicMenuService } from './public-menu.service';
+import { ALL_FEATURES } from '../entitlements/features';
 
 function decimal(value: string) {
   return { toFixed: () => value } as unknown as { toFixed: (digits: number) => string };
@@ -151,8 +152,11 @@ function buildPrismaMock() {
   };
 }
 
+/** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
+const ENTITLEMENTS = { forRestaurant: async () => ALL_FEATURES };
+
 function buildService(mock: ReturnType<typeof buildPrismaMock>): PublicMenuService {
-  return new PublicMenuService(mock.prisma as never);
+  return new PublicMenuService(mock.prisma as never, ENTITLEMENTS as never);
 }
 
 describe('PublicMenuService.getPublicMenu', () => {
@@ -389,6 +393,7 @@ describe('PublicMenuService.getPublicMenu', () => {
       table: { number: '12' },
       announcements: [],
       suggestions: false,
+      tracking: true,
       ordering: null,
       pickupBranches: null,
       deliveryBranches: null,
@@ -424,6 +429,7 @@ describe('PublicMenuService.getPublicMenu', () => {
       table: null,
       announcements: [],
       suggestions: false,
+      tracking: true,
       ordering: { pickup: true, delivery: true, whatsapp: false },
       pickupBranches: [
         { id: 'branch-a', name: 'Downtown', hours: null },

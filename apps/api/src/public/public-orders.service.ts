@@ -7,6 +7,8 @@ import {
 } from '../menu/product-discount';
 import { isClosedNow } from '../branches/branch-hours';
 import { PrismaService } from '../database/prisma.service';
+import { effectiveOrdering } from '../entitlements/effective-ordering';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import { Prisma } from '../generated/prisma/client';
 import type { OrderStatus, OrderType } from '../generated/prisma/client';
 import {
@@ -392,7 +394,10 @@ function isClientRequestIdConflict(error: unknown): boolean {
  */
 @Injectable()
 export class PublicOrdersService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   async createOrder(input: CreateGuestOrderInput): Promise<CreateGuestOrderResult> {
     const productIds = input.items.map((item) => item.productId);
@@ -456,6 +461,12 @@ export class PublicOrdersService {
       return { outcome: 'qrNotFound' };
     }
     const restaurantId = qr.restaurantId;
+    // What the platform allows this Restaurant (DEC-043) combined with its own switches: the same
+    // answer the Guest menu used to decide what to offer.
+    const effective = effectiveOrdering(
+      qr.restaurant,
+      await this.entitlements.forRestaurant(restaurantId),
+    );
     const defaultLocale = qr.restaurant.defaultLocale;
     const currencyCode = qr.restaurant.currencyCode;
 
@@ -481,7 +492,7 @@ export class PublicOrdersService {
     if (viaWhatsapp) {
       // WhatsApp ordering is for the Restaurant QR only (a Table QR keeps ordering through the app).
       if (qr.type !== 'GENERIC') return { outcome: 'qrNotFound' };
-      if (!qr.restaurant.whatsappOrderingEnabled || !qr.restaurant.whatsappNumber) {
+      if (!effective.whatsapp) {
         return { outcome: 'whatsappUnavailable' };
       }
     }
@@ -489,7 +500,7 @@ export class PublicOrdersService {
     if (qr.type === 'TABLE') {
       // Table channel switched off by the Restaurant (DEC-038): a view-only menu.
       // Refused before anything else, so no Order and no Table Session can result.
-      if (qr.restaurant.tableOrderingEnabled === false) {
+      if (!effective.table) {
         return { outcome: 'tableOrderingDisabled' };
       }
       // DINE_IN, exactly as FT-5: Branch/Table come from the QR/Table only.
@@ -515,20 +526,13 @@ export class PublicOrdersService {
       const isDelivery = input.fulfillment === 'DELIVERY';
       // Restaurant-wide switch (Settings -> Restaurant QR): a type staff switched off
       // is refused before anything else, with the same outcome as "no eligible branch".
-      if (
-        isDelivery
-          ? qr.restaurant.deliveryEnabled === false
-          : qr.restaurant.pickupEnabled === false
-      ) {
+      // It is also refused when there is nowhere for it to go (no dashboard orders and no WhatsApp).
+      if (!(isDelivery ? effective.delivery : effective.pickup)) {
         return { outcome: isDelivery ? 'deliveryUnavailable' : 'pickupUnavailable' };
       }
       // DEC-042: while WhatsApp ordering is on, Pickup and Delivery orders go to WhatsApp INSTEAD
       // of the dashboard, so the app endpoint creates none of them.
-      if (
-        !viaWhatsapp &&
-        qr.restaurant.whatsappOrderingEnabled &&
-        !!qr.restaurant.whatsappNumber
-      ) {
+      if (!viaWhatsapp && effective.whatsapp) {
         return { outcome: 'whatsappOnly' };
       }
       customerName = input.customerName?.trim() || null;

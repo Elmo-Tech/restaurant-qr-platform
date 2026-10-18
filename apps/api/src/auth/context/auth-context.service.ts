@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
+import { EntitlementsService } from '../../entitlements/entitlements.service';
+import { ALL_FEATURES, type FeatureMap } from '../../entitlements/features';
 import type { MenuTemplate } from '../../generated/prisma/client';
 import {
   CONTACT_COLUMNS,
@@ -48,6 +50,8 @@ export interface AuthContextRestaurant {
   whatsappOrderingEnabled: boolean;
   /** Guest menu layout (DEC-044). */
   menuTemplate: MenuTemplate;
+  /** What the platform allows this Restaurant (DEC-043); the dashboard locks controls for what is off. */
+  features: FeatureMap;
   /** Guest Menu contact details (Settings -> Profile). */
   contact: RestaurantContact;
   /** QR appearance (Settings -> Restaurant QR), applied to the Restaurant QR and Table QR panels. */
@@ -116,7 +120,10 @@ export interface AuthContext {
  */
 @Injectable()
 export class AuthContextService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   async getAuthContext(userId: string): Promise<AuthContext> {
     // AuthGuard already resolved this userId from a valid ACTIVE-User
@@ -262,6 +269,10 @@ export class AuthContextService {
       branchesByMembershipId.set(row.restaurantMembershipId, list);
     }
 
+    const featuresByRestaurant = await this.entitlements.forRestaurants([
+      ...new Set(memberships.map((membership) => membership.restaurant.id)),
+    ]);
+
     return {
       user: {
         id: user.id,
@@ -291,6 +302,7 @@ export class AuthContextService {
           tableOrderingEnabled: membership.restaurant.tableOrderingEnabled,
           whatsappOrderingEnabled: membership.restaurant.whatsappOrderingEnabled,
           menuTemplate: membership.restaurant.menuTemplate,
+          features: featuresByRestaurant.get(membership.restaurant.id) ?? ALL_FEATURES,
           contact: contactFromColumns(membership.restaurant),
           qrStyle: {
             foregroundColor: membership.restaurant.qrForegroundColor,

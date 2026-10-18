@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import {
   AUTO_MIN_SERVED_ORDERS,
   AUTO_MIN_TOGETHER,
@@ -18,7 +19,10 @@ const DAY_MS = 24 * 60 * 60 * 1000;
  */
 @Injectable()
 export class PublicSuggestionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   async suggest(input: {
     publicCode: string;
@@ -36,6 +40,8 @@ export class PublicSuggestionsService {
       return [];
     const mode = qr.restaurant.suggestionsMode;
     if (mode === 'OFF') return [];
+    // A platform feature (DEC-043): without it the cart gets no suggestions whatever the mode says.
+    if (!(await this.entitlements.isEnabled(qr.restaurantId, 'SMART_SUGGESTIONS'))) return [];
 
     const restaurantId = qr.restaurantId;
     const cart = [...new Set(input.productIds)];

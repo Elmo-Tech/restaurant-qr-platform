@@ -3,6 +3,7 @@
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { SettingsTabs } from '../SettingsTabs';
+import type { FeatureMap } from '../../../../../../lib/auth/types';
 import type { QrStyle } from '../../../../../../lib/qr/style';
 import { OrderingOptionsCard } from './OrderingOptionsCard';
 import { RestaurantQrPanel } from './RestaurantQrPanel';
@@ -23,6 +24,7 @@ export function GuestQrWorkspace({
   tableOrderingEnabled,
   whatsappOrderingEnabled,
   hasWhatsappNumber,
+  features,
   qrStyle,
   logoAssetPath,
   webOrigin,
@@ -38,6 +40,7 @@ export function GuestQrWorkspace({
   tableOrderingEnabled: boolean;
   whatsappOrderingEnabled: boolean;
   hasWhatsappNumber: boolean;
+  features: FeatureMap;
   qrStyle: QrStyle;
   logoAssetPath: string | null;
   webOrigin: string;
@@ -56,6 +59,7 @@ export function GuestQrWorkspace({
         initialTableOrderingEnabled={tableOrderingEnabled}
         initialWhatsappOrderingEnabled={whatsappOrderingEnabled}
         hasWhatsappNumber={hasWhatsappNumber}
+        features={features}
         canManage={canManageOrderTypes}
       />
 

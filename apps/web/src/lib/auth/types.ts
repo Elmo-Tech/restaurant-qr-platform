@@ -1,5 +1,16 @@
 import type { RestaurantContact } from '../contact/types';
 import type { MenuTemplateApi } from '../public-menu/templates';
+
+/** The features the platform may allow a Restaurant (DEC-043). Mirrors `apps/api/src/entitlements/features.ts`. */
+export type FeatureKey =
+  | 'WHATSAPP_ORDERING'
+  | 'ORDER_TRACKING'
+  | 'SMART_SUGGESTIONS'
+  | 'MENU_TEMPLATES'
+  | 'DASHBOARD_ORDERING'
+  | 'TABLE_ORDERING';
+
+export type FeatureMap = Record<FeatureKey, boolean>;
 /**
  * Types mirroring the Backend's `GET /auth/me` response shape
  * (`apps/api/src/auth/context/auth-context.service.ts`) exactly -- typing
@@ -45,6 +56,8 @@ export interface AuthContextRestaurant {
   whatsappOrderingEnabled: boolean;
   /** Guest menu layout (DEC-044). */
   menuTemplate: MenuTemplateApi;
+  /** What the platform allows this Restaurant (DEC-043); the dashboard locks controls for what is off. */
+  features: FeatureMap;
   /** Guest Menu contact details (Settings -> Profile). */
   contact: RestaurantContact;
   /** QR appearance (Settings -> Restaurant QR): applied to the Restaurant QR and the table QR panels. */

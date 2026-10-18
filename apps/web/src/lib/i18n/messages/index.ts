@@ -5,6 +5,7 @@ import { commonMessages } from './common';
 import { contactMessages } from './contact';
 import { dashboardMessages } from './dashboard';
 import { designMessages } from './design';
+import { entitlementsMessages } from './entitlements';
 import { hoursMessages } from './hours';
 import { suggestionsMessages } from './suggestions';
 import { kitchenMessages } from './kitchen';
@@ -38,6 +39,7 @@ const en = {
   ...contactMessages.en,
   ...dashboardMessages.en,
   ...designMessages.en,
+  ...entitlementsMessages.en,
   ...hoursMessages.en,
   ...suggestionsMessages.en,
   ...kitchenMessages.en,
@@ -66,6 +68,7 @@ const ar = {
   ...contactMessages.ar,
   ...dashboardMessages.ar,
   ...designMessages.ar,
+  ...entitlementsMessages.ar,
   ...hoursMessages.ar,
   ...suggestionsMessages.ar,
   ...kitchenMessages.ar,

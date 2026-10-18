@@ -714,6 +714,10 @@ export function PublicMenuView({
     !tableLocked;
   // WhatsApp ordering (DEC-042): while it is on, a Restaurant QR order is sent to the Restaurant on
   // WhatsApp INSTEAD of the dashboard (which kinds of order are offered is still the Restaurant's switches).
+  // Order tracking: off with the platform feature (DEC-043), and meaningless for WhatsApp orders
+  // (nothing is stored, so there is no status to show).
+  const trackingAvailable =
+    data.context.tracking !== false && !(isGenericQr && data.context.ordering?.whatsapp);
   const whatsappAction =
     isGenericQr && data.context.ordering?.whatsapp
       ? { onSend: () => void handleSendWhatsapp() }
@@ -978,7 +982,7 @@ export function PublicMenuView({
     shareCode: data.context.restaurant.shareCode,
     contact: data.context.restaurant.contact,
     hours: data.context.restaurant.hours,
-    onTrack: whatsappAction ? null : openTracking,
+    onTrack: trackingAvailable ? openTracking : null,
     hasActiveOrder,
   };
   const Hero =
@@ -1213,7 +1217,7 @@ export function PublicMenuView({
             onEditLine={handleEditLine}
             onPlaceOrder={() => void handlePlaceOrder()}
             onClose={closeCart}
-            onTrackOrder={openTracking}
+            onTrackOrder={trackingAvailable ? openTracking : null}
             showPhotos={showPhotos}
             suggestions={suggestedProducts}
             onAddSuggestion={handleQuickAdd}

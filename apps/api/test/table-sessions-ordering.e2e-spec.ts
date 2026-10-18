@@ -8,6 +8,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from './../src/generated/prisma/client';
 import { PublicOrdersService } from './../src/public/public-orders.service';
 import { isClosedSessionTriggerViolation } from './../src/table-sessions/table-session-ordering';
+import { EntitlementsService } from '../src/entitlements/entitlements.service';
 
 /**
  * Table Sessions, Slice 1: REAL-PostgreSQL integration tests (no mocks) for
@@ -48,7 +49,7 @@ describeSandbox('Table Sessions Slice 1 (real PostgreSQL)', () => {
       await prisma.$disconnect();
       throw error;
     }
-    service = new PublicOrdersService(prisma as never);
+    service = new PublicOrdersService(prisma as never, new EntitlementsService(prisma as never));
   });
 
   afterAll(async () => {

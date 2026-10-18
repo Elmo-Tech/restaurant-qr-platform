@@ -5,6 +5,7 @@ import {
   TableOrderingUnavailableError,
 } from '../table-sessions/table-session-ordering';
 import { PublicOrdersService } from './public-orders.service';
+import { ALL_FEATURES } from '../entitlements/features';
 
 // Table Sessions: the session/round logic is covered by its own unit spec and by
 // the real-PostgreSQL integration test. Here only the wiring into createOrder is
@@ -121,8 +122,11 @@ function buildPrismaMock() {
   };
 }
 
+/** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
+const ENTITLEMENTS = { forRestaurant: async () => ALL_FEATURES };
+
 function buildService(mock: ReturnType<typeof buildPrismaMock>): PublicOrdersService {
-  return new PublicOrdersService(mock.prisma as never);
+  return new PublicOrdersService(mock.prisma as never, ENTITLEMENTS as never);
 }
 
 const VALID_INPUT = {

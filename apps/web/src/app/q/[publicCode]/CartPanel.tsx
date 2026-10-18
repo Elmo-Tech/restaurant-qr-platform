@@ -69,7 +69,7 @@ export interface CartPanelProps {
   onPlaceOrder: () => void;
   onClose: () => void;
   /** Opens the order tracking sheet (offered on the confirmation). */
-  onTrackOrder: () => void;
+  onTrackOrder: (() => void) | null;
   /** WhatsApp ordering (DEC-042): when set, "send" prepares the WhatsApp message instead of placing an order. Null = the dashboard, as always. */
   whatsapp: { onSend: () => void } | null;
   /** The ready-to-send WhatsApp order (shown instead of the cart once it has been prepared). */
@@ -748,7 +748,8 @@ function Confirmation({
   copy: PublicMenuCopy;
   currency: string;
   order: GuestOrderView;
-  onTrack: () => void;
+  /** `null` when tracking is not available for this Restaurant (no track button). */
+  onTrack: (() => void) | null;
 }) {
   const pending =
     order.type === 'PICKUP'
@@ -795,13 +796,15 @@ function Confirmation({
         </div>
       </div>
 
-      <button
-        type="button"
-        onClick={onTrack}
-        className="flex h-12 w-full items-center justify-center rounded-2xl bg-g-accent px-6 text-[15px] font-extrabold text-g-on-accent"
-      >
-        {copy.trackOrder}
-      </button>
+      {onTrack ? (
+        <button
+          type="button"
+          onClick={onTrack}
+          className="flex h-12 w-full items-center justify-center rounded-2xl bg-g-accent px-6 text-[15px] font-extrabold text-g-on-accent"
+        >
+          {copy.trackOrder}
+        </button>
+      ) : null}
 
       <section
         aria-label={copy.orderSummary}

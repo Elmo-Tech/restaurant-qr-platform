@@ -1,6 +1,7 @@
 import { Prisma } from '../generated/prisma/client';
 import { resolveDineInSessionSlot } from '../table-sessions/table-session-ordering';
 import { PublicOrdersService } from './public-orders.service';
+import { ALL_FEATURES } from '../entitlements/features';
 
 // Table Sessions: only the Dine-In wiring touches the session helper; it is
 // mocked here (covered by its own unit spec and the real-PostgreSQL test).
@@ -138,8 +139,11 @@ function buildMock(options: { qr: unknown; activeBranchIds?: string[] }) {
   };
 }
 
+/** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
+const ENTITLEMENTS = { forRestaurant: async () => ALL_FEATURES };
+
 function buildService(mock: ReturnType<typeof buildMock>): PublicOrdersService {
-  return new PublicOrdersService(mock.prisma as never);
+  return new PublicOrdersService(mock.prisma as never, ENTITLEMENTS as never);
 }
 
 const BASE_INPUT = {

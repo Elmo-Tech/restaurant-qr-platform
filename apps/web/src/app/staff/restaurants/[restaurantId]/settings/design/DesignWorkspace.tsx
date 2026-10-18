@@ -158,10 +158,13 @@ export function DesignWorkspace({
   restaurantId,
   canManage,
   initialTemplate,
+  templatesAllowed,
 }: {
   restaurantId: string;
   canManage: boolean;
   initialTemplate: Template;
+  /** The platform allows templates other than Classic (DEC-043). */
+  templatesAllowed: boolean;
 }) {
   const { t } = useStaffI18n();
   const [saved, setSaved] = useState<Template>(initialTemplate);
@@ -227,6 +230,7 @@ export function DesignWorkspace({
           {error ? <Alert variant="error">{error}</Alert> : null}
           {justSaved && !dirty ? <Alert variant="success">{t('design.saved')}</Alert> : null}
           {!canManage ? <Alert variant="info">{t('design.needsFullScope')}</Alert> : null}
+          {!templatesAllowed ? <Alert variant="warning">{t('features.templates.locked')}</Alert> : null}
 
           <ul role="radiogroup" aria-label={t('design.heading')} className="grid gap-3 sm:grid-cols-2">
             {TEMPLATES.map((template) => {
@@ -237,7 +241,7 @@ export function DesignWorkspace({
                     type="button"
                     role="radio"
                     aria-checked={isSelected}
-                    disabled={!canManage}
+                    disabled={!canManage || (!templatesAllowed && template.key !== 'CLASSIC')}
                     onClick={() => {
                       setSelected(template.key);
                       setJustSaved(false);

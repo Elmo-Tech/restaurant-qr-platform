@@ -12,6 +12,7 @@ import {
 } from '../../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../../components/ui/Alert';
 import { Card } from '../../../../../../components/ui/Card';
+import type { FeatureMap } from '../../../../../../lib/auth/types';
 import { Switch } from '../../../../../../components/ui/Switch';
 import { IconBag, IconChat, IconTable, IconTruck } from '../../../../../../components/staff/icons';
 
@@ -32,6 +33,7 @@ export function OrderingOptionsCard({
   initialTableOrderingEnabled,
   initialWhatsappOrderingEnabled,
   hasWhatsappNumber,
+  features,
   canManage,
 }: {
   restaurantId: string;
@@ -41,6 +43,8 @@ export function OrderingOptionsCard({
   initialWhatsappOrderingEnabled: boolean;
   /** The Restaurant has a WhatsApp number (WhatsApp orders cannot be switched on without one). */
   hasWhatsappNumber: boolean;
+  /** What the platform allows this Restaurant (DEC-043): a control for a feature that is off is locked. */
+  features: FeatureMap;
   /** `restaurant.manage` with Restaurant-wide Branch scope (UX only; the Backend enforces). */
   canManage: boolean;
 }) {
@@ -181,6 +185,7 @@ export function OrderingOptionsCard({
               : 'settings.ordering.summary.tableOff',
           )}
         </Alert>
+        {!features.TABLE_ORDERING ? <Alert variant="warning">{t('features.tableOrdering.locked')}</Alert> : null}
       </section>
 
       <section className="flex flex-col gap-2" aria-label={t('settings.ordering.group.online')}>
@@ -189,6 +194,9 @@ export function OrderingOptionsCard({
         <Alert variant={pickupEnabled || deliveryEnabled ? 'info' : 'error'}>
           {t(summaryKey)}
         </Alert>
+        {!features.DASHBOARD_ORDERING ? (
+          <Alert variant="warning">{t('features.dashboardOrdering.locked')}</Alert>
+        ) : null}
         {deliveryWithoutZone ? (
           <Alert variant="warning">
             {t('settings.ordering.deliveryNoZones')}{' '}
@@ -206,11 +214,16 @@ export function OrderingOptionsCard({
         <h3 className="text-sm font-semibold text-foreground">{t('settings.ordering.group.whatsapp')}</h3>
         <OrderingRows
           rows={whatsappRows}
-          canManage={canManage && (hasWhatsappNumber || whatsappOrderingEnabled)}
+          canManage={
+            canManage &&
+            (hasWhatsappNumber || whatsappOrderingEnabled) &&
+            (features.WHATSAPP_ORDERING || whatsappOrderingEnabled)
+          }
           busy={busy}
           onChange={change}
         />
-        {!hasWhatsappNumber ? <Alert variant="warning">{t('settings.ordering.whatsappNeedsNumber')}</Alert> : null}
+        {!features.WHATSAPP_ORDERING ? <Alert variant="warning">{t('features.whatsapp.locked')}</Alert> : null}
+        {features.WHATSAPP_ORDERING && !hasWhatsappNumber ? <Alert variant="warning">{t('settings.ordering.whatsappNeedsNumber')}</Alert> : null}
         {whatsappOrderingEnabled ? <Alert variant="info">{t('settings.ordering.summary.whatsappOn')}</Alert> : null}
       </section>
 

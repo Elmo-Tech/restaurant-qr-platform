@@ -2,6 +2,7 @@ import { AuthContextService } from './auth-context.service';
 import { ALL_PERMISSIONS } from '../permission/permission';
 import { ROLE_PERMISSIONS, type StarterRoleKind } from '../permission/role-permissions';
 import { starterRoleData } from '../permission/starter-roles';
+import { ALL_FEATURES } from '../../entitlements/features';
 
 /** The Restaurant Role row a Membership of this starter kind holds (FT-12C). */
 function roleOf(kind: string) {
@@ -36,6 +37,11 @@ const USER = {
   preferredLocale: 'ar',
 };
 
+/** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
+const ENTITLEMENTS = {
+  forRestaurants: async (ids: string[]) => new Map(ids.map((id) => [id, ALL_FEATURES])),
+};
+
 describe('AuthContextService', () => {
   let prisma: ReturnType<typeof buildPrismaMock>;
   let service: AuthContextService;
@@ -47,7 +53,7 @@ describe('AuthContextService', () => {
     prisma.branch.findMany.mockResolvedValue([]);
     prisma.restaurantMembershipBranch.findMany.mockResolvedValue([]);
 
-    service = new AuthContextService(prisma as never);
+    service = new AuthContextService(prisma as never, ENTITLEMENTS as never);
   });
 
   describe('User identity', () => {

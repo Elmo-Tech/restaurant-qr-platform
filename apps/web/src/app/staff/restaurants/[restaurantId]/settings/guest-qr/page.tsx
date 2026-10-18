@@ -74,6 +74,7 @@ export default async function GuestQrSettingsPage({ params }: GuestQrSettingsPag
       tableOrderingEnabled={membership.restaurant.tableOrderingEnabled}
       whatsappOrderingEnabled={membership.restaurant.whatsappOrderingEnabled}
       hasWhatsappNumber={Boolean(membership.restaurant.contact.whatsapp)}
+      features={membership.restaurant.features}
       qrStyle={membership.restaurant.qrStyle}
       logoAssetPath={membership.restaurant.logoAssetPath}
       webOrigin={getWebOrigin()}

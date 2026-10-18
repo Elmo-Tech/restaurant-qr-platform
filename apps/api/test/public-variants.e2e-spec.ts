@@ -6,6 +6,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from './../src/generated/prisma/client';
+import { EntitlementsService } from './../src/entitlements/entitlements.service';
 import { PublicMenuService } from './../src/public/public-menu.service';
 import { PublicOrdersService } from './../src/public/public-orders.service';
 
@@ -44,8 +45,9 @@ describeSandbox(
         await prisma.$disconnect();
         throw error;
       }
-      orders = new PublicOrdersService(prisma as never);
-      menu = new PublicMenuService(prisma as never);
+      const entitlements = new EntitlementsService(prisma as never);
+      orders = new PublicOrdersService(prisma as never, entitlements);
+      menu = new PublicMenuService(prisma as never, entitlements);
     });
 
     afterAll(async () => {

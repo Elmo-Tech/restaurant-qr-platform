@@ -55,5 +55,11 @@ export default async function SuggestionsSettingsPage({ params }: SuggestionsSet
     return <Alert variant="error">{t('guard.noPermission.settings')}</Alert>;
   }
 
-  return <SuggestionsWorkspace restaurantId={restaurantId} canManage={canManageLanguages(membership)} />;
+  return (
+    <SuggestionsWorkspace
+      restaurantId={restaurantId}
+      canManage={canManageLanguages(membership)}
+      allowed={membership.restaurant.features.SMART_SUGGESTIONS}
+    />
+  );
 }

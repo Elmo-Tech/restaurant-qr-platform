@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { resolveLocalizedName } from '../common/name-translations';
 import { isWellFormedUuid } from '../common/is-uuid';
 import { PrismaService } from '../database/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import type { OrderStatus, OrderType } from '../generated/prisma/client';
 import { flowFor, samePhone, trackingRef } from './order-tracking';
 
@@ -77,7 +78,10 @@ type Row = {
 
 @Injectable()
 export class PublicOrderTrackingService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   /**
    * The restaurant a public code belongs to, or null (unknown code, inactive QR or
@@ -95,6 +99,9 @@ export class PublicOrderTrackingService {
       },
     });
     if (!qr || qr.status !== 'ACTIVE' || qr.restaurant.status !== 'ACTIVE')
+      return null;
+    // Tracking is a platform feature (DEC-043): without it no order can be looked up.
+    if (!(await this.entitlements.isEnabled(qr.restaurantId, 'ORDER_TRACKING')))
       return null;
     return { id: qr.restaurantId, defaultLocale: qr.restaurant.defaultLocale };
   }

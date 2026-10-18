@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
+import { EntitlementsModule } from '../entitlements/entitlements.module';
 import { PublicMenuController } from './public-menu.controller';
 import { PublicMenuService } from './public-menu.service';
 import { PublicOrderTrackingController } from './public-order-tracking.controller';
@@ -18,7 +19,7 @@ import { PublicSuggestionsService } from './public-suggestions.service';
  * it never uploads).
  */
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, EntitlementsModule],
   controllers: [
     PublicMenuController,
     PublicOrdersController,

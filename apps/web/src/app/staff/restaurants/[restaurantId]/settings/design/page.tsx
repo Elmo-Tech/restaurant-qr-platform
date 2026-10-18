@@ -60,6 +60,7 @@ export default async function DesignSettingsPage({ params }: DesignSettingsPageP
       restaurantId={restaurantId}
       canManage={canManageLanguages(membership)}
       initialTemplate={membership.restaurant.menuTemplate}
+      templatesAllowed={membership.restaurant.features.MENU_TEMPLATES}
     />
   );
 }

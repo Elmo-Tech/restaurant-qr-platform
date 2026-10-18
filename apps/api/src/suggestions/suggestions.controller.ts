@@ -14,6 +14,8 @@ import {
 } from '@nestjs/common';
 import { ArrayMaxSize, IsArray, IsIn, IsUUID } from 'class-validator';
 import { CsrfGuard } from '../auth/csrf/csrf.guard';
+import { featureNotAvailableException } from '../entitlements/feature-not-available';
+import { FeatureNotAvailableError } from '../entitlements/features';
 import { AllBranchesRequiredGuard } from '../auth/guard/all-branches-required.guard';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { PermissionGuard } from '../auth/guard/permission.guard';
@@ -83,12 +85,17 @@ export class SuggestionsController {
     @Body() dto: UpdateSuggestionsModeDto,
     @Req() request: RestaurantAuthorizedRequest,
   ): Promise<{ data: SuggestionsSettings }> {
-    return {
-      data: await this.suggestions.setMode(
-        request.restaurantAccess.restaurantId,
-        dto.mode,
-      ),
-    };
+    try {
+      return {
+        data: await this.suggestions.setMode(
+          request.restaurantAccess.restaurantId,
+          dto.mode,
+        ),
+      };
+    } catch (error) {
+      if (error instanceof FeatureNotAvailableError) throw featureNotAvailableException(error);
+      throw error;
+    }
   }
 
   @Get('products/:productId/suggestions')

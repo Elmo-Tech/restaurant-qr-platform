@@ -29,6 +29,8 @@ import {
 import { ImageStorageService, MAX_IMAGE_BYTES } from '../storage/image-storage.service';
 import type { UploadedImageFile } from '../storage/uploaded-image-file';
 import { UpdateContactDto } from './dto/update-contact.dto';
+import { featureNotAvailableException } from '../entitlements/feature-not-available';
+import { FeatureNotAvailableError } from '../entitlements/features';
 import { UpdateMenuTemplateDto } from './dto/update-menu-template.dto';
 import { UpdateOrderingOptionsDto } from './dto/update-ordering-options.dto';
 import { UpdateQrStyleDto } from './dto/update-qr-style.dto';
@@ -149,6 +151,9 @@ export class RestaurantProfileController {
       });
       return { data };
     } catch (error) {
+      if (error instanceof FeatureNotAvailableError) {
+        throw featureNotAvailableException(error);
+      }
       if (error instanceof WhatsappNumberRequiredError) {
         throw new UnprocessableEntityException({
           error: {
@@ -173,11 +178,16 @@ export class RestaurantProfileController {
     @Body() dto: UpdateMenuTemplateDto,
     @Req() request: RestaurantAuthorizedRequest,
   ): Promise<{ data: { menuTemplate: UpdateMenuTemplateDto['menuTemplate'] } }> {
-    const data = await this.restaurantProfileService.updateMenuTemplate(
-      request.restaurantAccess.restaurantId,
-      dto.menuTemplate,
-    );
-    return { data };
+    try {
+      const data = await this.restaurantProfileService.updateMenuTemplate(
+        request.restaurantAccess.restaurantId,
+        dto.menuTemplate,
+      );
+      return { data };
+    } catch (error) {
+      if (error instanceof FeatureNotAvailableError) throw featureNotAvailableException(error);
+      throw error;
+    }
   }
 
   /**

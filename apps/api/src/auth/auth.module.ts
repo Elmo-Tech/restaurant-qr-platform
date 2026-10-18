@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
+import { EntitlementsModule } from '../entitlements/entitlements.module';
 import { AuthContextService } from './context/auth-context.service';
 import { BranchAccessService } from './context/branch-access.service';
 import { RestaurantAccessService } from './context/restaurant-access.service';
@@ -67,7 +68,7 @@ import { SessionTokenService } from './session/session-token.service';
  * guards are never combined on the same route.
  */
 @Module({
-  imports: [DatabaseModule],
+  imports: [DatabaseModule, EntitlementsModule],
   controllers: [
     LoginController,
     LogoutController,

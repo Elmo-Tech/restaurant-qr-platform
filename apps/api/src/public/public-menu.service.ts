@@ -6,6 +6,8 @@ import {
   resolveActiveDiscount,
 } from '../menu/product-discount';
 import { PrismaService } from '../database/prisma.service';
+import { effectiveOrdering } from '../entitlements/effective-ordering';
+import { EntitlementsService } from '../entitlements/entitlements.service';
 import type { MenuTemplate, ProductAvailability, QrType } from '../generated/prisma/client';
 import {
   normalizePlatformLocale,
@@ -74,6 +76,8 @@ export interface PublicMenuContext {
   announcements: PublicAnnouncement[];
   /** Smart suggestions are on (DEC-042): the cart may ask for "Complete your meal" products. */
   suggestions: boolean;
+  /** Order tracking is available (DEC-043): the Guest menu shows the track-order control only then. */
+  tracking: boolean;
   /**
    * How a GENERIC QR order is taken (DEC-042); null for a TABLE QR. `pickup` / `delivery` are the
    * Restaurant's own switches (what kinds of order it takes, whoever receives them). `whatsapp`
@@ -253,7 +257,10 @@ function pickRow(
  */
 @Injectable()
 export class PublicMenuService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   /**
    * Table Sessions: the cheap advisory re-check behind the Guest "Check again"
@@ -273,6 +280,7 @@ export class PublicMenuService {
         type: true,
         status: true,
         tableId: true,
+        restaurantId: true,
         restaurant: { select: { status: true, tableOrderingEnabled: true } },
         table: { select: { status: true, staffOpenRequired: true } },
       },
@@ -288,7 +296,8 @@ export class PublicMenuService {
     ) {
       return { outcome: 'qrNotFound' };
     }
-    if (qr.restaurant.tableOrderingEnabled === false) {
+    const features = await this.entitlements.forRestaurant(qr.restaurantId);
+    if (qr.restaurant.tableOrderingEnabled === false || !features.TABLE_ORDERING) {
       return { outcome: 'found', tableOrdering: 'DISABLED' };
     }
     return {
@@ -350,9 +359,13 @@ export class PublicMenuService {
       return { outcome: 'qrNotFound' };
     }
 
+    // What the platform allows this Restaurant (DEC-043); every feature unless an override says otherwise.
+    const features = await this.entitlements.forRestaurant(qr.restaurantId);
+    const effective = effectiveOrdering(qr.restaurant, features);
+
     const tableOrdering: GuestTableOrderingState | null =
       qr.type === 'TABLE' && qr.tableId && qr.table
-        ? qr.restaurant.tableOrderingEnabled === false
+        ? !effective.table
           ? 'DISABLED'
           : await resolveTableOrderingAvailability(this.prisma, {
               tableId: qr.tableId,
@@ -698,10 +711,9 @@ export class PublicMenuService {
     // Guest then sees no branch for that type, exactly as if none were eligible.
     // (`!== false`: only an explicit off switches a type off.)
     // WhatsApp ordering needs a number to send to; without one it is not offered.
-    const whatsappOrdering =
-      qr.restaurant.whatsappOrderingEnabled === true && !!qr.restaurant.whatsappNumber;
-    const appPickup = qr.restaurant.pickupEnabled !== false;
-    const appDelivery = qr.restaurant.deliveryEnabled !== false;
+    const whatsappOrdering = effective.whatsapp;
+    const appPickup = effective.pickup;
+    const appDelivery = effective.delivery;
     // WhatsApp only decides where an order goes, never which kinds are offered.
     const pickupOffered = appPickup;
     const deliveryOffered = appDelivery;
@@ -785,7 +797,7 @@ export class PublicMenuService {
             currencyCode: qr.restaurant.currencyCode,
             logoAssetPath: qr.restaurant.logoAssetPath,
             coverAssetPath: qr.restaurant.coverAssetPath,
-            menuTemplate: qr.restaurant.menuTemplate,
+            menuTemplate: features.MENU_TEMPLATES ? qr.restaurant.menuTemplate : 'CLASSIC',
             contact: contactFromColumns(qr.restaurant),
             shareCode,
             hours,
@@ -795,7 +807,8 @@ export class PublicMenuService {
             : null,
           table: qr.table ? { number: qr.table.tableNumber } : null,
           announcements,
-          suggestions: qr.restaurant.suggestionsMode !== 'OFF',
+          suggestions: features.SMART_SUGGESTIONS && qr.restaurant.suggestionsMode !== 'OFF',
+          tracking: features.ORDER_TRACKING,
           ordering:
             qr.type === 'GENERIC'
               ? { pickup: appPickup, delivery: appDelivery, whatsapp: whatsappOrdering }

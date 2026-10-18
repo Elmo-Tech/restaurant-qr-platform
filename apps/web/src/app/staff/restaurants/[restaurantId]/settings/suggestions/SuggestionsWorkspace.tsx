@@ -30,9 +30,12 @@ const MODES: { key: SuggestionsMode; title: MessageKey; hint: MessageKey }[] = [
 export function SuggestionsWorkspace({
   restaurantId,
   canManage,
+  allowed,
 }: {
   restaurantId: string;
   canManage: boolean;
+  /** The platform allows smart suggestions (DEC-043): only "Off" can be chosen otherwise. */
+  allowed: boolean;
 }) {
   const { t } = useStaffI18n();
   const [settings, setSettings] = useState<SuggestionsSettings | null>(null);
@@ -97,6 +100,7 @@ export function SuggestionsWorkspace({
         {error ? <Alert variant="error">{error}</Alert> : null}
         {notice ? <Alert variant="success">{notice}</Alert> : null}
         {!canManage ? <Alert variant="info">{t('suggestions.needsFullScope')}</Alert> : null}
+        {!allowed ? <Alert variant="warning">{t('features.suggestions.locked')}</Alert> : null}
         {settings === null && !error ? <LoadingState label={t('suggestions.loading')} /> : null}
 
         {settings ? (
@@ -110,7 +114,7 @@ export function SuggestionsWorkspace({
                       type="button"
                       role="radio"
                       aria-checked={isSelected}
-                      disabled={!canManage || isBusy}
+                      disabled={!canManage || isBusy || (!allowed && mode.key !== 'OFF')}
                       onClick={() => void choose(mode.key)}
                       className={`flex h-full w-full flex-col gap-1 rounded-xl border p-4 text-start transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
                         isSelected

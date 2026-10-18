@@ -1001,6 +1001,18 @@ choices; an entitlement is the platform's permission, the switch is the
 Restaurant's choice, and both must be on. The platform control dashboard itself
 is not started until the product is complete.
 
+**Built (foundation, 2026-10-18).** Six features can be allowed or removed per
+Restaurant: `WHATSAPP_ORDERING`, `ORDER_TRACKING`, `SMART_SUGGESTIONS`,
+`MENU_TEMPLATES` (every template except Classic), `DASHBOARD_ORDERING` (Pickup and
+Delivery orders that arrive in the dashboard) and `TABLE_ORDERING` (dine-in). A
+Restaurant with no stored override has every feature; the default lives in one
+constant. The check happens in the Backend (Guest menu, Guest endpoints, Staff
+actions); the dashboard only shows locked controls and a reason. There is no
+package, plan or price in the code yet: the platform control dashboard (and
+packages) will only write overrides. Without `DASHBOARD_ORDERING`, Pickup and
+Delivery are offered only through WhatsApp ordering; without both, they are not
+offered. Dine-in is independent of both.
+
 ---
 
 ### DEC-044 — Guest Menu Templates

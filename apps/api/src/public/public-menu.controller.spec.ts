@@ -20,6 +20,7 @@ const SAMPLE_DATA: PublicMenuData = {
     table: null,
     announcements: [],
     suggestions: false,
+    tracking: true,
     ordering: null,
     pickupBranches: [],
     deliveryBranches: [],

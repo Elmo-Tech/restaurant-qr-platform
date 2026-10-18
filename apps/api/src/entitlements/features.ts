@@ -1,0 +1,57 @@
+/**
+ * Feature entitlements (DEC-043): what the PLATFORM allows a Restaurant to use. This is separate
+ * from the Restaurant's own switches (pickup, delivery, table ordering, WhatsApp ordering, the
+ * suggestions mode, the chosen menu template): a feature takes effect only when the platform
+ * allows it AND the Restaurant has it switched on.
+ *
+ * Until the platform control dashboard exists nothing writes an override, so every Restaurant
+ * has every feature and nothing behaves differently. When packages arrive they only decide the
+ * overrides (or change `DEFAULT_ENTITLEMENT`); no feature code has to change.
+ */
+export const FEATURE_KEYS = [
+  /** Orders sent to the Restaurant's WhatsApp instead of the dashboard. */
+  'WHATSAPP_ORDERING',
+  /** The Guest "track my order" status screens. */
+  'ORDER_TRACKING',
+  /** "Complete your meal" in the Guest cart. */
+  'SMART_SUGGESTIONS',
+  /** Menu templates other than the classic one. */
+  'MENU_TEMPLATES',
+  /** Pickup and Delivery orders that arrive in the dashboard (orders, kitchen). */
+  'DASHBOARD_ORDERING',
+  /** Dine-in orders from a Table QR (orders, kitchen, table sessions). */
+  'TABLE_ORDERING',
+] as const;
+
+export type FeatureKey = (typeof FEATURE_KEYS)[number];
+
+export type FeatureMap = Record<FeatureKey, boolean>;
+
+/** What a Restaurant gets for a feature it has no override for. The ONE place this default lives. */
+export const DEFAULT_ENTITLEMENT = true;
+
+/** The features a Restaurant has: the default, with its overrides applied. Unknown keys are ignored. */
+export function resolveFeatures(
+  overrides: ReadonlyArray<{ feature: string; enabled: boolean }>,
+): FeatureMap {
+  const map = Object.fromEntries(
+    FEATURE_KEYS.map((key) => [key, DEFAULT_ENTITLEMENT]),
+  ) as FeatureMap;
+  for (const override of overrides) {
+    if ((FEATURE_KEYS as readonly string[]).includes(override.feature)) {
+      map[override.feature as FeatureKey] = override.enabled;
+    }
+  }
+  return map;
+}
+
+/** Every feature on: what a test or a caller without a Restaurant context assumes. */
+export const ALL_FEATURES: FeatureMap = resolveFeatures([]);
+
+/** Thrown when a Staff action needs a feature the platform has not allowed this Restaurant. */
+export class FeatureNotAvailableError extends Error {
+  constructor(readonly feature: FeatureKey) {
+    super(`FEATURE_NOT_AVAILABLE:${feature}`);
+    this.name = 'FeatureNotAvailableError';
+  }
+}

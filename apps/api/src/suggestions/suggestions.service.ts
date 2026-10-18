@@ -1,6 +1,8 @@
 import { Injectable } from '@nestjs/common';
 import { isWellFormedUuid } from '../common/is-uuid';
 import { PrismaService } from '../database/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
+import { FeatureNotAvailableError } from '../entitlements/features';
 import type { SuggestionsMode } from '../generated/prisma/client';
 import {
   AUTO_MIN_SERVED_ORDERS,
@@ -33,7 +35,10 @@ export type ProductRulesResult =
  */
 @Injectable()
 export class SuggestionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   async getSettings(restaurantId: string): Promise<SuggestionsSettings> {
     const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
@@ -62,6 +67,10 @@ export class SuggestionsService {
     restaurantId: string,
     mode: SuggestionsMode,
   ): Promise<SuggestionsSettings> {
+    // Turning suggestions on is a platform feature (DEC-043); turning them off is always allowed.
+    if (mode !== 'OFF' && !(await this.entitlements.isEnabled(restaurantId, 'SMART_SUGGESTIONS'))) {
+      throw new FeatureNotAvailableError('SMART_SUGGESTIONS');
+    }
     await this.prisma.restaurant.update({
       where: { id: restaurantId },
       data: { suggestionsMode: mode },

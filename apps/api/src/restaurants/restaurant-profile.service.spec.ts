@@ -1,4 +1,6 @@
 import { RestaurantProfileService } from './restaurant-profile.service';
+/** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
+const ENTITLEMENTS = { isEnabled: async () => true };
 
 const RESTAURANT_ID = 'restaurant-1';
 
@@ -16,7 +18,7 @@ function buildMocks() {
 }
 
 function buildService(mocks: ReturnType<typeof buildMocks>): RestaurantProfileService {
-  return new RestaurantProfileService(mocks.prisma as never);
+  return new RestaurantProfileService(mocks.prisma as never, ENTITLEMENTS as never);
 }
 
 describe('RestaurantProfileService.updateProfile', () => {

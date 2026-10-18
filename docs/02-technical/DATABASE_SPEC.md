@@ -1766,6 +1766,12 @@ Migration `20261024090000_product_suggestions` (additive): enum `suggestions_mod
 
 ---
 
+# 68H. Feature Entitlements (DEC-043, 2026-10-18)
+
+Migration `20261025090000_restaurant_features` (additive): enum `feature_key` (`WHATSAPP_ORDERING`, `ORDER_TRACKING`, `SMART_SUGGESTIONS`, `MENU_TEMPLATES`, `DASHBOARD_ORDERING`, `TABLE_ORDERING`) and table `restaurant_features` (`restaurant_id`, `feature`, `enabled`, timestamps, UNIQUE (`restaurant_id`, `feature`), FK to `restaurants` ON DELETE CASCADE: configuration, not history). A missing row means the default (allowed); the default is one constant in the Backend, not a column. Adding a feature is a new enum value plus its Backend checks. Rollback (before use): `DROP TABLE "restaurant_features"; DROP TYPE "feature_key";`
+
+---
+
 # 69. Variant Price
 
 V1 uses:

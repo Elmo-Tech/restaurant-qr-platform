@@ -1,5 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
+import { FeatureNotAvailableError } from '../entitlements/features';
 import type { MenuTemplate } from '../generated/prisma/client';
 import {
   CONTACT_COLUMNS,
@@ -109,7 +111,10 @@ export type ClearRestaurantCoverResult = {
  */
 @Injectable()
 export class RestaurantProfileService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   /**
    * Change the QR appearance. The sent fields are merged onto the stored style and
@@ -169,7 +174,10 @@ export class RestaurantProfileService {
 
     if (input.whatsappOrderingEnabled !== undefined) {
       if (input.whatsappOrderingEnabled) {
-        // Switching it on needs a number to send the orders to.
+        // Switching it on needs the platform to allow it (DEC-043) and a number to send the orders to.
+        if (!(await this.entitlements.isEnabled(input.restaurantId, 'WHATSAPP_ORDERING'))) {
+          throw new FeatureNotAvailableError('WHATSAPP_ORDERING');
+        }
         const current = await this.prisma.restaurant.findUniqueOrThrow({
           where: { id: input.restaurantId },
           select: { whatsappNumber: true },
@@ -196,6 +204,10 @@ export class RestaurantProfileService {
     restaurantId: string,
     menuTemplate: MenuTemplate,
   ): Promise<{ menuTemplate: MenuTemplate }> {
+    // Only the classic template is always available; the others are a platform feature (DEC-043).
+    if (menuTemplate !== 'CLASSIC' && !(await this.entitlements.isEnabled(restaurantId, 'MENU_TEMPLATES'))) {
+      throw new FeatureNotAvailableError('MENU_TEMPLATES');
+    }
     return this.prisma.restaurant.update({
       where: { id: restaurantId },
       data: { menuTemplate },

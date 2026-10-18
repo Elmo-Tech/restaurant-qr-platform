@@ -2325,6 +2325,17 @@ Presentation only: how the same menu is laid out (`CLASSIC`, `LIST`, `GALLERY`, 
 
 ---
 
+# 108O. Feature Entitlements (DEC-043, 2026-10-18)
+
+What the platform allows a Restaurant to use, separate from the Restaurant's own switches: a feature takes effect only when it is allowed AND switched on. Features: `WHATSAPP_ORDERING`, `ORDER_TRACKING`, `SMART_SUGGESTIONS`, `MENU_TEMPLATES`, `DASHBOARD_ORDERING`, `TABLE_ORDERING`. A Restaurant with no override has all of them. There is no endpoint to change them yet (the platform control dashboard will); overrides are written by the platform only.
+
+- `GET /auth/me`: each membership's `restaurant.features` is a map of the six keys to booleans, so the dashboard can lock a control and say why.
+- Guest menu context: `tracking` (false hides the track-order control); `suggestions` is also false without `SMART_SUGGESTIONS`; `restaurant.menuTemplate` is `CLASSIC` without `MENU_TEMPLATES`; `ordering.whatsapp` needs `WHATSAPP_ORDERING`; `ordering.pickup` / `delivery` need the Restaurant's switch AND somewhere to go (`DASHBOARD_ORDERING` or active WhatsApp ordering); a Table QR is `DISABLED` (`tableOrdering`) without `TABLE_ORDERING`.
+- Guest endpoints answer as if the feature did not exist: tracking is `404` / an empty lookup without `ORDER_TRACKING`; the suggestions endpoint returns an empty list without `SMART_SUGGESTIONS`; `POST .../whatsapp-order` is `409 WHATSAPP_ORDERING_UNAVAILABLE`; a Pickup / Delivery order with nowhere to go is `409 PICKUP_UNAVAILABLE` / `DELIVERY_UNAVAILABLE`; a dine-in order without `TABLE_ORDERING` is `409 ORDERING_DISABLED`. Order creation and the menu use the same computation, so the menu never offers what the order would refuse.
+- Staff actions that turn a feature ON are refused with `403 FEATURE_NOT_AVAILABLE` (body `error.feature` names it): `PATCH .../ordering-options` with `whatsappOrderingEnabled: true`, `PATCH .../menu-template` with anything but `CLASSIC`, and `PATCH .../suggestions` with a mode other than `OFF`. Turning a feature off, or choosing `CLASSIC`, is always allowed. A value saved earlier stays stored but has no effect while the feature is off.
+
+---
+
 # 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
 `Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.
