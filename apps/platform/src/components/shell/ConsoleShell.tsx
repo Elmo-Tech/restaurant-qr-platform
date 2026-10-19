@@ -4,7 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
 import { IconActivity, IconLogout, IconMenu, IconOverview, IconPackage, IconStore, IconUsers } from "@/components/icons";
-import { BrandMark } from "@/components/shell/Brand";
+import { WaytaLockup } from "@/components/brand/Wayta";
 import { LanguageSwitch, ThemeSwitch } from "@/components/shell/Preferences";
 import { logout, type Admin } from "@/lib/api/platform";
 import { useI18n } from "@/lib/i18n/client";
@@ -37,12 +37,9 @@ function Rail({ admin, onNavigate }: { admin: Admin; onNavigate?: () => void }) 
 
   return (
     <div className="flex h-full flex-col bg-rail text-rail-foreground">
-      <div className="flex items-center gap-3 px-5 pb-4 pt-5">
-        <BrandMark />
-        <div className="min-w-0">
-          <p className="truncate text-sm font-semibold leading-tight">{t("app.name")}</p>
-          <p className="truncate text-xs text-rail-muted">{t("app.tagline")}</p>
-        </div>
+      <div className="px-5 pb-4 pt-5">
+        <WaytaLockup tone="dark" size={36} />
+        <p className="mt-2 truncate text-xs font-medium text-rail-muted">{t("app.name")}</p>
       </div>
 
       <nav aria-label={t("nav.menu")} className="flex-1 space-y-1 px-3 py-2">
@@ -138,8 +135,8 @@ export function ConsoleShell({ admin, children }: { admin: Admin; children: Reac
         >
           <IconMenu />
         </button>
-        <BrandMark className="size-8" />
-        <p className="truncate text-sm font-semibold">{t("app.name")}</p>
+        <WaytaLockup size={30} />
+        <p className="truncate text-xs font-medium text-muted-foreground">{t("app.name")}</p>
       </header>
 
       <main className="mx-auto w-full max-w-[1280px] px-4 py-6 sm:px-6 lg:px-10 lg:py-9">{children}</main>

@@ -5,7 +5,6 @@
  */
 const en = {
   "app.name": "Platform Console",
-  "app.tagline": "Restaurant QR Platform",
 
   "nav.overview": "Overview",
   "nav.restaurants": "Restaurants",
@@ -327,7 +326,6 @@ export type MessageKey = keyof typeof en;
 
 const ar: Record<MessageKey, string> = {
   "app.name": "لوحة المنصة",
-  "app.tagline": "منصة QR للمطاعم",
 
   "nav.overview": "نظرة عامة",
   "nav.restaurants": "المطاعم",

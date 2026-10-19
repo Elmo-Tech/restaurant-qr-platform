@@ -151,3 +151,13 @@ html[lang="ar"] body {
   background: var(--surface-2);
   border-radius: 8px;
 }
+
+/* Wayta brand ink for `tone="auto"` marks (components/brand/Wayta.tsx): graphite on light, cream on dark. */
+:root {
+  --wayta-ink: #12100e;
+  --wayta-sub: #a9580a;
+}
+html[data-theme="dark"] {
+  --wayta-ink: #fbf6ee;
+  --wayta-sub: #f5a524;
+}

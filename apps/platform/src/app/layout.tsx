@@ -13,8 +13,8 @@ const plexArabic = IBM_Plex_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: "Platform Console",
-  description: "Internal console of the Restaurant QR Platform team.",
+  title: "Wayta Console",
+  description: "Internal console of the Wayta platform team.",
   robots: { index: false, follow: false },
 };
 

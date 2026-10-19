@@ -13,6 +13,7 @@ import {
 } from './icons';
 import { useStaffI18n } from '../../lib/i18n/client';
 import { LogoutButton } from '../../app/staff/LogoutButton';
+import { WaytaLockup } from '../brand/Wayta';
 import { StaffLanguageSwitcher } from './StaffLanguageSwitcher';
 
 /** Pages the platform package does not include: not shown at all (not even as "no access"). */
@@ -206,13 +207,8 @@ function SidebarContent({
   const { t } = useStaffI18n();
   return (
     <div className="flex h-full flex-col bg-sidebar">
-      <div className="flex items-center gap-2 px-5 py-5">
-        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md bg-primary text-sm font-bold text-primary-foreground">
-          R
-        </span>
-        <span className="text-sm font-semibold leading-tight text-sidebar-foreground">
-          {t('shell.productName')}
-        </span>
+      <div className="px-5 py-5">
+        <WaytaLockup tone="dark" size={34} />
       </div>
 
       <div className="mx-3 mb-4 rounded-lg bg-sidebar-surface px-3 py-3">

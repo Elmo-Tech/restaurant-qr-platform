@@ -21,7 +21,7 @@ const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
 });
 
 export const metadata: Metadata = {
-  title: "Restaurant QR Platform",
+  title: "Wayta",
   description: "Premium QR ordering platform for restaurants and cafes.",
 };
 

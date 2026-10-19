@@ -55,7 +55,7 @@ export const commonMessages = defineMessages({
     'role.WAITER': 'Waiter',
 
     // ---- shell
-    'shell.productName': 'Restaurant QR Platform',
+    'shell.productName': 'Wayta',
     'shell.restaurant': 'Restaurant',
     'shell.openNavigation': 'Open navigation',
     'shell.closeNavigation': 'Close navigation',
@@ -192,7 +192,7 @@ export const commonMessages = defineMessages({
     'role.KITCHEN': 'المطبخ',
     'role.WAITER': 'النادل',
 
-    'shell.productName': 'منصة المطاعم QR',
+    'shell.productName': 'ويتا',
     'shell.restaurant': 'المطعم',
     'shell.openNavigation': 'فتح القائمة',
     'shell.closeNavigation': 'إغلاق القائمة',

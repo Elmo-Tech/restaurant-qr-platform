@@ -6,6 +6,7 @@ import { Alert } from '../../components/ui/Alert';
 import { Card } from '../../components/ui/Card';
 import { LogoutButton } from './LogoutButton';
 import { StaffLanguageSwitcher } from '../../components/staff/StaffLanguageSwitcher';
+import { WaytaLockup } from '../../components/brand/Wayta';
 import { getStaffI18n } from '../../lib/i18n/server';
 
 /**
@@ -52,9 +53,7 @@ export default async function StaffHomePage() {
   return (
     <div className="min-h-screen">
       <header className="flex items-center justify-between border-b border-border bg-card px-6 py-3">
-        <span className="text-sm font-semibold text-secondary-foreground">
-          {t('shell.productName')}
-        </span>
+        <WaytaLockup tone="light" size={30} />
         <div className="flex items-center gap-4">
           <StaffLanguageSwitcher />
           <span dir="ltr" className="text-sm text-muted-foreground">{user.email}</span>
