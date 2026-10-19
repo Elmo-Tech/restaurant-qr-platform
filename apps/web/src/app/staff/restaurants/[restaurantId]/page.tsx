@@ -14,6 +14,11 @@ import {
   canViewRestaurantSettings,
 } from '../../../../lib/settings/capabilities';
 import { canViewStaff } from '../../../../lib/staff/capabilities';
+import {
+  offersPickupAndDelivery,
+  receivesDashboardOrders,
+  usesTableOrdering,
+} from '../../../../lib/entitlements/access';
 import { canViewAnalytics } from '../../../../lib/dashboard/capabilities';
 import { OperationsDashboard, type DashboardAccess } from './dashboard/OperationsDashboard';
 import type { RestaurantStatus } from '../../../../lib/auth/types';
@@ -244,6 +249,10 @@ export default async function RestaurantLandingPage({
           initialPickupEnabled={restaurant.pickupEnabled}
           initialDeliveryEnabled={restaurant.deliveryEnabled}
           initialTableOrderingEnabled={restaurant.tableOrderingEnabled}
+          channels={{
+            table: usesTableOrdering(membership),
+            pickupDelivery: offersPickupAndDelivery(membership),
+          }}
           webOrigin={getWebOrigin()}
           access={access}
         />
@@ -283,22 +292,26 @@ export default async function RestaurantLandingPage({
                   disabledReason={t('common.noAccess')}
                 />
               )}
-              <FeatureCard
-                title={t('dashboard.card.tables.title')}
-                description={t('dashboard.card.tables.description')}
-                icon={<IconQr className="h-5 w-5" />}
-                {...(canViewTables(membership)
-                  ? { href: `/staff/restaurants/${restaurantId}/tables` }
-                  : { disabledReason: t('common.noAccess') })}
-              />
-              <FeatureCard
-                title={t('dashboard.card.orders.title')}
-                description={t('dashboard.card.orders.description')}
-                icon={<IconOrders className="h-5 w-5" />}
-                {...(canViewOrders(membership)
-                  ? { href: `/staff/restaurants/${restaurantId}/orders` }
-                  : { disabledReason: t('common.noAccess') })}
-              />
+              {usesTableOrdering(membership) ? (
+                <FeatureCard
+                  title={t('dashboard.card.tables.title')}
+                  description={t('dashboard.card.tables.description')}
+                  icon={<IconQr className="h-5 w-5" />}
+                  {...(canViewTables(membership)
+                    ? { href: `/staff/restaurants/${restaurantId}/tables` }
+                    : { disabledReason: t('common.noAccess') })}
+                />
+              ) : null}
+              {receivesDashboardOrders(membership) ? (
+                <FeatureCard
+                  title={t('dashboard.card.orders.title')}
+                  description={t('dashboard.card.orders.description')}
+                  icon={<IconOrders className="h-5 w-5" />}
+                  {...(canViewOrders(membership)
+                    ? { href: `/staff/restaurants/${restaurantId}/orders` }
+                    : { disabledReason: t('common.noAccess') })}
+                />
+              ) : null}
               <FeatureCard
                 title={t('dashboard.card.staff.title')}
                 description={t('dashboard.card.staff.description')}

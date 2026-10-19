@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../lib/auth/session';
 import { getStaffI18n } from '../../../../../lib/i18n/server';
 import { canViewKitchen } from '../../../../../lib/kitchen/capabilities';
+import { receivesDashboardOrders } from '../../../../../lib/entitlements/access';
 import { Alert } from '../../../../../components/ui/Alert';
 import { KitchenBoard } from './KitchenBoard';
 
@@ -44,6 +45,9 @@ export default async function KitchenPage({ params }: KitchenPageProps) {
         })}
       </Alert>
     );
+  }
+  if (!receivesDashboardOrders(membership)) {
+    return <Alert variant="info">{t('features.page.orders')}</Alert>;
   }
   if (!canViewKitchen(membership)) {
     return <Alert variant="error">{t('guard.noPermission.kitchen')}</Alert>;

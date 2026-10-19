@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusBadge } from "@/components/activity";
-import { IconSearch } from "@/components/icons";
+import { IconPlus, IconSearch } from "@/components/icons";
 import { Alert, Badge, Button, Card, EmptyState, Input, PageHeader, Select, Skeleton, TableWrap, Th } from "@/components/ui";
 import { ApiError, isNetworkFailure } from "@/lib/api/errors";
 import { listRestaurants, type RestaurantPage, type RestaurantStatus } from "@/lib/api/platform";
@@ -56,7 +56,19 @@ export function RestaurantsView() {
 
   return (
     <>
-      <PageHeader title={t("restaurants.title")} description={t("restaurants.subtitle")} />
+      <PageHeader
+        title={t("restaurants.title")}
+        description={t("restaurants.subtitle")}
+        actions={
+          <Link
+            href="/restaurants/new"
+            className="inline-flex h-10 items-center gap-2 rounded-lg bg-primary px-4 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary-hover"
+          >
+            <IconPlus width={18} height={18} />
+            {t("restaurants.new")}
+          </Link>
+        }
+      />
 
       <Card>
         <div className="flex flex-wrap items-center gap-3 border-b border-border p-4">

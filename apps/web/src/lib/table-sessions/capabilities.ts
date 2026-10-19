@@ -1,4 +1,5 @@
 import type { AuthContextMembership } from '../auth/types';
+import { usesTableOrdering } from '../entitlements/access';
 
 /**
  * UX-only capability gating for Table Sessions, derived exclusively from the
@@ -17,6 +18,8 @@ export interface SessionCapabilities {
 export function sessionCapabilities(
   membership: AuthContextMembership,
 ): SessionCapabilities {
+  // without table ordering in the package there are no table sessions to see or manage
+  if (!usesTableOrdering(membership)) return NO_SESSION_CAPABILITIES;
   const has = (key: string) => membership.permissions.includes(key);
   return {
     canView: has('sessions.view'),

@@ -67,6 +67,23 @@ import {
   normalizeMoney,
 } from './dto/package.dto';
 import {
+  ChangeOwnPasswordDto,
+  CreateAdminDto,
+  ResetAdminPasswordDto,
+  SetAdminStatusDto,
+} from './dto/admin.dto';
+import {
+  PlatformAdminsService,
+  type AdminOutcome,
+  type AdminRefusal,
+  type AdminView,
+} from './platform-admins.service';
+import { CreateRestaurantDto } from './dto/create-restaurant.dto';
+import {
+  PlatformRestaurantCreationService,
+  type CreateRestaurantOutcome,
+} from './platform-restaurant-creation.service';
+import {
   PlatformRestaurantsService,
   type FeatureState,
   type RestaurantDetail,
@@ -118,6 +135,49 @@ function unwrapPackage<T>(result: PackageOutcome<T>): T {
   if (result.outcome === 'ok') return result.data;
   const body = { error: REFUSAL_MESSAGES[result.outcome] };
   throw new HttpException(body, REFUSAL_STATUS[result.outcome]);
+}
+
+const ADMIN_REFUSALS: Record<
+  AdminRefusal,
+  { status: HttpStatus; code: string; message: string }
+> = {
+  NOT_FOUND: {
+    status: HttpStatus.NOT_FOUND,
+    code: 'ADMIN_NOT_FOUND',
+    message: 'Administrator not found.',
+  },
+  EMAIL_TAKEN: {
+    status: HttpStatus.CONFLICT,
+    code: 'ADMIN_EMAIL_TAKEN',
+    message: 'An administrator with this email already exists.',
+  },
+  INVALID_PASSWORD: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    code: 'PASSWORD_INVALID',
+    message: 'The password does not satisfy the password policy.',
+  },
+  WRONG_PASSWORD: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    code: 'CURRENT_PASSWORD_WRONG',
+    message: 'The current password is not correct.',
+  },
+  CANNOT_DISABLE_SELF: {
+    status: HttpStatus.CONFLICT,
+    code: 'CANNOT_DISABLE_SELF',
+    message: 'You cannot disable your own account.',
+  },
+  LAST_ADMIN: {
+    status: HttpStatus.CONFLICT,
+    code: 'LAST_ACTIVE_ADMIN',
+    message: 'The last active administrator cannot be disabled.',
+  },
+};
+
+/** The data of an accepted administrator change, or the HTTP error for a refused one. */
+function unwrapAdmin<T>(result: AdminOutcome<T>): T {
+  if (result.outcome === 'ok') return result.data;
+  const { status, code, message } = ADMIN_REFUSALS[result.outcome];
+  throw new HttpException({ error: { code, message } }, status);
 }
 
 class ListRestaurantsQuery {
@@ -177,6 +237,8 @@ export class PlatformController {
     private readonly auth: PlatformAuthService,
     private readonly restaurants: PlatformRestaurantsService,
     private readonly packages: PlatformPackagesService,
+    private readonly creation: PlatformRestaurantCreationService,
+    private readonly admins: PlatformAdminsService,
     private readonly overview: PlatformOverviewService,
     private readonly audit: PlatformAuditService,
     private readonly configService: ConfigService<EnvConfig, true>,
@@ -238,6 +300,77 @@ export class PlatformController {
     return { data: { id: adminId, email, displayName } };
   }
 
+  @Put('auth/password')
+  @RateLimitGroup(RATE_LIMIT_GROUPS.LOGIN)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(PlatformAuthGuard)
+  async changeOwnPassword(
+    @Body() body: ChangeOwnPasswordDto,
+    @Req() request: PlatformRequest,
+  ): Promise<void> {
+    unwrapAdmin(
+      await this.admins.changeOwnPassword(
+        request.platformAdmin,
+        body.currentPassword,
+        body.newPassword,
+      ),
+    );
+  }
+
+  // ------------------------------------------------------------------ administrators (DEC-048)
+
+  @Get('admins')
+  @UseGuards(PlatformAuthGuard)
+  async listAdmins(): Promise<{ data: AdminView[] }> {
+    return { data: await this.admins.list() };
+  }
+
+  @Post('admins')
+  @UseGuards(PlatformAuthGuard)
+  async createAdmin(
+    @Body() body: CreateAdminDto,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: AdminView }> {
+    return {
+      data: unwrapAdmin(await this.admins.create(request.platformAdmin, body)),
+    };
+  }
+
+  @Patch('admins/:adminId/status')
+  @UseGuards(PlatformAuthGuard)
+  async setAdminStatus(
+    @Param('adminId') adminId: string,
+    @Body() body: SetAdminStatusDto,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: AdminView }> {
+    return {
+      data: unwrapAdmin(
+        await this.admins.setStatus(
+          request.platformAdmin,
+          adminId,
+          body.status,
+        ),
+      ),
+    };
+  }
+
+  @Put('admins/:adminId/password')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(PlatformAuthGuard)
+  async resetAdminPassword(
+    @Param('adminId') adminId: string,
+    @Body() body: ResetAdminPasswordDto,
+    @Req() request: PlatformRequest,
+  ): Promise<void> {
+    unwrapAdmin(
+      await this.admins.resetPassword(
+        request.platformAdmin,
+        adminId,
+        body.password,
+      ),
+    );
+  }
+
   // ------------------------------------------------------------------ data
 
   @Get('overview')
@@ -259,6 +392,66 @@ export class PlatformController {
         pageSize: query.pageSize ?? 25,
       }),
     };
+  }
+
+  @Post('restaurants')
+  @UseGuards(PlatformAuthGuard)
+  async createRestaurant(
+    @Body() body: CreateRestaurantDto,
+    @Req() request: PlatformRequest,
+  ): Promise<{
+    data: { id: string; publicId: string; name: string; ownerEmail: string };
+  }> {
+    const result: CreateRestaurantOutcome = await this.creation.create(
+      request.platformAdmin,
+      { ...body, packageId: body.packageId ?? null },
+    );
+    switch (result.outcome) {
+      case 'created':
+        return {
+          data: {
+            id: result.id,
+            publicId: result.publicId,
+            name: result.name,
+            ownerEmail: result.ownerEmail,
+          },
+        };
+      case 'invalidInput':
+        throw new HttpException(
+          {
+            error: {
+              code: 'RESTAURANT_INVALID',
+              message: 'The restaurant details are not valid.',
+              problems: result.problems,
+            },
+          },
+          HttpStatus.UNPROCESSABLE_ENTITY,
+        );
+      case 'ownerEmailInUse':
+        throw new HttpException(
+          {
+            error: {
+              code: 'OWNER_EMAIL_IN_USE',
+              message: 'This email already belongs to another account.',
+            },
+          },
+          HttpStatus.CONFLICT,
+        );
+      case 'alreadyExists':
+        throw new HttpException(
+          {
+            error: {
+              code: 'RESTAURANT_ALREADY_EXISTS',
+              message: 'This owner already has a restaurant with this name.',
+            },
+          },
+          HttpStatus.CONFLICT,
+        );
+      case 'packageNotFound':
+        return unwrapPackage<never>({ outcome: 'NOT_FOUND' });
+      case 'packageArchived':
+        return unwrapPackage<never>({ outcome: 'ARCHIVED' });
+    }
   }
 
   @Get('restaurants/:restaurantId')

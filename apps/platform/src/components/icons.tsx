@@ -129,3 +129,10 @@ export const IconPlus = (p: P) => (
     <path d="M12 5v14M5 12h14" />
   </Icon>
 );
+export const IconUsers = (p: P) => (
+  <Icon {...p}>
+    <circle cx="9" cy="8" r="3.2" />
+    <path d="M3.5 19.5c.4-3.2 2.6-5 5.5-5s5.1 1.8 5.5 5" />
+    <path d="M16 5.2a3 3 0 0 1 0 5.6M17.5 14.7c1.8.5 3 2.1 3.2 4.8" />
+  </Icon>
+);

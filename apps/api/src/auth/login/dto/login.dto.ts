@@ -15,8 +15,8 @@ export class LoginDto {
 
   @IsString()
   @IsNotEmpty({ message: 'password should not be empty' })
-  @Length(10, 128, {
-    message: 'password must be between 10 and 128 characters',
+  @Length(8, 128, {
+    message: 'password must be between 8 and 128 characters',
   })
   password!: string;
 }

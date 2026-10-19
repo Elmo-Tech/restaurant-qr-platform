@@ -19,7 +19,7 @@ import { IsNotEmpty, IsString, Length } from 'class-validator';
  * Foundation's generic error is designed to prevent.
  *
  * `password` reuses the exact existing V1 password policy unchanged
- * (`LoginDto`, `PasswordHasherService`: 10-128 characters, no composition
+ * (`LoginDto`, `PasswordHasherService`: 8-128 characters, no composition
  * rules) -- for both a brand-new account password and an existing account's
  * current password proof; which case applies is a business decision made
  * only inside the service, never in this DTO.
@@ -31,8 +31,8 @@ export class AcceptStaffInvitationDto {
 
   @IsString()
   @IsNotEmpty({ message: 'password should not be empty' })
-  @Length(10, 128, {
-    message: 'password must be between 10 and 128 characters',
+  @Length(8, 128, {
+    message: 'password must be between 8 and 128 characters',
   })
   password!: string;
 }

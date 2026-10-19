@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../lib/auth/session';
 import { getStaffI18n } from '../../../../../lib/i18n/server';
 import { canViewOrders } from '../../../../../lib/orders/capabilities';
+import { receivesDashboardOrders } from '../../../../../lib/entitlements/access';
 import { Alert } from '../../../../../components/ui/Alert';
 import { OrdersWorkspace, type OrdersInitialFilters } from './OrdersWorkspace';
 import { ACTIVE_STATUSES, COMPLETED_STATUSES } from '../../../../../lib/orders/order-views';
@@ -87,6 +88,10 @@ export default async function OrdersPage({ params, searchParams }: OrdersPagePro
         })}
       </Alert>
     );
+  }
+
+  if (!receivesDashboardOrders(membership)) {
+    return <Alert variant="info">{t('features.page.orders')}</Alert>;
   }
 
   if (!canViewOrders(membership)) {

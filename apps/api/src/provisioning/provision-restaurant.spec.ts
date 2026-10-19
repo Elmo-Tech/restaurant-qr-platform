@@ -261,7 +261,7 @@ describe('provisionRestaurant', () => {
 
   it('a too-short password is rejected by the hasher policy without echoing it', async () => {
     const m = build();
-    m.hasher.hashPassword.mockRejectedValue(new Error('Password must be between 10 and 128 characters'));
+    m.hasher.hashPassword.mockRejectedValue(new Error('Password must be between 8 and 128 characters'));
 
     const result = await provisionRestaurant(m.prisma as never, m.hasher, { ...INPUT, ownerPassword: 'short' });
 

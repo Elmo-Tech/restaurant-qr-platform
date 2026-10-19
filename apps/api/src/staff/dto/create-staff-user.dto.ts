@@ -24,7 +24,7 @@ import {
  * invitations -- ownership assignment is a separate future workflow). The role
  * must be one of THIS Restaurant's Roles whose permissions the creator holds.
  *
- * `password` is the password the admin sets for a NEW account (same 10-128
+ * `password` is the password the admin sets for a NEW account (same 8-128
  * character policy as everywhere else). It is only used when the email has no
  * account yet; for an existing account it is ignored and that account's
  * credentials are never touched. Whether it is required is decided by the
@@ -60,6 +60,6 @@ export class CreateStaffUserDto {
 
   @IsOptional()
   @IsString()
-  @Length(10, 128, { message: 'password must be between 10 and 128 characters' })
+  @Length(8, 128, { message: 'password must be between 8 and 128 characters' })
   password?: string;
 }

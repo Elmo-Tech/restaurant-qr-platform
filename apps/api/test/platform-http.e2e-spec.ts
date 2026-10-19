@@ -862,4 +862,263 @@ describeSandbox('Platform control dashboard API (real PostgreSQL)', () => {
     });
     expect((await menu(world.tableQr)).tableOrdering).toBe('DISABLED');
   });
+
+  it('creates a restaurant with its owner and a package from the console, and the owner can sign in', async () => {
+    const email = await addAdmin();
+    const cookie = await platformLogin(email);
+    const tag = randomUUID().slice(0, 8);
+    const ownerEmail = `owner-${tag}@example.test`;
+    const ownerPassword = `Owner-Pw-${tag}-xyz`;
+    const pkg = (
+      await send('post', '/packages', cookie, {
+        name: `Starter ${tag}`,
+        features: ['ORDER_TRACKING'],
+      })
+    ).body.data as { id: string };
+    const body = {
+      restaurantName: `Created ${tag}`,
+      ownerEmail,
+      ownerPassword,
+      branchName: 'Main Branch',
+      defaultLocale: 'ar',
+      currencyCode: 'EGP',
+      timezone: 'Africa/Cairo',
+      packageId: pkg.id,
+    };
+
+    // invalid input is refused with the reasons, and never echoes the password
+    const bad = await send('post', '/restaurants', cookie, {
+      ...body,
+      ownerEmail: 'nope',
+      ownerPassword: 'short',
+    });
+    expect(bad.status).toBe(422);
+    expect(bad.body.error.code).toBe('RESTAURANT_INVALID');
+    expect(JSON.stringify(bad.body)).not.toContain('short');
+    expect(
+      (await send('post', '/restaurants', cookie, { restaurantName: 'x' }))
+        .status,
+    ).toBe(400);
+    expect(
+      (
+        await send('post', '/restaurants', cookie, {
+          ...body,
+          packageId: randomUUID(),
+        })
+      ).status,
+    ).toBe(404);
+
+    const created = await send('post', '/restaurants', cookie, body);
+    expect(created.status).toBe(201);
+    expect(created.body.data).toMatchObject({
+      name: `Created ${tag}`,
+      ownerEmail,
+    });
+    expect(JSON.stringify(created.body)).not.toContain(ownerPassword);
+    const id = created.body.data.id as string;
+
+    // the same owner email again is a conflict, and so is the same owner with the same name
+    const again = await send('post', '/restaurants', cookie, body);
+    expect(again.status).toBe(409);
+    expect(again.body.error.code).toBe('RESTAURANT_ALREADY_EXISTS');
+    const other = await send('post', '/restaurants', cookie, {
+      ...body,
+      restaurantName: `Other ${tag}`,
+    });
+    expect(other.status).toBe(409);
+    expect(other.body.error.code).toBe('OWNER_EMAIL_IN_USE');
+
+    // it is on its package, with an owner, a branch and a QR, and no menu data
+    const detail = await get(`/restaurants/${id}`, cookie);
+    expect(detail.body.data.package).toMatchObject({ id: pkg.id });
+    expect(detail.body.data.owners).toEqual([
+      { email: ownerEmail, status: 'ACTIVE' },
+    ]);
+    expect(detail.body.data.counts).toMatchObject({
+      branches: 1,
+      products: 0,
+      staff: 1,
+    });
+    expect(detail.body.data.defaultLocale).toBe('ar');
+
+    // the owner signs in to the restaurant dashboard with the typed password
+    const owner = await request(app.getHttpServer())
+      .post('/api/v1/auth/login')
+      .send({ email: ownerEmail, password: ownerPassword });
+    expect(owner.status).toBe(200);
+
+    // recorded, without the password
+    const audit = await get(`/audit?restaurantId=${id}`, cookie);
+    expect(audit.body.data[0]).toMatchObject({
+      action: 'restaurant.created',
+      details: { ownerEmail, package: `Starter ${tag}` },
+    });
+    expect(JSON.stringify(audit.body)).not.toContain(ownerPassword);
+  });
+
+  it('manages the platform team: create, disable, reset and change passwords, with sessions ended at once', async () => {
+    const mine = await addAdmin();
+    const cookie = await platformLogin(mine);
+    const tag = randomUUID().slice(0, 8);
+    const colleagueEmail = `colleague-${tag}@example.test`;
+    const colleaguePassword = `Colleague-Pw-${tag}`;
+
+    // listed without any hash, and the current administrator is in it
+    const list = await get('/admins', cookie);
+    expect(list.status).toBe(200);
+    expect(JSON.stringify(list.body)).not.toMatch(/passwordHash|argon2/i);
+    const me = (list.body.data as { id: string; email: string }[]).find(
+      (a) => a.email === mine,
+    );
+    expect(me).toBeDefined();
+
+    // create: bad email, short password and a duplicate are refused
+    const create = (body: Record<string, unknown>) =>
+      send('post', '/admins', cookie, body);
+    expect(
+      (
+        await create({
+          email: 'nope',
+          displayName: 'X',
+          password: colleaguePassword,
+        })
+      ).status,
+    ).toBe(400);
+    const short = await create({
+      email: colleagueEmail,
+      displayName: 'Colleague',
+      password: 'short',
+    });
+    expect(short.status).toBe(422);
+    expect(short.body.error.code).toBe('PASSWORD_INVALID');
+    const made = await create({
+      email: colleagueEmail,
+      displayName: 'Colleague',
+      password: colleaguePassword,
+    });
+    expect(made.status).toBe(201);
+    expect(made.body.data).toMatchObject({
+      email: colleagueEmail,
+      status: 'ACTIVE',
+    });
+    expect(JSON.stringify(made.body)).not.toContain(colleaguePassword);
+    const colleagueId = made.body.data.id as string;
+    const duplicate = await create({
+      email: colleagueEmail.toUpperCase(),
+      displayName: 'Again',
+      password: colleaguePassword,
+    });
+    expect(duplicate.status).toBe(409);
+    expect(duplicate.body.error.code).toBe('ADMIN_EMAIL_TAKEN');
+
+    // the colleague signs in with the typed password
+    const loginAs = (password: string) =>
+      request(app.getHttpServer())
+        .post('/api/v1/platform/auth/login')
+        .set('Origin', platformOrigin)
+        .send({ email: colleagueEmail, password });
+    const first = await loginAs(colleaguePassword);
+    expect(first.status).toBe(200);
+    const colleagueCookie = (
+      first.headers['set-cookie'] as unknown as string[]
+    )[0].split(';')[0];
+    expect((await get('/auth/me', colleagueCookie)).status).toBe(200);
+
+    // disabling ends that administrator's sessions at once and blocks signing in
+    const off = await send('patch', `/admins/${colleagueId}/status`, cookie, {
+      status: 'DISABLED',
+    });
+    expect(off.body.data.status).toBe('DISABLED');
+    expect((await get('/auth/me', colleagueCookie)).status).toBe(401);
+    expect((await loginAs(colleaguePassword)).status).toBe(401);
+    const on = await send('patch', `/admins/${colleagueId}/status`, cookie, {
+      status: 'ACTIVE',
+    });
+    expect(on.body.data.status).toBe('ACTIVE');
+
+    // you cannot disable yourself
+    const self = await send('patch', `/admins/${me?.id}/status`, cookie, {
+      status: 'DISABLED',
+    });
+    expect(self.status).toBe(409);
+    expect(self.body.error.code).toBe('CANNOT_DISABLE_SELF');
+    expect(
+      (
+        await send('patch', `/admins/${colleagueId}/status`, cookie, {
+          status: 'GONE',
+        })
+      ).status,
+    ).toBe(400);
+    expect(
+      (
+        await send('patch', `/admins/${randomUUID()}/status`, cookie, {
+          status: 'ACTIVE',
+        })
+      ).status,
+    ).toBe(404);
+
+    // a colleague resets the password: the old one stops working and sessions end
+    const second = await loginAs(colleaguePassword);
+    const secondCookie = (
+      second.headers['set-cookie'] as unknown as string[]
+    )[0].split(';')[0];
+    const newPassword = `Reset-Pw-${tag}`;
+    expect(
+      (
+        await send('put', `/admins/${colleagueId}/password`, cookie, {
+          password: 'short',
+        })
+      ).status,
+    ).toBe(422);
+    expect(
+      (
+        await send('put', `/admins/${colleagueId}/password`, cookie, {
+          password: newPassword,
+        })
+      ).status,
+    ).toBe(204);
+    expect((await get('/auth/me', secondCookie)).status).toBe(401);
+    expect((await loginAs(colleaguePassword)).status).toBe(401);
+    expect((await loginAs(newPassword)).status).toBe(200);
+
+    // changing one's own password needs the current one; other sessions end, this one stays
+    const otherSession = await platformLogin(mine);
+    const change = (current: string, next: string) =>
+      send('put', '/auth/password', cookie, {
+        currentPassword: current,
+        newPassword: next,
+      });
+    const wrong = await change('Not-The-Password-1', 'Brand-New-Pw-1');
+    expect(wrong.status).toBe(422);
+    expect(wrong.body.error.code).toBe('CURRENT_PASSWORD_WRONG');
+    expect((await change(ADMIN_PASSWORD, 'short')).status).toBe(422);
+    expect((await change(ADMIN_PASSWORD, 'Brand-New-Pw-1')).status).toBe(204);
+    expect((await get('/auth/me', cookie)).status).toBe(200);
+    expect((await get('/auth/me', otherSession)).status).toBe(401);
+    const relogin = await request(app.getHttpServer())
+      .post('/api/v1/platform/auth/login')
+      .set('Origin', platformOrigin)
+      .send({ email: mine, password: 'Brand-New-Pw-1' });
+    expect(relogin.status).toBe(200);
+
+    // recorded, never with a password
+    const audit = await get('/audit?limit=200', cookie);
+    const actions = (
+      audit.body.data as { action: string; adminEmail: string }[]
+    )
+      .filter((entry) => entry.adminEmail === mine)
+      .map((entry) => entry.action);
+    for (const expected of [
+      'admin.created',
+      'admin.status_changed',
+      'admin.password_reset',
+      'admin.password_changed',
+    ]) {
+      expect(actions).toContain(expected);
+    }
+    const text = JSON.stringify(audit.body);
+    for (const secret of [colleaguePassword, newPassword, 'Brand-New-Pw-1']) {
+      expect(text).not.toContain(secret);
+    }
+  });
 });

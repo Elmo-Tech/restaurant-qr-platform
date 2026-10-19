@@ -9,6 +9,11 @@ type Formatters = ReturnType<typeof createFormatters>;
 
 const ACTION_LABEL: Record<string, MessageKey> = {
   "admin.login": "action.admin.login",
+  "admin.created": "action.admin.created",
+  "admin.status_changed": "action.admin.status_changed",
+  "admin.password_reset": "action.admin.password_reset",
+  "admin.password_changed": "action.admin.password_changed",
+  "restaurant.created": "action.restaurant.created",
   "restaurant.status_changed": "action.restaurant.status_changed",
   "restaurant.feature_changed": "action.restaurant.feature_changed",
   "restaurant.package_changed": "action.restaurant.package_changed",
@@ -39,6 +44,21 @@ export function describeChange(entry: AuditEntry, t: Translate): string {
       ? t(`feature.${details.feature as FeatureKey}`)
       : String(details.feature ?? "");
     return t("activity.detailFeature", { feature, from: state(details.from), to: state(details.to) });
+  }
+  if (entry.action === "admin.created" || entry.action === "admin.password_reset") {
+    return String(details.email ?? "");
+  }
+  if (entry.action === "admin.status_changed") {
+    return t("activity.adminStatus", {
+      email: String(details.email ?? ""),
+      status: t(details.to === "DISABLED" ? "team.status.DISABLED" : "team.status.ACTIVE"),
+    });
+  }
+  if (entry.action === "restaurant.created") {
+    return t("activity.createdDetail", {
+      email: String(details.ownerEmail ?? ""),
+      package: typeof details.package === "string" ? details.package : t("activity.noPackage"),
+    });
   }
   if (entry.action === "restaurant.package_changed") {
     const name = (value: unknown) => (typeof value === "string" ? value : t("activity.noPackage"));

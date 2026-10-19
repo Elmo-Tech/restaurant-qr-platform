@@ -7,6 +7,6 @@ export class ResetPasswordDto {
 
   @IsString()
   @IsNotEmpty({ message: 'newPassword should not be empty' })
-  @Length(10, 128, { message: 'newPassword must be between 10 and 128 characters' })
+  @Length(8, 128, { message: 'newPassword must be between 8 and 128 characters' })
   newPassword!: string;
 }

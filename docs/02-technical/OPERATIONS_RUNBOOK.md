@@ -33,7 +33,7 @@ and is never printed or logged.
 ```powershell
 cd apps/api
 
-# 1. Provide the password for this shell only (10-128 characters).
+# 1. Provide the password for this shell only (8-128 characters).
 $env:PROVISION_OWNER_PASSWORD = '<a strong password>'
 
 # 2. Dry run (default): validates and prints the plan, writes NOTHING.

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { IconActivity, IconLogout, IconMenu, IconOverview, IconPackage, IconStore } from "@/components/icons";
+import { IconActivity, IconLogout, IconMenu, IconOverview, IconPackage, IconStore, IconUsers } from "@/components/icons";
 import { BrandMark } from "@/components/shell/Brand";
 import { LanguageSwitch, ThemeSwitch } from "@/components/shell/Preferences";
 import { logout, type Admin } from "@/lib/api/platform";
@@ -15,6 +15,7 @@ const NAV: { href: string; label: MessageKey; icon: typeof IconOverview; match: 
   { href: "/", label: "nav.overview", icon: IconOverview, match: (path) => path === "/" },
   { href: "/restaurants", label: "nav.restaurants", icon: IconStore, match: (path) => path.startsWith("/restaurants") },
   { href: "/packages", label: "nav.packages", icon: IconPackage, match: (path) => path.startsWith("/packages") },
+  { href: "/team", label: "nav.team", icon: IconUsers, match: (path) => path.startsWith("/team") },
   { href: "/activity", label: "nav.activity", icon: IconActivity, match: (path) => path.startsWith("/activity") },
 ];
 

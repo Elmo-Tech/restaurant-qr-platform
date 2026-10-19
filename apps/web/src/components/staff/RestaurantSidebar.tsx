@@ -13,6 +13,12 @@ import {
 } from './icons';
 import { useStaffI18n } from '../../lib/i18n/client';
 
+/** Pages the platform package does not include: not shown at all (not even as "no access"). */
+export interface PackageHides {
+  tables: boolean;
+  orders: boolean;
+}
+
 export type StaffSection =
   | 'dashboard'
   | 'menu'
@@ -49,6 +55,7 @@ interface RestaurantSidebarProps {
   canViewMenu: boolean;
   canViewTables: boolean;
   canViewOrders: boolean;
+  packageHides?: PackageHides;
   canViewKitchen: boolean;
   canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
@@ -130,6 +137,7 @@ function SidebarContent({
   canViewMenu,
   canViewTables,
   canViewOrders,
+  packageHides,
   canViewKitchen,
   canViewStaff,
   canViewRestaurantSettings,
@@ -143,6 +151,7 @@ function SidebarContent({
   canViewMenu: boolean;
   canViewTables: boolean;
   canViewOrders: boolean;
+  packageHides?: PackageHides;
   canViewKitchen: boolean;
   canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
@@ -217,7 +226,7 @@ function SidebarContent({
               }}
             />
           )}
-          {canViewTables ? (
+          {packageHides?.tables ? null : canViewTables ? (
             <ActiveLink
               item={{
                 key: 'tables',
@@ -238,7 +247,7 @@ function SidebarContent({
               }}
             />
           )}
-          {canViewOrders ? (
+          {packageHides?.orders ? null : canViewOrders ? (
             <ActiveLink
               item={{
                 key: 'orders',
@@ -352,6 +361,7 @@ export function RestaurantSidebar({
   canViewMenu,
   canViewTables,
   canViewOrders,
+  packageHides,
   canViewKitchen,
   canViewStaff,
   canViewRestaurantSettings,
@@ -371,6 +381,7 @@ export function RestaurantSidebar({
           canViewMenu={canViewMenu}
           canViewTables={canViewTables}
           canViewOrders={canViewOrders}
+          packageHides={packageHides}
           canViewKitchen={canViewKitchen}
           canViewStaff={canViewStaff}
           canViewRestaurantSettings={canViewRestaurantSettings}
@@ -404,6 +415,7 @@ export function RestaurantSidebar({
               canViewMenu={canViewMenu}
               canViewTables={canViewTables}
               canViewOrders={canViewOrders}
+              packageHides={packageHides}
           canViewKitchen={canViewKitchen}
               canViewStaff={canViewStaff}
               canViewRestaurantSettings={canViewRestaurantSettings}

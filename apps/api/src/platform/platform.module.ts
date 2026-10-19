@@ -1,11 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
+import { PlatformAdminsService } from './platform-admins.service';
 import { PlatformAuditService } from './platform-audit.service';
 import { PlatformAuthService } from './platform-auth.service';
 import { PlatformAuthGuard, PlatformCsrfGuard } from './platform-guards';
 import { PlatformOverviewService } from './platform-overview.service';
 import { PlatformPackagesService } from './platform-packages.service';
+import { PlatformRestaurantCreationService } from './platform-restaurant-creation.service';
 import { PlatformRestaurantsService } from './platform-restaurants.service';
 import { PlatformController } from './platform.controller';
 
@@ -22,7 +24,9 @@ import { PlatformController } from './platform.controller';
     PlatformAuthGuard,
     PlatformCsrfGuard,
     PlatformAuditService,
+    PlatformAdminsService,
     PlatformRestaurantsService,
+    PlatformRestaurantCreationService,
     PlatformPackagesService,
     PlatformOverviewService,
   ],

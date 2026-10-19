@@ -53,6 +53,7 @@ export function StatusStrip({
   pickupEnabled,
   deliveryEnabled,
   tableOrderingEnabled,
+  channels,
   canManage,
   busy,
   onToggle,
@@ -65,6 +66,8 @@ export function StatusStrip({
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
   tableOrderingEnabled: boolean;
+  /** What the package includes; a channel it does not include is not shown. */
+  channels: { table: boolean; pickupDelivery: boolean };
   /** `restaurant.manage` with Restaurant-wide scope: the switches are live. */
   canManage: boolean;
   busy: OrderType | null;
@@ -78,8 +81,12 @@ export function StatusStrip({
   tablesHref: string | null;
 }) {
   const { t } = useStaffI18n();
-  const enabledChannels = [tableOrderingEnabled, pickupEnabled, deliveryEnabled].filter(Boolean).length;
-  const overall = enabledChannels === 3 ? 'open' : enabledChannels > 0 ? 'partial' : 'paused';
+  const shown = [
+    ...(channels.table ? [tableOrderingEnabled] : []),
+    ...(channels.pickupDelivery ? [pickupEnabled, deliveryEnabled] : []),
+  ];
+  const enabledChannels = shown.filter(Boolean).length;
+  const overall = enabledChannels === shown.length ? 'open' : enabledChannels > 0 ? 'partial' : 'paused';
   const overallTone =
     overall === 'open'
       ? 'bg-success-soft text-success'
@@ -90,9 +97,15 @@ export function StatusStrip({
     overall === 'open' ? 'bg-success' : overall === 'partial' ? 'bg-warning' : 'bg-destructive';
 
   const switches: { type: OrderType; enabled: boolean; label: string; icon: ReactNode }[] = [
-    { type: 'table', enabled: tableOrderingEnabled, label: t('ops.status.tables'), icon: <IconTable /> },
-    { type: 'pickup', enabled: pickupEnabled, label: t('ops.status.pickup'), icon: <IconBag /> },
-    { type: 'delivery', enabled: deliveryEnabled, label: t('ops.status.delivery'), icon: <IconTruck /> },
+    ...(channels.table
+      ? [{ type: 'table' as const, enabled: tableOrderingEnabled, label: t('ops.status.tables'), icon: <IconTable /> }]
+      : []),
+    ...(channels.pickupDelivery
+      ? [
+          { type: 'pickup' as const, enabled: pickupEnabled, label: t('ops.status.pickup'), icon: <IconBag /> },
+          { type: 'delivery' as const, enabled: deliveryEnabled, label: t('ops.status.delivery'), icon: <IconTruck /> },
+        ]
+      : []),
   ];
 
   const qrState = qr === undefined ? null : qr === null ? 'none' : qr.status === 'ACTIVE' ? 'active' : 'inactive';

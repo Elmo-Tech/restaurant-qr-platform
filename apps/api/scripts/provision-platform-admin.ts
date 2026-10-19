@@ -47,9 +47,9 @@ async function main(): Promise<void> {
   let generated = false;
   if (passwordEnv) {
     password = process.env[passwordEnv] ?? '';
-    if (password.length < 10 || password.length > 128) {
+    if (password.length < 8 || password.length > 128) {
       console.error(
-        `The environment variable ${passwordEnv} must hold a password of 10 to 128 characters.`,
+        `The environment variable ${passwordEnv} must hold a password of 8 to 128 characters.`,
       );
       process.exitCode = 1;
       return;

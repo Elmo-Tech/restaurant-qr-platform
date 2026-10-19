@@ -3,10 +3,10 @@ import { hash, verify } from '@node-rs/argon2';
 
 /**
  * V1 password policy (AUTH_TENANCY_SPEC.md #14, SECURITY_SPEC.md #11):
- * minimum 10 characters, recommended maximum 128. No forced composition
+ * minimum 8 characters, recommended maximum 128. No forced composition
  * rules — do not invent uppercase/number/symbol requirements.
  */
-const MIN_PASSWORD_LENGTH = 10;
+const MIN_PASSWORD_LENGTH = 8;
 const MAX_PASSWORD_LENGTH = 128;
 
 /**

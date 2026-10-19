@@ -11,6 +11,8 @@ export const entitlementsMessages = defineMessages({
     'features.tableOrdering.locked':
       'Table ordering is not included in your package, so the table menu is view-only.',
     'features.notIncluded': 'Not included',
+    'features.page.orders': 'Receiving orders in the dashboard is not included in your package.',
+    'features.page.tables': 'Table ordering is not included in your package. Your menu QR code is in Settings > Restaurant QR.',
     'error.FEATURE_NOT_AVAILABLE': 'This feature is not included in your package.',
   },
   ar: {
@@ -21,6 +23,8 @@ export const entitlementsMessages = defineMessages({
       'استقبال طلبات الاستلام والتوصيل في لوحة التحكم غير مشمول في باقتك. ما زال بإمكان الضيوف الطلب عبر واتساب عند تفعيله.',
     'features.tableOrdering.locked': 'الطلب من الطاولات غير مشمول في باقتك، لذلك منيو الطاولة للعرض فقط.',
     'features.notIncluded': 'غير مشمول',
+    'features.page.orders': 'استقبال الطلبات في لوحة التحكم غير مشمول في باقتك.',
+    'features.page.tables': 'الطلب من الطاولات غير مشمول في باقتك. ستجد رمز QR الخاص بالمنيو في الإعدادات > رمز QR للمطعم.',
     'error.FEATURE_NOT_AVAILABLE': 'هذه الميزة غير مشمولة في باقتك.',
   },
 });

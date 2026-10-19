@@ -2363,6 +2363,18 @@ Platform routes (same Origin and session rules as 108P), all under `/api/v1/plat
 
 ---
 
+# 108R. Creating a Restaurant (DEC-047, 2026-10-19)
+
+`POST /api/v1/platform/restaurants` (platform Origin and session, 108P) `{ restaurantName, ownerEmail, ownerPassword, branchName, defaultLocale (ar | en), currencyCode, timezone (IANA), packageId? }` -> `201 { data: { id, publicId, name, ownerEmail } }`. The rules are those of the provisioning routine. Errors: `400` malformed body; `422 RESTAURANT_INVALID` with `error.problems` (English reasons, never containing the password); `409 OWNER_EMAIL_IN_USE`; `409 RESTAURANT_ALREADY_EXISTS` (the same owner already has a restaurant with this name); `404 PACKAGE_NOT_FOUND`; `422 PACKAGE_ARCHIVED`. A refused request writes nothing. Audit action: `restaurant.created`.
+
+---
+
+# 108S. Platform Team API (DEC-048, 2026-10-19)
+
+Platform routes (108P rules). `GET /admins`: every administrator (id, email, displayName, status `ACTIVE` | `DISABLED`, lastLoginAt, createdAt; never a hash). `POST /admins` `{ email, displayName, password }` -> `201`. `PATCH /admins/{id}/status` `{ status }`. `PUT /admins/{id}/password` `{ password }` -> `204` (sets a colleague's password). `PUT /auth/password` `{ currentPassword, newPassword }` -> `204` (own password, login rate limit applies). Errors: `400` malformed; `404 ADMIN_NOT_FOUND`; `409 ADMIN_EMAIL_TAKEN`; `409 CANNOT_DISABLE_SELF`; `409 LAST_ACTIVE_ADMIN`; `422 PASSWORD_INVALID` (policy); `422 CURRENT_PASSWORD_WRONG` (not a 401, so the console does not read it as an expired session).
+
+---
+
 # 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
 `Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.
@@ -3015,7 +3027,7 @@ Request body, both fields required:
 
 No `email`/`restaurantId`/`userId`/`membershipId`/`role`/`allBranches`/`branchIds`/`status`/`preferredLocale`/`invitedByUserId` field is ever accepted as authority, even if present (stripped by the existing global whitelist `ValidationPipe`, but never trusted regardless). `token` is validated at the DTO layer only as "a non-empty string" -- its specific raw-token shape is a business-layer concern (`SessionTokenService.isWellFormedRawToken`), so a malformed token converges on the identical generic outcome below rather than a distinguishable `400 VALIDATION_ERROR`.
 
-**Password is required for both a brand-new and an existing account** -- reusing the exact existing V1 password policy unchanged (10-128 characters, `PasswordHasherService`/Argon2id, no composition rules). For a brand-new User, it becomes the new account password (hashed, never the plaintext persisted). For an existing `ACTIVE` User, it must be that User's **current** password, verified against the existing `passwordHash` -- it is never used to replace or rehash that User's credential, and the User's `passwordHash`/`email`/`emailNormalized`/`preferredLocale`/`status` are never mutated by Acceptance. A wrong current password reuses the exact existing Login `401 INVALID_CREDENTIALS` contract unchanged -- the one deliberate exception to the generic outcome below. Random invalid-token traffic never reaches Argon2id: password work happens only after the Invitation, Restaurant, Branch-grant, and current-inviter-authority checks below have all already passed.
+**Password is required for both a brand-new and an existing account** -- reusing the exact existing V1 password policy unchanged (8-128 characters, `PasswordHasherService`/Argon2id, no composition rules). For a brand-new User, it becomes the new account password (hashed, never the plaintext persisted). For an existing `ACTIVE` User, it must be that User's **current** password, verified against the existing `passwordHash` -- it is never used to replace or rehash that User's credential, and the User's `passwordHash`/`email`/`emailNormalized`/`preferredLocale`/`status` are never mutated by Acceptance. A wrong current password reuses the exact existing Login `401 INVALID_CREDENTIALS` contract unchanged -- the one deliberate exception to the generic outcome below. Random invalid-token traffic never reaches Argon2id: password work happens only after the Invitation, Restaurant, Branch-grant, and current-inviter-authority checks below have all already passed.
 
 **The single generic public outcome**, covering every other unusable-Invitation/unusable-grant-state reason:
 

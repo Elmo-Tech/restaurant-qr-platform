@@ -47,7 +47,7 @@ describe('CreateStaffUserDto', () => {
     expect((await check({ ...VALID, allBranches: false, branchIds: [] })).fields).toContain('branchIds');
   });
 
-  it('applies the existing 10-128 character password policy to the password', async () => {
+  it('applies the existing 8-128 character password policy to the password', async () => {
     expect((await check({ ...VALID, password: 'short' })).fields).toContain('password');
     expect((await check({ ...VALID, password: 'x'.repeat(129) })).fields).toContain('password');
     expect((await check({ ...VALID, password: 'exactly-ten' })).fields).toEqual([]);

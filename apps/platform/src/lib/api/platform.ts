@@ -130,6 +130,7 @@ const data = async <T>(promise: Promise<{ data: T }>): Promise<T> => (await prom
 
 export const login = (email: string, password: string) =>
   data(platformFetch<{ data: Admin }>("/auth/login", { method: "POST", body: { email, password } }));
+export const getMe = () => data(platformFetch<{ data: Admin }>("/auth/me"));
 export const logout = () => platformFetch<void>("/auth/logout", { method: "POST" });
 export const getOverview = () => data(platformFetch<{ data: Overview }>("/overview"));
 
@@ -156,6 +157,47 @@ export const setRestaurantFeature = (id: string, feature: FeatureKey, enabled: b
       { method: "PUT", body: { enabled } },
     ),
   );
+
+export interface NewRestaurantInput {
+  restaurantName: string;
+  ownerEmail: string;
+  ownerPassword: string;
+  branchName: string;
+  defaultLocale: "ar" | "en";
+  currencyCode: string;
+  timezone: string;
+  packageId: string | null;
+}
+export const createRestaurant = (input: NewRestaurantInput) =>
+  data(
+    platformFetch<{ data: { id: string; publicId: string; name: string; ownerEmail: string } }>("/restaurants", {
+      method: "POST",
+      body: input,
+    }),
+  );
+
+export interface AdminSummary {
+  id: string;
+  email: string;
+  displayName: string;
+  status: "ACTIVE" | "DISABLED";
+  lastLoginAt: string | null;
+  createdAt: string;
+}
+export const listAdmins = () => data(platformFetch<{ data: AdminSummary[] }>("/admins"));
+export const createAdmin = (input: { email: string; displayName: string; password: string }) =>
+  data(platformFetch<{ data: AdminSummary }>("/admins", { method: "POST", body: input }));
+export const setAdminStatus = (id: string, status: "ACTIVE" | "DISABLED") =>
+  data(
+    platformFetch<{ data: AdminSummary }>(`/admins/${encodeURIComponent(id)}/status`, {
+      method: "PATCH",
+      body: { status },
+    }),
+  );
+export const resetAdminPassword = (id: string, password: string) =>
+  platformFetch<void>(`/admins/${encodeURIComponent(id)}/password`, { method: "PUT", body: { password } });
+export const changeOwnPassword = (currentPassword: string, newPassword: string) =>
+  platformFetch<void>("/auth/password", { method: "PUT", body: { currentPassword, newPassword } });
 
 export const listPackages = () => data(platformFetch<{ data: PackageSummary[] }>("/packages"));
 export const getPackage = (id: string) =>

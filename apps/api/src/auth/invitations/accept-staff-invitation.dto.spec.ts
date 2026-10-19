@@ -24,7 +24,7 @@ describe('AcceptStaffInvitationDto', () => {
   });
 
   it('B. requires token', async () => {
-    const errors = await validateDto({ password: '1234567890' });
+    const errors = await validateDto({ password: '12345678' });
     expect(errors.some((e) => e.property === 'token')).toBe(true);
   });
 
@@ -50,13 +50,13 @@ describe('AcceptStaffInvitationDto', () => {
     expect(errors.some((e) => e.property === 'password')).toBe(true);
   });
 
-  it('G. accepts a password at exactly the minimum length (10)', async () => {
-    const errors = await validateDto(validPayload({ password: '1234567890' }));
+  it('G. accepts a password at exactly the minimum length (8)', async () => {
+    const errors = await validateDto(validPayload({ password: '12345678' }));
     expect(errors).toHaveLength(0);
   });
 
   it('H. rejects a password below the minimum length', async () => {
-    const errors = await validateDto(validPayload({ password: '123456789' }));
+    const errors = await validateDto(validPayload({ password: '1234567' }));
     expect(errors.some((e) => e.property === 'password')).toBe(true);
   });
 

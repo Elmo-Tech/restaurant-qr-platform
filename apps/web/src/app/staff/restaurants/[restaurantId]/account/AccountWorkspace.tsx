@@ -12,7 +12,7 @@ import { Input } from '../../../../../components/ui/Input';
 import { PageHeader } from '../../../../../components/ui/PageHeader';
 import { SectionCard } from '../../../../../components/ui/SectionCard';
 
-const PASSWORD_MIN_LENGTH = 10;
+const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
 
 /**

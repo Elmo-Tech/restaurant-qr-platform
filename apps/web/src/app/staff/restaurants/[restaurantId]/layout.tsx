@@ -3,6 +3,7 @@ import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../lib/auth/session';
 import { canViewMenu } from '../../../../lib/menu/capabilities';
 import { canViewTables } from '../../../../lib/tables/capabilities';
+import { receivesDashboardOrders, usesTableOrdering } from '../../../../lib/entitlements/access';
 import { canViewOrders } from '../../../../lib/orders/capabilities';
 import { canViewKitchen } from '../../../../lib/kitchen/capabilities';
 import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
@@ -71,6 +72,10 @@ export default async function RestaurantWorkspaceLayout({
       canViewMenu={canViewMenu(membership)}
       canViewTables={canViewTables(membership)}
       canViewOrders={canViewOrders(membership)}
+      packageHides={{
+        tables: !usesTableOrdering(membership),
+        orders: !receivesDashboardOrders(membership),
+      }}
       canViewKitchen={canViewKitchen(membership)}
       canViewStaff={canViewStaff(membership)}
       canViewRestaurantSettings={canViewRestaurantSettings(membership)}

@@ -1,4 +1,5 @@
 import type { AuthContextMembership } from '../auth/types';
+import { receivesDashboardOrders } from '../entitlements/access';
 
 /**
  * UX-only capability gating (FT-11), mirroring `lib/orders/capabilities.ts`'s
@@ -13,5 +14,6 @@ import type { AuthContextMembership } from '../auth/types';
 const ANALYTICS_VIEW = 'analytics.view';
 
 export function canViewAnalytics(membership: AuthContextMembership): boolean {
-  return membership.permissions.includes(ANALYTICS_VIEW);
+  // the figures are about orders: nothing to show for a package that receives none
+  return membership.permissions.includes(ANALYTICS_VIEW) && receivesDashboardOrders(membership);
 }

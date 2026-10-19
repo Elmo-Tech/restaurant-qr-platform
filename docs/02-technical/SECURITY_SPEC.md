@@ -219,7 +219,7 @@ Do not invent a custom cryptographic implementation.
 
 V1 minimum:
 
-10 characters
+8 characters
 
 Recommended maximum accepted input:
 

@@ -1,4 +1,5 @@
 import type { AuthContextMembership } from '../auth/types';
+import { receivesDashboardOrders } from '../entitlements/access';
 
 /**
  * UX-only capability gating (Kitchen View V1), mirroring
@@ -8,7 +9,7 @@ import type { AuthContextMembership } from '../auth/types';
  * `PATCH .../orders/{id}/status`) stays the only authorization authority.
  */
 export function canViewKitchen(membership: AuthContextMembership): boolean {
-  return membership.permissions.includes('kitchen.view');
+  return membership.permissions.includes('kitchen.view') && receivesDashboardOrders(membership);
 }
 
 export function canUpdateKitchen(permissions: readonly string[]): boolean {

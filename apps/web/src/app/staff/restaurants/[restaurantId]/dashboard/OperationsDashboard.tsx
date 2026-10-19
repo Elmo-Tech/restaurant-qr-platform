@@ -85,6 +85,7 @@ export function OperationsDashboard({
   initialPickupEnabled,
   initialDeliveryEnabled,
   initialTableOrderingEnabled,
+  channels,
   webOrigin,
   access,
 }: {
@@ -95,6 +96,8 @@ export function OperationsDashboard({
   initialPickupEnabled: boolean;
   initialDeliveryEnabled: boolean;
   initialTableOrderingEnabled: boolean;
+  /** What the platform package includes: table orders, and pickup / delivery (dashboard or WhatsApp). */
+  channels: { table: boolean; pickupDelivery: boolean };
   webOrigin: string;
   access: DashboardAccess;
 }) {
@@ -123,7 +126,7 @@ export function OperationsDashboard({
   const requestRef = useRef(0);
   const basePath = `/staff/restaurants/${restaurantId}`;
   const ordersHref = access.orders ? `${basePath}/orders` : null;
-  const tablesHref = access.sessions || access.tables ? `${basePath}/tables` : null;
+  const tablesHref = channels.table && (access.sessions || access.tables) ? `${basePath}/tables` : null;
   const qrSettingsHref = access.settings ? `${basePath}/settings/guest-qr` : null;
 
   const { orders: canOrders, sessions: canSessions, tables: canTables, analytics: canAnalytics } = access;
@@ -385,6 +388,7 @@ export function OperationsDashboard({
         pickupEnabled={pickupEnabled}
         deliveryEnabled={deliveryEnabled}
         tableOrderingEnabled={tableOrderingEnabled}
+        channels={channels}
         canManage={access.manageRestaurant}
         busy={toggleBusy}
         onToggle={(type, next) => void toggleOrdering(type, next)}

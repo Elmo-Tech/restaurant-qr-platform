@@ -19,7 +19,7 @@ import { Select } from '../../../../../components/ui/Select';
 import { BranchScopeField } from './BranchScopeField';
 
 const SIMPLE_EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-const PASSWORD_MIN_LENGTH = 10;
+const PASSWORD_MIN_LENGTH = 8;
 const PASSWORD_MAX_LENGTH = 128;
 
 export interface NewUserDialogProps {

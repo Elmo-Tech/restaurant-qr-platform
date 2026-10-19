@@ -59,8 +59,8 @@ describe('PasswordHasherService', () => {
     });
 
     it.each([
-      ['exactly the minimum length (10)', 'a'.repeat(10), true],
-      ['one below the minimum (9)', 'a'.repeat(9), false],
+      ['exactly the minimum length (8)', 'a'.repeat(8), true],
+      ['one below the minimum (7)', 'a'.repeat(7), false],
       ['exactly the maximum length (128)', 'a'.repeat(128), true],
       ['one above the maximum (129)', 'a'.repeat(129), false],
     ])('%s is %s', async (_label, password, shouldSucceed) => {

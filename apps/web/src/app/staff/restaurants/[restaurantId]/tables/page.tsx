@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../lib/auth/session';
 import { getStaffI18n } from '../../../../../lib/i18n/server';
 import { canManageTables, canViewTables } from '../../../../../lib/tables/capabilities';
+import { usesTableOrdering } from '../../../../../lib/entitlements/access';
 import { getWebOrigin } from '../../../../../lib/env/web-origin';
 import { sessionCapabilities } from '../../../../../lib/table-sessions/capabilities';
 import { Alert } from '../../../../../components/ui/Alert';
@@ -58,6 +59,10 @@ export default async function TablesPage({ params, searchParams }: TablesPagePro
         })}
       </Alert>
     );
+  }
+
+  if (!usesTableOrdering(membership)) {
+    return <Alert variant="info">{t('features.page.tables')}</Alert>;
   }
 
   if (!canViewTables(membership)) {

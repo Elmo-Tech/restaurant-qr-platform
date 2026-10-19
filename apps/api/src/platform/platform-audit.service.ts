@@ -6,6 +6,11 @@ import type { PlatformAdminPrincipal } from './platform-auth.service';
 /** What the platform team can do; the audit log stores these as text. */
 export type PlatformAction =
   | 'admin.login'
+  | 'admin.created'
+  | 'admin.status_changed'
+  | 'admin.password_reset'
+  | 'admin.password_changed'
+  | 'restaurant.created'
   | 'restaurant.status_changed'
   | 'restaurant.feature_changed'
   | 'restaurant.package_changed'

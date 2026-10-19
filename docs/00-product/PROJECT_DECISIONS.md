@@ -1095,6 +1095,14 @@ for each one, which of the six features it includes.
   package can be deleted. Names are unique ignoring case and spacing.
 - **Audit:** creating, editing and deleting a package and changing a
   restaurant's package are recorded in the platform activity log.
+- **The restaurant dashboard shows only what the package includes** (2026-10-19):
+  Orders and Kitchen appear only with dashboard ordering or table ordering;
+  Tables appears only with table ordering; the home screen hides the order
+  analytics, the live tables and the pickup / delivery / table switches that the
+  package does not include (pickup and delivery stay with dashboard ordering or
+  WhatsApp). A page opened by URL says the feature is not in the package. UX
+  only: the Backend already refuses the actions. A display-only restaurant keeps
+  Menu, Staff and Settings (the menu QR code lives in Settings).
 
 **Reason:** the owner sells different service levels (display only, display +
 WhatsApp, everything) and needs to define and change them without a deployment.
@@ -1102,6 +1110,44 @@ WhatsApp, everything) and needs to define and change them without a deployment.
 **Impact:** migration `packages`, `package_features` and `restaurants.package_id`
 (additive); `/api/v1/platform/packages`; the entitlement check reads the package
 in the same query as the overrides; no feature code changed.
+
+---
+
+### DEC-047 — Creating Restaurants From the Platform Console
+
+**Status:** Accepted (owner, 2026-10-19).
+
+The platform team creates a Restaurant and its owner from the console, reusing the
+one provisioning routine of the operations CLI (Restaurant, locales, starter
+roles, OWNER user and membership, first Branch, Generic QR: one transaction, no
+menu or demo data), then puts it on an optional package. The platform team TYPES
+the owner's initial password and hands it over; the system does not generate it
+and there is no invitation e-mail yet (an e-mail service is a separate decision).
+The password follows the normal policy (8 to 128 characters), is only passed to
+the Argon2id hasher and never appears in a response, the audit log or a log. An
+owner e-mail that already belongs to another account is refused and nothing is
+written; the console never attaches an existing user. The action is recorded as
+`restaurant.created` (owner e-mail and package, never the password).
+
+---
+
+### DEC-048 — Managing the Platform Team
+
+**Status:** Accepted (owner, 2026-10-19).
+
+Platform Administrators are managed from the console (page "Team"). Every
+administrator has the same access (no roles). An administrator can add another
+(the person adding TYPES the new password and hands it over, as with a restaurant
+owner, DEC-047), disable or re-enable a colleague, set a new password for a
+colleague, and change their own password (the current password is required). Rules:
+disabling or resetting a password ends that administrator's sessions at once;
+changing one's own password ends the OTHER sessions of that account and keeps the
+current one; nobody can disable their own account and the last active
+administrator can never be disabled. Passwords follow the common policy (8 to 128
+characters), are only passed to the Argon2id hasher and never appear in a response
+or the audit log (`admin.created`, `admin.status_changed`, `admin.password_reset`,
+`admin.password_changed`). The provisioning script remains for the very first
+administrator.
 
 ---
 

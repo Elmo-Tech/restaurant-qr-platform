@@ -1,4 +1,5 @@
 import type { AuthContextMembership } from '../auth/types';
+import { receivesDashboardOrders } from '../entitlements/access';
 
 /**
  * UX-only capability gating (FT-5), mirroring `lib/tables/capabilities.ts`'s
@@ -15,5 +16,5 @@ import type { AuthContextMembership } from '../auth/types';
 const ORDERS_VIEW = 'orders.view';
 
 export function canViewOrders(membership: AuthContextMembership): boolean {
-  return membership.permissions.includes(ORDERS_VIEW);
+  return membership.permissions.includes(ORDERS_VIEW) && receivesDashboardOrders(membership);
 }

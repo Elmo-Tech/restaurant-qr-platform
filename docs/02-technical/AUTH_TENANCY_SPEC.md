@@ -254,7 +254,7 @@ Never log passwordHash.
 
 Initial V1 password policy:
 
-- Minimum 10 characters
+- Minimum 8 characters
 - Maximum reasonable limit such as 128 characters
 - No forced arbitrary composition rules
 
@@ -1448,7 +1448,7 @@ No new Audit event or realtime event -- neither exists in this codebase yet.
 
 **No auto-login (settlement of the "smallest safe Foundation" default):** successful Acceptance creates no `AuthSession` and sets no cookie. Normal `POST /auth/login` (#6, #147) remains the sole authentication entry point afterward.
 
-**Password contract:** required for both a brand-new and an existing account, reusing the exact existing V1 policy unchanged (#14, PasswordHasherService: 10-128 characters, Argon2id, no composition rules) -- there is no second password policy. For a brand-new User it becomes the new account password. For an existing `ACTIVE` User it must be that User's CURRENT password, verified (never replaced, never rehashed, never persisted as a new value) -- token possession alone is not sufficient proof for an account that already has credentials (settles #80, above). A wrong current password reuses the exact existing Login `401 INVALID_CREDENTIALS` contract (#150, #35) unchanged -- the one deliberate exception to the generic outcome below. Password work (hashing or verification) never runs before the Invitation/Restaurant/Branch-grant/current-inviter-authority checks below have all already passed, so unusable-token traffic never reaches Argon2id.
+**Password contract:** required for both a brand-new and an existing account, reusing the exact existing V1 policy unchanged (#14, PasswordHasherService: 8-128 characters, Argon2id, no composition rules) -- there is no second password policy. For a brand-new User it becomes the new account password. For an existing `ACTIVE` User it must be that User's CURRENT password, verified (never replaced, never rehashed, never persisted as a new value) -- token possession alone is not sufficient proof for an account that already has credentials (settles #80, above). A wrong current password reuses the exact existing Login `401 INVALID_CREDENTIALS` contract (#150, #35) unchanged -- the one deliberate exception to the generic outcome below. Password work (hashing or verification) never runs before the Invitation/Restaurant/Branch-grant/current-inviter-authority checks below have all already passed, so unusable-token traffic never reaches Argon2id.
 
 **One generic public outcome** (`404 INVITATION_NOT_FOUND`, API_CONVENTIONS.md #117C) covers every unusable-Invitation/unusable-grant-state reason without distinction: malformed/unknown token; expired/revoked/already-accepted Invitation; a historical/corrupt unsupported stored Role; corrupt or cross-Restaurant Branch grant data; a global invited User currently `INVITED` or `DISABLED` (#80); an already-existing target-Restaurant Membership of ANY status (#80); and a current inviter no longer authorized to grant this Invitation (below). `Restaurant` non-operational state is the one outcome deliberately not folded in -- it reuses the unchanged `409 RESTAURANT_NOT_OPERATIONAL` contract (#65A), and the Invitation is left unconsumed (retriable once the Restaurant becomes `ACTIVE` again).
 

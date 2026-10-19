@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import type { RestaurantStatus } from '../../lib/auth/types';
-import { RestaurantSidebar, type StaffSection } from './RestaurantSidebar';
+import { RestaurantSidebar, type PackageHides, type StaffSection } from './RestaurantSidebar';
 import { StaffTopbar } from './StaffTopbar';
 import { Breadcrumbs } from './Breadcrumbs';
 import { useStaffI18n } from '../../lib/i18n/client';
@@ -17,6 +17,7 @@ interface StaffShellProps {
   canViewMenu: boolean;
   canViewTables: boolean;
   canViewOrders: boolean;
+  packageHides?: PackageHides;
   canViewKitchen: boolean;
   canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
@@ -77,6 +78,7 @@ export function StaffShell({
   canViewMenu,
   canViewTables,
   canViewOrders,
+  packageHides,
   canViewKitchen,
   canViewStaff,
   canViewRestaurantSettings,
@@ -141,6 +143,7 @@ export function StaffShell({
         canViewMenu={canViewMenu}
         canViewTables={canViewTables}
         canViewOrders={canViewOrders}
+        packageHides={packageHides}
         canViewKitchen={canViewKitchen}
         canViewStaff={canViewStaff}
         canViewRestaurantSettings={canViewRestaurantSettings}
