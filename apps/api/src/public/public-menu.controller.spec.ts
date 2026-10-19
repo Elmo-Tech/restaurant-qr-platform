@@ -22,6 +22,7 @@ const SAMPLE_DATA: PublicMenuData = {
     suggestions: false,
     tracking: true,
     templatesAllowed: true,
+    allowedTemplates: [],
     ordering: null,
     pickupBranches: [],
     deliveryBranches: [],

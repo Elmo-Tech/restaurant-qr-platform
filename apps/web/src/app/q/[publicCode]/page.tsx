@@ -43,15 +43,18 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
     );
   }
 
-  // The Restaurant's saved template; `?template=` previews another layout (the Staff design picker uses it).
+  // The Restaurant's saved template; `?template=` previews another layout (the Staff design picker uses it),
+  // but only one the package allows (DEC-043, DEC-051).
+  const { allowedTemplates, templatesAllowed } = result.data.context;
+  const previewAllowed =
+    template !== undefined &&
+    (allowedTemplates ? allowedTemplates.includes(template.toUpperCase()) : templatesAllowed !== false);
   return (
     <PublicMenuView
       data={result.data}
       publicCode={publicCode}
       template={parseMenuTemplate(
-        // A template preview is honoured only where the package allows templates (DEC-043).
-        (result.data.context.templatesAllowed === false ? undefined : template) ??
-          result.data.context.restaurant.menuTemplate,
+        (previewAllowed ? template : undefined) ?? result.data.context.restaurant.menuTemplate,
       )}
     />
   );

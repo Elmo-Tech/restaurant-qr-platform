@@ -204,8 +204,8 @@ export class RestaurantProfileService {
     restaurantId: string,
     menuTemplate: MenuTemplate,
   ): Promise<{ menuTemplate: MenuTemplate }> {
-    // Only the classic template is always available; the others are a platform feature (DEC-043).
-    if (menuTemplate !== 'CLASSIC' && !(await this.entitlements.isEnabled(restaurantId, 'MENU_TEMPLATES'))) {
+    // Classic is always available; the others are what the package allows (DEC-043, DEC-051).
+    if (menuTemplate !== 'CLASSIC' && !(await this.entitlements.templatesFor(restaurantId)).includes(menuTemplate)) {
       throw new FeatureNotAvailableError('MENU_TEMPLATES');
     }
     return this.prisma.restaurant.update({

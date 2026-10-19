@@ -3,6 +3,7 @@ import { Transform, Type } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
+  IsBoolean,
   IsIn,
   IsOptional,
   IsString,
@@ -13,6 +14,7 @@ import {
   ValidateNested,
 } from 'class-validator';
 import { FEATURE_KEYS, type FeatureKey } from '../../entitlements/features';
+import { MENU_TEMPLATE_KEYS } from '../../entitlements/templates';
 
 const trimmed = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
@@ -96,6 +98,24 @@ export class PackageOfferDto {
   endsAt?: string | null;
 }
 
+/** The Guest menu templates a package allows (DEC-051). Classic is always allowed and is not listed. */
+export class PackageTemplatesDto {
+  @IsBoolean()
+  all!: boolean;
+
+  @IsArray()
+  @ArrayUnique()
+  @IsIn(MENU_TEMPLATE_KEYS.filter((key) => key !== 'CLASSIC'), { each: true })
+  selected!: string[];
+}
+
+const Templates = () =>
+  applyDecorators(
+    IsOptional(),
+    ValidateNested(),
+    Type(() => PackageTemplatesDto),
+  );
+
 const Prices = () =>
   applyDecorators(
     IsOptional(),
@@ -124,6 +144,9 @@ export class CreatePackageDto {
   @Offer()
   offer?: PackageOfferDto | null;
 
+  @Templates()
+  templates?: PackageTemplatesDto;
+
   @Features()
   features!: FeatureKey[];
 
@@ -145,6 +168,9 @@ export class UpdatePackageDto {
 
   @Offer()
   offer?: PackageOfferDto | null;
+
+  @Templates()
+  templates?: PackageTemplatesDto;
 
   @IsOptional()
   @Features()

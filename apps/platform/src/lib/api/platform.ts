@@ -84,6 +84,16 @@ export interface FeatureState {
 
 export type PackageStatus = "ACTIVE" | "ARCHIVED";
 
+/** The Guest menu templates a package can allow besides Classic, which is always allowed (DEC-051). */
+export const PACKAGE_TEMPLATES = ["LIST", "GALLERY", "MENU", "FLOATING", "CENTERED", "COMPACT"] as const;
+export type PackageTemplate = (typeof PACKAGE_TEMPLATES)[number];
+
+/** Every template (also ones added later), or the chosen ones. Meaningful when the package includes Menu designs. */
+export interface PackageTemplates {
+  all: boolean;
+  selected: PackageTemplate[];
+}
+
 export interface PackagePrices {
   egpMonthly: string | null;
   egpYearly: string | null;
@@ -107,6 +117,7 @@ export interface PackageSummary {
   /** List prices per billing currency and period, as strings; null = not offered (DEC-049). */
   prices: PackagePrices;
   offer: PackageOffer | null;
+  templates: PackageTemplates;
   features: FeatureKey[];
   restaurantCount: number;
   createdAt: string;
@@ -124,6 +135,7 @@ export interface PackageInput {
   prices: PackagePrices;
   /** null removes the offer. */
   offer: { percent: string; label: string | null; endsAt: string | null } | null;
+  templates: PackageTemplates;
   features: FeatureKey[];
   status?: PackageStatus;
 }

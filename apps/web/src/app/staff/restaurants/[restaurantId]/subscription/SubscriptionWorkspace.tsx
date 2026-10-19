@@ -533,13 +533,31 @@ function ComparePlans({
                   </p>
                 </th>
                 <td className="border-t border-border bg-primary/5 px-4 py-3.5 text-center">
-                  <Cell on={has(feature.key)} isNew={false} />
+                  <Cell
+                    on={has(feature.key)}
+                    isNew={false}
+                    note={
+                      feature.key === 'MENU_TEMPLATES' && has(feature.key)
+                        ? t('subscription.compare.designCount', { count: data.templates.current, total: data.templates.total })
+                        : undefined
+                    }
+                  />
                 </td>
                 {options.map((option) => {
                   const on = option.features.includes(feature.key);
+                  const designs = feature.key === 'MENU_TEMPLATES';
+                  const isNew = on && (!has(feature.key) || (designs && option.templateCount > data.templates.current));
                   return (
-                    <td key={option.id} className={cn('border-t border-border px-4 py-3.5 text-center', on && !has(feature.key) && 'bg-warning-soft/70')}>
-                      <Cell on={on} isNew={on && !has(feature.key)} />
+                    <td key={option.id} className={cn('border-t border-border px-4 py-3.5 text-center', isNew && 'bg-warning-soft/70')}>
+                      <Cell
+                        on={on}
+                        isNew={isNew}
+                        note={
+                          designs && on
+                            ? t('subscription.compare.designCount', { count: option.templateCount, total: data.templates.total })
+                            : undefined
+                        }
+                      />
                     </td>
                   );
                 })}
@@ -567,12 +585,13 @@ function ComparePlans({
   );
 }
 
-function Cell({ on, isNew }: { on: boolean; isNew: boolean }) {
+function Cell({ on, isNew, note }: { on: boolean; isNew: boolean; note?: string }) {
   const { t } = useStaffI18n();
   return on ? (
     <>
       <Tick strong={isNew} />
       <span className="sr-only">{t('subscription.compare.included')}</span>
+      {note ? <span className="mt-1 block text-[11px] font-medium text-muted-foreground">{note}</span> : null}
     </>
   ) : (
     <>

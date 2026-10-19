@@ -1,5 +1,6 @@
 'use client';
 
+import Link from 'next/link';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../../lib/i18n/messages';
@@ -158,13 +159,13 @@ export function DesignWorkspace({
   restaurantId,
   canManage,
   initialTemplate,
-  templatesAllowed,
+  allowedTemplates,
 }: {
   restaurantId: string;
   canManage: boolean;
   initialTemplate: Template;
-  /** The platform allows templates other than Classic (DEC-043). */
-  templatesAllowed: boolean;
+  /** The templates the package allows (DEC-051); Classic is always in it. The others are shown locked. */
+  allowedTemplates: readonly Template[];
 }) {
   const { t } = useStaffI18n();
   const [saved, setSaved] = useState<Template>(initialTemplate);
@@ -230,18 +231,29 @@ export function DesignWorkspace({
           {error ? <Alert variant="error">{error}</Alert> : null}
           {justSaved && !dirty ? <Alert variant="success">{t('design.saved')}</Alert> : null}
           {!canManage ? <Alert variant="info">{t('design.needsFullScope')}</Alert> : null}
-          {!templatesAllowed ? <Alert variant="warning">{t('features.templates.locked')}</Alert> : null}
+          {allowedTemplates.length < TEMPLATES.length ? (
+            <Alert variant="warning">
+              {t(allowedTemplates.length <= 1 ? 'features.templates.locked' : 'design.someLocked')}{' '}
+              <Link
+                href={`/staff/restaurants/${restaurantId}/subscription`}
+                className="font-semibold underline underline-offset-4"
+              >
+                {t('design.seePlans')}
+              </Link>
+            </Alert>
+          ) : null}
 
           <ul role="radiogroup" aria-label={t('design.heading')} className="grid gap-3 sm:grid-cols-2">
             {TEMPLATES.map((template) => {
               const isSelected = selected === template.key;
+              const locked = !allowedTemplates.includes(template.key);
               return (
                 <li key={template.key}>
                   <button
                     type="button"
                     role="radio"
                     aria-checked={isSelected}
-                    disabled={!canManage || (!templatesAllowed && template.key !== 'CLASSIC')}
+                    disabled={!canManage || locked}
                     onClick={() => {
                       setSelected(template.key);
                       setJustSaved(false);
@@ -264,6 +276,10 @@ export function DesignWorkspace({
                       ) : isSelected ? (
                         <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
                           {t('design.previewing')}
+                        </span>
+                      ) : locked ? (
+                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                          {t('design.lockedTag')}
                         </span>
                       ) : null}
                     </span>

@@ -54,6 +54,7 @@ import {
 } from './platform-overview.service';
 import {
   PlatformPackagesService,
+  normalizeTemplates,
   type PackageDetail,
   type PackageInput,
   type PackageOutcome,
@@ -596,6 +597,9 @@ export class PlatformController {
         usdYearly: normalizeMoney(body.prices?.usdYearly) ?? null,
       },
       offer: toOfferInput(body.offer) ?? null,
+      templates: normalizeTemplates(
+        body.templates ?? { all: false, selected: [] },
+      ),
       features: body.features,
       status: body.status ?? 'ACTIVE',
     };
@@ -622,6 +626,9 @@ export class PlatformController {
           features: body.features,
           prices: toPricesPatch(body.prices),
           offer: toOfferInput(body.offer),
+          templates: body.templates
+            ? normalizeTemplates(body.templates)
+            : undefined,
         }),
       ),
     };

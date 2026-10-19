@@ -683,10 +683,13 @@ model Package {
   offerPercent    Decimal?     @map("offer_percent") @db.Decimal(5, 2)
   offerLabel      String?      @map("offer_label")
   offerEndsAt     DateTime?    @map("offer_ends_at") @db.Date
+  // Guest menu templates (DEC-051): every template (also ones added later) or the listed ones; Classic always.
+  allTemplates    Boolean      @default(false) @map("all_templates")
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
   features             PackageFeature[]
+  templates            PackageTemplate[]
   restaurants          Restaurant[]
   subscriptions        Subscription[]
   subscriptionRequests SubscriptionRequest[]
@@ -704,6 +707,18 @@ model PackageFeature {
 
   @@unique([packageId, feature])
   @@map("package_features")
+}
+
+// A menu template a package allows (DEC-051). Classic is always allowed, so it is never stored.
+model PackageTemplate {
+  id        String       @id @default(uuid()) @db.Uuid
+  packageId String       @map("package_id") @db.Uuid
+  template  MenuTemplate
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, template])
+  @@map("package_templates")
 }
 
 // Manual billing (DEC-049).

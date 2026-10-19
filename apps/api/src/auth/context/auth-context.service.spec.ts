@@ -3,6 +3,7 @@ import { ALL_PERMISSIONS } from '../permission/permission';
 import { ROLE_PERMISSIONS, type StarterRoleKind } from '../permission/role-permissions';
 import { starterRoleData } from '../permission/starter-roles';
 import { ALL_FEATURES } from '../../entitlements/features';
+import { MENU_TEMPLATE_KEYS } from '../../entitlements/templates';
 
 /** The Restaurant Role row a Membership of this starter kind holds (FT-12C). */
 function roleOf(kind: string) {
@@ -39,7 +40,8 @@ const USER = {
 
 /** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
 const ENTITLEMENTS = {
-  forRestaurants: (ids: string[]) => Promise.resolve(new Map(ids.map((id) => [id, ALL_FEATURES]))),
+  detailsForRestaurants: (ids: string[]) =>
+    Promise.resolve(new Map(ids.map((id) => [id, { features: ALL_FEATURES, templates: [...MENU_TEMPLATE_KEYS] }]))),
 };
 
 describe('AuthContextService', () => {

@@ -1,6 +1,10 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { FEATURE_KEYS, type FeatureKey } from '../entitlements/features';
+import {
+  MENU_TEMPLATE_KEYS,
+  type MenuTemplateKey,
+} from '../entitlements/templates';
 import { Prisma, type PackageStatus } from '../generated/prisma/client';
 import {
   formatDateOnly,
@@ -27,6 +31,28 @@ export interface PackageOfferView {
   active: boolean;
 }
 
+/** The Guest menu templates a package allows (DEC-051): every one, or a chosen list. Classic is implied. */
+export interface PackageTemplatesView {
+  /** Every template, including ones added later. */
+  all: boolean;
+  /** The chosen templates (never Classic; empty when `all`). */
+  selected: MenuTemplateKey[];
+}
+
+/** `all` wins and Classic is implied: the list is stored in the documented order without Classic. */
+export function normalizeTemplates(input: {
+  all: boolean;
+  selected: readonly string[];
+}): PackageTemplatesView {
+  if (input.all) return { all: true, selected: [] };
+  return {
+    all: false,
+    selected: MENU_TEMPLATE_KEYS.filter(
+      (key) => key !== 'CLASSIC' && input.selected.includes(key),
+    ),
+  };
+}
+
 export interface PackageView {
   id: string;
   name: string;
@@ -34,6 +60,8 @@ export interface PackageView {
   status: PackageStatus;
   prices: PackagePriceView;
   offer: PackageOfferView | null;
+  /** The templates it allows (meaningful when the package includes Menu designs). */
+  templates: PackageTemplatesView;
   /** The features this package includes. */
   features: FeatureKey[];
   restaurantCount: number;
@@ -59,6 +87,7 @@ export interface PackageInput {
     label: string | null;
     endsAt: string | null;
   } | null;
+  templates: PackageTemplatesView;
   features: FeatureKey[];
   status: PackageStatus;
 }
@@ -93,6 +122,8 @@ const packageSelect = {
   offerEndsAt: true,
   createdAt: true,
   updatedAt: true,
+  allTemplates: true,
+  templates: { select: { template: true } },
   features: { select: { feature: true } },
   _count: { select: { restaurants: true, subscriptions: true } },
 } satisfies Prisma.PackageSelect;
@@ -127,6 +158,10 @@ const toView = (row: PackageRow): PackageView => ({
           row.offerEndsAt.getTime() >= todayInCairo().getTime(),
       }
     : null,
+  templates: normalizeTemplates({
+    all: row.allTemplates,
+    selected: row.templates.map((t) => t.template),
+  }),
   // keep the documented feature order, not the storage order
   features: FEATURE_KEYS.filter((key) =>
     row.features.some((f) => f.feature === key),
@@ -146,6 +181,7 @@ const toInput = (view: PackageView): PackageInput => ({
     label: view.offer.label,
     endsAt: view.offer.endsAt,
   },
+  templates: view.templates,
   features: view.features,
   status: view.status,
 });
@@ -228,6 +264,10 @@ export class PlatformPackagesService {
           priceUsdMonthly: input.prices.usdMonthly,
           priceUsdYearly: input.prices.usdYearly,
           ...offerColumns(input.offer),
+          allTemplates: input.templates.all,
+          templates: {
+            create: input.templates.selected.map((template) => ({ template })),
+          },
           features: { create: input.features.map((feature) => ({ feature })) },
         },
         select: packageSelect,
@@ -263,11 +303,14 @@ export class PlatformPackagesService {
         patch.description === undefined ? base.description : patch.description,
       prices: { ...base.prices, ...patch.prices },
       offer: patch.offer === undefined ? base.offer : patch.offer,
+      templates: patch.templates ?? base.templates,
       features: patch.features ?? base.features,
       status: patch.status ?? base.status,
     };
     if (!offerIsValid(next.offer)) return { outcome: 'INVALID_OFFER' };
 
+    const templatesChanged =
+      JSON.stringify(base.templates) !== JSON.stringify(next.templates);
     const featuresChanged =
       patch.features !== undefined && !sameSet(current.features, next.features);
     try {
@@ -278,9 +321,19 @@ export class PlatformPackagesService {
             data: next.features.map((feature) => ({ packageId, feature })),
           });
         }
+        if (templatesChanged) {
+          await tx.packageTemplate.deleteMany({ where: { packageId } });
+          await tx.packageTemplate.createMany({
+            data: next.templates.selected.map((template) => ({
+              packageId,
+              template,
+            })),
+          });
+        }
         return tx.package.update({
           where: { id: packageId },
           data: {
+            allTemplates: next.templates.all,
             name: next.name,
             nameNormalized: normalizeName(next.name),
             description: next.description,
@@ -438,6 +491,9 @@ function changedFields(before: PackageInput, after: PackageInput): string[] {
   }
   if (JSON.stringify(before.offer) !== JSON.stringify(after.offer)) {
     changes.push('offer');
+  }
+  if (JSON.stringify(before.templates) !== JSON.stringify(after.templates)) {
+    changes.push('templates');
   }
   if (!sameSet(before.features, after.features)) changes.push('features');
   return changes;

@@ -58,6 +58,8 @@ export interface AuthContextRestaurant {
   menuTemplate: MenuTemplateApi;
   /** What the platform allows this Restaurant (DEC-043); the dashboard locks controls for what is off. */
   features: FeatureMap;
+  /** The Guest menu templates the package allows (DEC-051); Classic is always in it. Absent on an older Backend. */
+  allowedTemplates?: MenuTemplateApi[];
   /** Guest Menu contact details (Settings -> Profile). */
   contact: RestaurantContact;
   /** QR appearance (Settings -> Restaurant QR): applied to the Restaurant QR and the table QR panels. */

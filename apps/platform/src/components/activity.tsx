@@ -31,7 +31,7 @@ const ACTION_LABEL: Record<string, MessageKey> = {
   "subscription_request.status_changed": "action.subscription_request.status_changed",
 };
 
-const PACKAGE_PARTS = ["name", "description", "status", "prices", "offer", "features"] as const;
+const PACKAGE_PARTS = ["name", "description", "status", "prices", "offer", "templates", "features"] as const;
 
 const METHODS = ["CASH", "BANK_TRANSFER", "INSTAPAY", "MOBILE_WALLET", "OTHER"] as const;
 

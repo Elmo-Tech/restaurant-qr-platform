@@ -23,6 +23,12 @@ import {
   todayInCairo,
   type SubscriptionPhase,
 } from '../platform/billing/subscription-dates';
+import {
+  allowedTemplates,
+  MENU_TEMPLATE_KEYS,
+  templateCountOf,
+  type PackageTemplateRule,
+} from '../entitlements/templates';
 import { PlatformAuditService } from '../platform/platform-audit.service';
 import { upgradeCandidates } from './plan-options';
 
@@ -50,6 +56,8 @@ export interface UpgradeOptionView {
   features: FeatureKey[];
   /** What it would add to what the restaurant has now. */
   adds: FeatureKey[];
+  /** How many Guest menu templates it gives (Classic counts, DEC-051). */
+  templateCount: number;
   priceMonthly: string | null;
   priceYearly: string | null;
   /** An offer that is on today, or null. */
@@ -75,6 +83,8 @@ export interface MySubscriptionView {
   package: { id: string; name: string } | null;
   /** What the restaurant effectively has (package, exceptions and defaults applied). */
   features: { key: FeatureKey; included: boolean }[];
+  /** The Guest menu templates it may use now, out of all of them (DEC-051). */
+  templates: { current: number; total: number };
   subscription: PlanSubscriptionView | null;
   upgrades: UpgradeOptionView[];
   openRequest: OpenRequestView | null;
@@ -148,7 +158,9 @@ export class MySubscriptionService {
           select: {
             id: true,
             name: true,
+            allTemplates: true,
             features: { select: { feature: true } },
+            templates: { select: { template: true } },
           },
         },
         features: { select: { feature: true, enabled: true } },
@@ -171,6 +183,18 @@ export class MySubscriptionService {
       restaurant.features,
       restaurant.package?.features.map((f) => f.feature),
     );
+    const currentTemplates = allowedTemplates({
+      featureEnabled: effective.MENU_TEMPLATES,
+      rule: restaurant.package
+        ? {
+            includesFeature: restaurant.package.features.some(
+              (f) => f.feature === 'MENU_TEMPLATES',
+            ),
+            all: restaurant.package.allTemplates,
+            selected: restaurant.package.templates.map((t) => t.template),
+          }
+        : null,
+    });
     const currency = currencyForCountry(restaurant.countryCode);
     const today = todayInCairo();
 
@@ -222,18 +246,31 @@ export class MySubscriptionService {
         offerPercent: true,
         offerLabel: true,
         offerEndsAt: true,
+        allTemplates: true,
         features: { select: { feature: true } },
+        templates: { select: { template: true } },
       },
     });
     const upgrades = upgradeCandidates({
       currentPackageId: restaurant.packageId,
       effective,
-      packages: packages.map((pkg) => ({
-        ...pkg,
-        features: FEATURE_KEYS.filter((key) =>
-          pkg.features.some((f) => f.feature === key),
-        ),
-      })),
+      currentTemplateCount: currentTemplates.length,
+      packages: packages.map((pkg) => {
+        const rule: PackageTemplateRule = {
+          includesFeature: pkg.features.some(
+            (f) => f.feature === 'MENU_TEMPLATES',
+          ),
+          all: pkg.allTemplates,
+          selected: pkg.templates.map((t) => t.template),
+        };
+        return {
+          ...pkg,
+          features: FEATURE_KEYS.filter((key) =>
+            pkg.features.some((f) => f.feature === key),
+          ),
+          templateCount: templateCountOf(rule),
+        };
+      }),
     }).map(({ pkg, adds }): UpgradeOptionView => {
       const offerOn =
         pkg.offerPercent !== null &&
@@ -248,6 +285,7 @@ export class MySubscriptionService {
         description: pkg.description,
         features: pkg.features,
         adds,
+        templateCount: pkg.templateCount,
         priceMonthly: monthly?.toFixed(2) ?? null,
         priceYearly: yearly?.toFixed(2) ?? null,
         offer:
@@ -271,6 +309,10 @@ export class MySubscriptionService {
         name: restaurant.package.name,
       },
       features: FEATURE_KEYS.map((key) => ({ key, included: effective[key] })),
+      templates: {
+        current: currentTemplates.length,
+        total: MENU_TEMPLATE_KEYS.length,
+      },
       subscription,
       upgrades,
       openRequest: restaurant.subscriptionRequests[0]

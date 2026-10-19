@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../database/prisma.service';
 import { EntitlementsService } from '../../entitlements/entitlements.service';
 import { ALL_FEATURES, type FeatureMap } from '../../entitlements/features';
+import { MENU_TEMPLATE_KEYS, type MenuTemplateKey } from '../../entitlements/templates';
 import type { MenuTemplate } from '../../generated/prisma/client';
 import {
   CONTACT_COLUMNS,
@@ -52,6 +53,8 @@ export interface AuthContextRestaurant {
   menuTemplate: MenuTemplate;
   /** What the platform allows this Restaurant (DEC-043); the dashboard locks controls for what is off. */
   features: FeatureMap;
+  /** The Guest menu templates its package allows (DEC-051); Classic is always in it. */
+  allowedTemplates: MenuTemplateKey[];
   /** Guest Menu contact details (Settings -> Profile). */
   contact: RestaurantContact;
   /** QR appearance (Settings -> Restaurant QR), applied to the Restaurant QR and Table QR panels. */
@@ -269,7 +272,7 @@ export class AuthContextService {
       branchesByMembershipId.set(row.restaurantMembershipId, list);
     }
 
-    const featuresByRestaurant = await this.entitlements.forRestaurants([
+    const entitlementsByRestaurant = await this.entitlements.detailsForRestaurants([
       ...new Set(memberships.map((membership) => membership.restaurant.id)),
     ]);
 
@@ -302,7 +305,8 @@ export class AuthContextService {
           tableOrderingEnabled: membership.restaurant.tableOrderingEnabled,
           whatsappOrderingEnabled: membership.restaurant.whatsappOrderingEnabled,
           menuTemplate: membership.restaurant.menuTemplate,
-          features: featuresByRestaurant.get(membership.restaurant.id) ?? ALL_FEATURES,
+          features: entitlementsByRestaurant.get(membership.restaurant.id)?.features ?? ALL_FEATURES,
+          allowedTemplates: entitlementsByRestaurant.get(membership.restaurant.id)?.templates ?? [...MENU_TEMPLATE_KEYS],
           contact: contactFromColumns(membership.restaurant),
           qrStyle: {
             foregroundColor: membership.restaurant.qrForegroundColor,

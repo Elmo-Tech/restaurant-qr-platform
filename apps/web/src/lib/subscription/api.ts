@@ -35,6 +35,8 @@ export interface UpgradeOption {
   features: PlanFeatureKey[];
   /** What it would add to what the restaurant has now. */
   adds: PlanFeatureKey[];
+  /** How many Guest menu templates it gives (Classic counts, DEC-051). */
+  templateCount: number;
   priceMonthly: string | null;
   priceYearly: string | null;
   /** An offer that is on today. */
@@ -55,6 +57,8 @@ export interface MySubscription {
   graceDays: number;
   package: { id: string; name: string } | null;
   features: { key: PlanFeatureKey; included: boolean }[];
+  /** The Guest menu templates the restaurant may use now, out of all of them (DEC-051). */
+  templates: { current: number; total: number };
   subscription: PlanSubscription | null;
   upgrades: UpgradeOption[];
   openRequest: OpenRequest | null;

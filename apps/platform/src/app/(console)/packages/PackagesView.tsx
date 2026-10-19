@@ -136,6 +136,14 @@ export function PackagesView() {
                   ) : null}
                 </div>
 
+                {pkg.features.includes("MENU_TEMPLATES") ? (
+                  <p className="mt-3 text-[13px] text-muted-foreground">
+                    {pkg.templates.all
+                      ? t("packages.designsAll")
+                      : t("packages.designsCount", { count: fmt.number(pkg.templates.selected.length + 1) })}
+                  </p>
+                ) : null}
+
                 <div className="mt-4 flex flex-wrap gap-1.5">
                   {pkg.features.length === 0 ? (
                     <span className="text-[13px] text-muted-foreground">{t("packages.noFeatures")}</span>

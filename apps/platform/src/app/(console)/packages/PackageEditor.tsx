@@ -13,14 +13,17 @@ import {
   deletePackage,
   FEATURE_KEYS,
   getPackage,
+  PACKAGE_TEMPLATES,
   isDisplayOnly,
   ORDERING_FEATURES,
   updatePackage,
   type FeatureKey,
   type PackageDetail,
   type PackageInput,
+  type PackageTemplate,
 } from "@/lib/api/platform";
 import { useI18n } from "@/lib/i18n/client";
+import { cn } from "@/lib/utils";
 
 /** A price the Backend accepts: digits with at most two decimals. */
 const MONEY = /^\d{1,10}(\.\d{1,2})?$/;
@@ -38,6 +41,9 @@ interface FormState {
   offerPercent: string;
   offerLabel: string;
   offerEndsAt: string;
+  /** Menu designs (DEC-051): every design, also future ones, or only the ticked ones. */
+  templatesAll: boolean;
+  templates: PackageTemplate[];
   features: FeatureKey[];
 }
 
@@ -49,6 +55,8 @@ const EMPTY: FormState = {
   offerPercent: "",
   offerLabel: "",
   offerEndsAt: "",
+  templatesAll: true,
+  templates: [],
   features: [],
 };
 
@@ -65,6 +73,8 @@ const formFrom = (pkg: PackageDetail): FormState => ({
   offerPercent: pkg.offer?.percent ?? "",
   offerLabel: pkg.offer?.label ?? "",
   offerEndsAt: pkg.offer?.endsAt ?? "",
+  templatesAll: pkg.templates.all,
+  templates: pkg.templates.selected,
   features: pkg.features,
 });
 
@@ -84,6 +94,10 @@ function toInput(form: FormState): PackageInput {
     offer: form.offerOn
       ? { percent: form.offerPercent.trim(), label: orNull(form.offerLabel), endsAt: orNull(form.offerEndsAt) }
       : null,
+    templates: {
+      all: form.templatesAll,
+      selected: form.templatesAll ? [] : PACKAGE_TEMPLATES.filter((key) => form.templates.includes(key)),
+    },
     features: FEATURE_KEYS.filter((key) => form.features.includes(key)),
   };
 }
@@ -446,6 +460,71 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
               </p>
             ) : null}
           </Card>
+
+          {form.features.includes("MENU_TEMPLATES") ? (
+            <Card>
+              <CardHeader title={t("package.templates")} description={t("package.templatesHint")} />
+              <div className="space-y-4 p-5">
+                <div role="radiogroup" aria-label={t("package.templates")} className="grid gap-3 sm:grid-cols-2">
+                  {([true, false] as const).map((all) => (
+                    <label
+                      key={String(all)}
+                      className={cn(
+                        "flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors",
+                        form.templatesAll === all ? "border-primary bg-primary-soft" : "border-border hover:bg-surface-2",
+                      )}
+                    >
+                      <input
+                        type="radio"
+                        name="templates-mode"
+                        checked={form.templatesAll === all}
+                        onChange={() => set("templatesAll", all)}
+                        className="mt-0.5 size-4 shrink-0 accent-primary"
+                      />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium text-foreground">
+                          {t(all ? "package.templatesAll" : "package.templatesChoose")}
+                        </span>
+                        <span className="mt-0.5 block text-[13px] text-muted-foreground">
+                          {t(all ? "package.templatesAllHint" : "package.templatesChooseHint")}
+                        </span>
+                      </span>
+                    </label>
+                  ))}
+                </div>
+                {!form.templatesAll ? (
+                  <ul className="grid gap-2 sm:grid-cols-2">
+                    <li>
+                      <label className="flex items-center gap-3 rounded-lg border border-border bg-surface-2/60 px-4 py-3 text-sm text-muted-foreground">
+                        <input type="checkbox" checked disabled className="size-4 shrink-0 accent-primary" />
+                        {t("package.templatesClassic")}
+                      </label>
+                    </li>
+                    {PACKAGE_TEMPLATES.map((key) => (
+                      <li key={key}>
+                        <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm text-foreground hover:bg-surface-2/60">
+                          <input
+                            type="checkbox"
+                            checked={form.templates.includes(key)}
+                            onChange={() =>
+                              set(
+                                "templates",
+                                form.templates.includes(key)
+                                  ? form.templates.filter((item) => item !== key)
+                                  : [...form.templates, key],
+                              )
+                            }
+                            className="size-4 shrink-0 accent-primary"
+                          />
+                          {t(`template.${key}`)}
+                        </label>
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </div>
+            </Card>
+          ) : null}
 
           <div className="flex gap-3">
             <Button type="submit" variant="primary" disabled={busy}>

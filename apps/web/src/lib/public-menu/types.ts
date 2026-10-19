@@ -46,6 +46,8 @@ export interface PublicMenuContext {
   tracking?: boolean;
   /** Menu templates other than Classic are allowed (DEC-043). */
   templatesAllowed?: boolean;
+  /** The templates the package allows (DEC-051), as the API names them; a preview of any other is ignored. */
+  allowedTemplates?: string[];
   /** How a GENERIC QR order is taken (DEC-042); null for a TABLE QR. Absent on an older Backend = the app takes both, no WhatsApp. */
   ordering?: { pickup: boolean; delivery: boolean; whatsapp: boolean } | null;
   /** FT-7: GENERIC QR only (null for TABLE) -- the ACTIVE Branches eligible for Pickup. Empty = Pickup unavailable. */

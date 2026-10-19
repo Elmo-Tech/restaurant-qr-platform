@@ -1,6 +1,10 @@
+import { MENU_TEMPLATE_KEYS } from '../entitlements/templates';
 import { RestaurantProfileService } from './restaurant-profile.service';
 /** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
-const ENTITLEMENTS = { isEnabled: () => Promise.resolve(true) };
+const ENTITLEMENTS = {
+  isEnabled: () => Promise.resolve(true),
+  templatesFor: () => Promise.resolve([...MENU_TEMPLATE_KEYS]),
+};
 
 const RESTAURANT_ID = 'restaurant-1';
 
@@ -297,6 +301,37 @@ describe('RestaurantProfileService.updateQrStyle', () => {
     const result = await service.updateQrStyle({ restaurantId: RESTAURANT_ID, showLogo: true });
 
     expect(result).toEqual({ outcome: 'invalid', code: 'QR_STYLE_LOGO_REQUIRED' });
+    expect(mocks.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('RestaurantProfileService.updateMenuTemplate (DEC-051)', () => {
+  const limited = { ...ENTITLEMENTS, templatesFor: () => Promise.resolve(['CLASSIC', 'LIST']) };
+  const build = (mocks: ReturnType<typeof buildMocks>) =>
+    new RestaurantProfileService(mocks.prisma as never, limited as never);
+
+  it('saves a template the package allows', async () => {
+    const mocks = buildMocks();
+    mocks.update.mockResolvedValue({ menuTemplate: 'LIST' });
+    await expect(build(mocks).updateMenuTemplate(RESTAURANT_ID, 'LIST')).resolves.toEqual({ menuTemplate: 'LIST' });
+    expect(mocks.update).toHaveBeenCalledWith({
+      where: { id: RESTAURANT_ID },
+      data: { menuTemplate: 'LIST' },
+      select: { menuTemplate: true },
+    });
+  });
+
+  it('always allows Classic', async () => {
+    const mocks = buildMocks();
+    mocks.update.mockResolvedValue({ menuTemplate: 'CLASSIC' });
+    const onlyClassic = { ...ENTITLEMENTS, templatesFor: () => Promise.resolve(['CLASSIC']) };
+    const service = new RestaurantProfileService(mocks.prisma as never, onlyClassic as never);
+    await expect(service.updateMenuTemplate(RESTAURANT_ID, 'CLASSIC')).resolves.toEqual({ menuTemplate: 'CLASSIC' });
+  });
+
+  it('refuses a template the package does not allow, and writes nothing', async () => {
+    const mocks = buildMocks();
+    await expect(build(mocks).updateMenuTemplate(RESTAURANT_ID, 'GALLERY')).rejects.toThrow('FEATURE_NOT_AVAILABLE:MENU_TEMPLATES');
     expect(mocks.update).not.toHaveBeenCalled();
   });
 });

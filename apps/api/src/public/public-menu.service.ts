@@ -60,7 +60,7 @@ export interface PublicMenuContext {
     logoAssetPath: string | null;
     /** Guest hero cover image; null keeps the default branded hero. */
     coverAssetPath: string | null;
-    /** How the menu is laid out (DEC-044); presentation only. */
+    /** How the menu is laid out (DEC-044); presentation only. Classic when the saved one is not allowed (DEC-051). */
     menuTemplate: MenuTemplate;
     /** Contact details for the Guest Menu (DEC-042); a field is null when not set. */
     contact: RestaurantContact;
@@ -80,6 +80,8 @@ export interface PublicMenuContext {
   tracking: boolean;
   /** Menu templates other than Classic are allowed (DEC-043): the page then honours a template preview. */
   templatesAllowed: boolean;
+  /** The templates the package allows this Restaurant (DEC-051); a preview of any other is ignored. */
+  allowedTemplates: MenuTemplate[];
   /**
    * How a GENERIC QR order is taken (DEC-042); null for a TABLE QR. `pickup` / `delivery` are the
    * Restaurant's own switches (what kinds of order it takes, whoever receives them). `whatsapp`
@@ -362,7 +364,7 @@ export class PublicMenuService {
     }
 
     // What the platform allows this Restaurant (DEC-043); every feature unless an override says otherwise.
-    const features = await this.entitlements.forRestaurant(qr.restaurantId);
+    const { features, templates } = await this.entitlements.detailsFor(qr.restaurantId);
     const effective = effectiveOrdering(qr.restaurant, features);
 
     const tableOrdering: GuestTableOrderingState | null =
@@ -799,7 +801,8 @@ export class PublicMenuService {
             currencyCode: qr.restaurant.currencyCode,
             logoAssetPath: qr.restaurant.logoAssetPath,
             coverAssetPath: qr.restaurant.coverAssetPath,
-            menuTemplate: features.MENU_TEMPLATES ? qr.restaurant.menuTemplate : 'CLASSIC',
+            // the saved choice is kept; the Guest sees Classic until the package allows it again (DEC-051)
+            menuTemplate: templates.includes(qr.restaurant.menuTemplate) ? qr.restaurant.menuTemplate : 'CLASSIC',
             contact: contactFromColumns(qr.restaurant),
             shareCode,
             hours,
@@ -811,7 +814,8 @@ export class PublicMenuService {
           announcements,
           suggestions: features.SMART_SUGGESTIONS && qr.restaurant.suggestionsMode !== 'OFF',
           tracking: features.ORDER_TRACKING,
-          templatesAllowed: features.MENU_TEMPLATES,
+          templatesAllowed: templates.length > 1,
+          allowedTemplates: templates,
           ordering:
             qr.type === 'GENERIC'
               ? { pickup: appPickup, delivery: appDelivery, whatsapp: whatsappOrdering }

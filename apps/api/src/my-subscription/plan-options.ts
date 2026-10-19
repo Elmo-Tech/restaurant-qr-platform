@@ -10,33 +10,45 @@ export interface PackageForOptions {
   name: string;
   status: 'ACTIVE' | 'ARCHIVED';
   features: readonly FeatureKey[];
+  /** How many Guest menu templates the package gives (Classic counts, DEC-051). */
+  templateCount: number;
 }
 
 export interface UpgradeCandidate<P extends PackageForOptions> {
   pkg: P;
   /** Features this package would give that the Restaurant does not have now, in the documented order. */
   adds: FeatureKey[];
+  /** The package gives more templates than the Restaurant has now. */
+  moreTemplates: boolean;
 }
 
 export function upgradeCandidates<P extends PackageForOptions>(input: {
   currentPackageId: string | null;
   /** The features the Restaurant effectively has today (package, overrides and defaults applied). */
   effective: Readonly<Record<FeatureKey, boolean>>;
+  /** How many templates the Restaurant may use now. */
+  currentTemplateCount: number;
   packages: readonly P[];
 }): UpgradeCandidate<P>[] {
-  return input.packages
-    .filter(
-      (pkg) => pkg.status === 'ACTIVE' && pkg.id !== input.currentPackageId,
-    )
-    .map((pkg) => ({
-      pkg,
-      adds: FEATURE_KEYS.filter(
-        (key) => pkg.features.includes(key) && !input.effective[key],
-      ),
-    }))
-    .filter((candidate) => candidate.adds.length > 0)
-    .sort(
-      (a, b) =>
-        a.adds.length - b.adds.length || a.pkg.name.localeCompare(b.pkg.name),
-    );
+  return (
+    input.packages
+      .filter(
+        (pkg) => pkg.status === 'ACTIVE' && pkg.id !== input.currentPackageId,
+      )
+      .map((pkg) => ({
+        pkg,
+        adds: FEATURE_KEYS.filter(
+          (key) => pkg.features.includes(key) && !input.effective[key],
+        ),
+        moreTemplates: pkg.templateCount > input.currentTemplateCount,
+      }))
+      // a package is worth offering when it adds a feature or more templates
+      .filter(
+        (candidate) => candidate.adds.length > 0 || candidate.moreTemplates,
+      )
+      .sort(
+        (a, b) =>
+          a.adds.length - b.adds.length || a.pkg.name.localeCompare(b.pkg.name),
+      )
+  );
 }

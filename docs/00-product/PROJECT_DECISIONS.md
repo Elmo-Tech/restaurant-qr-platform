@@ -1230,6 +1230,29 @@ page for the Restaurant.
 
 ---
 
+### DEC-051 — Guest Menu Templates per Package
+
+**Status:** Accepted (owner, 2026-10-19).
+
+A Package that includes the **Menu designs** feature (`MENU_TEMPLATES`, DEC-043) also
+says which Guest menu templates its Restaurants may use: **all templates, including any
+added later**, or a **chosen list**. Classic is always available. Rules: a Restaurant on a
+Package without the feature gets Classic only; a Restaurant without a Package gets every
+template; a Restaurant-level exception that allows the feature on a Package that lacks it
+gives every template; an exception that removes the feature leaves Classic only.
+
+A Restaurant's saved template is never rewritten by a Package change: when it is no
+longer allowed the Guest menu shows Classic and the saved choice comes back as soon as
+it is allowed again. Saving a template that is not allowed is refused
+(`403 FEATURE_NOT_AVAILABLE`), and a template preview (`?template=`) follows the same
+list. The dashboard design picker shows the templates that are not in the plan as
+locked and points to My subscription, which shows how many designs each plan includes.
+Existing Packages that include the feature keep today's behavior (all templates).
+
+---
+
+---
+
 ---
 
 ## Change Policy

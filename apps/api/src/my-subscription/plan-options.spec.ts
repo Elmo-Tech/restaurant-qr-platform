@@ -5,7 +5,8 @@ const pkg = (
   id: string,
   features: PackageForOptions['features'],
   status: PackageForOptions['status'] = 'ACTIVE',
-): PackageForOptions => ({ id, name: id, status, features });
+  templateCount = 1,
+): PackageForOptions => ({ id, name: id, status, features, templateCount });
 
 const effectiveFor = (features: readonly string[]) =>
   resolveFeatures([], features);
@@ -24,6 +25,7 @@ describe('upgradeCandidates (DEC-050)', () => {
     const result = upgradeCandidates({
       currentPackageId: 'BASIC',
       effective: effectiveFor(['MENU_TEMPLATES']),
+      currentTemplateCount: 1,
       packages: [pro, basic, plus],
     });
     expect(result.map((c) => c.pkg.id)).toEqual(['PLUS', 'PRO']);
@@ -39,6 +41,7 @@ describe('upgradeCandidates (DEC-050)', () => {
     const result = upgradeCandidates({
       currentPackageId: 'PLUS',
       effective: effectiveFor(['MENU_TEMPLATES', 'WHATSAPP_ORDERING']),
+      currentTemplateCount: 1,
       packages: [basic, plus, pro],
     });
     expect(result.map((c) => c.pkg.id)).toEqual(['PRO']);
@@ -50,6 +53,7 @@ describe('upgradeCandidates (DEC-050)', () => {
       upgradeCandidates({
         currentPackageId: null,
         effective: everything,
+        currentTemplateCount: 7,
         packages: [basic, plus, pro],
       }),
     ).toEqual([]);
@@ -59,6 +63,7 @@ describe('upgradeCandidates (DEC-050)', () => {
     const result = upgradeCandidates({
       currentPackageId: 'BASIC',
       effective: effectiveFor(['MENU_TEMPLATES']),
+      currentTemplateCount: 1,
       packages: [
         pkg('OLD', ['MENU_TEMPLATES', 'ORDER_TRACKING'], 'ARCHIVED'),
         plus,
@@ -75,10 +80,25 @@ describe('upgradeCandidates (DEC-050)', () => {
     const result = upgradeCandidates({
       currentPackageId: 'BASIC',
       effective,
+      currentTemplateCount: 1,
       packages: [plus, pro],
     });
     // PLUS adds only WhatsApp, which it already has: nothing to offer
     expect(result.map((c) => c.pkg.id)).toEqual(['PRO']);
     expect(result[0].adds).toEqual(['ORDER_TRACKING', 'DASHBOARD_ORDERING']);
+  });
+
+  it('offers a package that adds only more menu designs (DEC-051)', () => {
+    const fewDesigns = pkg('FEW', ['MENU_TEMPLATES'], 'ACTIVE', 3);
+    const allDesigns = pkg('ALL', ['MENU_TEMPLATES'], 'ACTIVE', 7);
+    const result = upgradeCandidates({
+      currentPackageId: 'FEW',
+      effective: effectiveFor(['MENU_TEMPLATES']),
+      currentTemplateCount: 3,
+      packages: [fewDesigns, allDesigns],
+    });
+    expect(result.map((c) => c.pkg.id)).toEqual(['ALL']);
+    expect(result[0].adds).toEqual([]);
+    expect(result[0].moreTemplates).toBe(true);
   });
 });
