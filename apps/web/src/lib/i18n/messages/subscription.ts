@@ -4,6 +4,15 @@ import { defineMessages } from './define';
 export const subscriptionMessages = defineMessages({
   en: {
     'nav.subscription': 'My subscription',
+    'subscription.compare.title': 'Compare plans',
+    'subscription.compare.hint': 'What you have, and what each plan would add. Highlighted means new for you.',
+    'subscription.compare.feature': 'Feature',
+    'subscription.compare.yourPlan': 'Your plan',
+    'subscription.compare.nextStep': 'Next step',
+    'subscription.compare.included': 'Included',
+    'subscription.compare.notIncluded': 'Not included',
+    'subscription.compare.perMonth': '/ month',
+    'subscription.compare.perYear': '/ year',
     'subscription.title': 'My subscription',
     'subscription.description': 'Your plan, what it includes, and how to get more out of Wayta.',
     'subscription.loading': 'Loading your subscription…',
@@ -11,6 +20,7 @@ export const subscriptionMessages = defineMessages({
 
     'subscription.plan': 'Your plan',
     'subscription.noSubscription': 'No paid subscription is recorded for this restaurant yet.',
+    'subscription.noPlanTitle': 'Not subscribed yet',
     'subscription.noSubscriptionHint':
       'If you have already subscribed, the team will record it shortly. Otherwise ask for a plan below.',
     'subscription.phase.ACTIVE': 'Active',
@@ -32,9 +42,6 @@ export const subscriptionMessages = defineMessages({
     'subscription.payStatus.PAID': 'Paid in full',
     'subscription.payStatus.OVERPAID': 'Paid in full',
 
-    'subscription.includes': 'What your plan includes',
-    'subscription.included': 'Included',
-    'subscription.notIncluded': 'Not in your plan',
     'subscription.feature.WHATSAPP_ORDERING': 'WhatsApp ordering',
     'subscription.feature.WHATSAPP_ORDERING.hint': 'Guests send their order straight to your WhatsApp.',
     'subscription.feature.ORDER_TRACKING': 'Order tracking',
@@ -48,11 +55,6 @@ export const subscriptionMessages = defineMessages({
     'subscription.feature.TABLE_ORDERING': 'Table ordering',
     'subscription.feature.TABLE_ORDERING.hint': 'Guests order from the table QR, and you run table sessions.',
 
-    'subscription.upgrade.title': 'Upgrade your plan',
-    'subscription.upgrade.hint': 'More tools for your restaurant. Ask for a plan and our team will contact you to set it up.',
-    'subscription.upgrade.adds': 'Adds',
-    'subscription.upgrade.perMonth': '{price} / month',
-    'subscription.upgrade.perYear': '{price} / year',
     'subscription.upgrade.noPrice': 'Price on request',
     'subscription.upgrade.offer': '{percent}% off',
     'subscription.upgrade.offerUntil': 'until {date}',
@@ -89,6 +91,15 @@ export const subscriptionMessages = defineMessages({
   },
   ar: {
     'nav.subscription': 'اشتراكي',
+    'subscription.compare.title': 'قارن الخطط',
+    'subscription.compare.hint': 'ما لديك وما تضيفه كل خطة. المظلّل يعني جديد عليك.',
+    'subscription.compare.feature': 'الميزة',
+    'subscription.compare.yourPlan': 'خطتك',
+    'subscription.compare.nextStep': 'الخطوة التالية',
+    'subscription.compare.included': 'مشمول',
+    'subscription.compare.notIncluded': 'غير مشمول',
+    'subscription.compare.perMonth': '/ شهر',
+    'subscription.compare.perYear': '/ سنة',
     'subscription.title': 'اشتراكي',
     'subscription.description': 'خطتك، وما تشمله، وكيف تستفيد من ويتا أكثر.',
     'subscription.loading': 'جارٍ تحميل اشتراكك…',
@@ -96,6 +107,7 @@ export const subscriptionMessages = defineMessages({
 
     'subscription.plan': 'خطتك',
     'subscription.noSubscription': 'لا يوجد اشتراك مدفوع مسجّل لهذا المطعم حتى الآن.',
+    'subscription.noPlanTitle': 'لم تشترك بعد',
     'subscription.noSubscriptionHint': 'إن كنت قد اشتركت بالفعل فسيسجّله الفريق قريبًا. وإلا اطلب خطة من الأسفل.',
     'subscription.phase.ACTIVE': 'ساري',
     'subscription.phase.UPCOMING': 'يبدأ قريبًا',
@@ -116,9 +128,6 @@ export const subscriptionMessages = defineMessages({
     'subscription.payStatus.PAID': 'مدفوع بالكامل',
     'subscription.payStatus.OVERPAID': 'مدفوع بالكامل',
 
-    'subscription.includes': 'ما تشمله خطتك',
-    'subscription.included': 'مشمول',
-    'subscription.notIncluded': 'ليس في خطتك',
     'subscription.feature.WHATSAPP_ORDERING': 'الطلب عبر واتساب',
     'subscription.feature.WHATSAPP_ORDERING.hint': 'يرسل الضيف طلبه مباشرة إلى واتساب مطعمك.',
     'subscription.feature.ORDER_TRACKING': 'تتبّع الطلب',
@@ -132,11 +141,6 @@ export const subscriptionMessages = defineMessages({
     'subscription.feature.TABLE_ORDERING': 'الطلب من الطاولات',
     'subscription.feature.TABLE_ORDERING.hint': 'يطلب الضيف من QR الطاولة وتدير أنت جلسات الطاولات.',
 
-    'subscription.upgrade.title': 'طوّر خطتك',
-    'subscription.upgrade.hint': 'أدوات أكثر لمطعمك. اطلب الخطة وسيتواصل معك فريقنا لتفعيلها.',
-    'subscription.upgrade.adds': 'تضيف',
-    'subscription.upgrade.perMonth': '{price} / شهر',
-    'subscription.upgrade.perYear': '{price} / سنة',
     'subscription.upgrade.noPrice': 'السعر عند الطلب',
     'subscription.upgrade.offer': 'خصم {percent}%',
     'subscription.upgrade.offerUntil': 'حتى {date}',
