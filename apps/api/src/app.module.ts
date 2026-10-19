@@ -9,6 +9,7 @@ import { BranchesModule } from './branches/branches.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { DatabaseModule } from './database/database.module';
 import { AnnouncementsModule } from './announcements/announcements.module';
+import { MySubscriptionModule } from './my-subscription/my-subscription.module';
 import { PlatformModule } from './platform/platform.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
 import { MenuImportModule } from './menu-import/menu-import.module';
@@ -46,6 +47,7 @@ const rootEnvFilePath = path.resolve(__dirname, '..', '..', '..', '.env');
     MenuModule,
     MenuImportModule,
     AnnouncementsModule,
+    MySubscriptionModule,
     SuggestionsModule,
     PlatformModule,
     OrdersModule,

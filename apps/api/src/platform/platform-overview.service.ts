@@ -19,6 +19,8 @@ export interface PlatformOverview {
   totals: { branches: number; products: number; orders: number };
   /** Restaurants with at least one feature switched off by the platform. */
   restrictedRestaurants: number;
+  /** Upgrade and renewal requests nobody has finished yet (DEC-050). */
+  openRequests: number;
   recentRestaurants: {
     id: string;
     name: string;
@@ -46,6 +48,7 @@ export class PlatformOverviewService {
       products,
       orders,
       restricted,
+      openRequests,
       recent,
       activity,
     ] = await Promise.all([
@@ -59,6 +62,9 @@ export class PlatformOverviewService {
       this.prisma.product.count(),
       this.prisma.order.count(),
       this.restrictedRestaurantCount(),
+      this.prisma.subscriptionRequest.count({
+        where: { status: { in: ['NEW', 'CONTACTED'] } },
+      }),
       this.prisma.restaurant.findMany({
         orderBy: { createdAt: 'desc' },
         take: 5,
@@ -78,6 +84,7 @@ export class PlatformOverviewService {
       last30Days: { newRestaurants, orders: orders30d },
       totals: { branches, products, orders },
       restrictedRestaurants: restricted,
+      openRequests,
       recentRestaurants: recent.map((row) => ({
         id: row.id,
         name: row.name,

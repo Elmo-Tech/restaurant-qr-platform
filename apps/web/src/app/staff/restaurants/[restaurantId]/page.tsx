@@ -12,7 +12,9 @@ import { getWebOrigin } from '../../../../lib/env/web-origin';
 import {
   canManageLanguages,
   canViewRestaurantSettings,
+  hasRestaurantManagePermission,
 } from '../../../../lib/settings/capabilities';
+import { SubscriptionBanner } from '../../../../components/subscription/SubscriptionBanner';
 import { canViewStaff } from '../../../../lib/staff/capabilities';
 import {
   offersPickupAndDelivery,
@@ -234,6 +236,10 @@ export default async function RestaurantLandingPage({
           ) : undefined
         }
       />
+
+      {restaurant.status === 'ACTIVE' && hasRestaurantManagePermission(membership) ? (
+        <SubscriptionBanner restaurantId={restaurantId} />
+      ) : null}
 
       {restaurant.status !== 'ACTIVE' ? (
         <Alert variant="error">

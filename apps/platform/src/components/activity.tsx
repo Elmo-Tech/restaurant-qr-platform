@@ -27,6 +27,8 @@ const ACTION_LABEL: Record<string, MessageKey> = {
   "subscription.cancelled": "action.subscription.cancelled",
   "payment.recorded": "action.payment.recorded",
   "payment.voided": "action.payment.voided",
+  "subscription_request.created": "action.subscription_request.created",
+  "subscription_request.status_changed": "action.subscription_request.status_changed",
 };
 
 const PACKAGE_PARTS = ["name", "description", "status", "prices", "offer", "features"] as const;
@@ -92,6 +94,17 @@ export function describeChange(entry: AuditEntry, t: Translate): string {
       : "";
     const amount = `${String(details.amount ?? "")} ${String(details.currency ?? "")}`.trim();
     return entry.action === "payment.voided" ? `${amount}: ${String(details.reason ?? "")}` : t("activity.paymentDetail", { amount, method });
+  }
+  if (entry.action === "subscription_request.created") {
+    const kind = details.kind === "RENEWAL" ? t("requests.kind.RENEWAL") : t("requests.kind.UPGRADE");
+    return t("activity.requestCreated", { kind, package: typeof details.package === "string" ? details.package : "-" });
+  }
+  if (entry.action === "subscription_request.status_changed") {
+    const state = (value: unknown) =>
+      typeof value === "string" && ["NEW", "CONTACTED", "DONE", "DISMISSED"].includes(value)
+        ? t(`requests.status.${value as "NEW" | "CONTACTED" | "DONE" | "DISMISSED"}`)
+        : String(value ?? "");
+    return t("activity.requestStatus", { from: state(details.from), to: state(details.to) });
   }
   if (entry.action === "restaurant.country_changed") {
     return t("activity.countryDetail", { from: String(details.from ?? ""), to: String(details.to ?? "") });

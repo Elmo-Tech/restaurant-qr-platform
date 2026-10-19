@@ -6,7 +6,10 @@ import { canViewTables } from '../../../../lib/tables/capabilities';
 import { receivesDashboardOrders, usesTableOrdering } from '../../../../lib/entitlements/access';
 import { canViewOrders } from '../../../../lib/orders/capabilities';
 import { canViewKitchen } from '../../../../lib/kitchen/capabilities';
-import { canViewRestaurantSettings } from '../../../../lib/settings/capabilities';
+import {
+  canViewRestaurantSettings,
+  hasRestaurantManagePermission,
+} from '../../../../lib/settings/capabilities';
 import { canViewStaff } from '../../../../lib/staff/capabilities';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import { Alert } from '../../../../components/ui/Alert';
@@ -79,6 +82,7 @@ export default async function RestaurantWorkspaceLayout({
       canViewKitchen={canViewKitchen(membership)}
       canViewStaff={canViewStaff(membership)}
       canViewRestaurantSettings={canViewRestaurantSettings(membership)}
+      canViewSubscription={hasRestaurantManagePermission(membership)}
     >
       {children}
     </StaffShell>

@@ -95,3 +95,27 @@ export function subscriptionPhase(
     ? { phase: 'GRACE', daysLeft: 0, graceDaysLeft }
     : { phase: 'EXPIRED', daysLeft: 0, graceDaysLeft: 0 };
 }
+
+/**
+ * The subscription that matters now: the one running, else the one in its grace period, else the next
+ * to start, else the most recent live one, else the most recent of all. `startsAt` is YYYY-MM-DD.
+ */
+export function pickCurrent<
+  T extends {
+    phase: SubscriptionPhase;
+    status: 'ACTIVE' | 'CANCELLED';
+    startsAt: string;
+  },
+>(subs: readonly T[]): T | null {
+  const byStart = [...subs].sort((a, b) =>
+    a.startsAt.localeCompare(b.startsAt),
+  );
+  const running = byStart.find((s) => s.phase === 'ACTIVE');
+  if (running) return running;
+  const grace = byStart.find((s) => s.phase === 'GRACE');
+  if (grace) return grace;
+  const upcoming = byStart.find((s) => s.phase === 'UPCOMING');
+  if (upcoming) return upcoming;
+  const live = byStart.filter((s) => s.status === 'ACTIVE');
+  return live[live.length - 1] ?? byStart[byStart.length - 1] ?? null;
+}

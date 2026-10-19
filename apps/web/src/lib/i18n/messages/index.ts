@@ -22,6 +22,7 @@ import { rolesMessages } from './roles';
 import { sessionsMessages } from './sessions';
 import { settingsMessages } from './settings';
 import { staffMessages } from './staff';
+import { subscriptionMessages } from './subscription';
 import { tablesMessages } from './tables';
 import { variantsMessages } from './variants';
 
@@ -56,6 +57,7 @@ const en = {
   ...sessionsMessages.en,
   ...settingsMessages.en,
   ...staffMessages.en,
+  ...subscriptionMessages.en,
   ...tablesMessages.en,
   ...variantsMessages.en,
 };
@@ -85,6 +87,7 @@ const ar = {
   ...sessionsMessages.ar,
   ...settingsMessages.ar,
   ...staffMessages.ar,
+  ...subscriptionMessages.ar,
   ...tablesMessages.ar,
   ...variantsMessages.ar,
 };

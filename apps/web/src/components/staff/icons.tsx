@@ -80,6 +80,15 @@ export function IconSettings({ className }: IconProps) {
   );
 }
 
+export function IconSubscription({ className }: IconProps) {
+  return (
+    <svg {...BASE_PROPS} className={className} aria-hidden="true">
+      <rect x="3.5" y="6" width="17" height="12" rx="2.5" />
+      <path d="M3.5 10.5h17M7.5 15h3" />
+    </svg>
+  );
+}
+
 export function IconHamburger({ className }: IconProps) {
   return (
     <svg {...BASE_PROPS} className={className} aria-hidden="true">

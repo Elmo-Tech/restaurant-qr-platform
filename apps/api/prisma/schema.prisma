@@ -350,6 +350,7 @@ model Restaurant {
   features              RestaurantFeature[]
   package               Package?            @relation(fields: [packageId], references: [id], onDelete: Restrict)
   subscriptions         Subscription[]
+  subscriptionRequests  SubscriptionRequest[]
   platformAuditLog      PlatformAuditLog[]
   memberships           RestaurantMembership[]
   roles                 RestaurantRole[]
@@ -685,9 +686,10 @@ model Package {
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 
-  features      PackageFeature[]
-  restaurants   Restaurant[]
-  subscriptions Subscription[]
+  features             PackageFeature[]
+  restaurants          Restaurant[]
+  subscriptions        Subscription[]
+  subscriptionRequests SubscriptionRequest[]
 
   @@map("packages")
 }
@@ -810,6 +812,51 @@ model Contract {
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 
   @@map("contracts")
+}
+
+// What a Restaurant asks the platform team for from "My subscription" (DEC-050).
+enum SubscriptionRequestKind {
+  UPGRADE
+  RENEWAL
+
+  @@map("subscription_request_kind")
+}
+
+enum SubscriptionRequestStatus {
+  NEW
+  CONTACTED
+  DONE
+  DISMISSED
+
+  @@map("subscription_request_status")
+}
+
+// A request to upgrade or renew. Nothing changes by itself: the team records the real subscription.
+// The requester's e-mail and the package name are kept as a snapshot. At most one open request
+// (NEW or CONTACTED) per Restaurant, enforced by a partial unique index.
+model SubscriptionRequest {
+  id                String                    @id @default(uuid()) @db.Uuid
+  restaurantId      String                    @map("restaurant_id") @db.Uuid
+  kind              SubscriptionRequestKind
+  packageId         String?                   @map("package_id") @db.Uuid
+  packageName       String?                   @map("package_name")
+  message           String?
+  requestedByUserId String?                   @map("requested_by_user_id") @db.Uuid
+  requestedByEmail  String                    @map("requested_by_email")
+  status            SubscriptionRequestStatus @default(NEW)
+  note              String?
+  handledByEmail    String?                   @map("handled_by_email")
+  handledAt         DateTime?                 @map("handled_at") @db.Timestamptz
+  createdAt         DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant  Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  package     Package?   @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  requestedBy User?      @relation(fields: [requestedByUserId], references: [id], onDelete: SetNull)
+
+  @@index([restaurantId, createdAt])
+  @@index([status, createdAt])
+  @@map("subscription_requests")
 }
 
 // Manual suggestion rule (DEC-042): when `product` is in the Guest cart, suggest `suggestedProduct`.
@@ -1695,6 +1742,7 @@ model User {
   memberships         RestaurantMembership[]
   menuImportJobs      MenuImportJob[]
   sentInvitations     RestaurantInvitation[] @relation("InvitedByUser")
+  subscriptionRequests SubscriptionRequest[]
 
   @@map("users")
 }

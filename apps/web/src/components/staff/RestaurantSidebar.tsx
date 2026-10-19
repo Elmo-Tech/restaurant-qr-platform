@@ -9,6 +9,7 @@ import {
   IconOrders,
   IconQr,
   IconSettings,
+  IconSubscription,
   IconStaff,
 } from './icons';
 import { useStaffI18n } from '../../lib/i18n/client';
@@ -30,6 +31,7 @@ export type StaffSection =
   | 'kitchen'
   | 'staff'
   | 'settings'
+  | 'subscription'
   | 'account'
   | null;
 
@@ -70,6 +72,7 @@ interface RestaurantSidebarProps {
   canViewKitchen: boolean;
   canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
+  canViewSubscription?: boolean;
   isMobileOpen: boolean;
   onCloseMobile: () => void;
 }
@@ -186,6 +189,7 @@ function SidebarContent({
   canViewKitchen,
   canViewStaff,
   canViewRestaurantSettings,
+  canViewSubscription = false,
   user,
   onNavigate,
 }: {
@@ -202,6 +206,8 @@ function SidebarContent({
   canViewKitchen: boolean;
   canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
+  /** "My subscription" is shown to Users who can manage the Restaurant (it shows what it pays). */
+  canViewSubscription?: boolean;
   onNavigate?: () => void;
 }) {
   const { t } = useStaffI18n();
@@ -347,6 +353,18 @@ function SidebarContent({
 
         <div className="mt-5 border-t border-sidebar-border pt-3">
           <ul>
+            {canViewSubscription ? (
+              <ActiveLink
+                item={{
+                  key: 'subscription',
+                  label: t('nav.subscription'),
+                  href: `/staff/restaurants/${restaurantId}/subscription`,
+                  icon: <IconSubscription className={ICON_CLASS} />,
+                }}
+                isActive={currentSection === 'subscription'}
+                onNavigate={onNavigate}
+              />
+            ) : null}
             {canViewRestaurantSettings ? (
               <ActiveLink
                 item={{
@@ -408,6 +426,7 @@ export function RestaurantSidebar({
   canViewKitchen,
   canViewStaff,
   canViewRestaurantSettings,
+  canViewSubscription,
   user,
   isMobileOpen,
   onCloseMobile,
@@ -430,6 +449,7 @@ export function RestaurantSidebar({
           canViewKitchen={canViewKitchen}
           canViewStaff={canViewStaff}
           canViewRestaurantSettings={canViewRestaurantSettings}
+          canViewSubscription={canViewSubscription}
         />
       </aside>
 
@@ -465,6 +485,7 @@ export function RestaurantSidebar({
           canViewKitchen={canViewKitchen}
               canViewStaff={canViewStaff}
               canViewRestaurantSettings={canViewRestaurantSettings}
+              canViewSubscription={canViewSubscription}
               onNavigate={onCloseMobile}
             />
           </div>

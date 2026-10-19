@@ -21,6 +21,7 @@ interface StaffShellProps {
   canViewKitchen: boolean;
   canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
+  canViewSubscription?: boolean;
   children: ReactNode;
 }
 
@@ -32,6 +33,7 @@ function resolveSection(pathname: string, restaurantId: string): StaffSection {
   const kitchenPath = `${dashboardPath}/kitchen`;
   const staffPath = `${dashboardPath}/staff`;
   const accountPath = `${dashboardPath}/account`;
+  const subscriptionPath = `${dashboardPath}/subscription`;
   const settingsPath = `${dashboardPath}/settings`;
 
   if (pathname === menuPath || pathname.startsWith(`${menuPath}/`)) {
@@ -51,6 +53,9 @@ function resolveSection(pathname: string, restaurantId: string): StaffSection {
   }
   if (pathname === accountPath) {
     return 'account';
+  }
+  if (pathname === subscriptionPath) {
+    return 'subscription';
   }
   if (pathname === settingsPath || pathname.startsWith(`${settingsPath}/`)) {
     return 'settings';
@@ -82,6 +87,7 @@ export function StaffShell({
   canViewKitchen,
   canViewStaff,
   canViewRestaurantSettings,
+  canViewSubscription = false,
   children,
 }: StaffShellProps) {
   const pathname = usePathname();
@@ -125,6 +131,8 @@ export function StaffShell({
                       ? t('nav.staff')
                       : section === 'account'
                         ? t('account.title')
+                        : section === 'subscription'
+                          ? t('nav.subscription')
                         : t('nav.dashboard'),
           },
         ];
@@ -147,6 +155,7 @@ export function StaffShell({
         canViewKitchen={canViewKitchen}
         canViewStaff={canViewStaff}
         canViewRestaurantSettings={canViewRestaurantSettings}
+        canViewSubscription={canViewSubscription}
         user={{
           email: userEmail,
           accountHref: `/staff/restaurants/${restaurantId}/account`,

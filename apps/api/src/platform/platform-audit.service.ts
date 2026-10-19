@@ -23,7 +23,9 @@ export type PlatformAction =
   | 'payment.recorded'
   | 'payment.voided'
   | 'restaurant.auto_suspended'
-  | 'restaurant.auto_reactivated';
+  | 'restaurant.auto_reactivated'
+  | 'subscription_request.created'
+  | 'subscription_request.status_changed';
 
 /** The audit actor of work the platform does by itself (the hourly subscription check). */
 export const SYSTEM_ACTOR = null;
@@ -46,6 +48,8 @@ export class PlatformAuditService {
   async record(input: {
     /** The administrator who acted, or `SYSTEM_ACTOR` (null) for the platform itself. */
     admin: Pick<PlatformAdminPrincipal, 'adminId' | 'email'> | null;
+    /** Who acted when it was not an administrator (a restaurant User's e-mail); default `system`. */
+    actorEmail?: string;
     action: PlatformAction;
     restaurant?: { id: string; name: string } | null;
     details?: Prisma.InputJsonObject;
@@ -53,7 +57,7 @@ export class PlatformAuditService {
     await this.prisma.platformAuditLog.create({
       data: {
         adminId: input.admin?.adminId ?? null,
-        adminEmail: input.admin?.email ?? 'system',
+        adminEmail: input.admin?.email ?? input.actorEmail ?? 'system',
         action: input.action,
         restaurantId: input.restaurant?.id ?? null,
         restaurantName: input.restaurant?.name ?? null,

@@ -1201,6 +1201,35 @@ subscription page and upgrade requests (next step).
 
 ---
 
+### DEC-050 — My Subscription and Upgrade Requests
+
+**Status:** Accepted (owner, 2026-10-19).
+
+The restaurant dashboard has a page **My subscription** for Users who hold
+`restaurant.manage` (the money is theirs to see). It shows the current plan (package,
+period, days left, and while the subscription is in its grace period the days left
+before suspension), what the plan includes and what it does not, what was agreed
+(final price, paid and remaining), and the other active Packages that include
+something the Restaurant does not have, with the price in the Restaurant's billing
+currency (offer shown when it is on) and what each would add. A banner on the
+dashboard warns when 7 days or fewer are left, and during the grace period.
+
+From the page the User can **request an upgrade** (to a chosen Package) or **request a
+renewal**, with an optional message. Nothing changes by itself: the request goes to the
+platform team's **Requests** inbox in the console (new, contacted, done, dismissed; with
+a note), which records the real subscription. A Restaurant has at most one open request
+at a time (a second one is refused and the page shows the open one). Requests are
+tenant-scoped (the Restaurant always comes from the authorized request), keep the
+requester's e-mail and the Package name as a snapshot, and are audited
+(`subscription_request.created` by the platform itself, `subscription_request.status_changed`
+by the administrator). The console Overview shows the number of open requests.
+
+**Not in scope:** online payment or plan change by the Restaurant itself, e-mail or
+WhatsApp notification of the team (the inbox is the channel for now), a request history
+page for the Restaurant.
+
+---
+
 ---
 
 ## Change Policy

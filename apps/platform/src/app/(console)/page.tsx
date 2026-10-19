@@ -29,6 +29,13 @@ export default async function OverviewPage() {
             <StatTile label={t("overview.newRestaurants")} value={fmt.number(result.data.last30Days.newRestaurants)} tone="primary" />
             <StatTile label={t("overview.orders30d")} value={fmt.number(result.data.last30Days.orders)} tone="primary" />
             <StatTile label={t("overview.restricted")} value={fmt.number(result.data.restrictedRestaurants)} />
+            <Link href="/requests" className="block rounded-[var(--radius-card)] transition-shadow hover:shadow-pop">
+              <StatTile
+                label={t("overview.openRequests")}
+                value={fmt.number(result.data.openRequests)}
+                tone={result.data.openRequests > 0 ? "warning" : "neutral"}
+              />
+            </Link>
           </section>
 
           <section className="grid gap-6 xl:grid-cols-5">

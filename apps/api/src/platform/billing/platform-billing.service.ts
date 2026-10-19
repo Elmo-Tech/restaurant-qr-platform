@@ -22,6 +22,7 @@ import {
   formatDateOnly,
   parseDateOnly,
   periodEnd,
+  pickCurrent,
   subscriptionPhase,
   todayInCairo,
   type SubscriptionPhase,
@@ -289,21 +290,6 @@ function subscriptionView(
   };
 }
 
-/** Running, else in grace, else the next one to start, else the most recent. */
-function pickCurrent(subs: readonly SubscriptionView[]): string | null {
-  const byStart = [...subs].sort((a, b) =>
-    a.startsAt.localeCompare(b.startsAt),
-  );
-  const running = byStart.find((s) => s.phase === 'ACTIVE');
-  if (running) return running.id;
-  const grace = byStart.find((s) => s.phase === 'GRACE');
-  if (grace) return grace.id;
-  const upcoming = byStart.find((s) => s.phase === 'UPCOMING');
-  if (upcoming) return upcoming.id;
-  const live = byStart.filter((s) => s.status === 'ACTIVE');
-  return (live[live.length - 1] ?? byStart[byStart.length - 1])?.id ?? null;
-}
-
 const isOverlapViolation = (error: unknown): boolean =>
   error instanceof Error && error.message.includes('subscriptions_no_overlap');
 
@@ -356,7 +342,7 @@ export class PlatformBillingService {
           billingCurrency: currencyForCountry(restaurant.countryCode),
         },
         graceDays: this.graceDays,
-        currentId: pickCurrent(subscriptions),
+        currentId: pickCurrent(subscriptions)?.id ?? null,
         subscriptions,
       },
     };

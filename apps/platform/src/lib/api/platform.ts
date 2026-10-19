@@ -42,6 +42,8 @@ export interface Overview {
   last30Days: { newRestaurants: number; orders: number };
   totals: { branches: number; products: number; orders: number };
   restrictedRestaurants: number;
+  /** Upgrade and renewal requests nobody has finished yet (DEC-050). */
+  openRequests: number;
   recentRestaurants: { id: string; name: string; status: RestaurantStatus; createdAt: string }[];
   recentActivity: AuditEntry[];
 }
