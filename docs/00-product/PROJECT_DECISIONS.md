@@ -1178,9 +1178,12 @@ Partial payments and overpayment warnings are allowed; nothing is blocked by an
 unpaid balance.
 
 **Contract.** Every Subscription gets one Contract with a running number
-(`WAYTA-<year>-<0001>`) and a snapshot of its terms. The console shows it as a
-printable bilingual (Arabic / English) page the team saves as PDF from the browser;
-no PDF library and no stored file.
+(`WAYTA-<year>-<0001>`) and a snapshot of what it states: who subscribed (the
+Restaurant), to which Package and what it includes, the period, the price and that
+Wayta provides the service for that period, with a signature block for both sides.
+It contains no legal clauses. A Contract is in ONE language: the console page shows
+it in Arabic or English (the team picks, the console language is the default) and
+the team saves it as PDF from the browser; no PDF library and no stored file.
 
 **Effect on the Restaurant.** The Subscription that covers today decides the
 Restaurant's Package (so its features follow the paid plan, DEC-046); a future

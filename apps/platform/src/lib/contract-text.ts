@@ -1,120 +1,96 @@
-import type { ContractData } from "./api/billing";
-import { MESSAGES } from "./i18n/messages";
+import type { Locale } from "./i18n/locale";
 
 /**
- * The wording of a Wayta subscription contract, in English and Arabic side by side (DEC-049). It is a
- * working draft of the commercial terms and should be reviewed by a lawyer before it is relied on. The
- * numbers, dates and parties always come from the snapshot stored with the contract, never from the
- * current package, so an old contract never changes.
+ * The words of a subscription contract (DEC-049). A contract is in ONE language, chosen when it is
+ * opened or printed; it states who subscribed to what, for which period, at what price and that the
+ * service is provided. It carries no legal clauses. Every number, date and name comes from the
+ * snapshot stored with the contract, so an old contract never changes.
  */
-export interface Clause {
-  en: { title: string; body: string };
-  ar: { title: string; body: string };
+export interface ContractText {
+  title: string;
+  numberLabel: string;
+  provider: string;
+  client: string;
+  providerTagline: string;
+  /** The one sentence the contract is about. */
+  statement: (input: { client: string; provider: string; packageName: string; from: string; to: string; period: string }) => string;
+  service: string;
+  serviceProvided: (provider: string, from: string, to: string) => string;
+  package: string;
+  includes: string;
+  noFeatures: string;
+  billingPeriod: string;
+  monthly: string;
+  yearly: string;
+  starts: string;
+  ends: string;
+  listPrice: string;
+  offer: (percent: string) => string;
+  discount: string;
+  total: string;
+  notes: string;
+  forProvider: string;
+  forClient: string;
+  signature: string;
+  date: string;
 }
 
-type Terms = ContractData["terms"];
-
-const featureNames = (terms: Terms, locale: "en" | "ar") =>
-  terms.package.features
-    .map((key) => MESSAGES[locale][`feature.${key}` as keyof (typeof MESSAGES)["en"]] ?? key)
-    .join(locale === "ar" ? "، " : ", ");
-
-export function buildClauses(terms: Terms): Clause[] {
-  const { graceDays } = terms;
-  return [
-    {
-      en: {
-        title: "1. Subject",
-        body: `Wayta ("the Provider") grants the Restaurant named above ("the Client") a subscription to the Wayta platform (digital QR menu and the tools around it) on the package "${terms.package.name}"${
-          terms.package.features.length > 0 ? `, which includes: ${featureNames(terms, "en")}` : ""
-        }.`,
-      },
-      ar: {
-        title: "١. الموضوع",
-        body: `تمنح "ويتا" ("المزوِّد") المطعم المذكور أعلاه ("العميل") اشتراكًا في منصة ويتا (المنيو الرقمي بالـQR والأدوات المرتبطة به) على باقة "${terms.package.name}"${
-          terms.package.features.length > 0 ? `، وتشمل: ${featureNames(terms, "ar")}` : ""
-        }.`,
-      },
-    },
-    {
-      en: {
-        title: "2. Term",
-        body: `The subscription runs from ${terms.startsAt} until ${terms.endsAt} (${terms.period === "YEARLY" ? "one year" : "one month"}). The end date is the first day it is no longer covered.`,
-      },
-      ar: {
-        title: "٢. المدة",
-        body: `يسري الاشتراك من ${terms.startsAt} حتى ${terms.endsAt} (${terms.period === "YEARLY" ? "سنة واحدة" : "شهر واحد"}). تاريخ النهاية هو أول يوم لا يغطيه الاشتراك.`,
-      },
-    },
-    {
-      en: {
-        title: "3. Fees",
-        body: "The fees are those shown in the table above, in the stated currency. The price is fixed for this term: later changes to the Provider's prices do not affect it.",
-      },
-      ar: {
-        title: "٣. الرسوم",
-        body: "الرسوم هي المبيّنة في الجدول أعلاه بالعملة المذكورة. السعر ثابت طوال هذه المدة، ولا تؤثر عليه أي تغييرات لاحقة في أسعار المزوِّد.",
-      },
-    },
-    {
-      en: {
-        title: "4. Payment",
-        body: "The Client pays the fees by the means agreed with the Provider (cash, bank transfer, InstaPay or mobile wallet). The Provider records every payment received and gives the Client a confirmation on request.",
-      },
-      ar: {
-        title: "٤. السداد",
-        body: "يسدّد العميل الرسوم بالوسيلة المتفق عليها مع المزوِّد (نقدًا أو تحويلًا بنكيًا أو إنستا باي أو محفظة إلكترونية). يسجّل المزوِّد كل دفعة مستلمة ويعطي العميل إفادة بها عند الطلب.",
-      },
-    },
-    {
-      en: {
-        title: "5. End of the term",
-        body: `The subscription does not renew by itself. After it ends the service keeps running for ${graceDays} days; then the Client's account is suspended until a new subscription is recorded. Suspension does not delete the Client's menu or data.`,
-      },
-      ar: {
-        title: "٥. انتهاء المدة",
-        body: `لا يتجدد الاشتراك تلقائيًا. بعد انتهائه تستمر الخدمة ${graceDays} أيام، ثم يُوقَف حساب العميل إلى حين تسجيل اشتراك جديد. لا يؤدي الإيقاف إلى حذف المنيو أو بيانات العميل.`,
-      },
-    },
-    {
-      en: {
-        title: "6. The Client's responsibilities",
-        body: "The Client is responsible for the accuracy of its menu, prices and offers, for the content it uploads, and for keeping the passwords of its staff accounts confidential.",
-      },
-      ar: {
-        title: "٦. التزامات العميل",
-        body: "العميل مسؤول عن دقة المنيو والأسعار والعروض، وعن المحتوى الذي يرفعه، وعن سرّية كلمات مرور حسابات موظفيه.",
-      },
-    },
-    {
-      en: {
-        title: "7. The service",
-        body: "The Provider works to keep the service available and to fix faults promptly, but does not promise that it will be uninterrupted or free of errors. Planned maintenance is announced where possible.",
-      },
-      ar: {
-        title: "٧. الخدمة",
-        body: "يعمل المزوِّد على إبقاء الخدمة متاحة وإصلاح الأعطال سريعًا، لكنه لا يتعهد بأنها ستعمل دون انقطاع أو أخطاء. تُعلَن الصيانة المجدولة متى أمكن.",
-      },
-    },
-    {
-      en: {
-        title: "8. Data",
-        body: "The menu and the other content belong to the Client. The Provider uses the Client's data only to provide the service and does not sell it.",
-      },
-      ar: {
-        title: "٨. البيانات",
-        body: "المنيو وباقي المحتوى ملك للعميل. يستخدم المزوِّد بيانات العميل لتقديم الخدمة فقط ولا يبيعها.",
-      },
-    },
-    {
-      en: {
-        title: "9. Cancellation",
-        body: "Either party may end the subscription by written notice. Fees already paid for a period that has started are not refunded unless the Provider agrees in writing.",
-      },
-      ar: {
-        title: "٩. الإلغاء",
-        body: "يجوز لأي من الطرفين إنهاء الاشتراك بإخطار كتابي. لا تُردّ الرسوم المدفوعة عن فترة بدأت إلا بموافقة كتابية من المزوِّد.",
-      },
-    },
-  ];
-}
+export const CONTRACT_TEXT: Record<Locale, ContractText> = {
+  en: {
+    title: "Subscription Agreement",
+    numberLabel: "No.",
+    provider: "The Provider",
+    client: "The Client",
+    providerTagline: "Digital QR menu platform",
+    statement: ({ client, provider, packageName, from, to, period }) =>
+      `This agreement records that ${client} has subscribed to the ${provider} service on the "${packageName}" package, billed ${period}, for the period from ${from} to ${to}.`,
+    service: "The service",
+    serviceProvided: (provider, from, to) =>
+      `${provider} will provide the service described above to the Client from ${from} until ${to}.`,
+    package: "Package",
+    includes: "Includes",
+    noFeatures: "Digital menu",
+    billingPeriod: "Billing period",
+    monthly: "monthly",
+    yearly: "yearly",
+    starts: "Starts",
+    ends: "Ends",
+    listPrice: "Package price",
+    offer: (percent) => `Package offer (${percent}%)`,
+    discount: "Customer discount",
+    total: "Amount due",
+    notes: "Notes",
+    forProvider: "For the Provider",
+    forClient: "For the Client",
+    signature: "Name and signature",
+    date: "Date",
+  },
+  ar: {
+    title: "عقد اشتراك",
+    numberLabel: "رقم",
+    provider: "المزوِّد",
+    client: "العميل",
+    providerTagline: "منصة المنيو الرقمي بالـQR",
+    statement: ({ client, provider, packageName, from, to, period }) =>
+      `يفيد هذا العقد بأن ${client} اشترك في خدمة ${provider} على باقة "${packageName}" بنظام الدفع ${period}، عن الفترة من ${from} إلى ${to}.`,
+    service: "الخدمة",
+    serviceProvided: (provider, from, to) => `تقدّم ${provider} للعميل الخدمة الموضحة أعلاه من ${from} حتى ${to}.`,
+    package: "الباقة",
+    includes: "تشمل",
+    noFeatures: "المنيو الرقمي",
+    billingPeriod: "فترة الفوترة",
+    monthly: "الشهري",
+    yearly: "السنوي",
+    starts: "تاريخ البداية",
+    ends: "تاريخ النهاية",
+    listPrice: "سعر الباقة",
+    offer: (percent) => `عرض الباقة (${percent}%)`,
+    discount: "خصم العميل",
+    total: "المبلغ المستحق",
+    notes: "ملاحظات",
+    forProvider: "عن المزوِّد",
+    forClient: "عن العميل",
+    signature: "الاسم والتوقيع",
+    date: "التاريخ",
+  },
+};
