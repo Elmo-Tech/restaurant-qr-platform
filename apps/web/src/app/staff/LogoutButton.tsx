@@ -25,7 +25,7 @@ const HTTP_UNAUTHENTICATED = 401;
  * still be valid, so silently redirecting would misrepresent that as a
  * successful sign-out.
  */
-export function LogoutButton() {
+export function LogoutButton({ variant = 'default' }: { variant?: 'default' | 'sidebar' }) {
   const router = useRouter();
   const { t } = useStaffI18n();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -55,6 +55,43 @@ export function LogoutButton() {
       );
       setIsSubmitting(false);
     }
+  }
+
+  if (variant === 'sidebar') {
+    return (
+      <div className="relative">
+        <button
+          type="button"
+          onClick={handleLogout}
+          disabled={isSubmitting}
+          aria-label={isSubmitting ? t('shell.signingOut') : t('shell.logout')}
+          title={isSubmitting ? t('shell.signingOut') : t('shell.logout')}
+          className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-md text-sidebar-muted-foreground outline-none transition-colors hover:bg-sidebar hover:text-sidebar-foreground focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50"
+        >
+          <svg
+            viewBox="0 0 24 24"
+            width="18"
+            height="18"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.7"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+            className="rtl:-scale-x-100"
+          >
+            <path d="M9.5 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h3" />
+            <path d="M14 8.5 18 12l-4 3.5" />
+            <path d="M18 12H9.5" />
+          </svg>
+        </button>
+        {errorMessage ? (
+          <div className="absolute bottom-full end-0 z-10 mb-2 w-60">
+            <Alert variant="error">{errorMessage}</Alert>
+          </div>
+        ) : null}
+      </div>
+    );
   }
 
   return (

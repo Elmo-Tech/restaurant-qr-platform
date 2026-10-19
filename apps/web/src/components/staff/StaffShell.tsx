@@ -147,6 +147,11 @@ export function StaffShell({
         canViewKitchen={canViewKitchen}
         canViewStaff={canViewStaff}
         canViewRestaurantSettings={canViewRestaurantSettings}
+        user={{
+          email: userEmail,
+          accountHref: `/staff/restaurants/${restaurantId}/account`,
+          isAccountActive: section === 'account',
+        }}
         isMobileOpen={isMobileNavOpen}
         onCloseMobile={() => setIsMobileNavOpen(false)}
       />
@@ -154,9 +159,6 @@ export function StaffShell({
       <div className="flex min-w-0 max-w-full flex-1 flex-col">
         <StaffTopbar
           onOpenMobileNav={() => setIsMobileNavOpen(true)}
-          userEmail={userEmail}
-          accountHref={`/staff/restaurants/${restaurantId}/account`}
-          isAccountActive={section === 'account'}
           breadcrumb={<Breadcrumbs items={breadcrumbItems} />}
         />
         {/* UX-2 geometry fix: no `mx-auto` -- centering a capped max-width

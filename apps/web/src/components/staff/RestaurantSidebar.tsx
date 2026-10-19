@@ -12,6 +12,8 @@ import {
   IconStaff,
 } from './icons';
 import { useStaffI18n } from '../../lib/i18n/client';
+import { LogoutButton } from '../../app/staff/LogoutButton';
+import { StaffLanguageSwitcher } from './StaffLanguageSwitcher';
 
 /** Pages the platform package does not include: not shown at all (not even as "no access"). */
 export interface PackageHides {
@@ -46,7 +48,15 @@ interface DisabledNavItem {
   badge: string;
 }
 
+/** Who is signed in: shown at the bottom of the sidebar with the language switch and sign-out. */
+export interface SidebarUser {
+  email: string;
+  accountHref: string;
+  isAccountActive: boolean;
+}
+
 interface RestaurantSidebarProps {
+  user: SidebarUser;
   restaurantId: string;
   restaurantName: string;
   restaurantStatus: RestaurantStatus;
@@ -128,6 +138,40 @@ function DisabledRow({ item }: { item: DisabledNavItem }) {
   );
 }
 
+function SidebarFooter({ user, onNavigate }: { user: SidebarUser; onNavigate?: () => void }) {
+  const { t } = useStaffI18n();
+  return (
+    <div className="space-y-3 border-t border-sidebar-border p-4">
+      <div className="flex justify-end">
+        <StaffLanguageSwitcher tone="sidebar" />
+      </div>
+      <div className="flex items-center gap-1 rounded-lg bg-sidebar-surface p-2">
+        <Link
+          href={user.accountHref}
+          onClick={onNavigate}
+          aria-label={t('account.linkAria')}
+          aria-current={user.isAccountActive ? 'page' : undefined}
+          title={t('account.link')}
+          className={`flex min-w-0 flex-1 items-center gap-2.5 rounded-md px-1.5 py-1 outline-none transition-colors hover:bg-sidebar focus-visible:ring-2 focus-visible:ring-ring ${
+            user.isAccountActive ? 'bg-sidebar' : ''
+          }`}
+        >
+          <span
+            aria-hidden="true"
+            className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-primary text-xs font-semibold text-primary-foreground"
+          >
+            {user.email.charAt(0).toUpperCase()}
+          </span>
+          <span dir="ltr" className="min-w-0 flex-1 truncate text-start text-[13px] text-sidebar-foreground">
+            {user.email}
+          </span>
+        </Link>
+        <LogoutButton variant="sidebar" />
+      </div>
+    </div>
+  );
+}
+
 function SidebarContent({
   restaurantId,
   restaurantName,
@@ -141,8 +185,10 @@ function SidebarContent({
   canViewKitchen,
   canViewStaff,
   canViewRestaurantSettings,
+  user,
   onNavigate,
 }: {
+  user: SidebarUser;
   restaurantId: string;
   restaurantName: string;
   restaurantStatus: RestaurantStatus;
@@ -329,6 +375,7 @@ function SidebarContent({
           </ul>
         </div>
       </nav>
+      <SidebarFooter user={user} onNavigate={onNavigate} />
     </div>
   );
 }
@@ -365,6 +412,7 @@ export function RestaurantSidebar({
   canViewKitchen,
   canViewStaff,
   canViewRestaurantSettings,
+  user,
   isMobileOpen,
   onCloseMobile,
 }: RestaurantSidebarProps) {
@@ -373,6 +421,7 @@ export function RestaurantSidebar({
     <>
       <aside className="hidden w-64 flex-shrink-0 lg:flex lg:flex-col">
         <SidebarContent
+          user={user}
           restaurantId={restaurantId}
           restaurantName={restaurantName}
           restaurantStatus={restaurantStatus}
@@ -407,6 +456,7 @@ export function RestaurantSidebar({
               </button>
             </div>
             <SidebarContent
+              user={user}
               restaurantId={restaurantId}
               restaurantName={restaurantName}
               restaurantStatus={restaurantStatus}
