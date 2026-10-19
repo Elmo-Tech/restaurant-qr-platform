@@ -97,6 +97,33 @@ export const envSchema = z
       .max(180, 'PASSWORD_RESET_TTL_MINUTES must be between 5 and 180')
       .default(45),
 
+    // Platform control dashboard (DEC-045): the one trusted origin of the platform team's web
+    // app. Optional: without it no platform request passes the Origin check (fail closed) and
+    // CORS is not extended. Never a wildcard (credentialed CORS).
+    PLATFORM_ORIGIN: z.preprocess(
+      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      z
+        .string()
+        .trim()
+        .url('PLATFORM_ORIGIN must be a valid URL')
+        .refine((value) => value !== '*', { message: 'PLATFORM_ORIGIN must not be a wildcard' })
+        .optional(),
+    ),
+
+    // Platform Administrator session: its own cookie (the restaurant dashboard's cookie is never
+    // accepted on platform routes) and a shorter lifetime than a restaurant Staff session.
+    PLATFORM_SESSION_COOKIE_NAME: z
+      .string()
+      .trim()
+      .min(1, 'PLATFORM_SESSION_COOKIE_NAME must not be empty')
+      .default('platform_session'),
+    PLATFORM_SESSION_TTL_HOURS: z.coerce
+      .number({ message: 'PLATFORM_SESSION_TTL_HOURS must be a number' })
+      .int('PLATFORM_SESSION_TTL_HOURS must be an integer')
+      .min(1, 'PLATFORM_SESSION_TTL_HOURS must be between 1 and 168')
+      .max(168, 'PLATFORM_SESSION_TTL_HOURS must be between 1 and 168')
+      .default(12),
+
     // Exact name is an implementation detail (AUTH_TENANCY_SPEC.md #22).
     AUTH_SESSION_COOKIE_NAME: z
       .string()

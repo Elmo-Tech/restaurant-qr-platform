@@ -1772,6 +1772,18 @@ Migration `20261025090000_restaurant_features` (additive): enum `feature_key` (`
 
 ---
 
+# 68I. Platform Administrators (DEC-045, 2026-10-18)
+
+Migration `20261026090000_platform_admins` (additive): enum `platform_admin_status` (`ACTIVE`, `DISABLED`) and three tables. `platform_admins` (email, unique `email_normalized`, `password_hash` Argon2id, `display_name`, status, `last_login_at`): the platform team, with no link to `users`. `platform_sessions` (`admin_id` ON DELETE CASCADE, unique `token_hash`, `last_seen_at`, `expires_at`, `revoked_at`): opaque sessions, only the hash stored. `platform_audit_log` (`admin_id` and `restaurant_id` ON DELETE SET NULL, `admin_email` and `restaurant_name` copied so an entry stays readable, `action` text, `details` JSONB, indexes on `created_at` and (`restaurant_id`, `created_at`)). Rollback (before use): drop the three tables and the type.
+
+---
+
+# 68J. Packages (DEC-046, 2026-10-19)
+
+Migration `20261027090000_packages` (additive): enum `package_status` (`ACTIVE`, `ARCHIVED`), table `packages` (`name`, unique `name_normalized` = lower-cased, trimmed, single-spaced; optional `description`; `monthly_price` and `yearly_price` DECIMAL(12,2), `currency_code` CHAR(3); CHECKs: prices are not negative and a price needs a currency), table `package_features` (`package_id` ON DELETE CASCADE, `feature` of the existing `feature_key` enum, unique per package: a row means the package includes the feature) and `restaurants.package_id` (nullable, ON DELETE RESTRICT, indexed; null = no package = every feature). Existing restaurants are untouched. Rollback (before any package is assigned): drop the column, then `package_features`, `packages` and the type.
+
+---
+
 # 69. Variant Price
 
 V1 uses:

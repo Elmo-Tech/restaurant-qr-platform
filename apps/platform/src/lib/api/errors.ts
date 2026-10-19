@@ -1,0 +1,21 @@
+/** The Backend's error envelope: `{ error: { code, message } }`. */
+export class ApiError extends Error {
+  readonly status: number;
+  readonly code: string | null;
+
+  constructor(status: number, body: unknown) {
+    const error =
+      typeof body === "object" && body !== null && "error" in body
+        ? (body as { error?: { code?: unknown; message?: unknown } }).error
+        : undefined;
+    super(typeof error?.message === "string" ? error.message : `HTTP ${status}`);
+    this.name = "ApiError";
+    this.status = status;
+    this.code = typeof error?.code === "string" ? error.code : null;
+  }
+}
+
+/** `true` when the request failed before any HTTP response (network down, API stopped). */
+export function isNetworkFailure(error: unknown): boolean {
+  return error instanceof TypeError;
+}

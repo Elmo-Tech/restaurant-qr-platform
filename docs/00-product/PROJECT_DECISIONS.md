@@ -1037,6 +1037,74 @@ which templates a package may use will be decided by DEC-043 entitlements later.
 
 ---
 
+### DEC-045 — Platform Control Dashboard
+
+**Status:** Accepted (owner, 2026-10-18).
+
+The platform control dashboard is the internal tool of the platform team (not of
+restaurants): it lists and manages restaurants, switches an account on or off,
+creates new restaurants with their owner, edits which features each restaurant
+may use (DEC-043) and, later, packages and the sign-up of customers. Billing
+automation is not part of it yet.
+
+- **Where it lives:** a separate Next.js application in the same repository,
+  `apps/platform` (an npm workspace), with its own port / address, its own
+  cookie and its own look. It is NOT a route group of `apps/web`: it must be
+  deployable behind an internal address, and none of its code may ship to
+  restaurants. It shares nothing with the restaurant dashboard UI.
+- **Backend:** the same NestJS application and the same database. A `platform`
+  module serves `/api/v1/platform/...` (API_CONVENTIONS section 9) with its own
+  guards. The platform has its own Origin check (`PLATFORM_ORIGIN`), separate from
+  the restaurant dashboard's `CORS_ORIGIN`.
+- **Identity:** a Platform Administrator is a separate authorization domain
+  (AUTH_TENANCY_SPEC section 4), never a restaurant OWNER with extra permissions.
+  Separate table (`platform_admins`), email and password (Argon2id), opaque
+  database sessions in a separate HttpOnly cookie, a shorter session lifetime,
+  no public sign-up: administrators are created by a provisioning script.
+- **Design:** a professional, data-dense admin look, light and dark, Arabic and
+  English (RTL / LTR), different from the restaurant dashboard.
+
+**Reason:** the platform team needs to run customers (accounts, features,
+packages) without touching the database by hand, and that tool must be isolated
+from what restaurants use.
+
+---
+
+### DEC-046 — Packages
+
+**Status:** Accepted (owner, 2026-10-19).
+
+A package is a named bundle of the platform features (DEC-043) that the platform
+team creates and assigns to restaurants from the platform control dashboard.
+There are no built-in packages: the owner creates as many as needed and chooses,
+for each one, which of the six features it includes.
+
+- **Resolution, strongest first:** the restaurant's own override (DEC-043) ->
+  the features of its package -> the default. A package INCLUDES the features it
+  lists; any feature it does not list is not included (a feature added to the
+  platform later is therefore not in existing packages until someone adds it). A
+  restaurant with no package keeps every feature, so existing restaurants are
+  unchanged.
+- **Editing a package applies at once** to every restaurant on it; nothing is
+  copied. A restaurant-level override keeps winning over the package.
+- **Prices are display only:** an optional monthly price, yearly price and a
+  currency, entered by the platform team (a price needs a currency). Nothing
+  bills anyone; billing is a separate, later decision.
+- **Life cycle:** a package in use cannot be deleted: it is archived, which keeps
+  its restaurants where they are but stops it being assigned to others. An unused
+  package can be deleted. Names are unique ignoring case and spacing.
+- **Audit:** creating, editing and deleting a package and changing a
+  restaurant's package are recorded in the platform activity log.
+
+**Reason:** the owner sells different service levels (display only, display +
+WhatsApp, everything) and needs to define and change them without a deployment.
+
+**Impact:** migration `packages`, `package_features` and `restaurants.package_id`
+(additive); `/api/v1/platform/packages`; the entitlement check reads the package
+in the same query as the overrides; no feature code changed.
+
+---
+
 ---
 
 ## Change Policy

@@ -2336,6 +2336,33 @@ What the platform allows a Restaurant to use, separate from the Restaurant's own
 
 ---
 
+# 108P. Platform Control Dashboard API (DEC-045, 2026-10-18)
+
+The internal API of the platform team's console (`apps/platform`), all under `/api/v1/platform`. It is a separate authorization domain: a Restaurant Staff session is never accepted here, and a platform session is never accepted on a restaurant route.
+
+- **Origin:** every platform route (reads included) is refused unless the request's Origin is exactly `PLATFORM_ORIGIN` (`403 CSRF_VALIDATION_FAILED`); an unsafe request must also carry that Origin (or Referer); without `PLATFORM_ORIGIN` configured everything is refused. CORS allows `CORS_ORIGIN` and `PLATFORM_ORIGIN`.
+- **Session:** `POST /platform/auth/login` `{ email, password }` -> `200 { data: { id, email, displayName } }` and an HttpOnly cookie named `PLATFORM_SESSION_COOKIE_NAME` (default `platform_session`, lifetime `PLATFORM_SESSION_TTL_HOURS`, default 12). Wrong email, wrong password and a disabled account are one `401 INVALID_CREDENTIALS`. Same login rate limit as Staff. `POST /platform/auth/logout` -> `204` (revokes the session). `GET /platform/auth/me`. Every other route needs the cookie (`401 UNAUTHENTICATED`). There is no public sign-up: administrators are created with `npm run provision:platform-admin`.
+- `GET /platform/overview`: restaurant counts by status, new restaurants and orders in the last 30 days, totals, restaurants with restricted features, the newest restaurants and the recent activity. Aggregates only.
+- `GET /platform/restaurants?search&status&page&pageSize` (page size 1 to 100, default 25): every Restaurant with counts (branches, products, team, orders in 30 days) and the features switched off. `search` matches the name or public id. `GET /platform/restaurants/{id}`: the same plus the Restaurant's own settings (read only), owners (email and status), usage totals and the six features (`enabled`, `overridden`). A malformed or unknown id is `404 RESTAURANT_NOT_FOUND`. No guest data and no order content is ever returned.
+- `PATCH /platform/restaurants/{id}/status` `{ status: ACTIVE | SUSPENDED }`: the existing Restaurant status checks then refuse the team and the guest menu. Setting the current status writes nothing.
+- `PUT /platform/restaurants/{id}/features/{FEATURE}` `{ enabled: true | false | null }`: allow, remove, or `null` = back to the default (DEC-043). An unknown feature is `404 FEATURE_NOT_FOUND`.
+- `GET /platform/audit?restaurantId&limit` (limit up to 200, default 50): the platform team's own history: sign-ins, status changes and feature changes, each with the administrator's email, the Restaurant and what changed.
+
+---
+
+# 108Q. Packages API (DEC-046, 2026-10-19)
+
+Platform routes (same Origin and session rules as 108P), all under `/api/v1/platform`.
+
+- `GET /packages`: every package with `features` (the included keys), `restaurantCount`, `monthlyPrice` / `yearlyPrice` (decimal strings or null), `currencyCode`, `status` (`ACTIVE` | `ARCHIVED`). `GET /packages/{id}`: the same plus the restaurants on it (id, name, status; up to 100).
+- `POST /packages` `{ name (1-80), features[] (unique feature keys), description?, monthlyPrice?, yearlyPrice?, currencyCode?, status? }` -> `201`. Prices are decimal strings with at most two decimals and are returned with two ("149.5" -> "149.50"); `currencyCode` is three letters, upper-cased. `PATCH /packages/{id}` takes any of the same fields; `null` clears `description`, a price or the currency; `features` replaces the whole set. `DELETE /packages/{id}` -> `204`.
+- `PUT /restaurants/{id}/package` `{ packageId: uuid | null }` (the key is required; `null` takes the restaurant off any package).
+- **Errors:** `400` validation; `404 PACKAGE_NOT_FOUND` / `RESTAURANT_NOT_FOUND` (an unknown or malformed id); `409 PACKAGE_NAME_TAKEN`; `409 PACKAGE_IN_USE` (delete a package that restaurants use: archive it instead); `422 PACKAGE_CURRENCY_REQUIRED` (a price without a currency); `422 PACKAGE_ARCHIVED` (assigning an archived package to a restaurant that is not already on it).
+- **Restaurant detail** (108P) now returns `package` ({ id, name } or null) and, for each feature, `source` (`override` | `package` | `default`) and `baseEnabled` (what it would be without the override). `disabledFeatures` and the "restricted" count reflect the package and the overrides together. `PUT .../features/{FEATURE}` with `null` now returns to the package value (or the default when there is no package).
+- **Audit actions:** `package.created`, `package.updated` (with the changed parts), `package.deleted`, `restaurant.package_changed`.
+
+---
+
 # 109. Product Activation (Settled, Day 1 Menu Vertical Slice Batch D -- see #108C)
 
 `Product.status` is updated through the generic Product Update (`PATCH .../products/{productId}`, #108C) -- there is no separate dedicated activation endpoint. This matches the original conceptual sketch below exactly: `status` is configuration state, not an operational state-machine action.

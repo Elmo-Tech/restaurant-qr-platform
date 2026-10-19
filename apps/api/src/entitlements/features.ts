@@ -30,12 +30,23 @@ export type FeatureMap = Record<FeatureKey, boolean>;
 /** What a Restaurant gets for a feature it has no override for. The ONE place this default lives. */
 export const DEFAULT_ENTITLEMENT = true;
 
-/** The features a Restaurant has: the default, with its overrides applied. Unknown keys are ignored. */
+/** Where a feature's effective value comes from (the order of precedence, strongest first). */
+export type FeatureSource = 'override' | 'package' | 'default';
+
+/**
+ * The features a Restaurant has (DEC-043, DEC-046), strongest rule first: its own override, then its
+ * package (a package INCLUDES the features it lists; the rest are not included), then the default.
+ * `packageFeatures` is null/undefined for a Restaurant without a package. Unknown keys are ignored.
+ */
 export function resolveFeatures(
   overrides: ReadonlyArray<{ feature: string; enabled: boolean }>,
+  packageFeatures?: ReadonlyArray<string> | null,
 ): FeatureMap {
   const map = Object.fromEntries(
-    FEATURE_KEYS.map((key) => [key, DEFAULT_ENTITLEMENT]),
+    FEATURE_KEYS.map((key) => [
+      key,
+      packageFeatures ? packageFeatures.includes(key) : DEFAULT_ENTITLEMENT,
+    ]),
   ) as FeatureMap;
   for (const override of overrides) {
     if ((FEATURE_KEYS as readonly string[]).includes(override.feature)) {

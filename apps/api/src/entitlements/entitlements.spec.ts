@@ -37,6 +37,39 @@ describe('feature entitlements', () => {
     expect(features.ORDER_TRACKING).toBe(true);
     expect(Object.keys(features)).toHaveLength(FEATURE_KEYS.length);
   });
+
+  it('a package includes only the features it lists; no package means every feature', () => {
+    const inPackage = resolveFeatures(
+      [],
+      ['WHATSAPP_ORDERING', 'MENU_TEMPLATES'],
+    );
+    expect(inPackage.WHATSAPP_ORDERING).toBe(true);
+    expect(inPackage.MENU_TEMPLATES).toBe(true);
+    expect(inPackage.ORDER_TRACKING).toBe(false);
+    expect(inPackage.TABLE_ORDERING).toBe(false);
+    // an empty package gives nothing; no package gives everything
+    expect(Object.values(resolveFeatures([], [])).some(Boolean)).toBe(false);
+    expect(resolveFeatures([], null)).toEqual(ALL_FEATURES);
+    expect(resolveFeatures([], undefined)).toEqual(ALL_FEATURES);
+    // an unknown name in a package changes nothing
+    expect(resolveFeatures([], ['SOMETHING_NEW'])).toEqual(
+      resolveFeatures([], []),
+    );
+  });
+
+  it("the Restaurant's own override wins over its package, both ways", () => {
+    const features = resolveFeatures(
+      [
+        { feature: 'WHATSAPP_ORDERING', enabled: false },
+        { feature: 'ORDER_TRACKING', enabled: true },
+      ],
+      ['WHATSAPP_ORDERING', 'MENU_TEMPLATES'],
+    );
+    expect(features.WHATSAPP_ORDERING).toBe(false); // in the package, removed for this Restaurant
+    expect(features.ORDER_TRACKING).toBe(true); // not in the package, granted to this Restaurant
+    expect(features.MENU_TEMPLATES).toBe(true);
+    expect(features.SMART_SUGGESTIONS).toBe(false);
+  });
 });
 
 describe('effective ordering (switch AND entitlement)', () => {

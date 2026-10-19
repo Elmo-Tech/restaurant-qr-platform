@@ -80,8 +80,14 @@ async function bootstrap() {
   // AUTH_TENANCY_SPEC.md #11/#107, SECURITY_SPEC.md #68-69: a single
   // explicit trusted origin, never a wildcard, because cookie-authenticated
   // requests need `credentials: true`.
+  // DEC-045: the platform team's web app is a second trusted origin. Its requests are told apart
+  // from restaurant requests by the platform guards (their own Origin check and cookie).
+  const platformOrigin = configService.get('PLATFORM_ORIGIN', { infer: true });
   app.enableCors({
-    origin: configService.get('CORS_ORIGIN', { infer: true }),
+    origin: [
+      configService.get('CORS_ORIGIN', { infer: true }),
+      ...(platformOrigin ? [platformOrigin] : []),
+    ],
     credentials: true,
   });
 

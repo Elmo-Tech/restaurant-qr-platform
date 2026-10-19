@@ -58,7 +58,7 @@ export function normalizeLoginEmail(email: string): string {
  * an arbitrary non-production string — never regenerated at startup or
  * per-request.
  */
-const DUMMY_PASSWORD_HASH =
+export const DUMMY_PASSWORD_HASH =
   '$argon2id$v=19$m=19456,t=2,p=1$1eUNYovhGblUnTR3WX1Yjw$X5Epma/LyCgkVbkiolWgQHpHyNZNE2wpKp0uPhc8DPw';
 
 /**

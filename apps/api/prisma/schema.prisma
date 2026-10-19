@@ -160,6 +160,22 @@ enum DeliveryZoneStatus {
   @@map("delivery_zone_status")
 }
 
+// Platform control dashboard (DEC-045): the platform team's own accounts.
+enum PlatformAdminStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("platform_admin_status")
+}
+
+// A package can be assigned to new Restaurants only while ACTIVE (DEC-046).
+enum PackageStatus {
+  ACTIVE
+  ARCHIVED
+
+  @@map("package_status")
+}
+
 // What the platform may allow a Restaurant to use (DEC-043). A Restaurant without a row has every feature.
 enum FeatureKey {
   WHATSAPP_ORDERING
@@ -315,6 +331,8 @@ model Restaurant {
   snapchatUrl       String?       @map("snapchat_url")
   mapsUrl           String?       @map("maps_url")
   websiteUrl        String?       @map("website_url")
+  // The package the platform assigned (DEC-046). Null = no package: every feature (DEC-043).
+  packageId         String?       @map("package_id") @db.Uuid
   createdAt      DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -323,6 +341,8 @@ model Restaurant {
   announcements         RestaurantAnnouncement[]
   productSuggestions    ProductSuggestion[]
   features              RestaurantFeature[]
+  package               Package?            @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  platformAuditLog      PlatformAuditLog[]
   memberships           RestaurantMembership[]
   roles                 RestaurantRole[]
   invitations           RestaurantInvitation[]
@@ -340,6 +360,7 @@ model Restaurant {
   modifierPresetOptions ModifierPresetOption[]
   deliveryZones         DeliveryZone[]
 
+  @@index([packageId])
   @@map("restaurants")
 }
 
@@ -566,6 +587,60 @@ model CategoryTranslation {
   @@map("category_translations")
 }
 
+// A Platform Administrator (DEC-045): the platform team, a separate authorization domain from Restaurant users.
+model PlatformAdmin {
+  id              String              @id @default(uuid()) @db.Uuid
+  email           String
+  emailNormalized String              @unique @map("email_normalized")
+  passwordHash    String              @map("password_hash")
+  displayName     String              @map("display_name")
+  status          PlatformAdminStatus
+  lastLoginAt     DateTime?           @map("last_login_at") @db.Timestamptz
+  createdAt       DateTime            @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime            @updatedAt @map("updated_at") @db.Timestamptz
+
+  sessions PlatformSession[]
+  auditLog PlatformAuditLog[]
+
+  @@map("platform_admins")
+}
+
+// Opaque database session of a Platform Administrator; only the token hash is stored.
+model PlatformSession {
+  id         String    @id @default(uuid()) @db.Uuid
+  adminId    String    @map("admin_id") @db.Uuid
+  tokenHash  String    @unique @map("token_hash")
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastSeenAt DateTime  @map("last_seen_at") @db.Timestamptz
+  expiresAt  DateTime  @map("expires_at") @db.Timestamptz
+  revokedAt  DateTime? @map("revoked_at") @db.Timestamptz
+
+  admin PlatformAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+
+  @@index([adminId])
+  @@index([expiresAt])
+  @@map("platform_sessions")
+}
+
+// What the platform team did. The email and Restaurant name are copied so the entry stays readable later.
+model PlatformAuditLog {
+  id             String    @id @default(uuid()) @db.Uuid
+  adminId        String?   @map("admin_id") @db.Uuid
+  adminEmail     String    @map("admin_email")
+  action         String
+  restaurantId   String?   @map("restaurant_id") @db.Uuid
+  restaurantName String?   @map("restaurant_name")
+  details        Json      @default("{}")
+  createdAt      DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  admin      PlatformAdmin? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  restaurant Restaurant?    @relation(fields: [restaurantId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([restaurantId, createdAt])
+  @@map("platform_audit_log")
+}
+
 // A per-Restaurant override of what the platform allows (DEC-043). No row = the default (every feature).
 model RestaurantFeature {
   id           String     @id @default(uuid()) @db.Uuid
@@ -579,6 +654,37 @@ model RestaurantFeature {
 
   @@unique([restaurantId, feature])
   @@map("restaurant_features")
+}
+
+// A bundle of platform features the platform team assigns to Restaurants (DEC-046). Prices are for display only.
+model Package {
+  id             String        @id @default(uuid()) @db.Uuid
+  name           String
+  nameNormalized String        @unique @map("name_normalized")
+  description    String?
+  status         PackageStatus @default(ACTIVE)
+  monthlyPrice   Decimal?      @map("monthly_price") @db.Decimal(12, 2)
+  yearlyPrice    Decimal?      @map("yearly_price") @db.Decimal(12, 2)
+  currencyCode   String?       @map("currency_code") @db.Char(3)
+  createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz
+
+  features    PackageFeature[]
+  restaurants Restaurant[]
+
+  @@map("packages")
+}
+
+// A feature a package INCLUDES: a row = included, no row = not included.
+model PackageFeature {
+  id        String     @id @default(uuid()) @db.Uuid
+  packageId String     @map("package_id") @db.Uuid
+  feature   FeatureKey
+
+  package Package @relation(fields: [packageId], references: [id], onDelete: Cascade)
+
+  @@unique([packageId, feature])
+  @@map("package_features")
 }
 
 // Manual suggestion rule (DEC-042): when `product` is in the Guest cart, suggest `suggestedProduct`.

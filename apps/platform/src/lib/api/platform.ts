@@ -1,0 +1,188 @@
+import { platformFetch } from "./client";
+
+/** Mirrors the Backend's platform responses (`apps/api/src/platform`). */
+export type RestaurantStatus = "ACTIVE" | "INACTIVE" | "SUSPENDED";
+
+export const FEATURE_KEYS = [
+  "WHATSAPP_ORDERING",
+  "ORDER_TRACKING",
+  "SMART_SUGGESTIONS",
+  "MENU_TEMPLATES",
+  "DASHBOARD_ORDERING",
+  "TABLE_ORDERING",
+] as const;
+export type FeatureKey = (typeof FEATURE_KEYS)[number];
+
+/**
+ * The three ways a guest can place an order. Each is its own feature: a package with none of them
+ * is a view-only menu (the guest can browse, not order).
+ */
+export const ORDERING_FEATURES: readonly FeatureKey[] = ["WHATSAPP_ORDERING", "DASHBOARD_ORDERING", "TABLE_ORDERING"];
+export const isDisplayOnly = (features: readonly FeatureKey[]) =>
+  !features.some((key) => ORDERING_FEATURES.includes(key));
+
+export interface Admin {
+  id: string;
+  email: string;
+  displayName: string;
+}
+
+export interface AuditEntry {
+  id: string;
+  action: string;
+  adminEmail: string;
+  restaurantId: string | null;
+  restaurantName: string | null;
+  details: unknown;
+  createdAt: string;
+}
+
+export interface Overview {
+  restaurants: { total: number; active: number; suspended: number; inactive: number };
+  last30Days: { newRestaurants: number; orders: number };
+  totals: { branches: number; products: number; orders: number };
+  restrictedRestaurants: number;
+  recentRestaurants: { id: string; name: string; status: RestaurantStatus; createdAt: string }[];
+  recentActivity: AuditEntry[];
+}
+
+export interface RestaurantSummary {
+  id: string;
+  publicId: string;
+  name: string;
+  status: RestaurantStatus;
+  defaultLocale: string;
+  currencyCode: string;
+  createdAt: string;
+  counts: { branches: number; products: number; staff: number; orders30d: number };
+  /** The package the platform assigned; null = none, every feature. */
+  package: { id: string; name: string } | null;
+  /** Features this restaurant effectively lacks (package and overrides applied). */
+  disabledFeatures: FeatureKey[];
+}
+
+export interface RestaurantPage {
+  items: RestaurantSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export type FeatureSource = "override" | "package" | "default";
+
+export interface FeatureState {
+  key: FeatureKey;
+  enabled: boolean;
+  overridden: boolean;
+  /** What decides it: the restaurant's own override, its package, or the default. */
+  source: FeatureSource;
+  /** What it would be without the restaurant's own override. */
+  baseEnabled: boolean;
+}
+
+export type PackageStatus = "ACTIVE" | "ARCHIVED";
+
+export interface PackageSummary {
+  id: string;
+  name: string;
+  description: string | null;
+  status: PackageStatus;
+  /** Money as strings, display only (no billing yet). */
+  monthlyPrice: string | null;
+  yearlyPrice: string | null;
+  currencyCode: string | null;
+  features: FeatureKey[];
+  restaurantCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface PackageDetail extends PackageSummary {
+  restaurants: { id: string; name: string; status: RestaurantStatus }[];
+}
+
+/** What the package form sends (the Backend normalizes prices and the currency). */
+export interface PackageInput {
+  name: string;
+  description: string | null;
+  monthlyPrice: string | null;
+  yearlyPrice: string | null;
+  currencyCode: string | null;
+  features: FeatureKey[];
+  status?: PackageStatus;
+}
+
+export interface RestaurantDetail extends RestaurantSummary {
+  settings: {
+    pickupEnabled: boolean;
+    deliveryEnabled: boolean;
+    tableOrderingEnabled: boolean;
+    whatsappOrderingEnabled: boolean;
+    menuTemplate: string;
+    suggestionsMode: string;
+  };
+  owners: { email: string; status: string }[];
+  features: FeatureState[];
+  totals: { orders: number; activeBranches: number; tables: number };
+}
+
+const data = async <T>(promise: Promise<{ data: T }>): Promise<T> => (await promise).data;
+
+export const login = (email: string, password: string) =>
+  data(platformFetch<{ data: Admin }>("/auth/login", { method: "POST", body: { email, password } }));
+export const logout = () => platformFetch<void>("/auth/logout", { method: "POST" });
+export const getOverview = () => data(platformFetch<{ data: Overview }>("/overview"));
+
+export function listRestaurants(input: { search: string; status: RestaurantStatus | ""; page: number }) {
+  const params = new URLSearchParams({ page: String(input.page), pageSize: "20" });
+  if (input.search.trim()) params.set("search", input.search.trim());
+  if (input.status) params.set("status", input.status);
+  return data(platformFetch<{ data: RestaurantPage }>(`/restaurants?${params.toString()}`));
+}
+export const getRestaurant = (id: string) =>
+  data(platformFetch<{ data: RestaurantDetail }>(`/restaurants/${encodeURIComponent(id)}`));
+export const setRestaurantStatus = (id: string, status: "ACTIVE" | "SUSPENDED") =>
+  data(
+    platformFetch<{ data: { status: RestaurantStatus } }>(`/restaurants/${encodeURIComponent(id)}/status`, {
+      method: "PATCH",
+      body: { status },
+    }),
+  );
+/** `true` = allow, `false` = remove, `null` = back to the package (or the default without one). */
+export const setRestaurantFeature = (id: string, feature: FeatureKey, enabled: boolean | null) =>
+  data(
+    platformFetch<{ data: FeatureState }>(
+      `/restaurants/${encodeURIComponent(id)}/features/${feature}`,
+      { method: "PUT", body: { enabled } },
+    ),
+  );
+
+export const listPackages = () => data(platformFetch<{ data: PackageSummary[] }>("/packages"));
+export const getPackage = (id: string) =>
+  data(platformFetch<{ data: PackageDetail }>(`/packages/${encodeURIComponent(id)}`));
+export const createPackage = (input: PackageInput) =>
+  data(platformFetch<{ data: PackageSummary }>("/packages", { method: "POST", body: input }));
+export const updatePackage = (id: string, input: Partial<PackageInput>) =>
+  data(
+    platformFetch<{ data: PackageSummary }>(`/packages/${encodeURIComponent(id)}`, {
+      method: "PATCH",
+      body: input,
+    }),
+  );
+export const deletePackage = (id: string) =>
+  platformFetch<void>(`/packages/${encodeURIComponent(id)}`, { method: "DELETE" });
+/** `null` takes the restaurant off any package (every feature). */
+export const assignRestaurantPackage = (restaurantId: string, packageId: string | null) =>
+  data(
+    platformFetch<{ data: { packageId: string | null } }>(
+      `/restaurants/${encodeURIComponent(restaurantId)}/package`,
+      { method: "PUT", body: { packageId } },
+    ),
+  );
+
+export const getAudit = (restaurantId?: string) =>
+  data(
+    platformFetch<{ data: AuditEntry[] }>(
+      `/audit?limit=100${restaurantId ? `&restaurantId=${encodeURIComponent(restaurantId)}` : ""}`,
+    ),
+  );

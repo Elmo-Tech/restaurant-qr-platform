@@ -269,6 +269,8 @@ Use route groups where appropriate.
 
 Do not create separate Next.js apps for these surfaces.
 
+The one exception is the internal platform control dashboard (`apps/platform`, DEC-045): it is the platform team's tool, not a restaurant surface, and lives in its own app.
+
 ---
 
 # 13. Frontend State

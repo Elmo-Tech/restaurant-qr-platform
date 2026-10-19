@@ -1,0 +1,153 @@
+@import "tailwindcss";
+
+/*
+ * Platform console design tokens (DEC-045). A professional, data-dense admin look that is deliberately
+ * unlike the restaurant dashboard: a permanently dark ink rail, a calm neutral workspace and one indigo
+ * accent. Light and dark are two token sets; components only ever use the semantic names below, so the
+ * whole app repaints from this file.
+ */
+:root {
+  --background: #f4f5f8;
+  --surface: #ffffff;
+  --surface-2: #eff1f5;
+  --border: #e2e5eb;
+  --border-strong: #c9cfd9;
+  --foreground: #0e1526;
+  --muted-foreground: #586274;
+  --primary: #4338ca;
+  --primary-hover: #3730a3;
+  --primary-foreground: #ffffff;
+  --primary-soft: #eceefe;
+  --primary-text: #4338ca;
+  --success: #0b7d57;
+  --success-soft: #e3f5ed;
+  --warning: #9a5b00;
+  --warning-soft: #fff1d6;
+  --danger: #c0271b;
+  --danger-soft: #fdebe9;
+  --ring: #6366f1;
+  --shadow-card: 0 1px 2px rgb(16 24 40 / 0.04), 0 1px 3px rgb(16 24 40 / 0.06);
+  --shadow-pop: 0 12px 32px rgb(16 24 40 / 0.14);
+  /* The navigation rail is dark in both themes. */
+  --rail: #0b1020;
+  --rail-hover: rgb(255 255 255 / 0.06);
+  --rail-active: rgb(255 255 255 / 0.1);
+  --rail-border: rgb(255 255 255 / 0.08);
+  --rail-foreground: #e6e9f2;
+  --rail-muted: #8c97ad;
+}
+
+[data-theme="dark"] {
+  --background: #090d17;
+  --surface: #111726;
+  --surface-2: #171e30;
+  --border: #212a3f;
+  --border-strong: #2f3b57;
+  --foreground: #e8ecf4;
+  --muted-foreground: #93a0b8;
+  --primary: #5659e8;
+  --primary-hover: #6a6df0;
+  --primary-foreground: #ffffff;
+  --primary-soft: #1d2147;
+  --primary-text: #a9b3ff;
+  --success: #3ccf91;
+  --success-soft: #0f2a21;
+  --warning: #f2b44c;
+  --warning-soft: #2e2208;
+  --danger: #ff7b6f;
+  --danger-soft: #331412;
+  --ring: #8087ff;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-pop: 0 16px 40px rgb(0 0 0 / 0.55);
+  --rail: #060912;
+}
+
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
+
+@theme inline {
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-border: var(--border);
+  --color-border-strong: var(--border-strong);
+  --color-foreground: var(--foreground);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-primary: var(--primary);
+  --color-primary-hover: var(--primary-hover);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-soft: var(--primary-soft);
+  --color-primary-text: var(--primary-text);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-ring: var(--ring);
+  --color-rail: var(--rail);
+  --color-rail-hover: var(--rail-hover);
+  --color-rail-active: var(--rail-active);
+  --color-rail-border: var(--rail-border);
+  --color-rail-foreground: var(--rail-foreground);
+  --color-rail-muted: var(--rail-muted);
+  --shadow-card: var(--shadow-card);
+  --shadow-pop: var(--shadow-pop);
+  --font-sans: var(--font-inter), var(--font-plex-arabic), ui-sans-serif, system-ui, sans-serif;
+  --radius-card: 14px;
+}
+
+html {
+  color-scheme: light;
+}
+html[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans);
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* Arabic reads better a touch larger and looser. */
+html[lang="ar"] body {
+  font-size: 15px;
+  line-height: 1.65;
+}
+
+:focus-visible {
+  outline: 2px solid var(--ring);
+  outline-offset: 2px;
+}
+
+/* Figures line up in tables. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+@keyframes console-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.45;
+  }
+}
+.skeleton {
+  animation: console-pulse 1.4s ease-in-out infinite;
+  background: var(--surface-2);
+  border-radius: 8px;
+}

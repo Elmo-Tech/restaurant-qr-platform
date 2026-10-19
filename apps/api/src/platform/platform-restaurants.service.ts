@@ -1,0 +1,378 @@
+import { Injectable } from '@nestjs/common';
+import { PrismaService } from '../database/prisma.service';
+import {
+  FEATURE_KEYS,
+  resolveFeatures,
+  type FeatureKey,
+  type FeatureSource,
+} from '../entitlements/features';
+import type { Prisma, RestaurantStatus } from '../generated/prisma/client';
+import { PlatformAuditService } from './platform-audit.service';
+import type { PlatformAdminPrincipal } from './platform-auth.service';
+
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+export interface RestaurantSummary {
+  id: string;
+  publicId: string;
+  name: string;
+  status: RestaurantStatus;
+  defaultLocale: string;
+  currencyCode: string;
+  createdAt: string;
+  counts: {
+    branches: number;
+    products: number;
+    staff: number;
+    orders30d: number;
+  };
+  /** The package the platform assigned (DEC-046); null = no package, every feature. */
+  package: { id: string; name: string } | null;
+  /** The features this Restaurant effectively does not have (package and overrides applied). */
+  disabledFeatures: FeatureKey[];
+}
+
+export interface RestaurantPage {
+  items: RestaurantSummary[];
+  page: number;
+  pageSize: number;
+  total: number;
+}
+
+export interface FeatureState {
+  key: FeatureKey;
+  /** What the Restaurant effectively gets. */
+  enabled: boolean;
+  /** True when a stored override decides it (false = the package, or the default). */
+  overridden: boolean;
+  /** What decides it: the Restaurant's own override, its package, or the default. */
+  source: FeatureSource;
+  /** What the Restaurant would get without its override (its package, or the default). */
+  baseEnabled: boolean;
+}
+
+export interface RestaurantDetail extends RestaurantSummary {
+  /** The Restaurant's own settings (read only here). */
+  settings: {
+    pickupEnabled: boolean;
+    deliveryEnabled: boolean;
+    tableOrderingEnabled: boolean;
+    whatsappOrderingEnabled: boolean;
+    menuTemplate: string;
+    suggestionsMode: string;
+  };
+  owners: { email: string; status: string }[];
+  features: FeatureState[];
+  totals: { orders: number; activeBranches: number; tables: number };
+}
+
+export type RestaurantLookup<T> =
+  { outcome: 'ok'; data: T } | { outcome: 'notFound' };
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * The platform team's view of every Restaurant (DEC-045). Cross-tenant by design: it is reachable only
+ * through the platform guards, never from a restaurant session. It returns operational facts and
+ * counts, never a guest's personal data or any order content.
+ */
+@Injectable()
+export class PlatformRestaurantsService {
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly audit: PlatformAuditService,
+  ) {}
+
+  async list(input: {
+    search?: string;
+    status?: RestaurantStatus;
+    page: number;
+    pageSize: number;
+  }): Promise<RestaurantPage> {
+    const search = input.search?.trim();
+    const where: Prisma.RestaurantWhereInput = {
+      ...(input.status ? { status: input.status } : {}),
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: 'insensitive' } },
+              { publicId: { contains: search, mode: 'insensitive' } },
+            ],
+          }
+        : {}),
+    };
+    const [total, rows] = await Promise.all([
+      this.prisma.restaurant.count({ where }),
+      this.prisma.restaurant.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }, { id: 'asc' }],
+        skip: (input.page - 1) * input.pageSize,
+        take: input.pageSize,
+        select: {
+          id: true,
+          publicId: true,
+          name: true,
+          status: true,
+          defaultLocale: true,
+          currencyCode: true,
+          createdAt: true,
+          _count: {
+            select: { branches: true, products: true, memberships: true },
+          },
+          features: { select: { feature: true, enabled: true } },
+          package: {
+            select: {
+              id: true,
+              name: true,
+              features: { select: { feature: true } },
+            },
+          },
+        },
+      }),
+    ]);
+    const orders = await this.recentOrderCounts(rows.map((row) => row.id));
+    return {
+      items: rows.map((row) => ({
+        id: row.id,
+        publicId: row.publicId,
+        name: row.name,
+        status: row.status,
+        defaultLocale: row.defaultLocale,
+        currencyCode: row.currencyCode,
+        createdAt: row.createdAt.toISOString(),
+        counts: {
+          branches: row._count.branches,
+          products: row._count.products,
+          staff: row._count.memberships,
+          orders30d: orders.get(row.id) ?? 0,
+        },
+        package: row.package && { id: row.package.id, name: row.package.name },
+        disabledFeatures: disabledFeatures(row.features, row.package),
+      })),
+      page: input.page,
+      pageSize: input.pageSize,
+      total,
+    };
+  }
+
+  async detail(
+    restaurantId: string,
+  ): Promise<RestaurantLookup<RestaurantDetail>> {
+    if (!UUID.test(restaurantId)) return { outcome: 'notFound' };
+    const row = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: {
+        id: true,
+        publicId: true,
+        name: true,
+        status: true,
+        defaultLocale: true,
+        currencyCode: true,
+        createdAt: true,
+        pickupEnabled: true,
+        deliveryEnabled: true,
+        tableOrderingEnabled: true,
+        whatsappOrderingEnabled: true,
+        menuTemplate: true,
+        suggestionsMode: true,
+        _count: {
+          select: {
+            branches: true,
+            products: true,
+            memberships: true,
+            orders: true,
+            tables: true,
+          },
+        },
+        memberships: {
+          where: { role: 'OWNER' },
+          select: { status: true, user: { select: { email: true } } },
+          orderBy: { createdAt: 'asc' },
+        },
+        features: { select: { feature: true, enabled: true } },
+        package: {
+          select: {
+            id: true,
+            name: true,
+            features: { select: { feature: true } },
+          },
+        },
+      },
+    });
+    if (!row) return { outcome: 'notFound' };
+    const [orders, activeBranches] = await Promise.all([
+      this.recentOrderCounts([row.id]),
+      this.prisma.branch.count({
+        where: { restaurantId: row.id, status: 'ACTIVE' },
+      }),
+    ]);
+    return {
+      outcome: 'ok',
+      data: {
+        id: row.id,
+        publicId: row.publicId,
+        name: row.name,
+        status: row.status,
+        defaultLocale: row.defaultLocale,
+        currencyCode: row.currencyCode,
+        createdAt: row.createdAt.toISOString(),
+        counts: {
+          branches: row._count.branches,
+          products: row._count.products,
+          staff: row._count.memberships,
+          orders30d: orders.get(row.id) ?? 0,
+        },
+        package: row.package && { id: row.package.id, name: row.package.name },
+        disabledFeatures: disabledFeatures(row.features, row.package),
+        settings: {
+          pickupEnabled: row.pickupEnabled,
+          deliveryEnabled: row.deliveryEnabled,
+          tableOrderingEnabled: row.tableOrderingEnabled,
+          whatsappOrderingEnabled: row.whatsappOrderingEnabled,
+          menuTemplate: row.menuTemplate,
+          suggestionsMode: row.suggestionsMode,
+        },
+        owners: row.memberships.map((membership) => ({
+          email: membership.user.email,
+          status: membership.status,
+        })),
+        features: FEATURE_KEYS.map((key) =>
+          featureState(key, row.features, row.package),
+        ),
+        totals: {
+          orders: row._count.orders,
+          activeBranches,
+          tables: row._count.tables,
+        },
+      },
+    };
+  }
+
+  /** Switch an account on or off. A suspended Restaurant's Staff and Guests are refused by the existing status checks. */
+  async setStatus(
+    admin: PlatformAdminPrincipal,
+    restaurantId: string,
+    status: 'ACTIVE' | 'SUSPENDED',
+  ): Promise<RestaurantLookup<{ status: RestaurantStatus }>> {
+    if (!UUID.test(restaurantId)) return { outcome: 'notFound' };
+    const current = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { id: true, name: true, status: true },
+    });
+    if (!current) return { outcome: 'notFound' };
+    if (current.status !== status) {
+      await this.prisma.restaurant.update({
+        where: { id: current.id },
+        data: { status },
+      });
+      await this.audit.record({
+        admin,
+        action: 'restaurant.status_changed',
+        restaurant: { id: current.id, name: current.name },
+        details: { from: current.status, to: status },
+      });
+    }
+    return { outcome: 'ok', data: { status } };
+  }
+
+  /** Allow (`true`), remove (`false`) a feature, or go back to the default (`null`). */
+  async setFeature(
+    admin: PlatformAdminPrincipal,
+    restaurantId: string,
+    feature: FeatureKey,
+    enabled: boolean | null,
+  ): Promise<RestaurantLookup<FeatureState>> {
+    if (!UUID.test(restaurantId)) return { outcome: 'notFound' };
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: {
+        id: true,
+        name: true,
+        package: { select: { features: { select: { feature: true } } } },
+      },
+    });
+    if (!restaurant) return { outcome: 'notFound' };
+    const before = await this.prisma.restaurantFeature.findUnique({
+      where: { restaurantId_feature: { restaurantId, feature } },
+      select: { enabled: true },
+    });
+    if (enabled === null) {
+      await this.prisma.restaurantFeature.deleteMany({
+        where: { restaurantId, feature },
+      });
+    } else {
+      await this.prisma.restaurantFeature.upsert({
+        where: { restaurantId_feature: { restaurantId, feature } },
+        create: { restaurantId, feature, enabled },
+        update: { enabled },
+      });
+    }
+    const state = featureState(
+      feature,
+      enabled === null ? [] : [{ feature, enabled }],
+      restaurant.package,
+    );
+    if (before?.enabled !== enabled && !(before === null && enabled === null)) {
+      await this.audit.record({
+        admin,
+        action: 'restaurant.feature_changed',
+        restaurant: { id: restaurant.id, name: restaurant.name },
+        details: {
+          feature,
+          from: before ? before.enabled : 'default',
+          to: enabled === null ? 'default' : enabled,
+        },
+      });
+    }
+    return { outcome: 'ok', data: state };
+  }
+
+  private async recentOrderCounts(
+    restaurantIds: readonly string[],
+  ): Promise<Map<string, number>> {
+    if (restaurantIds.length === 0) return new Map();
+    const grouped = await this.prisma.order.groupBy({
+      by: ['restaurantId'],
+      where: {
+        restaurantId: { in: [...restaurantIds] },
+        createdAt: { gte: new Date(Date.now() - 30 * DAY_MS) },
+      },
+      _count: { _all: true },
+    });
+    return new Map(
+      grouped.map((group) => [group.restaurantId, group._count._all]),
+    );
+  }
+}
+
+type OverrideRows = ReadonlyArray<{ feature: string; enabled: boolean }>;
+type PackageRows = { features: ReadonlyArray<{ feature: string }> } | null;
+
+/** One feature's effective value and what decides it (override, then package, then default). */
+function featureState(
+  key: FeatureKey,
+  overrides: OverrideRows,
+  pkg: PackageRows,
+): FeatureState {
+  const packageFeatures = pkg?.features.map((f) => f.feature);
+  const baseEnabled = resolveFeatures([], packageFeatures)[key];
+  const override = overrides.find((row) => row.feature === key);
+  return {
+    key,
+    enabled: override ? override.enabled : baseEnabled,
+    overridden: override !== undefined,
+    source: override ? 'override' : pkg ? 'package' : 'default',
+    baseEnabled,
+  };
+}
+
+function disabledFeatures(
+  overrides: OverrideRows,
+  pkg: PackageRows,
+): FeatureKey[] {
+  const effective = resolveFeatures(
+    overrides,
+    pkg?.features.map((f) => f.feature),
+  );
+  return FEATURE_KEYS.filter((key) => !effective[key]);
+}
