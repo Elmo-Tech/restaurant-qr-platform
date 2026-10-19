@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
+import { PlatformBillingController } from './billing/platform-billing.controller';
+import { PlatformBillingService } from './billing/platform-billing.service';
+import { SubscriptionSyncService } from './billing/subscription-sync.service';
 import { PlatformAdminsService } from './platform-admins.service';
 import { PlatformAuditService } from './platform-audit.service';
 import { PlatformAuthService } from './platform-auth.service';
@@ -18,7 +21,7 @@ import { PlatformController } from './platform.controller';
  */
 @Module({
   imports: [DatabaseModule, AuthModule],
-  controllers: [PlatformController],
+  controllers: [PlatformController, PlatformBillingController],
   providers: [
     PlatformAuthService,
     PlatformAuthGuard,
@@ -29,6 +32,8 @@ import { PlatformController } from './platform.controller';
     PlatformRestaurantCreationService,
     PlatformPackagesService,
     PlatformOverviewService,
+    PlatformBillingService,
+    SubscriptionSyncService,
   ],
 })
 export class PlatformModule {}

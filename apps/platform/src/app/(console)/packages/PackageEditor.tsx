@@ -24,44 +24,66 @@ import { useI18n } from "@/lib/i18n/client";
 
 /** A price the Backend accepts: digits with at most two decimals. */
 const MONEY = /^\d{1,10}(\.\d{1,2})?$/;
+/** An offer percentage: above 0, up to 100, at most two decimals. */
+const PERCENT = /^\d{1,3}(\.\d{1,2})?$/;
+const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+
+type PriceField = "egpMonthly" | "egpYearly" | "usdMonthly" | "usdYearly";
 
 interface FormState {
   name: string;
   description: string;
-  monthlyPrice: string;
-  yearlyPrice: string;
-  currencyCode: string;
+  prices: Record<PriceField, string>;
+  offerOn: boolean;
+  offerPercent: string;
+  offerLabel: string;
+  offerEndsAt: string;
   features: FeatureKey[];
 }
 
 const EMPTY: FormState = {
   name: "",
   description: "",
-  monthlyPrice: "",
-  yearlyPrice: "",
-  // The platform's usual currency; editable.
-  currencyCode: "EGP",
+  prices: { egpMonthly: "", egpYearly: "", usdMonthly: "", usdYearly: "" },
+  offerOn: false,
+  offerPercent: "",
+  offerLabel: "",
+  offerEndsAt: "",
   features: [],
 };
 
 const formFrom = (pkg: PackageDetail): FormState => ({
   name: pkg.name,
   description: pkg.description ?? "",
-  monthlyPrice: pkg.monthlyPrice ?? "",
-  yearlyPrice: pkg.yearlyPrice ?? "",
-  currencyCode: pkg.currencyCode ?? "EGP",
+  prices: {
+    egpMonthly: pkg.prices.egpMonthly ?? "",
+    egpYearly: pkg.prices.egpYearly ?? "",
+    usdMonthly: pkg.prices.usdMonthly ?? "",
+    usdYearly: pkg.prices.usdYearly ?? "",
+  },
+  offerOn: pkg.offer !== null,
+  offerPercent: pkg.offer?.percent ?? "",
+  offerLabel: pkg.offer?.label ?? "",
+  offerEndsAt: pkg.offer?.endsAt ?? "",
   features: pkg.features,
 });
 
-/** The form's text as the API's input: empty prices and description are `null`. */
+const orNull = (value: string) => (value.trim() === "" ? null : value.trim());
+
+/** The form's text as the API's input: empty prices, description and offer parts are `null`. */
 function toInput(form: FormState): PackageInput {
-  const priced = form.monthlyPrice.trim() !== "" || form.yearlyPrice.trim() !== "";
   return {
     name: form.name.trim(),
-    description: form.description.trim() === "" ? null : form.description.trim(),
-    monthlyPrice: form.monthlyPrice.trim() === "" ? null : form.monthlyPrice.trim(),
-    yearlyPrice: form.yearlyPrice.trim() === "" ? null : form.yearlyPrice.trim(),
-    currencyCode: priced && form.currencyCode.trim() !== "" ? form.currencyCode.trim().toUpperCase() : null,
+    description: orNull(form.description),
+    prices: {
+      egpMonthly: orNull(form.prices.egpMonthly),
+      egpYearly: orNull(form.prices.egpYearly),
+      usdMonthly: orNull(form.prices.usdMonthly),
+      usdYearly: orNull(form.prices.usdYearly),
+    },
+    offer: form.offerOn
+      ? { percent: form.offerPercent.trim(), label: orNull(form.offerLabel), endsAt: orNull(form.offerEndsAt) }
+      : null,
     features: FEATURE_KEYS.filter((key) => form.features.includes(key)),
   };
 }
@@ -111,6 +133,10 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
     setForm((current) => ({ ...current, [key]: value }));
     setNotice(null);
   };
+  const setPrice = (field: PriceField, value: string) => {
+    setForm((current) => ({ ...current, prices: { ...current.prices, [field]: value } }));
+    setNotice(null);
+  };
   const toggleFeature = (key: FeatureKey) =>
     set("features", form.features.includes(key) ? form.features.filter((f) => f !== key) : [...form.features, key]);
 
@@ -118,11 +144,14 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
   function validate(): string | null {
     const input = toInput(form);
     if (input.name === "") return t("package.err.invalid");
-    for (const price of [input.monthlyPrice, input.yearlyPrice]) {
+    for (const price of Object.values(input.prices)) {
       if (price !== null && !MONEY.test(price)) return t("package.err.invalid");
     }
-    const priced = input.monthlyPrice !== null || input.yearlyPrice !== null;
-    if (priced && !/^[A-Za-z]{3}$/.test(form.currencyCode.trim())) return t("package.err.currencyRequired");
+    if (input.offer) {
+      const percent = Number(input.offer.percent);
+      if (!PERCENT.test(input.offer.percent) || !(percent > 0 && percent <= 100)) return t("package.err.offerInvalid");
+      if (input.offer.endsAt !== null && !DATE_ONLY.test(input.offer.endsAt)) return t("package.err.offerInvalid");
+    }
     return null;
   }
 
@@ -145,7 +174,16 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
       }
       const saved = await updatePackage(packageId, toInput(form));
       setPkg((current) => (current ? { ...current, ...saved } : current));
-      setForm((current) => ({ ...current, monthlyPrice: saved.monthlyPrice ?? "", yearlyPrice: saved.yearlyPrice ?? "" }));
+      setForm((current) => ({
+        ...current,
+        prices: {
+          egpMonthly: saved.prices.egpMonthly ?? "",
+          egpYearly: saved.prices.egpYearly ?? "",
+          usdMonthly: saved.prices.usdMonthly ?? "",
+          usdYearly: saved.prices.usdYearly ?? "",
+        },
+        offerPercent: saved.offer?.percent ?? current.offerPercent,
+      }));
       setNotice("package.saved");
     } catch (caught) {
       setProblem(describe(caught));
@@ -289,44 +327,95 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
 
           <Card>
             <CardHeader title={t("package.prices")} description={t("package.pricesHint")} />
-            <div className="grid gap-4 p-5 sm:grid-cols-3">
-              <div>
-                <Label htmlFor="package-monthly">{t("package.monthly")}</Label>
-                <Input
-                  id="package-monthly"
-                  dir="ltr"
-                  inputMode="decimal"
-                  value={form.monthlyPrice}
-                  onChange={(event) => set("monthlyPrice", event.target.value)}
-                  placeholder="0.00"
-                  className="text-start"
+            <div className="space-y-5 p-5">
+              {(
+                [
+                  ["package.priceEgp", "egpMonthly", "egpYearly", "EGP"],
+                  ["package.priceUsd", "usdMonthly", "usdYearly", "USD"],
+                ] as const
+              ).map(([title, monthly, yearly, currency]) => (
+                <div key={currency}>
+                  <p className="mb-2 text-[13px] font-semibold text-foreground">{t(title)}</p>
+                  <div className="grid gap-4 sm:grid-cols-2">
+                    {([[monthly, "package.monthly"], [yearly, "package.yearly"]] as const).map(([field, label]) => (
+                      <div key={field}>
+                        <Label htmlFor={`package-${field}`}>{t(label)}</Label>
+                        <div className="relative">
+                          <Input
+                            id={`package-${field}`}
+                            dir="ltr"
+                            inputMode="decimal"
+                            value={form.prices[field]}
+                            onChange={(event) => setPrice(field, event.target.value)}
+                            placeholder="0.00"
+                            className="pe-14 text-start"
+                          />
+                          <span
+                            dir="ltr"
+                            className="pointer-events-none absolute end-3 top-1/2 -translate-y-1/2 text-xs font-medium text-muted-foreground"
+                          >
+                            {currency}
+                          </span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </Card>
+
+          <Card>
+            <CardHeader title={t("package.offer")} description={t("package.offerHint")} />
+            <div className="space-y-4 p-5">
+              <label className="flex cursor-pointer items-center gap-3">
+                <input
+                  type="checkbox"
+                  checked={form.offerOn}
+                  onChange={(event) => set("offerOn", event.target.checked)}
+                  className="size-4 shrink-0 accent-primary"
                 />
-              </div>
-              <div>
-                <Label htmlFor="package-yearly">{t("package.yearly")}</Label>
-                <Input
-                  id="package-yearly"
-                  dir="ltr"
-                  inputMode="decimal"
-                  value={form.yearlyPrice}
-                  onChange={(event) => set("yearlyPrice", event.target.value)}
-                  placeholder="0.00"
-                  className="text-start"
-                />
-              </div>
-              <div>
-                <Label htmlFor="package-currency">{t("package.currency")}</Label>
-                <Input
-                  id="package-currency"
-                  dir="ltr"
-                  value={form.currencyCode}
-                  onChange={(event) => set("currencyCode", event.target.value.toUpperCase())}
-                  maxLength={3}
-                  placeholder="EGP"
-                  className="text-start uppercase"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">{t("package.currencyHint")}</p>
-              </div>
+                <span className="text-sm font-medium text-foreground">{t("package.offerOn")}</span>
+                {pkg?.offer && !pkg.offer.active ? <Badge tone="neutral">{t("package.offerEnded")}</Badge> : null}
+              </label>
+              {form.offerOn ? (
+                <div className="grid gap-4 sm:grid-cols-3">
+                  <div>
+                    <Label htmlFor="package-offer-percent">{t("package.offerPercent")}</Label>
+                    <Input
+                      id="package-offer-percent"
+                      dir="ltr"
+                      inputMode="decimal"
+                      value={form.offerPercent}
+                      onChange={(event) => set("offerPercent", event.target.value)}
+                      placeholder="20"
+                      className="text-start"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="package-offer-label">{t("package.offerLabel")}</Label>
+                    <Input
+                      id="package-offer-label"
+                      value={form.offerLabel}
+                      onChange={(event) => set("offerLabel", event.target.value)}
+                      placeholder={t("package.offerLabelPlaceholder")}
+                      maxLength={60}
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="package-offer-ends">{t("package.offerEnds")}</Label>
+                    <Input
+                      id="package-offer-ends"
+                      type="date"
+                      dir="ltr"
+                      value={form.offerEndsAt}
+                      onChange={(event) => set("offerEndsAt", event.target.value)}
+                      className="text-start"
+                    />
+                    <p className="mt-1 text-xs text-muted-foreground">{t("package.offerEndsHint")}</p>
+                  </div>
+                </div>
+              ) : null}
             </div>
           </Card>
 

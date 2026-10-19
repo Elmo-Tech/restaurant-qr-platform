@@ -65,6 +65,8 @@ import {
   CreatePackageDto,
   UpdatePackageDto,
   normalizeMoney,
+  type PackageOfferDto,
+  type PackagePricesDto,
 } from './dto/package.dto';
 import {
   ChangeOwnPasswordDto,
@@ -102,8 +104,9 @@ const REFUSAL_STATUS: Record<PackageRefusal, HttpStatus> = {
   RESTAURANT_NOT_FOUND: HttpStatus.NOT_FOUND,
   NAME_TAKEN: HttpStatus.CONFLICT,
   IN_USE: HttpStatus.CONFLICT,
-  CURRENCY_REQUIRED: HttpStatus.UNPROCESSABLE_ENTITY,
+  INVALID_OFFER: HttpStatus.UNPROCESSABLE_ENTITY,
   ARCHIVED: HttpStatus.UNPROCESSABLE_ENTITY,
+  SUBSCRIPTION_ACTIVE: HttpStatus.CONFLICT,
 };
 
 const REFUSAL_MESSAGES: Record<
@@ -120,15 +123,52 @@ const REFUSAL_MESSAGES: Record<
     code: 'PACKAGE_IN_USE',
     message: 'Restaurants use this package; archive it instead.',
   },
-  CURRENCY_REQUIRED: {
-    code: 'PACKAGE_CURRENCY_REQUIRED',
-    message: 'A package with a price needs a currency.',
+  INVALID_OFFER: {
+    code: 'PACKAGE_OFFER_INVALID',
+    message:
+      'The offer needs a percentage above 0 up to 100 and a valid end date.',
   },
   ARCHIVED: {
     code: 'PACKAGE_ARCHIVED',
     message: 'An archived package cannot be assigned.',
   },
+  SUBSCRIPTION_ACTIVE: {
+    code: 'SUBSCRIPTION_DECIDES_PACKAGE',
+    message:
+      'A subscription covers this restaurant today, so its package follows the subscription. Record a new subscription to change it.',
+  },
 };
+
+/** An offer from the request: missing stays missing (leave it), null removes it. */
+function toOfferInput(
+  offer: PackageOfferDto | null | undefined,
+): PackageInput['offer'] | undefined {
+  if (offer === undefined) return undefined;
+  if (offer === null) return null;
+  return {
+    percent: normalizeMoney(offer.percent) ?? offer.percent,
+    label: offer.label ?? null,
+    endsAt: offer.endsAt ?? null,
+  };
+}
+
+/** Only the prices the request mentions (an absent price is left alone, null clears it). */
+function toPricesPatch(
+  prices: PackagePricesDto | undefined,
+): Partial<PackageInput['prices']> | undefined {
+  if (!prices) return undefined;
+  const patch: Partial<PackageInput['prices']> = {};
+  for (const key of [
+    'egpMonthly',
+    'egpYearly',
+    'usdMonthly',
+    'usdYearly',
+  ] as const) {
+    const value = prices[key];
+    if (value !== undefined) patch[key] = normalizeMoney(value) ?? null;
+  }
+  return patch;
+}
 
 /** The data of an accepted package change, or the HTTP error for a refused one. */
 function unwrapPackage<T>(result: PackageOutcome<T>): T {
@@ -549,9 +589,13 @@ export class PlatformController {
     const input: PackageInput = {
       name: body.name,
       description: body.description ?? null,
-      monthlyPrice: normalizeMoney(body.monthlyPrice) ?? null,
-      yearlyPrice: normalizeMoney(body.yearlyPrice) ?? null,
-      currencyCode: body.currencyCode ?? null,
+      prices: {
+        egpMonthly: normalizeMoney(body.prices?.egpMonthly) ?? null,
+        egpYearly: normalizeMoney(body.prices?.egpYearly) ?? null,
+        usdMonthly: normalizeMoney(body.prices?.usdMonthly) ?? null,
+        usdYearly: normalizeMoney(body.prices?.usdYearly) ?? null,
+      },
+      offer: toOfferInput(body.offer) ?? null,
       features: body.features,
       status: body.status ?? 'ACTIVE',
     };
@@ -572,9 +616,12 @@ export class PlatformController {
     return {
       data: unwrapPackage(
         await this.packages.update(request.platformAdmin, packageId, {
-          ...body,
-          monthlyPrice: normalizeMoney(body.monthlyPrice),
-          yearlyPrice: normalizeMoney(body.yearlyPrice),
+          name: body.name,
+          description: body.description,
+          status: body.status,
+          features: body.features,
+          prices: toPricesPatch(body.prices),
+          offer: toOfferInput(body.offer),
         }),
       ),
     };

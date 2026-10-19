@@ -22,6 +22,7 @@ import {
 } from "@/lib/api/platform";
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
+import { BillingSection } from "./billing/BillingSection";
 
 type FeatureChoice = "default" | "allowed" | "notAllowed";
 
@@ -52,12 +53,25 @@ export function RestaurantDetailView({ restaurantId }: { restaurantId: string })
   // "" = no package; otherwise a package id. Null until the restaurant has loaded.
   const [chosenPackage, setChosenPackage] = useState<string | null>(null);
   const [packageBusy, setPackageBusy] = useState(false);
+  // True while a subscription covers today: then the subscription decides the package (DEC-049).
+  const [coveredBySubscription, setCoveredBySubscription] = useState(false);
 
   const reloadAudit = useCallback(() => {
     getAudit(restaurantId)
       .then(setAudit)
       .catch(() => undefined);
   }, [restaurantId]);
+
+  /** A subscription change can move the package or the status: read the restaurant and its activity again. */
+  const refreshAfterBilling = useCallback(() => {
+    getRestaurant(restaurantId)
+      .then((reloaded) => {
+        setRestaurant(reloaded);
+        setChosenPackage(reloaded.package?.id ?? "");
+      })
+      .catch(() => undefined);
+    reloadAudit();
+  }, [restaurantId, reloadAudit]);
 
   useEffect(() => {
     let cancelled = false;
@@ -198,13 +212,20 @@ export function RestaurantDetailView({ restaurantId }: { restaurantId: string })
 
       <div className="grid gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
+          <BillingSection
+            restaurantId={restaurantId}
+            packages={packages}
+            onSynced={refreshAfterBilling}
+            onCoverageChange={setCoveredBySubscription}
+          />
+
           <Card>
             <CardHeader title={t("detail.package")} description={t("detail.packageHint")} />
             <div className="flex flex-wrap items-center gap-3 p-5">
               <Select
                 value={chosenPackage ?? ""}
                 onChange={(event) => setChosenPackage(event.target.value)}
-                disabled={packageBusy || chosenPackage === null}
+                disabled={packageBusy || chosenPackage === null || coveredBySubscription}
                 aria-label={t("detail.package")}
                 className="min-w-[220px] flex-1 sm:max-w-sm"
               >
@@ -222,11 +243,19 @@ export function RestaurantDetailView({ restaurantId }: { restaurantId: string })
               <Button
                 variant="primary"
                 onClick={() => void applyPackage()}
-                disabled={packageBusy || chosenPackage === null || chosenPackage === (restaurant.package?.id ?? "")}
+                disabled={
+                  packageBusy ||
+                  coveredBySubscription ||
+                  chosenPackage === null ||
+                  chosenPackage === (restaurant.package?.id ?? "")
+                }
               >
                 {t("detail.packageSave")}
               </Button>
             </div>
+            {coveredBySubscription ? (
+              <p className="border-t border-border px-5 py-3 text-xs text-muted-foreground">{t("package.err.bySubscription")}</p>
+            ) : null}
           </Card>
 
           <Card>

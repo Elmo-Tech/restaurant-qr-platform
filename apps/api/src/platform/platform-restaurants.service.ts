@@ -263,7 +263,15 @@ export class PlatformRestaurantsService {
     if (current.status !== status) {
       await this.prisma.restaurant.update({
         where: { id: current.id },
-        data: { status },
+        data: {
+          status,
+          // a hand-made change always wins (DEC-049): the platform's own suspension mark goes, and a
+          // reactivation records when, so the hourly check does not undo it for the same lapse
+          subscriptionSuspendedAt: null,
+          ...(status === 'ACTIVE'
+            ? { subscriptionOverrideAt: new Date() }
+            : {}),
+        },
       });
       await this.audit.record({
         admin,

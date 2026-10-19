@@ -9,14 +9,21 @@ import { FEATURE_KEYS, isDisplayOnly, listPackages, type PackageSummary } from "
 import { useI18n } from "@/lib/i18n/client";
 
 /** One price line, "149.50 EGP per month", or nothing when that price is not set. */
-export function PriceLine({ pkg, period }: { pkg: PackageSummary; period: "monthly" | "yearly" }) {
+export function PriceLine({
+  value,
+  currency,
+  period,
+}: {
+  value: string | null;
+  currency: "EGP" | "USD";
+  period: "monthly" | "yearly";
+}) {
   const { t, fmt } = useI18n();
-  const value = period === "monthly" ? pkg.monthlyPrice : pkg.yearlyPrice;
   if (value === null) return null;
   return (
     <p className="tabular text-sm text-foreground">
       <bdi>
-        <span className="font-semibold">{fmt.money(value)}</span> {pkg.currencyCode}
+        <span className="font-semibold">{fmt.money(value)}</span> {currency}
       </bdi>{" "}
       <span className="text-muted-foreground">{t(period === "monthly" ? "packages.perMonth" : "packages.perYear")}</span>
     </p>
@@ -109,14 +116,24 @@ export function PackagesView() {
                 ) : null}
 
                 <div className="mt-4 space-y-0.5">
-                  {pkg.monthlyPrice === null && pkg.yearlyPrice === null ? (
+                  {Object.values(pkg.prices).every((price) => price === null) ? (
                     <p className="text-sm text-muted-foreground">{t("packages.noPrice")}</p>
                   ) : (
                     <>
-                      <PriceLine pkg={pkg} period="monthly" />
-                      <PriceLine pkg={pkg} period="yearly" />
+                      <PriceLine value={pkg.prices.egpMonthly} currency="EGP" period="monthly" />
+                      <PriceLine value={pkg.prices.egpYearly} currency="EGP" period="yearly" />
+                      <PriceLine value={pkg.prices.usdMonthly} currency="USD" period="monthly" />
+                      <PriceLine value={pkg.prices.usdYearly} currency="USD" period="yearly" />
                     </>
                   )}
+                  {pkg.offer ? (
+                    <div className="pt-1.5">
+                      <Badge tone={pkg.offer.active ? "warning" : "neutral"} dot>
+                        {pkg.offer.label ? <bdi>{pkg.offer.label}: </bdi> : null}
+                        {t("packages.offerBadge", { percent: fmt.number(Number(pkg.offer.percent)) })}
+                      </Badge>
+                    </div>
+                  ) : null}
                 </div>
 
                 <div className="mt-4 flex flex-wrap gap-1.5">

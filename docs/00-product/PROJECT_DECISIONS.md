@@ -1151,6 +1151,53 @@ administrator.
 
 ---
 
+### DEC-049 — Subscriptions, Payments and Contracts (manual billing)
+
+**Status:** Accepted (owner, 2026-10-19).
+
+There is no payment gateway yet: the platform team records what it agreed with a
+Restaurant and what it received. A **Subscription** ties a Restaurant to a Package
+for a period (monthly or yearly, starting on a date the team picks; renewing creates
+a new Subscription, so history is kept and periods may not overlap). Restaurants
+carry a `countryCode` (default `EG`): Egypt is billed in EGP, every other
+country in USD. A Package therefore has an EGP and a USD price for each period, and
+may carry an **offer** (a percentage, a label and an optional end date).
+
+**Price.** list price (Package, in the billing currency) → minus the Package offer
+when it is active on the start date → minus the customer's own discount (a
+percentage, or a fixed amount, set on the Subscription) → final price. The discounts
+stack in that order, never below zero. All of it is calculated by the Backend with
+Decimal arithmetic and **stored on the Subscription as a snapshot**, so changing a
+Package price or offer later never alters an existing Subscription or Contract.
+
+**Payments.** A ledger per Subscription (amount, method: cash, bank transfer,
+InstaPay, mobile wallet, other; date, reference, note, who recorded it). A payment
+is never edited or deleted: a mistake is **voided** with a reason. Paid, balance
+and payment status (unpaid, partial, paid) are derived from the non-voided rows.
+Partial payments and overpayment warnings are allowed; nothing is blocked by an
+unpaid balance.
+
+**Contract.** Every Subscription gets one Contract with a running number
+(`WAYTA-<year>-<0001>`) and a snapshot of its terms. The console shows it as a
+printable bilingual (Arabic / English) page the team saves as PDF from the browser;
+no PDF library and no stored file.
+
+**Effect on the Restaurant.** The Subscription that covers today decides the
+Restaurant's Package (so its features follow the paid plan, DEC-046); a future
+Subscription takes effect on its start date. When a Restaurant had a Subscription
+and none covers today, after a **grace period** (`SUBSCRIPTION_GRACE_DAYS`, default
+7) the Restaurant is suspended automatically (status SUSPENDED, audited as done by
+the system). A Restaurant suspended this way is reactivated automatically by the
+next Subscription that covers today; a manual status change by the team always
+wins and clears that mark. Restaurants that never had a Subscription are never
+touched. The check runs when a Subscription changes and once an hour in the API
+process (idempotent).
+
+**Not in scope:** online payment, invoices/tax, automatic renewal, the Restaurant-side
+subscription page and upgrade requests (next step).
+
+---
+
 ---
 
 ## Change Policy

@@ -124,6 +124,14 @@ export const envSchema = z
       .max(168, 'PLATFORM_SESSION_TTL_HOURS must be between 1 and 168')
       .default(12),
 
+    // DEC-049: days after a subscription ends before the Restaurant is suspended automatically.
+    SUBSCRIPTION_GRACE_DAYS: z.coerce
+      .number({ message: 'SUBSCRIPTION_GRACE_DAYS must be a number' })
+      .int('SUBSCRIPTION_GRACE_DAYS must be an integer')
+      .min(0, 'SUBSCRIPTION_GRACE_DAYS must be between 0 and 90')
+      .max(90, 'SUBSCRIPTION_GRACE_DAYS must be between 0 and 90')
+      .default(7),
+
     // Exact name is an implementation detail (AUTH_TENANCY_SPEC.md #22).
     AUTH_SESSION_COOKIE_NAME: z
       .string()

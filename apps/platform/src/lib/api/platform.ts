@@ -82,15 +82,29 @@ export interface FeatureState {
 
 export type PackageStatus = "ACTIVE" | "ARCHIVED";
 
+export interface PackagePrices {
+  egpMonthly: string | null;
+  egpYearly: string | null;
+  usdMonthly: string | null;
+  usdYearly: string | null;
+}
+
+/** A percentage off the list price while it is on; `endsAt` is the last day (YYYY-MM-DD) or null. */
+export interface PackageOffer {
+  percent: string;
+  label: string | null;
+  endsAt: string | null;
+  active: boolean;
+}
+
 export interface PackageSummary {
   id: string;
   name: string;
   description: string | null;
   status: PackageStatus;
-  /** Money as strings, display only (no billing yet). */
-  monthlyPrice: string | null;
-  yearlyPrice: string | null;
-  currencyCode: string | null;
+  /** List prices per billing currency and period, as strings; null = not offered (DEC-049). */
+  prices: PackagePrices;
+  offer: PackageOffer | null;
   features: FeatureKey[];
   restaurantCount: number;
   createdAt: string;
@@ -101,13 +115,13 @@ export interface PackageDetail extends PackageSummary {
   restaurants: { id: string; name: string; status: RestaurantStatus }[];
 }
 
-/** What the package form sends (the Backend normalizes prices and the currency). */
+/** What the package form sends (the Backend normalizes the prices). */
 export interface PackageInput {
   name: string;
   description: string | null;
-  monthlyPrice: string | null;
-  yearlyPrice: string | null;
-  currencyCode: string | null;
+  prices: PackagePrices;
+  /** null removes the offer. */
+  offer: { percent: string; label: string | null; endsAt: string | null } | null;
   features: FeatureKey[];
   status?: PackageStatus;
 }

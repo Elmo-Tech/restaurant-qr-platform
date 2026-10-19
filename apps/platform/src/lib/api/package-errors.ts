@@ -3,7 +3,8 @@ import type { MessageKey } from "../i18n/messages";
 
 const BY_CODE: Record<string, MessageKey> = {
   PACKAGE_NAME_TAKEN: "package.err.nameTaken",
-  PACKAGE_CURRENCY_REQUIRED: "package.err.currencyRequired",
+  PACKAGE_OFFER_INVALID: "package.err.offerInvalid",
+  SUBSCRIPTION_DECIDES_PACKAGE: "package.err.bySubscription",
   PACKAGE_IN_USE: "package.err.inUse",
   PACKAGE_ARCHIVED: "package.err.archived",
   PACKAGE_NOT_FOUND: "package.notFound",

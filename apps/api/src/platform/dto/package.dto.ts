@@ -1,5 +1,5 @@
 import { applyDecorators } from '@nestjs/common';
-import { Transform } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   ArrayUnique,
   IsArray,
@@ -10,6 +10,7 @@ import {
   Matches,
   MaxLength,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { FEATURE_KEYS, type FeatureKey } from '../../entitlements/features';
 
@@ -22,7 +23,11 @@ const emptyToNull = ({ value }: { value: unknown }): unknown => {
 };
 
 /** Money as a decimal string with at most two decimals ("149", "149.5", "149.50"). */
-const MONEY = /^\d{1,10}(\.\d{1,2})?$/;
+export const MONEY = /^\d{1,10}(\.\d{1,2})?$/;
+/** A percentage from 0.01 to 100 with at most two decimals. */
+export const PERCENT = /^\d{1,3}(\.\d{1,2})?$/;
+/** A calendar date, YYYY-MM-DD (whether it is a real date is checked by the service). */
+export const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 /** "149" and "149.5" are stored and shown as "149.00" and "149.50". */
 export function normalizeMoney(
@@ -49,15 +54,6 @@ const Price = (field: string) =>
     Transform(emptyToNull),
     Matches(MONEY, { message: `${field} must be a decimal string` }),
   );
-const CurrencyCode = () =>
-  applyDecorators(
-    IsOptional(),
-    Transform(({ value }: { value: unknown }) => {
-      const next = emptyToNull({ value });
-      return typeof next === 'string' ? next.toUpperCase() : next;
-    }),
-    Matches(/^[A-Z]{3}$/, { message: 'currencyCode must be a 3-letter code' }),
-  );
 const Features = () =>
   applyDecorators(
     IsArray(),
@@ -67,6 +63,54 @@ const Features = () =>
 const Status = () =>
   applyDecorators(IsOptional(), IsIn(['ACTIVE', 'ARCHIVED']));
 
+/** List prices per billing currency and period (DEC-049). Missing = leave, null = not offered. */
+export class PackagePricesDto {
+  @Price('egpMonthly')
+  egpMonthly?: string | null;
+
+  @Price('egpYearly')
+  egpYearly?: string | null;
+
+  @Price('usdMonthly')
+  usdMonthly?: string | null;
+
+  @Price('usdYearly')
+  usdYearly?: string | null;
+}
+
+/** An offer on a package: a percentage off the list price, optionally ending on a date (inclusive). */
+export class PackageOfferDto {
+  @Transform(trimmed)
+  @Matches(PERCENT, { message: 'percent must be a decimal string' })
+  percent!: string;
+
+  @IsOptional()
+  @Transform(emptyToNull)
+  @IsString()
+  @MaxLength(60)
+  label?: string | null;
+
+  @IsOptional()
+  @Transform(emptyToNull)
+  @Matches(DATE_ONLY, { message: 'endsAt must be YYYY-MM-DD' })
+  endsAt?: string | null;
+}
+
+const Prices = () =>
+  applyDecorators(
+    IsOptional(),
+    ValidateNested(),
+    Type(() => PackagePricesDto),
+  );
+
+// `null` removes the offer; a missing field leaves it as it is.
+const Offer = () =>
+  applyDecorators(
+    ValidateIf((_, value) => value !== null && value !== undefined),
+    ValidateNested(),
+    Type(() => PackageOfferDto),
+  );
+
 export class CreatePackageDto {
   @Name()
   name!: string;
@@ -74,14 +118,11 @@ export class CreatePackageDto {
   @Description()
   description?: string | null;
 
-  @Price('monthlyPrice')
-  monthlyPrice?: string | null;
+  @Prices()
+  prices?: PackagePricesDto;
 
-  @Price('yearlyPrice')
-  yearlyPrice?: string | null;
-
-  @CurrencyCode()
-  currencyCode?: string | null;
+  @Offer()
+  offer?: PackageOfferDto | null;
 
   @Features()
   features!: FeatureKey[];
@@ -99,14 +140,11 @@ export class UpdatePackageDto {
   @Description()
   description?: string | null;
 
-  @Price('monthlyPrice')
-  monthlyPrice?: string | null;
+  @Prices()
+  prices?: PackagePricesDto;
 
-  @Price('yearlyPrice')
-  yearlyPrice?: string | null;
-
-  @CurrencyCode()
-  currencyCode?: string | null;
+  @Offer()
+  offer?: PackageOfferDto | null;
 
   @IsOptional()
   @Features()

@@ -16,7 +16,17 @@ export type PlatformAction =
   | 'restaurant.package_changed'
   | 'package.created'
   | 'package.updated'
-  | 'package.deleted';
+  | 'package.deleted'
+  | 'restaurant.country_changed'
+  | 'subscription.created'
+  | 'subscription.cancelled'
+  | 'payment.recorded'
+  | 'payment.voided'
+  | 'restaurant.auto_suspended'
+  | 'restaurant.auto_reactivated';
+
+/** The audit actor of work the platform does by itself (the hourly subscription check). */
+export const SYSTEM_ACTOR = null;
 
 export interface AuditEntryView {
   id: string;
@@ -34,15 +44,16 @@ export class PlatformAuditService {
   constructor(private readonly prisma: PrismaService) {}
 
   async record(input: {
-    admin: Pick<PlatformAdminPrincipal, 'adminId' | 'email'>;
+    /** The administrator who acted, or `SYSTEM_ACTOR` (null) for the platform itself. */
+    admin: Pick<PlatformAdminPrincipal, 'adminId' | 'email'> | null;
     action: PlatformAction;
     restaurant?: { id: string; name: string } | null;
     details?: Prisma.InputJsonObject;
   }): Promise<void> {
     await this.prisma.platformAuditLog.create({
       data: {
-        adminId: input.admin.adminId,
-        adminEmail: input.admin.email,
+        adminId: input.admin?.adminId ?? null,
+        adminEmail: input.admin?.email ?? 'system',
         action: input.action,
         restaurantId: input.restaurant?.id ?? null,
         restaurantName: input.restaurant?.name ?? null,

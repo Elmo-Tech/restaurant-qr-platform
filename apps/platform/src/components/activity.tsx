@@ -20,9 +20,18 @@ const ACTION_LABEL: Record<string, MessageKey> = {
   "package.created": "action.package.created",
   "package.updated": "action.package.updated",
   "package.deleted": "action.package.deleted",
+  "restaurant.country_changed": "action.restaurant.country_changed",
+  "restaurant.auto_suspended": "action.restaurant.auto_suspended",
+  "restaurant.auto_reactivated": "action.restaurant.auto_reactivated",
+  "subscription.created": "action.subscription.created",
+  "subscription.cancelled": "action.subscription.cancelled",
+  "payment.recorded": "action.payment.recorded",
+  "payment.voided": "action.payment.voided",
 };
 
-const PACKAGE_PARTS = ["name", "description", "status", "prices", "features"] as const;
+const PACKAGE_PARTS = ["name", "description", "status", "prices", "offer", "features"] as const;
+
+const METHODS = ["CASH", "BANK_TRANSFER", "INSTAPAY", "MOBILE_WALLET", "OTHER"] as const;
 
 const asRecord = (value: unknown): Record<string, unknown> =>
   typeof value === "object" && value !== null ? (value as Record<string, unknown>) : {};
@@ -63,6 +72,29 @@ export function describeChange(entry: AuditEntry, t: Translate): string {
   if (entry.action === "restaurant.package_changed") {
     const name = (value: unknown) => (typeof value === "string" ? value : t("activity.noPackage"));
     return t("activity.detailPackage", { from: name(details.from), to: name(details.to) });
+  }
+  if (entry.action === "subscription.created") {
+    const period = details.period === "YEARLY" ? t("sub.period.YEARLY") : t("sub.period.MONTHLY");
+    return t("activity.subscriptionDetail", {
+      package: String(details.package ?? ""),
+      period,
+      from: String(details.startsAt ?? ""),
+      to: String(details.endsAt ?? ""),
+      price: `${String(details.finalPrice ?? "")} ${String(details.currency ?? "")}`.trim(),
+    });
+  }
+  if (entry.action === "subscription.cancelled") {
+    return String(details.package ?? "");
+  }
+  if (entry.action === "payment.recorded" || entry.action === "payment.voided") {
+    const method = (METHODS as readonly string[]).includes(String(details.method))
+      ? t(`pay.method.${details.method as (typeof METHODS)[number]}`)
+      : "";
+    const amount = `${String(details.amount ?? "")} ${String(details.currency ?? "")}`.trim();
+    return entry.action === "payment.voided" ? `${amount}: ${String(details.reason ?? "")}` : t("activity.paymentDetail", { amount, method });
+  }
+  if (entry.action === "restaurant.country_changed") {
+    return t("activity.countryDetail", { from: String(details.from ?? ""), to: String(details.to ?? "") });
   }
   if (entry.action === "package.created" || entry.action === "package.deleted") {
     return t("activity.packageName", { name: String(details.name ?? "") });
