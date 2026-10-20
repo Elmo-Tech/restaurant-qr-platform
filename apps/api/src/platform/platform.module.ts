@@ -8,6 +8,8 @@ import { PlatformAdminsService } from './platform-admins.service';
 import { PlatformAuditService } from './platform-audit.service';
 import { PlatformAuthService } from './platform-auth.service';
 import { PlatformAuthGuard, PlatformCsrfGuard } from './platform-guards';
+import { PlatformLeadsController } from './leads/platform-leads.controller';
+import { PlatformLeadsService } from './leads/platform-leads.service';
 import { PlatformRequestsController } from './requests/platform-requests.controller';
 import { PlatformRequestsService } from './requests/platform-requests.service';
 import { PlatformOverviewService } from './platform-overview.service';
@@ -27,6 +29,7 @@ import { PlatformController } from './platform.controller';
     PlatformController,
     PlatformBillingController,
     PlatformRequestsController,
+    PlatformLeadsController,
   ],
   providers: [
     PlatformAuthService,
@@ -41,6 +44,7 @@ import { PlatformController } from './platform.controller';
     PlatformBillingService,
     SubscriptionSyncService,
     PlatformRequestsService,
+    PlatformLeadsService,
   ],
   // the restaurant-facing "My subscription" module records its requests in the same audit log
   exports: [PlatformAuditService],

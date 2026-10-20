@@ -108,7 +108,7 @@ export default async function OverviewPage() {
         (() => {
           const d = result.data;
           const b = d.billing;
-          const attention = b.ending.length + b.unpaidCount + d.openRequests + d.restaurants.suspended;
+          const attention = b.ending.length + b.unpaidCount + d.openRequests + d.openLeads + d.restaurants.suspended;
           return (
             <div className="space-y-6">
               <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
@@ -183,9 +183,12 @@ export default async function OverviewPage() {
 
                   <AttentionColumn
                     title={t("overview.followUp")}
-                    count={d.openRequests + d.restaurants.suspended}
+                    count={d.openRequests + d.openLeads + d.restaurants.suspended}
                     empty={t("overview.followUpEmpty")}
                   >
+                    {d.openLeads > 0 ? (
+                      <RowLink href="/leads" title={t("overview.openLeads")} meta={t("overview.openLeadsHint")} end={fmt.number(d.openLeads)} />
+                    ) : null}
                     {d.openRequests > 0 ? (
                       <RowLink href="/requests" title={t("overview.openRequests")} meta={t("overview.openRequestsHint")} end={fmt.number(d.openRequests)} />
                     ) : null}

@@ -695,6 +695,7 @@ model Package {
   restaurants          Restaurant[]
   subscriptions        Subscription[]
   subscriptionRequests SubscriptionRequest[]
+  signupLeads          SignupLead[]
 
   @@map("packages")
 }
@@ -874,6 +875,39 @@ model SubscriptionRequest {
   @@index([restaurantId, createdAt])
   @@index([status, createdAt])
   @@map("subscription_requests")
+}
+
+// A visitor of the public landing page asking to subscribe or to try the platform (DEC-053).
+enum SignupLeadKind {
+  SUBSCRIBE
+  TRIAL
+
+  @@map("signup_lead_kind")
+}
+
+model SignupLead {
+  id             String                    @id @default(uuid()) @db.Uuid
+  kind           SignupLeadKind
+  packageId      String?                   @map("package_id") @db.Uuid
+  packageName    String?                   @map("package_name")
+  name           String
+  email          String
+  phone          String
+  restaurantName String?                   @map("restaurant_name")
+  message        String?
+  locale         String                    @default("ar")
+  status         SubscriptionRequestStatus @default(NEW)
+  note           String?
+  handledByEmail String?                   @map("handled_by_email")
+  handledAt      DateTime?                 @map("handled_at") @db.Timestamptz
+  createdAt      DateTime                  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
+
+  package Package? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+
+  @@index([status, createdAt])
+  @@index([email, createdAt])
+  @@map("signup_leads")
 }
 
 // Manual suggestion rule (DEC-042): when `product` is in the Guest cart, suggest `suggestedProduct`.

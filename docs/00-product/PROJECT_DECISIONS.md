@@ -1268,6 +1268,31 @@ count, and a plan that adds premium designs counts as an improvement.
 
 ---
 
+### DEC-053 — Public Landing Page and Subscription Requests
+
+**Status:** Accepted (owner, 2026-10-20).
+
+The product has a public landing page at the web app root (`/`), in Arabic and English
+(RTL and LTR). It is the acquisition channel: it shows what the platform does, the
+Packages with their real prices (EGP and USD, offers applied, read from the Backend — never
+typed in the page) and the ways to start. A visitor can **request a subscription** to a
+Package, or **request a free trial of 15 days**; either way the form asks for name, e-mail
+and phone (restaurant name and a message are optional). Choosing a Package first fills it
+in; any other entry point lets the visitor pick one.
+
+A request is stored as a `SignupLead` and appears in the platform console under **New
+customers**, with a WhatsApp shortcut and the same statuses as DEC-050 (new, contacted,
+done, dismissed). There is no self-service account creation in this version: the team
+contacts the visitor, creates the restaurant and records the subscription (DEC-049); a
+trial is recorded by hand as a free subscription. The public routes are
+`GET /public/landing/plans` and `POST /public/landing/leads` (strict rate limit; the same
+e-mail with an open request in the last 24 hours does not create a second row).
+
+**Not in scope:** self-service sign-up and automatic trial activation, e-mail or WhatsApp
+notification to the team, online payment.
+
+---
+
 ---
 
 ---

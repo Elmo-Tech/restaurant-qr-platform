@@ -533,6 +533,21 @@ const en = {
   "package.templatesStandardCount": "{count} standard",
   "package.templatesPremiumCount": "{count} premium",
   "packages.designsTiers": "{standard} standard + {premium} premium",
+  "nav.leads": "New customers",
+  "overview.openLeads": "New customers",
+  "overview.openLeadsHint": "Subscription and trial requests from the website",
+  "leads.title": "New customers",
+  "leads.subtitle": "Subscription and free-trial requests from the website. Contact them, create their restaurant, then record the subscription on its page.",
+  "leads.empty": "No requests yet.",
+  "leads.emptyOpen": "No open requests.",
+  "leads.emptyHint": "They arrive when a visitor fills the request form on the landing page.",
+  "leads.kind.SUBSCRIBE": "Subscription",
+  "leads.kind.TRIAL": "Free trial",
+  "leads.phone": "Phone",
+  "leads.whatsapp": "WhatsApp",
+  "leads.email": "Email",
+  "leads.restaurant": "Restaurant",
+  "leads.received": "Received",
 } as const;
 
 export type MessageKey = keyof typeof en;
@@ -1067,6 +1082,21 @@ const ar: Record<MessageKey, string> = {
   "package.templatesStandardCount": "{count} عادي",
   "package.templatesPremiumCount": "{count} بريميوم",
   "packages.designsTiers": "{standard} عادي + {premium} بريميوم",
+  "nav.leads": "عملاء جدد",
+  "overview.openLeads": "عملاء جدد",
+  "overview.openLeadsHint": "طلبات اشتراك وتجربة من الموقع",
+  "leads.title": "عملاء جدد",
+  "leads.subtitle": "طلبات الاشتراك والتجربة المجانية من الموقع. تواصل معهم، أنشئ مطعمهم، ثم سجّل الاشتراك من صفحته.",
+  "leads.empty": "لا توجد طلبات بعد.",
+  "leads.emptyOpen": "لا توجد طلبات مفتوحة.",
+  "leads.emptyHint": "تصل عندما يملأ زائر نموذج الطلب في الصفحة التعريفية.",
+  "leads.kind.SUBSCRIBE": "اشتراك",
+  "leads.kind.TRIAL": "تجربة مجانية",
+  "leads.phone": "الهاتف",
+  "leads.whatsapp": "واتساب",
+  "leads.email": "البريد",
+  "leads.restaurant": "المطعم",
+  "leads.received": "وصل في",
 };
 
 export const MESSAGES = { en: en as Record<MessageKey, string>, ar } as const;

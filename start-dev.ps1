@@ -2,7 +2,7 @@
   Starts the whole local development stack in the right order, and only what is not already running:
     1. Docker Desktop (and waits for its engine)
     2. the PostgreSQL container
-    3. the API            -> http://localhost:4100  (built output, port from .env)
+    3. pending database migrations, then the API            -> http://localhost:4100  (built output, port from .env)
     4. the restaurant web -> http://localhost:3000
     5. the platform console -> http://localhost:3001
   Each server opens in its own PowerShell window, so you can see its log and close it when you are done.
@@ -60,6 +60,10 @@ if (-not (Test-Port 5432)) {
 # The port opens before the database accepts connections; the API exits if it starts too early.
 Wait-Until { & docker exec $postgresContainer pg_isready 2>$null | Out-Null; $LASTEXITCODE -eq 0 } 120 'PostgreSQL to accept connections'
 Write-Host 'PostgreSQL: ready (port 5432)'
+
+# Pending database migrations (a no-op when there are none)
+Push-Location (Join-Path $root 'apps\api')
+try { & npx prisma migrate deploy | Out-Host } finally { Pop-Location }
 
 # 3. API
 if ($Rebuild -or -not (Test-Path (Join-Path $root 'apps\api\dist\main.js'))) {

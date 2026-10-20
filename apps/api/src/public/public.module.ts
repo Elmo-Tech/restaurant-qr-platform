@@ -1,6 +1,8 @@
 import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { EntitlementsModule } from '../entitlements/entitlements.module';
+import { PublicLandingController } from './public-landing.controller';
+import { PublicLandingService } from './public-landing.service';
 import { PublicMenuController } from './public-menu.controller';
 import { PublicMenuService } from './public-menu.service';
 import { PublicOrderTrackingController } from './public-order-tracking.controller';
@@ -25,12 +27,14 @@ import { PublicSuggestionsService } from './public-suggestions.service';
     PublicOrdersController,
     PublicOrderTrackingController,
     PublicSuggestionsController,
+    PublicLandingController,
   ],
   providers: [
     PublicMenuService,
     PublicOrdersService,
     PublicOrderTrackingService,
     PublicSuggestionsService,
+    PublicLandingService,
   ],
 })
 export class PublicModule {}

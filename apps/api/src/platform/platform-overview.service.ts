@@ -31,6 +31,8 @@ export interface PlatformOverview {
   restrictedRestaurants: number;
   /** Upgrade and renewal requests nobody has finished yet (DEC-050). */
   openRequests: number;
+  /** Requests from the landing page nobody has finished yet (DEC-053). */
+  openLeads: number;
   /** What needs the team's attention in billing (DEC-049): endings, money owed, money received. */
   billing: BillingOverview;
   recentRestaurants: {
@@ -96,6 +98,7 @@ export class PlatformOverviewService {
       orders,
       restricted,
       openRequests,
+      openLeads,
       recent,
       billing,
       activity,
@@ -111,6 +114,9 @@ export class PlatformOverviewService {
       this.prisma.order.count(),
       this.restrictedRestaurantCount(),
       this.prisma.subscriptionRequest.count({
+        where: { status: { in: ['NEW', 'CONTACTED'] } },
+      }),
+      this.prisma.signupLead.count({
         where: { status: { in: ['NEW', 'CONTACTED'] } },
       }),
       this.prisma.restaurant.findMany({
@@ -134,6 +140,7 @@ export class PlatformOverviewService {
       totals: { branches, products, orders },
       restrictedRestaurants: restricted,
       openRequests,
+      openLeads,
       billing,
       recentRestaurants: recent.map((row) => ({
         id: row.id,
