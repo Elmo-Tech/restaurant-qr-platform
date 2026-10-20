@@ -8,7 +8,6 @@ import { HeroPhone } from './HeroPhone';
 import { LangSwitch } from './LangSwitch';
 import { ThemeToggle } from './ThemeToggle';
 import { LeadButton, LeadProvider } from './LeadProvider';
-import { BrandIntro } from './BrandIntro';
 import { Pricing } from './Pricing';
 import type { LandingPlans } from './plans-api';
 import styles from './landing.module.css';
@@ -58,7 +57,7 @@ function QrGlyph() {
  * (standard and premium, DEC-052), the real plans as order tickets, the free trial and a short FAQ. A Server
  * Component; only the demo phone, the plan toggles, the language switch and the request dialog are client code.
  */
-export function Landing({ locale, plans, theme, intro }: { locale: StaffLocale; plans: LandingPlans | null; theme: 'light' | 'dark' | null; intro: boolean }) {
+export function Landing({ locale, plans, theme }: { locale: StaffLocale; plans: LandingPlans | null; theme: 'light' | 'dark' | null }) {
   const c = LANDING_COPY[locale];
   const dir = directionOf(locale);
   const planList = plans?.plans ?? [];
@@ -72,7 +71,6 @@ export function Landing({ locale, plans, theme, intro }: { locale: StaffLocale; 
       lang={locale}
       dir={dir}
     >
-      {intro ? <BrandIntro skipLabel={c.nav.skipIntro} /> : null}
       <LeadProvider copy={c.lead} plans={planList} locale={locale}>
         <header className={styles.nav}>
           <div className={`${styles.wrap} ${styles.navRow}`}>

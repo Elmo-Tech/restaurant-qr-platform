@@ -3,7 +3,6 @@ import { cookies } from 'next/headers';
 import { Landing } from './_landing/Landing';
 import { LANDING_COPY } from './_landing/copy';
 import { getLandingPlans } from './_landing/plans-api';
-import { INTRO_COOKIE, shouldShowIntro } from './_landing/intro';
 import { THEME_COOKIE } from './_landing/theme';
 import { getStaffLocale } from '../lib/i18n/server';
 
@@ -18,10 +17,8 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 /** The public landing page (DEC-053). Restaurant staff sign in from `/staff`. */
-export default async function Home({ searchParams }: { searchParams: Promise<{ intro?: string | string[] }> }) {
+export default async function Home() {
   const [locale, plans, cookieStore] = await Promise.all([getStaffLocale(), getLandingPlans(), cookies()]);
   const saved = cookieStore.get(THEME_COOKIE)?.value;
-  const { intro: introParam } = await searchParams;
-  const intro = shouldShowIntro({ seenCookie: cookieStore.get(INTRO_COOKIE)?.value, param: Array.isArray(introParam) ? introParam[0] : introParam });
-  return <Landing locale={locale} plans={plans} theme={saved === 'light' || saved === 'dark' ? saved : null} intro={intro} />;
+  return <Landing locale={locale} plans={plans} theme={saved === 'light' || saved === 'dark' ? saved : null} />;
 }
