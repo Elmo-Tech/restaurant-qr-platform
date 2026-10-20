@@ -8,7 +8,8 @@ export type FeatureKey =
   | 'SMART_SUGGESTIONS'
   | 'MENU_TEMPLATES'
   | 'DASHBOARD_ORDERING'
-  | 'TABLE_ORDERING';
+  | 'TABLE_ORDERING'
+  | 'KITCHEN';
 
 export type FeatureMap = Record<FeatureKey, boolean>;
 /**

@@ -1293,6 +1293,26 @@ notification to the team, online payment.
 
 ---
 
+### DEC-054 — The Kitchen Screen as a Package Feature
+
+**Status:** Accepted (owner, 2026-10-20).
+
+The kitchen screen is a feature a Package can include (`KITCHEN`, DEC-043 / DEC-046), next
+to the order channels. It shows accepted orders as tickets for the kitchen to prepare. It
+still needs orders to reach the dashboard, so it is only useful with dashboard or table
+ordering; it is not itself a way to receive orders (a Package with only the kitchen screen
+is still a display-only Package). Without the feature the kitchen page says it is not
+included, the sidebar hides it, and `GET /restaurants/{id}/kitchen/orders` answers
+`403 FEATURE_NOT_AVAILABLE` naming `KITCHEN`. Moving an order through its statuses from the
+orders page is not affected.
+
+Existing Packages that include dashboard or table ordering keep the kitchen screen they
+have today (a migration adds the feature to them); the platform team can switch it off per
+Package or per Restaurant. The public landing page and My subscription list it with the
+other features.
+
+---
+
 ---
 
 ---

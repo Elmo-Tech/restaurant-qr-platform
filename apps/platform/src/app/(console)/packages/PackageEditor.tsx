@@ -16,7 +16,7 @@ import {
   PREMIUM_TEMPLATES,
   STANDARD_TEMPLATES,
   isDisplayOnly,
-  ORDERING_FEATURES,
+  ORDERING_GROUP,
   updatePackage,
   type FeatureKey,
   type PackageDetail,
@@ -579,10 +579,10 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
                 </div>
               }
             />
-            {renderFeatureGroup(t("package.group.menu"), FEATURE_KEYS.filter((key) => !ORDERING_FEATURES.includes(key)))}
+            {renderFeatureGroup(t("package.group.menu"), FEATURE_KEYS.filter((key) => !ORDERING_GROUP.includes(key)))}
             {renderFeatureGroup(
               t("package.group.ordering"),
-              FEATURE_KEYS.filter((key) => ORDERING_FEATURES.includes(key)),
+              FEATURE_KEYS.filter((key) => ORDERING_GROUP.includes(key)),
               t("package.orderingHint"),
             )}
             {isDisplayOnly(form.features) ? (

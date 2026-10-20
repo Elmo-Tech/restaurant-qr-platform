@@ -9,6 +9,7 @@ export const FEATURE_KEYS = [
   "SMART_SUGGESTIONS",
   "MENU_TEMPLATES",
   "DASHBOARD_ORDERING",
+  "KITCHEN",
   "TABLE_ORDERING",
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
@@ -18,6 +19,8 @@ export type FeatureKey = (typeof FEATURE_KEYS)[number];
  * is a view-only menu (the guest can browse, not order).
  */
 export const ORDERING_FEATURES: readonly FeatureKey[] = ["WHATSAPP_ORDERING", "DASHBOARD_ORDERING", "TABLE_ORDERING"];
+/** The features the package editor lists under "ordering": the order channels and the kitchen screen (which is not itself a way to receive orders). */
+export const ORDERING_GROUP: readonly FeatureKey[] = [...ORDERING_FEATURES, "KITCHEN"];
 export const isDisplayOnly = (features: readonly FeatureKey[]) =>
   !features.some((key) => ORDERING_FEATURES.includes(key));
 

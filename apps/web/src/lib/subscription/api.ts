@@ -10,7 +10,8 @@ export type PlanFeatureKey =
   | 'SMART_SUGGESTIONS'
   | 'MENU_TEMPLATES'
   | 'DASHBOARD_ORDERING'
-  | 'TABLE_ORDERING';
+  | 'TABLE_ORDERING'
+  | 'KITCHEN';
 
 export interface PlanSubscription {
   phase: SubscriptionPhase;

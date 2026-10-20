@@ -1,6 +1,7 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
+import { EntitlementsModule } from '../entitlements/entitlements.module';
 import { KitchenController } from './kitchen.controller';
 import { KitchenService } from './kitchen.service';
 import { OrdersController } from './orders.controller';
@@ -14,7 +15,7 @@ import { OrdersService } from './orders.service';
  * never a new Branch authorization mechanism.
  */
 @Module({
-  imports: [DatabaseModule, AuthModule],
+  imports: [DatabaseModule, AuthModule, EntitlementsModule],
   controllers: [OrdersController, KitchenController],
   providers: [OrdersService, KitchenService],
 })

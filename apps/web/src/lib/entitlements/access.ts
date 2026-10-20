@@ -16,6 +16,11 @@ export function receivesDashboardOrders(membership: AuthContextMembership): bool
   return featureOn(membership, 'DASHBOARD_ORDERING') || featureOn(membership, 'TABLE_ORDERING');
 }
 
+/** The kitchen screen: a package feature (DEC-054), and it only has tickets when orders reach the dashboard. */
+export function usesKitchen(membership: AuthContextMembership): boolean {
+  return featureOn(membership, 'KITCHEN') && receivesDashboardOrders(membership);
+}
+
 /** Table ordering: the tables board, table sessions and table orders. */
 export function usesTableOrdering(membership: AuthContextMembership): boolean {
   return featureOn(membership, 'TABLE_ORDERING');

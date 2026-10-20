@@ -8,6 +8,7 @@ export const PLAN_FEATURES = [
   'SMART_SUGGESTIONS',
   'DASHBOARD_ORDERING',
   'TABLE_ORDERING',
+  'KITCHEN',
 ] as const;
 export type PlanFeature = (typeof PLAN_FEATURES)[number];
 
@@ -202,6 +203,7 @@ const AR: LandingCopy = {
       SMART_SUGGESTIONS: 'اقتراحات ذكية في السلة',
       DASHBOARD_ORDERING: 'استلام الطلبات في اللوحة',
       TABLE_ORDERING: 'طلبات الطاولات',
+      KITCHEN: 'شاشة المطبخ',
     },
     premiumDesigns: 'وتصاميم بريميوم',
     basics: ['منيو رقمي بلغتين', 'كود QR لمطعمك', 'لوحة تحكم لفريقك'],
@@ -350,6 +352,7 @@ const EN: LandingCopy = {
       SMART_SUGGESTIONS: 'Smart cart suggestions',
       DASHBOARD_ORDERING: 'Receive orders in the dashboard',
       TABLE_ORDERING: 'Table orders',
+      KITCHEN: 'Kitchen screen',
     },
     premiumDesigns: 'and premium designs',
     basics: ['Digital menu in two languages', 'A QR code for your restaurant', 'Dashboard for your team'],

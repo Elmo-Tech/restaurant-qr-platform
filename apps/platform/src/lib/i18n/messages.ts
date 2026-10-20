@@ -141,6 +141,8 @@ const en = {
   "feature.DASHBOARD_ORDERING.hint": "Pickup and delivery orders that arrive in the restaurant dashboard and kitchen.",
   "feature.TABLE_ORDERING": "Table ordering",
   "feature.TABLE_ORDERING.hint": "Dine-in orders from the table QR codes.",
+  "feature.KITCHEN": "Kitchen screen",
+  "feature.KITCHEN.hint": "The kitchen screen: accepted orders as tickets to prepare. Needs dashboard or table orders.",
 
   "activity.title": "Activity",
   "activity.subtitle": "What the platform team did, newest first.",
@@ -690,6 +692,8 @@ const ar: Record<MessageKey, string> = {
   "feature.DASHBOARD_ORDERING.hint": "طلبات الاستلام والتوصيل التي تصل إلى لوحة تحكم المطعم والمطبخ.",
   "feature.TABLE_ORDERING": "الطلب من الطاولات",
   "feature.TABLE_ORDERING.hint": "طلبات الصالة من أكواد QR على الطاولات.",
+  "feature.KITCHEN": "شاشة المطبخ",
+  "feature.KITCHEN.hint": "شاشة المطبخ: الطلبات المقبولة كتذاكر للتحضير. تحتاج طلبات اللوحة أو الطاولات.",
 
   "activity.title": "النشاط",
   "activity.subtitle": "ما فعله فريق المنصة، الأحدث أولًا.",

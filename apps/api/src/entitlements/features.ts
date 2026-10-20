@@ -21,6 +21,8 @@ export const FEATURE_KEYS = [
   'DASHBOARD_ORDERING',
   /** Dine-in orders from a Table QR (orders, kitchen, table sessions). */
   'TABLE_ORDERING',
+  /** The kitchen screen: accepted orders as tickets to prepare (DEC-054). Orders still need one of the two above. */
+  'KITCHEN',
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number];

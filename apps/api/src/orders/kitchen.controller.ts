@@ -1,4 +1,7 @@
 import { Controller, Get, Query, Req, UseGuards } from '@nestjs/common';
+import { EntitlementsService } from '../entitlements/entitlements.service';
+import { featureNotAvailableException } from '../entitlements/feature-not-available';
+import { FeatureNotAvailableError } from '../entitlements/features';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { PermissionGuard } from '../auth/guard/permission.guard';
 import { RestaurantAccessGuard } from '../auth/guard/restaurant-access.guard';
@@ -22,7 +25,10 @@ interface KitchenTicketListResponseBody {
  */
 @Controller('restaurants/:restaurantId/kitchen')
 export class KitchenController {
-  constructor(private readonly kitchenService: KitchenService) {}
+  constructor(
+    private readonly kitchenService: KitchenService,
+    private readonly entitlements: EntitlementsService,
+  ) {}
 
   @Get('orders')
   @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
@@ -31,6 +37,10 @@ export class KitchenController {
     @Query() query: ListKitchenTicketsQueryDto,
     @Req() request: RestaurantAuthorizedRequest,
   ): Promise<KitchenTicketListResponseBody> {
+    // the kitchen screen is a package feature (DEC-054)
+    if (!(await this.entitlements.isEnabled(request.restaurantAccess.restaurantId, 'KITCHEN'))) {
+      throw featureNotAvailableException(new FeatureNotAvailableError('KITCHEN'));
+    }
     const data = await this.kitchenService.listTickets(
       {
         restaurantId: request.restaurantAccess.restaurantId,

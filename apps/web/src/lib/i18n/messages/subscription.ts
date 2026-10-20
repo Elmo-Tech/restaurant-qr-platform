@@ -56,6 +56,8 @@ export const subscriptionMessages = defineMessages({
     'subscription.feature.DASHBOARD_ORDERING.hint': 'Pickup and delivery orders arrive here and in the kitchen screen.',
     'subscription.feature.TABLE_ORDERING': 'Table ordering',
     'subscription.feature.TABLE_ORDERING.hint': 'Guests order from the table QR, and you run table sessions.',
+    'subscription.feature.KITCHEN': 'Kitchen screen',
+    'subscription.feature.KITCHEN.hint': 'Accepted orders appear as tickets for the kitchen to prepare.',
 
     'subscription.upgrade.noPrice': 'Price on request',
     'subscription.upgrade.offer': '{percent}% off',
@@ -144,6 +146,8 @@ export const subscriptionMessages = defineMessages({
     'subscription.feature.DASHBOARD_ORDERING.hint': 'تصل طلبات الاستلام والتوصيل هنا وإلى شاشة المطبخ.',
     'subscription.feature.TABLE_ORDERING': 'الطلب من الطاولات',
     'subscription.feature.TABLE_ORDERING.hint': 'يطلب الضيف من QR الطاولة وتدير أنت جلسات الطاولات.',
+    'subscription.feature.KITCHEN': 'شاشة المطبخ',
+    'subscription.feature.KITCHEN.hint': 'الطلبات المقبولة تظهر كتذاكر ليحضّرها المطبخ.',
 
     'subscription.upgrade.noPrice': 'السعر عند الطلب',
     'subscription.upgrade.offer': 'خصم {percent}%',
