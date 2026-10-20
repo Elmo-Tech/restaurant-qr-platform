@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { StatusBadge } from "@/components/activity";
+import { SubscriptionChip } from "@/components/subscription-chip";
 import { IconPlus, IconSearch } from "@/components/icons";
 import { Alert, Badge, Button, Card, EmptyState, Input, PageHeader, Select, Skeleton, TableWrap, Th } from "@/components/ui";
 import { ApiError, isNetworkFailure } from "@/lib/api/errors";
@@ -123,6 +124,7 @@ export function RestaurantsView() {
                   <Th>{t("restaurants.col.restaurant")}</Th>
                   <Th>{t("restaurants.col.status")}</Th>
                   <Th>{t("restaurants.col.package")}</Th>
+                  <Th>{t("restaurants.col.subscription")}</Th>
                   <Th className="text-end">{t("restaurants.col.branches")}</Th>
                   <Th className="text-end">{t("restaurants.col.products")}</Th>
                   <Th className="text-end">{t("restaurants.col.staff")}</Th>
@@ -155,6 +157,9 @@ export function RestaurantsView() {
                       ) : (
                         <span className="text-muted-foreground">{t("restaurants.noPackage")}</span>
                       )}
+                    </td>
+                    <td className="px-4 py-3">
+                      <SubscriptionChip brief={restaurant.subscription} t={t} fmt={fmt} />
                     </td>
                     <td className="tabular px-4 py-3 text-end">{fmt.number(restaurant.counts.branches)}</td>
                     <td className="tabular px-4 py-3 text-end">{fmt.number(restaurant.counts.products)}</td>

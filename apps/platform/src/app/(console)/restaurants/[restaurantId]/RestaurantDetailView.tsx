@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { ActivityFeed, StatusBadge } from "@/components/activity";
+import { SubscriptionChip } from "@/components/subscription-chip";
 import { IconArrowLeft } from "@/components/icons";
 import { Alert, Badge, Button, Card, CardHeader, Select, Skeleton } from "@/components/ui";
 import { ApiError, isNetworkFailure } from "@/lib/api/errors";
@@ -205,6 +206,7 @@ export function RestaurantDetailView({ restaurantId }: { restaurantId: string })
             {restaurant.publicId}
           </p>
         </div>
+        <SubscriptionChip brief={restaurant.subscription} t={t} fmt={fmt} />
       </div>
 
       {notice ? <Alert tone="success" className="mb-4">{t(notice)}</Alert> : null}

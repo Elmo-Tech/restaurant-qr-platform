@@ -37,6 +37,24 @@ export interface AuditEntry {
   createdAt: string;
 }
 
+export interface MoneyTotal {
+  currencyCode: string;
+  amount: string;
+}
+
+/** Where a restaurant's subscription stands today (DEC-049). */
+export interface SubscriptionBrief {
+  phase: "ACTIVE" | "GRACE" | "EXPIRED" | "UPCOMING" | "CANCELLED";
+  daysLeft: number;
+  graceDaysLeft: number;
+  endsAt: string;
+  packageName: string;
+  period: "MONTHLY" | "YEARLY";
+  currencyCode: string;
+  balance: string;
+  paymentStatus: string;
+}
+
 export interface Overview {
   restaurants: { total: number; active: number; suspended: number; inactive: number };
   last30Days: { newRestaurants: number; orders: number };
@@ -44,6 +62,21 @@ export interface Overview {
   restrictedRestaurants: number;
   /** Upgrade and renewal requests nobody has finished yet (DEC-050). */
   openRequests: number;
+  billing: {
+    ending: {
+      restaurantId: string;
+      restaurantName: string;
+      packageName: string;
+      phase: "ACTIVE" | "GRACE";
+      daysLeft: number;
+      graceDaysLeft: number;
+      endsAt: string;
+    }[];
+    unpaid: { restaurantId: string; restaurantName: string; packageName: string; currencyCode: string; balance: string }[];
+    unpaidCount: number;
+    outstanding: MoneyTotal[];
+    received30d: MoneyTotal[];
+  };
   recentRestaurants: { id: string; name: string; status: RestaurantStatus; createdAt: string }[];
   recentActivity: AuditEntry[];
 }
@@ -61,6 +94,8 @@ export interface RestaurantSummary {
   package: { id: string; name: string } | null;
   /** Features this restaurant effectively lacks (package and overrides applied). */
   disabledFeatures: FeatureKey[];
+  /** Its subscription today; null = it never had one. */
+  subscription: SubscriptionBrief | null;
 }
 
 export interface RestaurantPage {
@@ -88,9 +123,15 @@ export type PackageStatus = "ACTIVE" | "ARCHIVED";
 export const PACKAGE_TEMPLATES = ["LIST", "GALLERY", "MENU", "FLOATING", "CENTERED", "COMPACT"] as const;
 export type PackageTemplate = (typeof PACKAGE_TEMPLATES)[number];
 
+/** The tier of each design (DEC-052); Classic is standard and always included. Mirrors the API. */
+export const STANDARD_TEMPLATES = ["LIST", "CENTERED", "COMPACT"] as const satisfies readonly PackageTemplate[];
+export const PREMIUM_TEMPLATES = ["GALLERY", "MENU", "FLOATING"] as const satisfies readonly PackageTemplate[];
+
 /** Every template (also ones added later), or the chosen ones. Meaningful when the package includes Menu designs. */
 export interface PackageTemplates {
   all: boolean;
+  /** Every standard design (also future ones) and no premium one unless it is chosen (DEC-052). */
+  allStandard: boolean;
   selected: PackageTemplate[];
 }
 
@@ -194,6 +235,7 @@ export interface NewRestaurantInput {
   defaultLocale: "ar" | "en";
   currencyCode: string;
   timezone: string;
+  countryCode?: string;
   packageId: string | null;
 }
 export const createRestaurant = (input: NewRestaurantInput) =>

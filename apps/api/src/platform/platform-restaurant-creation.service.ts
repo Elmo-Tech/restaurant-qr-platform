@@ -16,6 +16,8 @@ export interface CreateRestaurantInput {
   defaultLocale: string;
   currencyCode: string;
   timezone: string;
+  /** The billing country, 2 letters; missing = Egypt (DEC-049). */
+  countryCode?: string;
   /** Optional package to put the new Restaurant on. */
   packageId: string | null;
 }
@@ -92,7 +94,10 @@ export class PlatformRestaurantCreationService {
 
     const restaurant = await this.prisma.restaurant.update({
       where: { publicId: result.restaurantPublicId },
-      data: { packageId: input.packageId },
+      data: {
+        packageId: input.packageId,
+        ...(input.countryCode ? { countryCode: input.countryCode.toUpperCase() } : {}),
+      },
       select: { id: true, publicId: true, name: true },
     });
     await this.audit.record({

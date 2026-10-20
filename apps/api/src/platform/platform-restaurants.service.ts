@@ -1,5 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { EnvConfig } from '../config/env.schema';
 import { PrismaService } from '../database/prisma.service';
+import {
+  subscriptionBrief,
+  type SubscriptionBrief,
+} from './billing/subscription-brief';
+import { todayInCairo } from './billing/subscription-dates';
 import {
   FEATURE_KEYS,
   resolveFeatures,
@@ -30,6 +37,8 @@ export interface RestaurantSummary {
   package: { id: string; name: string } | null;
   /** The features this Restaurant effectively does not have (package and overrides applied). */
   disabledFeatures: FeatureKey[];
+  /** Where its subscription stands today (DEC-049); null = it never had one. */
+  subscription: SubscriptionBrief | null;
 }
 
 export interface RestaurantPage {
@@ -81,7 +90,18 @@ export class PlatformRestaurantsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly audit: PlatformAuditService,
+    private readonly config: ConfigService<EnvConfig, true>,
   ) {}
+
+  private briefOf(
+    rows: Parameters<typeof subscriptionBrief>[0],
+  ): SubscriptionBrief | null {
+    return subscriptionBrief(
+      rows,
+      todayInCairo(),
+      this.config.get('SUBSCRIPTION_GRACE_DAYS', { infer: true }),
+    );
+  }
 
   async list(input: {
     search?: string;
@@ -127,6 +147,19 @@ export class PlatformRestaurantsService {
               features: { select: { feature: true } },
             },
           },
+          subscriptions: {
+            where: { status: 'ACTIVE' },
+            select: {
+              status: true,
+              startsAt: true,
+              endsAt: true,
+              packageName: true,
+              period: true,
+              currencyCode: true,
+              finalPrice: true,
+              payments: { where: { voidedAt: null }, select: { amount: true } },
+            },
+          },
         },
       }),
     ]);
@@ -148,6 +181,7 @@ export class PlatformRestaurantsService {
         },
         package: row.package && { id: row.package.id, name: row.package.name },
         disabledFeatures: disabledFeatures(row.features, row.package),
+        subscription: this.briefOf(row.subscriptions),
       })),
       page: input.page,
       pageSize: input.pageSize,
@@ -197,6 +231,19 @@ export class PlatformRestaurantsService {
             features: { select: { feature: true } },
           },
         },
+        subscriptions: {
+          where: { status: 'ACTIVE' },
+          select: {
+            status: true,
+            startsAt: true,
+            endsAt: true,
+            packageName: true,
+            period: true,
+            currencyCode: true,
+            finalPrice: true,
+            payments: { where: { voidedAt: null }, select: { amount: true } },
+          },
+        },
       },
     });
     if (!row) return { outcome: 'notFound' };
@@ -224,6 +271,7 @@ export class PlatformRestaurantsService {
         },
         package: row.package && { id: row.package.id, name: row.package.name },
         disabledFeatures: disabledFeatures(row.features, row.package),
+        subscription: this.briefOf(row.subscriptions),
         settings: {
           pickupEnabled: row.pickupEnabled,
           deliveryEnabled: row.deliveryEnabled,

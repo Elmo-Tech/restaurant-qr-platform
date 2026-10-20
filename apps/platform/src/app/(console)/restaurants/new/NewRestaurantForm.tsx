@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
+import { CountrySelect } from "@/components/country-select";
 import { IconArrowLeft } from "@/components/icons";
 import { Alert, Button, Card, CardHeader, Input, Label, PageHeader, Select } from "@/components/ui";
 import { ApiError, isNetworkFailure } from "@/lib/api/errors";
@@ -19,6 +20,7 @@ interface FormState {
   defaultLocale: "ar" | "en";
   currencyCode: string;
   timezone: string;
+  countryCode: string;
   ownerEmail: string;
   ownerPassword: string;
   packageId: string;
@@ -30,6 +32,7 @@ const INITIAL: FormState = {
   defaultLocale: "ar",
   currencyCode: "EGP",
   timezone: "Africa/Cairo",
+  countryCode: "EG",
   ownerEmail: "",
   ownerPassword: "",
   packageId: "",
@@ -67,6 +70,7 @@ export function NewRestaurantForm() {
     if (!EMAIL.test(form.ownerEmail.trim())) return "restaurantNew.err.email";
     if (form.ownerPassword.length < 8) return "restaurantNew.err.password";
     if (!/^[A-Za-z]{3}$/.test(form.currencyCode.trim())) return "restaurantNew.err.currency";
+    if (!/^[A-Za-z]{2}$/.test(form.countryCode.trim())) return "restaurantNew.err.country";
     return null;
   }
 
@@ -90,6 +94,7 @@ export function NewRestaurantForm() {
         defaultLocale: form.defaultLocale,
         currencyCode: form.currencyCode.trim().toUpperCase(),
         timezone: form.timezone.trim(),
+        countryCode: form.countryCode.trim().toUpperCase(),
         packageId: form.packageId === "" ? null : form.packageId,
       });
       router.push(`/restaurants/${created.id}`);
@@ -173,6 +178,11 @@ export function NewRestaurantForm() {
                 <option value="ar">العربية</option>
                 <option value="en">English</option>
               </Select>
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="r-country">{t("restaurantNew.country")}</Label>
+              <CountrySelect id="r-country" value={form.countryCode} onChange={(code) => set("countryCode", code)} />
+              <p className="mt-1.5 text-xs text-muted-foreground">{t("restaurantNew.countryHint")}</p>
             </div>
             <div className="grid grid-cols-2 gap-4">
               <div>

@@ -1,4 +1,10 @@
-import { IsOptional, IsString, MaxLength, ValidateIf } from 'class-validator';
+import {
+  IsOptional,
+  IsString,
+  Matches,
+  MaxLength,
+  ValidateIf,
+} from 'class-validator';
 
 /**
  * Creating a Restaurant and its owner from the platform console. The shape and the business rules
@@ -33,6 +39,11 @@ export class CreateRestaurantDto {
   @IsString()
   @MaxLength(100)
   timezone!: string;
+
+  /** The billing country (2 letters); missing = Egypt (billed in EGP, DEC-049). */
+  @IsOptional()
+  @Matches(/^[A-Za-z]{2}$/, { message: 'countryCode must be 2 letters' })
+  countryCode?: string;
 
   /** The package to start on, or missing / null for none (every feature). */
   @IsOptional()
