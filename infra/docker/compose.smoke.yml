@@ -1,7 +1,8 @@
 # LOCAL smoke test only -- never used by Coolify. Publishes the gateway on the loopback interface so the
 # production compose file can be exercised with curl from the developer's machine:
 #
-#   docker compose -p rqp-smoke --env-file smoke.env -f compose.coolify.yml -f compose.smoke.yml up -d --build
+#   docker compose --project-directory . -p rqp-smoke --env-file smoke.env \
+#     -f infra/docker/compose.coolify.yml -f infra/docker/compose.smoke.yml up -d --build
 #   curl -H "Host: menu.example.test" http://127.0.0.1:18080/
 #
 # Use throwaway credentials in smoke.env (see docs/02-technical/COOLIFY_DEPLOYMENT.md, "Local smoke test").

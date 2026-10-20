@@ -59,7 +59,7 @@ services:
   # deployments can never migrate at the same time.
   migrate:
     build:
-      context: ../..
+      context: .
       dockerfile: infra/docker/Dockerfile.api
       target: tools
     restart: "no"
@@ -76,7 +76,7 @@ services:
   api:
     <<: *node-hardening
     build:
-      context: ../..
+      context: .
       dockerfile: infra/docker/Dockerfile.api
       target: runtime
     environment:
@@ -134,7 +134,7 @@ services:
   web:
     <<: *node-hardening
     build:
-      context: ../..
+      context: .
       dockerfile: infra/docker/Dockerfile.web
       args:
         # inlined into the browser bundle at build time: the PUBLIC origin of the restaurant app
@@ -162,7 +162,7 @@ services:
   platform:
     <<: *node-hardening
     build:
-      context: ../..
+      context: .
       dockerfile: infra/docker/Dockerfile.platform
       args:
         # the PUBLIC origin of the console: its browser calls go to /api/v1/platform on the same origin
@@ -188,7 +188,7 @@ services:
   # (see COOLIFY_DEPLOYMENT.md): https://menu.example.com:8080,https://control.example.com:8080
   gateway:
     build:
-      context: ../..
+      context: .
       dockerfile: infra/docker/Dockerfile.gateway
     restart: unless-stopped
     logging: *logging
