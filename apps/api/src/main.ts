@@ -1,8 +1,9 @@
-import { ValidationPipe } from '@nestjs/common';
+import { ValidationPipe, type LogLevel } from '@nestjs/common';
 import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
+import type { Response } from 'express';
 import { AppModule } from './app.module';
 import { requestContextMiddleware } from './common/http/request-context.middleware';
 import { validationExceptionFactory } from './common/http/validation-exception.factory';
@@ -12,9 +13,21 @@ import {
   MEDIA_PUBLIC_PATH_PREFIX,
 } from './storage/image-storage.service';
 
+const NEST_LOG_LEVELS: Record<EnvConfig['LOG_LEVEL'], LogLevel[]> = {
+  error: ['error'],
+  warn: ['error', 'warn'],
+  info: ['error', 'warn', 'log'],
+  debug: ['error', 'warn', 'log', 'debug'],
+  verbose: ['error', 'warn', 'log', 'debug', 'verbose'],
+};
+
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get<ConfigService<EnvConfig, true>>(ConfigService);
+
+  app.useLogger(
+    NEST_LOG_LEVELS[configService.get('LOG_LEVEL', { infer: true })],
+  );
 
   const host = configService.get('API_HOST', { infer: true });
   const port = configService.get('API_PORT', { infer: true });
@@ -46,7 +59,6 @@ async function bootstrap() {
   // its own headers.
   app.use(helmet({ crossOriginResourcePolicy: { policy: 'cross-origin' } }));
 
-
   // FT-2, Section 6: uploaded Product/Category images need a stable,
   // browser-loadable URL for the (future) Guest/Public Menu -- served
   // read-only via Express's static middleware, deliberately mounted
@@ -60,7 +72,7 @@ async function bootstrap() {
     redirect: false,
     // These are public images (Guests already load them). A CORS read header lets the
     // Staff QR designer draw the restaurant logo into the QR image without tainting it.
-    setHeaders: (res) => {
+    setHeaders: (res: Response) => {
       res.setHeader('Access-Control-Allow-Origin', '*');
     },
   });

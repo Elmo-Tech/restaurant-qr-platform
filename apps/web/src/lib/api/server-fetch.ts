@@ -1,5 +1,15 @@
 import { headers } from 'next/headers';
-import { API_BASE_URL } from './config';
+import { SERVER_API_BASE_URL } from './config';
+
+/**
+ * The visitor's address chain, passed on to the API. Every server-side call would otherwise reach the API from
+ * this server's own address, and the API's per-IP rate limit (`TRUST_PROXY_HOPS` counts from the right) would
+ * treat all visitors as one. Read from the proxy in front of this server; absent in local development.
+ */
+export function forwardedForHeader(incomingHeaders: Headers): Record<string, string> {
+  const chain = incomingHeaders.get('x-forwarded-for');
+  return chain ? { 'x-forwarded-for': chain } : {};
+}
 
 export type ServerApiResult<TData> =
   | { ok: true; data: TData }
@@ -34,9 +44,9 @@ export async function serverApiGet<TData>(
 
   let response: Response;
   try {
-    response = await fetch(`${API_BASE_URL}${path}`, {
+    response = await fetch(`${SERVER_API_BASE_URL}${path}`, {
       method: 'GET',
-      headers: cookie ? { cookie } : undefined,
+      headers: { ...(cookie ? { cookie } : {}), ...forwardedForHeader(incomingHeaders) },
       cache: 'no-store',
     });
   } catch {

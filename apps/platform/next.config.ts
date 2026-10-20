@@ -17,6 +17,11 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Production images (infra/docker/Dockerfile.platform) build a self-contained server with
+  // NEXT_OUTPUT=standalone; see apps/web/next.config.ts. Local `next dev` / `next start` are unaffected.
+  ...(process.env.NEXT_OUTPUT === "standalone"
+    ? { output: "standalone" as const, outputFileTracingRoot: path.resolve(__dirname, "..", "..") }
+    : {}),
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

@@ -23,6 +23,12 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
+  // Production images (infra/docker/Dockerfile.web) build a self-contained server with
+  // NEXT_OUTPUT=standalone. The monorepo root is the tracing root so the packages hoisted into the root
+  // node_modules are included. Local `next dev` / `next start` are unaffected.
+  ...(process.env.NEXT_OUTPUT === "standalone"
+    ? { output: "standalone" as const, outputFileTracingRoot: path.resolve(__dirname, "..", "..") }
+    : {}),
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
   },

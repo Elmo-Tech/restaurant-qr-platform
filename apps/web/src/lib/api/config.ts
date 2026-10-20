@@ -27,6 +27,17 @@ if (!apiBasePath) {
 export const API_BASE_URL = apiUrl + apiBasePath;
 
 /**
+ * Where SERVER-SIDE code (Server Components, route handlers) reaches the API. In production the browser talks
+ * to the public same-origin URL above, but the Next.js server sits on the same private network as the API and
+ * should not leave it (no DNS or TLS round trip through the public proxy): set `API_INTERNAL_URL` (for example
+ * `http://api:4000`) and server code uses it. It is read only on the server (it is not a `NEXT_PUBLIC_*`
+ * variable, so it is never inlined into browser JavaScript) and only at runtime. Unset, the public URL is used,
+ * which is what local development does.
+ */
+const internalUrl = typeof window === 'undefined' ? process.env.API_INTERNAL_URL : undefined;
+export const SERVER_API_BASE_URL = (internalUrl ? internalUrl.replace(/\/+$/, '') : apiUrl) + apiBasePath;
+
+/**
  * The bare API origin, without the versioned `/api/v1` prefix (FT-2,
  * Section 18) -- Product/Category image assets are served from
  * `${API_ORIGIN}/media/...`, a static route deliberately mounted outside

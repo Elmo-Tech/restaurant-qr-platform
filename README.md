@@ -290,6 +290,8 @@ Contains Technology stack, System architecture, Database, Authentication and ten
 
 For running the application (environment, provisioning a Restaurant, health checks, rate limiting, logs) see `docs/02-technical/OPERATIONS_RUNBOOK.md`; a production environment template is `.env.production.example`.
 
+For deploying to production on Coolify (Docker Compose, same-origin routing, migrations, backups) see `docs/02-technical/COOLIFY_DEPLOYMENT.md`; the files are in `infra/docker/`.
+
 ## UI / UX
 
 `docs/03-ui-ux/`

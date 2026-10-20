@@ -16,6 +16,13 @@ export const envSchema = z
       .enum(['development', 'test', 'production'])
       .default('development'),
 
+    // Container logs are written to stdout/stderr for Coolify to collect.
+    // Keep the accepted values explicit so a typo cannot silently enable an
+    // unexpected logger configuration in production.
+    LOG_LEVEL: z
+      .enum(['error', 'warn', 'info', 'debug', 'verbose'])
+      .default('info'),
+
     API_HOST: z
       .string()
       .trim()
@@ -101,12 +108,15 @@ export const envSchema = z
     // app. Optional: without it no platform request passes the Origin check (fail closed) and
     // CORS is not extended. Never a wildcard (credentialed CORS).
     PLATFORM_ORIGIN: z.preprocess(
-      (value) => (typeof value === 'string' && value.trim() === '' ? undefined : value),
+      (value) =>
+        typeof value === 'string' && value.trim() === '' ? undefined : value,
       z
         .string()
         .trim()
         .url('PLATFORM_ORIGIN must be a valid URL')
-        .refine((value) => value !== '*', { message: 'PLATFORM_ORIGIN must not be a wildcard' })
+        .refine((value) => value !== '*', {
+          message: 'PLATFORM_ORIGIN must not be a wildcard',
+        })
         .optional(),
     ),
 
@@ -179,7 +189,9 @@ export const envSchema = z
     // a restaurant's shared Wi-Fi/NAT; the reverse proxy adds its own
     // limits at deployment. `RATE_LIMIT_ENABLED=false` is for tests/local only.
     RATE_LIMIT_ENABLED: z
-      .enum(['true', 'false'], { message: 'RATE_LIMIT_ENABLED must be "true" or "false"' })
+      .enum(['true', 'false'], {
+        message: 'RATE_LIMIT_ENABLED must be "true" or "false"',
+      })
       .default('true')
       .transform((value) => value === 'true'),
     RATE_LIMIT_WINDOW_SECONDS: z.coerce
@@ -195,18 +207,32 @@ export const envSchema = z
     // Public Guest order creation, per client IP, per window.
     RATE_LIMIT_PUBLIC_ORDER_LIMIT: z.coerce.number().int().min(1).default(30),
     // Guest order tracking (status polling), and the "find my order by phone" lookup.
-    RATE_LIMIT_PUBLIC_TRACKING_LIMIT: z.coerce.number().int().min(1).default(120),
+    RATE_LIMIT_PUBLIC_TRACKING_LIMIT: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .default(120),
     RATE_LIMIT_PUBLIC_LOOKUP_LIMIT: z.coerce.number().int().min(1).default(10),
 
     // Menu Import (DEC-040): the private n8n webhook that turns an uploaded menu file
     // into a structured Draft. Both are optional -- without them the import
     // answers 503 AI_UNAVAILABLE and the rest of the Menu keeps working.
-    N8N_MENU_IMPORT_URL: z
-      .string()
-      .trim()
-      .url('N8N_MENU_IMPORT_URL must be a valid URL')
-      .optional(),
-    N8N_MENU_IMPORT_SECRET: z.string().trim().min(1).optional(),
+    // An empty value counts as "not set": a deployment tool that always passes the variable (an empty
+    // string when nobody configured it) must not fail startup over an optional integration.
+    N8N_MENU_IMPORT_URL: z.preprocess(
+      (value) =>
+        typeof value === 'string' && value.trim() === '' ? undefined : value,
+      z
+        .string()
+        .trim()
+        .url('N8N_MENU_IMPORT_URL must be a valid URL')
+        .optional(),
+    ),
+    N8N_MENU_IMPORT_SECRET: z.preprocess(
+      (value) =>
+        typeof value === 'string' && value.trim() === '' ? undefined : value,
+      z.string().trim().min(1).optional(),
+    ),
     MENU_IMPORT_TIMEOUT_SECONDS: z.coerce
       .number()
       .int()

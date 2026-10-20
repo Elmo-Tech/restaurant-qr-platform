@@ -1,0 +1,40 @@
+# Docker build context for the production images (infra/docker/Dockerfile.*).
+# The repository root is the context, so everything that is not source must stay out of it: it makes builds
+# faster, keeps secrets and local data out of every image layer, and keeps the build deterministic (the images
+# install from package-lock.json and generate the Prisma client themselves).
+
+# version control and editor
+.git
+.github
+.vscode
+.idea
+
+# dependencies and build output (rebuilt inside the image)
+**/node_modules
+**/.next
+**/dist
+**/build
+**/coverage
+**/*.tsbuildinfo
+apps/api/src/generated/prisma
+
+# local environment and secrets: never baked into an image
+.env
+.env.*
+!.env.example
+!.env.production.example
+**/*.pem
+**/*.key
+
+# local data and demo material
+demo-assets
+apps/api/storage
+docker-data
+brand-assets
+**/*.log
+**/.DS_Store
+
+# not needed to build or run the applications
+docs
+infra/n8n
+*.ps1

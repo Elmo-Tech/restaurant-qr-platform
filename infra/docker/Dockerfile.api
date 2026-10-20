@@ -1,0 +1,71 @@
+# syntax=docker/dockerfile:1.7
+#
+# Backend API (NestJS 11 + Prisma 7) -- production image.
+# Build context: the repository root (see infra/docker/compose.coolify.yml).
+#
+# Targets:
+#   runtime  (default) the API itself: compiled output + production dependencies, non-root.
+#   tools    the same sources with ALL dependencies (the Prisma CLI, ts-node): used by the one-shot
+#            `migrate` service (`prisma migrate deploy`) and for operations commands such as
+#            `npm run provision:platform-admin`. It is never run as a long-lived service.
+#
+# Nothing secret is read at build time. The only value passed to the build is a dummy DATABASE_URL so the
+# Prisma CLI can load its config for `prisma generate` (generation never connects to a database).
+
+ARG NODE_IMAGE=node:24-bookworm-slim
+
+# ---- 0. base: Node 24 plus OpenSSL (the Prisma schema engine behind `migrate deploy` needs libssl, and the slim image has none)
+FROM ${NODE_IMAGE} AS base
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends openssl ca-certificates \
+ && rm -rf /var/lib/apt/lists/*
+
+# ---- 1. all dependencies, installed deterministically from the root lockfile -------------------------------
+FROM base AS deps
+WORKDIR /repo
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false NPM_CONFIG_FUND=false NPM_CONFIG_AUDIT=false
+# every workspace manifest, so the lockfile can be checked as a whole
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY apps/platform/package.json apps/platform/package.json
+RUN --mount=type=cache,target=/root/.npm npm ci --workspace=apps/api --include-workspace-root
+
+# ---- 2. build: Prisma Client generation (npm `prebuild`) and TypeScript compilation -------------------------
+FROM deps AS build
+COPY apps/api apps/api
+RUN DATABASE_URL=postgresql://build:build@localhost:5432/build npm run build --workspace=apps/api
+
+# ---- 3. production dependencies only --------------------------------------------------------------------------
+FROM base AS prod-deps
+WORKDIR /repo
+ENV NPM_CONFIG_UPDATE_NOTIFIER=false NPM_CONFIG_FUND=false NPM_CONFIG_AUDIT=false
+COPY package.json package-lock.json ./
+COPY apps/api/package.json apps/api/package.json
+COPY apps/web/package.json apps/web/package.json
+COPY apps/platform/package.json apps/platform/package.json
+RUN --mount=type=cache,target=/root/.npm npm ci --workspace=apps/api --include-workspace-root --omit=dev
+
+# ---- tools: migrations and operations commands -------------------------------------------------------------
+FROM build AS tools
+ENV PRISMA_HIDE_UPDATE_MESSAGE=1 CHECKPOINT_DISABLE=1 NPM_CONFIG_UPDATE_NOTIFIER=false
+WORKDIR /repo/apps/api
+USER node
+# `prisma migrate deploy` is the only schema command production ever runs (never `db push`)
+CMD ["npx", "prisma", "migrate", "deploy"]
+
+# ---- runtime: the API ----------------------------------------------------------------------------------------
+FROM base AS runtime
+ENV NODE_ENV=production \
+    API_HOST=0.0.0.0 \
+    API_PORT=4000 \
+    UPLOAD_LOCAL_DIR=/var/lib/restaurant-qr/uploads
+WORKDIR /repo/apps/api
+COPY --from=prod-deps /repo /repo
+COPY --from=build /repo/apps/api/dist ./dist
+# Uploaded product and category images live here and MUST be a persistent volume (compose mounts one). The
+# directory is created and handed to the unprivileged user so a fresh named volume inherits that ownership.
+RUN mkdir -p "$UPLOAD_LOCAL_DIR" && chown -R node:node "$UPLOAD_LOCAL_DIR"
+USER node
+EXPOSE 4000
+CMD ["node", "dist/main.js"]

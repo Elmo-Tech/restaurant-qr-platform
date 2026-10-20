@@ -1,0 +1,149 @@
+# Internal gateway behind Coolify's reverse proxy (Traefik or Caddy), which keeps terminating public HTTPS.
+# This is NOT a second TLS layer: it listens on plain HTTP inside the private network and only routes by host
+# name and path, so each frontend stays same-origin with the API (host-only HttpOnly cookies keep working,
+# CORS stays strict, CSRF's Origin check is untouched).
+#
+#   $WEB_HOST       /                      -> web       (Next.js, restaurant app)
+#                   /api/v1/*, /media/*    -> api       (NestJS)
+#                   /socket.io/*           -> api       (Socket.IO / WebSocket transport)
+#                   /api/v1/platform/*     -> 404       (the platform routes are not served on the public menu host)
+#   $PLATFORM_HOST  /                      -> platform  (Next.js, platform console)
+#                   /api/v1/platform/*     -> api       (and nothing else of the API)
+#
+# $WEB_HOST and $PLATFORM_HOST are filled in from the container environment when it starts (the official
+# nginx image runs envsubst over /etc/nginx/templates; only those variables are substituted, see the
+# NGINX_ENVSUBST_FILTER in Dockerfile.gateway). Every `$name` below is an nginx variable.
+
+# Containers are replaced on every deployment and get new addresses: names are re-resolved while running instead
+# of once at startup (Docker's embedded DNS).
+resolver 127.0.0.11 valid=5s ipv6=off;
+
+server_tokens off;
+client_max_body_size 16m;       # images are limited to 5 MB and menu imports to 10 MB by the API itself
+client_body_timeout 60s;
+keepalive_timeout 65s;
+
+# The proxy in front of this gateway reports the visitor's protocol; fall back to what this hop saw.
+map $http_x_forwarded_proto $fwd_proto {
+    default $http_x_forwarded_proto;
+    ""      $scheme;
+}
+# Keep a caller-provided request id (the API accepts 8-64 safe characters), otherwise start one here.
+map $http_x_request_id $req_id {
+    default $http_x_request_id;
+    ""      $request_id;
+}
+# Upgrade only when asked to (WebSocket-capable, harmless otherwise).
+map $http_upgrade $connection_upgrade {
+    default upgrade;
+    ""      "";
+}
+# HSTS only on HTTPS requests.
+map $fwd_proto $hsts {
+    default "";
+    https   "max-age=31536000; includeSubDomains";
+}
+
+# No query string and no cookies in the access log (reset links and QR codes carry tokens in the URL).
+log_format gateway '$remote_addr $host "$request_method $uri" $status $body_bytes_sent ${request_time}s req=$req_id';
+access_log /dev/stdout gateway;
+error_log  /dev/stderr warn;
+
+# Variables in proxy_pass make nginx resolve the names at request time (see `resolver`).
+map $host $web_upstream      { default http://web:3000; }
+map $host $platform_upstream { default http://platform:3001; }
+map $host $api_upstream      { default http://api:4000; }
+
+# What every proxied request carries upstream.
+proxy_http_version 1.1;
+proxy_set_header Host               $host;
+proxy_set_header X-Real-IP          $remote_addr;
+proxy_set_header X-Forwarded-For    $proxy_add_x_forwarded_for;
+proxy_set_header X-Forwarded-Host   $host;
+proxy_set_header X-Forwarded-Proto  $fwd_proto;
+proxy_set_header X-Request-Id       $req_id;
+proxy_set_header Upgrade            $http_upgrade;
+proxy_set_header Connection         $connection_upgrade;
+proxy_connect_timeout 5s;
+proxy_send_timeout    60s;
+proxy_read_timeout    60s;
+proxy_redirect off;
+add_header Strict-Transport-Security $hsts always;
+add_header X-Request-Id $req_id always;
+
+# Anything addressed to another host name (a scanner hitting the server IP, a stray domain) gets nothing.
+# `/gateway-health` answers for any host so the container health check does not depend on the domains.
+server {
+    listen 8080 default_server;
+    server_name _;
+
+    location = /gateway-health {
+        access_log off;
+        default_type text/plain;
+        return 200 "ok\n";
+    }
+
+    location / {
+        return 444;
+    }
+}
+
+# ------------------------------------------------------------------------------------------------ restaurant app
+server {
+    listen 8080;
+    server_name ${WEB_HOST};
+
+    # The platform administrators' API lives on the console host only. Nest/Express routing is
+    # case-insensitive by default, so this gateway boundary must reject every casing too.
+    location ~* ^/api/v1/platform(?:/|$) {
+        return 404;
+    }
+
+    location /api/v1/ {
+        # menu imports can wait on the AI workflow for minutes (MENU_IMPORT_TIMEOUT_SECONDS)
+        proxy_read_timeout 600s;
+        proxy_pass $api_upstream;
+    }
+
+    # uploaded product and category images, served by the API from its persistent volume
+    location ^~ /media/ {
+        proxy_pass $api_upstream;
+        # the API sets its own cache and CORS headers; keep them
+    }
+
+    # Socket.IO is outside the versioned REST prefix. The shared proxy headers above preserve the
+    # Upgrade/Connection handshake, and the longer timeout keeps quiet WebSocket connections alive.
+    location ^~ /socket.io/ {
+        proxy_read_timeout 75s;
+        proxy_send_timeout 75s;
+        proxy_pass $api_upstream;
+    }
+
+    location / {
+        proxy_pass $web_upstream;
+    }
+}
+
+# ------------------------------------------------------------------------------------------------ platform console
+server {
+    listen 8080;
+    server_name ${PLATFORM_HOST};
+
+    # only the platform routes of the API are reachable from the console host
+    location ^~ /api/v1/platform/ {
+        proxy_read_timeout 120s;
+        proxy_pass $api_upstream;
+    }
+
+    location ^~ /api/ {
+        return 404;
+    }
+
+    location ^~ /media/ {
+        return 404;
+    }
+
+    location / {
+        proxy_pass $platform_upstream;
+    }
+}

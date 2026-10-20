@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { PLATFORM_API } from "./config";
+import { SERVER_PLATFORM_API } from "./config";
 
 export type ServerResult<T> =
   | { ok: true; data: T }
@@ -15,9 +15,11 @@ export async function platformServerGet<T>(path: string): Promise<ServerResult<T
   const cookie = incoming.get("cookie");
   let response: Response;
   try {
-    response = await fetch(`${PLATFORM_API}${path}`, {
+    // The visitor's address chain goes along, so the API's per-IP rate limit sees the visitor, not this server.
+    const forwardedFor = incoming.get("x-forwarded-for");
+    response = await fetch(`${SERVER_PLATFORM_API}${path}`, {
       method: "GET",
-      headers: cookie ? { cookie } : undefined,
+      headers: { ...(cookie ? { cookie } : {}), ...(forwardedFor ? { "x-forwarded-for": forwardedFor } : {}) },
       cache: "no-store",
     });
   } catch {

@@ -1,5 +1,6 @@
 import { headers } from 'next/headers';
-import { API_BASE_URL } from '../api/config';
+import { SERVER_API_BASE_URL } from '../api/config';
+import { forwardedForHeader } from '../api/server-fetch';
 import type { PublicMenuData } from './types';
 
 export type GetPublicMenuResult =
@@ -36,10 +37,10 @@ export async function getPublicMenu(
   let response: Response;
   try {
     response = await fetch(
-      `${API_BASE_URL}/public/qr/${encodeURIComponent(publicCode)}/menu${query}`,
+      `${SERVER_API_BASE_URL}/public/qr/${encodeURIComponent(publicCode)}/menu${query}`,
       {
         method: 'GET',
-        headers: acceptLanguage ? { 'accept-language': acceptLanguage } : undefined,
+        headers: { ...(acceptLanguage ? { 'accept-language': acceptLanguage } : {}), ...forwardedForHeader(incomingHeaders) },
         cache: 'no-store',
       },
     );

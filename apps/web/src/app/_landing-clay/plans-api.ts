@@ -1,4 +1,4 @@
-import { API_BASE_URL } from '../../lib/api/config';
+import { SERVER_API_BASE_URL } from '../../lib/api/config';
 import type { PlanFeature } from './copy';
 
 /** Mirrors `GET /public/landing/plans` (apps/api/src/public/public-landing.service.ts, DEC-053). */
@@ -33,7 +33,7 @@ export interface LandingPlans {
  */
 export async function getLandingPlans(): Promise<LandingPlans | null> {
   try {
-    const response = await fetch(`${API_BASE_URL}/public/landing/plans`, { next: { revalidate: 60 } });
+    const response = await fetch(`${SERVER_API_BASE_URL}/public/landing/plans`, { next: { revalidate: 60 } });
     if (!response.ok) return null;
     const body = (await response.json()) as { data: LandingPlans };
     return body.data;
