@@ -26,13 +26,17 @@ export interface LandingPrice {
 
 export interface LandingPlan {
   id: string;
-  name: string;
-  description: string | null;
+  name: { ar: string; en: string };
+  description: { ar: string | null; en: string | null };
   features: FeatureKey[];
   /** Standard and premium menu designs it includes (Classic counts as standard). */
   designs: { standard: number; premium: number };
   prices: LandingPrice[];
-  offer: { percent: string; label: string | null; endsAt: string | null } | null;
+  offer: {
+    percent: string;
+    label: string | null;
+    endsAt: string | null;
+  } | null;
 }
 
 export interface LeadInput {
@@ -59,7 +63,9 @@ export class PublicLandingService {
       select: {
         id: true,
         name: true,
+        nameEn: true,
         description: true,
+        descriptionEn: true,
         priceEgpMonthly: true,
         priceEgpYearly: true,
         priceUsdMonthly: true,
@@ -99,8 +105,8 @@ export class PublicLandingService {
       }
       return {
         id: row.id,
-        name: row.name,
-        description: row.description,
+        name: { ar: row.name, en: row.nameEn },
+        description: { ar: row.description, en: row.descriptionEn },
         features: FEATURE_KEYS.filter((key) =>
           row.features.some((f) => f.feature === key),
         ),
@@ -133,7 +139,7 @@ export class PublicLandingService {
       return monthly ? Number(monthly.amount) : Number.MAX_SAFE_INTEGER;
     };
     return plans.sort(
-      (a, b) => rank(a) - rank(b) || a.name.localeCompare(b.name),
+      (a, b) => rank(a) - rank(b) || a.name.en.localeCompare(b.name.en),
     );
   }
 

@@ -1090,9 +1090,13 @@ for each one, which of the six features it includes.
 - **Prices are display only:** an optional monthly price, yearly price and a
   currency, entered by the platform team (a price needs a currency). Nothing
   bills anyone; billing is a separate, later decision.
+- **Localized public copy (2026-10-20):** every Package has required Arabic and
+  English names and optional Arabic and English descriptions. Public surfaces use
+  the visitor's locale; the Platform console edits both languages together. Names
+  are unique within each language ignoring case and spacing.
 - **Life cycle:** a package in use cannot be deleted: it is archived, which keeps
   its restaurants where they are but stops it being assigned to others. An unused
-  package can be deleted. Names are unique ignoring case and spacing.
+  package can be deleted.
 - **Audit:** creating, editing and deleting a package and changing a
   restaurant's package are recorded in the platform activity log.
 - **The restaurant dashboard shows only what the package includes** (2026-10-19):
@@ -1280,6 +1284,10 @@ Package, or **request a free trial of 15 days**; either way the form asks for na
 and phone (restaurant name and a message are optional). Choosing a Package first fills it
 in; any other entry point lets the visitor pick one.
 
+Package names and descriptions are Platform-owned localized content. The Arabic landing
+uses the Arabic fields and the English landing uses the English fields; changing the UI
+language must not reuse copy from the other locale.
+
 A request is stored as a `SignupLead` and appears in the platform console under **New
 customers**, with a WhatsApp shortcut and the same statuses as DEC-050 (new, contacted,
 done, dismissed). There is no self-service account creation in this version: the team
@@ -1310,6 +1318,21 @@ Existing Packages that include dashboard or table ordering keep the kitchen scre
 have today (a migration adds the feature to them); the platform team can switch it off per
 Package or per Restaurant. The public landing page and My subscription list it with the
 other features.
+
+---
+
+### DEC-055 — Platform-Owned “Powered by Wayta” Link
+
+**Status:** Accepted (owner, 2026-10-21).
+
+The Wayta lockup in every Guest Menu footer is a link to a Platform-owned public
+destination. The Platform team controls the HTTPS URL from the Platform Control Dashboard;
+Restaurants cannot replace it or redirect it. The initial destination is
+`https://menu.elmotechsoft.online/`. The public menu response carries only the current URL,
+and changing it is recorded in the Platform audit log.
+
+This is one explicit public-branding setting, not a generic configuration framework and not
+a Restaurant branding field.
 
 ---
 

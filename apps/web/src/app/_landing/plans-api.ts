@@ -13,8 +13,8 @@ export interface LandingPrice {
 
 export interface LandingPlan {
   id: string;
-  name: string;
-  description: string | null;
+  name: { ar: string; en: string };
+  description: { ar: string | null; en: string | null };
   features: PlanFeature[];
   designs: { standard: number; premium: number };
   prices: LandingPrice[];

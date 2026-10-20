@@ -74,6 +74,8 @@ export const commonMessages = defineMessages({
     // ---- sign in
     'auth.email': 'Email',
     'auth.password': 'Password',
+    'auth.showPassword': 'Show password',
+    'auth.hidePassword': 'Hide password',
     'auth.signIn': 'Sign in',
     'auth.signingIn': 'Signing in…',
 
@@ -210,6 +212,8 @@ export const commonMessages = defineMessages({
 
     'auth.email': 'البريد الإلكتروني',
     'auth.password': 'كلمة المرور',
+    'auth.showPassword': 'إظهار كلمة المرور',
+    'auth.hidePassword': 'إخفاء كلمة المرور',
     'auth.signIn': 'تسجيل الدخول',
     'auth.signingIn': 'جارٍ تسجيل الدخول…',
 

@@ -106,7 +106,7 @@ export function LogoTile({
           src={logoUrl}
           alt=""
           onError={() => setFailed(true)}
-          className="size-full object-contain p-1.5"
+          className="size-full object-cover"
         />
       ) : (
         <span

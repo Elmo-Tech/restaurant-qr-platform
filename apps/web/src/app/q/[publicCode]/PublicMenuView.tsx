@@ -1136,7 +1136,16 @@ export function PublicMenuView({
 
         <footer className="flex items-center justify-center gap-2 px-4 pb-28 pt-6 text-[11px] text-muted-foreground">
           <span>{copy.poweredBy}</span>
-          <WaytaLockup tone="auto" size={16} className="opacity-70 [--wayta-ink:currentColor]" />
+          <a
+            href={
+              data.context.platform?.poweredByUrl ??
+              'https://menu.elmotechsoft.online/'
+            }
+            aria-label="Wayta ويتا"
+            className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-g-accent"
+          >
+            <WaytaLockup tone="auto" size={16} className="[--wayta-ink:currentColor]" />
+          </a>
         </footer>
 
         {isTrackOpen ? (

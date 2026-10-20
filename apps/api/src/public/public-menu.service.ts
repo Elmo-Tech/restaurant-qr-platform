@@ -1,4 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import {
+  DEFAULT_POWERED_BY_URL,
+  PLATFORM_PUBLIC_SETTINGS_ID,
+} from '../platform/platform-public-settings.constants';
 import { resolveLocalizedName } from '../common/name-translations';
 import {
   dateOnlyString,
@@ -47,6 +51,8 @@ export interface GetPublicMenuInput {
 }
 
 export interface PublicMenuContext {
+  /** Platform-owned destination behind the Guest footer's Wayta brand link. */
+  platform: { poweredByUrl: string };
   qrType: QrType;
   /**
    * Table Sessions: TABLE QR only (null for GENERIC) -- whether Table QR ordering is
@@ -790,10 +796,19 @@ export class PublicMenuService {
             })
           )?.publicCode ?? null);
 
+    const platformSettings = await this.prisma.platformPublicSettings.findUnique({
+      where: { id: PLATFORM_PUBLIC_SETTINGS_ID },
+      select: { poweredByUrl: true },
+    });
+
     return {
       outcome: 'found',
       data: {
         context: {
+          platform: {
+            poweredByUrl:
+              platformSettings?.poweredByUrl ?? DEFAULT_POWERED_BY_URL,
+          },
           qrType: qr.type,
           tableOrdering,
           restaurant: {

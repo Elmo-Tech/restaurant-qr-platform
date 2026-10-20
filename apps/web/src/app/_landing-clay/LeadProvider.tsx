@@ -166,7 +166,7 @@ export function LeadProvider({
                     <option value="">{copy.packageNone}</option>
                     {plans.map((plan) => (
                       <option key={plan.id} value={plan.id}>
-                        {plan.name}
+                        {plan.name[locale]}
                       </option>
                     ))}
                   </select>

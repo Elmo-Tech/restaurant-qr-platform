@@ -17,6 +17,7 @@ export type PlatformAction =
   | 'package.created'
   | 'package.updated'
   | 'package.deleted'
+  | 'platform.public_settings_updated'
   | 'restaurant.country_changed'
   | 'subscription.created'
   | 'subscription.cancelled'

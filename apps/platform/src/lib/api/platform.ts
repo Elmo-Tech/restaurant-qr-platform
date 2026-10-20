@@ -30,6 +30,11 @@ export interface Admin {
   displayName: string;
 }
 
+export interface PlatformPublicSettings {
+  poweredByUrl: string;
+  updatedAt: string | null;
+}
+
 export interface AuditEntry {
   id: string;
   action: string;
@@ -157,8 +162,13 @@ export interface PackageOffer {
 
 export interface PackageSummary {
   id: string;
+  /** Arabic aliases kept by the API for backward compatibility. */
   name: string;
   description: string | null;
+  nameAr: string;
+  nameEn: string;
+  descriptionAr: string | null;
+  descriptionEn: string | null;
   status: PackageStatus;
   /** List prices per billing currency and period, as strings; null = not offered (DEC-049). */
   prices: PackagePrices;
@@ -176,8 +186,10 @@ export interface PackageDetail extends PackageSummary {
 
 /** What the package form sends (the Backend normalizes the prices). */
 export interface PackageInput {
-  name: string;
-  description: string | null;
+  nameAr: string;
+  nameEn: string;
+  descriptionAr: string | null;
+  descriptionEn: string | null;
   prices: PackagePrices;
   /** null removes the offer. */
   offer: { percent: string; label: string | null; endsAt: string | null } | null;
@@ -207,6 +219,15 @@ export const login = (email: string, password: string) =>
 export const getMe = () => data(platformFetch<{ data: Admin }>("/auth/me"));
 export const logout = () => platformFetch<void>("/auth/logout", { method: "POST" });
 export const getOverview = () => data(platformFetch<{ data: Overview }>("/overview"));
+export const getPublicSettings = () =>
+  data(platformFetch<{ data: PlatformPublicSettings }>("/settings/public"));
+export const updatePublicSettings = (poweredByUrl: string) =>
+  data(
+    platformFetch<{ data: PlatformPublicSettings }>("/settings/public", {
+      method: "PUT",
+      body: { poweredByUrl },
+    }),
+  );
 
 export function listRestaurants(input: { search: string; status: RestaurantStatus | ""; page: number }) {
   const params = new URLSearchParams({ page: String(input.page), pageSize: "20" });

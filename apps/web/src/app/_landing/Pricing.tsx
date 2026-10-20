@@ -66,8 +66,8 @@ export function Pricing({ plans, copy, locale }: { plans: LandingPlan[]; copy: L
                 </span>
                 {plan.offer ? <span>{plan.offer.label ?? copy.offer}</span> : null}
               </div>
-              <h3 className={`${styles.display} ${styles.planName}`}>{plan.name}</h3>
-              <p className={styles.planDesc}>{plan.description}</p>
+              <h3 className={`${styles.display} ${styles.planName}`}>{plan.name[locale]}</h3>
+              {plan.description[locale] ? <p className={styles.planDesc}>{plan.description[locale]}</p> : null}
 
               <div className={styles.perforation} aria-hidden="true" />
 

@@ -60,14 +60,14 @@ export function Pricing({ plans, copy, locale }: { plans: LandingPlan[]; copy: L
           return (
             <li key={plan.id} className={styles.plan} data-reveal="" data-delay={index * 90}>
               <div className={styles.planTop}>
-                <h3 className={styles.planName}>{plan.name}</h3>
+                <h3 className={styles.planName}>{plan.name[locale]}</h3>
                 {onOffer && plan.offer ? (
                   <span className={styles.offerTag}>
                     {plan.offer.label ?? copy.offer} −{numbers.format(Number(plan.offer.percent))}%
                   </span>
                 ) : null}
               </div>
-              <p className={styles.planDesc}>{plan.description}</p>
+              {plan.description[locale] ? <p className={styles.planDesc}>{plan.description[locale]}</p> : null}
 
               <div className={styles.priceBlock}>
                 {price ? (

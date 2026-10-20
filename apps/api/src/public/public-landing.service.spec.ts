@@ -29,8 +29,10 @@ function makeService(overrides: {
 
 const basePackage = {
   id: 'p1',
-  name: 'Pro',
-  description: null,
+  name: 'احترافية',
+  nameEn: 'Pro',
+  description: 'كل ما يحتاجه المطعم',
+  descriptionEn: 'Everything a restaurant needs',
   priceEgpMonthly: D('1000'),
   priceEgpYearly: D('10000'),
   priceUsdMonthly: null,
@@ -47,7 +49,9 @@ const basePackage = {
 describe('PublicLandingService.plans (DEC-053)', () => {
   it('applies an active offer to the price and keeps the list price', async () => {
     const { service } = makeService({
-      packages: [{ ...basePackage, offerPercent: D('20'), offerLabel: 'Launch' }],
+      packages: [
+        { ...basePackage, offerPercent: D('20'), offerLabel: 'Launch' },
+      ],
     });
     const [plan] = await service.plans();
     const monthly = plan.prices.find(
@@ -68,6 +72,11 @@ describe('PublicLandingService.plans (DEC-053)', () => {
     expect(plan.prices.every((p) => p.currencyCode === 'EGP')).toBe(true);
     expect(plan.designs).toEqual({ standard: 4, premium: 1 });
     expect(plan.offer).toBeNull();
+    expect(plan.name).toEqual({ ar: 'احترافية', en: 'Pro' });
+    expect(plan.description).toEqual({
+      ar: 'كل ما يحتاجه المطعم',
+      en: 'Everything a restaurant needs',
+    });
   });
 
   it('lists the cheapest package first', async () => {
@@ -99,13 +108,17 @@ describe('PublicLandingService.createLead (DEC-053)', () => {
     });
     await expect(service.createLead(input)).resolves.toBe('created');
     expect(create).toHaveBeenCalledWith({
-      data: expect.objectContaining({
-        email: 'sara@example.com',
-        name: 'Sara',
+      data: {
+        kind: 'SUBSCRIBE',
         packageId: 'p1',
         packageName: 'Pro',
-        kind: 'SUBSCRIBE',
-      }),
+        email: 'sara@example.com',
+        name: 'Sara',
+        phone: '+20 100 000 0000',
+        restaurantName: null,
+        message: null,
+        locale: 'ar',
+      },
     });
   });
 
@@ -119,7 +132,17 @@ describe('PublicLandingService.createLead (DEC-053)', () => {
     const { service, create } = makeService({ activePackage: null });
     await service.createLead(input);
     expect(create).toHaveBeenCalledWith({
-      data: expect.objectContaining({ packageId: null, packageName: null }),
+      data: {
+        kind: 'SUBSCRIBE',
+        packageId: null,
+        packageName: null,
+        email: 'sara@example.com',
+        name: 'Sara',
+        phone: '+20 100 000 0000',
+        restaurantName: null,
+        message: null,
+        locale: 'ar',
+      },
     });
   });
 });

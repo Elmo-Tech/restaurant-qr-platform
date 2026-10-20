@@ -1782,6 +1782,13 @@ Migration `20261026090000_platform_admins` (additive): enum `platform_admin_stat
 
 Migration `20261027090000_packages` (additive): enum `package_status` (`ACTIVE`, `ARCHIVED`), table `packages` (`name`, unique `name_normalized` = lower-cased, trimmed, single-spaced; optional `description`; `monthly_price` and `yearly_price` DECIMAL(12,2), `currency_code` CHAR(3); CHECKs: prices are not negative and a price needs a currency), table `package_features` (`package_id` ON DELETE CASCADE, `feature` of the existing `feature_key` enum, unique per package: a row means the package includes the feature) and `restaurants.package_id` (nullable, ON DELETE RESTRICT, indexed; null = no package = every feature). Existing restaurants are untouched. Rollback (before any package is assigned): drop the column, then `package_features`, `packages` and the type.
 
+Migration `20261103090000_package_localized_copy` localizes Package copy for the Arabic and English public landing. It renames `name` / `name_normalized` / `description` to `name_ar` / `name_ar_normalized` / `description_ar`, adds required `name_en` and `name_en_normalized`, adds optional `description_en`, and creates a unique normalized-name index per language. Existing names are copied to the English columns so deployment remains valid; the Platform team replaces that temporary English copy after deployment. Existing descriptions remain Arabic and English descriptions start null.
+
+Migration `20261104090000_platform_public_settings` adds the singleton
+`platform_public_settings` table (`id = public`, `powered_by_url`, timestamps) and seeds
+`https://menu.elmotechsoft.online/`. A CHECK restricts the stored destination to HTTPS. It
+is Platform-owned global branding configuration, never Restaurant/Tenant content.
+
 ---
 
 # 69. Variant Price

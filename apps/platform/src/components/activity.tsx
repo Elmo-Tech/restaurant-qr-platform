@@ -20,6 +20,7 @@ const ACTION_LABEL: Record<string, MessageKey> = {
   "package.created": "action.package.created",
   "package.updated": "action.package.updated",
   "package.deleted": "action.package.deleted",
+  "platform.public_settings_updated": "action.platform.public_settings_updated",
   "restaurant.country_changed": "action.restaurant.country_changed",
   "restaurant.auto_suspended": "action.restaurant.auto_suspended",
   "restaurant.auto_reactivated": "action.restaurant.auto_reactivated",
@@ -118,6 +119,12 @@ export function describeChange(entry: AuditEntry, t: Translate): string {
       .map((part) => t(`activity.part.${part}`))
       .join(", ");
     return t("activity.packageChanged", { name: String(details.name ?? ""), parts });
+  }
+  if (entry.action === "platform.public_settings_updated") {
+    return t("activity.publicSettingsUrl", {
+      from: String(details.from ?? ""),
+      to: String(details.to ?? ""),
+    });
   }
   return "";
 }

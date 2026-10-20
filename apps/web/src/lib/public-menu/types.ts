@@ -18,6 +18,8 @@ export interface PublicAnnouncement {
 }
 
 export interface PublicMenuContext {
+  /** Platform-owned destination behind the footer's Wayta brand link. */
+  platform: { poweredByUrl: string };
   qrType: 'TABLE' | 'GENERIC';
   /** Table Sessions: TABLE QR only (null for GENERIC). Advisory -- the order endpoint re-checks. */
   tableOrdering: 'AVAILABLE' | 'CLOSED' | 'DISABLED' | null;

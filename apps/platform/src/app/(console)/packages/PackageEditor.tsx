@@ -26,17 +26,32 @@ import {
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
-/** A price the Backend accepts: digits with at most two decimals. */
-const MONEY = /^\d{1,10}(\.\d{1,2})?$/;
+/** A price as typed in the console: plain digits or correctly grouped thousands, with up to two decimals. */
+const MONEY_INPUT = /^(?:\d{1,10}|\d{1,3}(?:,\d{3}){1,3})(?:\.\d{1,2})?$/;
 /** An offer percentage: above 0, up to 100, at most two decimals. */
 const PERCENT = /^\d{1,3}(\.\d{1,2})?$/;
 const DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 
 type PriceField = "egpMonthly" | "egpYearly" | "usdMonthly" | "usdYearly";
+type FieldName = "nameAr" | "nameEn" | PriceField | "offerPercent" | "offerEndsAt";
+type FieldErrors = Partial<Record<FieldName, string>>;
+
+const FIELD_IDS: Record<FieldName, string> = {
+  nameAr: "package-name-ar",
+  nameEn: "package-name-en",
+  egpMonthly: "package-egpMonthly",
+  egpYearly: "package-egpYearly",
+  usdMonthly: "package-usdMonthly",
+  usdYearly: "package-usdYearly",
+  offerPercent: "package-offer-percent",
+  offerEndsAt: "package-offer-ends",
+};
 
 interface FormState {
-  name: string;
-  description: string;
+  nameAr: string;
+  nameEn: string;
+  descriptionAr: string;
+  descriptionEn: string;
   prices: Record<PriceField, string>;
   offerOn: boolean;
   offerPercent: string;
@@ -53,8 +68,10 @@ interface FormState {
 type PremiumMode = "none" | "choose" | "all";
 
 const EMPTY: FormState = {
-  name: "",
-  description: "",
+  nameAr: "",
+  nameEn: "",
+  descriptionAr: "",
+  descriptionEn: "",
   prices: { egpMonthly: "", egpYearly: "", usdMonthly: "", usdYearly: "" },
   offerOn: false,
   offerPercent: "",
@@ -85,8 +102,10 @@ function templateCounts(form: FormState) {
 }
 
 const formFrom = (pkg: PackageDetail): FormState => ({
-  name: pkg.name,
-  description: pkg.description ?? "",
+  nameAr: pkg.nameAr,
+  nameEn: pkg.nameEn,
+  descriptionAr: pkg.descriptionAr ?? "",
+  descriptionEn: pkg.descriptionEn ?? "",
   prices: {
     egpMonthly: pkg.prices.egpMonthly ?? "",
     egpYearly: pkg.prices.egpYearly ?? "",
@@ -102,6 +121,19 @@ const formFrom = (pkg: PackageDetail): FormState => ({
 });
 
 const orNull = (value: string) => (value.trim() === "" ? null : value.trim());
+const moneyOrNull = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed.replaceAll(",", "");
+};
+
+function FieldError({ controlId, message }: { controlId: string; message?: string }) {
+  if (!message) return null;
+  return (
+    <p id={`${controlId}-error`} role="alert" className="mt-1.5 text-xs font-medium text-danger">
+      {message}
+    </p>
+  );
+}
 
 /** "All" of both tiers is the open-ended rule; anything else lists what is chosen. */
 function templatesInput(form: FormState): PackageInput["templates"] {
@@ -121,13 +153,15 @@ function templatesInput(form: FormState): PackageInput["templates"] {
 /** The form's text as the API's input: empty prices, description and offer parts are `null`. */
 function toInput(form: FormState): PackageInput {
   return {
-    name: form.name.trim(),
-    description: orNull(form.description),
+    nameAr: form.nameAr.trim(),
+    nameEn: form.nameEn.trim(),
+    descriptionAr: orNull(form.descriptionAr),
+    descriptionEn: orNull(form.descriptionEn),
     prices: {
-      egpMonthly: orNull(form.prices.egpMonthly),
-      egpYearly: orNull(form.prices.egpYearly),
-      usdMonthly: orNull(form.prices.usdMonthly),
-      usdYearly: orNull(form.prices.usdYearly),
+      egpMonthly: moneyOrNull(form.prices.egpMonthly),
+      egpYearly: moneyOrNull(form.prices.egpYearly),
+      usdMonthly: moneyOrNull(form.prices.usdMonthly),
+      usdYearly: moneyOrNull(form.prices.usdYearly),
     },
     offer: form.offerOn
       ? { percent: form.offerPercent.trim(), label: orNull(form.offerLabel), endsAt: orNull(form.offerEndsAt) }
@@ -138,7 +172,7 @@ function toInput(form: FormState): PackageInput {
 }
 
 export function PackageEditor({ packageId }: { packageId: string | null }) {
-  const { t, fmt } = useI18n();
+  const { t, fmt, locale } = useI18n();
   const router = useRouter();
   const creating = packageId === null;
 
@@ -148,6 +182,7 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState<"package.saved" | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<FieldErrors>({});
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   useEffect(() => {
@@ -178,43 +213,67 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
         : t("common.error");
   };
 
+  const clearFieldError = (field: FieldName) => {
+    setFieldErrors((current) => {
+      if (!current[field]) return current;
+      const next = { ...current };
+      delete next[field];
+      return next;
+    });
+  };
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
     setForm((current) => ({ ...current, [key]: value }));
+    if (key === "nameAr" || key === "nameEn" || key === "offerPercent" || key === "offerEndsAt") {
+      clearFieldError(key);
+    }
     setNotice(null);
   };
   const setPrice = (field: PriceField, value: string) => {
     setForm((current) => ({ ...current, prices: { ...current.prices, [field]: value } }));
+    clearFieldError(field);
     setNotice(null);
   };
   const toggleFeature = (key: FeatureKey) =>
     set("features", form.features.includes(key) ? form.features.filter((f) => f !== key) : [...form.features, key]);
 
-  /** The first thing wrong with the form, as a message, or null. */
-  function validate(): string | null {
-    const input = toInput(form);
-    if (input.name === "") return t("package.err.invalid");
-    for (const price of Object.values(input.prices)) {
-      if (price !== null && !MONEY.test(price)) return t("package.err.invalid");
+  /** Every invalid field, so the form can explain the problem where it occurred. */
+  function validate(): FieldErrors {
+    const errors: FieldErrors = {};
+    if (form.nameAr.trim() === "") errors.nameAr = t("package.err.nameRequired");
+    if (form.nameEn.trim() === "") errors.nameEn = t("package.err.nameRequired");
+    for (const [field, price] of Object.entries(form.prices) as [PriceField, string][]) {
+      const value = price.trim();
+      if (value !== "" && !MONEY_INPUT.test(value)) {
+        errors[field] = t("package.err.priceFormat");
+      }
     }
-    if (input.offer) {
-      const percent = Number(input.offer.percent);
-      if (!PERCENT.test(input.offer.percent) || !(percent > 0 && percent <= 100)) return t("package.err.offerInvalid");
-      if (input.offer.endsAt !== null && !DATE_ONLY.test(input.offer.endsAt)) return t("package.err.offerInvalid");
+    if (form.offerOn) {
+      const percentText = form.offerPercent.trim();
+      const percent = Number(percentText);
+      if (!PERCENT.test(percentText) || !(percent > 0 && percent <= 100)) {
+        errors.offerPercent = t("package.err.percentField");
+      }
+      const endsAt = form.offerEndsAt.trim();
+      if (endsAt !== "" && !DATE_ONLY.test(endsAt)) {
+        errors.offerEndsAt = t("package.err.dateField");
+      }
     }
-    return null;
+    return errors;
   }
 
   async function submit(event: FormEvent) {
     event.preventDefault();
     if (busy) return;
-    const invalid = validate();
+    const errors = validate();
     setNotice(null);
-    if (invalid) {
-      setProblem(invalid);
+    setProblem(null);
+    setFieldErrors(errors);
+    const firstInvalid = Object.keys(errors)[0] as FieldName | undefined;
+    if (firstInvalid) {
+      requestAnimationFrame(() => document.getElementById(FIELD_IDS[firstInvalid])?.focus());
       return;
     }
     setBusy(true);
-    setProblem(null);
     try {
       if (creating) {
         await createPackage(toInput(form));
@@ -426,7 +485,7 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
 
       <div className="mb-6 flex flex-wrap items-center gap-3">
         <h1 className="text-[22px] font-semibold tracking-tight">
-          {creating ? t("package.newTitle") : <bdi>{pkg?.name}</bdi>}
+          {creating ? t("package.newTitle") : <bdi>{locale === "ar" ? pkg?.nameAr : pkg?.nameEn}</bdi>}
         </h1>
         {pkg?.status === "ARCHIVED" ? <Badge tone="warning">{t("packages.status.ARCHIVED")}</Badge> : null}
       </div>
@@ -444,28 +503,67 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
           <Card>
             <CardHeader title={t("package.details")} />
             <div className="space-y-4 p-5">
-              <div>
-                <Label htmlFor="package-name">{t("package.name")}</Label>
-                <Input
-                  id="package-name"
-                  value={form.name}
-                  onChange={(event) => set("name", event.target.value)}
-                  placeholder={t("package.namePlaceholder")}
-                  maxLength={80}
-                  required
-                />
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="package-name-ar">{t("package.nameAr")}</Label>
+                  <Input
+                    id="package-name-ar"
+                    dir="rtl"
+                    value={form.nameAr}
+                    onChange={(event) => set("nameAr", event.target.value)}
+                    placeholder={t("package.nameArPlaceholder")}
+                    maxLength={80}
+                    required
+                    aria-invalid={Boolean(fieldErrors.nameAr)}
+                    aria-describedby={fieldErrors.nameAr ? "package-name-ar-error" : undefined}
+                    className={cn(fieldErrors.nameAr && "border-danger focus:border-danger focus:ring-danger/25")}
+                  />
+                  <FieldError controlId="package-name-ar" message={fieldErrors.nameAr} />
+                </div>
+                <div>
+                  <Label htmlFor="package-name-en">{t("package.nameEn")}</Label>
+                  <Input
+                    id="package-name-en"
+                    dir="ltr"
+                    value={form.nameEn}
+                    onChange={(event) => set("nameEn", event.target.value)}
+                    placeholder={t("package.nameEnPlaceholder")}
+                    maxLength={80}
+                    required
+                    aria-invalid={Boolean(fieldErrors.nameEn)}
+                    aria-describedby={fieldErrors.nameEn ? "package-name-en-error" : undefined}
+                    className={cn(fieldErrors.nameEn && "border-danger focus:border-danger focus:ring-danger/25")}
+                  />
+                  <FieldError controlId="package-name-en" message={fieldErrors.nameEn} />
+                </div>
               </div>
-              <div>
-                <Label htmlFor="package-description">{t("package.description")}</Label>
-                <textarea
-                  id="package-description"
-                  value={form.description}
-                  onChange={(event) => set("description", event.target.value)}
-                  maxLength={500}
-                  rows={3}
-                  className="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/25"
-                />
-                <p className="mt-1 text-xs text-muted-foreground">{t("package.descriptionHint")}</p>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div>
+                  <Label htmlFor="package-description-ar">{t("package.descriptionAr")}</Label>
+                  <textarea
+                    id="package-description-ar"
+                    dir="rtl"
+                    value={form.descriptionAr}
+                    onChange={(event) => set("descriptionAr", event.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    className="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/25"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">{t("package.descriptionArHint")}</p>
+                </div>
+                <div>
+                  <Label htmlFor="package-description-en">{t("package.descriptionEn")}</Label>
+                  <textarea
+                    id="package-description-en"
+                    dir="ltr"
+                    value={form.descriptionEn}
+                    onChange={(event) => set("descriptionEn", event.target.value)}
+                    maxLength={500}
+                    rows={3}
+                    className="w-full rounded-lg border border-border-strong bg-surface px-3 py-2 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-ring focus:ring-2 focus:ring-ring/25"
+                  />
+                  <p className="mt-1 text-xs text-muted-foreground">{t("package.descriptionEnHint")}</p>
+                </div>
               </div>
             </div>
           </Card>
@@ -493,7 +591,12 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
                             value={form.prices[field]}
                             onChange={(event) => setPrice(field, event.target.value)}
                             placeholder="0.00"
-                            className="pe-14 text-start"
+                            aria-invalid={Boolean(fieldErrors[field])}
+                            aria-describedby={fieldErrors[field] ? `package-${field}-error` : undefined}
+                            className={cn(
+                              "pe-14 text-start",
+                              fieldErrors[field] && "border-danger focus:border-danger focus:ring-danger/25",
+                            )}
                           />
                           <span
                             dir="ltr"
@@ -502,6 +605,7 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
                             {currency}
                           </span>
                         </div>
+                        <FieldError controlId={`package-${field}`} message={fieldErrors[field]} />
                       </div>
                     ))}
                   </div>
@@ -534,8 +638,14 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
                       value={form.offerPercent}
                       onChange={(event) => set("offerPercent", event.target.value)}
                       placeholder="20"
-                      className="text-start"
+                      aria-invalid={Boolean(fieldErrors.offerPercent)}
+                      aria-describedby={fieldErrors.offerPercent ? "package-offer-percent-error" : undefined}
+                      className={cn(
+                        "text-start",
+                        fieldErrors.offerPercent && "border-danger focus:border-danger focus:ring-danger/25",
+                      )}
                     />
+                    <FieldError controlId="package-offer-percent" message={fieldErrors.offerPercent} />
                   </div>
                   <div>
                     <Label htmlFor="package-offer-label">{t("package.offerLabel")}</Label>
@@ -555,8 +665,14 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
                       dir="ltr"
                       value={form.offerEndsAt}
                       onChange={(event) => set("offerEndsAt", event.target.value)}
-                      className="text-start"
+                      aria-invalid={Boolean(fieldErrors.offerEndsAt)}
+                      aria-describedby={fieldErrors.offerEndsAt ? "package-offer-ends-error" : undefined}
+                      className={cn(
+                        "text-start",
+                        fieldErrors.offerEndsAt && "border-danger focus:border-danger focus:ring-danger/25",
+                      )}
                     />
+                    <FieldError controlId="package-offer-ends" message={fieldErrors.offerEndsAt} />
                     <p className="mt-1 text-xs text-muted-foreground">{t("package.offerEndsHint")}</p>
                   </div>
                 </div>
@@ -636,7 +752,9 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
               <div className="space-y-3 p-5">
                 {confirmingDelete ? (
                   <>
-                    <Alert tone="warning">{t("package.deleteConfirm", { name: pkg.name })}</Alert>
+                    <Alert tone="warning">
+                      {t("package.deleteConfirm", { name: locale === "ar" ? pkg.nameAr : pkg.nameEn })}
+                    </Alert>
                     <div className="flex gap-2">
                       <Button variant="danger" onClick={() => void remove()} disabled={busy}>
                         {t("detail.confirm")}

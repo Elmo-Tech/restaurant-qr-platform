@@ -82,6 +82,11 @@ import {
   type AdminView,
 } from './platform-admins.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
+import { UpdatePlatformPublicSettingsDto } from './dto/platform-public-settings.dto';
+import {
+  PlatformPublicSettingsService,
+  type PlatformPublicSettingsView,
+} from './platform-public-settings.service';
 import {
   PlatformRestaurantCreationService,
   type CreateRestaurantOutcome,
@@ -281,6 +286,7 @@ export class PlatformController {
     private readonly creation: PlatformRestaurantCreationService,
     private readonly admins: PlatformAdminsService,
     private readonly overview: PlatformOverviewService,
+    private readonly publicSettings: PlatformPublicSettingsService,
     private readonly audit: PlatformAuditService,
     private readonly configService: ConfigService<EnvConfig, true>,
   ) {}
@@ -418,6 +424,26 @@ export class PlatformController {
   @UseGuards(PlatformAuthGuard)
   async getOverview(): Promise<{ data: PlatformOverview }> {
     return { data: await this.overview.get() };
+  }
+
+  @Get('settings/public')
+  @UseGuards(PlatformAuthGuard)
+  async getPublicSettings(): Promise<{ data: PlatformPublicSettingsView }> {
+    return { data: await this.publicSettings.get() };
+  }
+
+  @Put('settings/public')
+  @UseGuards(PlatformAuthGuard)
+  async updatePublicSettings(
+    @Body() body: UpdatePlatformPublicSettingsDto,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: PlatformPublicSettingsView }> {
+    return {
+      data: await this.publicSettings.update(
+        request.platformAdmin,
+        body.poweredByUrl,
+      ),
+    };
   }
 
   @Get('restaurants')
@@ -588,8 +614,10 @@ export class PlatformController {
     @Req() request: PlatformRequest,
   ): Promise<{ data: PackageView }> {
     const input: PackageInput = {
-      name: body.name,
-      description: body.description ?? null,
+      nameAr: body.nameAr,
+      nameEn: body.nameEn,
+      descriptionAr: body.descriptionAr ?? null,
+      descriptionEn: body.descriptionEn ?? null,
       prices: {
         egpMonthly: normalizeMoney(body.prices?.egpMonthly) ?? null,
         egpYearly: normalizeMoney(body.prices?.egpYearly) ?? null,
@@ -620,8 +648,10 @@ export class PlatformController {
     return {
       data: unwrapPackage(
         await this.packages.update(request.platformAdmin, packageId, {
-          name: body.name,
-          description: body.description,
+          nameAr: body.nameAr,
+          nameEn: body.nameEn,
+          descriptionAr: body.descriptionAr,
+          descriptionEn: body.descriptionEn,
           status: body.status,
           features: body.features,
           prices: toPricesPatch(body.prices),

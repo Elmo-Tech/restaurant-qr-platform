@@ -65,8 +65,13 @@ export function normalizeTemplates(input: {
 
 export interface PackageView {
   id: string;
+  /** Backward-compatible Arabic aliases for older console clients. */
   name: string;
   description: string | null;
+  nameAr: string;
+  nameEn: string;
+  descriptionAr: string | null;
+  descriptionEn: string | null;
   status: PackageStatus;
   prices: PackagePriceView;
   offer: PackageOfferView | null;
@@ -89,8 +94,10 @@ export type PackageUpdate = Omit<Partial<PackageInput>, 'prices'> & {
 };
 
 export interface PackageInput {
-  name: string;
-  description: string | null;
+  nameAr: string;
+  nameEn: string;
+  descriptionAr: string | null;
+  descriptionEn: string | null;
   prices: PackagePriceView;
   offer: {
     percent: string;
@@ -121,7 +128,9 @@ const DETAIL_RESTAURANTS = 100;
 const packageSelect = {
   id: true,
   name: true,
+  nameEn: true,
   description: true,
+  descriptionEn: true,
   status: true,
   priceEgpMonthly: true,
   priceEgpYearly: true,
@@ -152,6 +161,10 @@ const toView = (row: PackageRow): PackageView => ({
   id: row.id,
   name: row.name,
   description: row.description,
+  nameAr: row.name,
+  nameEn: row.nameEn,
+  descriptionAr: row.description,
+  descriptionEn: row.descriptionEn,
   status: row.status,
   prices: {
     egpMonthly: money(row.priceEgpMonthly),
@@ -185,8 +198,10 @@ const toView = (row: PackageRow): PackageView => ({
 
 /** A view back to the editable input, for merging a partial update. */
 const toInput = (view: PackageView): PackageInput => ({
-  name: view.name,
-  description: view.description,
+  nameAr: view.nameAr,
+  nameEn: view.nameEn,
+  descriptionAr: view.descriptionAr,
+  descriptionEn: view.descriptionEn,
   prices: view.prices,
   offer: view.offer && {
     percent: view.offer.percent,
@@ -267,9 +282,12 @@ export class PlatformPackagesService {
     try {
       const row = await this.prisma.package.create({
         data: {
-          name: input.name,
-          nameNormalized: normalizeName(input.name),
-          description: input.description,
+          name: input.nameAr,
+          nameNormalized: normalizeName(input.nameAr),
+          nameEn: input.nameEn,
+          nameEnNormalized: normalizeName(input.nameEn),
+          description: input.descriptionAr,
+          descriptionEn: input.descriptionEn,
           status: input.status,
           priceEgpMonthly: input.prices.egpMonthly,
           priceEgpYearly: input.prices.egpYearly,
@@ -311,9 +329,16 @@ export class PlatformPackagesService {
     const current = toView(before);
     const base = toInput(current);
     const next: PackageInput = {
-      name: patch.name ?? base.name,
-      description:
-        patch.description === undefined ? base.description : patch.description,
+      nameAr: patch.nameAr ?? base.nameAr,
+      nameEn: patch.nameEn ?? base.nameEn,
+      descriptionAr:
+        patch.descriptionAr === undefined
+          ? base.descriptionAr
+          : patch.descriptionAr,
+      descriptionEn:
+        patch.descriptionEn === undefined
+          ? base.descriptionEn
+          : patch.descriptionEn,
       prices: { ...base.prices, ...patch.prices },
       offer: patch.offer === undefined ? base.offer : patch.offer,
       templates: patch.templates ?? base.templates,
@@ -348,9 +373,12 @@ export class PlatformPackagesService {
           data: {
             allTemplates: next.templates.all,
             allStandardTemplates: next.templates.allStandard,
-            name: next.name,
-            nameNormalized: normalizeName(next.name),
-            description: next.description,
+            name: next.nameAr,
+            nameNormalized: normalizeName(next.nameAr),
+            nameEn: next.nameEn,
+            nameEnNormalized: normalizeName(next.nameEn),
+            description: next.descriptionAr,
+            descriptionEn: next.descriptionEn,
             status: next.status,
             priceEgpMonthly: next.prices.egpMonthly,
             priceEgpYearly: next.prices.egpYearly,
@@ -497,8 +525,15 @@ function sameSet(a: readonly string[], b: readonly string[]): boolean {
 /** Which parts of a package changed, for the audit entry. */
 function changedFields(before: PackageInput, after: PackageInput): string[] {
   const changes: string[] = [];
-  if (before.name !== after.name) changes.push('name');
-  if (before.description !== after.description) changes.push('description');
+  if (before.nameAr !== after.nameAr || before.nameEn !== after.nameEn) {
+    changes.push('name');
+  }
+  if (
+    before.descriptionAr !== after.descriptionAr ||
+    before.descriptionEn !== after.descriptionEn
+  ) {
+    changes.push('description');
+  }
   if (before.status !== after.status) changes.push('status');
   if (JSON.stringify(before.prices) !== JSON.stringify(after.prices)) {
     changes.push('prices');

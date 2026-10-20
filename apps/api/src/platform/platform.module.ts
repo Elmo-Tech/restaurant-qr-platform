@@ -14,6 +14,7 @@ import { PlatformRequestsController } from './requests/platform-requests.control
 import { PlatformRequestsService } from './requests/platform-requests.service';
 import { PlatformOverviewService } from './platform-overview.service';
 import { PlatformPackagesService } from './platform-packages.service';
+import { PlatformPublicSettingsService } from './platform-public-settings.service';
 import { PlatformRestaurantCreationService } from './platform-restaurant-creation.service';
 import { PlatformRestaurantsService } from './platform-restaurants.service';
 import { PlatformController } from './platform.controller';
@@ -40,6 +41,7 @@ import { PlatformController } from './platform.controller';
     PlatformRestaurantsService,
     PlatformRestaurantCreationService,
     PlatformPackagesService,
+    PlatformPublicSettingsService,
     PlatformOverviewService,
     PlatformBillingService,
     SubscriptionSyncService,

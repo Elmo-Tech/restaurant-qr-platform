@@ -2347,6 +2347,8 @@ The internal API of the platform team's console (`apps/platform`), all under `/a
 - `PATCH /platform/restaurants/{id}/status` `{ status: ACTIVE | SUSPENDED }`: the existing Restaurant status checks then refuse the team and the guest menu. Setting the current status writes nothing.
 - `PUT /platform/restaurants/{id}/features/{FEATURE}` `{ enabled: true | false | null }`: allow, remove, or `null` = back to the default (DEC-043). An unknown feature is `404 FEATURE_NOT_FOUND`.
 - `GET /platform/audit?restaurantId&limit` (limit up to 200, default 50): the platform team's own history: sign-ins, status changes and feature changes, each with the administrator's email, the Restaurant and what changed.
+- `GET /platform/settings/public` returns `{ poweredByUrl, updatedAt }`. `PUT /platform/settings/public` accepts `{ poweredByUrl }`; it must be an absolute HTTPS URL (maximum 2048 characters). It controls the destination behind the Wayta brand in every Guest Menu footer and records `platform.public_settings_updated` when changed.
+- The public Guest Menu context includes `platform.poweredByUrl`. If the singleton settings row is unavailable during a pre-migration/seed state, the Backend safely falls back to `https://menu.elmotechsoft.online/`.
 
 ---
 
@@ -2354,8 +2356,8 @@ The internal API of the platform team's console (`apps/platform`), all under `/a
 
 Platform routes (same Origin and session rules as 108P), all under `/api/v1/platform`.
 
-- `GET /packages`: every package with `features` (the included keys), `restaurantCount`, `monthlyPrice` / `yearlyPrice` (decimal strings or null), `currencyCode`, `status` (`ACTIVE` | `ARCHIVED`). `GET /packages/{id}`: the same plus the restaurants on it (id, name, status; up to 100).
-- `POST /packages` `{ name (1-80), features[] (unique feature keys), description?, monthlyPrice?, yearlyPrice?, currencyCode?, status? }` -> `201`. Prices are decimal strings with at most two decimals and are returned with two ("149.5" -> "149.50"); `currencyCode` is three letters, upper-cased. `PATCH /packages/{id}` takes any of the same fields; `null` clears `description`, a price or the currency; `features` replaces the whole set. `DELETE /packages/{id}` -> `204`.
+- `GET /packages`: every package with required `nameAr` / `nameEn`, optional `descriptionAr` / `descriptionEn`, `features` (the included keys), `restaurantCount`, prices, offer, templates and `status` (`ACTIVE` | `ARCHIVED`). The legacy response aliases `name` and `description` equal the Arabic values during the compatibility window. `GET /packages/{id}`: the same plus the restaurants on it (id, name, status; up to 100).
+- `POST /packages` `{ nameAr (1-80), nameEn (1-80), features[] (unique feature keys), descriptionAr?, descriptionEn?, prices?, offer?, templates?, status? }` -> `201`. `PATCH /packages/{id}` takes any of the same fields; `null` clears either description or another nullable value; `features` replaces the whole set. Each localized name is unique ignoring case and spacing. `DELETE /packages/{id}` -> `204`.
 - `PUT /restaurants/{id}/package` `{ packageId: uuid | null }` (the key is required; `null` takes the restaurant off any package).
 - **Errors:** `400` validation; `404 PACKAGE_NOT_FOUND` / `RESTAURANT_NOT_FOUND` (an unknown or malformed id); `409 PACKAGE_NAME_TAKEN`; `409 PACKAGE_IN_USE` (delete a package that restaurants use: archive it instead); `422 PACKAGE_CURRENCY_REQUIRED` (a price without a currency); `422 PACKAGE_ARCHIVED` (assigning an archived package to a restaurant that is not already on it).
 - **Restaurant detail** (108P) now returns `package` ({ id, name } or null) and, for each feature, `source` (`override` | `package` | `default`) and `baseEnabled` (what it would be without the override). `disabledFeatures` and the "restricted" count reflect the package and the overrides together. `PUT .../features/{FEATURE}` with `null` now returns to the package value (or the default when there is no package).

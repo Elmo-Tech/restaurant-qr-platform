@@ -31,7 +31,7 @@ export function PriceLine({
 }
 
 export function PackagesView() {
-  const { t, fmt } = useI18n();
+  const { t, fmt, locale } = useI18n();
   const [packages, setPackages] = useState<PackageSummary[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -98,7 +98,7 @@ export function PackagesView() {
                       <IconPackage />
                     </span>
                     <h2 className="truncate text-[15px] font-semibold text-foreground group-hover:text-primary-text">
-                      <bdi>{pkg.name}</bdi>
+                      <bdi>{locale === "ar" ? pkg.nameAr : pkg.nameEn}</bdi>
                     </h2>
                   </div>
                   {pkg.status === "ARCHIVED" ? <Badge tone="warning">{t("packages.status.ARCHIVED")}</Badge> : null}
@@ -111,8 +111,10 @@ export function PackagesView() {
                   </div>
                 ) : null}
 
-                {pkg.description ? (
-                  <p className="mt-3 line-clamp-2 text-[13px] text-muted-foreground">{pkg.description}</p>
+                {(locale === "ar" ? pkg.descriptionAr : pkg.descriptionEn) ? (
+                  <p className="mt-3 line-clamp-2 text-[13px] text-muted-foreground">
+                    {locale === "ar" ? pkg.descriptionAr : pkg.descriptionEn}
+                  </p>
                 ) : null}
 
                 <div className="mt-4 space-y-0.5">

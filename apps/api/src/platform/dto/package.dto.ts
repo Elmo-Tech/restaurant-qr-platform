@@ -138,10 +138,16 @@ const Offer = () =>
 
 export class CreatePackageDto {
   @Name()
-  name!: string;
+  nameAr!: string;
+
+  @Name()
+  nameEn!: string;
 
   @Description()
-  description?: string | null;
+  descriptionAr?: string | null;
+
+  @Description()
+  descriptionEn?: string | null;
 
   @Prices()
   prices?: PackagePricesDto;
@@ -163,10 +169,17 @@ export class CreatePackageDto {
 export class UpdatePackageDto {
   @IsOptional()
   @Name()
-  name?: string;
+  nameAr?: string;
+
+  @IsOptional()
+  @Name()
+  nameEn?: string;
 
   @Description()
-  description?: string | null;
+  descriptionAr?: string | null;
+
+  @Description()
+  descriptionEn?: string | null;
 
   @Prices()
   prices?: PackagePricesDto;

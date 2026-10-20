@@ -653,6 +653,16 @@ model PlatformAuditLog {
   @@map("platform_audit_log")
 }
 
+// Singleton public Platform branding settings. Restaurant content never controls this destination.
+model PlatformPublicSettings {
+  id           String   @id @default("public")
+  poweredByUrl String   @map("powered_by_url")
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("platform_public_settings")
+}
+
 // A per-Restaurant override of what the platform allows (DEC-043). No row = the default (every feature).
 model RestaurantFeature {
   id           String     @id @default(uuid()) @db.Uuid
@@ -671,9 +681,15 @@ model RestaurantFeature {
 // A bundle of platform features the platform team assigns to Restaurants (DEC-046). Prices are for display only.
 model Package {
   id             String        @id @default(uuid()) @db.Uuid
-  name           String
-  nameNormalized String        @unique @map("name_normalized")
-  description    String?
+  // Platform-owned public copy. Arabic and English are both required for the name;
+  // descriptions stay optional per locale. The Prisma `name`/`description` aliases
+  // keep internal snapshots and billing code on the Arabic canonical value.
+  name             String        @map("name_ar")
+  nameNormalized   String        @unique @map("name_ar_normalized")
+  nameEn           String        @map("name_en")
+  nameEnNormalized String        @unique @map("name_en_normalized")
+  description      String?       @map("description_ar")
+  descriptionEn    String?       @map("description_en")
   status         PackageStatus @default(ACTIVE)
   // List prices per billing currency and period (DEC-049). Null = not offered in that currency/period.
   priceEgpMonthly Decimal?     @map("price_egp_monthly") @db.Decimal(12, 2)

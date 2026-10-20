@@ -97,6 +97,9 @@ function buildPrismaMock() {
     .mockResolvedValue([{ locale: 'en' }, { locale: 'ar' }]);
   const menuFindFirst = jest.fn().mockResolvedValue(MENU_ROW);
   const tableSessionFindFirst = jest.fn().mockResolvedValue(null);
+  const platformPublicSettingsFindUnique = jest
+    .fn()
+    .mockResolvedValue({ poweredByUrl: 'https://menu.elmotechsoft.online/' });
   const categoryFindMany = jest.fn().mockResolvedValue([buildCategoryRow()]);
   const branchFindMany = jest.fn().mockResolvedValue([
     {
@@ -143,6 +146,7 @@ function buildPrismaMock() {
       category: { findMany: categoryFindMany },
       branch: { findMany: branchFindMany },
       tableSession: { findFirst: tableSessionFindFirst },
+      platformPublicSettings: { findUnique: platformPublicSettingsFindUnique },
     },
     tableSessionFindFirst,
     qrCodeFindUnique,
@@ -150,6 +154,7 @@ function buildPrismaMock() {
     menuFindFirst,
     categoryFindMany,
     branchFindMany,
+    platformPublicSettingsFindUnique,
   };
 }
 
@@ -228,6 +233,37 @@ describe('PublicMenuService.getPublicMenu', () => {
     expect(result.outcome).toBe('found');
     if (result.outcome !== 'found') return;
     expect(result.data.context.restaurant.logoAssetPath).toBe('/media/logo.png');
+  });
+
+  it('returns the Platform-controlled Powered by destination with a safe default', async () => {
+    const configured = buildPrismaMock();
+    configured.platformPublicSettingsFindUnique.mockResolvedValue({
+      poweredByUrl: 'https://wayta.example/pricing',
+    });
+    const configuredResult = await buildService(configured).getPublicMenu({
+      publicCode: 'generic-qr',
+      explicitLang: null,
+      acceptLanguageHeader: null,
+    });
+
+    const missing = buildPrismaMock();
+    missing.platformPublicSettingsFindUnique.mockResolvedValue(null);
+    const defaultResult = await buildService(missing).getPublicMenu({
+      publicCode: 'generic-qr',
+      explicitLang: null,
+      acceptLanguageHeader: null,
+    });
+
+    expect(
+      configuredResult.outcome === 'found'
+        ? configuredResult.data.context.platform.poweredByUrl
+        : null,
+    ).toBe('https://wayta.example/pricing');
+    expect(
+      defaultResult.outcome === 'found'
+        ? defaultResult.data.context.platform.poweredByUrl
+        : null,
+    ).toBe('https://menu.elmotechsoft.online/');
   });
 
   it('passes the Restaurant coverAssetPath through to the Guest context (null keeps the default hero)', async () => {
@@ -381,6 +417,7 @@ describe('PublicMenuService.getPublicMenu', () => {
     expect(result.outcome).toBe('found');
     if (result.outcome !== 'found') return;
     expect(result.data.context).toEqual({
+      platform: { poweredByUrl: 'https://menu.elmotechsoft.online/' },
       qrType: 'TABLE',
       restaurant: {
         name: 'Elmo Bistro',
@@ -419,6 +456,7 @@ describe('PublicMenuService.getPublicMenu', () => {
     expect(result.outcome).toBe('found');
     if (result.outcome !== 'found') return;
     expect(result.data.context).toEqual({
+      platform: { poweredByUrl: 'https://menu.elmotechsoft.online/' },
       qrType: 'GENERIC',
       tableOrdering: null,
       restaurant: {
