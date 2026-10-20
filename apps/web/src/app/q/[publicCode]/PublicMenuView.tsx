@@ -43,6 +43,7 @@ import { submitWhatsappOrder, type SubmitGuestOrderResult, type WhatsappOrderVie
 import { TrackOrderSheet } from './TrackOrderSheet';
 import { fetchSuggestions } from '../../../lib/public-menu/suggestions';
 import { readTrackedOrders, rememberOrder } from '../../../lib/public-menu/tracking';
+import { WaytaLockup } from '../../../components/brand/Wayta';
 import { GuestContact } from './GuestContact';
 import { GuestHero, type GuestHeroProps } from './GuestHero';
 import { GuestHeroCentered, GuestHeroCompact, GuestHeroFloating } from './GuestHeroVariants';
@@ -1132,6 +1133,11 @@ export function PublicMenuView({
         </main>
 
         <GuestContact contact={data.context.restaurant.contact} copy={copy} />
+
+        <footer className="flex items-center justify-center gap-2 px-4 pb-28 pt-6 text-[11px] text-muted-foreground">
+          <span>{copy.poweredBy}</span>
+          <WaytaLockup tone="auto" size={16} className="opacity-70 [--wayta-ink:currentColor]" />
+        </footer>
 
         {isTrackOpen ? (
           <TrackOrderSheet

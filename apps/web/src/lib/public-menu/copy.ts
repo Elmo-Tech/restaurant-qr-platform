@@ -143,6 +143,7 @@ export interface PublicMenuCopy {
   whatsappUs: string;
   contactMaps: string;
   contactWebsite: string;
+  poweredBy: string;
   searchMenu: string;
   searchPlaceholder: string;
   clearSearch: string;
@@ -391,6 +392,7 @@ const EN_COPY: PublicMenuCopy = {
   whatsappUs: 'WhatsApp',
   contactMaps: 'Location',
   contactWebsite: 'Website',
+  poweredBy: 'Powered by',
   searchMenu: 'Search the menu',
   searchPlaceholder: 'Search dishes or drinks',
   clearSearch: 'Clear search',
@@ -634,6 +636,7 @@ const AR_COPY: PublicMenuCopy = {
   whatsappUs: 'واتساب',
   contactMaps: 'الموقع',
   contactWebsite: 'الموقع الإلكتروني',
+  poweredBy: 'بدعم من',
   searchMenu: 'ابحث في القائمة',
   searchPlaceholder: 'ابحث عن طبق أو مشروب',
   clearSearch: 'مسح البحث',
