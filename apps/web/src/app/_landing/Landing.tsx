@@ -197,28 +197,25 @@ export function Landing({ locale, plans, theme }: { locale: StaffLocale; plans: 
             </div>
           </section>
 
-          <section id="designs" className={styles.section} aria-labelledby="designs-title">
+          <section id="designs" className={styles.designsSection} aria-labelledby="designs-title">
             <div className={styles.wrap}>
-              <div className={styles.sectionHead}>
-                <h2 id="designs-title" className={`${styles.display} ${styles.sectionTitle}`}>
-                  {c.designs.title}
-                </h2>
-                <p className={styles.designLead}>{c.designs.lead}</p>
-              </div>
-              <div className={styles.designWall}>
-                <DesignPhones locale={locale} more={c.designs.more} />
-                <div className={styles.seasonRow}>
-                  <span>{c.designs.seasonsLabel}</span>
-                  {c.designs.seasons.map((season) => (
-                    <b key={season}>{season}</b>
-                  ))}
+              <div className={styles.designsBand}>
+                <div className={styles.designsText}>
+                  <h2 id="designs-title" className={`${styles.display} ${styles.designsTitle}`}>
+                    {c.designs.title}
+                  </h2>
+                  <p className={styles.designsLead}>{c.designs.lead}</p>
+                  <div className={styles.seasonRow}>
+                    <span>{c.designs.seasonsLabel}</span>
+                    {c.designs.seasons.map((season) => (
+                      <b key={season}>{season}</b>
+                    ))}
+                  </div>
+                  <a href="#plans" className={`${styles.btn} ${styles.btnInkSolid}`}>
+                    {c.designs.cta}
+                  </a>
                 </div>
-                <p className={styles.designNote}>{c.designs.note}</p>
-              </div>
-              <div className={styles.designAction}>
-                <a href="#plans" className={`${styles.btn} ${styles.btnGhost}`}>
-                  {c.designs.cta}
-                </a>
+                <DesignPhones locale={locale} more={c.designs.more} />
               </div>
             </div>
           </section>

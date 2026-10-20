@@ -904,20 +904,6 @@
 }
 
 /* designs */
-.designLead {
-  max-width: 24em;
-  margin: 18px 0 0;
-  font-family: var(--font-display);
-  font-size: clamp(1.25rem, 2.2vw, 1.7rem);
-  font-weight: 600;
-  line-height: 1.5;
-  color: var(--text-2);
-}
-.designWall {
-  display: grid;
-  gap: 28px;
-  justify-items: start;
-}
 .seasonRow {
   display: flex;
   flex-wrap: wrap;
@@ -932,15 +918,6 @@
   border-radius: 999px;
   color: var(--ink);
   font-size: 14px;
-}
-.designNote {
-  max-width: 40em;
-  margin: 0;
-  color: var(--text-3);
-}
-.designAction {
-  margin-top: 32px;
-  display: flex;
 }
 
 /* ---------- menu screens (drawn at the phone's intrinsic size) ---------- */
@@ -1131,25 +1108,6 @@
 }
 
 /* ---------- the designs section: three different menus and a "more" tile ---------- */
-.designPhones {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: flex-start;
-  gap: 18px clamp(14px, 3vw, 34px);
-  padding-block: 8px 20px;
-}
-.designPhoneBox {
-  position: relative;
-  flex: none;
-  width: 176px;
-  height: 336px;
-  animation: designBob 7s ease-in-out infinite;
-  animation-delay: calc(var(--i, 0) * -2.3s);
-}
-.designPhoneBox:nth-child(even) {
-  margin-top: 28px;
-}
 .designPhone {
   --ink: #12100e;
   --cream: #fbf6ee;
@@ -1168,13 +1126,11 @@
   border-radius: 42px;
   background: #000;
   color: #12100e;
-  transform: scale(0.647);
+  transform: scale(0.588);
   transform-origin: top left;
   box-shadow: 0 0 0 3px var(--edge);
 }
 .root[dir='rtl'] .designPhone {
-  inset-inline-start: auto;
-  inset-inline-end: 0;
   transform-origin: top right;
 }
 .designNotch {
@@ -1194,51 +1150,6 @@
   overflow: hidden;
   border-radius: 34px;
   background: var(--cream);
-}
-.designMore {
-  display: grid;
-  place-items: center;
-  align-content: center;
-  gap: 10px;
-  flex: none;
-  width: 176px;
-  height: 336px;
-  margin-top: 0;
-  padding: 18px;
-  border: 2px dashed var(--ink);
-  border-radius: 28px;
-  background: color-mix(in srgb, var(--saffron) 14%, transparent);
-  text-align: center;
-  font-family: var(--font-display);
-  font-size: 1.05rem;
-  line-height: 1.35;
-}
-.designMorePlus {
-  display: grid;
-  place-items: center;
-  width: 58px;
-  height: 58px;
-  border: 2px solid var(--ink);
-  border-radius: 50%;
-  background: var(--saffron);
-  color: #12100e;
-  font-size: 34px;
-  font-weight: 800;
-  line-height: 1;
-  box-shadow: 4px 4px 0 var(--ink);
-}
-.root[dir='rtl'] .designMorePlus {
-  box-shadow: -4px 4px 0 var(--ink);
-}
-@keyframes designBob {
-  50% {
-    transform: translateY(-9px);
-  }
-}
-@media (prefers-reduced-motion: reduce) {
-  .designPhoneBox {
-    animation: none;
-  }
 }
 
 /* plans: order tickets */
@@ -1829,10 +1740,6 @@
   }
 }
 
-.designPhones {
-  width: 100%;
-  justify-self: stretch;
-}
 
 /* the nav on narrow phones: the lockup and the controls must fit one row */
 @media (max-width: 480px) {
@@ -1857,16 +1764,145 @@
   }
 }
 
-@media (max-width: 400px) {
-  .designPhoneBox,
-  .designMore {
-    width: 160px;
-    height: 304px;
+
+/* ---------- designs: one compact saffron band ---------- */
+.designsSection {
+  padding-block: clamp(36px, 5vw, 64px);
+}
+.designsBand {
+  position: relative;
+  display: grid;
+  gap: 8px;
+  align-items: center;
+  overflow: hidden;
+  padding: clamp(28px, 4vw, 48px);
+  border: 2px solid var(--ink);
+  border-radius: 36px;
+  background-color: var(--saffron);
+  background-image: radial-gradient(rgba(18, 16, 14, 0.14) 1.4px, transparent 1.6px);
+  background-size: 20px 20px;
+  box-shadow: 10px 10px 0 var(--ink);
+  color: #12100e;
+}
+.root[dir='rtl'] .designsBand {
+  box-shadow: -10px 10px 0 var(--ink);
+}
+@media (min-width: 900px) {
+  .designsBand {
+    grid-template-columns: 1.1fr 0.9fr;
+    gap: 24px;
+    padding-block: 36px 0;
+    min-height: 330px;
   }
-  .designPhone {
-    transform: scale(0.588);
+  .designsText {
+    padding-bottom: 40px;
   }
-  .designPhones {
-    gap: 14px 12px;
+}
+.designsTitle {
+  margin: 0;
+  font-size: clamp(1.8rem, 3.4vw, 2.8rem);
+}
+.designsLead {
+  max-width: 30em;
+  margin: 14px 0 18px;
+  font-size: 1.08rem;
+  font-weight: 600;
+  line-height: 1.6;
+}
+.designsText .seasonRow {
+  color: #12100e;
+  margin-bottom: 22px;
+}
+.designsText .seasonRow b {
+  border-color: #12100e;
+  color: #12100e;
+  background: rgba(255, 253, 248, 0.55);
+}
+.btnInkSolid {
+  background: #12100e;
+  border-color: #12100e;
+  color: #fbf6ee;
+  box-shadow: 0 6px 0 -2px rgba(255, 253, 248, 0.9);
+}
+.btnInkSolid:hover {
+  box-shadow: 0 8px 0 -2px rgba(255, 253, 248, 0.9);
+}
+
+/* the fan: three menus cut off by the band's bottom edge */
+.fan {
+  position: relative;
+  height: 250px;
+  overflow: hidden;
+}
+@media (min-width: 900px) {
+  .fan {
+    height: 100%;
+    min-height: 290px;
   }
+}
+.fanPhone {
+  position: absolute;
+  inset-block-start: 22px;
+  width: 160px;
+  height: 304px;
+  transition: transform 0.35s ease;
+}
+.fanPhone[data-pos='0'] {
+  inset-inline-start: 4%;
+  transform: rotate(calc(var(--dir-sign, 1) * -7deg)) translateY(18px);
+}
+.fanPhone[data-pos='1'] {
+  inset-inline-start: 50%;
+  margin-inline-start: -80px;
+  transform: translateY(-4px);
+  z-index: 2;
+}
+.fanPhone[data-pos='2'] {
+  inset-inline-end: 4%;
+  transform: rotate(calc(var(--dir-sign, 1) * 7deg)) translateY(18px);
+}
+.root[dir='rtl'] .fanPhone {
+  --dir-sign: -1;
+}
+.fanPhone:hover {
+  z-index: 3;
+  transform: translateY(-14px) rotate(0);
+}
+.moreSticker {
+  position: absolute;
+  inset-block-end: 14px;
+  inset-inline-end: 6px;
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 200px;
+  padding: 8px 16px 8px 8px;
+  border: 2px solid #12100e;
+  border-radius: 999px;
+  background: #fffdf8;
+  box-shadow: 4px 4px 0 #12100e;
+  color: #12100e;
+  font-family: var(--font-display);
+  font-size: 0.82rem;
+  line-height: 1.25;
+  transform: rotate(-4deg);
+}
+.root[dir='rtl'] .moreSticker {
+  padding: 8px 8px 8px 16px;
+  box-shadow: -4px 4px 0 #12100e;
+  transform: rotate(4deg);
+}
+.moreStickerPlus {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: var(--saffron);
+  border: 2px solid #12100e;
+  font-size: 20px;
+  font-weight: 800;
+  line-height: 1;
 }

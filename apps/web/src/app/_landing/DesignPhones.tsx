@@ -102,7 +102,7 @@ function Screens({ locale }: { locale: Locale }) {
   return (
     <>
       {[gallery, paper, floating].map((screen, index) => (
-        <div key={index} className={styles.designPhoneBox} style={{ ['--i' as string]: index }}>
+        <div key={index} className={styles.fanPhone} data-pos={index}>
           <div className={styles.designPhone}>
             <span className={styles.designNotch} aria-hidden="true" />
             <div className={styles.designScreen}>{screen}</div>
@@ -120,10 +120,10 @@ function Screens({ locale }: { locale: Locale }) {
  */
 export function DesignPhones({ locale, more }: { locale: Locale; more: string }) {
   return (
-    <div className={styles.designPhones} aria-hidden="true">
+    <div className={styles.fan} aria-hidden="true">
       <Screens locale={locale} />
-      <div className={styles.designMore}>
-        <span className={styles.designMorePlus}>+</span>
+      <div className={styles.moreSticker}>
+        <span className={styles.moreStickerPlus}>+</span>
         <b>{more}</b>
       </div>
     </div>
