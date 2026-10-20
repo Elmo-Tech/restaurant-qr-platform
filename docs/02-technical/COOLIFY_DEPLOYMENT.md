@@ -156,6 +156,8 @@ The names of menus can differ slightly between Coolify v4 releases; the steps ar
 4. **Select the server.** Choose **Main-Node** (and its default destination/network).
 5. **Branch and build pack.** Branch: `main`. **Build Pack: Docker Compose.**
 6. **Compose location.** Base Directory: `/`. Docker Compose Location: `/infra/docker/compose.coolify.yml`.
+   Coolify invokes Compose with `--project-directory` set to the checked-out repository root. The five build
+   services therefore use `context: .`, while their Dockerfiles remain under `infra/docker/`.
    Continue, then **Save**. Coolify parses the file and lists the services: `postgres`, `migrate`, `api`,
    `web`, `platform`, `gateway`.
 7. **Environment variables.** *Environment Variables* tab → add `WEB_HOST`, `PLATFORM_HOST`,
@@ -185,7 +187,7 @@ The names of menus can differ slightly between Coolify v4 releases; the steps ar
 
 ## 5. First deployment
 
-Press **Deploy**. Coolify clones `main`, builds the four images, then runs `docker compose up -d`. The order is
+Press **Deploy**. Coolify clones `main`, builds the five service images, then runs `docker compose up -d`. The order is
 enforced by the compose file:
 
 1. `postgres` starts and becomes healthy (`pg_isready`).
@@ -216,7 +218,7 @@ cd /data/coolify/applications/<app-uuid>
 # 1. a platform administrator (the password is read from the environment, never from the command line)
 read -rs -p "Platform admin password: " PLATFORM_ADMIN_PASSWORD; echo
 export PLATFORM_ADMIN_PASSWORD
-docker compose --env-file .env -f infra/docker/compose.coolify.yml run --rm --no-deps \
+docker compose --project-directory . --env-file .env -f infra/docker/compose.coolify.yml run --rm --no-deps \
   -e PLATFORM_ADMIN_PASSWORD migrate \
   npm run provision:platform-admin -- --email you@example.com --name "Your Name" --password-env PLATFORM_ADMIN_PASSWORD
 unset PLATFORM_ADMIN_PASSWORD
@@ -229,7 +231,7 @@ in `OPERATIONS_RUNBOOK.md` runs through the same tools image:
 ```bash
 read -rs -p "Restaurant owner password: " PROVISION_OWNER_PASSWORD; echo
 export PROVISION_OWNER_PASSWORD
-docker compose --env-file .env -f infra/docker/compose.coolify.yml run --rm --no-deps \
+docker compose --project-directory . --env-file .env -f infra/docker/compose.coolify.yml run --rm --no-deps \
   -e PROVISION_OWNER_PASSWORD -e WEB_URL=https://menu.example.com migrate \
   npm run provision:restaurant -- --restaurant-name "Elmo Bistro" \
   --owner-email owner@example.com --branch-name "Main Branch" --apply
@@ -340,7 +342,7 @@ immediately after every release.
 
 ## 9. Maintenance commands
 
-On Main-Node, in the application directory (section 5.1), with `COMPOSE="docker compose --env-file .env -f infra/docker/compose.coolify.yml"`:
+On Main-Node, in the repository root (section 5.1), with `COMPOSE="docker compose --project-directory . --env-file .env -f infra/docker/compose.coolify.yml"`:
 
 ```bash
 $COMPOSE ps                                  # state and health of every service
@@ -443,7 +445,7 @@ must not be used with these host-level `docker compose` commands.
 
 ```bash
 cd /data/coolify/applications/<app-uuid>
-COMPOSE="docker compose --env-file .env -f infra/docker/compose.coolify.yml"
+COMPOSE="docker compose --project-directory . --env-file .env -f infra/docker/compose.coolify.yml"
 mkdir -p /var/backups/restaurant-qr
 $COMPOSE exec -T postgres sh -c 'pg_dump -U "$POSTGRES_USER" -d "$POSTGRES_DB" --format=custom' \
   > /var/backups/restaurant-qr/db-$(date +%F-%H%M).dump
@@ -489,20 +491,23 @@ The production images and the compose file can be exercised on a developer machi
 credentials and an isolated project name; **nothing connects to a real database**.
 
 ```bash
-cd infra/docker
+cd /path/to/restaurant-qr-platform
 cat > /tmp/smoke.env <<'EOF'
 WEB_HOST=menu.example.test
 PLATFORM_HOST=control.example.test
 POSTGRES_PASSWORD=smoketest0123456789abcdef
 EOF
-docker compose -p rqp-smoke --env-file /tmp/smoke.env -f compose.coolify.yml -f compose.smoke.yml up -d --build
-docker compose -p rqp-smoke --env-file /tmp/smoke.env -f compose.coolify.yml -f compose.smoke.yml ps
+docker compose --project-directory . -p rqp-smoke --env-file /tmp/smoke.env \
+  -f infra/docker/compose.coolify.yml -f infra/docker/compose.smoke.yml up -d --build
+docker compose --project-directory . -p rqp-smoke --env-file /tmp/smoke.env \
+  -f infra/docker/compose.coolify.yml -f infra/docker/compose.smoke.yml ps
 
 curl -s -o /dev/null -w "%{http_code}\n" -H "Host: menu.example.test"    http://127.0.0.1:18080/
 curl -s -o /dev/null -w "%{http_code}\n" -H "Host: control.example.test" http://127.0.0.1:18080/login
 curl -s              -H "Host: menu.example.test"                         http://127.0.0.1:18080/api/v1/public/landing/plans
 
-docker compose -p rqp-smoke --env-file /tmp/smoke.env -f compose.coolify.yml -f compose.smoke.yml down -v   # removes the throwaway database
+docker compose --project-directory . -p rqp-smoke --env-file /tmp/smoke.env \
+  -f infra/docker/compose.coolify.yml -f infra/docker/compose.smoke.yml down -v   # removes the throwaway database
 ```
 
 `compose.smoke.yml` only publishes the gateway on `127.0.0.1:18080`; Coolify never uses it. Note that browsers
