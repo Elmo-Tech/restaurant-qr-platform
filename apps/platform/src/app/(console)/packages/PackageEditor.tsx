@@ -13,7 +13,8 @@ import {
   deletePackage,
   FEATURE_KEYS,
   getPackage,
-  PACKAGE_TEMPLATES,
+  PREMIUM_TEMPLATES,
+  STANDARD_TEMPLATES,
   isDisplayOnly,
   ORDERING_FEATURES,
   updatePackage,
@@ -41,11 +42,15 @@ interface FormState {
   offerPercent: string;
   offerLabel: string;
   offerEndsAt: string;
-  /** Menu designs (DEC-051): every design, also future ones, or only the ticked ones. */
-  templatesAll: boolean;
-  templates: PackageTemplate[];
+  /** Menu designs (DEC-051, DEC-052): standard ones (all, or the ticked) and premium ones (none, the ticked, or all). */
+  standardAll: boolean;
+  standard: PackageTemplate[];
+  premiumMode: PremiumMode;
+  premium: PackageTemplate[];
   features: FeatureKey[];
 }
+
+type PremiumMode = "none" | "choose" | "all";
 
 const EMPTY: FormState = {
   name: "",
@@ -55,10 +60,29 @@ const EMPTY: FormState = {
   offerPercent: "",
   offerLabel: "",
   offerEndsAt: "",
-  templatesAll: true,
-  templates: [],
+  standardAll: true,
+  standard: [],
+  premiumMode: "all",
+  premium: [],
   features: [],
 };
+
+function templatesFrom(rule: PackageDetail["templates"]) {
+  const standardAll = rule.all || rule.allStandard;
+  const standard = rule.selected.filter((key) => (STANDARD_TEMPLATES as readonly string[]).includes(key));
+  const premium = rule.selected.filter((key) => (PREMIUM_TEMPLATES as readonly string[]).includes(key));
+  const premiumMode: PremiumMode =
+    rule.all || premium.length === PREMIUM_TEMPLATES.length ? "all" : premium.length > 0 ? "choose" : "none";
+  return { standardAll, standard, premiumMode, premium };
+}
+
+/** What the form gives: standard (Classic included) and premium design counts. */
+function templateCounts(form: FormState) {
+  const standard = 1 + (form.standardAll ? STANDARD_TEMPLATES.length : form.standard.length);
+  const premium =
+    form.premiumMode === "all" ? PREMIUM_TEMPLATES.length : form.premiumMode === "choose" ? form.premium.length : 0;
+  return { standard, premium };
+}
 
 const formFrom = (pkg: PackageDetail): FormState => ({
   name: pkg.name,
@@ -73,12 +97,26 @@ const formFrom = (pkg: PackageDetail): FormState => ({
   offerPercent: pkg.offer?.percent ?? "",
   offerLabel: pkg.offer?.label ?? "",
   offerEndsAt: pkg.offer?.endsAt ?? "",
-  templatesAll: pkg.templates.all,
-  templates: pkg.templates.selected,
+  ...templatesFrom(pkg.templates),
   features: pkg.features,
 });
 
 const orNull = (value: string) => (value.trim() === "" ? null : value.trim());
+
+/** "All" of both tiers is the open-ended rule; anything else lists what is chosen. */
+function templatesInput(form: FormState): PackageInput["templates"] {
+  if (form.standardAll && form.premiumMode === "all") return { all: true, allStandard: false, selected: [] };
+  const premium =
+    form.premiumMode === "all" ? [...PREMIUM_TEMPLATES] : form.premiumMode === "choose" ? form.premium : [];
+  return {
+    all: false,
+    allStandard: form.standardAll,
+    selected: [
+      ...STANDARD_TEMPLATES.filter((key) => !form.standardAll && form.standard.includes(key)),
+      ...PREMIUM_TEMPLATES.filter((key) => premium.includes(key)),
+    ],
+  };
+}
 
 /** The form's text as the API's input: empty prices, description and offer parts are `null`. */
 function toInput(form: FormState): PackageInput {
@@ -94,10 +132,7 @@ function toInput(form: FormState): PackageInput {
     offer: form.offerOn
       ? { percent: form.offerPercent.trim(), label: orNull(form.offerLabel), endsAt: orNull(form.offerEndsAt) }
       : null,
-    templates: {
-      all: form.templatesAll,
-      selected: form.templatesAll ? [] : PACKAGE_TEMPLATES.filter((key) => form.templates.includes(key)),
-    },
+    templates: templatesInput(form),
     features: FEATURE_KEYS.filter((key) => form.features.includes(key)),
   };
 }
@@ -235,6 +270,101 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
     }
   }
 
+  const toggleIn = (field: "standard" | "premium", key: PackageTemplate) =>
+    set(field, form[field].includes(key) ? form[field].filter((item) => item !== key) : [...form[field], key]);
+
+  const renderTemplatePanel = () => {
+    const counts = templateCounts(form);
+    const tierBox = (
+      title: string,
+      hint: string,
+      modes: { value: string; label: string; checked: boolean; onSelect: () => void }[],
+      keys: readonly PackageTemplate[],
+      field: "standard" | "premium",
+      showKeys: boolean,
+      lead?: string,
+    ) => (
+      <div className="rounded-lg border border-border bg-surface p-4">
+        <h4 className="text-sm font-semibold text-foreground">{title}</h4>
+        <p className="mt-0.5 text-[13px] text-muted-foreground">{hint}</p>
+        <div role="radiogroup" aria-label={title} className="mt-3 flex flex-wrap gap-2">
+          {modes.map((mode) => (
+            <label
+              key={mode.value}
+              className={cn(
+                "flex cursor-pointer items-center gap-2 rounded-full border px-3.5 py-1.5 text-[13px] font-medium transition-colors",
+                mode.checked ? "border-primary bg-primary-soft text-primary-text" : "border-border text-foreground hover:bg-surface-2",
+              )}
+            >
+              <input type="radio" name={`tpl-${field}`} checked={mode.checked} onChange={mode.onSelect} className="sr-only" />
+              {mode.label}
+            </label>
+          ))}
+        </div>
+        {showKeys ? (
+          <ul className="mt-3 grid gap-2 sm:grid-cols-2">
+            {lead ? (
+              <li>
+                <label className="flex items-center gap-3 rounded-lg border border-border bg-surface-2/60 px-4 py-2.5 text-sm text-muted-foreground">
+                  <input type="checkbox" checked disabled className="size-4 shrink-0 accent-primary" />
+                  {lead}
+                </label>
+              </li>
+            ) : null}
+            {keys.map((key) => (
+              <li key={key}>
+                <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-4 py-2.5 text-sm text-foreground hover:bg-surface-2/60">
+                  <input
+                    type="checkbox"
+                    checked={form[field].includes(key)}
+                    onChange={() => toggleIn(field, key)}
+                    className="size-4 shrink-0 accent-primary"
+                  />
+                  {t(`template.${key}`)}
+                </label>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
+    );
+
+    return (
+      <div className="space-y-3 border-t border-dashed border-border bg-surface-2/40 px-5 py-4 ps-12">
+        <p className="text-[13px] text-muted-foreground">{t("package.templatesHint")}</p>
+        {tierBox(
+          t("package.templatesStandard"),
+          t("package.templatesStandardHint"),
+          [
+            { value: "all", label: t("package.tplAllStandard"), checked: form.standardAll, onSelect: () => set("standardAll", true) },
+            { value: "choose", label: t("package.tplChoose"), checked: !form.standardAll, onSelect: () => set("standardAll", false) },
+          ],
+          STANDARD_TEMPLATES,
+          "standard",
+          !form.standardAll,
+          t("package.templatesClassic"),
+        )}
+        {tierBox(
+          t("package.templatesPremium"),
+          t("package.templatesPremiumHint"),
+          [
+            { value: "none", label: t("package.tplNone"), checked: form.premiumMode === "none", onSelect: () => set("premiumMode", "none") },
+            { value: "choose", label: t("package.tplChoose"), checked: form.premiumMode === "choose", onSelect: () => set("premiumMode", "choose") },
+            { value: "all", label: t("package.tplAllPremium"), checked: form.premiumMode === "all", onSelect: () => set("premiumMode", "all") },
+          ],
+          PREMIUM_TEMPLATES,
+          "premium",
+          form.premiumMode === "choose",
+        )}
+        <p className="flex flex-wrap items-center gap-2 text-sm font-medium text-foreground">
+          {t("package.templatesGives")}
+          <Badge tone="neutral">{t("package.templatesStandardCount", { count: fmt.number(counts.standard) })}</Badge>
+          <Badge tone="primary">{t("package.templatesPremiumCount", { count: fmt.number(counts.premium) })}</Badge>
+        </p>
+      </div>
+    );
+  };
+
   const renderFeatureGroup = (title: string, keys: FeatureKey[], hint?: string) => (
     <div key={title} className="border-t border-border first:border-t-0">
       <div className="bg-surface-2/60 px-5 py-2.5">
@@ -256,6 +386,7 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
                 <span className="mt-0.5 block text-[13px] text-muted-foreground">{t(`feature.${key}.hint`)}</span>
               </span>
             </label>
+            {key === "MENU_TEMPLATES" && form.features.includes(key) ? renderTemplatePanel() : null}
           </li>
         ))}
       </ul>
@@ -460,71 +591,6 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
               </p>
             ) : null}
           </Card>
-
-          {form.features.includes("MENU_TEMPLATES") ? (
-            <Card>
-              <CardHeader title={t("package.templates")} description={t("package.templatesHint")} />
-              <div className="space-y-4 p-5">
-                <div role="radiogroup" aria-label={t("package.templates")} className="grid gap-3 sm:grid-cols-2">
-                  {([true, false] as const).map((all) => (
-                    <label
-                      key={String(all)}
-                      className={cn(
-                        "flex cursor-pointer items-start gap-3 rounded-lg border p-4 transition-colors",
-                        form.templatesAll === all ? "border-primary bg-primary-soft" : "border-border hover:bg-surface-2",
-                      )}
-                    >
-                      <input
-                        type="radio"
-                        name="templates-mode"
-                        checked={form.templatesAll === all}
-                        onChange={() => set("templatesAll", all)}
-                        className="mt-0.5 size-4 shrink-0 accent-primary"
-                      />
-                      <span className="min-w-0">
-                        <span className="block text-sm font-medium text-foreground">
-                          {t(all ? "package.templatesAll" : "package.templatesChoose")}
-                        </span>
-                        <span className="mt-0.5 block text-[13px] text-muted-foreground">
-                          {t(all ? "package.templatesAllHint" : "package.templatesChooseHint")}
-                        </span>
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                {!form.templatesAll ? (
-                  <ul className="grid gap-2 sm:grid-cols-2">
-                    <li>
-                      <label className="flex items-center gap-3 rounded-lg border border-border bg-surface-2/60 px-4 py-3 text-sm text-muted-foreground">
-                        <input type="checkbox" checked disabled className="size-4 shrink-0 accent-primary" />
-                        {t("package.templatesClassic")}
-                      </label>
-                    </li>
-                    {PACKAGE_TEMPLATES.map((key) => (
-                      <li key={key}>
-                        <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-border px-4 py-3 text-sm text-foreground hover:bg-surface-2/60">
-                          <input
-                            type="checkbox"
-                            checked={form.templates.includes(key)}
-                            onChange={() =>
-                              set(
-                                "templates",
-                                form.templates.includes(key)
-                                  ? form.templates.filter((item) => item !== key)
-                                  : [...form.templates, key],
-                              )
-                            }
-                            className="size-4 shrink-0 accent-primary"
-                          />
-                          {t(`template.${key}`)}
-                        </label>
-                      </li>
-                    ))}
-                  </ul>
-                ) : null}
-              </div>
-            </Card>
-          ) : null}
 
           <div className="flex gap-3">
             <Button type="submit" variant="primary" disabled={busy}>

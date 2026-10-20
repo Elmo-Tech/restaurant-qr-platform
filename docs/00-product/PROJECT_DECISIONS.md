@@ -1249,6 +1249,25 @@ list. The dashboard design picker shows the templates that are not in the plan a
 locked and points to My subscription, which shows how many designs each plan includes.
 Existing Packages that include the feature keep today's behavior (all templates).
 
+### DEC-052 — Standard and Premium Menu Designs
+
+**Status:** Accepted (owner, 2026-10-19).
+
+Every Guest menu template has a **tier**: *standard* (Classic, List, Centered cover,
+Compact bar) or *premium* (Gallery, Printed menu, Floating card). The tier of each
+template is fixed in code (`entitlements/templates.ts`), not per Package. A Package that
+includes Menu designs says, per tier: standard = **all (also future ones)** or **chosen**;
+premium = **none**, **chosen** or **all** (all of both = the open-ended "all templates" of
+DEC-051). So a Package can give, for example, 3 standard + 2 premium, only standard, or
+everything. Classic is always included. Existing Packages are unchanged.
+
+The dashboard design picker groups designs into Standard and Premium; a premium design
+the plan lacks is shown locked ("Upgrade to unlock") and points to My subscription. My
+subscription and the upgrade comparison show "N standard + M premium" instead of a bare
+count, and a plan that adds premium designs counts as an improvement.
+
+---
+
 ---
 
 ---

@@ -18,6 +18,7 @@ const entitlementSelect = {
   package: {
     select: {
       allTemplates: true,
+      allStandardTemplates: true,
       features: { select: { feature: true } },
       templates: { select: { template: true } },
     },
@@ -28,6 +29,7 @@ interface EntitlementRow {
   features: { feature: string; enabled: boolean }[];
   package: {
     allTemplates: boolean;
+    allStandardTemplates: boolean;
     features: { feature: string }[];
     templates: { template: string }[];
   } | null;
@@ -44,6 +46,7 @@ function resolveRow(row: EntitlementRow | undefined): RestaurantEntitlements {
           (f) => f.feature === 'MENU_TEMPLATES',
         ),
         all: row.package.allTemplates,
+        allStandard: row.package.allStandardTemplates,
         selected: row.package.templates.map((t) => t.template),
       }
     : null;

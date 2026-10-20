@@ -26,7 +26,11 @@ import {
 import {
   allowedTemplates,
   MENU_TEMPLATE_KEYS,
+  PREMIUM_TEMPLATE_KEYS,
+  STANDARD_TEMPLATE_KEYS,
   templateCountOf,
+  templateTierCountsOf,
+  tierCounts,
   type PackageTemplateRule,
 } from '../entitlements/templates';
 import { PlatformAuditService } from '../platform/platform-audit.service';
@@ -58,6 +62,9 @@ export interface UpgradeOptionView {
   adds: FeatureKey[];
   /** How many Guest menu templates it gives (Classic counts, DEC-051). */
   templateCount: number;
+  /** The same, split by tier (DEC-052). */
+  templateStandard: number;
+  templatePremium: number;
   priceMonthly: string | null;
   priceYearly: string | null;
   /** An offer that is on today, or null. */
@@ -84,7 +91,15 @@ export interface MySubscriptionView {
   /** What the restaurant effectively has (package, exceptions and defaults applied). */
   features: { key: FeatureKey; included: boolean }[];
   /** The Guest menu templates it may use now, out of all of them (DEC-051). */
-  templates: { current: number; total: number };
+  templates: {
+    current: number;
+    total: number;
+    /** Standard / premium split of what it may use now and of everything that exists (DEC-052). */
+    currentStandard: number;
+    currentPremium: number;
+    totalStandard: number;
+    totalPremium: number;
+  };
   subscription: PlanSubscriptionView | null;
   upgrades: UpgradeOptionView[];
   openRequest: OpenRequestView | null;
@@ -159,6 +174,7 @@ export class MySubscriptionService {
             id: true,
             name: true,
             allTemplates: true,
+            allStandardTemplates: true,
             features: { select: { feature: true } },
             templates: { select: { template: true } },
           },
@@ -191,6 +207,7 @@ export class MySubscriptionService {
               (f) => f.feature === 'MENU_TEMPLATES',
             ),
             all: restaurant.package.allTemplates,
+            allStandard: restaurant.package.allStandardTemplates,
             selected: restaurant.package.templates.map((t) => t.template),
           }
         : null,
@@ -247,6 +264,7 @@ export class MySubscriptionService {
         offerLabel: true,
         offerEndsAt: true,
         allTemplates: true,
+        allStandardTemplates: true,
         features: { select: { feature: true } },
         templates: { select: { template: true } },
       },
@@ -255,12 +273,14 @@ export class MySubscriptionService {
       currentPackageId: restaurant.packageId,
       effective,
       currentTemplateCount: currentTemplates.length,
+      currentPremiumCount: tierCounts(currentTemplates).premium,
       packages: packages.map((pkg) => {
         const rule: PackageTemplateRule = {
           includesFeature: pkg.features.some(
             (f) => f.feature === 'MENU_TEMPLATES',
           ),
           all: pkg.allTemplates,
+          allStandard: pkg.allStandardTemplates,
           selected: pkg.templates.map((t) => t.template),
         };
         return {
@@ -269,6 +289,8 @@ export class MySubscriptionService {
             pkg.features.some((f) => f.feature === key),
           ),
           templateCount: templateCountOf(rule),
+          templateTiers: templateTierCountsOf(rule),
+          templatePremium: templateTierCountsOf(rule).premium,
         };
       }),
     }).map(({ pkg, adds }): UpgradeOptionView => {
@@ -286,6 +308,8 @@ export class MySubscriptionService {
         features: pkg.features,
         adds,
         templateCount: pkg.templateCount,
+        templateStandard: pkg.templateTiers.standard,
+        templatePremium: pkg.templateTiers.premium,
         priceMonthly: monthly?.toFixed(2) ?? null,
         priceYearly: yearly?.toFixed(2) ?? null,
         offer:
@@ -312,6 +336,10 @@ export class MySubscriptionService {
       templates: {
         current: currentTemplates.length,
         total: MENU_TEMPLATE_KEYS.length,
+        currentStandard: tierCounts(currentTemplates).standard,
+        currentPremium: tierCounts(currentTemplates).premium,
+        totalStandard: STANDARD_TEMPLATE_KEYS.length,
+        totalPremium: PREMIUM_TEMPLATE_KEYS.length,
       },
       subscription,
       upgrades,

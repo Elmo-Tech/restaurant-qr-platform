@@ -19,6 +19,10 @@ import { SettingsTabs } from '../SettingsTabs';
 
 type Template = MenuTemplateApi;
 
+/** The premium designs (DEC-052); the rest are standard. Mirrors the API. */
+const PREMIUM: readonly Template[] = ['GALLERY', 'MENU', 'FLOATING'];
+const TIERS = ['STANDARD', 'PREMIUM'] as const;
+
 const TEMPLATES: { key: Template; title: MessageKey; hint: MessageKey }[] = [
   { key: 'CLASSIC', title: 'design.classic', hint: 'design.classicHint' },
   { key: 'LIST', title: 'design.list', hint: 'design.listHint' },
@@ -243,8 +247,27 @@ export function DesignWorkspace({
             </Alert>
           ) : null}
 
-          <ul role="radiogroup" aria-label={t('design.heading')} className="grid gap-3 sm:grid-cols-2">
-            {TEMPLATES.map((template) => {
+          {TIERS.map((tier) => (
+            <div key={tier} className="space-y-3">
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  {tier === 'PREMIUM' ? (
+                    <span aria-hidden="true" className="text-warning">
+                      ★
+                    </span>
+                  ) : null}
+                  {t(tier === 'PREMIUM' ? 'design.premiumHeading' : 'design.standardHeading')}
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  {t(tier === 'PREMIUM' ? 'design.premiumHint' : 'design.standardHint')}
+                </p>
+              </div>
+          <ul
+            role="radiogroup"
+            aria-label={t(tier === 'PREMIUM' ? 'design.premiumHeading' : 'design.standardHeading')}
+            className="grid gap-3 sm:grid-cols-2"
+          >
+            {TEMPLATES.filter((template) => PREMIUM.includes(template.key) === (tier === 'PREMIUM')).map((template) => {
               const isSelected = selected === template.key;
               const locked = !allowedTemplates.includes(template.key);
               return (
@@ -279,7 +302,7 @@ export function DesignWorkspace({
                         </span>
                       ) : locked ? (
                         <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                          {t('design.lockedTag')}
+                          {t(tier === 'PREMIUM' ? 'design.premiumLockedTag' : 'design.lockedTag')}
                         </span>
                       ) : null}
                     </span>
@@ -289,6 +312,8 @@ export function DesignWorkspace({
               );
             })}
           </ul>
+            </div>
+          ))}
 
           <div className="flex flex-wrap items-center gap-3">
             <Button onClick={() => void save()} disabled={!canManage || !dirty || isSaving}>

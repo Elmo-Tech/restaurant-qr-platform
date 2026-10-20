@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { IconPackage, IconPlus } from "@/components/icons";
 import { Alert, Badge, Card, EmptyState, PageHeader, Skeleton } from "@/components/ui";
 import { ApiError, isNetworkFailure } from "@/lib/api/errors";
-import { FEATURE_KEYS, isDisplayOnly, listPackages, type PackageSummary } from "@/lib/api/platform";
+import { FEATURE_KEYS, isDisplayOnly, listPackages, PREMIUM_TEMPLATES, STANDARD_TEMPLATES, type PackageSummary } from "@/lib/api/platform";
 import { useI18n } from "@/lib/i18n/client";
 
 /** One price line, "149.50 EGP per month", or nothing when that price is not set. */
@@ -140,7 +140,12 @@ export function PackagesView() {
                   <p className="mt-3 text-[13px] text-muted-foreground">
                     {pkg.templates.all
                       ? t("packages.designsAll")
-                      : t("packages.designsCount", { count: fmt.number(pkg.templates.selected.length + 1) })}
+                      : t("packages.designsTiers", {
+                          standard: fmt.number(
+                            1 + (pkg.templates.allStandard ? STANDARD_TEMPLATES.length : pkg.templates.selected.filter((key) => (STANDARD_TEMPLATES as readonly string[]).includes(key)).length),
+                          ),
+                          premium: fmt.number(pkg.templates.selected.filter((key) => (PREMIUM_TEMPLATES as readonly string[]).includes(key)).length),
+                        })}
                   </p>
                 ) : null}
 

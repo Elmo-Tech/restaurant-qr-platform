@@ -3,6 +3,7 @@ import { PrismaService } from '../database/prisma.service';
 import { FEATURE_KEYS, type FeatureKey } from '../entitlements/features';
 import {
   MENU_TEMPLATE_KEYS,
+  TEMPLATE_TIERS,
   type MenuTemplateKey,
 } from '../entitlements/templates';
 import { Prisma, type PackageStatus } from '../generated/prisma/client';
@@ -35,20 +36,29 @@ export interface PackageOfferView {
 export interface PackageTemplatesView {
   /** Every template, including ones added later. */
   all: boolean;
-  /** The chosen templates (never Classic; empty when `all`). */
+  /** Every standard template, including ones added later, and no premium one unless it is chosen (DEC-052). */
+  allStandard: boolean;
+  /** The chosen templates (never Classic; empty when `all`; standard ones too unless `allStandard`). */
   selected: MenuTemplateKey[];
 }
 
 /** `all` wins and Classic is implied: the list is stored in the documented order without Classic. */
 export function normalizeTemplates(input: {
   all: boolean;
+  allStandard?: boolean;
   selected: readonly string[];
 }): PackageTemplatesView {
-  if (input.all) return { all: true, selected: [] };
+  if (input.all) return { all: true, allStandard: false, selected: [] };
+  const allStandard = input.allStandard === true;
   return {
     all: false,
+    allStandard,
+    // with "all standard" the standard ones need no listing
     selected: MENU_TEMPLATE_KEYS.filter(
-      (key) => key !== 'CLASSIC' && input.selected.includes(key),
+      (key) =>
+        key !== 'CLASSIC' &&
+        input.selected.includes(key) &&
+        !(allStandard && TEMPLATE_TIERS[key] === 'STANDARD'),
     ),
   };
 }
@@ -123,6 +133,7 @@ const packageSelect = {
   createdAt: true,
   updatedAt: true,
   allTemplates: true,
+  allStandardTemplates: true,
   templates: { select: { template: true } },
   features: { select: { feature: true } },
   _count: { select: { restaurants: true, subscriptions: true } },
@@ -160,6 +171,7 @@ const toView = (row: PackageRow): PackageView => ({
     : null,
   templates: normalizeTemplates({
     all: row.allTemplates,
+    allStandard: row.allStandardTemplates,
     selected: row.templates.map((t) => t.template),
   }),
   // keep the documented feature order, not the storage order
@@ -265,6 +277,7 @@ export class PlatformPackagesService {
           priceUsdYearly: input.prices.usdYearly,
           ...offerColumns(input.offer),
           allTemplates: input.templates.all,
+          allStandardTemplates: input.templates.allStandard,
           templates: {
             create: input.templates.selected.map((template) => ({ template })),
           },
@@ -334,6 +347,7 @@ export class PlatformPackagesService {
           where: { id: packageId },
           data: {
             allTemplates: next.templates.all,
+            allStandardTemplates: next.templates.allStandard,
             name: next.name,
             nameNormalized: normalizeName(next.name),
             description: next.description,

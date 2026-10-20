@@ -685,6 +685,8 @@ model Package {
   offerEndsAt     DateTime?    @map("offer_ends_at") @db.Date
   // Guest menu templates (DEC-051): every template (also ones added later) or the listed ones; Classic always.
   allTemplates    Boolean      @default(false) @map("all_templates")
+  // Every STANDARD template (also future ones) but no premium one (DEC-052); ignored when allTemplates.
+  allStandardTemplates Boolean  @default(false) @map("all_standard_templates")
   createdAt      DateTime      @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime      @updatedAt @map("updated_at") @db.Timestamptz
 

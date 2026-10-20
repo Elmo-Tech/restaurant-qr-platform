@@ -12,6 +12,8 @@ export interface PackageForOptions {
   features: readonly FeatureKey[];
   /** How many Guest menu templates the package gives (Classic counts, DEC-051). */
   templateCount: number;
+  /** How many of them are premium (DEC-052); missing = 0. */
+  templatePremium?: number;
 }
 
 export interface UpgradeCandidate<P extends PackageForOptions> {
@@ -28,6 +30,8 @@ export function upgradeCandidates<P extends PackageForOptions>(input: {
   effective: Readonly<Record<FeatureKey, boolean>>;
   /** How many templates the Restaurant may use now. */
   currentTemplateCount: number;
+  /** How many premium templates it may use now. */
+  currentPremiumCount?: number;
   packages: readonly P[];
 }): UpgradeCandidate<P>[] {
   return (
@@ -40,7 +44,9 @@ export function upgradeCandidates<P extends PackageForOptions>(input: {
         adds: FEATURE_KEYS.filter(
           (key) => pkg.features.includes(key) && !input.effective[key],
         ),
-        moreTemplates: pkg.templateCount > input.currentTemplateCount,
+        moreTemplates:
+          pkg.templateCount > input.currentTemplateCount ||
+          (pkg.templatePremium ?? 0) > (input.currentPremiumCount ?? 0),
       }))
       // a package is worth offering when it adds a feature or more templates
       .filter(

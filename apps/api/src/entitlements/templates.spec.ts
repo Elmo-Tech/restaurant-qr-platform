@@ -2,6 +2,8 @@ import {
   allowedTemplates,
   MENU_TEMPLATE_KEYS,
   templateCountOf,
+  templateTierCountsOf,
+  tierCounts,
 } from './templates';
 
 const ALL = [...MENU_TEMPLATE_KEYS];
@@ -88,5 +90,45 @@ describe('templateCountOf', () => {
     expect(
       templateCountOf({ includesFeature: true, all: true, selected: [] }),
     ).toBe(MENU_TEMPLATE_KEYS.length);
+  });
+});
+
+describe('template tiers (DEC-052)', () => {
+  it('gives every standard template, and no premium one, for "all standard"', () => {
+    const keys = allowedTemplates({
+      featureEnabled: true,
+      rule: { includesFeature: true, all: false, allStandard: true, selected: [] },
+    });
+    expect(keys).toEqual(['CLASSIC', 'LIST', 'CENTERED', 'COMPACT']);
+    expect(tierCounts(keys)).toEqual({ standard: 4, premium: 0 });
+  });
+
+  it('adds the chosen premium templates to "all standard"', () => {
+    const keys = allowedTemplates({
+      featureEnabled: true,
+      rule: {
+        includesFeature: true,
+        all: false,
+        allStandard: true,
+        selected: ['MENU', 'GALLERY'],
+      },
+    });
+    expect(tierCounts(keys)).toEqual({ standard: 4, premium: 2 });
+  });
+
+  it('splits a chosen list by tier, Classic counting as standard', () => {
+    expect(
+      templateTierCountsOf({
+        includesFeature: true,
+        all: false,
+        selected: ['LIST', 'COMPACT', 'MENU', 'FLOATING'],
+      }),
+    ).toEqual({ standard: 3, premium: 2 });
+  });
+
+  it('gives all of both tiers for "all"', () => {
+    expect(
+      templateTierCountsOf({ includesFeature: true, all: true, selected: [] }),
+    ).toEqual({ standard: 4, premium: 3 });
   });
 });

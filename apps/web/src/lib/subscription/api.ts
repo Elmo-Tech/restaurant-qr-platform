@@ -37,6 +37,9 @@ export interface UpgradeOption {
   adds: PlanFeatureKey[];
   /** How many Guest menu templates it gives (Classic counts, DEC-051). */
   templateCount: number;
+  /** The same, split by tier (DEC-052). */
+  templateStandard: number;
+  templatePremium: number;
   priceMonthly: string | null;
   priceYearly: string | null;
   /** An offer that is on today. */
@@ -58,7 +61,14 @@ export interface MySubscription {
   package: { id: string; name: string } | null;
   features: { key: PlanFeatureKey; included: boolean }[];
   /** The Guest menu templates the restaurant may use now, out of all of them (DEC-051). */
-  templates: { current: number; total: number };
+  templates: {
+    current: number;
+    total: number;
+    currentStandard: number;
+    currentPremium: number;
+    totalStandard: number;
+    totalPremium: number;
+  };
   subscription: PlanSubscription | null;
   upgrades: UpgradeOption[];
   openRequest: OpenRequest | null;

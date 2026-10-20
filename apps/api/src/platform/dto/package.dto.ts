@@ -103,6 +103,11 @@ export class PackageTemplatesDto {
   @IsBoolean()
   all!: boolean;
 
+  /** Every standard template (also future ones) but no premium one unless it is listed (DEC-052). */
+  @IsOptional()
+  @IsBoolean()
+  allStandard?: boolean;
+
   @IsArray()
   @ArrayUnique()
   @IsIn(MENU_TEMPLATE_KEYS.filter((key) => key !== 'CLASSIC'), { each: true })

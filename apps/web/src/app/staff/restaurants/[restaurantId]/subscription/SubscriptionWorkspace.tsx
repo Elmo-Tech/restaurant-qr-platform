@@ -538,7 +538,7 @@ function ComparePlans({
                     isNew={false}
                     note={
                       feature.key === 'MENU_TEMPLATES' && has(feature.key)
-                        ? t('subscription.compare.designCount', { count: data.templates.current, total: data.templates.total })
+                        ? t('subscription.compare.designTiers', { standard: data.templates.currentStandard, premium: data.templates.currentPremium })
                         : undefined
                     }
                   />
@@ -546,7 +546,7 @@ function ComparePlans({
                 {options.map((option) => {
                   const on = option.features.includes(feature.key);
                   const designs = feature.key === 'MENU_TEMPLATES';
-                  const isNew = on && (!has(feature.key) || (designs && option.templateCount > data.templates.current));
+                  const isNew = on && (!has(feature.key) || (designs && (option.templateCount > data.templates.current || option.templatePremium > data.templates.currentPremium)));
                   return (
                     <td key={option.id} className={cn('border-t border-border px-4 py-3.5 text-center', isNew && 'bg-warning-soft/70')}>
                       <Cell
@@ -554,7 +554,7 @@ function ComparePlans({
                         isNew={isNew}
                         note={
                           designs && on
-                            ? t('subscription.compare.designCount', { count: option.templateCount, total: data.templates.total })
+                            ? t('subscription.compare.designTiers', { standard: option.templateStandard, premium: option.templatePremium })
                             : undefined
                         }
                       />
