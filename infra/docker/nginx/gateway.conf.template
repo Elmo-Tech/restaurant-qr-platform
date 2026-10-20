@@ -21,7 +21,6 @@ resolver 127.0.0.11 valid=5s ipv6=off;
 server_tokens off;
 client_max_body_size 16m;       # images are limited to 5 MB and menu imports to 10 MB by the API itself
 client_body_timeout 60s;
-keepalive_timeout 65s;
 
 # The proxy in front of this gateway reports the visitor's protocol; fall back to what this hop saw.
 map $http_x_forwarded_proto $fwd_proto {
