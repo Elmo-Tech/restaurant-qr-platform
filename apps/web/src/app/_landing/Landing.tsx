@@ -3,6 +3,7 @@ import { WaytaLockup } from '../../components/brand/Wayta';
 import { directionOf, type StaffLocale } from '../../lib/i18n/locale';
 import { LANDING_COPY } from './copy';
 import { display, displayArabic, mono } from './fonts';
+import { DesignPhones } from './DesignPhones';
 import { HeroPhone } from './HeroPhone';
 import { LangSwitch } from './LangSwitch';
 import { ThemeToggle } from './ThemeToggle';
@@ -205,11 +206,7 @@ export function Landing({ locale, plans, theme }: { locale: StaffLocale; plans: 
                 <p className={styles.designLead}>{c.designs.lead}</p>
               </div>
               <div className={styles.designWall}>
-                <ul className={styles.designTags}>
-                  {c.designs.names.map((name) => (
-                    <li key={name}>{name}</li>
-                  ))}
-                </ul>
+                <DesignPhones locale={locale} more={c.designs.more} />
                 <div className={styles.seasonRow}>
                   <span>{c.designs.seasonsLabel}</span>
                   {c.designs.seasons.map((season) => (

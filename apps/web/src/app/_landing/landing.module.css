@@ -16,6 +16,7 @@
   --muted: #6b6258;
   --line: rgba(18, 16, 14, 0.14);
   --ok: #2f7a45;
+  --edge: var(--ink);
   --text-2: #3b342d;
   --text-3: #4a4238;
   --band-bg: #12100e;
@@ -915,48 +916,7 @@
 .designWall {
   display: grid;
   gap: 28px;
-}
-.designTags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px 12px;
-  margin: 0;
-  padding: 0;
-  list-style: none;
-}
-.designTags li {
-  --r: -2deg;
-  padding: 12px 24px;
-  border: 2px solid var(--ink);
-  border-radius: 999px;
-  background: var(--paper);
-  box-shadow: 4px 4px 0 var(--ink);
-  font-family: var(--font-display);
-  font-size: 1.1rem;
-  font-weight: 700;
-  transform: rotate(var(--r));
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
-}
-.root[dir='rtl'] .designTags li {
-  box-shadow: -4px 4px 0 var(--ink);
-}
-.designTags li:nth-child(even) {
-  --r: 1.6deg;
-}
-.designTags li:nth-child(3n) {
-  --r: -1deg;
-}
-.designTags li:nth-child(odd):nth-child(-n + 3),
-.designTags li:nth-child(5) {
-  background: var(--saffron);
-  color: #12100e;
-}
-.designTags li:hover {
-  transform: translateY(-4px) rotate(0);
-  box-shadow: 6px 8px 0 var(--ink);
-}
-.root[dir='rtl'] .designTags li:hover {
-  box-shadow: -6px 8px 0 var(--ink);
+  justify-items: start;
 }
 .seasonRow {
   display: flex;
@@ -981,6 +941,304 @@
 .designAction {
   margin-top: 32px;
   display: flex;
+}
+
+/* ---------- menu screens (drawn at the phone's intrinsic size) ---------- */
+.scr {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  padding: 40px 13px 13px;
+  font-size: 12px;
+  line-height: 1.35;
+  overflow: hidden;
+}
+.scrHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding-bottom: 10px;
+}
+.scrHead b {
+  font-size: 15px;
+}
+.scrLang {
+  padding: 2px 9px;
+  border: 1px solid currentColor;
+  border-radius: 99px;
+  font-size: 10.5px;
+  font-weight: 700;
+  opacity: 0.7;
+}
+
+.scrGallery {
+  background: #15110d;
+  color: var(--cream);
+}
+.scrGrid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.scrCard {
+  position: relative;
+  aspect-ratio: 4 / 5.2;
+  overflow: hidden;
+  border-radius: 17px;
+}
+.scrShade {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, transparent 40%, rgba(0, 0, 0, 0.88));
+}
+.scrCardText {
+  position: absolute;
+  inset-inline: 10px;
+  inset-block-end: 9px;
+}
+.scrCardText b {
+  display: block;
+  font-size: 12px;
+  line-height: 1.25;
+}
+.scrCardText em {
+  color: var(--saffron);
+  font-family: var(--font-mono);
+  font-size: 11.5px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.scrPaper {
+  align-items: stretch;
+  padding: 44px 22px 20px;
+  background: #f3e8d2;
+  color: #2b2118;
+  font-family: Georgia, 'Times New Roman', 'IBM Plex Sans Arabic', serif;
+}
+.scrPaper::before {
+  content: '';
+  position: absolute;
+  inset: 22px 10px 10px;
+  border: 1.5px solid #2b2118;
+  border-radius: 4px;
+  box-shadow: inset 0 0 0 3px #f3e8d2, inset 0 0 0 4px #2b2118;
+  pointer-events: none;
+}
+.paperTitle {
+  display: grid;
+  justify-items: center;
+  margin-bottom: 6px;
+  text-align: center;
+}
+.paperTitle small {
+  font-size: 9.5px;
+  letter-spacing: 0.3em;
+}
+.paperTitle b {
+  font-size: 19px;
+  line-height: 1.2;
+}
+.paperTitle i {
+  font-style: normal;
+  font-size: 15px;
+}
+.paperSection {
+  margin: 10px 0 4px;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  text-align: center;
+}
+.paperLine {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  padding: 5px 4px;
+  font-size: 12.5px;
+}
+.paperDots {
+  flex: 1;
+  border-bottom: 1.5px dotted #2b2118;
+  opacity: 0.55;
+  transform: translateY(-3px);
+}
+
+.scrFloat {
+  padding: 0;
+  background: var(--ink);
+}
+.floatPhoto {
+  position: relative;
+  height: 62%;
+}
+.floatName {
+  position: absolute;
+  inset-block-start: 40px;
+  inset-inline-start: 16px;
+  color: #fff;
+  font-size: 17px;
+  z-index: 2;
+}
+.floatCard {
+  position: absolute;
+  inset-inline: 14px;
+  inset-block-end: 48px;
+  display: grid;
+  gap: 3px;
+  padding: 14px;
+  border-radius: 20px;
+  background: var(--paper);
+  box-shadow: 0 16px 34px -8px rgba(0, 0, 0, 0.55);
+  animation: cardRise 3.4s ease-in-out infinite;
+}
+.floatCard b {
+  font-size: 15px;
+}
+.floatCard > span {
+  color: var(--muted);
+  font-size: 11.5px;
+}
+.floatFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 6px;
+}
+.floatFoot em {
+  color: var(--burnt);
+  font-family: var(--font-mono);
+  font-style: normal;
+  font-weight: 700;
+}
+.floatBtn {
+  padding: 5px 16px;
+  border-radius: 99px;
+  background: var(--saffron);
+  font-size: 12px;
+  font-weight: 700;
+}
+@keyframes cardRise {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-6px);
+  }
+}
+
+/* ---------- the designs section: three different menus and a "more" tile ---------- */
+.designPhones {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: flex-start;
+  gap: 18px clamp(14px, 3vw, 34px);
+  padding-block: 8px 20px;
+}
+.designPhoneBox {
+  position: relative;
+  flex: none;
+  width: 176px;
+  height: 336px;
+  animation: designBob 7s ease-in-out infinite;
+  animation-delay: calc(var(--i, 0) * -2.3s);
+}
+.designPhoneBox:nth-child(even) {
+  margin-top: 28px;
+}
+.designPhone {
+  --ink: #12100e;
+  --cream: #fbf6ee;
+  --paper: #fffdf8;
+  --sand: #f2e8d6;
+  --muted: #6b6258;
+  --line: rgba(18, 16, 14, 0.14);
+  --burnt: #a9580a;
+  position: absolute;
+  inset-block-start: 0;
+  inset-inline-start: 0;
+  width: 272px;
+  height: 516px;
+  overflow: hidden;
+  border: 9px solid #12100e;
+  border-radius: 42px;
+  background: #000;
+  color: #12100e;
+  transform: scale(0.647);
+  transform-origin: top left;
+  box-shadow: 0 0 0 3px var(--edge);
+}
+.root[dir='rtl'] .designPhone {
+  inset-inline-start: auto;
+  inset-inline-end: 0;
+  transform-origin: top right;
+}
+.designNotch {
+  position: absolute;
+  inset-block-start: 8px;
+  inset-inline: 0;
+  margin-inline: auto;
+  width: 74px;
+  height: 20px;
+  border-radius: 12px;
+  background: #12100e;
+  z-index: 6;
+}
+.designScreen {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  border-radius: 34px;
+  background: var(--cream);
+}
+.designMore {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  gap: 10px;
+  flex: none;
+  width: 176px;
+  height: 336px;
+  margin-top: 0;
+  padding: 18px;
+  border: 2px dashed var(--ink);
+  border-radius: 28px;
+  background: color-mix(in srgb, var(--saffron) 14%, transparent);
+  text-align: center;
+  font-family: var(--font-display);
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+.designMorePlus {
+  display: grid;
+  place-items: center;
+  width: 58px;
+  height: 58px;
+  border: 2px solid var(--ink);
+  border-radius: 50%;
+  background: var(--saffron);
+  color: #12100e;
+  font-size: 34px;
+  font-weight: 800;
+  line-height: 1;
+  box-shadow: 4px 4px 0 var(--ink);
+}
+.root[dir='rtl'] .designMorePlus {
+  box-shadow: -4px 4px 0 var(--ink);
+}
+@keyframes designBob {
+  50% {
+    transform: translateY(-9px);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .designPhoneBox {
+    animation: none;
+  }
 }
 
 /* plans: order tickets */
@@ -1568,5 +1826,47 @@
   .btn,
   .feature {
     transition: none;
+  }
+}
+
+.designPhones {
+  width: 100%;
+  justify-self: stretch;
+}
+
+/* the nav on narrow phones: the lockup and the controls must fit one row */
+@media (max-width: 480px) {
+  .navRow {
+    gap: 8px;
+    min-height: 62px;
+  }
+  .navEnd {
+    gap: 6px;
+  }
+  .navRow a svg {
+    height: 24px !important;
+  }
+  .langSwitch button {
+    min-height: 30px;
+    padding: 0 9px;
+    font-size: 12px;
+  }
+  .themeToggle {
+    width: 36px;
+    height: 36px;
+  }
+}
+
+@media (max-width: 400px) {
+  .designPhoneBox,
+  .designMore {
+    width: 160px;
+    height: 304px;
+  }
+  .designPhone {
+    transform: scale(0.588);
+  }
+  .designPhones {
+    gap: 14px 12px;
   }
 }

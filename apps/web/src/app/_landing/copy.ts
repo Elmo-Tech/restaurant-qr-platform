@@ -42,7 +42,7 @@ export interface LandingCopy {
   designs: {
     title: string;
     lead: string;
-    names: string[];
+    more: string;
     seasonsLabel: string;
     seasons: string[];
     note: string;
@@ -195,7 +195,7 @@ const AR: LandingCopy = {
   designs: {
     title: 'منيو يليق بشخصية مطعمك',
     lead: 'تصاميم كتيرة تختار منها اللي يناسب شخصية مطعمك، وتبدّل شكل المنيو كل فترة.',
-    names: ['كلاسيك', 'قائمة', 'معرض', 'منيو مطبوع', 'بطاقة عائمة', 'غلاف مركزي', 'شريط مدمج'],
+    more: 'وتصاميم أكتر كمان تختار من بينها',
     seasonsLabel: 'غيّره مع:',
     seasons: ['رمضان', 'الصيف', 'عرض الويك إند', 'العيد', 'الشتا'],
     note: 'بضغطة واحدة، وبياناتك وأسعارك كما هي. وتتوفر تصاميم مميزة في الباقات الأعلى.',
@@ -394,7 +394,7 @@ const EN: LandingCopy = {
   designs: {
     title: 'A menu that fits your restaurant’s personality',
     lead: 'Plenty of designs to choose from to match your restaurant’s personality, and swap the look of your menu every so often.',
-    names: ['Classic', 'List', 'Gallery', 'Printed menu', 'Floating card', 'Centered cover', 'Compact bar'],
+    more: 'and many more designs to choose from',
     seasonsLabel: 'Change it with:',
     seasons: ['Ramadan', 'Summer', 'Weekend offer', 'Eid', 'Winter'],
     note: 'One tap, and your data and prices stay as they are. Premium designs are available in the higher plans.',
