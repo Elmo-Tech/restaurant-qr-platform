@@ -1,6 +1,7 @@
 import Link from 'next/link';
 import { WaytaLockup } from '../../components/brand/Wayta';
 import { directionOf, type StaffLocale } from '../../lib/i18n/locale';
+import { Cloche } from './Cloche';
 import { DESIGN_KEYS, LANDING_COPY } from './copy';
 import { display, displayArabic, mono } from './fonts';
 import { HeroStage } from './HeroStage';
@@ -10,20 +11,21 @@ import { LeadButton, LeadProvider } from './LeadProvider';
 import { MenuScreen, PhoneFrame } from './PhoneScreens';
 import { Pricing } from './Pricing';
 import { RevealObserver } from './RevealObserver';
+import { ThemeToggle } from './ThemeToggle';
 import type { LandingPlans } from './plans-api';
 import styles from './landing.module.css';
 
-function Marquee({ items }: { items: string[] }) {
+function Ticker({ items }: { items: string[] }) {
   // the list twice, so the loop is seamless (the copy is hidden from assistive technology)
   return (
     <div className={styles.marquee} aria-hidden="true">
       <div className={styles.marqueeTrack}>
-        {[0, 1].map((copy) => (
-          <div key={copy} className={styles.marqueeItem} style={{ gap: 30 }}>
+        {[0, 1].map((round) => (
+          <div key={round} className={styles.marqueeItem}>
             {items.map((item) => (
-              <span key={item} className={styles.display} style={{ display: 'contents' }}>
+              <span key={item} style={{ display: 'contents' }}>
                 <span>{item}</span>
-                <span style={{ color: 'var(--saffron)', fontSize: '0.7em' }}>✦</span>
+                <i className={styles.marqueeDome} />
               </span>
             ))}
           </div>
@@ -34,67 +36,21 @@ function Marquee({ items }: { items: string[] }) {
 }
 
 /**
- * The public landing page (DEC-053). A dark, cinematic page told by devices: a hero phone that keeps changing
- * its menu design, a scroll-driven "scan, order, kitchen" story, a rail of designs (never counted: plenty,
- * swap any time), a bento of features with small living illustrations, the real plans, the free trial and a
- * short FAQ. A Server Component; the animated devices, plan toggles, language switch and request dialog are
- * the only client code.
+ * The public landing page (DEC-053). Flat, warm and built from the brand: arched photo frames and a smiling
+ * cloche in the hero, a scroll-driven "scan, order, kitchen" story, a rail of designs (never counted: plenty,
+ * swap any time), the features as a restaurant menu card, the real plans, the free trial and a short FAQ.
+ * Light and dark themes. A Server Component; the animated devices, plan toggles, theme and language switches
+ * and the request dialog are the only client code.
  */
-export function Landing({ locale, plans }: { locale: StaffLocale; plans: LandingPlans | null }) {
+export function Landing({ locale, plans, theme }: { locale: StaffLocale; plans: LandingPlans | null; theme: 'light' | 'dark' | null }) {
   const c = LANDING_COPY[locale];
   const dir = directionOf(locale);
   const planList = plans?.plans ?? [];
 
-  const bento = [
-    { cls: 'b1', visual: (
-      <div className={styles.langFlip} dir="auto">
-        <span lang="ar">{c.features.langA}</span>
-        <span lang="en">{c.features.langB}</span>
-        <i className={`${styles.langDir} ${styles.mono}`}>RTL ⇄ LTR</i>
-      </div>
-    ) },
-    { cls: 'b2', visual: (
-      <div className={styles.chipRow}>
-        {c.features.channels.map((name) => (
-          <span key={name}>{name}</span>
-        ))}
-      </div>
-    ) },
-    { cls: 'b3', visual: (
-      <div className={styles.roleRow}>
-        {c.features.roles.map((name) => (
-          <span key={name}>{name}</span>
-        ))}
-      </div>
-    ) },
-    { cls: 'b4', visual: (
-      <div className={styles.stepper}>
-        {c.features.track.map((name) => (
-          <div key={name}>
-            <i />
-            {name}
-          </div>
-        ))}
-      </div>
-    ) },
-    { cls: 'b5', visual: (
-      <div className={styles.suggestBox}>
-        <div className={styles.suggestRow}>{c.features.suggest.added}</div>
-        <div className={styles.suggestPop}>{c.features.suggest.suggest}</div>
-      </div>
-    ) },
-    { cls: 'b6', visual: (
-      <div className={styles.draft}>
-        {c.features.importLines.map((line) => (
-          <span key={line}>{line}</span>
-        ))}
-      </div>
-    ) },
-  ] as const;
-
   return (
     <div
       data-landing-root=""
+      data-theme={theme ?? 'system'}
       className={`${styles.root} ${display.variable} ${displayArabic.variable} ${mono.variable}`}
       lang={locale}
       dir={dir}
@@ -104,7 +60,7 @@ export function Landing({ locale, plans }: { locale: StaffLocale; plans: Landing
         <header className={styles.nav}>
           <div className={`${styles.wrap} ${styles.navRow}`}>
             <Link href="/" aria-label="Wayta">
-              <WaytaLockup tone="dark" size={30} />
+              <WaytaLockup tone="auto" size={30} />
             </Link>
             <nav className={styles.navLinks} aria-label={c.nav.menu}>
               <a href="#how">{c.nav.how}</a>
@@ -114,6 +70,7 @@ export function Landing({ locale, plans }: { locale: StaffLocale; plans: Landing
               <a href="#faq">{c.nav.faq}</a>
             </nav>
             <div className={styles.navEnd}>
+              <ThemeToggle labelDark={c.nav.themeDark} labelLight={c.nav.themeLight} />
               <LangSwitch locale={locale} label={c.lang.label} names={{ ar: c.lang.ar, en: c.lang.en }} />
               <Link href="/staff" className={styles.navSignIn}>
                 {c.nav.signIn}
@@ -131,11 +88,16 @@ export function Landing({ locale, plans }: { locale: StaffLocale; plans: Landing
               <div>
                 <p className={styles.eyebrow}>{c.hero.eyebrow}</p>
                 <h1 id="hero-title" className={`${styles.display} ${styles.heroTitle}`}>
-                  {c.hero.title.map((line) => (
-                    <span key={line} className={styles.line}>
-                      <span>{line}</span>
+                  <span className={styles.line}>
+                    <span>{c.hero.line1}</span>
+                  </span>
+                  <span className={styles.line}>
+                    <span>
+                      {c.hero.line2[0]}
+                      <span className={styles.mark}>{c.hero.line2[1]}</span>
+                      {c.hero.line2[2]}
                     </span>
-                  ))}
+                  </span>
                 </h1>
                 <p className={styles.heroLead}>{c.hero.lead}</p>
                 <div className={styles.heroActions}>
@@ -146,13 +108,17 @@ export function Landing({ locale, plans }: { locale: StaffLocale; plans: Landing
                     {c.hero.secondary}
                   </a>
                 </div>
-                <p className={styles.heroNote}>{c.hero.note}</p>
+                <ul className={styles.heroFacts}>
+                  {c.hero.facts.map((fact) => (
+                    <li key={fact}>{fact}</li>
+                  ))}
+                </ul>
               </div>
               <HeroStage locale={locale} copy={c.hero} />
             </div>
           </section>
 
-          <Marquee items={c.marquee} />
+          <Ticker items={c.marquee} />
 
           <section id="how" className={`${styles.section} ${styles.journeySection}`} aria-labelledby="how-title">
             <div className={styles.wrap}>
@@ -213,20 +179,31 @@ export function Landing({ locale, plans }: { locale: StaffLocale; plans: Landing
 
           <section id="features" className={`${styles.section} ${styles.featuresSection}`} aria-labelledby="features-title">
             <div className={styles.wrap}>
-              <div className={styles.sectionHead} data-reveal="">
-                <p className={styles.kicker}>{c.features.eyebrow}</p>
-                <h2 id="features-title" className={`${styles.display} ${styles.sectionTitle}`}>
-                  {c.features.title}
-                </h2>
-              </div>
-              <div className={styles.bento}>
-                {c.features.items.map((item, index) => (
-                  <article key={item.title} className={`${styles.bCard} ${styles[bento[index].cls]}`} data-reveal="" data-delay={(index % 2) * 120}>
-                    <div className={styles.bVisual}>{bento[index].visual}</div>
-                    <h3 className={styles.bTitle}>{item.title}</h3>
-                    <p className={styles.bText}>{item.text}</p>
-                  </article>
-                ))}
+              <div className={styles.menuCard} data-reveal="">
+                <div className={styles.menuCardTop}>
+                  <small>{c.features.eyebrow}</small>
+                  <h2 id="features-title" className={`${styles.display}`}>
+                    {c.features.title}
+                  </h2>
+                  <Cloche className={styles.clocheMini} />
+                </div>
+                <div className={styles.menuCols}>
+                  {c.features.groups.map((group) => (
+                    <div key={group.title} className={styles.menuGroup}>
+                      <h3>{group.title}</h3>
+                      {group.items.map((item) => (
+                        <div key={item.title} className={styles.menuItem}>
+                          <div className={styles.menuItemHead}>
+                            <b>{item.title}</b>
+                            <span className={styles.menuDots} aria-hidden="true" />
+                            <span className={styles.menuTag}>{item.tag}</span>
+                          </div>
+                          <p>{item.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </section>
@@ -252,29 +229,31 @@ export function Landing({ locale, plans }: { locale: StaffLocale; plans: Landing
           </section>
 
           <section className={styles.trial} aria-labelledby="trial-title">
-            <span className={styles.trialRing} aria-hidden="true" />
             <div className={styles.wrap}>
-              <div className={styles.trialInner} data-reveal="">
-                <h2 id="trial-title" className={`${styles.display} ${styles.trialTitle}`}>
-                  {c.trial.title}
-                </h2>
-                <p className={styles.trialText}>{c.trial.text}</p>
-                <ul className={styles.trialPoints}>
-                  {c.trial.points.map((point) => (
-                    <li key={point}>
-                      <span className={styles.tick} aria-hidden="true">
-                        <svg viewBox="0 0 24 24">
-                          <path d="M5 12.5l4.5 4.5L19 7.5" />
-                        </svg>
-                      </span>
-                      {point}
-                    </li>
-                  ))}
-                </ul>
+              <div className={styles.trialGrid} data-reveal="">
                 <div>
+                  <h2 id="trial-title" className={`${styles.display} ${styles.trialTitle}`}>
+                    {c.trial.title}
+                  </h2>
+                  <p className={styles.trialText}>{c.trial.text}</p>
+                  <ul className={styles.trialPoints}>
+                    {c.trial.points.map((point) => (
+                      <li key={point}>
+                        <span className={styles.tick} aria-hidden="true">
+                          <svg viewBox="0 0 24 24">
+                            <path d="M5 12.5l4.5 4.5L19 7.5" />
+                          </svg>
+                        </span>
+                        {point}
+                      </li>
+                    ))}
+                  </ul>
                   <LeadButton kind="TRIAL" className={`${styles.btn} ${styles.btnInk}`}>
                     {c.trial.cta}
                   </LeadButton>
+                </div>
+                <div className={styles.trialCloche}>
+                  <Cloche animated />
                 </div>
               </div>
             </div>

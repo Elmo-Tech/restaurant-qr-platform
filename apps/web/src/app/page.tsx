@@ -1,7 +1,9 @@
 import type { Metadata } from 'next';
+import { cookies } from 'next/headers';
 import { Landing } from './_landing/Landing';
 import { LANDING_COPY } from './_landing/copy';
 import { getLandingPlans } from './_landing/plans-api';
+import { THEME_COOKIE } from './_landing/theme';
 import { getStaffLocale } from '../lib/i18n/server';
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -16,6 +18,7 @@ export async function generateMetadata(): Promise<Metadata> {
 
 /** The public landing page (DEC-053). Restaurant staff sign in from `/staff`. */
 export default async function Home() {
-  const [locale, plans] = await Promise.all([getStaffLocale(), getLandingPlans()]);
-  return <Landing locale={locale} plans={plans} />;
+  const [locale, plans, cookieStore] = await Promise.all([getStaffLocale(), getLandingPlans(), cookies()]);
+  const saved = cookieStore.get(THEME_COOKIE)?.value;
+  return <Landing locale={locale} plans={plans} theme={saved === 'light' || saved === 'dark' ? saved : null} />;
 }

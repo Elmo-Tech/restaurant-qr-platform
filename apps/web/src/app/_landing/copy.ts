@@ -18,10 +18,12 @@ export type DesignKey = (typeof DESIGN_KEYS)[number];
 
 export interface LandingCopy {
   meta: { title: string; description: string };
-  nav: { how: string; designs: string; features: string; plans: string; faq: string; signIn: string; cta: string; menu: string };
+  nav: { how: string; designs: string; features: string; plans: string; faq: string; signIn: string; cta: string; menu: string; themeDark: string; themeLight: string };
   hero: {
     eyebrow: string;
-    title: string[];
+    line1: string;
+    line2: [string, string, string];
+    facts: string[];
     lead: string;
     primary: string;
     secondary: string;
@@ -55,14 +57,8 @@ export interface LandingCopy {
   features: {
     eyebrow: string;
     title: string;
-    items: { title: string; text: string }[];
-    channels: string[];
-    roles: string[];
-    suggest: { added: string; suggest: string };
-    importLines: string[];
-    track: string[];
-    langA: string;
-    langB: string;
+    lead: string;
+    groups: { title: string; items: { title: string; tag: string; text: string }[] }[];
   };
   plans: {
     eyebrow: string;
@@ -115,10 +111,12 @@ const AR: LandingCopy = {
     description:
       'منيو رقمي بالعربي والإنجليزي بتصاميم كتيرة تغيّرها وقت ما تحب، وطلبات من الطاولة والاستلام والتوصيل وواتساب، وشاشة مطبخ لحظية. جرّب ويتا مجانًا ١٥ يومًا.',
   },
-  nav: { how: 'كيف يعمل', designs: 'التصاميم', features: 'المزايا', plans: 'الباقات', faq: 'أسئلة', signIn: 'دخول المطاعم', cta: 'ابدأ تجربة مجانية', menu: 'القائمة' },
+  nav: { how: 'كيف يعمل', designs: 'التصاميم', features: 'المزايا', plans: 'الباقات', faq: 'أسئلة', signIn: 'دخول المطاعم', cta: 'ابدأ تجربة مجانية', menu: 'القائمة', themeDark: 'الوضع الداكن', themeLight: 'الوضع الفاتح' },
   hero: {
     eyebrow: 'منيو QR وطلبات لحظية',
-    title: ['الزبون يمسح الكود،', 'والمطبخ يستلم الطلب.'],
+    line1: 'الزبون يمسح الكود،',
+    line2: ['و', 'المطبخ', ' يستلم الطلب.'],
+    facts: ['بدون تطبيق للزبون', 'عربي وإنجليزي', '١٥ يومًا مجانًا'],
     lead: 'منيو رقمي بالعربي والإنجليزي بشكل يشبه مطعمك، وطلبات من الطاولة والاستلام والتوصيل تظهر على شاشة المطبخ لحظة وصولها. الزبون لا يحمّل أي تطبيق.',
     primary: 'ابدأ تجربة مجانية',
     secondary: 'شاهد الباقات',
@@ -167,22 +165,26 @@ const AR: LandingCopy = {
   },
   features: {
     eyebrow: 'المزايا',
-    title: 'كل اللي يحتاجه مطعم بيبيع فعلًا.',
-    items: [
-      { title: 'منيو بلغتين', text: 'كل منتج بالعربي والإنجليزي، والواجهة تنقلب RTL لوحدها. الأسعار تُحسب في الخادم فلا يتلاعب بها أحد.' },
-      { title: 'أربع طرق للطلب', text: 'من الطاولة، استلام من الفرع، توصيل بمناطق ورسوم، أو رسالة واتساب جاهزة. فعّل ما يناسبك.' },
-      { title: 'شاشة المطبخ والفريق', text: 'قبول، تحضير، جاهز، تم التقديم. ولكل شخص دور: مالك، مدير، كاشير، مطبخ، جرسون.' },
-      { title: 'متابعة الطلب', text: 'الزبون يشوف حالة طلبه لحظيًا من غير ما يسأل الجرسون.' },
-      { title: 'اقتراحات تزود الفاتورة', text: 'يضيف برجر؟ تقترح السلة بطاطس ومشروب. أنت تحدد الاقتراحات.' },
-      { title: 'استيراد المنيو الحالي', text: 'ارفع منيوك الحالي واحصل على مسودة بالأصناف والأقسام. راجعها وانشرها وابدأ.' },
+    title: 'قائمة ويتا',
+    lead: 'كل اللي يحتاجه مطعم بيبيع فعلًا، مرتّب زي أي منيو.',
+    groups: [
+      {
+        title: 'للزبون',
+        items: [
+          { title: 'منيو بلغتين', tag: 'عربي · English', text: 'كل منتج بالعربي والإنجليزي، والواجهة تنقلب RTL لوحدها. الأسعار تُحسب في الخادم فلا يتلاعب بها أحد.' },
+          { title: 'أربع طرق للطلب', tag: 'حسب اختيارك', text: 'من الطاولة، استلام من الفرع، توصيل بمناطق ورسوم، أو رسالة واتساب جاهزة. فعّل ما يناسبك.' },
+          { title: 'متابعة الطلب', tag: 'لحظية', text: 'الزبون يشوف حالة طلبه لحظيًا من غير ما يسأل الجرسون.' },
+        ],
+      },
+      {
+        title: 'لفريقك',
+        items: [
+          { title: 'شاشة المطبخ والصلاحيات', tag: 'مطبخ + أدوار', text: 'قبول، تحضير، جاهز، تم التقديم. ولكل شخص دور: مالك، مدير، كاشير، مطبخ، جرسون.' },
+          { title: 'اقتراحات تزود الفاتورة', tag: 'أنت تحددها', text: 'يضيف برجر؟ تقترح السلة بطاطس ومشروب. أنت تختار الاقتراحات.' },
+          { title: 'استيراد المنيو الحالي', tag: 'مسودة جاهزة', text: 'ارفع منيوك الحالي واحصل على مسودة بالأصناف والأقسام. راجعها وانشرها وابدأ.' },
+        ],
+      },
     ],
-    channels: ['الطاولة', 'استلام', 'توصيل', 'واتساب'],
-    roles: ['مالك', 'مدير', 'كاشير', 'مطبخ', 'جرسون'],
-    suggest: { added: 'برجر مشوي', suggest: 'أضف بطاطس بالجبن؟' },
-    importLines: ['برجر مشوي', 'بيتزا مارجريتا', 'باستا ألفريدو', 'سلطة سيزر'],
-    track: ['تم الاستلام', 'قيد التحضير', 'جاهز'],
-    langA: 'برجر مشوي',
-    langB: 'Grilled burger',
   },
   plans: {
     eyebrow: 'الباقات',
@@ -264,10 +266,12 @@ const EN: LandingCopy = {
     description:
       'A digital menu in Arabic and English with plenty of designs you can swap any time, orders from the table, pickup, delivery and WhatsApp, and a live kitchen screen. Try Wayta free for 15 days.',
   },
-  nav: { how: 'How it works', designs: 'Designs', features: 'Features', plans: 'Plans', faq: 'FAQ', signIn: 'Restaurant sign in', cta: 'Start free trial', menu: 'Menu' },
+  nav: { how: 'How it works', designs: 'Designs', features: 'Features', plans: 'Plans', faq: 'FAQ', signIn: 'Restaurant sign in', cta: 'Start free trial', menu: 'Menu', themeDark: 'Dark mode', themeLight: 'Light mode' },
   hero: {
     eyebrow: 'QR menus and live orders',
-    title: ['Guests scan the code.', 'The kitchen gets the order.'],
+    line1: 'Guests scan the code.',
+    line2: ['The ', 'kitchen', ' gets the order.'],
+    facts: ['No app for guests', 'Arabic and English', '15 days free'],
     lead: 'A digital menu in Arabic and English that looks like your restaurant, and orders from the table, pickup and delivery landing on the kitchen screen the moment they are placed. Guests install nothing.',
     primary: 'Start a free trial',
     secondary: 'See the plans',
@@ -316,22 +320,26 @@ const EN: LandingCopy = {
   },
   features: {
     eyebrow: 'Features',
-    title: 'Everything a restaurant that actually sells needs.',
-    items: [
-      { title: 'A two-language menu', text: 'Every product in Arabic and English, and the layout flips to RTL on its own. Prices are calculated on the server, so nobody can tamper with them.' },
-      { title: 'Four ways to order', text: 'From the table, pickup from a branch, delivery with zones and fees, or a ready-made WhatsApp message. Switch on what suits you.' },
-      { title: 'Kitchen and team screens', text: 'Accept, prepare, ready, served. And everyone has a role: owner, manager, cashier, kitchen, waiter.' },
-      { title: 'Order tracking', text: 'Guests see their order status live without asking the waiter.' },
-      { title: 'Suggestions that grow the bill', text: 'Add a burger and the cart suggests fries and a drink. You choose the suggestions.' },
-      { title: 'Import your current menu', text: 'Upload the menu you already have and get a draft of items and categories. Review it, publish it, go.' },
+    title: 'The Wayta menu',
+    lead: 'Everything a restaurant that actually sells needs, set out like a menu.',
+    groups: [
+      {
+        title: 'For the guest',
+        items: [
+          { title: 'A two-language menu', tag: 'Arabic · English', text: 'Every product in Arabic and English, and the layout flips to RTL on its own. Prices are calculated on the server, so nobody can tamper with them.' },
+          { title: 'Four ways to order', tag: 'Your choice', text: 'From the table, pickup from a branch, delivery with zones and fees, or a ready-made WhatsApp message. Switch on what suits you.' },
+          { title: 'Order tracking', tag: 'Live', text: 'Guests see their order status live without asking the waiter.' },
+        ],
+      },
+      {
+        title: 'For your team',
+        items: [
+          { title: 'Kitchen screen and roles', tag: 'Kitchen + roles', text: 'Accept, prepare, ready, served. And everyone has a role: owner, manager, cashier, kitchen, waiter.' },
+          { title: 'Suggestions that grow the bill', tag: 'You set them', text: 'Add a burger and the cart suggests fries and a drink. You choose the suggestions.' },
+          { title: 'Import your current menu', tag: 'Draft ready', text: 'Upload the menu you already have and get a draft of items and categories. Review it, publish it, go.' },
+        ],
+      },
     ],
-    channels: ['Table', 'Pickup', 'Delivery', 'WhatsApp'],
-    roles: ['Owner', 'Manager', 'Cashier', 'Kitchen', 'Waiter'],
-    suggest: { added: 'Grilled burger', suggest: 'Add loaded fries?' },
-    importLines: ['Grilled burger', 'Margherita pizza', 'Alfredo pasta', 'Caesar salad'],
-    track: ['Received', 'Preparing', 'Ready'],
-    langA: 'برجر مشوي',
-    langB: 'Grilled burger',
   },
   plans: {
     eyebrow: 'Plans',
