@@ -14,7 +14,7 @@ export type PlanFeature = (typeof PLAN_FEATURES)[number];
 
 export interface LandingCopy {
   meta: { title: string; description: string };
-  nav: { how: string; features: string; designs: string; plans: string; faq: string; signIn: string; cta: string; menu: string; themeDark: string; themeLight: string };
+  nav: { how: string; features: string; designs: string; plans: string; faq: string; signIn: string; cta: string; menu: string; themeDark: string; themeLight: string; skipIntro: string };
   hero: {
     eyebrow: string;
     title: string[];
@@ -118,6 +118,7 @@ const AR: LandingCopy = {
     menu: 'القائمة',
     themeDark: 'الوضع الداكن',
     themeLight: 'الوضع الفاتح',
+    skipIntro: 'تخطي',
   },
   hero: {
     eyebrow: 'منصة طلبات للمطاعم والكافيهات',
@@ -317,6 +318,7 @@ const EN: LandingCopy = {
     menu: 'Menu',
     themeDark: 'Dark mode',
     themeLight: 'Light mode',
+    skipIntro: 'Skip',
   },
   hero: {
     eyebrow: 'Ordering platform for restaurants and cafes',
