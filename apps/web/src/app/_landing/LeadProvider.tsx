@@ -133,7 +133,7 @@ export function LeadProvider({
                 {copy.done.title}
               </h3>
               <p>{copy.done.text}</p>
-              <button type="button" className={`${styles.btn} ${styles.btnOutlineInk}`} onClick={() => dialogRef.current?.close()}>
+              <button type="button" className={`${styles.btn} ${styles.btnGhost}`} onClick={() => dialogRef.current?.close()}>
                 {copy.close}
               </button>
             </div>
@@ -213,7 +213,7 @@ export function LeadProvider({
               </div>
 
               <div className={styles.dialogActions}>
-                <button type="submit" className={`${styles.btn} ${styles.btnPrimary} ${styles.btnBlock}`} disabled={status === 'sending'}>
+                <button type="submit" className={`${styles.btn} ${styles.btnSaffron} ${styles.btnBlock}`} disabled={status === 'sending'}>
                   {status === 'sending' ? copy.submitting : copy.submit}
                 </button>
                 <p className={styles.privacy}>{copy.privacy}</p>

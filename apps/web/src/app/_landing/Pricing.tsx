@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type PointerEvent } from 'react';
+import { useState } from 'react';
 import { PLAN_FEATURES, type LandingCopy } from './copy';
 import { LeadButton } from './LeadProvider';
 import type { LandingPlan } from './plans-api';
@@ -9,9 +9,9 @@ import styles from './landing.module.css';
 type Currency = 'EGP' | 'USD';
 type Period = 'MONTHLY' | 'YEARLY';
 
-function Tick({ off }: { off?: boolean }) {
+function Tick() {
   return (
-    <span className={styles.tick} data-off={off ? '1' : undefined} aria-hidden="true">
+    <span className={styles.tick} aria-hidden="true">
       <svg viewBox="0 0 24 24">
         <path d="M5 12.5l4.5 4.5L19 7.5" />
       </svg>
@@ -19,20 +19,13 @@ function Tick({ off }: { off?: boolean }) {
   );
 }
 
-/** Each card lights up around the pointer, so the plans feel alive without any extra chrome. */
-function glow(event: PointerEvent<HTMLElement>) {
-  const box = event.currentTarget.getBoundingClientRect();
-  event.currentTarget.style.setProperty('--px', `${event.clientX - box.left}px`);
-  event.currentTarget.style.setProperty('--py', `${event.clientY - box.top}px`);
-}
-
 /**
- * The plans with their real prices from the Backend (offer already applied). The visitor switches the
- * billing period and, when more than one is offered, the currency. A plan not offered in a currency or
- * period says so instead of showing a wrong price. Menu designs are never counted; a plan that includes
- * premium designs only says so.
+ * The plans as order tickets, with the real prices from the Backend (offer already applied). The visitor
+ * switches the billing period and the currency; a plan that is not offered in a currency or period says
+ * so instead of showing a wrong price.
  */
 export function Pricing({ plans, copy, locale }: { plans: LandingPlan[]; copy: LandingCopy['plans']; locale: 'ar' | 'en' }) {
+  // only the currencies some plan is priced in; the visitor's own one first when it is offered
   const currencies = ('EGP USD'.split(' ') as Currency[]).filter((code) => plans.some((plan) => plan.prices.some((price) => price.currencyCode === code)));
   const preferred: Currency = locale === 'ar' ? 'EGP' : 'USD';
   const [currency, setCurrency] = useState<Currency>(currencies.includes(preferred) ? preferred : (currencies[0] ?? 'EGP'));
@@ -43,7 +36,7 @@ export function Pricing({ plans, copy, locale }: { plans: LandingPlan[]; copy: L
   return (
     <>
       <div className={styles.plansTools}>
-        <div className={styles.toggle} role="group" aria-label={`${copy.monthly} / ${copy.yearly}`}>
+        <div className={styles.toggle} role="group" aria-label={copy.monthly + ' / ' + copy.yearly}>
           {(['MONTHLY', 'YEARLY'] as const).map((value) => (
             <button key={value} type="button" aria-pressed={period === value} onClick={() => setPeriod(value)}>
               {value === 'MONTHLY' ? copy.monthly : copy.yearly}
@@ -51,78 +44,89 @@ export function Pricing({ plans, copy, locale }: { plans: LandingPlan[]; copy: L
           ))}
         </div>
         {currencies.length > 1 ? (
-          <div className={styles.toggle} role="group" aria-label={copy.currencyLabel}>
-            {currencies.map((value) => (
-              <button key={value} type="button" aria-pressed={currency === value} onClick={() => setCurrency(value)}>
-                {copy.currencies[value]}
-              </button>
-            ))}
-          </div>
+        <div className={styles.toggle} role="group" aria-label={copy.currencyLabel}>
+          {currencies.map((value) => (
+            <button key={value} type="button" aria-pressed={currency === value} onClick={() => setCurrency(value)}>
+              {copy.currencies[value]}
+            </button>
+          ))}
+        </div>
         ) : null}
       </div>
 
-      <ul className={styles.planGrid}>
+      <ol className={styles.planGrid} style={{ listStyle: 'none', margin: 0, padding: 0 }}>
         {plans.map((plan, index) => {
           const price = plan.prices.find((p) => p.currencyCode === currency && p.period === period);
           const onOffer = Boolean(plan.offer) && price !== undefined && price.amount !== price.listAmount;
           return (
-            <li key={plan.id} className={styles.plan} onPointerMove={glow} data-reveal="" data-delay={index * 90}>
-              <div className={styles.planInner}>
-                <div className={styles.planTop}>
-                  <h3 className={styles.planName}>{plan.name}</h3>
+            <li key={plan.id} className={styles.plan}>
+              <div className={styles.planHead}>
+                <span>
+                  {copy.ticketNo} {numbers.format(index + 1)}
+                </span>
+                {plan.offer ? <span>{plan.offer.label ?? copy.offer}</span> : null}
+              </div>
+              <h3 className={`${styles.display} ${styles.planName}`}>{plan.name}</h3>
+              <p className={styles.planDesc}>{plan.description}</p>
+
+              <div className={styles.perforation} aria-hidden="true" />
+
+              {price ? (
+                <>
+                  <div className={styles.price}>
+                    <span className={styles.priceAmount}>{compact(price.amount)}</span>
+                    <span className={styles.priceCur}>{currency}</span>
+                    {onOffer ? <span className={styles.priceWas}>{compact(price.listAmount)}</span> : null}
+                  </div>
+                  <p className={styles.priceFor}>{period === 'MONTHLY' ? copy.perMonth : copy.perYear}</p>
                   {onOffer && plan.offer ? (
                     <span className={styles.offerTag}>
-                      {plan.offer.label ?? copy.offer} −{numbers.format(Number(plan.offer.percent))}%
+                      {copy.offer} −{numbers.format(Number(plan.offer.percent))}%
                     </span>
                   ) : null}
-                </div>
-                <p className={styles.planDesc}>{plan.description}</p>
+                </>
+              ) : (
+                <p className={styles.priceFor}>—</p>
+              )}
 
-                {price ? (
-                  <div className={styles.priceBlock}>
-                    <div className={styles.price}>
-                      <span className={styles.priceAmount}>{compact(price.amount)}</span>
-                      <span className={styles.priceCur}>{currency}</span>
-                      {onOffer ? <span className={styles.priceWas}>{compact(price.listAmount)}</span> : null}
-                    </div>
-                    <span className={styles.priceFor}>{period === 'MONTHLY' ? copy.perMonth : copy.perYear}</span>
-                  </div>
-                ) : (
-                  <div className={styles.priceBlock}>
-                    <span className={styles.priceFor}>—</span>
-                  </div>
-                )}
+              <div className={styles.perforation} aria-hidden="true" />
 
-                <ul className={styles.planList}>
-                  {copy.basics.map((line) => (
-                    <li key={line}>
+              <ul className={styles.planList}>
+                {copy.basics.map((line) => (
+                  <li key={line}>
+                    <Tick />
+                    <span>{line}</span>
+                  </li>
+                ))}
+                {PLAN_FEATURES.map((feature) => {
+                  // a package whose only design is Classic does not really include the choice of designs
+                  const included = plan.features.includes(feature) && !(feature === 'MENU_TEMPLATES' && plan.designs.standard <= 1 && plan.designs.premium === 0);
+                  return (
+                    <li key={feature} className={included ? undefined : styles.off}>
                       <Tick />
-                      <span>{line}</span>
+                      <span>
+                        {copy.featureNames[feature]}
+                        {feature === 'MENU_TEMPLATES' && included && plan.designs.premium > 0 ? (
+                          <>
+                            <br />
+                            <span className={styles.designsBadge}>★ {copy.premiumDesigns}</span>
+                          </>
+                        ) : null}
+                      </span>
                     </li>
-                  ))}
-                  {PLAN_FEATURES.map((feature) => {
-                    // a plan whose only design is Classic does not really include the choice of designs
-                    const included = plan.features.includes(feature) && !(feature === 'MENU_TEMPLATES' && plan.designs.standard <= 1 && plan.designs.premium === 0);
-                    return (
-                      <li key={feature} data-off={included ? undefined : '1'}>
-                        <Tick off={!included} />
-                        <span>
-                          {copy.featureNames[feature]}
-                          {feature === 'MENU_TEMPLATES' && included && plan.designs.premium > 0 ? <em className={styles.premiumNote}> ★ {copy.premiumDesigns}</em> : null}
-                        </span>
-                      </li>
-                    );
-                  })}
-                </ul>
+                  );
+                })}
+              </ul>
 
-                <LeadButton kind="SUBSCRIBE" packageId={plan.id} className={`${styles.btn} ${styles.btnPlan}`}>
+              <div className={styles.planAction}>
+                <LeadButton kind="SUBSCRIBE" packageId={plan.id} className={`${styles.btn} ${styles.btnPrimary} ${styles.btnBlock}`}>
                   {copy.cta}
                 </LeadButton>
               </div>
             </li>
           );
         })}
-      </ul>
+      </ol>
     </>
   );
 }
