@@ -2304,7 +2304,7 @@ Not an integration: the Guest's phone opens WhatsApp on the Restaurant's own num
 
 # 108M. Guest Menu Template (DEC-044, 2026-10-18)
 
-Presentation only: how the same menu is laid out (`CLASSIC`, `LIST`, `GALLERY`, `MENU`, `FLOATING`, `CENTERED`, `COMPACT`; default `CLASSIC`).
+Presentation only: how the same menu is laid out (`CLASSIC`, `LIST`, `GALLERY`, `MENU`, `FLOATING`, `CENTERED`, `COMPACT`, `EDITORIAL`; default `CLASSIC`).
 
 - `PATCH /api/v1/restaurants/{restaurantId}/menu-template` body `{ "menuTemplate": "GALLERY" }` -> `200 { data: { menuTemplate } }`. Guard chain `AuthGuard -> CsrfGuard -> RestaurantAccessGuard -> PermissionGuard -> AllBranchesRequiredGuard`, permission `restaurant.manage` (Restaurant-wide scope, like the other Restaurant-structural settings). An unknown or missing value is `400`; a Membership without the permission is `403`.
 - `GET /auth/me`: each membership's `restaurant.menuTemplate`.

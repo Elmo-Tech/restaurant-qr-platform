@@ -63,7 +63,7 @@ export default async function DesignSettingsPage({ params }: DesignSettingsPageP
       allowedTemplates={
         membership.restaurant.allowedTemplates ??
         (membership.restaurant.features.MENU_TEMPLATES
-          ? ['CLASSIC', 'LIST', 'GALLERY', 'MENU', 'FLOATING', 'CENTERED', 'COMPACT']
+          ? ['CLASSIC', 'LIST', 'GALLERY', 'MENU', 'FLOATING', 'CENTERED', 'COMPACT', 'EDITORIAL']
           : ['CLASSIC'])
       }
     />

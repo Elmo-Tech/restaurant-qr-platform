@@ -97,10 +97,21 @@ describe('template tiers (DEC-052)', () => {
   it('gives every standard template, and no premium one, for "all standard"', () => {
     const keys = allowedTemplates({
       featureEnabled: true,
-      rule: { includesFeature: true, all: false, allStandard: true, selected: [] },
+      rule: {
+        includesFeature: true,
+        all: false,
+        allStandard: true,
+        selected: [],
+      },
     });
-    expect(keys).toEqual(['CLASSIC', 'LIST', 'CENTERED', 'COMPACT']);
-    expect(tierCounts(keys)).toEqual({ standard: 4, premium: 0 });
+    expect(keys).toEqual([
+      'CLASSIC',
+      'LIST',
+      'CENTERED',
+      'COMPACT',
+      'EDITORIAL',
+    ]);
+    expect(tierCounts(keys)).toEqual({ standard: 5, premium: 0 });
   });
 
   it('adds the chosen premium templates to "all standard"', () => {
@@ -113,7 +124,21 @@ describe('template tiers (DEC-052)', () => {
         selected: ['MENU', 'GALLERY'],
       },
     });
-    expect(tierCounts(keys)).toEqual({ standard: 4, premium: 2 });
+    expect(tierCounts(keys)).toEqual({ standard: 5, premium: 2 });
+  });
+
+  it('treats the photo-free Editorial design as standard', () => {
+    const keys = allowedTemplates({
+      featureEnabled: true,
+      rule: {
+        includesFeature: true,
+        all: false,
+        allStandard: true,
+        selected: [],
+      },
+    });
+    expect(keys).toContain('EDITORIAL');
+    expect(tierCounts(keys)).toEqual({ standard: 5, premium: 0 });
   });
 
   it('splits a chosen list by tier, Classic counting as standard', () => {
@@ -129,6 +154,6 @@ describe('template tiers (DEC-052)', () => {
   it('gives all of both tiers for "all"', () => {
     expect(
       templateTierCountsOf({ includesFeature: true, all: true, selected: [] }),
-    ).toEqual({ standard: 4, premium: 3 });
+    ).toEqual({ standard: 5, premium: 3 });
   });
 });

@@ -251,7 +251,16 @@ describeSandbox('Guest menu template (real PostgreSQL)', () => {
         .menuTemplate,
     ).toBe('CLASSIC');
 
-    for (const template of ['GALLERY', 'LIST', 'MENU', 'FLOATING', 'CENTERED', 'COMPACT', 'CLASSIC']) {
+    for (const template of [
+      'GALLERY',
+      'LIST',
+      'MENU',
+      'FLOATING',
+      'CENTERED',
+      'COMPACT',
+      'EDITORIAL',
+      'CLASSIC',
+    ]) {
       const res = await patch(owner, `${r}/menu-template`, {
         menuTemplate: template,
       });

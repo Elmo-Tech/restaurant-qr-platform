@@ -208,6 +208,7 @@ enum MenuTemplate {
   FLOATING
   CENTERED
   COMPACT
+  EDITORIAL
 
   @@map("menu_template")
 }

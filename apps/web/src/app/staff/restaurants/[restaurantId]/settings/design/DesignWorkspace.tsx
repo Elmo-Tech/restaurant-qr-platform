@@ -31,6 +31,7 @@ const TEMPLATES: { key: Template; title: MessageKey; hint: MessageKey }[] = [
   { key: 'FLOATING', title: 'design.floating', hint: 'design.floatingHint' },
   { key: 'CENTERED', title: 'design.centered', hint: 'design.centeredHint' },
   { key: 'COMPACT', title: 'design.compact', hint: 'design.compactHint' },
+  { key: 'EDITORIAL', title: 'design.editorial', hint: 'design.editorialHint' },
 ];
 
 /** A simple wireframe of each layout, drawn with the theme colours (no images to load). */
@@ -146,6 +147,28 @@ function Wireframe({ template }: { template: Template }): ReactNode {
               <rect x="3" y="3" width="6" height="6" rx="1.5" {...soft} />
               <rect x="13" y="3" width="32" height="2.5" rx="1.2" {...soft} />
               <circle cx="100" cy="6" r="3" className="fill-primary" />
+            </g>
+          ))}
+        </>
+      ) : null}
+      {template === 'EDITORIAL' ? (
+        <>
+          {[0, 1].map((column) => (
+            <g key={column} transform={`translate(${5 + column * 57} 5)`}>
+              {[0, 1].map((panel) => (
+                <g key={panel} transform={`translate(0 ${panel * 35})`}>
+                  <rect width="53" height="31" rx="4" {...frame} />
+                  <circle cx="7" cy="7" r="3.5" className="fill-primary" />
+                  <rect x="13" y="5.5" width="22" height="3" rx="1.5" {...soft} />
+                  {[0, 1, 2].map((row) => (
+                    <g key={row} transform={`translate(5 ${13 + row * 5.5})`}>
+                      <rect width="20" height="2" rx="1" {...soft} />
+                      <rect x="31" width="8" height="2" rx="1" className="fill-primary" />
+                      <rect x="43" y="-1.5" width="6" height="5" rx="2.5" {...frame} />
+                    </g>
+                  ))}
+                </g>
+              ))}
             </g>
           ))}
         </>

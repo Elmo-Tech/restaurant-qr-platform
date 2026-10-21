@@ -12,6 +12,7 @@ export const MENU_TEMPLATE_KEYS = [
   'FLOATING',
   'CENTERED',
   'COMPACT',
+  'EDITORIAL',
 ] as const;
 
 export type MenuTemplateKey = (typeof MENU_TEMPLATE_KEYS)[number];
@@ -24,6 +25,7 @@ export const TEMPLATE_TIERS: Record<MenuTemplateKey, TemplateTier> = {
   LIST: 'STANDARD',
   COMPACT: 'STANDARD',
   CENTERED: 'STANDARD',
+  EDITORIAL: 'STANDARD',
   GALLERY: 'PREMIUM',
   MENU: 'PREMIUM',
   FLOATING: 'PREMIUM',
@@ -72,7 +74,9 @@ export function tierCounts(keys: readonly MenuTemplateKey[]): {
   standard: number;
   premium: number;
 } {
-  const premium = keys.filter((key) => TEMPLATE_TIERS[key] === 'PREMIUM').length;
+  const premium = keys.filter(
+    (key) => TEMPLATE_TIERS[key] === 'PREMIUM',
+  ).length;
   return { standard: keys.length - premium, premium };
 }
 

@@ -8,6 +8,7 @@ export const MENU_TEMPLATES = [
   'FLOATING',
   'CENTERED',
   'COMPACT',
+  'EDITORIAL',
 ] as const;
 export type MenuTemplateInput = (typeof MENU_TEMPLATES)[number];
 

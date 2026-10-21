@@ -13,7 +13,8 @@ import type { PublicMenuProduct } from '../../../lib/public-menu/types';
 
 /**
  * The product cards of the non-classic menu templates (DEC-044): `list` (compact row),
- * `gallery` (large photo tile) and `menu` (typographic line). They show exactly the same facts
+ * `gallery` (large photo tile), `menu` (typographic line), and `editorial` (photo-free
+ * ordering row). They show exactly the same facts
  * as the classic card -- name, description, Backend price / discount / sizes, sold out, featured --
  * and use the same handlers, so ordering behaves identically in every template. Only the layout
  * differs. Each card keeps one real labelled control for opening the product (a stretched button
@@ -82,7 +83,7 @@ function AddControl({
 }: Pick<
   ProductVariantProps,
   'product' | 'copy' | 'simpleQuantity' | 'totalQuantity' | 'onQuickAdd' | 'onIncrement' | 'onDecrement'
-> & { view: View; shape: 'round' | 'pill' }) {
+> & { view: View; shape: 'round' | 'pill' | 'editorial' }) {
   if (view.isSoldOut) {
     return <span className="text-[12.5px] font-semibold text-g-text-3">{copy.unavailableNow}</span>;
   }
@@ -111,7 +112,9 @@ function AddControl({
       className={
         shape === 'round'
           ? 'relative grid size-11 place-items-center rounded-full bg-g-accent text-g-on-accent transition-transform active:scale-90'
-          : 'group/add relative flex h-10 items-center gap-1.5 rounded-full border border-g-accent bg-g-accent-soft px-4 text-sm font-bold text-g-text transition-colors hover:bg-g-accent hover:text-g-on-accent active:scale-95'
+          : shape === 'editorial'
+            ? 'group/add relative grid size-10 shrink-0 place-items-center rounded-full border border-g-accent bg-g-accent-soft text-sm font-bold text-g-text transition-colors hover:bg-g-accent hover:text-g-on-accent active:scale-95 sm:flex sm:h-10 sm:w-auto sm:gap-1.5 sm:px-3.5'
+            : 'group/add relative flex h-10 items-center gap-1.5 rounded-full border border-g-accent bg-g-accent-soft px-4 text-sm font-bold text-g-text transition-colors hover:bg-g-accent hover:text-g-on-accent active:scale-95'
       }
     >
       <GuestIconPlus
@@ -119,6 +122,7 @@ function AddControl({
         strokeWidth={2.8}
       />
       {shape === 'pill' ? copy.add : null}
+      {shape === 'editorial' ? <span className="hidden sm:inline">{copy.add}</span> : null}
       {totalQuantity > 0 ? (
         <span
           key={totalQuantity}
@@ -460,6 +464,71 @@ function ProductLineImpl(props: ProductVariantProps) {
   );
 }
 
+/**
+ * `editorial`: a dense, photo-free ordering row. It keeps long menus readable without
+ * losing descriptions, effective prices, sold-out state, modifiers, or quick ordering.
+ */
+function ProductEditorialImpl(props: ProductVariantProps) {
+  const { product, currency, copy, canOrder, simpleQuantity, totalQuantity, onOpen } = props;
+  const view = useProductView(product, canOrder, simpleQuantity);
+
+  return (
+    <article
+      className={`guest-anim-rise group relative flex items-center gap-2.5 border-b border-g-line/80 py-3.5 last:border-b-0 sm:gap-3.5 ${FOCUS}`}
+    >
+      <div className={`min-w-0 flex-1 ${view.isSoldOut ? 'opacity-60' : ''}`}>
+        <div className="flex flex-wrap items-center gap-2">
+          <ProductName
+            product={product}
+            view={view}
+            onOpen={onOpen}
+            className="min-w-0 text-[15.5px] font-bold leading-[1.4] sm:text-[16.5px]"
+          />
+          {product.featured && !view.isSoldOut ? (
+            <span className="shrink-0 rounded-full bg-g-accent-soft px-2 py-0.5 text-[10.5px] font-bold text-g-accent-text">
+              {copy.featured}
+            </span>
+          ) : null}
+          {view.isSoldOut ? (
+            <span className="shrink-0 rounded-full bg-g-surface-2 px-2 py-0.5 text-[10.5px] font-bold text-g-text-2">
+              {copy.soldOut}
+            </span>
+          ) : null}
+        </div>
+        {product.description ? (
+          <p dir="auto" className="mt-0.5 line-clamp-2 text-[12px] leading-[1.55] text-g-text-2 sm:text-[12.5px]">
+            {product.description}
+          </p>
+        ) : null}
+      </div>
+
+      <div className={`w-[68px] shrink-0 text-end sm:w-[82px] ${view.isSoldOut ? 'opacity-60' : ''}`}>
+        <PriceBlock
+          product={product}
+          view={view}
+          currency={currency}
+          copy={copy}
+          className="text-[15px] sm:text-[17px]"
+        />
+      </div>
+
+      <div className="relative z-10 shrink-0">
+        <AddControl
+          product={product}
+          copy={copy}
+          view={view}
+          simpleQuantity={simpleQuantity}
+          totalQuantity={totalQuantity}
+          onQuickAdd={props.onQuickAdd}
+          onIncrement={props.onIncrement}
+          onDecrement={props.onDecrement}
+          shape="editorial"
+        />
+      </div>
+    </article>
+  );
+}
+
 export const ProductRow = memo(ProductRowImpl);
 export const ProductTile = memo(ProductTileImpl);
 /** The two-column phone grid version of the tile (`floating` template). */
@@ -468,3 +537,4 @@ function ProductTileDenseImpl(props: ProductVariantProps) {
 }
 export const ProductTileDense = memo(ProductTileDenseImpl);
 export const ProductLine = memo(ProductLineImpl);
+export const ProductEditorial = memo(ProductEditorialImpl);

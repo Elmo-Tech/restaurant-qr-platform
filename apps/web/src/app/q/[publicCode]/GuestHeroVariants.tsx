@@ -13,7 +13,7 @@ import {
 import { HoursBadge } from './HoursBadge';
 
 /**
- * The headers of the `floating`, `centered` and `compact` templates (DEC-044). They show exactly
+ * The headers of the `floating`, `centered`, `compact`, and `editorial` templates (DEC-044). They show exactly
  * what the classic hero shows -- logo, name, table / branch line, opening hours, contact, language,
  * share, track and theme -- and only arrange it differently. The classic hero stays in `GuestHero`.
  */
@@ -189,11 +189,21 @@ export function GuestHeroCentered({ sentinelRef, ...p }: GuestHeroProps) {
   );
 }
 
-/** `compact`: a thin cover strip and one info bar, so the menu itself starts immediately. */
-export function GuestHeroCompact({ sentinelRef, ...p }: GuestHeroProps) {
+/** Shared strip hero. Editorial gives the cover more room while keeping the same compact info bar. */
+function GuestHeroStrip({
+  sentinelRef,
+  prominentCover = false,
+  ...p
+}: GuestHeroProps & { prominentCover?: boolean }) {
   return (
     <header ref={sentinelRef} className="relative">
-      <div className="relative h-[92px] overflow-hidden bg-g-surface lg:h-[130px]">
+      <div
+        className={
+          prominentCover
+            ? 'relative h-[156px] overflow-hidden bg-g-surface sm:h-[180px] lg:h-[230px]'
+            : 'relative h-[92px] overflow-hidden bg-g-surface lg:h-[130px]'
+        }
+      >
         <HeroCover coverUrl={p.coverUrl} scrim={SCRIM_TOP} />
         <TopRow {...p} />
       </div>
@@ -216,4 +226,14 @@ export function GuestHeroCompact({ sentinelRef, ...p }: GuestHeroProps) {
       </div>
     </header>
   );
+}
+
+/** `compact`: a thin cover strip and one info bar, so the menu itself starts immediately. */
+export function GuestHeroCompact(props: GuestHeroProps) {
+  return <GuestHeroStrip {...props} />;
+}
+
+/** `editorial`: a larger cover followed by the same concise identity bar. */
+export function GuestHeroEditorial(props: GuestHeroProps) {
+  return <GuestHeroStrip {...props} prominentCover />;
 }

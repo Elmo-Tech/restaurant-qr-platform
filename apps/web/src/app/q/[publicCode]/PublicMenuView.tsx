@@ -46,7 +46,12 @@ import { readTrackedOrders, rememberOrder } from '../../../lib/public-menu/track
 import { WaytaLockup } from '../../../components/brand/Wayta';
 import { GuestContact } from './GuestContact';
 import { GuestHero, type GuestHeroProps } from './GuestHero';
-import { GuestHeroCentered, GuestHeroCompact, GuestHeroFloating } from './GuestHeroVariants';
+import {
+  GuestHeroCentered,
+  GuestHeroCompact,
+  GuestHeroEditorial,
+  GuestHeroFloating,
+} from './GuestHeroVariants';
 import type {
   CartLine,
   CheckoutFieldKey,
@@ -142,7 +147,7 @@ export function PublicMenuView({
   }, [data.menu.categories]);
 
   // The template decides the header, the cards, the headings and the category strip (DEC-044).
-  // The printed-menu template shows no photos anywhere (cards, cart, product page, featured banners).
+  // Photo-free templates show no photos anywhere (cards, cart, product page, featured banners).
   const layout = layoutOf(template);
   const showPhotos = layout.photos;
 
@@ -991,6 +996,8 @@ export function PublicMenuView({
       ? GuestHeroFloating
       : layout.hero === 'centered'
         ? GuestHeroCentered
+        : layout.hero === 'editorial'
+          ? GuestHeroEditorial
         : layout.hero === 'compact'
           ? GuestHeroCompact
           : GuestHero;

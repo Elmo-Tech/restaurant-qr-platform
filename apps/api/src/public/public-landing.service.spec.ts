@@ -70,7 +70,7 @@ describe('PublicLandingService.plans (DEC-053)', () => {
     const { service } = makeService({ packages: [basePackage] });
     const [plan] = await service.plans();
     expect(plan.prices.every((p) => p.currencyCode === 'EGP')).toBe(true);
-    expect(plan.designs).toEqual({ standard: 4, premium: 1 });
+    expect(plan.designs).toEqual({ standard: 5, premium: 1 });
     expect(plan.offer).toBeNull();
     expect(plan.name).toEqual({ ar: 'احترافية', en: 'Pro' });
     expect(plan.description).toEqual({

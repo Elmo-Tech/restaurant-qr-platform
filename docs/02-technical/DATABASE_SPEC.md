@@ -1756,7 +1756,7 @@ Migration `20261021090000_whatsapp_ordering` (additive): `restaurants.whatsapp_o
 
 # 68F. Guest Menu Template (DEC-044, 2026-10-18)
 
-Migration `20261022090000_menu_template` (additive): enum `menu_template` (`CLASSIC`, `LIST`, `GALLERY`, `MENU`; `FLOATING`, `CENTERED`, `COMPACT` added by `20261023090000_menu_template_hero_variants`, additive; PostgreSQL cannot drop an enum value, so undo = move rows back to CLASSIC) and `restaurants.menu_template` NOT NULL DEFAULT `CLASSIC`, so every existing Restaurant keeps its current menu. Presentation only: no money, order or availability rule reads it. Rollback (before use): `ALTER TABLE "restaurants" DROP COLUMN "menu_template"; DROP TYPE "menu_template";`
+Migration `20261022090000_menu_template` (additive): enum `menu_template` (`CLASSIC`, `LIST`, `GALLERY`, `MENU`; `FLOATING`, `CENTERED`, `COMPACT` added by `20261023090000_menu_template_hero_variants`; `EDITORIAL` added by `20261105090000_menu_template_editorial`; all additive; PostgreSQL cannot drop an enum value, so undo = move rows back to CLASSIC) and `restaurants.menu_template` NOT NULL DEFAULT `CLASSIC`, so every existing Restaurant keeps its current menu. Presentation only: no money, order or availability rule reads it. Rollback (before use): `ALTER TABLE "restaurants" DROP COLUMN "menu_template"; DROP TYPE "menu_template";`
 
 ---
 

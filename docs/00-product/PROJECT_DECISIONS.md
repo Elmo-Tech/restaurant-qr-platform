@@ -1029,7 +1029,8 @@ rows), `GALLERY` (large photo tiles), `MENU` (a typographic printed menu without
 photos), and three with their own header design: `FLOATING` (slim cover with a
 floating info card, labelled contact buttons, two-column photo grid), `CENTERED`
 (tall cover with logo and name centred) and `COMPACT` (thin cover and a one-line
-info bar, so the menu starts at once). One template per Restaurant, applied to the
+info bar, so the menu starts at once), plus `EDITORIAL` (photo-free category panels,
+balanced into two columns on wide screens and one column on mobile). One template per Restaurant, applied to the
 Restaurant QR and every Table QR. Staff pick it in Settings > Menu design with
 a live preview on the Restaurant's real menu (`?template=` previews a layout
 without saving). Further templates are added as new enum values plus a layout;
@@ -1258,8 +1259,8 @@ Existing Packages that include the feature keep today's behavior (all templates)
 **Status:** Accepted (owner, 2026-10-19).
 
 Every Guest menu template has a **tier**: *standard* (Classic, List, Centered cover,
-Compact bar) or *premium* (Gallery, Printed menu, Floating card). The tier of each
-template is fixed in code (`entitlements/templates.ts`), not per Package. A Package that
+Compact bar, Editorial) or *premium* (Gallery, Printed menu, Floating card). The tier of each
+template is fixed in code (`entitlements/templates.ts`). A Package that
 includes Menu designs says, per tier: standard = **all (also future ones)** or **chosen**;
 premium = **none**, **chosen** or **all** (all of both = the open-ended "all templates" of
 DEC-051). So a Package can give, for example, 3 standard + 2 premium, only standard, or
