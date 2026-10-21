@@ -2,7 +2,6 @@
 
 import { useState, type FormEvent, type SVGProps } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import { apiFetch } from '../../lib/api/client';
 import { ApiError } from '../../lib/api/errors';
 import { Alert } from '../../components/ui/Alert';
@@ -54,7 +53,6 @@ function PasswordVisibilityIcon({ visible, ...props }: SVGProps<SVGSVGElement> &
  * `Set-Cookie`, and this component only reacts to that outcome.
  */
 export function LoginForm({ showResetSuccess = false }: { showResetSuccess?: boolean }) {
-  const router = useRouter();
   const { t } = useStaffI18n();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -74,7 +72,11 @@ export function LoginForm({ showResetSuccess = false }: { showResetSuccess?: boo
         method: 'POST',
         body: { email, password },
       });
-      router.push('/staff');
+      // Login changes the HttpOnly session cookie outside Next's Router. A
+      // full navigation prevents a prefetched unauthenticated `/staff` RSC
+      // response from bouncing back to `/login` and creating a redirect
+      // loop. `replace` also keeps the completed login form out of history.
+      window.location.replace('/staff');
     } catch (error) {
       if (error instanceof ApiError) {
         const key = `error.${error.code}`;
