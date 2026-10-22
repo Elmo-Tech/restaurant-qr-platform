@@ -14,9 +14,10 @@ export type PlanFeatureKey =
   | 'KITCHEN';
 
 export interface PlanSubscription {
+  kind: 'PAID' | 'TRIAL';
   phase: SubscriptionPhase;
   packageName: string;
-  period: 'MONTHLY' | 'YEARLY';
+  period: 'MONTHLY' | 'YEARLY' | null;
   /** YYYY-MM-DD */
   startsAt: string;
   endsAt: string;

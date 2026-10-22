@@ -94,6 +94,7 @@ export class SubscriptionSyncService
         subscriptions: {
           select: {
             status: true,
+            kind: true,
             packageId: true,
             startsAt: true,
             endsAt: true,

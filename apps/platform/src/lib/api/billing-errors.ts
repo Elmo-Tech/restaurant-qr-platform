@@ -12,6 +12,9 @@ const BY_CODE: Record<string, MessageKey> = {
   COUNTRY_INVALID: "billing.err.country",
   SUBSCRIPTION_CANCELLED: "billing.err.cancelled",
   SUBSCRIPTION_ALREADY_CANCELLED: "billing.err.cancelled",
+  TRIAL_DISABLED: "billing.err.trialDisabled",
+  NOT_A_TRIAL: "billing.err.notTrial",
+  TRIAL_PAYMENT_NOT_ALLOWED: "billing.err.trialPayment",
   PACKAGE_NOT_FOUND: "package.notFound",
   RESTAURANT_NOT_FOUND: "detail.notFound",
 };

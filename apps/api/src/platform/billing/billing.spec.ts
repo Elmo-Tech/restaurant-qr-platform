@@ -270,6 +270,7 @@ describe('subscriptionPhase', () => {
 describe('decideSync: what a Restaurant should become today', () => {
   const sub = (over: Partial<SyncSubscription>): SyncSubscription => ({
     status: 'ACTIVE',
+    kind: 'PAID',
     packageId: 'pkg-a',
     startsAt: date('2026-10-01'),
     endsAt: date('2026-11-01'),
@@ -332,6 +333,12 @@ describe('decideSync: what a Restaurant should become today', () => {
   it('suspends once the grace period is over', () => {
     expect(run('2026-11-08', [sub({})])).toEqual({ suspend: true });
     expect(run('2027-03-01', [sub({})])).toEqual({ suspend: true });
+  });
+
+  it('suspends a trial on its end date without paid grace', () => {
+    expect(run('2026-11-01', [sub({ kind: 'TRIAL' })])).toEqual({
+      suspend: true,
+    });
   });
 
   it('does not suspend a Restaurant that is not active, and never twice', () => {

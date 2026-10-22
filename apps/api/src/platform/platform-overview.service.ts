@@ -166,6 +166,7 @@ export class PlatformOverviewService {
           endsAt: { gt: addDays(today, -graceDays - 1) },
         },
         select: {
+          kind: true,
           startsAt: true,
           endsAt: true,
           status: true,
@@ -189,7 +190,11 @@ export class PlatformOverviewService {
     const owed: BillingOverview['unpaid'] = [];
     const outstanding = new Map<string, Prisma.Decimal>();
     for (const sub of live) {
-      const info = subscriptionPhase(sub, today, graceDays);
+      const info = subscriptionPhase(
+        sub,
+        today,
+        sub.kind === 'TRIAL' ? 0 : graceDays,
+      );
       if (info.phase !== 'ACTIVE' && info.phase !== 'GRACE') continue;
       if (
         info.phase === 'GRACE' ||

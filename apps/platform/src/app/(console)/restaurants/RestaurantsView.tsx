@@ -15,6 +15,7 @@ export function RestaurantsView() {
   const [search, setSearch] = useState("");
   const [debounced, setDebounced] = useState("");
   const [status, setStatus] = useState<RestaurantStatus | "">("");
+  const [subscription, setSubscription] = useState<"TRIAL" | "PAID" | "NONE" | "">("");
   const [page, setPage] = useState(1);
   const [data, setData] = useState<RestaurantPage | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +31,7 @@ export function RestaurantsView() {
 
   useEffect(() => {
     let cancelled = false;
-    listRestaurants({ search: debounced, status, page })
+    listRestaurants({ search: debounced, status, subscription, page })
       .then((result) => {
         if (cancelled) return;
         setData(result);
@@ -49,7 +50,7 @@ export function RestaurantsView() {
     return () => {
       cancelled = true;
     };
-  }, [debounced, status, page, t]);
+  }, [debounced, status, subscription, page, t]);
 
   const from = data ? (data.page - 1) * data.pageSize + 1 : 0;
   const to = data ? Math.min(data.page * data.pageSize, data.total) : 0;
@@ -101,6 +102,20 @@ export function RestaurantsView() {
             <option value="ACTIVE">{t("status.ACTIVE")}</option>
             <option value="SUSPENDED">{t("status.SUSPENDED")}</option>
             <option value="INACTIVE">{t("status.INACTIVE")}</option>
+          </Select>
+          <Select
+            value={subscription}
+            onChange={(event) => {
+              setSubscription(event.target.value as "TRIAL" | "PAID" | "NONE" | "");
+              setPage(1);
+            }}
+            aria-label={t("restaurants.subscriptionFilter")}
+            className="w-48"
+          >
+            <option value="">{t("restaurants.subscriptionFilter")}: {t("common.all")}</option>
+            <option value="TRIAL">{t("restaurants.subscriptionFilter.TRIAL")}</option>
+            <option value="PAID">{t("restaurants.subscriptionFilter.PAID")}</option>
+            <option value="NONE">{t("restaurants.subscriptionFilter.NONE")}</option>
           </Select>
         </div>
 

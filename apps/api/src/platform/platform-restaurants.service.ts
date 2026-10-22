@@ -106,12 +106,26 @@ export class PlatformRestaurantsService {
   async list(input: {
     search?: string;
     status?: RestaurantStatus;
+    subscription?: 'TRIAL' | 'PAID' | 'NONE';
     page: number;
     pageSize: number;
   }): Promise<RestaurantPage> {
     const search = input.search?.trim();
+    const today = todayInCairo();
+    const covering = {
+      status: 'ACTIVE' as const,
+      startsAt: { lte: today },
+      endsAt: { gt: today },
+    };
     const where: Prisma.RestaurantWhereInput = {
       ...(input.status ? { status: input.status } : {}),
+      ...(input.subscription === 'TRIAL'
+        ? { subscriptions: { some: { ...covering, kind: 'TRIAL' } } }
+        : input.subscription === 'PAID'
+          ? { subscriptions: { some: { ...covering, kind: 'PAID' } } }
+          : input.subscription === 'NONE'
+            ? { subscriptions: { none: covering } }
+            : {}),
       ...(search
         ? {
             OR: [
@@ -151,6 +165,7 @@ export class PlatformRestaurantsService {
             where: { status: 'ACTIVE' },
             select: {
               status: true,
+              kind: true,
               startsAt: true,
               endsAt: true,
               packageName: true,
@@ -235,6 +250,7 @@ export class PlatformRestaurantsService {
           where: { status: 'ACTIVE' },
           select: {
             status: true,
+            kind: true,
             startsAt: true,
             endsAt: true,
             packageName: true,

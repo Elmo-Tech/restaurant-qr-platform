@@ -17,6 +17,7 @@ export interface SyncRestaurant {
 
 export interface SyncSubscription {
   status: 'ACTIVE' | 'CANCELLED';
+  kind: 'PAID' | 'TRIAL';
   packageId: string;
   startsAt: Date;
   endsAt: Date;
@@ -62,12 +63,12 @@ export function decideSync(input: {
   const ended = live.filter((sub) => sub.endsAt.getTime() <= today.getTime());
   if (ended.length === 0) return decision; // only future subscriptions so far
 
-  const lastEnd = ended.reduce(
-    (latest, sub) =>
-      sub.endsAt.getTime() > latest.getTime() ? sub.endsAt : latest,
-    ended[0].endsAt,
+  const suspensionDates = ended.map((sub) =>
+    addDays(sub.endsAt, sub.kind === 'TRIAL' ? 0 : graceDays),
   );
-  const suspendOn = addDays(lastEnd, graceDays);
+  const suspendOn = suspensionDates.reduce((latest, date) =>
+    date.getTime() > latest.getTime() ? date : latest,
+  );
   const overridden =
     restaurant.subscriptionOverrideAt !== null &&
     restaurant.subscriptionOverrideAt.getTime() >= suspendOn.getTime();

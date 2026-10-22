@@ -84,9 +84,17 @@ import {
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
 import { UpdatePlatformPublicSettingsDto } from './dto/platform-public-settings.dto';
 import {
+  AdjustActiveTrialsDto,
+  UpdatePlatformTrialSettingsDto,
+} from './dto/platform-trial-settings.dto';
+import {
   PlatformPublicSettingsService,
   type PlatformPublicSettingsView,
 } from './platform-public-settings.service';
+import {
+  PlatformTrialSettingsService,
+  type PlatformTrialSettingsView,
+} from './platform-trial-settings.service';
 import {
   PlatformRestaurantCreationService,
   type CreateRestaurantOutcome,
@@ -237,6 +245,10 @@ class ListRestaurantsQuery {
   status?: 'ACTIVE' | 'INACTIVE' | 'SUSPENDED';
 
   @IsOptional()
+  @IsIn(['TRIAL', 'PAID', 'NONE'])
+  subscription?: 'TRIAL' | 'PAID' | 'NONE';
+
+  @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
@@ -287,6 +299,7 @@ export class PlatformController {
     private readonly admins: PlatformAdminsService,
     private readonly overview: PlatformOverviewService,
     private readonly publicSettings: PlatformPublicSettingsService,
+    private readonly trialSettings: PlatformTrialSettingsService,
     private readonly audit: PlatformAuditService,
     private readonly configService: ConfigService<EnvConfig, true>,
   ) {}
@@ -446,6 +459,51 @@ export class PlatformController {
     };
   }
 
+  @Get('settings/trial')
+  @UseGuards(PlatformAuthGuard)
+  async getTrialSettings(): Promise<{ data: PlatformTrialSettingsView }> {
+    return { data: await this.trialSettings.get() };
+  }
+
+  @Put('settings/trial')
+  @UseGuards(PlatformAuthGuard)
+  async updateTrialSettings(
+    @Body() body: UpdatePlatformTrialSettingsDto,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: PlatformTrialSettingsView }> {
+    const result = await this.trialSettings.update(request.platformAdmin, {
+      enabled: body.enabled,
+      defaultDays: body.defaultDays,
+      defaultPackageId: body.defaultPackageId ?? null,
+    });
+    if (result.outcome !== 'ok') {
+      throw new HttpException(
+        {
+          error: {
+            code: 'PACKAGE_NOT_AVAILABLE',
+            message: 'The default trial package must be active.',
+          },
+        },
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
+    }
+    return { data: result.data };
+  }
+
+  @Post('settings/trial/adjust-active')
+  @UseGuards(PlatformAuthGuard)
+  async adjustActiveTrials(
+    @Body() body: AdjustActiveTrialsDto,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: { adjusted: number; skipped: number } }> {
+    return {
+      data: await this.trialSettings.adjustActive(
+        request.platformAdmin,
+        body.days,
+      ),
+    };
+  }
+
   @Get('restaurants')
   @UseGuards(PlatformAuthGuard)
   async listRestaurants(
@@ -455,6 +513,7 @@ export class PlatformController {
       data: await this.restaurants.list({
         search: query.search,
         status: query.status,
+        subscription: query.subscription,
         page: query.page ?? 1,
         pageSize: query.pageSize ?? 25,
       }),

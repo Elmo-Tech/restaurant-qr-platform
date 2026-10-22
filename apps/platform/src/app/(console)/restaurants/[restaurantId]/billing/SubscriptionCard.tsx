@@ -113,7 +113,7 @@ export function SubscriptionCard({
             <h3 className="text-[15px] font-semibold text-foreground">
               <bdi>{sub.packageName}</bdi>
             </h3>
-            <Badge>{t(`sub.period.${sub.period}`)}</Badge>
+            {sub.period ? <Badge>{t(`sub.period.${sub.period}`)}</Badge> : null}
             <PhaseBadge phase={sub.phase} />
             <PaymentBadge status={sub.paymentStatus} />
           </div>

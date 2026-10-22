@@ -270,7 +270,11 @@ function PlanHero({
             <>
               <div className="mt-4 flex flex-wrap items-center gap-2">
                 <HeroChip dotColor={phaseDot(sub.phase)}>{t(`subscription.phase.${sub.phase}` as MessageKey)}</HeroChip>
-                <HeroChip>{t(`subscription.period.${sub.period}` as MessageKey)}</HeroChip>
+                {sub.kind === 'TRIAL' ? (
+                  <HeroChip dotColor={SAFFRON}>{t('subscription.trial')}</HeroChip>
+                ) : sub.period ? (
+                  <HeroChip>{t(`subscription.period.${sub.period}` as MessageKey)}</HeroChip>
+                ) : null}
               </div>
               <p className="mt-4 text-sm opacity-80">
                 {day(sub.startsAt)}
@@ -303,7 +307,7 @@ function PlanHero({
         {sub && showRing ? <DaysRing sub={sub} graceDays={data.graceDays} numberFmt={numberFmt} urgent={urgent} /> : null}
       </div>
 
-      {sub ? (
+      {sub && sub.kind === 'PAID' ? (
         <dl className="mt-8 grid grid-cols-3 gap-4 border-t pt-5" style={{ borderColor: 'rgba(251,246,238,0.14)' }}>
           <HeroFigure label={t('subscription.price')}>{money(sub.finalPrice, sub.currencyCode)}</HeroFigure>
           <HeroFigure label={t('subscription.paid')}>{money(sub.paid, sub.currencyCode)}</HeroFigure>

@@ -2,12 +2,15 @@ import { applyDecorators } from '@nestjs/common';
 import { Transform, Type } from 'class-transformer';
 import {
   IsIn,
+  IsInt,
   IsOptional,
   IsString,
   IsUUID,
   Length,
   Matches,
   MaxLength,
+  Max,
+  Min,
   ValidateNested,
 } from 'class-validator';
 import { DATE_ONLY, MONEY, PERCENT } from './package.dto';
@@ -63,6 +66,34 @@ export class SubscriptionBodyDto {
 
   @OptionalText(500)
   notes?: string | null;
+}
+
+/** A zero-price, fixed-day trial on a real Package (DEC-056). */
+export class TrialBodyDto {
+  @IsUUID()
+  packageId!: string;
+
+  /** YYYY-MM-DD; missing = today. */
+  @IsOptional()
+  @Transform(emptyToNull)
+  @Matches(DATE_ONLY, { message: 'startsAt must be YYYY-MM-DD' })
+  startsAt?: string | null;
+
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(365)
+  durationDays!: number;
+
+  @OptionalText(500)
+  notes?: string | null;
+}
+
+/** Change one trial's exact end date; it must remain after its start and not overlap another period. */
+export class UpdateTrialBodyDto {
+  @Transform(trimmed)
+  @Matches(DATE_ONLY, { message: 'endsAt must be YYYY-MM-DD' })
+  endsAt!: string;
 }
 
 export class PaymentBodyDto {

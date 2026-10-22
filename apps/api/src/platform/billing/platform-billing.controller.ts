@@ -15,6 +15,8 @@ import {
   CountryBodyDto,
   PaymentBodyDto,
   SubscriptionBodyDto,
+  TrialBodyDto,
+  UpdateTrialBodyDto,
   VoidPaymentBodyDto,
 } from '../dto/billing.dto';
 import {
@@ -29,6 +31,7 @@ import {
   type BillingView,
   type ContractView,
   type SubscriptionInput,
+  type TrialInput,
   type SubscriptionPreview,
   type SubscriptionView,
 } from './platform-billing.service';
@@ -110,6 +113,21 @@ const REFUSALS: Record<
     code: 'PAYMENT_ALREADY_VOIDED',
     message: 'This payment is already voided.',
   },
+  TRIAL_DISABLED: {
+    status: HttpStatus.UNPROCESSABLE_ENTITY,
+    code: 'TRIAL_DISABLED',
+    message: 'Free trials are disabled.',
+  },
+  NOT_A_TRIAL: {
+    status: HttpStatus.CONFLICT,
+    code: 'NOT_A_TRIAL',
+    message: 'This subscription is not a trial.',
+  },
+  TRIAL_PAYMENT_NOT_ALLOWED: {
+    status: HttpStatus.CONFLICT,
+    code: 'TRIAL_PAYMENT_NOT_ALLOWED',
+    message: 'Payments cannot be recorded on a free trial.',
+  },
 };
 
 /** The data of an accepted billing change, or the HTTP error for a refused one. */
@@ -126,6 +144,13 @@ const toInput = (body: SubscriptionBodyDto): SubscriptionInput => ({
   discount: body.discount
     ? { type: body.discount.type, value: body.discount.value }
     : null,
+  notes: body.notes ?? null,
+});
+
+const toTrialInput = (body: TrialBodyDto): TrialInput => ({
+  packageId: body.packageId,
+  startsAt: body.startsAt ?? null,
+  durationDays: body.durationDays,
   notes: body.notes ?? null,
 });
 
@@ -188,6 +213,38 @@ export class PlatformBillingController {
         request.platformAdmin,
         restaurantId,
         toInput(body),
+      ),
+    );
+  }
+
+  @Post('restaurants/:restaurantId/trials')
+  @UseGuards(PlatformAuthGuard)
+  async createTrial(
+    @Param('restaurantId') restaurantId: string,
+    @Body() body: TrialBodyDto,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: SubscriptionView }> {
+    return unwrap(
+      await this.billing.createTrial(
+        request.platformAdmin,
+        restaurantId,
+        toTrialInput(body),
+      ),
+    );
+  }
+
+  @Put('subscriptions/:subscriptionId/trial')
+  @UseGuards(PlatformAuthGuard)
+  async updateTrial(
+    @Param('subscriptionId') subscriptionId: string,
+    @Body() body: UpdateTrialBodyDto,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: SubscriptionView }> {
+    return unwrap(
+      await this.billing.updateTrial(
+        request.platformAdmin,
+        subscriptionId,
+        body.endsAt,
       ),
     );
   }

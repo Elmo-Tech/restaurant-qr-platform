@@ -7,13 +7,15 @@ import { getBilling, setBillingCountry, type RestaurantBilling, type Subscriptio
 import type { PackageSummary } from "@/lib/api/platform";
 import { useI18n } from "@/lib/i18n/client";
 import { NewSubscriptionForm } from "./NewSubscriptionForm";
+import { NewTrialForm } from "./NewTrialForm";
 import { SubscriptionCard } from "./SubscriptionCard";
+import { TrialCard } from "./TrialCard";
 
 /** The countries the team usually bills; anything else is typed as a two-letter code. */
 const COUNTRIES = ["EG", "SA", "AE", "KW", "QA", "BH", "OM", "JO", "LB", "IQ", "LY", "SD", "MA", "DZ", "TN", "US", "GB"] as const;
 const OTHER = "__other";
 
-type Notice = "pay.recorded" | "pay.voidedNotice" | "sub.cancelled" | "subForm.created" | "billing.countrySaved";
+type Notice = "pay.recorded" | "pay.voidedNotice" | "sub.cancelled" | "subForm.created" | "trialForm.created" | "trial.updated" | "billing.countrySaved";
 
 /**
  * A restaurant's subscription, payments and contract (DEC-049). The Backend decides every price, date and
@@ -35,7 +37,7 @@ export function BillingSection({
   const { t, locale } = useI18n();
   const [billing, setBilling] = useState<RestaurantBilling | null>(null);
   const [failed, setFailed] = useState(false);
-  const [creating, setCreating] = useState(false);
+  const [creating, setCreating] = useState<"PAID" | "TRIAL" | null>(null);
   const [notice, setNotice] = useState<Notice | null>(null);
   const [problem, setProblem] = useState<string | null>(null);
   const [countryChoice, setCountryChoice] = useState("");
@@ -103,9 +105,16 @@ export function BillingSection({
           description={t("billing.hint")}
           action={
             !creating ? (
-              <Button variant="primary" size="sm" onClick={() => setCreating(true)}>
-                {current ? t("billing.renew") : t("billing.new")}
-              </Button>
+              <div className="flex flex-wrap gap-2">
+                {billing.trial.enabled ? (
+                  <Button size="sm" onClick={() => setCreating("TRIAL")}>
+                    {t("billing.startTrial")}
+                  </Button>
+                ) : null}
+                <Button variant="primary" size="sm" onClick={() => setCreating("PAID")}>
+                  {current ? t("billing.renew") : t("billing.new")}
+                </Button>
+              </div>
             ) : null
           }
         />
@@ -151,15 +160,31 @@ export function BillingSection({
       {notice ? <Alert tone="success">{t(notice)}</Alert> : null}
       {problem ? <Alert tone="danger">{problem}</Alert> : null}
 
-      {creating ? (
+      {creating === "PAID" ? (
         <NewSubscriptionForm
           restaurantId={restaurantId}
           packages={selectable}
           graceDays={billing.graceDays}
-          onCancel={() => setCreating(false)}
+          onCancel={() => setCreating(null)}
           onCreated={() => {
-            setCreating(false);
+            setCreating(null);
             setNotice("subForm.created");
+            void load();
+            onSynced();
+          }}
+        />
+      ) : null}
+
+      {creating === "TRIAL" ? (
+        <NewTrialForm
+          restaurantId={restaurantId}
+          packages={selectable.filter((pkg) => pkg.status === "ACTIVE")}
+          defaultDays={billing.trial.defaultDays}
+          defaultPackageId={billing.trial.defaultPackageId}
+          onCancel={() => setCreating(null)}
+          onCreated={() => {
+            setCreating(null);
+            setNotice("trialForm.created");
             void load();
             onSynced();
           }}
@@ -174,27 +199,26 @@ export function BillingSection({
       ) : null}
 
       {current ? (
-        <SubscriptionCard
-          subscription={current}
-          highlight
-          onChanged={replace}
-          onSynced={onSynced}
-          onNotice={setNotice}
-        />
+        current.kind === "TRIAL" ? (
+          <TrialCard
+            subscription={current}
+            highlight
+            onChanged={replace}
+            onSynced={onSynced}
+            onNotice={() => setNotice("trial.updated")}
+          />
+        ) : (
+          <SubscriptionCard subscription={current} highlight onChanged={replace} onSynced={onSynced} onNotice={setNotice} />
+        )
       ) : null}
 
       {earlier.length > 0 ? (
         <section aria-label={t("billing.history")} className="space-y-4">
           <h2 className="pt-2 text-[13px] font-semibold uppercase tracking-wide text-muted-foreground">{t("billing.history")}</h2>
-          {earlier.map((sub) => (
-            <SubscriptionCard
-              key={sub.id}
-              subscription={sub}
-              highlight={false}
-              onChanged={replace}
-              onSynced={onSynced}
-              onNotice={setNotice}
-            />
+          {earlier.map((sub) => sub.kind === "TRIAL" ? (
+            <TrialCard key={sub.id} subscription={sub} highlight={false} onChanged={replace} onSynced={onSynced} onNotice={() => setNotice("trial.updated")} />
+          ) : (
+            <SubscriptionCard key={sub.id} subscription={sub} highlight={false} onChanged={replace} onSynced={onSynced} onNotice={setNotice} />
           ))}
         </section>
       ) : null}

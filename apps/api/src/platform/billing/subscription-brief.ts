@@ -12,13 +12,14 @@ import {
  * (DEC-049). Pure: the same phase and payment rules as the subscription page, applied to the rows given.
  */
 export interface SubscriptionBrief {
+  kind: 'PAID' | 'TRIAL';
   phase: SubscriptionPhase;
   daysLeft: number;
   graceDaysLeft: number;
   /** YYYY-MM-DD. */
   endsAt: string;
   packageName: string;
-  period: 'MONTHLY' | 'YEARLY';
+  period: 'MONTHLY' | 'YEARLY' | null;
   currencyCode: string;
   /** What is still owed (money as a string; negative = paid more than agreed). */
   balance: string;
@@ -27,10 +28,11 @@ export interface SubscriptionBrief {
 
 export interface BriefInput {
   status: 'ACTIVE' | 'CANCELLED';
+  kind: 'PAID' | 'TRIAL';
   startsAt: Date;
   endsAt: Date;
   packageName: string;
-  period: 'MONTHLY' | 'YEARLY';
+  period: 'MONTHLY' | 'YEARLY' | null;
   currencyCode: string;
   finalPrice: Prisma.Decimal;
   /** Payments that are not voided. */
@@ -43,7 +45,11 @@ export function subscriptionBrief(
   graceDays: number,
 ): SubscriptionBrief | null {
   const rows = subscriptions.map((row) => {
-    const info = subscriptionPhase(row, today, graceDays);
+    const info = subscriptionPhase(
+      row,
+      today,
+      row.kind === 'TRIAL' ? 0 : graceDays,
+    );
     return {
       row,
       info,
@@ -60,6 +66,7 @@ export function subscriptionBrief(
     row.payments.map((p) => p.amount),
   );
   return {
+    kind: row.kind,
     phase: info.phase,
     daysLeft: info.daysLeft,
     graceDaysLeft: info.graceDaysLeft,

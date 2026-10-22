@@ -20,6 +20,7 @@ import {
 } from './pricing';
 import {
   formatDateOnly,
+  addDays,
   parseDateOnly,
   periodEnd,
   pickCurrent,
@@ -48,7 +49,10 @@ export type BillingRefusal =
   | 'SUBSCRIPTION_CANCELLED'
   | 'ALREADY_CANCELLED'
   | 'PAYMENT_NOT_FOUND'
-  | 'ALREADY_VOIDED';
+  | 'ALREADY_VOIDED'
+  | 'TRIAL_DISABLED'
+  | 'NOT_A_TRIAL'
+  | 'TRIAL_PAYMENT_NOT_ALLOWED';
 
 export type BillingOutcome<T> =
   { outcome: 'ok'; data: T } | { outcome: BillingRefusal };
@@ -59,6 +63,13 @@ export interface SubscriptionInput {
   /** YYYY-MM-DD; missing = today, or the day the last subscription ends when it is still running. */
   startsAt: string | null;
   discount: { type: DiscountKind; value: string } | null;
+  notes: string | null;
+}
+
+export interface TrialInput {
+  packageId: string;
+  startsAt: string | null;
+  durationDays: number;
   notes: string | null;
 }
 
@@ -105,7 +116,8 @@ export interface SubscriptionView extends PriceView {
   id: string;
   packageId: string;
   packageName: string;
-  period: BillingPeriodKey;
+  kind: 'PAID' | 'TRIAL';
+  period: BillingPeriodKey | null;
   startsAt: string;
   endsAt: string;
   status: 'ACTIVE' | 'CANCELLED';
@@ -135,6 +147,11 @@ export interface BillingView {
     billingCurrency: BillingCurrency;
   };
   graceDays: number;
+  trial: {
+    enabled: boolean;
+    defaultDays: number;
+    defaultPackageId: string | null;
+  };
   /** The subscription that matters now: running, else in grace, else the next one, else the latest. */
   currentId: string | null;
   subscriptions: SubscriptionView[];
@@ -261,7 +278,11 @@ function subscriptionView(
   today: Date,
   graceDays: number,
 ): SubscriptionView {
-  const phase = subscriptionPhase(row, today, graceDays);
+  const phase = subscriptionPhase(
+    row,
+    today,
+    row.kind === 'TRIAL' ? 0 : graceDays,
+  );
   const summary = paymentSummary(
     row.finalPrice,
     row.payments.filter((p) => p.voidedAt === null).map((p) => p.amount),
@@ -271,6 +292,7 @@ function subscriptionView(
     id: row.id,
     packageId: row.packageId,
     packageName: row.packageName,
+    kind: row.kind,
     period: row.period,
     startsAt: formatDateOnly(row.startsAt),
     endsAt: formatDateOnly(row.endsAt),
@@ -327,6 +349,10 @@ export class PlatformBillingService {
       },
     });
     if (!restaurant) return { outcome: 'RESTAURANT_NOT_FOUND' };
+    const trialSettings = await this.prisma.platformTrialSettings.findUnique({
+      where: { id: 'trial' },
+      select: { enabled: true, defaultDays: true, defaultPackageId: true },
+    });
     const today = todayInCairo();
     const subscriptions = restaurant.subscriptions.map((row) =>
       subscriptionView(row, today, this.graceDays),
@@ -342,6 +368,11 @@ export class PlatformBillingService {
           billingCurrency: currencyForCountry(restaurant.countryCode),
         },
         graceDays: this.graceDays,
+        trial: {
+          enabled: trialSettings?.enabled ?? true,
+          defaultDays: trialSettings?.defaultDays ?? 15,
+          defaultPackageId: trialSettings?.defaultPackageId ?? null,
+        },
         currentId: pickCurrent(subscriptions)?.id ?? null,
         subscriptions,
       },
@@ -472,6 +503,189 @@ export class PlatformBillingService {
     };
   }
 
+  async createTrial(
+    admin: PlatformAdminPrincipal,
+    restaurantId: string,
+    input: TrialInput,
+  ): Promise<BillingOutcome<SubscriptionView>> {
+    if (!UUID.test(restaurantId)) return { outcome: 'RESTAURANT_NOT_FOUND' };
+    if (!UUID.test(input.packageId)) return { outcome: 'PACKAGE_NOT_FOUND' };
+    if (
+      !Number.isInteger(input.durationDays) ||
+      input.durationDays < 1 ||
+      input.durationDays > 365
+    ) {
+      return { outcome: 'INVALID_DATE' };
+    }
+
+    const [restaurant, pkg, settings] = await Promise.all([
+      this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: {
+          id: true,
+          name: true,
+          countryCode: true,
+          subscriptions: {
+            where: { status: 'ACTIVE' },
+            select: { startsAt: true, endsAt: true },
+          },
+        },
+      }),
+      this.prisma.package.findUnique({
+        where: { id: input.packageId },
+        select: { id: true, name: true, status: true },
+      }),
+      this.prisma.platformTrialSettings.findUnique({
+        where: { id: 'trial' },
+        select: { enabled: true },
+      }),
+    ]);
+    if (!restaurant) return { outcome: 'RESTAURANT_NOT_FOUND' };
+    if (!pkg) return { outcome: 'PACKAGE_NOT_FOUND' };
+    if (pkg.status !== 'ACTIVE') return { outcome: 'PACKAGE_ARCHIVED' };
+    if (settings?.enabled === false) return { outcome: 'TRIAL_DISABLED' };
+
+    const startsAt = input.startsAt
+      ? parseDateOnly(input.startsAt)
+      : todayInCairo();
+    if (!startsAt) return { outcome: 'INVALID_DATE' };
+    const endsAt = addDays(startsAt, input.durationDays);
+    const overlaps = restaurant.subscriptions.some(
+      (sub) => sub.startsAt < endsAt && sub.endsAt > startsAt,
+    );
+    if (overlaps) return { outcome: 'OVERLAP' };
+
+    const currencyCode = currencyForCountry(restaurant.countryCode);
+    let created: SubscriptionRow | 'OVERLAP';
+    try {
+      created = await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM restaurants WHERE id = ${restaurantId}::uuid FOR UPDATE`;
+        const clash = await tx.subscription.findFirst({
+          where: {
+            restaurantId,
+            status: 'ACTIVE',
+            startsAt: { lt: endsAt },
+            endsAt: { gt: startsAt },
+          },
+          select: { id: true },
+        });
+        if (clash) return 'OVERLAP' as const;
+        return tx.subscription.create({
+          data: {
+            restaurantId,
+            packageId: pkg.id,
+            packageName: pkg.name,
+            kind: 'TRIAL',
+            period: null,
+            startsAt,
+            endsAt,
+            currencyCode,
+            listPrice: 0,
+            offerAmount: 0,
+            discountAmount: 0,
+            finalPrice: 0,
+            notes: input.notes,
+            createdByAdminId: admin.adminId,
+            createdByEmail: admin.email,
+          },
+          include: subscriptionInclude,
+        });
+      });
+    } catch (error) {
+      if (isOverlapViolation(error)) return { outcome: 'OVERLAP' };
+      throw error;
+    }
+    if (created === 'OVERLAP') return { outcome: 'OVERLAP' };
+
+    await this.audit.record({
+      admin,
+      action: 'trial.created',
+      restaurant: { id: restaurant.id, name: restaurant.name },
+      details: {
+        subscriptionId: created.id,
+        package: pkg.name,
+        startsAt: formatDateOnly(startsAt),
+        endsAt: formatDateOnly(endsAt),
+        durationDays: input.durationDays,
+      },
+    });
+    await this.sync.syncRestaurant(restaurantId);
+    return {
+      outcome: 'ok',
+      data: subscriptionView(created, todayInCairo(), this.graceDays),
+    };
+  }
+
+  async updateTrial(
+    admin: PlatformAdminPrincipal,
+    subscriptionId: string,
+    endsAtValue: string,
+  ): Promise<BillingOutcome<SubscriptionView>> {
+    if (!UUID.test(subscriptionId))
+      return { outcome: 'SUBSCRIPTION_NOT_FOUND' };
+    const endsAt = parseDateOnly(endsAtValue);
+    if (!endsAt) return { outcome: 'INVALID_DATE' };
+    const found = await this.prisma.subscription.findUnique({
+      where: { id: subscriptionId },
+      select: {
+        id: true,
+        kind: true,
+        status: true,
+        startsAt: true,
+        endsAt: true,
+        restaurant: { select: { id: true, name: true } },
+      },
+    });
+    if (!found) return { outcome: 'SUBSCRIPTION_NOT_FOUND' };
+    if (found.kind !== 'TRIAL') return { outcome: 'NOT_A_TRIAL' };
+    if (found.status === 'CANCELLED')
+      return { outcome: 'SUBSCRIPTION_CANCELLED' };
+    if (endsAt <= found.startsAt) return { outcome: 'INVALID_DATE' };
+
+    let row: SubscriptionRow | 'OVERLAP';
+    try {
+      row = await this.prisma.$transaction(async (tx) => {
+        await tx.$queryRaw`SELECT id FROM restaurants WHERE id = ${found.restaurant.id}::uuid FOR UPDATE`;
+        const clash = await tx.subscription.findFirst({
+          where: {
+            restaurantId: found.restaurant.id,
+            id: { not: found.id },
+            status: 'ACTIVE',
+            startsAt: { lt: endsAt },
+            endsAt: { gt: found.startsAt },
+          },
+          select: { id: true },
+        });
+        if (clash) return 'OVERLAP' as const;
+        return tx.subscription.update({
+          where: { id: found.id },
+          data: { endsAt },
+          include: subscriptionInclude,
+        });
+      });
+    } catch (error) {
+      if (isOverlapViolation(error)) return { outcome: 'OVERLAP' };
+      throw error;
+    }
+    if (row === 'OVERLAP') return { outcome: 'OVERLAP' };
+
+    await this.audit.record({
+      admin,
+      action: 'trial.updated',
+      restaurant: found.restaurant,
+      details: {
+        subscriptionId: found.id,
+        from: formatDateOnly(found.endsAt),
+        to: formatDateOnly(endsAt),
+      },
+    });
+    await this.sync.syncRestaurant(found.restaurant.id);
+    return {
+      outcome: 'ok',
+      data: subscriptionView(row, todayInCairo(), this.graceDays),
+    };
+  }
+
   async cancel(
     admin: PlatformAdminPrincipal,
     subscriptionId: string,
@@ -504,6 +718,7 @@ export class PlatformBillingService {
   ): Promise<BillingOutcome<SubscriptionView>> {
     const found = await this.findSubscription(subscriptionId);
     if (!found) return { outcome: 'SUBSCRIPTION_NOT_FOUND' };
+    if (found.kind === 'TRIAL') return { outcome: 'TRIAL_PAYMENT_NOT_ALLOWED' };
     if (found.status === 'CANCELLED')
       return { outcome: 'SUBSCRIPTION_CANCELLED' };
     if (!MONEY.test(input.amount) || new Decimal(input.amount).lte(0)) {
@@ -639,6 +854,7 @@ export class PlatformBillingService {
       where: { id: subscriptionId },
       select: {
         id: true,
+        kind: true,
         status: true,
         currencyCode: true,
         restaurant: { select: { id: true, name: true } },

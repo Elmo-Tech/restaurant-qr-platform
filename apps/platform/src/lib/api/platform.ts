@@ -35,6 +35,13 @@ export interface PlatformPublicSettings {
   updatedAt: string | null;
 }
 
+export interface PlatformTrialSettings {
+  enabled: boolean;
+  defaultDays: number;
+  defaultPackage: { id: string; name: string } | null;
+  updatedAt: string | null;
+}
+
 export interface AuditEntry {
   id: string;
   action: string;
@@ -52,12 +59,13 @@ export interface MoneyTotal {
 
 /** Where a restaurant's subscription stands today (DEC-049). */
 export interface SubscriptionBrief {
+  kind: "PAID" | "TRIAL";
   phase: "ACTIVE" | "GRACE" | "EXPIRED" | "UPCOMING" | "CANCELLED";
   daysLeft: number;
   graceDaysLeft: number;
   endsAt: string;
   packageName: string;
-  period: "MONTHLY" | "YEARLY";
+  period: "MONTHLY" | "YEARLY" | null;
   currencyCode: string;
   balance: string;
   paymentStatus: string;
@@ -228,11 +236,32 @@ export const updatePublicSettings = (poweredByUrl: string) =>
       body: { poweredByUrl },
     }),
   );
+export const getTrialSettings = () =>
+  data(platformFetch<{ data: PlatformTrialSettings }>("/settings/trial"));
+export const updateTrialSettings = (input: {
+  enabled: boolean;
+  defaultDays: number;
+  defaultPackageId: string | null;
+}) =>
+  data(
+    platformFetch<{ data: PlatformTrialSettings }>("/settings/trial", {
+      method: "PUT",
+      body: input,
+    }),
+  );
+export const adjustActiveTrials = (days: number) =>
+  data(
+    platformFetch<{ data: { adjusted: number; skipped: number } }>("/settings/trial/adjust-active", {
+      method: "POST",
+      body: { days },
+    }),
+  );
 
-export function listRestaurants(input: { search: string; status: RestaurantStatus | ""; page: number }) {
+export function listRestaurants(input: { search: string; status: RestaurantStatus | ""; subscription?: "TRIAL" | "PAID" | "NONE" | ""; page: number }) {
   const params = new URLSearchParams({ page: String(input.page), pageSize: "20" });
   if (input.search.trim()) params.set("search", input.search.trim());
   if (input.status) params.set("status", input.status);
+  if (input.subscription) params.set("subscription", input.subscription);
   return data(platformFetch<{ data: RestaurantPage }>(`/restaurants?${params.toString()}`));
 }
 export const getRestaurant = (id: string) =>

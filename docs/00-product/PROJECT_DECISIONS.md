@@ -1337,6 +1337,33 @@ a Restaurant branding field.
 
 ---
 
+### DEC-056 — First-Class Restaurant Trials
+
+**Status:** Accepted (owner, 2026-10-22).
+
+A free trial is a temporary **Subscription kind**, not a fifth Package. It references one real
+Package, so that Package remains the single definition of the features and menu templates the
+Restaurant may use. A trial stores its own start and end dates, has no billing period, price,
+payment ledger or Contract, and receives no post-expiry grace period. Its expiry keeps all
+Restaurant data but follows the normal subscription suspension mechanism.
+
+The Platform console starts a trial from the Restaurant's **Subscription and billing** section.
+The administrator chooses the Package, start date and duration; the global defaults are controlled
+from Platform Settings (initially enabled, 15 days, with an optional default Package). Changing a
+global default affects new trials only. An individual active or upcoming trial may have its end date
+changed, subject to the same non-overlap rule as paid subscriptions, and every create/change is
+audited. A paid subscription may be scheduled to begin when the trial ends.
+
+The public landing keeps the four commercial Package cards and its existing free-trial calls to
+action. A trial request remains a `SignupLead`; creating the Restaurant and starting the trial is a
+deliberate Platform-team action. Restaurant-facing subscription UI identifies the period as a free
+trial, shows its exact end date and days remaining, and does not show payment totals for it.
+
+**Not in scope:** self-service trial activation, automatic conversion or charging, or a separate
+Trial Package with duplicated entitlements.
+
+---
+
 ---
 
 ---

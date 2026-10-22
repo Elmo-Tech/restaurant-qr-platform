@@ -44,7 +44,8 @@ export interface Subscription extends PriceBreakdown {
   id: string;
   packageId: string;
   packageName: string;
-  period: BillingPeriod;
+  kind: "PAID" | "TRIAL";
+  period: BillingPeriod | null;
   startsAt: string;
   endsAt: string;
   status: "ACTIVE" | "CANCELLED";
@@ -65,6 +66,7 @@ export interface Subscription extends PriceBreakdown {
 export interface RestaurantBilling {
   restaurant: { id: string; name: string; status: string; countryCode: string; billingCurrency: BillingCurrency };
   graceDays: number;
+  trial: { enabled: boolean; defaultDays: number; defaultPackageId: string | null };
   /** The subscription that matters now (running, else in grace, else next, else latest). */
   currentId: string | null;
   subscriptions: Subscription[];
@@ -76,6 +78,13 @@ export interface SubscriptionInput {
   /** YYYY-MM-DD; omitted = today, or the day the running subscription ends. */
   startsAt?: string;
   discount?: { type: DiscountType; value: string };
+  notes?: string;
+}
+
+export interface TrialInput {
+  packageId: string;
+  startsAt?: string;
+  durationDays: number;
   notes?: string;
 }
 
@@ -132,6 +141,22 @@ export const createSubscription = (restaurantId: string, input: SubscriptionInpu
     platformFetch<{ data: Subscription }>(`/restaurants/${enc(restaurantId)}/subscriptions`, {
       method: "POST",
       body: input,
+    }),
+  );
+
+export const createTrial = (restaurantId: string, input: TrialInput) =>
+  data(
+    platformFetch<{ data: Subscription }>(`/restaurants/${enc(restaurantId)}/trials`, {
+      method: "POST",
+      body: input,
+    }),
+  );
+
+export const updateTrial = (subscriptionId: string, endsAt: string) =>
+  data(
+    platformFetch<{ data: Subscription }>(`/subscriptions/${enc(subscriptionId)}/trial`, {
+      method: "PUT",
+      body: { endsAt },
     }),
   );
 

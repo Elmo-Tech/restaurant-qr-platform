@@ -50,7 +50,7 @@ export function SubscriptionChip({
         {label}
       </Badge>
       <p className="mt-1 text-xs text-muted-foreground">
-        {t(`sub.period.${brief.period}`)} · {fmt.date(`${brief.endsAt}T12:00:00`)}
+        {brief.kind === "TRIAL" ? t("sub.kind.TRIAL") : brief.period ? t(`sub.period.${brief.period}`) : ""} · {fmt.date(`${brief.endsAt}T12:00:00`)}
       </p>
       {owes ? (
         <p dir="ltr" className="tabular mt-0.5 text-start text-xs font-medium text-warning">

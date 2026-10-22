@@ -21,10 +21,14 @@ const ACTION_LABEL: Record<string, MessageKey> = {
   "package.updated": "action.package.updated",
   "package.deleted": "action.package.deleted",
   "platform.public_settings_updated": "action.platform.public_settings_updated",
+  "platform.trial_settings_updated": "action.platform.trial_settings_updated",
+  "platform.active_trials_adjusted": "action.platform.active_trials_adjusted",
   "restaurant.country_changed": "action.restaurant.country_changed",
   "restaurant.auto_suspended": "action.restaurant.auto_suspended",
   "restaurant.auto_reactivated": "action.restaurant.auto_reactivated",
   "subscription.created": "action.subscription.created",
+  "trial.created": "action.trial.created",
+  "trial.updated": "action.trial.updated",
   "subscription.cancelled": "action.subscription.cancelled",
   "payment.recorded": "action.payment.recorded",
   "payment.voided": "action.payment.voided",
@@ -85,6 +89,12 @@ export function describeChange(entry: AuditEntry, t: Translate): string {
       to: String(details.endsAt ?? ""),
       price: `${String(details.finalPrice ?? "")} ${String(details.currency ?? "")}`.trim(),
     });
+  }
+  if (entry.action === "trial.created") {
+    return `${String(details.package ?? "")} · ${String(details.startsAt ?? "")} → ${String(details.endsAt ?? "")}`;
+  }
+  if (entry.action === "trial.updated") {
+    return `${String(details.from ?? "")} → ${String(details.to ?? "")}`;
   }
   if (entry.action === "subscription.cancelled") {
     return String(details.package ?? "");

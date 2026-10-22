@@ -37,9 +37,10 @@ import { PlatformAuditService } from '../platform/platform-audit.service';
 import { upgradeCandidates } from './plan-options';
 
 export interface PlanSubscriptionView {
+  kind: 'PAID' | 'TRIAL';
   phase: SubscriptionPhase;
   packageName: string;
-  period: BillingPeriodKey;
+  period: BillingPeriodKey | null;
   startsAt: string;
   endsAt: string;
   daysLeft: number;
@@ -216,7 +217,11 @@ export class MySubscriptionService {
     const today = todayInCairo();
 
     const rows = restaurant.subscriptions.map((row) => {
-      const info = subscriptionPhase(row, today, this.graceDays);
+      const info = subscriptionPhase(
+        row,
+        today,
+        row.kind === 'TRIAL' ? 0 : this.graceDays,
+      );
       return {
         row,
         info,
@@ -234,6 +239,7 @@ export class MySubscriptionService {
         row.payments.map((p) => p.amount),
       );
       subscription = {
+        kind: row.kind,
         phase: current.phase,
         packageName: row.packageName,
         period: row.period,
