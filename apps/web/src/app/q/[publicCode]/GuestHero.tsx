@@ -183,6 +183,11 @@ export interface GuestHeroProps {
   /** EMBER marketing copy (localized by the caller). */
   emberHeadline?: string | null;
   emberSubtitle?: string | null;
+  emberNavTagline?: string | null;
+  emberEyebrow?: string | null;
+  emberSignature?: string | null;
+  emberMarquee?: string | null;
+  emberPhotoFallbackUrl?: string | null;
   /** Actual restaurant product photo for the cinematic composition (not a demo illustration). */
   emberPhotoUrl?: string | null;
   /** EMBER top navigation opens the existing shared cart. */

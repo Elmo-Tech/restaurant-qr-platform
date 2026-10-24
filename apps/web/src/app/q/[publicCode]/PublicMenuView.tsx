@@ -989,7 +989,10 @@ export function PublicMenuView({
       .find((product) => product.featured && product.primaryImageAssetPath && product.availability !== 'SOLD_OUT') ??
     data.menu.categories.flatMap((category) => category.products)
       .find((product) => product.primaryImageAssetPath && product.availability !== 'SOLD_OUT');
-  const emberPhotoUrl = resolveAssetUrl(emberHeroProduct?.primaryImageAssetPath ?? null);
+  const emberAutoPhotoUrl = resolveAssetUrl(emberHeroProduct?.primaryImageAssetPath ?? null);
+  const emberPhotoUrl = emberSettings.heroImageMode === 'CUSTOM' && emberSettings.heroImageAssetPath
+    ? resolveAssetUrl(emberSettings.heroImageAssetPath)
+    : emberAutoPhotoUrl;
 
   const heroProps: GuestHeroProps = {
     sentinelRef: navigation.headerRef,
@@ -999,7 +1002,12 @@ export function PublicMenuView({
     menuDescription: data.menu.description,
     emberHeadline: locale === 'ar' ? emberSettings.headlineAr : emberSettings.headlineEn,
     emberSubtitle: locale === 'ar' ? emberSettings.subtitleAr : emberSettings.subtitleEn,
+    emberNavTagline: locale === 'ar' ? emberSettings.navTaglineAr : emberSettings.navTaglineEn,
+    emberEyebrow: locale === 'ar' ? emberSettings.eyebrowAr : emberSettings.eyebrowEn,
+    emberSignature: locale === 'ar' ? emberSettings.signatureAr : emberSettings.signatureEn,
+    emberMarquee: locale === 'ar' ? emberSettings.marqueeAr : emberSettings.marqueeEn,
     emberPhotoUrl,
+    emberPhotoFallbackUrl: emberAutoPhotoUrl,
     emberCartCount: cartCount,
     onEmberCartOpen: canOrder ? () => setIsCartOpen(true) : undefined,
     tableNumber: data.context.table?.number ?? null,

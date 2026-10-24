@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { GuestIconDish } from '../../../components/guest/icons';
 import { HeroContactIcons } from './GuestContact';
 import { HeroActions, LanguageSwitch, LogoTile, type GuestHeroProps } from './GuestHero';
@@ -14,20 +14,19 @@ import { HoursBadge } from './HoursBadge';
  */
 export function GuestHeroEmber({ sentinelRef, ...p }: GuestHeroProps) {
   const [imageIndex, setImageIndex] = useState(0);
-  const photos = [p.emberPhotoUrl, p.coverUrl].filter(
+  const photos = [...new Set([p.emberPhotoUrl, p.emberPhotoFallbackUrl, p.coverUrl])].filter(
     (url): url is string => typeof url === 'string' && url.length > 0,
   );
   const photo = photos[imageIndex] ?? null;
+  useEffect(() => { setImageIndex(0); }, [p.emberPhotoUrl, p.emberPhotoFallbackUrl, p.coverUrl]);
   const arabic = p.locale.resolved === 'ar';
   const headline = p.emberHeadline?.trim() || 'FIRE FIRST.';
   const segments = headline.split(/\s+/);
   const headlineTop = segments.shift() || headline;
   const headlineBottom = segments.join(' ');
-  const subtitle = p.emberSubtitle || p.menuDescription || (
-    arabic
-      ? 'مذاق مختلف. أطباق تتحضّر بعناية، وتجربة تستحقها كل مرة.'
-      : 'Bold flavors. Freshly crafted. Every bite worth remembering.'
-  );
+  const subtitle = p.emberSubtitle || (arabic
+    ? 'مذاق مختلف. أطباق تتحضّر بعناية، وتجربة تستحقها كل مرة.'
+    : 'Bold flavors. Freshly crafted. Every bite worth remembering.');
 
   return (
     <>
@@ -42,7 +41,7 @@ export function GuestHeroEmber({ sentinelRef, ...p }: GuestHeroProps) {
             <span className="ember-v2-brand-name" dir="auto"><bdi>{p.restaurantName}</bdi><span className="ember-v2-brand-dot">.</span></span>
           </div>
           <span className="ember-v2-nav-note" aria-hidden="true">
-            {arabic ? 'نكهة مختلفة · طعم لا يُنسى' : 'BOLD FLAVORS · MADE FRESH'}
+            {p.emberNavTagline || (arabic ? 'نكهة مختلفة · طعم لا يُنسى' : 'BOLD FLAVORS · MADE FRESH')}
           </span>
           <button
             type="button"
@@ -62,7 +61,7 @@ export function GuestHeroEmber({ sentinelRef, ...p }: GuestHeroProps) {
         <div className="ember-v2-campaign">
           <div className="ember-v2-campaign-copy">
             <p className="ember-v2-eyebrow" dir="ltr">
-              THE ART OF THE PERFECT BITE <span aria-hidden="true">— 01</span>
+              {p.emberEyebrow || 'THE ART OF THE PERFECT BITE — 01'}
             </p>
             <h1 className="ember-v2-headline" dir={arabic ? 'rtl' : 'ltr'}>
               <span>{headlineTop}</span>
@@ -70,7 +69,7 @@ export function GuestHeroEmber({ sentinelRef, ...p }: GuestHeroProps) {
             </h1>
             <p className="ember-v2-subtitle" dir="auto">{subtitle}</p>
             <div className="ember-v2-signature">
-              <span>{arabic ? 'طازج. مميز. معمول بحب.' : 'FRESH. BOLD. UNFORGETTABLE.'}</span>
+              <span>{p.emberSignature || (arabic ? 'طازج. مميز. معمول بحب.' : 'FRESH. BOLD. UNFORGETTABLE.')}</span>
               <span aria-hidden="true" />
             </div>
             {p.tableNumber || p.branchLine || p.hours ? (
@@ -121,7 +120,7 @@ export function GuestHeroEmber({ sentinelRef, ...p }: GuestHeroProps) {
       <div className="ember-v2-marquee" aria-hidden="true">
         <div className="ember-v2-marquee-track" dir="ltr">
           {Array.from({ length: 6 }, (_, index) => (
-            <span key={index}>✳ FRESH FOOD &nbsp; ✳ MADE WITH FIRE &nbsp; ✳ THE REAL DEAL &nbsp;</span>
+            <span key={index}>{p.emberMarquee || '✳ FRESH FOOD ✳ MADE WITH FIRE ✳ THE REAL DEAL'} &nbsp;&nbsp;&nbsp;</span>
           ))}
         </div>
       </div>

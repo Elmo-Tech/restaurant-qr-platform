@@ -114,7 +114,24 @@ export async function saveEmberTemplateDraft(
 ): Promise<EmberTemplateConfigView> {
   const body = await apiFetch<{ data: EmberTemplateConfigView }>(
     `${restaurantPath(restaurantId)}/ember-template/draft`,
-    { method: 'PATCH', body: settings },
+    // The image asset path is owned by the upload endpoint, not editable via JSON.
+    { method: 'PATCH', body: Object.fromEntries(
+      Object.entries(settings).filter(([key]) => key !== 'heroImageAssetPath'),
+    ) },
+  );
+  return body.data;
+}
+
+/** Store a separate EMBER-only hero picture in the private draft. */
+export async function uploadEmberTemplateHeroImage(
+  restaurantId: string,
+  file: File,
+): Promise<EmberTemplateConfigView> {
+  const formData = new FormData();
+  formData.set('image', file);
+  const body = await apiFetchFormData<{ data: EmberTemplateConfigView }>(
+    `${restaurantPath(restaurantId)}/ember-template/hero-image`,
+    formData,
   );
   return body.data;
 }
