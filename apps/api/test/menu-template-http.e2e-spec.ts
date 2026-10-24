@@ -259,6 +259,7 @@ describeSandbox('Guest menu template (real PostgreSQL)', () => {
       'CENTERED',
       'COMPACT',
       'EDITORIAL',
+      'EMBER',
       'CLASSIC',
     ]) {
       const res = await patch(owner, `${r}/menu-template`, {
