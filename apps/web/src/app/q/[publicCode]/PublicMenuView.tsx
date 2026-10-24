@@ -1001,7 +1001,7 @@ export function PublicMenuView({
     emberSubtitle: locale === 'ar' ? emberSettings.subtitleAr : emberSettings.subtitleEn,
     emberPhotoUrl,
     emberCartCount: cartCount,
-    onEmberCartOpen: () => setIsCartOpen(true),
+    onEmberCartOpen: canOrder ? () => setIsCartOpen(true) : undefined,
     tableNumber: data.context.table?.number ?? null,
     branchLine,
     copy,
