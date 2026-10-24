@@ -1,0 +1,34 @@
+name: EMBER Premium Pilot Checks
+
+on:
+  push:
+    branches:
+      - feat/ember-premium-template
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck-and-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate Prisma schema
+        run: npm run db:validate
+      - name: Backend TypeScript
+        run: npm run typecheck:api
+      - name: Guest and staff TypeScript
+        run: npm run typecheck:web
+      - name: Platform TypeScript
+        run: npm run typecheck:platform
+      - name: EMBER configuration and entitlements tests
+        run: npm run test --workspace=apps/api -- --runInBand ember-template-config.spec.ts templates.spec.ts
