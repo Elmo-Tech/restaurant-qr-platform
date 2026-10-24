@@ -183,6 +183,11 @@ export interface GuestHeroProps {
   /** EMBER marketing copy (localized by the caller). */
   emberHeadline?: string | null;
   emberSubtitle?: string | null;
+  /** Actual restaurant product photo for the cinematic composition (not a demo illustration). */
+  emberPhotoUrl?: string | null;
+  /** EMBER top navigation opens the existing shared cart. */
+  emberCartCount?: number;
+  onEmberCartOpen?: () => void;
   /** TABLE QR only. */
   tableNumber: string | null;
   /** The branch name, when exactly one branch applies. */
