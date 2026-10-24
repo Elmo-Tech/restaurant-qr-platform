@@ -413,3 +413,82 @@ html:has([data-guest-theme="light"]) {
 @media (prefers-reduced-motion: reduce) {
   .announce-track { animation: none; }
 }
+
+
+/* ---- EMBER cinematic premium template (isolated from the other designs). ----
+ * All accents are CSS variables, not arbitrary user-provided CSS. The Guest
+ * theme switch still works and reduced-motion accessibility is respected.
+ */
+.ember-experience {
+  --g-bg: #120d0a;
+  --g-surface: #211711;
+  --g-surface-2: #2d2019;
+  --g-line: #4b3528;
+  --g-text: #fff3e8;
+  --g-text-2: #dcc3b1;
+  --g-text-3: #b99781;
+  --g-accent: #f29653;
+  --g-on-accent: #291307;
+  --g-accent-soft: rgb(242 150 83 / 0.16);
+  --g-price: #ffb87c;
+  --g-accent-text: #ffb87c;
+  --g-shadow: 0 16px 44px rgb(0 0 0 / 0.36);
+  color: var(--g-text);
+  background: radial-gradient(ellipse at 95% 8%, rgb(121 55 25 / .12), transparent 36%), var(--g-bg);
+}
+[data-guest-theme='light'] .ember-experience {
+  --g-bg: #fcf6ef;
+  --g-surface: #fffaf5;
+  --g-surface-2: #f6e8db;
+  --g-line: #e5d0bf;
+  --g-text: #2b1911;
+  --g-text-2: #6f5141;
+  --g-text-3: #7e6051;
+  --g-accent: #ba5422;
+  --g-on-accent: #ffffff;
+  --g-accent-soft: #f9e5d9;
+  --g-price: #9d4218;
+  --g-accent-text: #934015;
+  --g-shadow: 0 14px 35px rgb(80 43 24 / .12);
+}
+.ember-experience .ember-hero-image {
+  animation: ember-reveal 1.2s cubic-bezier(.16,1,.3,1) both;
+}
+.ember-experience .ember-hero-content {
+  animation: ember-content-rise .72s .12s both;
+}
+.ember-experience main article.guest-anim-rise {
+  border-color: var(--g-line);
+  background: var(--g-surface);
+  box-shadow: var(--g-shadow);
+  transition: transform .32s ease-out, box-shadow .32s ease-out;
+}
+.ember-experience main article.guest-anim-rise:hover {
+  box-shadow: 0 22px 48px rgb(0 0 0 / .23);
+}
+.ember-experience main article.guest-anim-rise img {
+  transition: transform .65s cubic-bezier(.22,1,.36,1);
+}
+.ember-experience main article.guest-anim-rise:hover img {
+  transform: scale(1.065);
+}
+.ember-experience main section[id^='category'] {
+  scroll-margin-top: 110px;
+}
+@keyframes ember-reveal {
+  from { transform: scale(1.055); opacity: .7; }
+  to { transform: scale(1); opacity: 1; }
+}
+@keyframes ember-content-rise {
+  from { transform: translateY(14px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ember-experience .ember-hero-image,
+  .ember-experience .ember-hero-content {
+    animation: none !important;
+  }
+  .ember-experience main article.guest-anim-rise:hover img {
+    transform: none;
+  }
+}
