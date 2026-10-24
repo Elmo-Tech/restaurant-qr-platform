@@ -745,3 +745,33 @@ html:has([data-guest-theme="light"]) {
   border-color: var(--g-accent); background: var(--g-accent); color: var(--g-on-accent);
 }
 .ember-experience #ember-menu-start { scroll-margin-top: 14px; }
+
+
+/* Palette-specific hero lighting while maintaining legible real-product photography. */
+.ember-experience[data-ember-palette='NOIR'] .ember-v2-header {
+  background: radial-gradient(ellipse at 15% 55%, rgba(128, 105, 68, .18), transparent 48%), #0c0c10;
+}
+.ember-experience[data-ember-palette='NOIR'] .ember-v2-visual-glow {
+  background: radial-gradient(circle, rgba(191, 153, 105, .22), transparent 70%);
+}
+.ember-experience[data-ember-palette='COPPER'] .ember-v2-header {
+  background: radial-gradient(ellipse at 20% 40%, rgba(180, 88, 47, .20), transparent 50%), #1f110d;
+}
+.ember-experience[data-ember-palette='COPPER'] .ember-v2-visual-glow {
+  background: radial-gradient(circle, rgba(255, 150, 85, .26), transparent 70%);
+}
+/* Dark cinematic hero is deliberate; rest of the guest menu respects any light-mode choice. */
+.ember-experience main article.ember-v2-card {
+  border-color: var(--g-line); background: var(--g-surface);
+}
+.ember-experience .ember-v2-tab {
+  color: var(--g-text-2); background: var(--g-surface);
+  border-color: var(--g-line);
+}
+.ember-experience .ember-v2-tab:hover { color: var(--g-text); border-color: var(--g-accent); }
+.ember-experience .ember-v2-tab-active,
+.ember-experience .ember-v2-tab[aria-pressed='true'] {
+  color: var(--g-on-accent); border-color: var(--g-accent);
+  background: var(--g-accent);
+}
+.ember-experience .ember-v2-section-count { color: var(--g-text-3); }
