@@ -150,6 +150,10 @@ interface MenuSectionsProps {
   onIncrement: (productId: string) => void;
   onDecrement: (productId: string) => void;
   onClearSearch: () => void;
+  /** Active category tabs for EMBER's one-category-at-a-time composition. */
+  emberCategoryTabs?: { id: string; name: string }[];
+  emberActiveCategoryId?: string;
+  onEmberCategorySelect?: (id: string) => void;
   /** How the menu is laid out (DEC-044). */
   template?: MenuTemplate;
 }
@@ -196,6 +200,9 @@ function MenuSectionsImpl({
   onIncrement,
   onDecrement,
   onClearSearch,
+  emberCategoryTabs,
+  emberActiveCategoryId,
+  onEmberCategorySelect,
   template = DEFAULT_MENU_TEMPLATE,
 }: MenuSectionsProps) {
   const layout = layoutOf(template);
@@ -261,6 +268,22 @@ function MenuSectionsImpl({
             variant={layout.headings}
           />
         )}
+        {layout.cards === 'ember' && emberCategoryTabs?.length && onEmberCategorySelect ? (
+          <nav aria-label={copy.categories} className="ember-v2-tabs">
+            {emberCategoryTabs.map((tab) => (
+              <button
+                type="button"
+                key={tab.id}
+                aria-pressed={tab.id === emberActiveCategoryId}
+                className={`ember-v2-tab ${tab.id === emberActiveCategoryId ? 'ember-v2-tab-active' : ''}`}
+                onClick={() => onEmberCategorySelect(tab.id)}
+              >
+                <bdi>{tab.name}</bdi>
+              </button>
+            ))}
+          </nav>
+        ) : null}
+
         {category.description ? (
           <p
             dir="auto"
