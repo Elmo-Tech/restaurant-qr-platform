@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   UploadedFile,
   UseInterceptors,
@@ -80,6 +81,17 @@ export class EmberTemplateConfigController {
     await this.assertAvailable(id);
     assertValidImageUpload(file);
     return { data: await this.configs.setDraftImage(id, file.buffer, file.mimetype) };
+  }
+
+  @Delete('hero-image')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(CsrfGuard)
+  async resetHeroImage(
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: EmberConfigView }> {
+    const id = request.restaurantAccess.restaurantId;
+    await this.assertAvailable(id);
+    return { data: await this.configs.resetDraftImage(id) };
   }
 
   @Post('publish')

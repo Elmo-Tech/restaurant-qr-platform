@@ -72,4 +72,45 @@ describe('EMBER template draft photo isolation', () => {
     expect(result.published.heroImageAssetPath).toBe(replacement);
     expect(h.deleteImageBestEffort).toHaveBeenCalledWith(original);
   });
+
+  it('can reset the photo in an unpublished draft without changing the live photo', async () => {
+    const h = setup();
+    const draft = { ...DEFAULT_EMBER_SETTINGS, heroImageMode: 'CUSTOM', heroImageAssetPath: replacement };
+    const published = { ...DEFAULT_EMBER_SETTINGS, heroImageMode: 'CUSTOM', heroImageAssetPath: original };
+    h.findUnique.mockResolvedValue({ draftSettings: draft, publishedSettings: published });
+    h.upsert.mockImplementation(async (args: { update: { draftSettings: object } }) => ({
+      draftSettings: args.update.draftSettings, publishedSettings: published,
+    }));
+    const result = await h.service.resetDraftImage(restaurantId);
+    expect(result.draft.heroImageMode).toBe('AUTO');
+    expect(result.draft.heroImageAssetPath).toBeNull();
+    expect(result.published.heroImageAssetPath).toBe(original);
+    expect(h.deleteImageBestEffort).toHaveBeenCalledWith(replacement);
+    expect(h.deleteImageBestEffort).not.toHaveBeenCalledWith(original);
+  });
+
+  it('preserves a published photo when resetting a draft that still points to it', async () => {
+    const h = setup();
+    const current = { ...DEFAULT_EMBER_SETTINGS, heroImageMode: 'CUSTOM', heroImageAssetPath: original };
+    h.findUnique.mockResolvedValue({ draftSettings: current, publishedSettings: current });
+    h.upsert.mockImplementation(async (args: { update: { draftSettings: object } }) => ({
+      draftSettings: args.update.draftSettings, publishedSettings: current,
+    }));
+    await h.service.resetDraftImage(restaurantId);
+    expect(h.deleteImageBestEffort).not.toHaveBeenCalled();
+  });
+
+  it('returns a stable API error when media storage fails', async () => {
+    const h = setup();
+    h.saveImage.mockRejectedValue(new Error('simulated disk failure'));
+    await expect(h.service.setDraftImage(restaurantId, Buffer.from('image'), 'image/jpeg'))
+      .rejects.toMatchObject({
+        status: 500,
+        response: {
+          error: { code: 'EMBER_IMAGE_STORAGE_FAILED' },
+        },
+      });
+    expect(h.upsert).not.toHaveBeenCalled();
+  });
+
 });
