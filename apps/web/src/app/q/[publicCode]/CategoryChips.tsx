@@ -76,7 +76,7 @@ export function CategoryChips({
 
   return (
     <div
-      className={`sticky top-0 z-30 mt-2 border-b bg-[color-mix(in_srgb,var(--g-bg)_90%,transparent)] backdrop-blur-md transition-colors ${
+      className={`sticky top-0 z-30 mt-2 border-b bg-[color-mix(in_srgb,var(--g-bg)_90%,transparent)] backdrop-blur-md transition-colors ${template === 'ember' ? 'ember-v2-chipbar' : ''} ${
         compact ? 'border-g-line' : 'border-transparent'
       }`}
     >
@@ -115,7 +115,9 @@ export function CategoryChips({
                     onSelect(item.id);
                   }}
                   className={
-                    chipStyle === 'tabs'
+                    chipStyle === 'ember'
+                      ? `ember-v2-chip flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border px-4 text-sm font-bold transition-colors lg:h-[46px] ${isActive ? 'ember-v2-chip-active border-g-accent bg-g-accent text-g-on-accent' : 'border-g-line bg-g-surface text-g-text-2 hover:border-g-accent hover:text-g-text'}`
+                      : chipStyle === 'tabs'
                       ? `flex h-11 shrink-0 items-center gap-2 whitespace-nowrap border-b-2 px-3 text-[15px] font-bold transition-colors lg:h-[46px] ${
                           isActive
                             ? 'border-g-accent text-g-text'
