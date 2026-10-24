@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { normalizeEmberSettings, type EmberTemplateSettings } from '../restaurants/ember-template-config';
 import {
   DEFAULT_POWERED_BY_URL,
   PLATFORM_PUBLIC_SETTINGS_ID,
@@ -68,6 +69,8 @@ export interface PublicMenuContext {
     coverAssetPath: string | null;
     /** How the menu is laid out (DEC-044); presentation only. Classic when the saved one is not allowed (DEC-051). */
     menuTemplate: MenuTemplate;
+    /** Only published EMBER settings are visible to guests; drafts remain private. */
+    emberSettings?: EmberTemplateSettings;
     /** Contact details for the Guest Menu (DEC-042); a field is null when not set. */
     contact: RestaurantContact;
     /** Public code of the Restaurant's own (generic) QR: the link the Guest may share. Never a Table QR code. Null when the Restaurant has no active generic QR. */
@@ -796,6 +799,18 @@ export class PublicMenuService {
             })
           )?.publicCode ?? null);
 
+    // The same published settings are used for an active EMBER template and its
+    // package-authorized ?template=ember staff preview. Drafts are NEVER public.
+    const emberRow = templates.includes('EMBER')
+      ? await this.prisma.restaurantTemplateConfig.findUnique({
+          where: { restaurantId_template: { restaurantId: qr.restaurantId, template: 'EMBER' } },
+          select: { publishedSettings: true },
+        })
+      : null;
+    const emberSettings = templates.includes('EMBER')
+      ? normalizeEmberSettings(emberRow?.publishedSettings)
+      : null;
+
     const platformSettings = await this.prisma.platformPublicSettings.findUnique({
       where: { id: PLATFORM_PUBLIC_SETTINGS_ID },
       select: { poweredByUrl: true },
@@ -818,6 +833,7 @@ export class PublicMenuService {
             coverAssetPath: qr.restaurant.coverAssetPath,
             // the saved choice is kept; the Guest sees Classic until the package allows it again (DEC-051)
             menuTemplate: templates.includes(qr.restaurant.menuTemplate) ? qr.restaurant.menuTemplate : 'CLASSIC',
+            ...(emberSettings ? { emberSettings } : {}),
             contact: contactFromColumns(qr.restaurant),
             shareCode,
             hours,
