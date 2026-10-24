@@ -64,7 +64,7 @@ export function GuestHeroEmber({ sentinelRef, ...p }: GuestHeroProps) {
             <p className="ember-v2-eyebrow" dir="ltr">
               THE ART OF THE PERFECT BITE <span aria-hidden="true">— 01</span>
             </p>
-            <h1 className="ember-v2-headline" dir="auto">
+            <h1 className="ember-v2-headline" dir={arabic ? 'rtl' : 'ltr'}>
               <span>{headlineTop}</span>
               {headlineBottom ? <span className="ember-v2-headline-accent">{headlineBottom}</span> : null}
             </h1>
