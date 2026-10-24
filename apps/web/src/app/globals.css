@@ -492,3 +492,27 @@ html:has([data-guest-theme="light"]) {
     transform: none;
   }
 }
+
+
+/* Curated palette presets: never accept arbitrary user CSS/JS. */
+.ember-experience[data-ember-palette='NOIR'] {
+  --g-bg:#0b0c10; --g-surface:#17191e; --g-surface-2:#272a30;
+  --g-line:#383b43; --g-text:#f8f6f2; --g-text-2:#cecbc6;
+  --g-text-3:#b5afa7; --g-accent:#d6ae74; --g-on-accent:#16130f;
+  --g-accent-soft:rgb(214 174 116 / .15); --g-price:#e8c48e;
+  --g-accent-text:#e8c48e;
+}
+.ember-experience[data-ember-palette='COPPER'] {
+  --g-bg:#20130e; --g-surface:#322018; --g-surface-2:#462a1f;
+  --g-line:#6a4736; --g-text:#fff4e8; --g-text-2:#ebcbbb;
+  --g-text-3:#c9a28e; --g-accent:#e7a070; --g-on-accent:#27140e;
+  --g-accent-soft:rgb(231 160 112 / .17); --g-price:#ffbd90;
+  --g-accent-text:#ffbd90;
+}
+.ember-experience[data-ember-motion='OFF'] .ember-hero-image,
+.ember-experience[data-ember-motion='OFF'] .ember-hero-content {
+  animation: none !important;
+}
+.ember-experience[data-ember-motion='OFF'] main article.guest-anim-rise:hover img {
+  transform: none !important;
+}
