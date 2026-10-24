@@ -31,4 +31,4 @@ jobs:
       - name: Platform TypeScript
         run: npm run typecheck:platform
       - name: EMBER configuration and entitlements tests
-        run: npm run test --workspace=apps/api -- --runInBand ember-template-config.spec.ts templates.spec.ts
+        run: npm run test --workspace=apps/api -- --runInBand ember-template-config.spec.ts ember-template-config.service.spec.ts templates.spec.ts
