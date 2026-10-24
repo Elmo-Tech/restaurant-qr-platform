@@ -2,6 +2,8 @@ import {
   Body,
   Controller,
   Get,
+  UploadedFile,
+  UseInterceptors,
   HttpCode,
   HttpStatus,
   Patch,
@@ -9,6 +11,10 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { assertValidImageUpload } from '../storage/image-file-validator';
+import { MAX_IMAGE_BYTES } from '../storage/image-storage.service';
+import type { UploadedImageFile } from '../storage/uploaded-image-file';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { RestaurantAccessGuard } from '../auth/guard/restaurant-access.guard';
@@ -60,6 +66,20 @@ export class EmberTemplateConfigController {
     const id = request.restaurantAccess.restaurantId;
     await this.assertAvailable(id);
     return { data: await this.configs.saveDraft(id, dto) };
+  }
+
+  @Post('hero-image')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(CsrfGuard)
+  @UseInterceptors(FileInterceptor('image', { limits: { fileSize: MAX_IMAGE_BYTES * 2 } }))
+  async uploadHeroImage(
+    @Req() request: RestaurantAuthorizedRequest,
+    @UploadedFile() file: UploadedImageFile | undefined,
+  ): Promise<{ data: EmberConfigView }> {
+    const id = request.restaurantAccess.restaurantId;
+    await this.assertAvailable(id);
+    assertValidImageUpload(file);
+    return { data: await this.configs.setDraftImage(id, file.buffer, file.mimetype) };
   }
 
   @Post('publish')
