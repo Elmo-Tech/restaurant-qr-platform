@@ -978,6 +978,13 @@ export function PublicMenuView({
       : copy.pickup
     : `${copy.table} ${data.context.table?.number ?? ''}`.trim();
 
+  const emberHeroProduct =
+    data.menu.categories.flatMap((category) => category.products)
+      .find((product) => product.featured && product.primaryImageAssetPath && product.availability !== 'SOLD_OUT') ??
+    data.menu.categories.flatMap((category) => category.products)
+      .find((product) => product.primaryImageAssetPath && product.availability !== 'SOLD_OUT');
+  const emberPhotoUrl = resolveAssetUrl(emberHeroProduct?.primaryImageAssetPath ?? null);
+
   const heroProps: GuestHeroProps = {
     sentinelRef: navigation.headerRef,
     restaurantName: data.context.restaurant.name,
@@ -986,6 +993,9 @@ export function PublicMenuView({
     menuDescription: data.menu.description,
     emberHeadline: locale === 'ar' ? emberSettings.headlineAr : emberSettings.headlineEn,
     emberSubtitle: locale === 'ar' ? emberSettings.subtitleAr : emberSettings.subtitleEn,
+    emberPhotoUrl,
+    emberCartCount: cartCount,
+    onEmberCartOpen: () => setIsCartOpen(true),
     tableNumber: data.context.table?.number ?? null,
     branchLine,
     copy,
