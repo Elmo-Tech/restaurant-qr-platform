@@ -59,6 +59,7 @@ import type {
   OrderingContextView,
 } from './guest-view-types';
 import { DEFAULT_MENU_TEMPLATE, layoutOf, type MenuTemplate } from '../../../lib/public-menu/templates';
+import { GuestHeroEmber } from './GuestHeroEmber';
 import { MenuSections } from './MenuSections';
 import { ModeSwitch } from './ModeSwitch';
 import { ProductSheet } from './ProductSheet';
@@ -980,6 +981,7 @@ export function PublicMenuView({
     restaurantName: data.context.restaurant.name,
     logoUrl,
     coverUrl,
+    menuDescription: data.menu.description,
     tableNumber: data.context.table?.number ?? null,
     branchLine,
     copy,
@@ -992,7 +994,9 @@ export function PublicMenuView({
     hasActiveOrder,
   };
   const Hero =
-    layout.hero === 'floating'
+    layout.hero === 'ember'
+      ? GuestHeroEmber
+      : layout.hero === 'floating'
       ? GuestHeroFloating
       : layout.hero === 'centered'
         ? GuestHeroCentered
@@ -1006,7 +1010,7 @@ export function PublicMenuView({
 
   return (
     <GuestLocaleProvider locale={locale}>
-      <div dir={dir} lang={locale} className="g-body relative">
+      <div dir={dir} lang={locale} className={`g-body relative ${template === 'ember' ? 'ember-experience' : ''}`}>
         <Hero {...heroProps} />
 
         <div className="relative z-20 px-4 lg:px-8">
