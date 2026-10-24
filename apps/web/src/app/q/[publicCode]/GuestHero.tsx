@@ -178,6 +178,8 @@ export interface GuestHeroProps {
   logoUrl: string | null;
   /** The restaurant's cover image, or `null` for the default branded hero. */
   coverUrl: string | null;
+  /** Optional translated menu description, shown by EMBER only. */
+  menuDescription?: string | null;
   /** TABLE QR only. */
   tableNumber: string | null;
   /** The branch name, when exactly one branch applies. */
