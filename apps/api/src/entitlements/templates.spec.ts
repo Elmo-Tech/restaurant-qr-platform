@@ -127,6 +127,20 @@ describe('template tiers (DEC-052)', () => {
     expect(tierCounts(keys)).toEqual({ standard: 5, premium: 2 });
   });
 
+  it('treats Ember as premium and keeps it out of all-standard packages', () => {
+    const keys = allowedTemplates({
+      featureEnabled: true,
+      rule: { includesFeature: true, all: false, allStandard: true, selected: [] },
+    });
+    expect(keys).not.toContain('EMBER');
+    const allowed = allowedTemplates({
+      featureEnabled: true,
+      rule: { includesFeature: true, all: false, allStandard: true, selected: ['EMBER'] },
+    });
+    expect(allowed).toContain('EMBER');
+    expect(tierCounts(allowed)).toEqual({ standard: 5, premium: 1 });
+  });
+
   it('treats the photo-free Editorial design as standard', () => {
     const keys = allowedTemplates({
       featureEnabled: true,
