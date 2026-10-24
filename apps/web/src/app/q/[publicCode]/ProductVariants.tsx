@@ -83,7 +83,7 @@ function AddControl({
 }: Pick<
   ProductVariantProps,
   'product' | 'copy' | 'simpleQuantity' | 'totalQuantity' | 'onQuickAdd' | 'onIncrement' | 'onDecrement'
-> & { view: View; shape: 'round' | 'pill' | 'editorial' }) {
+> & { view: View; shape: 'round' | 'pill' | 'editorial' | 'ember' }) {
   if (view.isSoldOut) {
     return <span className="text-[12.5px] font-semibold text-g-text-3">{copy.unavailableNow}</span>;
   }
@@ -112,6 +112,8 @@ function AddControl({
       className={
         shape === 'round'
           ? 'relative grid size-11 place-items-center rounded-full bg-g-accent text-g-on-accent transition-transform active:scale-90'
+          : shape === 'ember'
+            ? 'ember-v2-add relative grid size-10 shrink-0 place-items-center rounded-[7px] bg-g-accent text-g-on-accent transition-transform active:scale-90'
           : shape === 'editorial'
             ? 'group/add relative grid size-10 shrink-0 place-items-center rounded-full border border-g-accent bg-g-accent-soft text-sm font-bold text-g-text transition-colors hover:bg-g-accent hover:text-g-on-accent active:scale-95 sm:flex sm:h-10 sm:w-auto sm:gap-1.5 sm:px-3.5'
             : 'group/add relative flex h-10 items-center gap-1.5 rounded-full border border-g-accent bg-g-accent-soft px-4 text-sm font-bold text-g-text transition-colors hover:bg-g-accent hover:text-g-on-accent active:scale-95'
@@ -528,6 +530,70 @@ function ProductEditorialImpl(props: ProductVariantProps) {
     </article>
   );
 }
+
+/**
+ * EMBER-specific cinematic poster card: full food photography, compact copy,
+ * and an orange square action like the accepted design reference. The exact
+ * existing price/discount/variant/sold-out logic and AddControl are reused.
+ */
+function ProductEmberImpl(props: ProductVariantProps) {
+  const { product, currency, copy, canOrder, simpleQuantity, totalQuantity, onOpen } = props;
+  const view = useProductView(product, canOrder, simpleQuantity);
+
+  return (
+    <article className={`ember-v2-card guest-anim-rise group relative flex min-w-0 flex-col overflow-hidden border border-g-line bg-g-surface ${FOCUS}`}>
+      <div className="ember-v2-card-photo relative overflow-hidden">
+        {view.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- Staff-uploaded image from the configured API origin.
+          <img
+            src={view.imageUrl}
+            alt=""
+            loading="lazy"
+            decoding="async"
+            onError={view.onImageError}
+            className={`size-full object-cover ${view.dimmed}`}
+          />
+        ) : (
+          <DishFallback className={`size-full ${view.dimmed}`} iconClassName="size-14" />
+        )}
+        <Tag product={product} view={view} copy={copy} />
+        <div className="ember-v2-card-photo-shade" aria-hidden="true" />
+      </div>
+      <div className="ember-v2-card-body flex min-h-0 flex-1 flex-col">
+        <div className="ember-v2-card-kicker" dir="ltr">
+          {product.featured ? (copy.featured || 'FEATURED') : (product.variants?.length ? 'SIGNATURE SELECTION' : 'FRESHLY PREPARED')}
+        </div>
+        <ProductName
+          product={product}
+          view={view}
+          onOpen={onOpen}
+          className="ember-v2-card-title min-w-0 font-bold leading-[1.35]"
+        />
+        {product.description ? (
+          <p dir="auto" className="ember-v2-card-description mt-1 line-clamp-2 text-g-text-2">
+            {product.description}
+          </p>
+        ) : null}
+        <div className="ember-v2-card-bottom relative z-10 mt-auto flex items-end justify-between gap-2 pt-3">
+          <PriceBlock product={product} view={view} currency={currency} copy={copy} className="ember-v2-price" />
+          <AddControl
+            product={product}
+            copy={copy}
+            view={view}
+            simpleQuantity={simpleQuantity}
+            totalQuantity={totalQuantity}
+            onQuickAdd={props.onQuickAdd}
+            onIncrement={props.onIncrement}
+            onDecrement={props.onDecrement}
+            shape="ember"
+          />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export const ProductEmber = memo(ProductEmberImpl);
 
 export const ProductRow = memo(ProductRowImpl);
 export const ProductTile = memo(ProductTileImpl);
