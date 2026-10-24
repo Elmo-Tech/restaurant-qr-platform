@@ -1108,18 +1108,8 @@ export function PublicMenuView({
         {hasCategories && template !== 'ember' ? (
           <CategoryChips
             items={chipItems}
-            activeId={template === 'ember' && !isSearching ? emberCategoryId : navigation.activeId}
-            onSelect={template === 'ember' && !isSearching
-              ? (id) => {
-                  setEmberCategoryId(id);
-                  window.requestAnimationFrame(() => {
-                    document.getElementById('ember-menu-start')?.scrollIntoView({
-                      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-                      block: 'start',
-                    });
-                  });
-                }
-              : navigation.select}
+            activeId={navigation.activeId}
+            onSelect={navigation.select}
             compact={navigation.compact}
             onJumpToSearch={handleJumpToSearch}
             copy={copy}
