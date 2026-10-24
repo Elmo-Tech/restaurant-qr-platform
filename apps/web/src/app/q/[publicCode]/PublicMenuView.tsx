@@ -1105,7 +1105,7 @@ export function PublicMenuView({
 
         {/* A sticky element only sticks inside its parent: the chips must be a direct child of
             this page-height root (no short wrapper), or the bar scrolls away with its own box. */}
-        {hasCategories ? (
+        {hasCategories && template !== 'ember' ? (
           <CategoryChips
             items={chipItems}
             activeId={template === 'ember' && !isSearching ? emberCategoryId : navigation.activeId}
@@ -1177,6 +1177,17 @@ export function PublicMenuView({
               onIncrement={handleCardIncrement}
               onDecrement={handleCardDecrement}
               onClearSearch={handleClearSearch}
+              emberCategoryTabs={template === 'ember' && !isSearching
+                ? data.menu.categories.map((category) => ({ id: category.id, name: category.name }))
+                : undefined}
+              emberActiveCategoryId={emberCategoryId}
+              onEmberCategorySelect={(id) => {
+                setEmberCategoryId(id);
+                document.getElementById('ember-menu-start')?.scrollIntoView({
+                  behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+                  block: 'start',
+                });
+              }}
               template={template}
             />
           </div>
