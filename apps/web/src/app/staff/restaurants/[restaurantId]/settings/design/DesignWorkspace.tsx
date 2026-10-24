@@ -20,7 +20,7 @@ import { SettingsTabs } from '../SettingsTabs';
 type Template = MenuTemplateApi;
 
 /** The premium designs (DEC-052); the rest are standard. Mirrors the API. */
-const PREMIUM: readonly Template[] = ['GALLERY', 'MENU', 'FLOATING'];
+const PREMIUM: readonly Template[] = ['GALLERY', 'MENU', 'FLOATING', 'EMBER'];
 const TIERS = ['STANDARD', 'PREMIUM'] as const;
 
 const TEMPLATES: { key: Template; title: MessageKey; hint: MessageKey }[] = [
@@ -32,6 +32,7 @@ const TEMPLATES: { key: Template; title: MessageKey; hint: MessageKey }[] = [
   { key: 'CENTERED', title: 'design.centered', hint: 'design.centeredHint' },
   { key: 'COMPACT', title: 'design.compact', hint: 'design.compactHint' },
   { key: 'EDITORIAL', title: 'design.editorial', hint: 'design.editorialHint' },
+  { key: 'EMBER', title: 'design.ember', hint: 'design.emberHint' },
 ];
 
 /** A simple wireframe of each layout, drawn with the theme colours (no images to load). */
@@ -149,6 +150,15 @@ function Wireframe({ template }: { template: Template }): ReactNode {
               <circle cx="100" cy="6" r="3" className="fill-primary" />
             </g>
           ))}
+        </>
+      ) : null}
+      {template === 'EMBER' ? (
+        <>
+          <rect x="0" y="0" width="120" height="40" rx="4" fill="#24140f" />
+          <circle cx="91" cy="17" r="26" fill="#cf6835" opacity="0.4" />
+          <rect x="8" y="22" width="46" height="5" rx="2" fill="#fff3e4" />
+          <rect x="8" y="30" width="32" height="3" rx="1.5" fill="#eaa775" />
+          {[0,1,2].map((col) => <g key={col} transform={`translate(${6 + col * 37} 44)`}><rect width="32" height="29" rx="4" fill="#281813"/><rect x="2" y="2" width="28" height="16" rx="3" fill="#a7542b"/><rect x="4" y="21" width="20" height="3" rx="1.5" fill="#fff3e4" /></g>)}
         </>
       ) : null}
       {template === 'EDITORIAL' ? (
