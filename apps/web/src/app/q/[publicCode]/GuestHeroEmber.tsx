@@ -60,6 +60,7 @@ export function GuestHeroEmber({ sentinelRef, ...p }: GuestHeroProps) {
               {arabic ? 'تجربة طعام مميزة' : 'A cinematic dining experience'}
             </span>
           </div>
+          {p.emberHeadline ? <p className="mb-3 text-sm font-bold text-[#ffd1af]" dir="auto">{p.restaurantName}</p> : null}
           <div className="flex items-center gap-3 sm:gap-5">
             <LogoTile
               name={p.restaurantName}
@@ -67,12 +68,12 @@ export function GuestHeroEmber({ sentinelRef, ...p }: GuestHeroProps) {
               className="size-[62px] shrink-0 rounded-2xl border border-white/30 shadow-xl sm:size-[84px]"
             />
             <h1 dir="auto" className="g-display min-w-0 text-[36px] leading-[1.18] text-white sm:text-[56px] lg:text-[72px]">
-              <bdi>{p.restaurantName}</bdi>
+              <bdi>{p.emberHeadline || p.restaurantName}</bdi>
             </h1>
           </div>
-          {p.menuDescription ? (
+          {p.emberSubtitle || p.menuDescription ? (
             <p dir="auto" className="mt-4 max-w-xl text-[14px] leading-[1.8] text-[#f7e1d1] sm:text-base">
-              {p.menuDescription}
+              {p.emberSubtitle || p.menuDescription}
             </p>
           ) : null}
           {p.tableNumber ? (
