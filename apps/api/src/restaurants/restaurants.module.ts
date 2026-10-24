@@ -7,6 +7,8 @@ import { RestaurantsController } from './restaurants.controller';
 import { RestaurantLocalesService } from './restaurant-locales.service';
 import { RestaurantProfileController } from './restaurant-profile.controller';
 import { RestaurantProfileService } from './restaurant-profile.service';
+import { EmberTemplateConfigController } from './ember-template-config.controller';
+import { EmberTemplateConfigService } from './ember-template-config.service';
 
 /**
  * LOC-2A, approved LOC-1 contract: Restaurant Language Settings. Imports
@@ -22,7 +24,7 @@ import { RestaurantProfileService } from './restaurant-profile.service';
  */
 @Module({
   imports: [DatabaseModule, AuthModule, StorageModule, EntitlementsModule],
-  controllers: [RestaurantsController, RestaurantProfileController],
-  providers: [RestaurantLocalesService, RestaurantProfileService],
+  controllers: [RestaurantsController, RestaurantProfileController, EmberTemplateConfigController],
+  providers: [RestaurantLocalesService, RestaurantProfileService, EmberTemplateConfigService],
 })
 export class RestaurantsModule {}
