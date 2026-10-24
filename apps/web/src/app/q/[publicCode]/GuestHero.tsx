@@ -180,6 +180,9 @@ export interface GuestHeroProps {
   coverUrl: string | null;
   /** Optional translated menu description, shown by EMBER only. */
   menuDescription?: string | null;
+  /** EMBER marketing copy (localized by the caller). */
+  emberHeadline?: string | null;
+  emberSubtitle?: string | null;
   /** TABLE QR only. */
   tableNumber: string | null;
   /** The branch name, when exactly one branch applies. */
