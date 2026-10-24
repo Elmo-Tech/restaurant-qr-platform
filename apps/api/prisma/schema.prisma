@@ -209,6 +209,7 @@ enum MenuTemplate {
   CENTERED
   COMPACT
   EDITORIAL
+  EMBER
 
   @@map("menu_template")
 }
