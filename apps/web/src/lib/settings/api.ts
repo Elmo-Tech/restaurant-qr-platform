@@ -154,6 +154,17 @@ export async function uploadEmberTemplateHeroImage(
   return normalizeEmberTemplateConfigView(body.data);
 }
 
+/** Discard the template-specific draft image; the published image is unchanged until Publish. */
+export async function resetEmberTemplateHeroImage(
+  restaurantId: string,
+): Promise<EmberTemplateConfigView> {
+  const body = await apiFetch<{ data: unknown }>(
+    `${restaurantPath(restaurantId)}/ember-template/hero-image`,
+    { method: 'DELETE' },
+  );
+  return normalizeEmberTemplateConfigView(body.data);
+}
+
 export async function publishEmberTemplateConfig(
   restaurantId: string,
 ): Promise<EmberTemplateConfigView> {

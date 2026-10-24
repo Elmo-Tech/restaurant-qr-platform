@@ -10,6 +10,7 @@ import {
 } from '../../../../../../lib/menu/error-message';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import { ImageField } from '../../../../../../components/menu/ImageField';
+import { ApiError } from '../../../../../../lib/api/errors';
 import { validateImageFile } from '../../../../../../lib/menu/image-validation';
 import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
 import {
@@ -18,13 +19,13 @@ import {
   type EmberTemplateSettings,
   type EmberPalette,
   type EmberMotion,
-  type EmberImageMode,
 } from '../../../../../../lib/public-menu/ember-settings';
 import {
   getEmberTemplateConfig,
   publishEmberTemplateConfig,
   saveEmberTemplateDraft,
   uploadEmberTemplateHeroImage,
+  resetEmberTemplateHeroImage,
 } from '../../../../../../lib/settings/api';
 
 const COPY_FIELDS = [
@@ -56,7 +57,7 @@ export function EmberTemplateEditor({
   const [imageError, setImageError] = useState<string | null>(null);
   const [copyLanguage, setCopyLanguage] = useState<'Ar' | 'En'>('Ar');
   const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<'saved' | 'published' | 'uploaded' | null>(null);
+  const [notice, setNotice] = useState<'saved' | 'published' | 'uploaded' | 'reset' | null>(null);
   const dirty = JSON.stringify(draft) !== JSON.stringify(savedDraft);
   const unpublished = JSON.stringify(savedDraft) !== JSON.stringify(published);
 
@@ -84,6 +85,18 @@ export function EmberTemplateEditor({
     setNotice(null);
   }
 
+  function photoError(error: unknown): string {
+    if (error instanceof ApiError && error.code === 'UNKNOWN_ERROR') {
+      // Older API processes and reverse proxies return non-standard errors.
+      // Surface HTTP status rather than the unhelpful "The request failed".
+      if (error.status === 404) return t('design.emberUploadNotFound');
+      if (error.status === 413) return t('design.emberUploadTooLarge');
+      if (error.status >= 500) return t('design.emberUploadServerError') + ` (HTTP ${error.status})`;
+      return describeError(error) + ` (HTTP ${error.status})`;
+    }
+    return describeError(error);
+  }
+
   async function uploadPhoto(file: File) {
     const message = validateImageFile(file);
     if (message) {
@@ -106,7 +119,30 @@ export function EmberTemplateEditor({
       setNotice('uploaded');
     } catch (caught) {
       if (isUnauthenticatedError(caught)) redirectToLogin();
-      else setImageError(describeError(caught));
+      else setImageError(photoError(caught));
+    } finally {
+      setImageUploading(false);
+    }
+  }
+
+  async function resetPhoto() {
+    setImageUploading(true);
+    setImageError(null);
+    setNotice(null);
+    try {
+      const result = await resetEmberTemplateHeroImage(restaurantId);
+      setSavedDraft(normalizeEmberTemplateSettings(result.draft));
+      setPublished(normalizeEmberTemplateSettings(result.published));
+      // Keep any unsaved text edits in the form when removing the photo.
+      setDraft((current) => ({
+        ...current,
+        heroImageMode: 'AUTO',
+        heroImageAssetPath: null,
+      }));
+      setNotice('reset');
+    } catch (caught) {
+      if (isUnauthenticatedError(caught)) redirectToLogin();
+      else setImageError(photoError(caught));
     } finally {
       setImageUploading(false);
     }
@@ -162,6 +198,7 @@ export function EmberTemplateEditor({
       {error ? <Alert variant="error">{error}</Alert> : null}
       {notice === 'saved' ? <Alert variant="success">{t('design.emberDraftSaved')}</Alert> : null}
       {notice === 'uploaded' ? <Alert variant="success">{t('design.emberPhotoUploaded')}</Alert> : null}
+      {notice === 'reset' ? <Alert variant="success">{t('design.emberPhotoReset')}</Alert> : null}
       {notice === 'published' ? <Alert variant="success">{t('design.emberPublished')}</Alert> : null}
 
       <div className="grid gap-3 sm:grid-cols-2">
@@ -251,28 +288,9 @@ export function EmberTemplateEditor({
           <h4 className="font-bold text-foreground">{t('design.emberImageHeading')}</h4>
           <p className="mt-1 text-xs leading-relaxed text-muted-foreground">{t('design.emberImageAutoHint')}</p>
         </div>
-        <div className="grid gap-2 sm:grid-cols-2">
-          {(['AUTO', 'CUSTOM'] as const).map((mode) => (
-            <label
-              key={mode}
-              className="flex cursor-pointer items-center gap-2 rounded-lg border border-input p-3 text-sm font-medium"
-            >
-              <input
-                type="radio"
-                name="ember-hero-image-mode"
-                checked={draft.heroImageMode === mode}
-                disabled={!canManage || busy || imageUploading ||
-                  (mode === 'CUSTOM' && !draft.heroImageAssetPath)}
-                onChange={() => update('heroImageMode', mode as EmberImageMode)}
-                className="accent-primary"
-              />
-              {mode === 'AUTO' ? t('design.emberImageAuto') : t('design.emberImageCustom')}
-            </label>
-          ))}
-        </div>
         <ImageField
           idPrefix="ember-hero"
-          imageUrl={resolveAssetUrl(draft.heroImageAssetPath)}
+          imageUrl={draft.heroImageMode === 'CUSTOM' ? resolveAssetUrl(draft.heroImageAssetPath) : null}
           onSelectFile={(file) => void uploadPhoto(file)}
           isBusy={busy || imageUploading || !canManage}
           error={imageError}
@@ -280,6 +298,16 @@ export function EmberTemplateEditor({
           helperText={t('design.emberPhotoHelp')}
           previewShape="wide"
         />
+        {draft.heroImageMode === 'CUSTOM' && draft.heroImageAssetPath ? (
+          <Button
+            type="button"
+            variant="secondary"
+            disabled={!canManage || busy || imageUploading}
+            onClick={() => void resetPhoto()}
+          >
+            {t('design.emberImageResetAuto')}
+          </Button>
+        ) : null}
         <p className="text-xs text-muted-foreground">
           {draft.heroImageMode === 'CUSTOM'
             ? t('design.emberImagePreviewCustom')
