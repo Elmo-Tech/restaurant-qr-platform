@@ -16,6 +16,7 @@ import { Button } from '../../../../../../components/ui/Button';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import type { MenuTemplateApi } from '../../../../../../lib/public-menu/templates';
 import { SettingsTabs } from '../SettingsTabs';
+import { EmberTemplateEditor } from './EmberTemplateEditor';
 
 type Template = MenuTemplateApi;
 
@@ -210,6 +211,7 @@ export function DesignWorkspace({
   const [qrCode, setQrCode] = useState<string | null | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
+  const [emberPreviewVersion, setEmberPreviewVersion] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -249,7 +251,9 @@ export function DesignWorkspace({
     }
   }
 
-  const previewSrc = qrCode ? `/q/${qrCode}?template=${selected.toLowerCase()}` : null;
+  const previewSrc = qrCode
+    ? `/q/${qrCode}?template=${selected.toLowerCase()}${selected === 'EMBER' ? `&emberRevision=${emberPreviewVersion}` : ''}`
+    : null;
 
   return (
     <div className="flex flex-col gap-4">
@@ -347,6 +351,14 @@ export function DesignWorkspace({
           </ul>
             </div>
           ))}
+
+          {selected === 'EMBER' && allowedTemplates.includes('EMBER') && canManage ? (
+            <EmberTemplateEditor
+              restaurantId={restaurantId}
+              canManage={canManage}
+              onPublished={() => setEmberPreviewVersion((value) => value + 1)}
+            />
+          ) : null}
 
           <div className="flex flex-wrap items-center gap-3">
             <Button onClick={() => void save()} disabled={!canManage || !dirty || isSaving}>
