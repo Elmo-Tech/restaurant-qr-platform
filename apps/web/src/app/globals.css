@@ -516,3 +516,212 @@ html:has([data-guest-theme="light"]) {
 .ember-experience[data-ember-motion='OFF'] main article.guest-anim-rise:hover img {
   transform: none !important;
 }
+
+
+/* ---- EMBER V2: faithful cinematic concept components (unique to this template). ---- */
+.ember-experience .ember-v2-header {
+  overflow: hidden;
+  color: #fff0e7;
+  background:
+    radial-gradient(ellipse at 15% 50%, rgba(120, 39, 20, .20), transparent 48%),
+    linear-gradient(125deg, #1c100d 0%, #100d0e 58%, #100d0e 100%);
+  border-bottom: 1px solid rgba(255, 237, 217, .08);
+}
+.ember-v2-nav {
+  position: relative; z-index: 2; display: flex; align-items: center;
+  justify-content: space-between; gap: 18px; padding: 17px max(20px, calc((100% - 1280px)/2));
+  border-bottom: 1px solid rgba(255, 237, 217, .13);
+}
+.ember-v2-brand { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ember-v2-brand-logo { border: 1px solid rgba(241, 97, 55, .65); transform: rotate(-5deg); box-shadow: none; }
+.ember-v2-brand-name {
+  font-family: 'Arial Black', Inter, Arial, sans-serif; font-weight: 900;
+  font-size: clamp(18px, 2vw, 29px); line-height: 1.15; letter-spacing: -.065em;
+  white-space: nowrap; max-width: min(320px, 42vw); overflow: hidden; text-overflow: ellipsis;
+}
+.ember-v2-brand-dot { color: var(--g-accent, #f2683b); }
+.ember-v2-nav-note {
+  font-family: Inter, Arial, sans-serif; letter-spacing: .15em;
+  color: #a9a09c; font-size: 10px; font-weight: 800; text-align: center;
+}
+.ember-v2-cart-button {
+  display: flex; align-items: center; gap: 10px; min-height: 44px;
+  border: 1px solid rgba(255, 237, 217, .16); border-radius: 999px;
+  padding: 10px 14px; color: #fff0e7; background: rgba(29, 22, 21, .66);
+  font-size: 13px; font-weight: 900; cursor: pointer;
+}
+.ember-v2-cart-button:hover { border-color: var(--g-accent); background: rgba(59, 35, 28, .86); }
+.ember-v2-cart-count {
+  display: grid; place-items: center; min-width: 19px; height: 19px;
+  border-radius: 50%; background: var(--g-accent); color: var(--g-on-accent);
+  font-size: 11px; padding: 0 3px;
+}
+.ember-v2-campaign {
+  position: relative; max-width: 1320px; min-height: 470px; margin: auto;
+  display: grid; grid-template-columns: 1fr 1.03fr; align-items: center;
+  padding: 29px 5.5% 44px; isolation: isolate; gap: 8px;
+}
+.ember-v2-campaign-copy { min-width: 0; z-index: 2; position: relative; align-self: center; }
+.ember-v2-eyebrow {
+  color: var(--g-accent, #f2683b); font: 900 11px/1.5 Inter, Arial, sans-serif;
+  letter-spacing: .20em; text-align: start;
+}
+.ember-v2-headline {
+  margin: 22px 0 20px; font-family: 'Arial Black', Inter, Arial, sans-serif;
+  font-size: clamp(56px, 8.4vw, 128px); font-weight: 950; line-height: .91;
+  letter-spacing: -.085em; text-transform: uppercase; word-break: break-word;
+}
+.ember-v2-headline span { display: block; }
+.ember-v2-headline .ember-v2-headline-accent { color: var(--g-accent, #ef6436); }
+.ember-v2-subtitle {
+  max-width: 470px; color: #d3c0b5; font-size: clamp(13px, 1.5vw, 16px);
+  line-height: 1.75; margin: 0 0 23px;
+}
+.ember-v2-signature {
+  display: flex; align-items: center; gap: 12px; color: #eeb397;
+  font-family: Inter, Arial, sans-serif; font-size: 10px; font-weight: 800;
+  letter-spacing: .065em;
+}
+.ember-v2-signature > span:last-child { width: 24px; height: 1px; background: #eeb397; }
+.ember-v2-restaurant-details {
+  display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  margin: 14px 0 10px; color: #ead5c9; font-size: 12px;
+}
+.ember-v2-restaurant-details > span { border-inline-start: 2px solid var(--g-accent); padding-inline-start: 8px; }
+.ember-v2-visual { position: relative; z-index: 1; width: 100%; min-height: 390px; display: grid; place-items: center; }
+.ember-v2-visual-glow {
+  position: absolute; inset: 1%; pointer-events: none; border-radius: 50%;
+  background: radial-gradient(ellipse at center, rgba(255, 120, 49, .29) 0, rgba(210, 65, 27, .12) 43%, transparent 71%);
+  filter: blur(35px);
+}
+.ember-v2-photo {
+  position: relative; width: 100%; height: 410px; max-width: 580px;
+  object-fit: cover; object-position: center;
+  border-radius: 38% 49% 45% 48% / 45% 41% 48% 51%;
+  -webkit-mask-image: radial-gradient(ellipse closest-side at center, #000 64%, rgba(0,0,0,.9) 75%, transparent 100%);
+  mask-image: radial-gradient(ellipse closest-side at center, #000 64%, rgba(0,0,0,.9) 75%, transparent 100%);
+  filter: drop-shadow(14px 20px 20px rgba(0,0,0,.5));
+  animation: ember-v2-float 8s ease-in-out infinite;
+}
+.ember-v2-photo-fallback {
+  display: grid; place-items: center; align-content: center; gap: 15px;
+  width: min(370px, 80%); aspect-ratio: 1; border-radius: 50%;
+  color: #e38959; border: 2px solid rgba(255, 149, 92, .25);
+  background: radial-gradient(circle at center, #66301e 0, #351a14 45%, #1d120f 76%);
+  box-shadow: 0 0 75px rgba(184, 78, 27, .24);
+}
+.ember-v2-fallback-label {
+  font: 900 12px Inter, sans-serif; letter-spacing: .22em;
+}
+.ember-v2-tools-nav {
+  position: relative; z-index: 3; display: flex; flex-wrap: wrap;
+  align-items: center; justify-content: space-between; gap: 10px;
+  max-width: 1280px; margin: -10px auto 20px; padding: 0 5.5%;
+}
+.ember-v2-tools-nav nav, .ember-v2-tools-nav button { color: #fff0e7; }
+.ember-v2-marquee {
+  position: relative; z-index: 4; margin: -1px 0 16px;
+  overflow: hidden; white-space: nowrap; padding: 12px 0 10px;
+  background: var(--g-accent, #f26636); color: var(--g-on-accent, #160e0a);
+  transform: rotate(-1.4deg) scale(1.025);
+  font: 900 11px/1.3 Inter, Arial, sans-serif; letter-spacing: .17em;
+}
+.ember-v2-marquee-track { display: flex; width: max-content; gap: 52px; animation: ember-v2-marquee 28s linear infinite; }
+.ember-v2-marquee-track span { flex: none; }
+@keyframes ember-v2-marquee { to { transform: translateX(-33.333%); } }
+@keyframes ember-v2-float { 50% { transform: translateY(-10px); } }
+
+/* Menu area: distinct from regular Gallery/Classic. */
+.ember-experience .ember-v2-chipbar {
+  margin-top: 12px; background: rgba(16, 13, 14, .95);
+  border-color: rgba(255, 255, 255, .07);
+}
+.ember-experience .ember-v2-chip {
+  padding-inline: 18px; border-color: #4a3933;
+  background: #1a1717; color: #d4c3bc;
+  font-size: 13px; font-weight: 800;
+}
+.ember-experience .ember-v2-chip-active {
+  border-color: var(--g-accent); background: var(--g-accent);
+  color: var(--g-on-accent);
+}
+.ember-experience .ember-v2-toolbar {
+  border-radius: 12px; box-shadow: none; background: #181718;
+}
+.ember-experience .ember-v2-section { padding-block: 20px 4px; }
+.ember-v2-section-heading {
+  display: flex; align-items: end; justify-content: space-between;
+  gap: 20px; margin-bottom: 24px;
+}
+.ember-v2-section-kicker {
+  color: var(--g-accent-text); font: 800 10px/1.5 Inter, Arial, sans-serif;
+  letter-spacing: .20em; margin-bottom: 17px;
+}
+.ember-v2-section-title {
+  color: var(--g-text); margin: 0; line-height: 1.05;
+  font-size: clamp(33px, 5vw, 58px); font-weight: 900;
+  letter-spacing: -.04em;
+}
+.ember-v2-section-count { padding-bottom: 5px; color: #ad968a; font-size: 12px; white-space: nowrap; }
+.ember-v2-grid { gap: 17px; }
+.ember-experience main article.ember-v2-card {
+  border: 1px solid #40322d; border-radius: 15px;
+  background: #1c1918; box-shadow: none;
+  transition: transform .32s ease, border-color .32s ease, box-shadow .32s ease;
+}
+.ember-experience main article.ember-v2-card:hover {
+  transform: translateY(-5px); border-color: #a46850;
+  box-shadow: 0 18px 38px rgba(0, 0, 0, .23);
+}
+.ember-v2-card-photo { width: 100%; aspect-ratio: 1.65; background: #39261f; }
+.ember-v2-card-photo img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.ember-v2-card-photo-shade { position:absolute; inset: 0; pointer-events:none; background: linear-gradient(to top, rgba(12,9,8,.18), transparent 70%); }
+.ember-v2-card-body { padding: 16px 18px 18px; }
+.ember-v2-card-kicker {
+  font: 900 9px/1.5 Inter, Arial, sans-serif; letter-spacing: .14em;
+  color: var(--g-accent-text); margin-bottom: 8px; text-transform: uppercase;
+}
+.ember-v2-card-title { font-size: 18px; }
+.ember-v2-card-description { font-size: 12px; line-height: 1.65; min-height: 32px; }
+.ember-v2-price { font-size: 16px; }
+.ember-experience .ember-v2-add { width: 37px; height: 37px; border-radius: 7px; }
+.ember-experience .ember-v2-add:hover { filter: brightness(1.13); }
+@media (max-width: 980px) {
+  .ember-v2-campaign { min-height: 410px; gap: 0; }
+  .ember-v2-visual { min-height: 310px; }
+  .ember-v2-photo { height: 330px; }
+  .ember-v2-headline { font-size: clamp(58px, 8.4vw, 103px); }
+}
+@media (max-width: 680px) {
+  .ember-v2-nav { padding: 12px 5%; gap: 10px; }
+  .ember-v2-brand-name { max-width: 43vw; font-size: 18px; }
+  .ember-v2-nav-note { display: none; }
+  .ember-v2-campaign { display:flex; flex-direction:column; min-height:0; padding: 31px 5% 14px; align-items: stretch; }
+  .ember-v2-campaign-copy { width:100%; }
+  .ember-v2-headline { font-size: clamp(59px, 14vw, 95px); line-height: .90; margin: 17px 0; }
+  .ember-v2-eyebrow { font-size: 9px; }
+  .ember-v2-subtitle { font-size: 13px; max-width: 100%; margin-bottom: 15px; }
+  .ember-v2-visual { height: 235px; min-height: 235px; margin-top: -10px; }
+  .ember-v2-photo { height: 255px; width: 95%; }
+  .ember-v2-tools-nav { margin: -5px auto 10px; }
+  .ember-v2-marquee { margin-bottom: 10px; font-size: 9px; }
+  .ember-v2-section-heading { margin-bottom: 17px; }
+  .ember-v2-section-kicker { font-size: 9px; margin-bottom: 10px; }
+  .ember-v2-section-title { font-size: 31px; }
+  .ember-v2-section-count { font-size: 10px; }
+  .ember-v2-grid { gap: 10px; }
+  .ember-v2-card-photo { aspect-ratio: 1.15; }
+  .ember-v2-card-body { padding: 11px 12px 12px; }
+  .ember-v2-card-title { font-size: 14px; }
+  .ember-v2-card-description { font-size: 10px; min-height: 31px; }
+  .ember-v2-price { font-size: 13px; }
+  .ember-v2-card-kicker { font-size: 8px; letter-spacing: .08em; }
+  .ember-experience .ember-v2-add { width: 32px; height: 32px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ember-v2-photo, .ember-v2-marquee-track { animation: none !important; }
+}
+.ember-experience[data-ember-motion='OFF'] .ember-v2-photo,
+.ember-experience[data-ember-motion='OFF'] .ember-v2-marquee-track {
+  animation: none !important;
+}
