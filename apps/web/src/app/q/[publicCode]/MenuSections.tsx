@@ -9,6 +9,7 @@ import { DEFAULT_MENU_TEMPLATE, layoutOf, type MenuTemplate } from '../../../lib
 import { ProductCard } from './ProductCard';
 import {
   ProductEditorial,
+  ProductEmber,
   ProductLine,
   ProductRow,
   ProductTile,
@@ -159,6 +160,7 @@ const CARD_CONTAINER = {
   'tile-dense': 'grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 lg:gap-5',
   line: 'mx-auto flex w-full max-w-[760px] flex-col',
   editorial: 'flex flex-col',
+  ember: 'ember-v2-grid grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3',
 } as const;
 
 /** Keep desktop columns similar in height while preserving the original category order on mobile. */
@@ -234,17 +236,31 @@ function MenuSectionsImpl({
         id={categoryDomId(category.id)}
         aria-labelledby={headingId}
         className={
-          layout.cards === 'editorial'
-            ? 'scroll-mt-24 rounded-[22px] border border-g-line bg-g-surface px-4 py-4 shadow-[var(--g-shadow)] sm:px-5'
-            : 'scroll-mt-24'
+          layout.cards === 'ember'
+            ? 'ember-v2-section scroll-mt-24'
+            : layout.cards === 'editorial'
+              ? 'scroll-mt-24 rounded-[22px] border border-g-line bg-g-surface px-4 py-4 shadow-[var(--g-shadow)] sm:px-5'
+              : 'scroll-mt-24'
         }
       >
-        <SectionHeading
-          id={headingId}
-          title={category.name}
-          count={copy.itemsCount(category.products.length)}
-          variant={layout.headings}
-        />
+        {layout.cards === 'ember' ? (
+          <div className="ember-v2-section-heading">
+            <div>
+              <div className="ember-v2-section-kicker" dir="ltr">THE MENU / WHAT ARE YOU CRAVING?</div>
+              <h2 id={headingId} className="ember-v2-section-title" dir="auto">
+                <bdi>{category.name}</bdi>
+              </h2>
+            </div>
+            <span className="ember-v2-section-count">{copy.itemsCount(category.products.length)}</span>
+          </div>
+        ) : (
+          <SectionHeading
+            id={headingId}
+            title={category.name}
+            count={copy.itemsCount(category.products.length)}
+            variant={layout.headings}
+          />
+        )}
         {category.description ? (
           <p
             dir="auto"
@@ -286,8 +302,10 @@ function MenuSectionsImpl({
           <div className={CARD_CONTAINER[layout.cards]}>
             {category.products.map((product) => {
               const Card =
-                layout.cards === 'row'
-                  ? ProductRow
+                layout.cards === 'ember'
+                  ? ProductEmber
+                  : layout.cards === 'row'
+                    ? ProductRow
                   : layout.cards === 'line'
                     ? ProductLine
                     : layout.cards === 'editorial'
