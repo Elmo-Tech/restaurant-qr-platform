@@ -102,6 +102,9 @@ export function PublicMenuView({
   const copy = getPublicMenuCopy(locale);
   const emberSettings = data.context.restaurant.emberSettings ?? DEFAULT_EMBER_SETTINGS;
   const hasCategories = data.menu.categories.length > 0;
+  // EMBER deliberately mirrors its accepted concept: one category at a time.
+  // Search results still span all categories so no matching products disappear.
+  const [emberCategoryId, setEmberCategoryId] = useState(data.menu.categories[0]?.id ?? '');
   // FT-7/FT-8: a TABLE QR orders exactly as before (DINE_IN); a GENERIC QR
   // orders for Pickup or Delivery, each only while at least one Branch is
   // eligible for it (Delivery: an ACTIVE Branch with an ACTIVE zone).
@@ -193,6 +196,9 @@ export function PublicMenuView({
       }))
       .filter((category) => category.products.length > 0);
   }, [data.menu.categories, isSearching, normalizedQuery, searchIndex]);
+  const emberVisibleCategories = template === 'ember' && !isSearching
+    ? visibleCategories.filter((category) => category.id === emberCategoryId)
+    : visibleCategories;
   const searchResultCount = visibleCategories.reduce(
     (sum, category) => sum + category.products.length,
     0,
@@ -1102,8 +1108,18 @@ export function PublicMenuView({
         {hasCategories ? (
           <CategoryChips
             items={chipItems}
-            activeId={navigation.activeId}
-            onSelect={navigation.select}
+            activeId={template === 'ember' && !isSearching ? emberCategoryId : navigation.activeId}
+            onSelect={template === 'ember' && !isSearching
+              ? (id) => {
+                  setEmberCategoryId(id);
+                  window.requestAnimationFrame(() => {
+                    document.getElementById('ember-menu-start')?.scrollIntoView({
+                      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+                      block: 'start',
+                    });
+                  });
+                }
+              : navigation.select}
             compact={navigation.compact}
             onJumpToSearch={handleJumpToSearch}
             copy={copy}
@@ -1111,7 +1127,10 @@ export function PublicMenuView({
           />
         ) : null}
 
-        <main className={`px-4 pt-5 lg:px-8 lg:pt-7 ${showCartBar ? 'pb-[150px]' : 'pb-16'}`}>
+        <main
+          id={template === 'ember' ? 'ember-menu-start' : undefined}
+          className={`px-4 pt-5 lg:px-8 lg:pt-7 ${showCartBar ? 'pb-[150px]' : 'pb-16'}`}
+        >
           <div className="mx-auto flex max-w-[1280px] flex-col gap-[34px] lg:gap-[52px]">
             {!canOrder ? (
               <p className="flex items-start gap-3 rounded-[22px] border border-g-line bg-g-surface px-4 py-3.5 text-[14px] leading-[1.7] text-g-text-2">
@@ -1145,7 +1164,7 @@ export function PublicMenuView({
             ) : null}
 
             <MenuSections
-              categories={visibleCategories}
+              categories={emberVisibleCategories}
               menuCategoryCount={data.menu.categories.length}
               currency={currency}
               copy={copy}
