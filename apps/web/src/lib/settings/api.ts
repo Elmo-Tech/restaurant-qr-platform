@@ -1,3 +1,4 @@
+import type { EmberTemplateSettings, EmberTemplateConfigView } from '../public-menu/ember-settings';
 import type { MenuTemplateApi } from '../public-menu/templates';
 import type { ContactField, RestaurantContact } from '../contact/types';
 import { apiFetch, apiFetchFormData } from '../api/client';
@@ -95,6 +96,35 @@ export async function updateMenuTemplate(
   const body = await apiFetch<{ data: { menuTemplate: MenuTemplateApi } }>(
     `/restaurants/${restaurantId}/menu-template`,
     { method: 'PATCH', body: { menuTemplate } },
+  );
+  return body.data;
+}
+
+/** Presentation-only EMBER drafts and publication are separate from template selection. */
+export async function getEmberTemplateConfig(restaurantId: string): Promise<EmberTemplateConfigView> {
+  const body = await apiFetch<{ data: EmberTemplateConfigView }>(
+    `${restaurantPath(restaurantId)}/ember-template`,
+  );
+  return body.data;
+}
+
+export async function saveEmberTemplateDraft(
+  restaurantId: string,
+  settings: EmberTemplateSettings,
+): Promise<EmberTemplateConfigView> {
+  const body = await apiFetch<{ data: EmberTemplateConfigView }>(
+    `${restaurantPath(restaurantId)}/ember-template/draft`,
+    { method: 'PATCH', body: settings },
+  );
+  return body.data;
+}
+
+export async function publishEmberTemplateConfig(
+  restaurantId: string,
+): Promise<EmberTemplateConfigView> {
+  const body = await apiFetch<{ data: EmberTemplateConfigView }>(
+    `${restaurantPath(restaurantId)}/ember-template/publish`,
+    { method: 'POST' },
   );
   return body.data;
 }
