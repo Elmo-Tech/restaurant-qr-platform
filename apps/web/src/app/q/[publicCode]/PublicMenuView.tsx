@@ -59,6 +59,7 @@ import type {
   OrderingContextView,
 } from './guest-view-types';
 import { DEFAULT_MENU_TEMPLATE, layoutOf, type MenuTemplate } from '../../../lib/public-menu/templates';
+import { DEFAULT_EMBER_SETTINGS } from '../../../lib/public-menu/ember-settings';
 import { GuestHeroEmber } from './GuestHeroEmber';
 import { MenuSections } from './MenuSections';
 import { ModeSwitch } from './ModeSwitch';
@@ -99,6 +100,7 @@ export function PublicMenuView({
   const logoUrl = resolveAssetUrl(data.context.restaurant.logoAssetPath);
   const coverUrl = resolveAssetUrl(data.context.restaurant.coverAssetPath);
   const copy = getPublicMenuCopy(locale);
+  const emberSettings = data.context.restaurant.emberSettings ?? DEFAULT_EMBER_SETTINGS;
   const hasCategories = data.menu.categories.length > 0;
   // FT-7/FT-8: a TABLE QR orders exactly as before (DINE_IN); a GENERIC QR
   // orders for Pickup or Delivery, each only while at least one Branch is
@@ -982,6 +984,8 @@ export function PublicMenuView({
     logoUrl,
     coverUrl,
     menuDescription: data.menu.description,
+    emberHeadline: locale === 'ar' ? emberSettings.headlineAr : emberSettings.headlineEn,
+    emberSubtitle: locale === 'ar' ? emberSettings.subtitleAr : emberSettings.subtitleEn,
     tableNumber: data.context.table?.number ?? null,
     branchLine,
     copy,
@@ -1010,7 +1014,13 @@ export function PublicMenuView({
 
   return (
     <GuestLocaleProvider locale={locale}>
-      <div dir={dir} lang={locale} className={`g-body relative ${template === 'ember' ? 'ember-experience' : ''}`}>
+      <div
+          dir={dir}
+          lang={locale}
+          className={`g-body relative ${template === 'ember' ? 'ember-experience' : ''}`}
+          data-ember-palette={template === 'ember' ? emberSettings.palette : undefined}
+          data-ember-motion={template === 'ember' ? emberSettings.motion : undefined}
+        >
         <Hero {...heroProps} />
 
         <div className="relative z-20 px-4 lg:px-8">
