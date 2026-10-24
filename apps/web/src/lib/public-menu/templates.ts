@@ -12,6 +12,7 @@
  * - `centered`: a tall cover with the logo and name centred, photo cards, and centred headings.
  * - `compact`: a thin cover strip and a one-line info bar, so the menu starts at once.
  * - `editorial`: a photo-free menu with a prominent cover, balanced category panels, and clear ordering actions.
+ * - `ember`: a cinematic food-first experience with a dramatic restaurant photo and dark editorial tiles.
  */
 export const MENU_TEMPLATES = [
   'classic',
@@ -22,6 +23,7 @@ export const MENU_TEMPLATES = [
   'centered',
   'compact',
   'editorial',
+  'ember',
 ] as const;
 
 export type MenuTemplate = (typeof MENU_TEMPLATES)[number];
@@ -34,7 +36,7 @@ export const DEFAULT_MENU_TEMPLATE: MenuTemplate = 'classic';
 /** The building blocks a template is made of. Each component reads the one choice that is its own. */
 export interface TemplateLayout {
   /** The header at the top of the menu. */
-  hero: 'classic' | 'floating' | 'centered' | 'compact' | 'editorial';
+  hero: 'classic' | 'floating' | 'centered' | 'compact' | 'editorial' | 'ember';
   /** The product card. `tile-dense` is the two-column phone grid. */
   cards: 'classic' | 'row' | 'tile' | 'tile-dense' | 'line' | 'editorial';
   /** Category headings: a saffron bar at the start, or centred between two thin rules. */
@@ -55,6 +57,7 @@ const LAYOUTS: Record<MenuTemplate, TemplateLayout> = {
   floating: { hero: 'floating', cards: 'tile-dense', headings: 'bar', chips: 'pill', photos: true, featured: true },
   centered: { hero: 'centered', cards: 'classic', headings: 'centered', chips: 'pill', photos: true, featured: true },
   compact: { hero: 'compact', cards: 'row', headings: 'bar', chips: 'tabs', photos: true, featured: false },
+  ember: { hero: 'ember', cards: 'tile', headings: 'bar', chips: 'tabs', photos: true, featured: true },
   editorial: {
     hero: 'editorial',
     cards: 'editorial',
