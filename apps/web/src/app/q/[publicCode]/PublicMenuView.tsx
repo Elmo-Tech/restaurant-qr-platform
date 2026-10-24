@@ -1043,7 +1043,7 @@ export function PublicMenuView({
               />
             </div>
             <div
-              className={`${showModeSwitch ? 'flex' : 'hidden lg:flex'} g-shadow ${overlapsHero ? '-mt-7' : 'mt-4'} [.announce-slot:not(:empty)+&]:mt-0 items-center justify-between gap-4 rounded-[30px] border border-g-line bg-g-surface p-[5px] lg:rounded-[32px] lg:p-2`}
+              className={`${showModeSwitch ? 'flex' : 'hidden lg:flex'} g-shadow ${template === 'ember' ? 'ember-v2-toolbar' : ''} ${overlapsHero ? '-mt-7' : 'mt-4'} [.announce-slot:not(:empty)+&]:mt-0 items-center justify-between gap-4 rounded-[30px] border border-g-line bg-g-surface p-[5px] lg:rounded-[32px] lg:p-2`}
             >
               {showModeSwitch ? (
                 <div className="flex min-w-0 flex-1 gap-1 lg:flex-none lg:rounded-[26px] lg:bg-g-surface-2 lg:p-0.5">
