@@ -59,9 +59,7 @@ export class EmberTemplateConfigController {
   ): Promise<{ data: EmberConfigView }> {
     const id = request.restaurantAccess.restaurantId;
     await this.assertAvailable(id);
-    return { data: await this.configs.saveDraft(id, dto as EmberTemplateSettingsDto & {
-      headlineAr: string; headlineEn: string; subtitleAr: string; subtitleEn: string;
-    }) };
+    return { data: await this.configs.saveDraft(id, dto) };
   }
 
   @Post('publish')
