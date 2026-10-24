@@ -7,44 +7,107 @@ import { HeroActions, LanguageSwitch, LogoTile, type GuestHeroProps } from './Gu
 import { HoursBadge } from './HoursBadge';
 
 /**
- * EMBER: a cinematic cover based on the restaurant's REAL uploaded cover photo.
- * Reuses all existing language, sharing, tracking, contact and hours controls.
- * No new external photo dependency and no extra ordering/business logic.
+ * EMBER V2: faithful adaptation of the accepted Cinematic Food Experience prototype.
+ * The main hero is a two-column poster (oversized campaign headline + featured real
+ * food photo), followed by a diagonal animated marquee. All restaurant identity,
+ * menu content, sharing, tracking and ordering are still real Wayta data.
  */
 export function GuestHeroEmber({ sentinelRef, ...p }: GuestHeroProps) {
-  const [imageFailed, setImageFailed] = useState(false);
-  const hasPhoto = p.coverUrl !== null && !imageFailed;
+  const [imageIndex, setImageIndex] = useState(0);
+  const photos = [p.emberPhotoUrl, p.coverUrl].filter(
+    (url): url is string => typeof url === 'string' && url.length > 0,
+  );
+  const photo = photos[imageIndex] ?? null;
   const arabic = p.locale.resolved === 'ar';
+  const headline = p.emberHeadline?.trim() || 'FIRE FIRST.';
+  const segments = headline.split(/\s+/);
+  const headlineTop = segments.shift() || headline;
+  const headlineBottom = segments.join(' ');
+  const subtitle = p.emberSubtitle || p.menuDescription || (
+    arabic
+      ? 'مذاق مختلف. أطباق تتحضّر بعناية، وتجربة تستحقها كل مرة.'
+      : 'Bold flavors. Freshly crafted. Every bite worth remembering.'
+  );
 
   return (
-    <header ref={sentinelRef} data-ember-hero className="ember-hero relative isolate overflow-hidden bg-[#120d0a] text-white">
-      <div className="absolute inset-0 overflow-hidden" aria-hidden="true">
-        {hasPhoto ? (
-          // eslint-disable-next-line @next/next/no-img-element -- Runtime-configured staff-uploaded API asset.
-          <img
-            src={p.coverUrl ?? undefined}
-            alt=""
-            decoding="async"
-            fetchPriority="high"
-            onError={() => setImageFailed(true)}
-            className="ember-hero-image absolute inset-0 size-full object-cover"
-          />
-        ) : (
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_78%_37%,#884121_0%,#392015_40%,#130e0b_82%)]">
-            <GuestIconDish className="absolute bottom-[15%] end-[10%] size-48 text-orange-300 opacity-[0.12] sm:size-80" />
+    <>
+      <header ref={sentinelRef} data-ember-hero className="ember-v2-header">
+        <div className="ember-v2-nav">
+          <div className="ember-v2-brand">
+            <LogoTile
+              name={p.restaurantName}
+              logoUrl={p.logoUrl}
+              className="ember-v2-brand-logo size-11 rounded-lg sm:size-12"
+            />
+            <span className="ember-v2-brand-name" dir="auto"><bdi>{p.restaurantName}</bdi><span className="ember-v2-brand-dot">.</span></span>
           </div>
-        )}
-        <div className="absolute inset-0 bg-[linear-gradient(90deg,rgba(15,10,8,0.89)_0%,rgba(18,11,8,0.67)_52%,rgba(15,10,8,0.25)_100%)] rtl:[background:linear-gradient(270deg,rgba(15,10,8,0.89)_0%,rgba(18,11,8,0.67)_52%,rgba(15,10,8,0.25)_100%)]" />
-        <div className="absolute inset-x-0 bottom-0 h-40 bg-gradient-to-t from-[#120d0a] to-transparent" />
-      </div>
-      <div className="relative mx-auto flex min-h-[390px] max-w-[1280px] flex-col px-4 pb-9 pt-4 sm:min-h-[470px] lg:min-h-[510px] lg:px-8 lg:pb-14 lg:pt-6">
-        <div className="flex items-center justify-between gap-3">
-          <LanguageSwitch
-            available={p.locale.available}
-            resolved={p.locale.resolved}
-            publicCode={p.publicCode}
-            label={p.copy.language}
-          />
+          <span className="ember-v2-nav-note" aria-hidden="true">
+            {arabic ? 'نكهة مختلفة · طعم لا يُنسى' : 'BOLD FLAVORS · MADE FRESH'}
+          </span>
+          <button
+            type="button"
+            className="ember-v2-cart-button"
+            aria-label={p.copy.viewCart}
+            onClick={p.onEmberCartOpen}
+            disabled={!p.onEmberCartOpen}
+          >
+            <span>{p.copy.cart}</span>
+            <span className="ember-v2-cart-count">{p.emberCartCount ?? 0}</span>
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.75" aria-hidden="true">
+              <path d="M5 8h14l-1.2 12H6.2L5 8Z" /><path d="M9 9V6a3 3 0 0 1 6 0v3" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="ember-v2-campaign">
+          <div className="ember-v2-campaign-copy">
+            <p className="ember-v2-eyebrow" dir="ltr">
+              THE ART OF THE PERFECT BITE <span aria-hidden="true">— 01</span>
+            </p>
+            <h1 className="ember-v2-headline" dir="auto">
+              <span>{headlineTop}</span>
+              {headlineBottom ? <span className="ember-v2-headline-accent">{headlineBottom}</span> : null}
+            </h1>
+            <p className="ember-v2-subtitle" dir="auto">{subtitle}</p>
+            <div className="ember-v2-signature">
+              <span>{arabic ? 'طازج. مميز. معمول بحب.' : 'FRESH. BOLD. UNFORGETTABLE.'}</span>
+              <span aria-hidden="true" />
+            </div>
+            {p.tableNumber || p.branchLine || p.hours ? (
+              <div className="ember-v2-restaurant-details">
+                {p.tableNumber ? <span>{p.copy.tableDineIn(p.tableNumber)}</span> : null}
+                {p.branchLine ? <span dir="auto">{p.branchLine}</span> : null}
+                {p.hours ? <HoursBadge hours={p.hours} copy={p.copy} locale={p.locale.resolved} /> : null}
+              </div>
+            ) : null}
+            <HeroContactIcons contact={p.contact} copy={p.copy} />
+          </div>
+
+          <div className="ember-v2-visual" aria-hidden="true">
+            <div className="ember-v2-visual-glow" />
+            {photo ? (
+              // eslint-disable-next-line @next/next/no-img-element -- Staff-owned images are served by the configured API.
+              <img
+                key={photo}
+                src={photo}
+                alt=""
+                loading="eager"
+                decoding="async"
+                fetchPriority="high"
+                onError={() => setImageIndex((index) => index + 1)}
+                className="ember-v2-photo"
+              />
+            ) : (
+              <div className="ember-v2-photo-fallback">
+                <GuestIconDish className="size-36 opacity-50 sm:size-48" />
+                <span className="ember-v2-fallback-label">MADE FRESH</span>
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="ember-v2-tools-nav">
+          <LanguageSwitch available={p.locale.available} resolved={p.locale.resolved} publicCode={p.publicCode} label={p.copy.language} />
           <HeroActions
             copy={p.copy}
             restaurantName={p.restaurantName}
@@ -53,41 +116,15 @@ export function GuestHeroEmber({ sentinelRef, ...p }: GuestHeroProps) {
             hasActiveOrder={p.hasActiveOrder}
           />
         </div>
-        <div className="ember-hero-content mt-auto max-w-[690px]">
-          <div className="mb-5 flex items-center gap-3">
-            <span aria-hidden="true" className="h-px w-10 bg-[#fba56a]" />
-            <span className="text-xs font-bold uppercase tracking-[0.18em] text-[#ffd1af]">
-              {arabic ? 'تجربة طعام مميزة' : 'A cinematic dining experience'}
-            </span>
-          </div>
-          {p.emberHeadline ? <p className="mb-3 text-sm font-bold text-[#ffd1af]" dir="auto">{p.restaurantName}</p> : null}
-          <div className="flex items-center gap-3 sm:gap-5">
-            <LogoTile
-              name={p.restaurantName}
-              logoUrl={p.logoUrl}
-              className="size-[62px] shrink-0 rounded-2xl border border-white/30 shadow-xl sm:size-[84px]"
-            />
-            <h1 dir="auto" className="g-display min-w-0 text-[36px] leading-[1.18] text-white sm:text-[56px] lg:text-[72px]">
-              <bdi>{p.emberHeadline || p.restaurantName}</bdi>
-            </h1>
-          </div>
-          {p.emberSubtitle || p.menuDescription ? (
-            <p dir="auto" className="mt-4 max-w-xl text-[14px] leading-[1.8] text-[#f7e1d1] sm:text-base">
-              {p.emberSubtitle || p.menuDescription}
-            </p>
-          ) : null}
-          {p.tableNumber ? (
-            <p className="mt-4 text-[14px] font-bold text-[#ffd1af]">{p.copy.tableDineIn(p.tableNumber)}</p>
-          ) : null}
-          {p.branchLine ? (
-            <p dir="auto" className="mt-2 text-[13px] font-medium text-white/80">{p.branchLine}</p>
-          ) : null}
-          <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-            {p.hours ? <HoursBadge hours={p.hours} copy={p.copy} locale={p.locale.resolved} /> : null}
-            <HeroContactIcons contact={p.contact} copy={p.copy} />
-          </div>
+      </header>
+
+      <div className="ember-v2-marquee" aria-hidden="true">
+        <div className="ember-v2-marquee-track" dir="ltr">
+          {Array.from({ length: 6 }, (_, index) => (
+            <span key={index}>✳ FRESH FOOD &nbsp; ✳ MADE WITH FIRE &nbsp; ✳ THE REAL DEAL &nbsp;</span>
+          ))}
         </div>
       </div>
-    </header>
+    </>
   );
 }
