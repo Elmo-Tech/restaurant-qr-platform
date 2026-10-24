@@ -1,4 +1,5 @@
 import type { RestaurantContact } from '../contact/types';
+import type { EmberTemplateSettings } from './ember-settings';
 
 /** Mirrors the Backend's public Guest Menu response shape exactly (FT-3) -- never a Staff `menu/types.ts` type, since the public payload's shape (flattened, already-resolved names/descriptions, no translation rows) is genuinely different. */
 /** What the Backend says about a Branch's opening hours; clock strings are in the Branch's own time. */
@@ -31,6 +32,8 @@ export interface PublicMenuContext {
     coverAssetPath: string | null;
     /** How the menu is laid out (DEC-044); presentation only. */
     menuTemplate?: string;
+    /** Only published values; available to a package-authorized EMBER preview. */
+    emberSettings?: EmberTemplateSettings;
     /** Contact details for the Guest Menu; a field is null when not set. */
     contact: RestaurantContact;
     /** Public code of the Restaurant's own (generic) QR: the link the Guest may share; never a Table QR. Null = nothing to share. */
