@@ -27,7 +27,7 @@ export class EmberTemplateConfigService {
     };
   }
 
-  async saveDraft(restaurantId: string, input: EmberTemplateSettings): Promise<EmberConfigView> {
+  async saveDraft(restaurantId: string, input: unknown): Promise<EmberConfigView> {
     const draft = normalizeEmberSettings(input);
     const row = await this.prisma.restaurantTemplateConfig.upsert({
       where: { restaurantId_template: { restaurantId, template: 'EMBER' } },
