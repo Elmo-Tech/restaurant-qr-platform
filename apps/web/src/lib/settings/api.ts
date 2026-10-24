@@ -1,4 +1,10 @@
-import type { EmberTemplateSettings, EmberTemplateConfigView } from '../public-menu/ember-settings';
+import {
+  normalizeEmberTemplateConfigView,
+  normalizeEmberTemplateSettings,
+  EMBER_COPY_KEYS,
+  type EmberTemplateSettings,
+  type EmberTemplateConfigView,
+} from '../public-menu/ember-settings';
 import type { MenuTemplateApi } from '../public-menu/templates';
 import type { ContactField, RestaurantContact } from '../contact/types';
 import { apiFetch, apiFetchFormData } from '../api/client';
@@ -101,25 +107,37 @@ export async function updateMenuTemplate(
 }
 
 /** Presentation-only EMBER drafts and publication are separate from template selection. */
+/** Keep draft and published content readable across API upgrades. */
 export async function getEmberTemplateConfig(restaurantId: string): Promise<EmberTemplateConfigView> {
-  const body = await apiFetch<{ data: EmberTemplateConfigView }>(
+  const body = await apiFetch<{ data: unknown }>(
     `${restaurantPath(restaurantId)}/ember-template`,
   );
-  return body.data;
+  return normalizeEmberTemplateConfigView(body.data);
 }
 
 export async function saveEmberTemplateDraft(
   restaurantId: string,
   settings: EmberTemplateSettings,
 ): Promise<EmberTemplateConfigView> {
-  const body = await apiFetch<{ data: EmberTemplateConfigView }>(
+  const expected = normalizeEmberTemplateSettings(settings);
+  const body = await apiFetch<{ data: unknown }>(
     `${restaurantPath(restaurantId)}/ember-template/draft`,
-    // The image asset path is owned by the upload endpoint, not editable via JSON.
-    { method: 'PATCH', body: Object.fromEntries(
-      Object.entries(settings).filter(([key]) => key !== 'heroImageAssetPath'),
-    ) },
+    {
+      method: 'PATCH',
+      // Asset paths are generated and managed exclusively by the upload route.
+      body: Object.fromEntries(
+        Object.entries(expected).filter(([key]) => key !== 'heroImageAssetPath'),
+      ),
+    },
   );
-  return body.data;
+  const result = normalizeEmberTemplateConfigView(body.data);
+  // Old API builds may silently discard newly introduced fields. Don't tell
+  // restaurant owners that their draft was saved if it wasn't persisted.
+  const required = ['palette', 'motion', 'heroImageMode', ...EMBER_COPY_KEYS] as const;
+  if (required.some((key) => result.draft[key] !== expected[key])) {
+    throw new Error('EMBER settings were not saved. Restart the API with the latest branch updates and try again.');
+  }
+  return result;
 }
 
 /** Store a separate EMBER-only hero picture in the private draft. */
@@ -129,21 +147,21 @@ export async function uploadEmberTemplateHeroImage(
 ): Promise<EmberTemplateConfigView> {
   const formData = new FormData();
   formData.set('image', file);
-  const body = await apiFetchFormData<{ data: EmberTemplateConfigView }>(
+  const body = await apiFetchFormData<{ data: unknown }>(
     `${restaurantPath(restaurantId)}/ember-template/hero-image`,
     formData,
   );
-  return body.data;
+  return normalizeEmberTemplateConfigView(body.data);
 }
 
 export async function publishEmberTemplateConfig(
   restaurantId: string,
 ): Promise<EmberTemplateConfigView> {
-  const body = await apiFetch<{ data: EmberTemplateConfigView }>(
+  const body = await apiFetch<{ data: unknown }>(
     `${restaurantPath(restaurantId)}/ember-template/publish`,
     { method: 'POST' },
   );
-  return body.data;
+  return normalizeEmberTemplateConfigView(body.data);
 }
 
 /** Switch Pickup and / or Delivery on or off for the whole Restaurant (omitted fields stay unchanged). */

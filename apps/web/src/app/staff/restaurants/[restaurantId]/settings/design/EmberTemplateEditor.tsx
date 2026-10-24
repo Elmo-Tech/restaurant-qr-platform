@@ -14,6 +14,7 @@ import { validateImageFile } from '../../../../../../lib/menu/image-validation';
 import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
 import {
   DEFAULT_EMBER_SETTINGS,
+  normalizeEmberTemplateSettings,
   type EmberTemplateSettings,
   type EmberPalette,
   type EmberMotion,
@@ -64,9 +65,9 @@ export function EmberTemplateEditor({
     getEmberTemplateConfig(restaurantId)
       .then((result) => {
         if (cancelled) return;
-        setDraft(result.draft);
-        setSavedDraft(result.draft);
-        setPublished(result.published);
+        setDraft(normalizeEmberTemplateSettings(result.draft));
+        setSavedDraft(normalizeEmberTemplateSettings(result.draft));
+        setPublished(normalizeEmberTemplateSettings(result.published));
         setError(null);
       })
       .catch((caught) => {
@@ -95,8 +96,8 @@ export function EmberTemplateEditor({
     try {
       const result = await uploadEmberTemplateHeroImage(restaurantId, file);
       // Upload saves a server-side draft. Preserve edits still being typed locally.
-      setSavedDraft(result.draft);
-      setPublished(result.published);
+      setSavedDraft(normalizeEmberTemplateSettings(result.draft));
+      setPublished(normalizeEmberTemplateSettings(result.published));
       setDraft((current) => ({
         ...current,
         heroImageMode: 'CUSTOM',
@@ -117,9 +118,9 @@ export function EmberTemplateEditor({
     setNotice(null);
     try {
       const result = await saveEmberTemplateDraft(restaurantId, draft);
-      setDraft(result.draft);
-      setSavedDraft(result.draft);
-      setPublished(result.published);
+      setDraft(normalizeEmberTemplateSettings(result.draft));
+      setSavedDraft(normalizeEmberTemplateSettings(result.draft));
+      setPublished(normalizeEmberTemplateSettings(result.published));
       setNotice('saved');
     } catch (caught) {
       if (isUnauthenticatedError(caught)) redirectToLogin();
@@ -137,9 +138,9 @@ export function EmberTemplateEditor({
     setNotice(null);
     try {
       const result = await publishEmberTemplateConfig(restaurantId);
-      setDraft(result.draft);
-      setSavedDraft(result.draft);
-      setPublished(result.published);
+      setDraft(normalizeEmberTemplateSettings(result.draft));
+      setSavedDraft(normalizeEmberTemplateSettings(result.draft));
+      setPublished(normalizeEmberTemplateSettings(result.published));
       setNotice('published');
       onPublished();
     } catch (caught) {
@@ -213,7 +214,7 @@ export function EmberTemplateEditor({
                 <textarea
                   dir={copyLanguage === 'Ar' ? 'rtl' : 'ltr'}
                   rows={2}
-                  value={draft[key]}
+                  value={draft[key] ?? DEFAULT_EMBER_SETTINGS[key]}
                   maxLength={field.limit}
                   disabled={!canManage || busy || imageUploading}
                   onChange={(event) => update(key, event.target.value)}
@@ -222,7 +223,7 @@ export function EmberTemplateEditor({
               ) : (
                 <input
                   dir={copyLanguage === 'Ar' ? 'rtl' : 'ltr'}
-                  value={draft[key]}
+                  value={draft[key] ?? DEFAULT_EMBER_SETTINGS[key]}
                   maxLength={field.limit}
                   disabled={!canManage || busy || imageUploading}
                   onChange={(event) => update(key, event.target.value)}
@@ -231,7 +232,7 @@ export function EmberTemplateEditor({
               )}
               <span className="flex items-center justify-between gap-2">
                 <span className="text-[11px] font-normal text-muted-foreground">
-                  {draft[key].length}/{field.limit}
+                  {(draft[key] ?? DEFAULT_EMBER_SETTINGS[key]).length}/{field.limit}
                 </span>
                 <button
                   type="button"

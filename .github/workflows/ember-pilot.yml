@@ -30,5 +30,7 @@ jobs:
         run: npm run typecheck:web
       - name: Platform TypeScript
         run: npm run typecheck:platform
+      - name: EMBER legacy API response regression tests
+        run: node --experimental-strip-types --test apps/web/src/lib/public-menu/ember-settings.contract.test.mjs
       - name: EMBER configuration and entitlements tests
         run: npm run test --workspace=apps/api -- --runInBand ember-template-config.spec.ts ember-template-config.service.spec.ts templates.spec.ts
