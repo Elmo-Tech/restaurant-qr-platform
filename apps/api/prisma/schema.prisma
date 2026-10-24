@@ -350,6 +350,7 @@ model Restaurant {
   branches              Branch[]
   announcements         RestaurantAnnouncement[]
   productSuggestions    ProductSuggestion[]
+  templateConfigs        RestaurantTemplateConfig[]
   features              RestaurantFeature[]
   package               Package?                 @relation(fields: [packageId], references: [id], onDelete: Restrict)
   subscriptions         Subscription[]
@@ -374,6 +375,23 @@ model Restaurant {
 
   @@index([packageId])
   @@map("restaurants")
+}
+
+// Template-specific appearance and copy: draft edits never affect public menus until published.
+model RestaurantTemplateConfig {
+  id                String       @id @default(uuid()) @db.Uuid
+  restaurantId      String       @map("restaurant_id") @db.Uuid
+  template          MenuTemplate
+  draftSettings     Json         @default("{}") @map("draft_settings")
+  publishedSettings Json         @default("{}") @map("published_settings")
+  schemaVersion     Int          @default(1) @map("schema_version")
+  createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant        Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@unique([restaurantId, template])
+  @@map("restaurant_template_configs")
 }
 
 model RestaurantLocale {
