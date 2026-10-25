@@ -1,0 +1,20 @@
+name: BREW Premium Foundation Checks
+on:
+  push:
+    branches: [feat/brew-premium-template]
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  typecheck:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run db:validate
+      - run: npm run typecheck:api
+      - run: npm run test --workspace=apps/api -- --runInBand brew-template-config.spec.ts templates.spec.ts
