@@ -1,6 +1,6 @@
 import type { Viewport } from 'next';
 import { cookies } from 'next/headers';
-import { Archivo, Lalezar } from 'next/font/google';
+import { Archivo, Lalezar, Cormorant_Garamond, Tajawal } from 'next/font/google';
 import { GuestThemeProvider } from '../../components/guest/GuestTheme';
 import {
   GUEST_THEME_COLORS,
@@ -27,6 +27,25 @@ const lalezar = Lalezar({
   display: 'swap',
 });
 
+/**
+ * The approved BLOOM reference uses Cormorant Garamond (including real italic)
+ * for Latin display type and Tajawal for Arabic. Load those exact faces once,
+ * exclusively for public guest menus. Other templates keep their own fonts.
+ */
+const bloomDisplay = Cormorant_Garamond({
+  subsets: ['latin'],
+  style: ['normal', 'italic'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-bloom-display',
+  display: 'swap',
+});
+const bloomArabic = Tajawal({
+  subsets: ['arabic', 'latin'],
+  weight: ['400', '500', '700', '800'],
+  variable: '--font-bloom-arabic',
+  display: 'swap',
+});
+
 // `viewportFit: cover` lets the cart bar respect the home-indicator inset; the browser
 // chrome colour follows the Guest's theme cookie.
 export async function generateViewport(): Promise<Viewport> {
@@ -44,7 +63,7 @@ export default async function GuestLayout({ children }: { children: React.ReactN
   const cookieStore = await cookies();
   const theme = resolveGuestTheme(cookieStore.get(GUEST_THEME_COOKIE)?.value);
   return (
-    <div className={`${archivo.variable} ${lalezar.variable}`}>
+    <div className={`${archivo.variable} ${lalezar.variable} ${bloomDisplay.variable} ${bloomArabic.variable}`}>
       <GuestThemeProvider initialTheme={theme}>{children}</GuestThemeProvider>
     </div>
   );

@@ -5,6 +5,13 @@ import {
   type EmberTemplateSettings,
   type EmberTemplateConfigView,
 } from '../public-menu/ember-settings';
+import {
+  BLOOM_COPY_KEYS,
+  normalizeBloomTemplateConfigView,
+  normalizeBloomTemplateSettings,
+  type BloomTemplateConfigView,
+  type BloomTemplateSettings,
+} from '../public-menu/bloom-settings';
 import type { MenuTemplateApi } from '../public-menu/templates';
 import type { ContactField, RestaurantContact } from '../contact/types';
 import { apiFetch, apiFetchFormData } from '../api/client';
@@ -173,6 +180,51 @@ export async function publishEmberTemplateConfig(
     { method: 'POST' },
   );
   return normalizeEmberTemplateConfigView(body.data);
+}
+
+/** BLOOM appearance stays private until published. */
+export async function getBloomTemplateConfig(restaurantId: string): Promise<BloomTemplateConfigView> {
+  const body = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/bloom-template`);
+  return normalizeBloomTemplateConfigView(body.data);
+}
+export async function saveBloomTemplateDraft(
+  restaurantId: string, settings: BloomTemplateSettings,
+): Promise<BloomTemplateConfigView> {
+  const expected = normalizeBloomTemplateSettings(settings);
+  const body = await apiFetch<{ data: unknown }>(
+    `${restaurantPath(restaurantId)}/bloom-template/draft`,
+    { method: 'PATCH', body: Object.fromEntries(
+      Object.entries(expected).filter(([key]) => key !== 'heroImageAssetPath'),
+    ) },
+  );
+  const saved = normalizeBloomTemplateConfigView(body.data);
+  const fields = ['palette', 'motion', 'heroImageMode', ...BLOOM_COPY_KEYS] as const;
+  if (fields.some((key) => saved.draft[key] !== expected[key])) {
+    throw new Error('BLOOM settings were not saved. Restart the API with the latest BLOOM branch and try again.');
+  }
+  return saved;
+}
+export async function uploadBloomTemplateHeroImage(
+  restaurantId: string, file: File,
+): Promise<BloomTemplateConfigView> {
+  const data = new FormData();
+  data.set('image', file);
+  const body = await apiFetchFormData<{ data: unknown }>(
+    `${restaurantPath(restaurantId)}/bloom-template/hero-image`, data,
+  );
+  return normalizeBloomTemplateConfigView(body.data);
+}
+export async function resetBloomTemplateHeroImage(restaurantId: string): Promise<BloomTemplateConfigView> {
+  const body = await apiFetch<{ data: unknown }>(
+    `${restaurantPath(restaurantId)}/bloom-template/hero-image`, { method: 'DELETE' },
+  );
+  return normalizeBloomTemplateConfigView(body.data);
+}
+export async function publishBloomTemplateConfig(restaurantId: string): Promise<BloomTemplateConfigView> {
+  const body = await apiFetch<{ data: unknown }>(
+    `${restaurantPath(restaurantId)}/bloom-template/publish`, { method: 'POST' },
+  );
+  return normalizeBloomTemplateConfigView(body.data);
 }
 
 /** Switch Pickup and / or Delivery on or off for the whole Restaurant (omitted fields stay unchanged). */
