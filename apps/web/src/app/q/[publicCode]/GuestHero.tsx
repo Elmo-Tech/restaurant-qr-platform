@@ -43,7 +43,7 @@ export function LanguageSwitch({
   label: string;
   /** Retain the template preview query across in-frame locale switching. */
   designPreview?: boolean;
-  previewTemplate?: 'ember' | 'bloom';
+  previewTemplate?: 'ember' | 'bloom' | 'brew';
 }) {
   if (available.length <= 1) return <span />;
   const ordered = [...available].sort((a, b) => (a === 'ar' ? -1 : b === 'ar' ? 1 : 0));
@@ -193,6 +193,8 @@ export interface GuestHeroProps {
   emberSignature?: string | null;
   emberMarquee?: string | null;
   emberDesignPreview?: boolean;
+  brewNavTagline?:string; brewEyebrow?:string;brewHeadlineTop?:string;brewHeadlineBottom?:string;brewSubtitle?:string;brewStory?:string;
+  brewCartCount?:number;onBrewCartOpen?:(()=>void);
   /** BLOOM copy is localized from the published or draft template configuration. */
   bloomRibbon?: string;
   bloomNavTagline?: string;
