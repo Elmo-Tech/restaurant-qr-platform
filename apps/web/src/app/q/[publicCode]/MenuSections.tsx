@@ -5,6 +5,8 @@ import { GuestEmptyState } from '../../../components/guest/GuestEmptyState';
 import { GuestIconSearch, GuestIconUtensils } from '../../../components/guest/icons';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import type { PublicMenuCategory, PublicMenuProduct } from '../../../lib/public-menu/types';
+import {brewPromoForCategory,type BrewTemplateSettings} from '../../../lib/public-menu/brew-settings';
+import {resolveAssetUrl} from '../../../lib/media/asset-url';
 import { DEFAULT_MENU_TEMPLATE, layoutOf, type MenuTemplate } from '../../../lib/public-menu/templates';
 import { ProductCard } from './ProductCard';
 import {
@@ -158,6 +160,7 @@ interface MenuSectionsProps {
   bloomCategoryTabs?: { id: string; name: string }[];
   bloomActiveCategoryId?: string;
   onBloomCategorySelect?: (id: string) => void;
+  brewCategoryTabs?:{id:string;name:string}[];brewActiveCategoryId?:string;onBrewCategorySelect?:(id:string)=>void;brewSettings?:BrewTemplateSettings;brewLocale?:string;
   bloomSectionEyebrow?: string;
   bloomSectionHeadline?: string;
   /** How the menu is laid out (DEC-044). */
@@ -172,6 +175,7 @@ const CARD_CONTAINER = {
   editorial: 'flex flex-col',
   ember: 'ember-v2-grid grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3',
   bloom: 'bloom-v2-grid',
+  brew:'brew-v2-rows',
 } as const;
 
 /** Keep desktop columns similar in height while preserving the original category order on mobile. */
@@ -213,8 +217,8 @@ function MenuSectionsImpl({
   bloomCategoryTabs,
   bloomActiveCategoryId,
   onBloomCategorySelect,
-  bloomSectionEyebrow,
-  bloomSectionHeadline,
+  bloomSectionEyebrow,bloomSectionHeadline,
+  brewCategoryTabs,brewActiveCategoryId,onBrewCategorySelect,brewSettings,brewLocale,
   template = DEFAULT_MENU_TEMPLATE,
 }: MenuSectionsProps) {
   const layout = layoutOf(template);
@@ -248,6 +252,30 @@ function MenuSectionsImpl({
   }
 
   const renderCategory = (category: PublicMenuCategory) => {
+    if(layout.cards==='brew'&&brewSettings){
+      const promo=brewPromoForCategory(brewSettings,category.id);
+      const en=brewLocale!=='ar';
+      return <section className="brew-v2-menu-section" key={category.id} id={categoryDomId(category.id)}>
+        <div className="brew-v2-sectionhead"><h2 className="brew-v2-display">{en?brewSettings.menuHeadingEn:brewSettings.menuHeadingAr}</h2>
+         <p>{en?brewSettings.menuSubtitleEn:brewSettings.menuSubtitleAr}</p></div>
+        {brewCategoryTabs&&onBrewCategorySelect?<nav className="brew-v2-tabs" aria-label={copy.categories}>
+         {brewCategoryTabs.map(t=><button type="button" key={t.id} aria-pressed={t.id===brewActiveCategoryId}
+          className={t.id===brewActiveCategoryId?'active':''} onClick={()=>onBrewCategorySelect(t.id)}>{t.name}</button>)}</nav>:null}
+        <div className="brew-v2-list"><div className="brew-v2-rows">
+         {category.products.map(product=><ProductLine key={product.id} product={product} currency={currency} copy={copy}
+           canOrder={canOrder} simpleQuantity={simpleQuantityByProductId.get(product.id)??0}
+           totalQuantity={totalQuantityByProductId.get(product.id)??0} onOpen={onOpen} onQuickAdd={onQuickAdd}
+           onIncrement={onIncrement} onDecrement={onDecrement}/>)}
+         {category.products.length===0?<p>{copy.noItemsInCategory}</p>:null}
+        </div>{brewSettings.promoEnabled?<aside className="brew-v2-promo">
+         <small>{en?promo.promoLabelEn:promo.promoLabelAr}</small>
+         <h3 className="brew-v2-display" dir="auto">{en?promo.promoHeadlineEn:promo.promoHeadlineAr}</h3>
+         <p dir="auto">{en?promo.promoDescriptionEn:promo.promoDescriptionAr}</p>
+         {brewSettings.promoImageMode==='CUSTOM'&&brewSettings.promoImageAssetPath
+          ?<img alt="" className="brew-v2-promo-photo" src={resolveAssetUrl(brewSettings.promoImageAssetPath)??undefined}/>
+          :<span className="brew-v2-promo-icon" aria-hidden="true">☕</span>}
+        </aside>:null}</div></section>;
+    }
     const headingId = `${categoryDomId(category.id)}-title`;
     return (
       <section

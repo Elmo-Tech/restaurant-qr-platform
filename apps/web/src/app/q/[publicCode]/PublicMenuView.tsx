@@ -68,6 +68,8 @@ import {
 } from '../../../lib/public-menu/ember-settings';
 import { GuestHeroEmber } from './GuestHeroEmber';
 import { GuestHeroBloom } from './GuestHeroBloom';
+import { GuestHeroBrew } from './GuestHeroBrew';
+import {DEFAULT_BREW_SETTINGS,BREW_DESIGN_PREVIEW_READY,isBrewPreviewUpdate,normalizeBrewTemplateSettings,type BrewTemplateSettings} from '../../../lib/public-menu/brew-settings';
 import {
   DEFAULT_BLOOM_SETTINGS,
   BLOOM_DESIGN_PREVIEW_READY,
@@ -151,6 +153,18 @@ export function PublicMenuView({
   const bloomSettings = designPreview && template === 'bloom' && bloomLiveDraft
     ? bloomLiveDraft
     : data.context.restaurant.bloomSettings ?? DEFAULT_BLOOM_SETTINGS;
+  const [brewLiveDraft,setBrewLiveDraft]=useState<BrewTemplateSettings|null>(null);
+  useEffect(()=>{
+    if(!designPreview||template!=='brew'||window.parent===window)return;
+    const listen=(event:MessageEvent)=>{
+      if(event.origin!==window.location.origin||event.source!==window.parent||!isBrewPreviewUpdate(event.data))return;
+      setBrewLiveDraft(normalizeBrewTemplateSettings(event.data.settings));
+    };
+    window.addEventListener('message',listen);
+    window.parent.postMessage({type:BREW_DESIGN_PREVIEW_READY},window.location.origin);
+    return ()=>window.removeEventListener('message',listen);
+  },[designPreview,template]);
+  const brewSettings=designPreview&&template==='brew'&&brewLiveDraft?brewLiveDraft:data.context.restaurant.brewSettings??DEFAULT_BREW_SETTINGS;
   const hasCategories = data.menu.categories.length > 0;
   // Both premium demo references show one category at a time.
   // Search results still span all categories so no matching products disappear.
@@ -246,7 +260,7 @@ export function PublicMenuView({
       }))
       .filter((category) => category.products.length > 0);
   }, [data.menu.categories, isSearching, normalizedQuery, searchIndex]);
-  const premiumVisibleCategories = (template === 'ember' || template === 'bloom') && !isSearching
+  const premiumVisibleCategories = (template === 'ember' || template === 'bloom' || template === 'brew') && !isSearching
     ? visibleCategories.filter((category) => category.id === premiumCategoryId)
     : visibleCategories;
   const searchResultCount = visibleCategories.reduce(
@@ -1060,6 +1074,14 @@ export function PublicMenuView({
     emberPhotoFallbackUrl: emberAutoPhotoUrl,
     emberCartCount: cartCount,
     emberDesignPreview: designPreview,
+    brewNavTagline:locale==='ar'?brewSettings.navTaglineAr:brewSettings.navTaglineEn,
+    brewEyebrow:locale==='ar'?brewSettings.eyebrowAr:brewSettings.eyebrowEn,
+    brewHeadlineTop:locale==='ar'?brewSettings.headlineTopAr:brewSettings.headlineTopEn,
+    brewHeadlineBottom:locale==='ar'?brewSettings.headlineBottomAr:brewSettings.headlineBottomEn,
+    brewSubtitle:locale==='ar'?brewSettings.subtitleAr:brewSettings.subtitleEn,
+    brewStory:locale==='ar'?brewSettings.storyAr:brewSettings.storyEn,
+    brewCartCount:cartCount,
+    onBrewCartOpen:canOrder?()=>setIsCartOpen(true):undefined,
     bloomRibbon: locale === 'ar' ? bloomSettings.ribbonAr : bloomSettings.ribbonEn,
     bloomNavTagline: locale === 'ar' ? bloomSettings.navTaglineAr : bloomSettings.navTaglineEn,
     bloomEyebrow: locale === 'ar' ? bloomSettings.eyebrowAr : bloomSettings.eyebrowEn,
@@ -1084,7 +1106,7 @@ export function PublicMenuView({
     hasActiveOrder,
   };
   const Hero =
-    layout.hero === 'bloom'
+    layout.hero === 'brew' ? GuestHeroBrew : layout.hero === 'bloom'
       ? GuestHeroBloom
       : layout.hero === 'ember'
       ? GuestHeroEmber
@@ -1105,9 +1127,10 @@ export function PublicMenuView({
       <div
           dir={dir}
           lang={locale}
-          className={`g-body relative ${template === 'ember' ? 'ember-experience' : template === 'bloom' ? 'bloom-experience' : ''}`}
+          className={`g-body relative ${template === 'ember' ? 'ember-experience' : template === 'bloom' ? 'bloom-experience' : template === 'brew' ? 'brew-experience' : ''}`}
           data-ember-palette={template === 'ember' ? emberSettings.palette : undefined}
           data-ember-motion={template === 'ember' ? emberSettings.motion : undefined}
+          data-brew-motion={template==='brew'?brewSettings.motion:undefined}
           data-bloom-palette={template === 'bloom' ? bloomSettings.palette : undefined}
           data-bloom-motion={template === 'bloom' ? bloomSettings.motion : undefined}
         >
@@ -1179,7 +1202,7 @@ export function PublicMenuView({
 
         {/* A sticky element only sticks inside its parent: the chips must be a direct child of
             this page-height root (no short wrapper), or the bar scrolls away with its own box. */}
-        {hasCategories && template !== 'ember' && template !== 'bloom' ? (
+        {hasCategories && template !== 'ember' && template !== 'bloom' && template !== 'brew' ? (
           <CategoryChips
             items={chipItems}
             activeId={navigation.activeId}
@@ -1192,7 +1215,7 @@ export function PublicMenuView({
         ) : null}
 
         <main
-          id={template === 'ember' ? 'ember-menu-start' : template === 'bloom' ? 'bloom-menu-start' : undefined}
+          id={template === 'ember' ? 'ember-menu-start' : template === 'bloom' ? 'bloom-menu-start' : template === 'brew' ? 'brew-menu-start' : undefined}
           className={`px-4 pt-5 lg:px-8 lg:pt-7 ${showCartBar ? 'pb-[150px]' : 'pb-16'}`}
         >
           <div className="mx-auto flex max-w-[1280px] flex-col gap-[34px] lg:gap-[52px]">
@@ -1252,6 +1275,11 @@ export function PublicMenuView({
                   block: 'start',
                 });
               }}
+              brewSettings={template==='brew'?brewSettings:undefined}
+              brewLocale={locale}
+              brewCategoryTabs={template==='brew'&&!isSearching?data.menu.categories.map(c=>({id:c.id,name:c.name})):undefined}
+              brewActiveCategoryId={premiumCategoryId}
+              onBrewCategorySelect={id=>{setPremiumCategoryId(id);document.getElementById('brew-menu-start')?.scrollIntoView({behavior:'smooth'});}}
               bloomCategoryTabs={template === 'bloom' && !isSearching
                 ? data.menu.categories.map((category) => ({ id: category.id, name: category.name }))
                 : undefined}
