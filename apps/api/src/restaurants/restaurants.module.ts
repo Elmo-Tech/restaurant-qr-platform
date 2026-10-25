@@ -9,6 +9,8 @@ import { RestaurantProfileController } from './restaurant-profile.controller';
 import { RestaurantProfileService } from './restaurant-profile.service';
 import { EmberTemplateConfigController } from './ember-template-config.controller';
 import { EmberTemplateConfigService } from './ember-template-config.service';
+import { BloomTemplateConfigController } from './bloom-template-config.controller';
+import { BloomTemplateConfigService } from './bloom-template-config.service';
 
 /**
  * LOC-2A, approved LOC-1 contract: Restaurant Language Settings. Imports
@@ -24,7 +26,7 @@ import { EmberTemplateConfigService } from './ember-template-config.service';
  */
 @Module({
   imports: [DatabaseModule, AuthModule, StorageModule, EntitlementsModule],
-  controllers: [RestaurantsController, RestaurantProfileController, EmberTemplateConfigController],
-  providers: [RestaurantLocalesService, RestaurantProfileService, EmberTemplateConfigService],
+  controllers: [RestaurantsController, RestaurantProfileController, EmberTemplateConfigController, BloomTemplateConfigController],
+  providers: [RestaurantLocalesService, RestaurantProfileService, EmberTemplateConfigService, BloomTemplateConfigService],
 })
 export class RestaurantsModule {}

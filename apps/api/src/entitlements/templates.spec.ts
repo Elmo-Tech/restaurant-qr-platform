@@ -141,6 +141,13 @@ describe('template tiers (DEC-052)', () => {
     expect(tierCounts(allowed)).toEqual({ standard: 5, premium: 1 });
   });
 
+  it('includes Bloom only when its premium design is entitled', () => {
+    const rule = { includesFeature: true, all: false, allStandard: true, selected: [] };
+    expect(allowedTemplates({ featureEnabled: true, rule })).not.toContain('BLOOM');
+    expect(allowedTemplates({ featureEnabled: true, rule: { ...rule, selected: ['BLOOM'] } }))
+      .toContain('BLOOM');
+  });
+
   it('treats the photo-free Editorial design as standard', () => {
     const keys = allowedTemplates({
       featureEnabled: true,
@@ -168,6 +175,6 @@ describe('template tiers (DEC-052)', () => {
   it('gives all of both tiers for "all"', () => {
     expect(
       templateTierCountsOf({ includesFeature: true, all: true, selected: [] }),
-    ).toEqual({ standard: 5, premium: 4 });
+    ).toEqual({ standard: 5, premium: 5 });
   });
 });
