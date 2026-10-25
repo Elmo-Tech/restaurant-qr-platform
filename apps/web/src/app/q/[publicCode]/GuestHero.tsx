@@ -34,11 +34,14 @@ export function LanguageSwitch({
   resolved,
   publicCode,
   label,
+  designPreview = false,
 }: {
   available: string[];
   resolved: string;
   publicCode: string;
   label: string;
+  /** Retain the template preview query across in-frame locale switching. */
+  designPreview?: boolean;
 }) {
   if (available.length <= 1) return <span />;
   const ordered = [...available].sort((a, b) => (a === 'ar' ? -1 : b === 'ar' ? 1 : 0));
@@ -50,7 +53,7 @@ export function LanguageSwitch({
         return (
           <Link
             key={locale}
-            href={`/q/${publicCode}?lang=${locale}`}
+            href={`/q/${publicCode}?lang=${locale}${designPreview ? '&template=ember&designPreview=1' : ''}`}
             lang={locale}
             hrefLang={locale}
             aria-current={isActive ? 'true' : undefined}
@@ -187,6 +190,7 @@ export interface GuestHeroProps {
   emberEyebrow?: string | null;
   emberSignature?: string | null;
   emberMarquee?: string | null;
+  emberDesignPreview?: boolean;
   emberPhotoFallbackUrl?: string | null;
   /** Actual restaurant product photo for the cinematic composition (not a demo illustration). */
   emberPhotoUrl?: string | null;

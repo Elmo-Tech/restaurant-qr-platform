@@ -115,3 +115,15 @@ export function normalizeEmberTemplateConfigView(input: unknown): EmberTemplateC
     published: normalizeEmberTemplateSettings(source.published),
   };
 }
+
+/** Same-origin staff iframe messages; all overrides affect rendering only. */
+export const EMBER_DESIGN_PREVIEW_UPDATE = 'wayta:ember-design-preview:update:v1';
+export const EMBER_DESIGN_PREVIEW_READY = 'wayta:ember-design-preview:ready:v1';
+
+export function isEmberPreviewUpdate(input: unknown): input is {
+  type: typeof EMBER_DESIGN_PREVIEW_UPDATE;
+  settings: unknown;
+} {
+  if (input === null || typeof input !== 'object' || Array.isArray(input)) return false;
+  return (input as Record<string, unknown>).type === EMBER_DESIGN_PREVIEW_UPDATE;
+}

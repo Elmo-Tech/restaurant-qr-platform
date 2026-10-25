@@ -59,7 +59,13 @@ import type {
   OrderingContextView,
 } from './guest-view-types';
 import { DEFAULT_MENU_TEMPLATE, layoutOf, type MenuTemplate } from '../../../lib/public-menu/templates';
-import { DEFAULT_EMBER_SETTINGS } from '../../../lib/public-menu/ember-settings';
+import {
+  DEFAULT_EMBER_SETTINGS,
+  EMBER_DESIGN_PREVIEW_READY,
+  isEmberPreviewUpdate,
+  normalizeEmberTemplateSettings,
+  type EmberTemplateSettings,
+} from '../../../lib/public-menu/ember-settings';
 import { GuestHeroEmber } from './GuestHeroEmber';
 import { MenuSections } from './MenuSections';
 import { ModeSwitch } from './ModeSwitch';
@@ -87,11 +93,14 @@ export function PublicMenuView({
   data,
   publicCode,
   template = DEFAULT_MENU_TEMPLATE,
+  designPreview = false,
 }: {
   data: PublicMenuData;
   publicCode: string;
   /** How the menu is laid out (DEC-044); presentation only. */
   template?: MenuTemplate;
+  /** Explicit staff-frame preview flag; the server never returns draft settings. */
+  designPreview?: boolean;
 }) {
   const router = useRouter();
   const locale = data.locale.resolved;
@@ -100,7 +109,25 @@ export function PublicMenuView({
   const logoUrl = resolveAssetUrl(data.context.restaurant.logoAssetPath);
   const coverUrl = resolveAssetUrl(data.context.restaurant.coverAssetPath);
   const copy = getPublicMenuCopy(locale);
-  const emberSettings = data.context.restaurant.emberSettings ?? DEFAULT_EMBER_SETTINGS;
+  const [emberLiveDraft, setEmberLiveDraft] = useState<EmberTemplateSettings | null>(null);
+  useEffect(() => {
+    if (!designPreview || template !== 'ember' || window.parent === window) return;
+    const onDraftMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin ||
+          event.source !== window.parent ||
+          !isEmberPreviewUpdate(event.data)) return;
+      // Treat messages as untrusted display data; normalize the allowlisted
+      // palette, motion, localized copy and server-owned image asset path.
+      setEmberLiveDraft(normalizeEmberTemplateSettings(event.data.settings));
+    };
+    window.addEventListener('message', onDraftMessage);
+    // Child -> parent handshake covers hydration after iframe load.
+    window.parent.postMessage({ type: EMBER_DESIGN_PREVIEW_READY }, window.location.origin);
+    return () => window.removeEventListener('message', onDraftMessage);
+  }, [designPreview, template]);
+  const emberSettings = designPreview && template === 'ember' && emberLiveDraft
+    ? emberLiveDraft
+    : data.context.restaurant.emberSettings ?? DEFAULT_EMBER_SETTINGS;
   const hasCategories = data.menu.categories.length > 0;
   // EMBER deliberately mirrors its accepted concept: one category at a time.
   // Search results still span all categories so no matching products disappear.
@@ -1009,6 +1036,7 @@ export function PublicMenuView({
     emberPhotoUrl,
     emberPhotoFallbackUrl: emberAutoPhotoUrl,
     emberCartCount: cartCount,
+    emberDesignPreview: designPreview,
     onEmberCartOpen: canOrder ? () => setIsCartOpen(true) : undefined,
     tableNumber: data.context.table?.number ?? null,
     branchLine,

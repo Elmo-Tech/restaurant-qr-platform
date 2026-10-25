@@ -106,7 +106,7 @@ export function GuestHeroEmber({ sentinelRef, ...p }: GuestHeroProps) {
         </div>
 
         <div className="ember-v2-tools-nav">
-          <LanguageSwitch available={p.locale.available} resolved={p.locale.resolved} publicCode={p.publicCode} label={p.copy.language} />
+          <LanguageSwitch available={p.locale.available} resolved={p.locale.resolved} publicCode={p.publicCode} label={p.copy.language} designPreview={p.emberDesignPreview} />
           <HeroActions
             copy={p.copy}
             restaurantName={p.restaurantName}

@@ -6,7 +6,7 @@ import { PublicMenuView } from './PublicMenuView';
 
 interface PublicMenuPageProps {
   params: Promise<{ publicCode: string }>;
-  searchParams: Promise<{ lang?: string; template?: string }>;
+  searchParams: Promise<{ lang?: string; template?: string; designPreview?: string }>;
 }
 
 /**
@@ -20,7 +20,7 @@ interface PublicMenuPageProps {
  */
 export default async function PublicMenuPage({ params, searchParams }: PublicMenuPageProps) {
   const { publicCode } = await params;
-  const { lang, template } = await searchParams;
+  const { lang, template, designPreview } = await searchParams;
 
   const result = await getPublicMenu(publicCode, lang);
 
@@ -55,6 +55,11 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
       publicCode={publicCode}
       template={parseMenuTemplate(
         (previewAllowed ? template : undefined) ?? result.data.context.restaurant.menuTemplate,
+      )}
+      designPreview={Boolean(
+        designPreview === '1' &&
+        previewAllowed &&
+        template?.toUpperCase() === 'EMBER'
       )}
     />
   );
