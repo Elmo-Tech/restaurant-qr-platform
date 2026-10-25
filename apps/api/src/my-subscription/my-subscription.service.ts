@@ -10,7 +10,6 @@ import {
 import { Prisma } from '../generated/prisma/client';
 import {
   currencyForCountry,
-  listPriceFor,
   paymentSummary,
   type BillingCurrency,
   type BillingPeriodKey,
@@ -35,6 +34,7 @@ import {
 } from '../entitlements/templates';
 import { PlatformAuditService } from '../platform/platform-audit.service';
 import { upgradeCandidates } from './plan-options';
+import { cataloguePricing, type CataloguePriceView } from './catalog-pricing';
 
 export interface PlanSubscriptionView {
   kind: 'PAID' | 'TRIAL';
@@ -53,27 +53,15 @@ export interface PlanSubscriptionView {
   paymentStatus: PaymentStatus;
 }
 
-export interface UpgradeOptionView {
+export interface UpgradeOptionView extends CataloguePriceView {
   id: string;
   name: string;
   description: string | null;
-  /** Everything the package includes. */
   features: FeatureKey[];
-  /** What it would add to what the restaurant has now. */
   adds: FeatureKey[];
-  /** How many Guest menu templates it gives (Classic counts, DEC-051). */
   templateCount: number;
-  /** The same, split by tier (DEC-052). */
   templateStandard: number;
   templatePremium: number;
-  priceMonthly: string | null;
-  priceYearly: string | null;
-  /** An offer that is on today, or null. */
-  offer: {
-    percent: string;
-    label: string | null;
-    endsAt: string | null;
-  } | null;
 }
 
 export interface OpenRequestView {
@@ -89,6 +77,8 @@ export interface MySubscriptionView {
   billingCurrency: BillingCurrency;
   graceDays: number;
   package: { id: string; name: string } | null;
+  /** Current package list prices, separate from subscription.finalPrice (agreed amount). */
+  currentPricing: CataloguePriceView | null;
   /** What the restaurant effectively has (package, exceptions and defaults applied). */
   features: { key: FeatureKey; included: boolean }[];
   /** The Guest menu templates it may use now, out of all of them (DEC-051). */
@@ -174,6 +164,13 @@ export class MySubscriptionService {
           select: {
             id: true,
             name: true,
+            priceEgpMonthly: true,
+            priceEgpYearly: true,
+            priceUsdMonthly: true,
+            priceUsdYearly: true,
+            offerPercent: true,
+            offerLabel: true,
+            offerEndsAt: true,
             allTemplates: true,
             allStandardTemplates: true,
             features: { select: { feature: true } },
@@ -300,13 +297,6 @@ export class MySubscriptionService {
         };
       }),
     }).map(({ pkg, adds }): UpgradeOptionView => {
-      const offerOn =
-        pkg.offerPercent !== null &&
-        pkg.offerPercent.gt(0) &&
-        (pkg.offerEndsAt === null ||
-          pkg.offerEndsAt.getTime() >= today.getTime());
-      const monthly = listPriceFor(pkg, currency, 'MONTHLY');
-      const yearly = listPriceFor(pkg, currency, 'YEARLY');
       return {
         id: pkg.id,
         name: pkg.name,
@@ -316,18 +306,7 @@ export class MySubscriptionService {
         templateCount: pkg.templateCount,
         templateStandard: pkg.templateTiers.standard,
         templatePremium: pkg.templateTiers.premium,
-        priceMonthly: monthly?.toFixed(2) ?? null,
-        priceYearly: yearly?.toFixed(2) ?? null,
-        offer:
-          offerOn && pkg.offerPercent
-            ? {
-                percent: pkg.offerPercent.toFixed(2),
-                label: pkg.offerLabel,
-                endsAt: pkg.offerEndsAt
-                  ? formatDateOnly(pkg.offerEndsAt)
-                  : null,
-              }
-            : null,
+        ...cataloguePricing(pkg, currency, today),
       };
     });
 
@@ -338,6 +317,7 @@ export class MySubscriptionService {
         id: restaurant.package.id,
         name: restaurant.package.name,
       },
+      currentPricing: restaurant.package ? cataloguePricing(restaurant.package, currency, today) : null,
       features: FEATURE_KEYS.map((key) => ({ key, included: effective[key] })),
       templates: {
         current: currentTemplates.length,
