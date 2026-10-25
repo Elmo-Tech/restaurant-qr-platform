@@ -191,6 +191,19 @@ export interface GuestHeroProps {
   emberSignature?: string | null;
   emberMarquee?: string | null;
   emberDesignPreview?: boolean;
+  /** BLOOM copy is localized from the published or draft template configuration. */
+  bloomRibbon?: string;
+  bloomNavTagline?: string;
+  bloomEyebrow?: string;
+  bloomHeadlineTop?: string;
+  bloomHeadlineMiddle?: string;
+  bloomHeadlineBottom?: string;
+  bloomSubtitle?: string;
+  bloomCta?: string;
+  bloomHeroImageUrl?: string | null;
+  bloomCartCount?: number;
+  onBloomCartOpen?: () => void;
+
   emberPhotoFallbackUrl?: string | null;
   /** Actual restaurant product photo for the cinematic composition (not a demo illustration). */
   emberPhotoUrl?: string | null;
