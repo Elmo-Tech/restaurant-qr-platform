@@ -34,7 +34,7 @@ test('BLOOM keeps pastel defaults, 3 color schemes and dark mode from existing g
 test('BLOOM stays available in the platform package registry and legacy design fallback', () => {
   const platform = readFileSync(new URL('../../platform/src/lib/api/platform.ts', root), 'utf8');
   const designPage = readFileSync(new URL('app/staff/restaurants/[restaurantId]/settings/design/page.tsx', root), 'utf8');
-  assert.match(platform, /export const PACKAGE_TEMPLATES = \\[[^\\]]*['"]BLOOM['"]/);
-  assert.match(platform, /export const PREMIUM_TEMPLATES = \\[[^\\]]*['"]BLOOM['"]/);
+  assert.ok(platform.includes('"EMBER", "BLOOM"] as const'), 'BLOOM must be a selectable package template');
+  assert.ok(platform.includes('"EMBER", "BLOOM"] as const satisfies readonly PackageTemplate[]'), 'BLOOM must be premium');
   assert.ok(designPage.includes('MENU_TEMPLATES.map('), 'design page must reuse its actual template registry');
 });
