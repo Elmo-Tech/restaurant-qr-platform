@@ -18,6 +18,8 @@ import type { MenuTemplateApi } from '../../../../../../lib/public-menu/template
 import { SettingsTabs } from '../SettingsTabs';
 import { EmberTemplateEditor } from './EmberTemplateEditor';
 import { BloomTemplateEditor } from './BloomTemplateEditor';
+import { BrewTemplateEditor } from './BrewTemplateEditor';
+import {BREW_DESIGN_PREVIEW_READY,BREW_DESIGN_PREVIEW_UPDATE,type BrewTemplateSettings} from '../../../../../../lib/public-menu/brew-settings';
 import {
   EMBER_DESIGN_PREVIEW_READY,
   EMBER_DESIGN_PREVIEW_UPDATE,
@@ -32,7 +34,7 @@ import {
 type Template = MenuTemplateApi;
 
 /** The premium designs (DEC-052); the rest are standard. Mirrors the API. */
-const PREMIUM: readonly Template[] = ['GALLERY', 'MENU', 'FLOATING', 'EMBER', 'BLOOM'];
+const PREMIUM: readonly Template[] = ['GALLERY', 'MENU', 'FLOATING', 'EMBER', 'BLOOM', 'BREW'];
 const TIERS = ['STANDARD', 'PREMIUM'] as const;
 
 const TEMPLATES: { key: Template; title: MessageKey; hint: MessageKey }[] = [
@@ -46,6 +48,7 @@ const TEMPLATES: { key: Template; title: MessageKey; hint: MessageKey }[] = [
   { key: 'EDITORIAL', title: 'design.editorial', hint: 'design.editorialHint' },
   { key: 'EMBER', title: 'design.ember', hint: 'design.emberHint' },
   { key: 'BLOOM', title: 'design.bloom', hint: 'design.bloomHint' },
+  { key:'BREW',title:'design.brew',hint:'design.brewHint'},
 ];
 
 /** A simple wireframe of each layout, drawn with the theme colours (no images to load). */
@@ -245,6 +248,8 @@ export function DesignWorkspace({
   const [emberPreviewLanguage, setEmberPreviewLanguage] = useState<'ar' | 'en' | null>(null);
   const [bloomPreviewDraft, setBloomPreviewDraft] = useState<BloomTemplateSettings | null>(null);
   const [bloomPreviewLanguage, setBloomPreviewLanguage] = useState<'ar' | 'en' | null>(null);
+  const [brewPreviewDraft,setBrewPreviewDraft]=useState<BrewTemplateSettings|null>(null);
+  const [brewPreviewLanguage,setBrewPreviewLanguage]=useState<'ar'|'en'|null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -285,8 +290,8 @@ export function DesignWorkspace({
   }
 
   const previewLocale = selected === 'EMBER' ? emberPreviewLanguage
-    : selected === 'BLOOM' ? bloomPreviewLanguage : null;
-  const designPreview = selected === 'EMBER' || selected === 'BLOOM';
+    : selected === 'BLOOM' ? bloomPreviewLanguage : selected==='BREW'?brewPreviewLanguage:null;
+  const designPreview = selected === 'EMBER' || selected === 'BLOOM' || selected==='BREW';
   const previewSrc = qrCode
     ? `/q/${qrCode}?template=${selected.toLowerCase()}${designPreview
         ? `&designPreview=1${previewLocale ? `&lang=${previewLocale}` : ''}`
@@ -408,6 +413,7 @@ export function DesignWorkspace({
             />
           ) : null}
 
+          {selected==='BREW'&&allowedTemplates.includes('BREW')&&canManage?<BrewTemplateEditor restaurantId={restaurantId} canManage={canManage} onDraftChange={setBrewPreviewDraft} onCopyLanguageChange={setBrewPreviewLanguage}/>:null}
           <div className="flex flex-wrap items-center gap-3">
             <Button onClick={() => void save()} disabled={!canManage || !dirty || isSaving}>
               {t('design.save')}
@@ -424,7 +430,7 @@ export function DesignWorkspace({
               ? { kind: 'ember', settings: emberPreviewDraft }
               : selected === 'BLOOM' && bloomPreviewDraft
                 ? { kind: 'bloom', settings: bloomPreviewDraft }
-                : null
+                : selected==='BREW'&&brewPreviewDraft?{kind:'brew',settings:brewPreviewDraft}:null
           }
         />
       </div>
@@ -443,6 +449,7 @@ const DESKTOP_HEIGHT = 1000;
 type PremiumPreviewDraft =
   | { kind: 'ember'; settings: EmberTemplateSettings }
   | { kind: 'bloom'; settings: BloomTemplateSettings }
+  | { kind:'brew';settings:BrewTemplateSettings }
   | null;
 
 function PreviewPane({
@@ -465,7 +472,7 @@ function PreviewPane({
     if (!src?.includes('designPreview=1') || !premiumDraft) return;
     frameRef.current?.contentWindow?.postMessage(
       {
-        type: premiumDraft.kind === 'ember' ? EMBER_DESIGN_PREVIEW_UPDATE : BLOOM_DESIGN_PREVIEW_UPDATE,
+        type: premiumDraft.kind === 'ember' ? EMBER_DESIGN_PREVIEW_UPDATE : premiumDraft.kind==='brew'?BREW_DESIGN_PREVIEW_UPDATE:BLOOM_DESIGN_PREVIEW_UPDATE,
         settings: premiumDraft.settings,
       },
       window.location.origin,
@@ -483,7 +490,7 @@ function PreviewPane({
           event.source !== frameRef.current?.contentWindow ||
           !event.data || typeof event.data !== 'object' ||
           (event.data as { type?: unknown }).type !== (
-            premiumDraft?.kind === 'bloom' ? BLOOM_DESIGN_PREVIEW_READY : EMBER_DESIGN_PREVIEW_READY
+            premiumDraft?.kind === 'bloom' ? BLOOM_DESIGN_PREVIEW_READY : premiumDraft?.kind==='brew'?BREW_DESIGN_PREVIEW_READY:EMBER_DESIGN_PREVIEW_READY
           )) return;
       sendPremiumDraft();
     };
@@ -575,7 +582,7 @@ function PreviewPane({
         )}
       </div>
       <p className="text-center text-xs text-muted-foreground">{t(premiumDraft && src?.includes('designPreview=1')
-        ? premiumDraft.kind === 'bloom' ? 'design.bloomPreviewLiveHint' : 'design.emberPreviewLiveHint'
+        ? premiumDraft.kind === 'bloom' ? 'design.bloomPreviewLiveHint' : premiumDraft.kind==='brew'?'design.brewPreviewLiveHint':'design.emberPreviewLiveHint'
         : 'design.previewHint')}</p>
     </aside>
   );
