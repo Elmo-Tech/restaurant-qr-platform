@@ -7,6 +7,7 @@ import {
 } from '../../../../../../lib/settings/capabilities';
 import { Alert } from '../../../../../../components/ui/Alert';
 import { DesignWorkspace } from './DesignWorkspace';
+import { MENU_TEMPLATES } from '../../../../../../lib/public-menu/templates';
 
 interface DesignSettingsPageProps {
   params: Promise<{ restaurantId: string }>;
@@ -63,7 +64,7 @@ export default async function DesignSettingsPage({ params }: DesignSettingsPageP
       allowedTemplates={
         membership.restaurant.allowedTemplates ??
         (membership.restaurant.features.MENU_TEMPLATES
-          ? ['CLASSIC', 'LIST', 'GALLERY', 'MENU', 'FLOATING', 'CENTERED', 'COMPACT', 'EDITORIAL', 'EMBER']
+          ? [...MENU_TEMPLATES.map((template) => template.toUpperCase() as Uppercase<typeof template>)]
           : ['CLASSIC'])
       }
     />
