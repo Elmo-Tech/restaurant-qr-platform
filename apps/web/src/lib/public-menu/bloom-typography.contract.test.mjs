@@ -30,3 +30,11 @@ test('BLOOM keeps pastel defaults, 3 color schemes and dark mode from existing g
   ]) assert.ok(design.includes(selector), 'missing '+selector);
   assert.ok(design.includes('--g-accent: #b44d6b;'));
 });
+
+test('BLOOM stays available in the platform package registry and legacy design fallback', () => {
+  const platform = readFileSync(new URL('../../../platform/src/lib/api/platform.ts', root), 'utf8');
+  const designPage = readFileSync(new URL('app/staff/restaurants/[restaurantId]/settings/design/page.tsx', root), 'utf8');
+  assert.match(platform, /export const PACKAGE_TEMPLATES = \\[[^\\]]*['"]BLOOM['"]/);
+  assert.match(platform, /export const PREMIUM_TEMPLATES = \\[[^\\]]*['"]BLOOM['"]/);
+  assert.ok(designPage.includes('MENU_TEMPLATES.map('), 'design page must reuse its actual template registry');
+});
