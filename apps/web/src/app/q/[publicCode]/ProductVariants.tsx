@@ -83,7 +83,7 @@ function AddControl({
 }: Pick<
   ProductVariantProps,
   'product' | 'copy' | 'simpleQuantity' | 'totalQuantity' | 'onQuickAdd' | 'onIncrement' | 'onDecrement'
-> & { view: View; shape: 'round' | 'pill' | 'editorial' | 'ember' }) {
+> & { view: View; shape: 'round' | 'pill' | 'editorial' | 'ember' | 'bloom' }) {
   if (view.isSoldOut) {
     return <span className="text-[12.5px] font-semibold text-g-text-3">{copy.unavailableNow}</span>;
   }
@@ -114,13 +114,15 @@ function AddControl({
           ? 'relative grid size-11 place-items-center rounded-full bg-g-accent text-g-on-accent transition-transform active:scale-90'
           : shape === 'ember'
             ? 'ember-v2-add relative grid size-10 shrink-0 place-items-center rounded-[7px] bg-g-accent text-g-on-accent transition-transform active:scale-90'
+          : shape === 'bloom'
+            ? 'bloom-v2-add relative grid size-10 shrink-0 place-items-center rounded-full bg-g-accent-soft text-g-accent-text transition-transform active:scale-90'
           : shape === 'editorial'
             ? 'group/add relative grid size-10 shrink-0 place-items-center rounded-full border border-g-accent bg-g-accent-soft text-sm font-bold text-g-text transition-colors hover:bg-g-accent hover:text-g-on-accent active:scale-95 sm:flex sm:h-10 sm:w-auto sm:gap-1.5 sm:px-3.5'
             : 'group/add relative flex h-10 items-center gap-1.5 rounded-full border border-g-accent bg-g-accent-soft px-4 text-sm font-bold text-g-text transition-colors hover:bg-g-accent hover:text-g-on-accent active:scale-95'
       }
     >
       <GuestIconPlus
-        className={shape === 'round' ? 'size-5' : 'size-4 text-g-accent group-hover/add:text-g-on-accent'}
+        className={shape === 'round' || shape === 'bloom' ? 'size-5' : 'size-4 text-g-accent group-hover/add:text-g-on-accent'}
         strokeWidth={2.8}
       />
       {shape === 'pill' ? copy.add : null}
@@ -592,6 +594,57 @@ function ProductEmberImpl(props: ProductVariantProps) {
     </article>
   );
 }
+
+/** Reference-faithful BLOOM sweets card; shared product prices and ordering stay authoritative. */
+function ProductBloomImpl(props: ProductVariantProps) {
+  const { product, currency, copy, canOrder, simpleQuantity, totalQuantity, onOpen } = props;
+  const view = useProductView(product, canOrder, simpleQuantity);
+  return (
+    <article className={`bloom-v2-card guest-anim-rise group relative flex min-w-0 flex-col ${FOCUS}`}>
+      <div className="bloom-v2-card-photo relative overflow-hidden">
+        {view.imageUrl ? (
+          // eslint-disable-next-line @next/next/no-img-element -- Staff-uploaded product photography.
+          <img src={view.imageUrl} alt="" loading="lazy" decoding="async"
+            onError={view.onImageError} className={`size-full object-cover ${view.dimmed}`} />
+        ) : (
+          <DishFallback className={`size-full ${view.dimmed}`} iconClassName="size-14" />
+        )}
+        <button
+          type="button"
+          aria-label={copy.detailsAria(product.name)}
+          onClick={() => onOpen(product)}
+          className="absolute inset-0 z-[1] cursor-pointer"
+        />
+        <Tag product={product} view={view} copy={copy} />
+      </div>
+      <div className="bloom-v2-card-body flex min-h-0 flex-1 flex-col">
+        <div className="bloom-v2-card-kicker" dir="ltr">
+          {product.featured ? (copy.featured || 'FEATURED') : 'MADE WITH LOVE'}
+        </div>
+        <ProductName product={product} view={view} onOpen={onOpen}
+          className="bloom-v2-card-title min-w-0 font-bold leading-[1.35]" />
+        {product.description ? (
+          <p dir="auto" className="bloom-v2-card-description mt-1 line-clamp-2 text-g-text-2">
+            {product.description}
+          </p>
+        ) : null}
+        <div className="relative z-10 mt-auto flex items-end justify-between gap-2 pt-3">
+          <PriceBlock product={product} view={view} currency={currency}
+            copy={copy} className="bloom-v2-price" />
+          <AddControl product={product} copy={copy} view={view}
+            simpleQuantity={simpleQuantity} totalQuantity={totalQuantity}
+            onQuickAdd={props.onQuickAdd}
+            onIncrement={props.onIncrement}
+            onDecrement={props.onDecrement}
+            shape="bloom"
+          />
+        </div>
+      </div>
+    </article>
+  );
+}
+
+export const ProductBloom = memo(ProductBloomImpl);
 
 export const ProductEmber = memo(ProductEmberImpl);
 
