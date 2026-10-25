@@ -267,10 +267,10 @@ function MenuSectionsImpl({
         {layout.cards === 'bloom' ? (
           <div className="bloom-v2-section-head">
             <div className="min-w-0">
-              <div className="bloom-v2-section-eyebrow" dir="auto">
+              <div className="bloom-v2-section-eyebrow">
                 {bloomSectionEyebrow || 'OUR LITTLE PLEASURES'}
               </div>
-              <h2 id={headingId} className="bloom-v2-section-title bloom-v2-display" dir="auto">
+              <h2 id={headingId} className="bloom-v2-section-title bloom-v2-display">
                 {bloomSectionHeadline || 'The sweet selection.'}
               </h2>
             </div>

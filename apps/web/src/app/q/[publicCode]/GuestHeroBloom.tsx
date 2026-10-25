@@ -55,10 +55,10 @@ export function GuestHeroBloom({ sentinelRef, ...p }: GuestHeroProps) {
 
         <div className="bloom-v2-hero">
           <div className="bloom-v2-hero-copy">
-            <div className="bloom-v2-eyebrow" dir="auto">
+            <div className="bloom-v2-eyebrow">
               {p.bloomEyebrow || '✳ A LITTLE HAPPINESS IN EVERY BITE'}
             </div>
-            <h1 className="bloom-v2-display bloom-v2-headline" dir="auto">
+            <h1 className="bloom-v2-display bloom-v2-headline">
               <span>{p.bloomHeadlineTop || 'sweet'}</span>
               <i>{p.bloomHeadlineMiddle || 'little'}</i>
               <span>{p.bloomHeadlineBottom || 'things.'}</span>

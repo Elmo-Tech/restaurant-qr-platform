@@ -31,11 +31,11 @@ describe('BLOOM template draft photo isolation', () => {
     }));
     const result = await h.service.saveDraft(restaurantId, {
       ...DEFAULT_BLOOM_SETTINGS,
-      headlineAr: 'عنوان مخصص',
+      headlineTopAr: 'عنوان مخصص',
       heroImageMode: 'CUSTOM',
       heroImageAssetPath: 'https://attacker.example/image.svg',
     });
-    expect(result.draft.headlineAr).toBe('عنوان مخصص');
+    expect(result.draft.headlineTopAr).toBe('عنوان مخصص');
     expect(result.draft.heroImageAssetPath).toBe(original);
     expect(result.draft.heroImageMode).toBe('CUSTOM');
     expect(result.published.heroImageMode).toBe('ART');
