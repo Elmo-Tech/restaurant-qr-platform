@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useEffect, useRef, useState, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type ReactNode } from 'react';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../../lib/i18n/messages';
 import * as qrApi from '../../../../../../lib/qr/api';
@@ -17,6 +17,11 @@ import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import type { MenuTemplateApi } from '../../../../../../lib/public-menu/templates';
 import { SettingsTabs } from '../SettingsTabs';
 import { EmberTemplateEditor } from './EmberTemplateEditor';
+import {
+  EMBER_DESIGN_PREVIEW_READY,
+  EMBER_DESIGN_PREVIEW_UPDATE,
+  type EmberTemplateSettings,
+} from '../../../../../../lib/public-menu/ember-settings';
 
 type Template = MenuTemplateApi;
 
@@ -211,7 +216,8 @@ export function DesignWorkspace({
   const [qrCode, setQrCode] = useState<string | null | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
-  const [emberPreviewVersion, setEmberPreviewVersion] = useState(0);
+  const [emberPreviewDraft, setEmberPreviewDraft] = useState<EmberTemplateSettings | null>(null);
+  const [emberPreviewLanguage, setEmberPreviewLanguage] = useState<'ar' | 'en' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -252,7 +258,9 @@ export function DesignWorkspace({
   }
 
   const previewSrc = qrCode
-    ? `/q/${qrCode}?template=${selected.toLowerCase()}${selected === 'EMBER' ? `&emberRevision=${emberPreviewVersion}` : ''}`
+    ? `/q/${qrCode}?template=${selected.toLowerCase()}${selected === 'EMBER'
+        ? `&designPreview=1${emberPreviewLanguage ? `&lang=${emberPreviewLanguage}` : ''}`
+        : ''}`
     : null;
 
   return (
@@ -356,7 +364,8 @@ export function DesignWorkspace({
             <EmberTemplateEditor
               restaurantId={restaurantId}
               canManage={canManage}
-              onPublished={() => setEmberPreviewVersion((value) => value + 1)}
+              onDraftChange={setEmberPreviewDraft}
+              onCopyLanguageChange={setEmberPreviewLanguage}
             />
           ) : null}
 
@@ -368,7 +377,11 @@ export function DesignWorkspace({
           </div>
         </section>
 
-        <PreviewPane src={previewSrc} isLoading={qrCode === undefined} />
+        <PreviewPane
+          src={previewSrc}
+          isLoading={qrCode === undefined}
+          emberDraft={selected === 'EMBER' ? emberPreviewDraft : null}
+        />
       </div>
     </div>
   );
@@ -382,10 +395,46 @@ const DESKTOP_HEIGHT = 1000;
  * renders the page at a 1280px-wide viewport and scales it down to fit the panel, so the whole
  * desktop layout is visible without scrolling sideways.
  */
-function PreviewPane({ src, isLoading }: { src: string | null; isLoading: boolean }) {
+function PreviewPane({
+  src,
+  isLoading,
+  emberDraft,
+}: {
+  src: string | null;
+  isLoading: boolean;
+  emberDraft: EmberTemplateSettings | null;
+}) {
   const { t } = useStaffI18n();
   const [device, setDevice] = useState<'mobile' | 'desktop'>('mobile');
   const holderRef = useRef<HTMLDivElement>(null);
+  const frameRef = useRef<HTMLIFrameElement>(null);
+
+  // Update the existing iframe, not its URL, so typing doesn't reset scroll
+  // or the guest cart. No API request or database mutation is performed here.
+  const sendEmberDraft = useCallback(() => {
+    if (!src?.includes('designPreview=1') || !emberDraft) return;
+    frameRef.current?.contentWindow?.postMessage(
+      { type: EMBER_DESIGN_PREVIEW_UPDATE, settings: emberDraft },
+      window.location.origin,
+    );
+  }, [src, emberDraft]);
+
+  useEffect(() => { sendEmberDraft(); }, [sendEmberDraft]);
+
+  // The iframe announces when its message listener has mounted. The handshake
+  // also restores the live draft after mobile/desktop or language navigation.
+  useEffect(() => {
+    if (!src?.includes('designPreview=1')) return;
+    const receiveReady = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin ||
+          event.source !== frameRef.current?.contentWindow ||
+          !event.data || typeof event.data !== 'object' ||
+          (event.data as { type?: unknown }).type !== EMBER_DESIGN_PREVIEW_READY) return;
+      sendEmberDraft();
+    };
+    window.addEventListener('message', receiveReady);
+    return () => window.removeEventListener('message', receiveReady);
+  }, [src, sendEmberDraft]);
   const [width, setWidth] = useState(0);
 
   useEffect(() => {
@@ -431,6 +480,8 @@ function PreviewPane({ src, isLoading }: { src: string | null; isLoading: boolea
           device === 'mobile' ? (
             <div className="mx-auto w-full max-w-[400px] overflow-hidden rounded-[32px] border-[6px] border-foreground/80 bg-background shadow-lg">
               <iframe
+                ref={frameRef}
+                onLoad={sendEmberDraft}
                 key={`m-${src}`}
                 src={src}
                 title={t('design.preview')}
@@ -446,6 +497,8 @@ function PreviewPane({ src, isLoading }: { src: string | null; isLoading: boolea
               </div>
               <div style={{ height: DESKTOP_HEIGHT * scale }} className="relative overflow-hidden">
                 <iframe
+                  ref={frameRef}
+                  onLoad={sendEmberDraft}
                   key={`d-${src}`}
                   src={src}
                   title={t('design.preview')}
@@ -466,7 +519,7 @@ function PreviewPane({ src, isLoading }: { src: string | null; isLoading: boolea
           </div>
         )}
       </div>
-      <p className="text-center text-xs text-muted-foreground">{t('design.previewHint')}</p>
+      <p className="text-center text-xs text-muted-foreground">{t(emberDraft && src?.includes('designPreview=1') ? 'design.emberPreviewLiveHint' : 'design.previewHint')}</p>
     </aside>
   );
 }

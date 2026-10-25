@@ -41,11 +41,13 @@ const COPY_FIELDS = [
 export function EmberTemplateEditor({
   restaurantId,
   canManage,
-  onPublished,
+  onDraftChange,
+  onCopyLanguageChange,
 }: {
   restaurantId: string;
   canManage: boolean;
-  onPublished: () => void;
+  onDraftChange: (settings: EmberTemplateSettings) => void;
+  onCopyLanguageChange: (locale: 'ar' | 'en') => void;
 }) {
   const { t } = useStaffI18n();
   const [draft, setDraft] = useState<EmberTemplateSettings>(DEFAULT_EMBER_SETTINGS);
@@ -79,6 +81,11 @@ export function EmberTemplateEditor({
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [restaurantId]);
+
+  // The left real-menu iframe is the single unsaved preview for all edits.
+  useEffect(() => {
+    if (!loading) onDraftChange(draft);
+  }, [draft, loading, onDraftChange]);
 
   function update<K extends keyof EmberTemplateSettings>(key: K, value: EmberTemplateSettings[K]) {
     setDraft((current) => ({ ...current, [key]: value }));
@@ -237,9 +244,9 @@ export function EmberTemplateEditor({
         </div>
         <div className="flex gap-2">
           <Button type="button" variant={copyLanguage === 'Ar' ? 'primary' : 'secondary'}
-            onClick={() => setCopyLanguage('Ar')}>{t('design.emberLanguageAr')}</Button>
+            onClick={() => { setCopyLanguage('Ar'); onCopyLanguageChange('ar'); }}>{t('design.emberLanguageAr')}</Button>
           <Button type="button" variant={copyLanguage === 'En' ? 'primary' : 'secondary'}
-            onClick={() => setCopyLanguage('En')}>{t('design.emberLanguageEn')}</Button>
+            onClick={() => { setCopyLanguage('En'); onCopyLanguageChange('en'); }}>{t('design.emberLanguageEn')}</Button>
         </div>
         {COPY_FIELDS.map((field) => {
           const key = copyLanguage === 'Ar' ? field.keyAr : field.keyEn;
@@ -314,43 +321,6 @@ export function EmberTemplateEditor({
             : t('design.emberImagePreviewAuto')}
         </p>
         <p className="text-xs text-muted-foreground">{t('design.emberImageCustomHint')}</p>
-      </div>
-
-      <div
-        className="rounded-xl p-5 text-white"
-        style={{
-          background:
-            draft.palette === 'NOIR'
-              ? 'linear-gradient(120deg,#0c0d11,#40342b)'
-              : draft.palette === 'COPPER'
-                ? 'linear-gradient(120deg,#26140f,#9a5732)'
-                : 'linear-gradient(120deg,#1e0f09,#b95b29)',
-        }}
-      >
-        <div className="text-[11px] font-bold uppercase tracking-widest text-white/70">{t('design.emberDraftPreview')}</div>
-        <p dir="auto" className="mt-3 text-[11px] text-orange-200">
-          {copyLanguage === 'Ar' ? draft.navTaglineAr : draft.navTaglineEn}
-        </p>
-        <p dir="auto" className="mt-4 text-[10px] font-bold uppercase tracking-widest text-orange-300">
-          {copyLanguage === 'Ar' ? draft.eyebrowAr : draft.eyebrowEn}
-        </p>
-        <p dir="auto" className="mt-2 text-2xl font-black leading-tight">
-          {copyLanguage === 'Ar' ? draft.headlineAr : draft.headlineEn}
-        </p>
-        <p dir="auto" className="mt-2 text-sm text-white/85">
-          {copyLanguage === 'Ar' ? draft.subtitleAr : draft.subtitleEn}
-        </p>
-        <p dir="auto" className="mt-2 text-xs text-orange-200">
-          {copyLanguage === 'Ar' ? draft.signatureAr : draft.signatureEn}
-        </p>
-        {draft.heroImageMode === 'CUSTOM' && draft.heroImageAssetPath ? (
-          // eslint-disable-next-line @next/next/no-img-element -- Asset served by the runtime API.
-          <img src={resolveAssetUrl(draft.heroImageAssetPath) ?? undefined}
-            alt="" className="mt-3 h-28 w-full rounded-lg object-cover" />
-        ) : null}
-        <div className="mt-4 overflow-hidden rounded-md bg-orange-400 p-2 text-center text-xs font-bold text-amber-950">
-          {copyLanguage === 'Ar' ? draft.marqueeAr : draft.marqueeEn}
-        </div>
       </div>
 
       <p className="text-xs leading-relaxed text-muted-foreground">{t('design.emberPreviewNotice')}</p>
