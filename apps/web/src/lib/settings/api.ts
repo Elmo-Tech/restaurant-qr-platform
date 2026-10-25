@@ -14,6 +14,7 @@ import {
 } from '../public-menu/bloom-settings';
 import type { MenuTemplateApi } from '../public-menu/templates';
 import {BREW_COPY_KEYS,normalizeBrewTemplateSettings,normalizeBrewTemplateConfigView,type BrewTemplateSettings,type BrewTemplateConfigView} from '../public-menu/brew-settings';
+import {normalizeEditorialTemplateSettings,type EditorialTemplateSettings} from '../public-menu/editorial-settings';
 import type { ContactField, RestaurantContact } from '../contact/types';
 import { apiFetch, apiFetchFormData } from '../api/client';
 import type { QrStyle } from '../qr/style';
@@ -257,6 +258,23 @@ export async function resetBrewPromoImage(restaurantId:string):Promise<BrewTempl
 export async function publishBrewTemplate(restaurantId:string):Promise<BrewTemplateConfigView>{
  const x=await apiFetch<{data:unknown}>(`${restaurantPath(restaurantId)}/brew-template/publish`,{method:'POST'});
  return normalizeBrewTemplateConfigView(x.data);
+}
+
+/** Editorial-only price rendering; saving applies to the published guest menu immediately. */
+export async function getEditorialTemplateSettings(restaurantId:string):Promise<EditorialTemplateSettings> {
+  const response=await apiFetch<{data:unknown}>(`${restaurantPath(restaurantId)}/editorial-template`);
+  return normalizeEditorialTemplateSettings(response.data);
+}
+export async function saveEditorialTemplateSettings(restaurantId:string,settings:EditorialTemplateSettings):Promise<EditorialTemplateSettings> {
+  const input=normalizeEditorialTemplateSettings(settings);
+  const response=await apiFetch<{data:unknown}>(`${restaurantPath(restaurantId)}/editorial-template`,{
+    method:'PATCH',body:input,
+  });
+  const saved=normalizeEditorialTemplateSettings(response.data);
+  if(saved.priceDisplay!==input.priceDisplay){
+    throw new Error('Editorial display option was not saved. Restart Wayta API with the updated branch.');
+  }
+  return saved;
 }
 
 /** Switch Pickup and / or Delivery on or off for the whole Restaurant (omitted fields stay unchanged). */

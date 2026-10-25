@@ -7,6 +7,7 @@ import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import type { PublicMenuCategory, PublicMenuProduct } from '../../../lib/public-menu/types';
 import {brewPromoForCategory,type BrewTemplateSettings} from '../../../lib/public-menu/brew-settings';
 import {resolveAssetUrl} from '../../../lib/media/asset-url';
+import type {EditorialPriceDisplay} from '../../../lib/public-menu/editorial-settings';
 import { DEFAULT_MENU_TEMPLATE, layoutOf, type MenuTemplate } from '../../../lib/public-menu/templates';
 import { ProductCard } from './ProductCard';
 import {
@@ -163,6 +164,8 @@ interface MenuSectionsProps {
   brewCategoryTabs?:{id:string;name:string}[];brewActiveCategoryId?:string;onBrewCategorySelect?:(id:string)=>void;brewSettings?:BrewTemplateSettings;brewLocale?:string;
   bloomSectionEyebrow?: string;
   bloomSectionHeadline?: string;
+  /** Editorial-only display option; does not change order or price calculation. */
+  editorialPriceDisplay?:EditorialPriceDisplay;
   /** How the menu is laid out (DEC-044). */
   template?: MenuTemplate;
 }
@@ -219,6 +222,7 @@ function MenuSectionsImpl({
   onBloomCategorySelect,
   bloomSectionEyebrow,bloomSectionHeadline,
   brewCategoryTabs,brewActiveCategoryId,onBrewCategorySelect,brewSettings,brewLocale,
+  editorialPriceDisplay='FROM',
   template = DEFAULT_MENU_TEMPLATE,
 }: MenuSectionsProps) {
   const layout = layoutOf(template);
@@ -421,6 +425,7 @@ function MenuSectionsImpl({
                   onQuickAdd={onQuickAdd}
                   onIncrement={onIncrement}
                   onDecrement={onDecrement}
+                  editorialPriceDisplay={layout.cards==='editorial'?editorialPriceDisplay:undefined}
                 />
               );
             })}

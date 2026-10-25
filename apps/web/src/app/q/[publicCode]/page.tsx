@@ -59,7 +59,7 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
       designPreview={Boolean(
         designPreview === '1' &&
         previewAllowed &&
-        (template?.toUpperCase() === 'EMBER' || template?.toUpperCase() === 'BLOOM' || template?.toUpperCase() === 'BREW')
+        (template?.toUpperCase() === 'EMBER' || template?.toUpperCase() === 'BLOOM' || template?.toUpperCase() === 'BREW' || template?.toUpperCase() === 'EDITORIAL')
       )}
     />
   );

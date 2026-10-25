@@ -8,6 +8,7 @@ import { Price } from '../../../components/guest/Price';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
+import type {EditorialPriceDisplay} from '../../../lib/public-menu/editorial-settings';
 import { toMinorUnits } from '../../../lib/public-menu/money';
 import type { PublicMenuProduct } from '../../../lib/public-menu/types';
 
@@ -25,6 +26,8 @@ export interface ProductVariantProps {
   currency: string;
   copy: PublicMenuCopy;
   canOrder: boolean;
+  /** Only Editorial uses this rendering preference. Other templates ignore it. */
+  editorialPriceDisplay?:EditorialPriceDisplay;
   /** Quantity of the no-selection line (only meaningful for a product without Modifier Groups). */
   simpleQuantity: number;
   /** Quantity across every line of this product. */
@@ -475,10 +478,11 @@ function ProductLineImpl(props: ProductVariantProps) {
 function ProductEditorialImpl(props: ProductVariantProps) {
   const { product, currency, copy, canOrder, simpleQuantity, totalQuantity, onOpen } = props;
   const view = useProductView(product, canOrder, simpleQuantity);
+  const showAllSizes = props.editorialPriceDisplay === 'ALL_VARIANTS' && view.sizes.length >= 2;
 
   return (
     <article
-      className={`guest-anim-rise group relative flex items-center gap-2.5 border-b border-g-line/80 py-3.5 last:border-b-0 sm:gap-3.5 ${FOCUS}`}
+      className={`guest-anim-rise group relative flex ${showAllSizes ? 'items-start' : 'items-center'} gap-2.5 border-b border-g-line/80 py-3.5 last:border-b-0 sm:gap-3.5 ${FOCUS}`}
     >
       <div className={`min-w-0 flex-1 ${view.isSoldOut ? 'opacity-60' : ''}`}>
         <div className="flex flex-wrap items-center gap-2">
@@ -504,9 +508,30 @@ function ProductEditorialImpl(props: ProductVariantProps) {
             {product.description}
           </p>
         ) : null}
+        {showAllSizes ? (
+          <ul aria-label={product.name} className="mt-2.5 flex min-w-0 max-w-[380px] flex-col gap-1.5">
+            {view.sizes.map(size=>(
+              <li key={size.id} className="flex min-w-0 items-baseline gap-2 text-[12px] sm:text-[13px]">
+                <span dir="auto" className="min-w-0 break-words font-semibold leading-5 text-g-text-2">
+                  {size.name}
+                </span>
+                <span aria-hidden="true" className="min-w-2 flex-1 border-b border-dotted border-g-line"/>
+                <span className="flex shrink-0 flex-wrap items-baseline justify-end gap-1 text-end">
+                  {size.discountedPrice !== null ? (
+                    <OriginalPrice amount={size.price} currency={currency} copy={copy}
+                      className="g-num text-[10.5px] font-semibold text-g-text-3"/>
+                  ) : null}
+                  <Price amount={size.discountedPrice ?? size.price} currency={currency}
+                    className={`g-num text-[13px] font-extrabold sm:text-[14px] ${view.isSoldOut ? 'text-g-text-3' : 'text-g-price'}`}
+                    currencyClassName="text-[10px] font-semibold"/>
+                </span>
+              </li>
+            ))}
+          </ul>
+        ) : null}
       </div>
 
-      <div className={`w-[68px] shrink-0 text-end sm:w-[82px] ${view.isSoldOut ? 'opacity-60' : ''}`}>
+      {!showAllSizes ? <div className={`w-[68px] shrink-0 text-end sm:w-[82px] ${view.isSoldOut ? 'opacity-60' : ''}`}>
         <PriceBlock
           product={product}
           view={view}
@@ -514,7 +539,7 @@ function ProductEditorialImpl(props: ProductVariantProps) {
           copy={copy}
           className="text-[15px] sm:text-[17px]"
         />
-      </div>
+      </div> : null}
 
       <div className="relative z-10 shrink-0">
         <AddControl

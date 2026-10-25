@@ -2,6 +2,7 @@ import type { RestaurantContact } from '../contact/types';
 import type { EmberTemplateSettings } from './ember-settings';
 import type { BloomTemplateSettings } from './bloom-settings';
 import type { BrewTemplateSettings } from './brew-settings';
+import type { EditorialTemplateSettings } from './editorial-settings';
 
 /** Mirrors the Backend's public Guest Menu response shape exactly (FT-3) -- never a Staff `menu/types.ts` type, since the public payload's shape (flattened, already-resolved names/descriptions, no translation rows) is genuinely different. */
 /** What the Backend says about a Branch's opening hours; clock strings are in the Branch's own time. */
@@ -39,6 +40,8 @@ export interface PublicMenuContext {
     /** Real restaurant's published BLOOM appearance; preview overrides never stored here. */
     bloomSettings?: BloomTemplateSettings;
     brewSettings?: BrewTemplateSettings;
+    /** Only the published Editorial display preference, not a Staff preview. */
+    editorialSettings?: EditorialTemplateSettings;
     /** Contact details for the Guest Menu; a field is null when not set. */
     contact: RestaurantContact;
     /** Public code of the Restaurant's own (generic) QR: the link the Guest may share; never a Table QR. Null = nothing to share. */
