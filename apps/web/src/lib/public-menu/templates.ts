@@ -40,7 +40,7 @@ export interface TemplateLayout {
   /** The header at the top of the menu. */
   hero: 'classic' | 'floating' | 'centered' | 'compact' | 'editorial' | 'ember' | 'bloom';
   /** The product card. `tile-dense` is the two-column phone grid. */
-  cards: 'classic' | 'row' | 'tile' | 'tile-dense' | 'line' | 'editorial' | 'ember';
+  cards: 'classic' | 'row' | 'tile' | 'tile-dense' | 'line' | 'editorial' | 'ember' | 'bloom';
   /** Category headings: a saffron bar at the start, or centred between two thin rules. */
   headings: 'bar' | 'centered' | 'editorial';
   /** The category strip: pills, squarer chips, or underlined text tabs. */
