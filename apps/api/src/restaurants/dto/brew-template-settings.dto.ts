@@ -1,7 +1,9 @@
 import { IsBoolean, IsIn, IsObject, IsOptional, IsString, MaxLength } from 'class-validator';
-import { BREW_MOTIONS, BREW_PROMO_MODES, type BrewMotion, type BrewPromoMode, type BrewImageMode } from '../brew-template-config';
+import { BREW_PALETTES, BREW_MOTIONS, BREW_PROMO_MODES, type BrewPalette, type BrewMotion, type BrewPromoMode, type BrewImageMode } from '../brew-template-config';
 /** A restricted appearance payload. Server controls media paths and normalizes the category-UUID map. */
 export class BrewTemplateSettingsDto {
+  @IsIn(BREW_PALETTES)
+  palette!: BrewPalette;
   @IsIn(BREW_MOTIONS)
   motion!: BrewMotion;
   @IsOptional()

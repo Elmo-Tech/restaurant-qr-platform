@@ -1,4 +1,6 @@
 /** BREW specialty coffee styling: no arbitrary CSS/URLs, only server-owned images. */
+export const BREW_PALETTES = ['FOREST', 'MOCHA', 'SAGE'] as const;
+export type BrewPalette = typeof BREW_PALETTES[number];
 export const BREW_MOTIONS = ['SUBTLE', 'OFF'] as const;
 export const BREW_PROMO_MODES = ['STATIC', 'BY_CATEGORY'] as const;
 export type BrewMotion = typeof BREW_MOTIONS[number];
@@ -13,6 +15,7 @@ export interface BrewPromoCopy {
   promoDescriptionEn: string;
 }
 export interface BrewTemplateSettings {
+  palette: BrewPalette;
   motion: BrewMotion;
   navTaglineAr: string;
   navTaglineEn: string;
@@ -69,6 +72,7 @@ export const BREW_TEXT_LIMITS = {
 } as const;
 export const BREW_PROMO_KEYS = ["promoLabelAr","promoLabelEn","promoHeadlineAr","promoHeadlineEn","promoDescriptionAr","promoDescriptionEn"] as const;
 export const DEFAULT_BREW_SETTINGS: BrewTemplateSettings = {
+  palette: 'FOREST',
   motion: 'SUBTLE',
   navTaglineAr: "YOUR DAILY COFFEE RITUAL",
   navTaglineEn: "YOUR DAILY COFFEE RITUAL",
@@ -126,6 +130,7 @@ export function normalizeBrewSettings(value: unknown): BrewTemplateSettings {
     })) as unknown as BrewPromoCopy;
   }
   return {
+    palette: BREW_PALETTES.includes(row.palette as BrewPalette) ? row.palette as BrewPalette : 'FOREST',
     motion: BREW_MOTIONS.includes(row.motion as BrewMotion) ? row.motion as BrewMotion : 'SUBTLE',
     navTaglineAr: asText('navTaglineAr'),
     navTaglineEn: asText('navTaglineEn'),

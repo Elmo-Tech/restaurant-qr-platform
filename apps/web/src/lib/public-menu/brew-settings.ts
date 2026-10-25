@@ -1,6 +1,8 @@
+export const BREW_PALETTES=['FOREST','MOCHA','SAGE'] as const;
+export type BrewPalette=(typeof BREW_PALETTES)[number];
 export type BrewPromoCopy = { promoLabelAr:string;promoLabelEn:string;promoHeadlineAr:string;promoHeadlineEn:string;promoDescriptionAr:string;promoDescriptionEn:string };
 export interface BrewTemplateSettings extends BrewPromoCopy {
- motion:'SUBTLE'|'OFF';navTaglineAr:string;navTaglineEn:string;eyebrowAr:string;eyebrowEn:string;
+ palette:BrewPalette;motion:'SUBTLE'|'OFF';navTaglineAr:string;navTaglineEn:string;eyebrowAr:string;eyebrowEn:string;
  headlineTopAr:string;headlineTopEn:string;headlineBottomAr:string;headlineBottomEn:string;
  subtitleAr:string;subtitleEn:string;storyAr:string;storyEn:string;menuHeadingAr:string;menuHeadingEn:string;
  menuSubtitleAr:string;menuSubtitleEn:string;promoEnabled:boolean;promoMode:'STATIC'|'BY_CATEGORY';
@@ -11,7 +13,7 @@ export const BREW_COPY_LIMITS={navTaglineAr:100,navTaglineEn:100,eyebrowAr:120,e
 export const BREW_COPY_KEYS=Object.keys(BREW_COPY_LIMITS) as (keyof typeof BREW_COPY_LIMITS)[];
 export const BREW_PROMO_KEYS=['promoLabelAr','promoLabelEn','promoHeadlineAr','promoHeadlineEn','promoDescriptionAr','promoDescriptionEn'] as const;
 export const DEFAULT_BREW_SETTINGS:BrewTemplateSettings={
- motion:'SUBTLE',navTaglineAr:'YOUR DAILY COFFEE RITUAL',navTaglineEn:'YOUR DAILY COFFEE RITUAL',
+ palette:'FOREST',motion:'SUBTLE',navTaglineAr:'YOUR DAILY COFFEE RITUAL',navTaglineEn:'YOUR DAILY COFFEE RITUAL',
  eyebrowAr:'SLOW DOWN. SIP BETTER.',eyebrowEn:'SLOW DOWN. SIP BETTER.',
  headlineTopAr:'Coffee,',headlineTopEn:'Coffee,',headlineBottomAr:'slowly.',headlineBottomEn:'slowly.',
  subtitleAr:'قهوة مظبوطة، تفاصيل تستاهل، ووقت هادي مخصوص ليك. من أول رشفة لآخر لحظة.',
@@ -36,7 +38,7 @@ export function normalizeBrewTemplateSettings(input:unknown):BrewTemplateSetting
   const raw=v as Record<string,unknown>;
   categoryPromos[id.toLowerCase()]=Object.fromEntries(BREW_PROMO_KEYS.map(k=>[k,typeof raw[k]==='string'&&(raw[k] as string).trim()?(raw[k] as string).trim().slice(0,BREW_COPY_LIMITS[k]):copy[k]])) as BrewPromoCopy;
  }
- return {...copy,motion:row.motion==='OFF'?'OFF':'SUBTLE',promoEnabled:row.promoEnabled!==false,
+ return {...copy,palette:BREW_PALETTES.includes(row.palette as BrewPalette)?row.palette as BrewPalette:'FOREST',motion:row.motion==='OFF'?'OFF':'SUBTLE',promoEnabled:row.promoEnabled!==false,
  promoMode:row.promoMode==='BY_CATEGORY'?'BY_CATEGORY':'STATIC',
  promoImageMode:row.promoImageMode==='CUSTOM'&&validAsset(row.promoImageAssetPath)?'CUSTOM':'ART',
  promoImageAssetPath:validAsset(row.promoImageAssetPath)?row.promoImageAssetPath:null,categoryPromos};

@@ -239,7 +239,7 @@ export async function saveBrewTemplateDraft(restaurantId:string,settings:BrewTem
  const body=Object.fromEntries(Object.entries(expected).filter(([k])=>k!=='promoImageAssetPath'));
  const x=await apiFetch<{data:unknown}>(`${restaurantPath(restaurantId)}/brew-template/draft`,{method:'PATCH',body});
  const result=normalizeBrewTemplateConfigView(x.data);
- for(const k of [...BREW_COPY_KEYS,'motion','promoMode','promoEnabled','promoImageMode'] as const)
+ for(const k of [...BREW_COPY_KEYS,'palette','motion','promoMode','promoEnabled','promoImageMode'] as const)
   if(result.draft[k]!==expected[k])throw new Error('BREW settings were not saved. Restart latest API.');
  if(JSON.stringify(result.draft.categoryPromos)!==JSON.stringify(expected.categoryPromos))
    throw new Error('BREW category promos were not saved. Restart latest API.');

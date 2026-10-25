@@ -6,7 +6,7 @@ import {ImageField} from '../../../../../../components/menu/ImageField';
 import {validateImageFile} from '../../../../../../lib/menu/image-validation';
 import {describeError,isUnauthenticatedError,redirectToLogin} from '../../../../../../lib/menu/error-message';
 import {resolveAssetUrl} from '../../../../../../lib/media/asset-url';
-import {DEFAULT_BREW_SETTINGS,BREW_COPY_LIMITS,BREW_PROMO_KEYS,normalizeBrewTemplateSettings,type BrewTemplateSettings,type BrewPromoCopy} from '../../../../../../lib/public-menu/brew-settings';
+import {DEFAULT_BREW_SETTINGS,BREW_COPY_LIMITS,BREW_PROMO_KEYS,normalizeBrewTemplateSettings,type BrewTemplateSettings,type BrewPromoCopy,type BrewPalette} from '../../../../../../lib/public-menu/brew-settings';
 import {getBrewTemplateConfig,saveBrewTemplateDraft,publishBrewTemplate,uploadBrewPromoImage,resetBrewPromoImage} from '../../../../../../lib/settings/api';
 const HEADINGS=[['navTagline','Header tagline'],['eyebrow','Hero eyebrow'],['headlineTop','Headline first line'],['headlineBottom','Headline italic line'],['subtitle','Hero description'],['story','Story line'],['menuHeading','Menu heading'],['menuSubtitle','Menu description'],['promoLabel','Promo label'],['promoHeadline','Promo headline'],['promoDescription','Promo description']] as const;
 const promoFields=new Set<string>(['promoLabel','promoHeadline','promoDescription']);
@@ -52,6 +52,15 @@ export function BrewTemplateEditor({restaurantId,canManage,onDraftChange,onCopyL
   <h3 className="font-bold">BREW · Coffee appearance</h3>
   <p className="text-xs text-muted-foreground">Original Cormorant Garamond and Tajawal are preserved. Edit fields or keep their defaults.</p>
   {error?<p role="alert" className="text-sm text-red-600">{error}</p>:null}{notice?<p role="status" className="text-sm text-green-700">{notice}</p>:null}
+  <label className="block text-sm">Color palette
+    <select className="mt-1 block w-full rounded-lg border border-input bg-card p-2.5 text-foreground"
+      value={draft.palette} disabled={busy||!canManage}
+      onChange={e=>update('palette',e.target.value as BrewPalette)}>
+      <option value="FOREST">Forest · Original Green & Cream</option>
+      <option value="MOCHA">Mocha · Coffee Brown & Caramel</option>
+      <option value="SAGE">Sage · Soft Olive & Ivory</option>
+    </select>
+  </label>
   <label className="block text-sm">Motion
    <select className="mt-1 block w-full rounded-lg border p-2" value={draft.motion} disabled={busy||!canManage}
     onChange={e=>update('motion',e.target.value==='OFF'?'OFF':'SUBTLE')}>

@@ -9,7 +9,14 @@ describe('BREW premium promotion settings', () => {
     expect(config.promoHeadlineAr).toBe('Take a little break.');
     expect(config.promoEnabled).toBe(true);
     expect(config.promoMode).toBe('STATIC');
+    expect(config.palette).toBe('FOREST');
     expect(config).toEqual(DEFAULT_BREW_SETTINGS);
+  });
+  it('accepts only three curated color palettes, preserving the default for old drafts', () => {
+    expect(normalizeBrewSettings({palette: 'MOCHA'}).palette).toBe('MOCHA');
+    expect(normalizeBrewSettings({palette: 'SAGE'}).palette).toBe('SAGE');
+    expect(normalizeBrewSettings({palette: 'invalid'}).palette).toBe('FOREST');
+    expect(normalizeBrewSettings({}).palette).toBe('FOREST');
   });
   it('sanitizes category-specific overrides and disallows foreign image URLs', () => {
     expect(isBrewCategoryId(category)).toBe(true);

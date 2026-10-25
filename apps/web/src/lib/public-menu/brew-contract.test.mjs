@@ -16,6 +16,8 @@ test('BREW is an isolated premium layout with reference coffee typography',()=>{
  assert.ok(hero.includes('brew-v2-art')&&hero.includes('brew-v2-display'));
  assert.ok(css.includes('font-family:var(--font-bloom-display),Georgia,serif'));
  assert.ok(css.includes("data-guest-theme='dark'"));
+ assert.ok(view.includes('data-brew-palette='));
+ assert.ok(settings.includes("BREW_PALETTES=['FOREST','MOCHA','SAGE']"));
 });
 test('BREW retains real product prices, modifiers, cart and search',()=>{
  assert.ok(sections.includes('<ProductLine key={product.id}'));
@@ -31,4 +33,5 @@ test('BREW customizations are private until staff publish',()=>{
  assert.ok(api.includes('/brew-template/draft'));
  assert.ok(api.includes('/brew-template/publish'));
  assert.ok(api.includes('categoryPromos'));
+ assert.ok(api.includes("'palette'"));
 });

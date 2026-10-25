@@ -1130,6 +1130,7 @@ export function PublicMenuView({
           className={`g-body relative ${template === 'ember' ? 'ember-experience' : template === 'bloom' ? 'bloom-experience' : template === 'brew' ? 'brew-experience' : ''}`}
           data-ember-palette={template === 'ember' ? emberSettings.palette : undefined}
           data-ember-motion={template === 'ember' ? emberSettings.motion : undefined}
+          data-brew-palette={template==='brew'?brewSettings.palette:undefined}
           data-brew-motion={template==='brew'?brewSettings.motion:undefined}
           data-bloom-palette={template === 'bloom' ? bloomSettings.palette : undefined}
           data-bloom-motion={template === 'bloom' ? bloomSettings.motion : undefined}
