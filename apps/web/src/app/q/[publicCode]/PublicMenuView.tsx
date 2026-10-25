@@ -67,6 +67,14 @@ import {
   type EmberTemplateSettings,
 } from '../../../lib/public-menu/ember-settings';
 import { GuestHeroEmber } from './GuestHeroEmber';
+import { GuestHeroBloom } from './GuestHeroBloom';
+import {
+  DEFAULT_BLOOM_SETTINGS,
+  BLOOM_DESIGN_PREVIEW_READY,
+  isBloomPreviewUpdate,
+  normalizeBloomTemplateSettings,
+  type BloomTemplateSettings,
+} from '../../../lib/public-menu/bloom-settings';
 import { MenuSections } from './MenuSections';
 import { ModeSwitch } from './ModeSwitch';
 import { ProductSheet } from './ProductSheet';
@@ -128,10 +136,25 @@ export function PublicMenuView({
   const emberSettings = designPreview && template === 'ember' && emberLiveDraft
     ? emberLiveDraft
     : data.context.restaurant.emberSettings ?? DEFAULT_EMBER_SETTINGS;
+  const [bloomLiveDraft, setBloomLiveDraft] = useState<BloomTemplateSettings | null>(null);
+  useEffect(() => {
+    if (!designPreview || template !== 'bloom' || window.parent === window) return;
+    const onBloomDraft = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== window.parent ||
+          !isBloomPreviewUpdate(event.data)) return;
+      setBloomLiveDraft(normalizeBloomTemplateSettings(event.data.settings));
+    };
+    window.addEventListener('message', onBloomDraft);
+    window.parent.postMessage({ type: BLOOM_DESIGN_PREVIEW_READY }, window.location.origin);
+    return () => window.removeEventListener('message', onBloomDraft);
+  }, [designPreview, template]);
+  const bloomSettings = designPreview && template === 'bloom' && bloomLiveDraft
+    ? bloomLiveDraft
+    : data.context.restaurant.bloomSettings ?? DEFAULT_BLOOM_SETTINGS;
   const hasCategories = data.menu.categories.length > 0;
-  // EMBER deliberately mirrors its accepted concept: one category at a time.
+  // Both premium demo references show one category at a time.
   // Search results still span all categories so no matching products disappear.
-  const [emberCategoryId, setEmberCategoryId] = useState(data.menu.categories[0]?.id ?? '');
+  const [premiumCategoryId, setPremiumCategoryId] = useState(data.menu.categories[0]?.id ?? '');
   // FT-7/FT-8: a TABLE QR orders exactly as before (DINE_IN); a GENERIC QR
   // orders for Pickup or Delivery, each only while at least one Branch is
   // eligible for it (Delivery: an ACTIVE Branch with an ACTIVE zone).
@@ -223,8 +246,8 @@ export function PublicMenuView({
       }))
       .filter((category) => category.products.length > 0);
   }, [data.menu.categories, isSearching, normalizedQuery, searchIndex]);
-  const emberVisibleCategories = template === 'ember' && !isSearching
-    ? visibleCategories.filter((category) => category.id === emberCategoryId)
+  const premiumVisibleCategories = (template === 'ember' || template === 'bloom') && !isSearching
+    ? visibleCategories.filter((category) => category.id === premiumCategoryId)
     : visibleCategories;
   const searchResultCount = visibleCategories.reduce(
     (sum, category) => sum + category.products.length,
@@ -1037,6 +1060,17 @@ export function PublicMenuView({
     emberPhotoFallbackUrl: emberAutoPhotoUrl,
     emberCartCount: cartCount,
     emberDesignPreview: designPreview,
+    bloomRibbon: locale === 'ar' ? bloomSettings.ribbonAr : bloomSettings.ribbonEn,
+    bloomNavTagline: locale === 'ar' ? bloomSettings.navTaglineAr : bloomSettings.navTaglineEn,
+    bloomEyebrow: locale === 'ar' ? bloomSettings.eyebrowAr : bloomSettings.eyebrowEn,
+    bloomHeadlineTop: locale === 'ar' ? bloomSettings.headlineTopAr : bloomSettings.headlineTopEn,
+    bloomHeadlineMiddle: locale === 'ar' ? bloomSettings.headlineMiddleAr : bloomSettings.headlineMiddleEn,
+    bloomHeadlineBottom: locale === 'ar' ? bloomSettings.headlineBottomAr : bloomSettings.headlineBottomEn,
+    bloomSubtitle: locale === 'ar' ? bloomSettings.subtitleAr : bloomSettings.subtitleEn,
+    bloomCta: locale === 'ar' ? bloomSettings.ctaAr : bloomSettings.ctaEn,
+    bloomHeroImageUrl: bloomSettings.heroImageMode === 'CUSTOM' ? resolveAssetUrl(bloomSettings.heroImageAssetPath) : null,
+    bloomCartCount: cartCount,
+    onBloomCartOpen: canOrder ? () => setIsCartOpen(true) : undefined,
     onEmberCartOpen: canOrder ? () => setIsCartOpen(true) : undefined,
     tableNumber: data.context.table?.number ?? null,
     branchLine,
@@ -1050,7 +1084,9 @@ export function PublicMenuView({
     hasActiveOrder,
   };
   const Hero =
-    layout.hero === 'ember'
+    layout.hero === 'bloom'
+      ? GuestHeroBloom
+      : layout.hero === 'ember'
       ? GuestHeroEmber
       : layout.hero === 'floating'
       ? GuestHeroFloating
@@ -1069,9 +1105,11 @@ export function PublicMenuView({
       <div
           dir={dir}
           lang={locale}
-          className={`g-body relative ${template === 'ember' ? 'ember-experience' : ''}`}
+          className={`g-body relative ${template === 'ember' ? 'ember-experience' : template === 'bloom' ? 'bloom-experience' : ''}`}
           data-ember-palette={template === 'ember' ? emberSettings.palette : undefined}
           data-ember-motion={template === 'ember' ? emberSettings.motion : undefined}
+          data-bloom-palette={template === 'bloom' ? bloomSettings.palette : undefined}
+          data-bloom-motion={template === 'bloom' ? bloomSettings.motion : undefined}
         >
         <Hero {...heroProps} />
 
@@ -1141,7 +1179,7 @@ export function PublicMenuView({
 
         {/* A sticky element only sticks inside its parent: the chips must be a direct child of
             this page-height root (no short wrapper), or the bar scrolls away with its own box. */}
-        {hasCategories && template !== 'ember' ? (
+        {hasCategories && template !== 'ember' && template !== 'bloom' ? (
           <CategoryChips
             items={chipItems}
             activeId={navigation.activeId}
@@ -1154,7 +1192,7 @@ export function PublicMenuView({
         ) : null}
 
         <main
-          id={template === 'ember' ? 'ember-menu-start' : undefined}
+          id={template === 'ember' ? 'ember-menu-start' : template === 'bloom' ? 'bloom-menu-start' : undefined}
           className={`px-4 pt-5 lg:px-8 lg:pt-7 ${showCartBar ? 'pb-[150px]' : 'pb-16'}`}
         >
           <div className="mx-auto flex max-w-[1280px] flex-col gap-[34px] lg:gap-[52px]">
@@ -1190,7 +1228,7 @@ export function PublicMenuView({
             ) : null}
 
             <MenuSections
-              categories={emberVisibleCategories}
+              categories={premiumVisibleCategories}
               menuCategoryCount={data.menu.categories.length}
               currency={currency}
               copy={copy}
@@ -1206,14 +1244,27 @@ export function PublicMenuView({
               emberCategoryTabs={template === 'ember' && !isSearching
                 ? data.menu.categories.map((category) => ({ id: category.id, name: category.name }))
                 : undefined}
-              emberActiveCategoryId={emberCategoryId}
+              emberActiveCategoryId={premiumCategoryId}
               onEmberCategorySelect={(id) => {
-                setEmberCategoryId(id);
+                setPremiumCategoryId(id);
                 document.getElementById('ember-menu-start')?.scrollIntoView({
                   behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
                   block: 'start',
                 });
               }}
+              bloomCategoryTabs={template === 'bloom' && !isSearching
+                ? data.menu.categories.map((category) => ({ id: category.id, name: category.name }))
+                : undefined}
+              bloomActiveCategoryId={premiumCategoryId}
+              onBloomCategorySelect={(id) => {
+                setPremiumCategoryId(id);
+                document.getElementById('bloom-menu-start')?.scrollIntoView({
+                  behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+                  block: 'start',
+                });
+              }}
+              bloomSectionEyebrow={locale === 'ar' ? bloomSettings.sectionEyebrowAr : bloomSettings.sectionEyebrowEn}
+              bloomSectionHeadline={locale === 'ar' ? bloomSettings.sectionHeadlineAr : bloomSettings.sectionHeadlineEn}
               template={template}
             />
           </div>

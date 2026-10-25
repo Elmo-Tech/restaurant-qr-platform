@@ -611,7 +611,7 @@ function ProductBloomImpl(props: ProductVariantProps) {
         )}
         <button
           type="button"
-          aria-label={copy.detailsAria(product.name)}
+          aria-label={product.name}
           onClick={() => onOpen(product)}
           className="absolute inset-0 z-[1] cursor-pointer"
         />

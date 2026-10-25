@@ -35,6 +35,7 @@ export function LanguageSwitch({
   publicCode,
   label,
   designPreview = false,
+  previewTemplate = 'ember',
 }: {
   available: string[];
   resolved: string;
@@ -42,6 +43,7 @@ export function LanguageSwitch({
   label: string;
   /** Retain the template preview query across in-frame locale switching. */
   designPreview?: boolean;
+  previewTemplate?: 'ember' | 'bloom';
 }) {
   if (available.length <= 1) return <span />;
   const ordered = [...available].sort((a, b) => (a === 'ar' ? -1 : b === 'ar' ? 1 : 0));
@@ -53,7 +55,7 @@ export function LanguageSwitch({
         return (
           <Link
             key={locale}
-            href={`/q/${publicCode}?lang=${locale}${designPreview ? '&template=ember&designPreview=1' : ''}`}
+            href={`/q/${publicCode}?lang=${locale}${designPreview ? `&template=${previewTemplate}&designPreview=1` : ''}`}
             lang={locale}
             hrefLang={locale}
             aria-current={isActive ? 'true' : undefined}
