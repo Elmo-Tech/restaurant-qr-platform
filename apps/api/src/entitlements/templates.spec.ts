@@ -148,6 +148,12 @@ describe('template tiers (DEC-052)', () => {
       .toContain('BLOOM');
   });
 
+  it('allows BREW only when premium designs are entitled', () => {
+    const rule = { includesFeature: true, all: false, allStandard: true, selected: [] };
+    expect(allowedTemplates({ featureEnabled: true, rule })).not.toContain('BREW');
+    expect(allowedTemplates({ featureEnabled: true, rule: { ...rule, selected: ['BREW'] } })).toContain('BREW');
+  });
+
   it('treats the photo-free Editorial design as standard', () => {
     const keys = allowedTemplates({
       featureEnabled: true,

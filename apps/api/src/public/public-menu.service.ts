@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { normalizeEmberSettings, type EmberTemplateSettings } from '../restaurants/ember-template-config';
 import { normalizeBloomSettings, type BloomTemplateSettings } from '../restaurants/bloom-template-config';
+import { normalizeBrewSettings, type BrewTemplateSettings } from '../restaurants/brew-template-config';
 import {
   DEFAULT_POWERED_BY_URL,
   PLATFORM_PUBLIC_SETTINGS_ID,
@@ -74,6 +75,8 @@ export interface PublicMenuContext {
     emberSettings?: EmberTemplateSettings;
     /** Only published BLOOM settings are returned, never the draft. */
     bloomSettings?: BloomTemplateSettings;
+    /** Only published BREW settings, never Staff draft values. */
+    brewSettings?: BrewTemplateSettings;
     /** Contact details for the Guest Menu (DEC-042); a field is null when not set. */
     contact: RestaurantContact;
     /** Public code of the Restaurant's own (generic) QR: the link the Guest may share. Never a Table QR code. Null when the Restaurant has no active generic QR. */
@@ -824,6 +827,16 @@ export class PublicMenuService {
       ? normalizeBloomSettings(bloomRow?.publishedSettings)
       : null;
 
+    const brewRow = templates.includes('BREW')
+      ? await this.prisma.restaurantTemplateConfig.findUnique({
+          where: { restaurantId_template: { restaurantId: qr.restaurantId, template: 'BREW' } },
+          select: { publishedSettings: true },
+        })
+      : null;
+    const brewSettings = templates.includes('BREW')
+      ? normalizeBrewSettings(brewRow?.publishedSettings)
+      : null;
+
     const platformSettings = await this.prisma.platformPublicSettings.findUnique({
       where: { id: PLATFORM_PUBLIC_SETTINGS_ID },
       select: { poweredByUrl: true },
@@ -848,6 +861,7 @@ export class PublicMenuService {
             menuTemplate: templates.includes(qr.restaurant.menuTemplate) ? qr.restaurant.menuTemplate : 'CLASSIC',
             ...(emberSettings ? { emberSettings } : {}),
             ...(bloomSettings ? { bloomSettings } : {}),
+            ...(brewSettings ? { brewSettings } : {}),
             contact: contactFromColumns(qr.restaurant),
             shareCode,
             hours,

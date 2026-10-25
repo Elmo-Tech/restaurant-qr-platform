@@ -211,6 +211,7 @@ enum MenuTemplate {
   EDITORIAL
   EMBER
   BLOOM
+  BREW
 
   @@map("menu_template")
 }
