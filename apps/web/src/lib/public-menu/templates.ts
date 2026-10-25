@@ -13,6 +13,7 @@
  * - `compact`: a thin cover strip and a one-line info bar, so the menu starts at once.
  * - `editorial`: a photo-free menu with a prominent cover, balanced category panels, and clear ordering actions.
  * - `ember`: a cinematic food-first experience with a dramatic restaurant photo and dark editorial tiles.
+ * - `bloom`: elegant pastel patisserie with expressive serif typography and dessert photography.
  */
 export const MENU_TEMPLATES = [
   'classic',
@@ -24,6 +25,7 @@ export const MENU_TEMPLATES = [
   'compact',
   'editorial',
   'ember',
+  'bloom',
 ] as const;
 
 export type MenuTemplate = (typeof MENU_TEMPLATES)[number];
@@ -36,13 +38,13 @@ export const DEFAULT_MENU_TEMPLATE: MenuTemplate = 'classic';
 /** The building blocks a template is made of. Each component reads the one choice that is its own. */
 export interface TemplateLayout {
   /** The header at the top of the menu. */
-  hero: 'classic' | 'floating' | 'centered' | 'compact' | 'editorial' | 'ember';
+  hero: 'classic' | 'floating' | 'centered' | 'compact' | 'editorial' | 'ember' | 'bloom';
   /** The product card. `tile-dense` is the two-column phone grid. */
-  cards: 'classic' | 'row' | 'tile' | 'tile-dense' | 'line' | 'editorial' | 'ember';
+  cards: 'classic' | 'row' | 'tile' | 'tile-dense' | 'line' | 'editorial' | 'ember' | 'bloom';
   /** Category headings: a saffron bar at the start, or centred between two thin rules. */
   headings: 'bar' | 'centered' | 'editorial';
   /** The category strip: pills, squarer chips, or underlined text tabs. */
-  chips: 'pill' | 'square' | 'tabs' | 'ember';
+  chips: 'pill' | 'square' | 'tabs' | 'ember' | 'bloom';
   /** False = no product photo anywhere (cards, cart, product page, featured banners). */
   photos: boolean;
   /** Show the "Our picks" photo banners above the menu (they need photos, and push the menu down). */
@@ -58,6 +60,7 @@ const LAYOUTS: Record<MenuTemplate, TemplateLayout> = {
   centered: { hero: 'centered', cards: 'classic', headings: 'centered', chips: 'pill', photos: true, featured: true },
   compact: { hero: 'compact', cards: 'row', headings: 'bar', chips: 'tabs', photos: true, featured: false },
   ember: { hero: 'ember', cards: 'ember', headings: 'bar', chips: 'ember', photos: true, featured: false },
+  bloom: { hero: 'bloom', cards: 'bloom', headings: 'bar', chips: 'bloom', photos: true, featured: false },
   editorial: {
     hero: 'editorial',
     cards: 'editorial',

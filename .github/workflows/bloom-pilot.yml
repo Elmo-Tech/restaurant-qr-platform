@@ -1,0 +1,40 @@
+name: BLOOM Premium Pilot Checks
+
+on:
+  push:
+    branches:
+      - feat/bloom-premium-template
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  typecheck-and-unit-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate Prisma schema
+        run: npm run db:validate
+      - name: Backend TypeScript
+        run: npm run typecheck:api
+      - name: Guest and staff TypeScript
+        run: npm run typecheck:web
+      - name: Platform TypeScript
+        run: npm run typecheck:platform
+      - name: BLOOM draft normalizer & preview contract
+        run: node --experimental-strip-types --test apps/web/src/lib/public-menu/bloom-settings.contract.test.mjs
+      - name: BLOOM typography and palette contract
+        run: node --test apps/web/src/lib/public-menu/bloom-typography.contract.test.mjs
+      - name: Existing EMBER preview regression tests
+        run: node --experimental-strip-types --test apps/web/src/lib/public-menu/ember-settings.contract.test.mjs
+      - name: BLOOM, EMBER, and plan entitlements unit tests
+        run: npm run test --workspace=apps/api -- --runInBand bloom-template-config.spec.ts bloom-template-config.service.spec.ts bloom-template-config.controller.spec.ts ember-template-config.spec.ts ember-template-config.service.spec.ts ember-template-config.controller.spec.ts templates.spec.ts

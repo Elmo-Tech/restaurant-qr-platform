@@ -210,6 +210,7 @@ enum MenuTemplate {
   COMPACT
   EDITORIAL
   EMBER
+  BLOOM
 
   @@map("menu_template")
 }

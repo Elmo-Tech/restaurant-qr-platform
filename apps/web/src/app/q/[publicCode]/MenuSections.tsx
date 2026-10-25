@@ -10,6 +10,7 @@ import { ProductCard } from './ProductCard';
 import {
   ProductEditorial,
   ProductEmber,
+  ProductBloom,
   ProductLine,
   ProductRow,
   ProductTile,
@@ -154,6 +155,11 @@ interface MenuSectionsProps {
   emberCategoryTabs?: { id: string; name: string }[];
   emberActiveCategoryId?: string;
   onEmberCategorySelect?: (id: string) => void;
+  bloomCategoryTabs?: { id: string; name: string }[];
+  bloomActiveCategoryId?: string;
+  onBloomCategorySelect?: (id: string) => void;
+  bloomSectionEyebrow?: string;
+  bloomSectionHeadline?: string;
   /** How the menu is laid out (DEC-044). */
   template?: MenuTemplate;
 }
@@ -165,6 +171,7 @@ const CARD_CONTAINER = {
   line: 'mx-auto flex w-full max-w-[760px] flex-col',
   editorial: 'flex flex-col',
   ember: 'ember-v2-grid grid grid-cols-1 min-[390px]:grid-cols-2 lg:grid-cols-3',
+  bloom: 'bloom-v2-grid',
 } as const;
 
 /** Keep desktop columns similar in height while preserving the original category order on mobile. */
@@ -203,6 +210,11 @@ function MenuSectionsImpl({
   emberCategoryTabs,
   emberActiveCategoryId,
   onEmberCategorySelect,
+  bloomCategoryTabs,
+  bloomActiveCategoryId,
+  onBloomCategorySelect,
+  bloomSectionEyebrow,
+  bloomSectionHeadline,
   template = DEFAULT_MENU_TEMPLATE,
 }: MenuSectionsProps) {
   const layout = layoutOf(template);
@@ -243,14 +255,28 @@ function MenuSectionsImpl({
         id={categoryDomId(category.id)}
         aria-labelledby={headingId}
         className={
-          layout.cards === 'ember'
+          layout.cards === 'bloom'
+            ? 'bloom-v2-section scroll-mt-24'
+            : layout.cards === 'ember'
             ? 'ember-v2-section scroll-mt-24'
             : layout.cards === 'editorial'
               ? 'scroll-mt-24 rounded-[22px] border border-g-line bg-g-surface px-4 py-4 shadow-[var(--g-shadow)] sm:px-5'
               : 'scroll-mt-24'
         }
       >
-        {layout.cards === 'ember' ? (
+        {layout.cards === 'bloom' ? (
+          <div className="bloom-v2-section-head">
+            <div className="min-w-0">
+              <div className="bloom-v2-section-eyebrow">
+                {bloomSectionEyebrow || 'OUR LITTLE PLEASURES'}
+              </div>
+              <h2 id={headingId} className="bloom-v2-section-title bloom-v2-display">
+                {bloomSectionHeadline || 'The sweet selection.'}
+              </h2>
+            </div>
+            <span className="bloom-v2-section-flower" aria-hidden="true">✿</span>
+          </div>
+        ) : layout.cards === 'ember' ? (
           <div className="ember-v2-section-heading">
             <div>
               <div className="ember-v2-section-kicker" dir="ltr">THE MENU / WHAT ARE YOU CRAVING?</div>
@@ -277,6 +303,22 @@ function MenuSectionsImpl({
                 aria-pressed={tab.id === emberActiveCategoryId}
                 className={`ember-v2-tab ${tab.id === emberActiveCategoryId ? 'ember-v2-tab-active' : ''}`}
                 onClick={() => onEmberCategorySelect(tab.id)}
+              >
+                <bdi>{tab.name}</bdi>
+              </button>
+            ))}
+          </nav>
+        ) : null}
+
+        {layout.cards === 'bloom' && bloomCategoryTabs?.length && onBloomCategorySelect ? (
+          <nav aria-label={copy.categories} className="bloom-v2-tabs">
+            {bloomCategoryTabs.map((tab) => (
+              <button
+                key={tab.id}
+                type="button"
+                aria-pressed={tab.id === bloomActiveCategoryId}
+                className={`bloom-v2-tab ${tab.id === bloomActiveCategoryId ? 'bloom-v2-tab-active' : ''}`}
+                onClick={() => onBloomCategorySelect(tab.id)}
               >
                 <bdi>{tab.name}</bdi>
               </button>
@@ -325,7 +367,9 @@ function MenuSectionsImpl({
           <div className={CARD_CONTAINER[layout.cards]}>
             {category.products.map((product) => {
               const Card =
-                layout.cards === 'ember'
+                layout.cards === 'bloom'
+                  ? ProductBloom
+                  : layout.cards === 'ember'
                   ? ProductEmber
                   : layout.cards === 'row'
                     ? ProductRow

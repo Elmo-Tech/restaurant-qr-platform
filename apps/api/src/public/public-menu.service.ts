@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { normalizeEmberSettings, type EmberTemplateSettings } from '../restaurants/ember-template-config';
+import { normalizeBloomSettings, type BloomTemplateSettings } from '../restaurants/bloom-template-config';
 import {
   DEFAULT_POWERED_BY_URL,
   PLATFORM_PUBLIC_SETTINGS_ID,
@@ -71,6 +72,8 @@ export interface PublicMenuContext {
     menuTemplate: MenuTemplate;
     /** Only published EMBER settings are visible to guests; drafts remain private. */
     emberSettings?: EmberTemplateSettings;
+    /** Only published BLOOM settings are returned, never the draft. */
+    bloomSettings?: BloomTemplateSettings;
     /** Contact details for the Guest Menu (DEC-042); a field is null when not set. */
     contact: RestaurantContact;
     /** Public code of the Restaurant's own (generic) QR: the link the Guest may share. Never a Table QR code. Null when the Restaurant has no active generic QR. */
@@ -811,6 +814,16 @@ export class PublicMenuService {
       ? normalizeEmberSettings(emberRow?.publishedSettings)
       : null;
 
+    const bloomRow = templates.includes('BLOOM')
+      ? await this.prisma.restaurantTemplateConfig.findUnique({
+          where: { restaurantId_template: { restaurantId: qr.restaurantId, template: 'BLOOM' } },
+          select: { publishedSettings: true },
+        })
+      : null;
+    const bloomSettings = templates.includes('BLOOM')
+      ? normalizeBloomSettings(bloomRow?.publishedSettings)
+      : null;
+
     const platformSettings = await this.prisma.platformPublicSettings.findUnique({
       where: { id: PLATFORM_PUBLIC_SETTINGS_ID },
       select: { poweredByUrl: true },
@@ -834,6 +847,7 @@ export class PublicMenuService {
             // the saved choice is kept; the Guest sees Classic until the package allows it again (DEC-051)
             menuTemplate: templates.includes(qr.restaurant.menuTemplate) ? qr.restaurant.menuTemplate : 'CLASSIC',
             ...(emberSettings ? { emberSettings } : {}),
+            ...(bloomSettings ? { bloomSettings } : {}),
             contact: contactFromColumns(qr.restaurant),
             shareCode,
             hours,
