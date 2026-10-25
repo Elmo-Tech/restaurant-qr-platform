@@ -17,16 +17,22 @@ import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import type { MenuTemplateApi } from '../../../../../../lib/public-menu/templates';
 import { SettingsTabs } from '../SettingsTabs';
 import { EmberTemplateEditor } from './EmberTemplateEditor';
+import { BloomTemplateEditor } from './BloomTemplateEditor';
 import {
   EMBER_DESIGN_PREVIEW_READY,
   EMBER_DESIGN_PREVIEW_UPDATE,
   type EmberTemplateSettings,
 } from '../../../../../../lib/public-menu/ember-settings';
+import {
+  BLOOM_DESIGN_PREVIEW_READY,
+  BLOOM_DESIGN_PREVIEW_UPDATE,
+  type BloomTemplateSettings,
+} from '../../../../../../lib/public-menu/bloom-settings';
 
 type Template = MenuTemplateApi;
 
 /** The premium designs (DEC-052); the rest are standard. Mirrors the API. */
-const PREMIUM: readonly Template[] = ['GALLERY', 'MENU', 'FLOATING', 'EMBER'];
+const PREMIUM: readonly Template[] = ['GALLERY', 'MENU', 'FLOATING', 'EMBER', 'BLOOM'];
 const TIERS = ['STANDARD', 'PREMIUM'] as const;
 
 const TEMPLATES: { key: Template; title: MessageKey; hint: MessageKey }[] = [
@@ -39,6 +45,7 @@ const TEMPLATES: { key: Template; title: MessageKey; hint: MessageKey }[] = [
   { key: 'COMPACT', title: 'design.compact', hint: 'design.compactHint' },
   { key: 'EDITORIAL', title: 'design.editorial', hint: 'design.editorialHint' },
   { key: 'EMBER', title: 'design.ember', hint: 'design.emberHint' },
+  { key: 'BLOOM', title: 'design.bloom', hint: 'design.bloomHint' },
 ];
 
 /** A simple wireframe of each layout, drawn with the theme colours (no images to load). */
@@ -158,6 +165,24 @@ function Wireframe({ template }: { template: Template }): ReactNode {
           ))}
         </>
       ) : null}
+      {template === 'BLOOM' ? (
+        <>
+          <rect x="0" y="0" width="120" height="76" rx="5" fill="#fff4f2" />
+          <rect x="0" y="0" width="120" height="9" fill="#bc5875" />
+          <circle cx="24" cy="33" r="19" fill="#edbec8" />
+          <circle cx="24" cy="33" r="14" fill="#f6d8dd" />
+          <path d="M13 38 L36 38 L33 50 L16 50Z" fill="#d89ca6" />
+          <ellipse cx="24" cy="36" rx="13" ry="4" fill="#ffedeb" />
+          <rect x="61" y="23" width="47" height="6" rx="2" fill="#9a4d64" />
+          <rect x="70" y="33" width="37" height="4" rx="2" fill="#c67a92" />
+          {[0,1,2].map((col) => (
+            <g key={col} transform={`translate(${7 + col * 37} 56)`}>
+              <rect width="32" height="17" rx="4" fill="#fff" stroke="#f0bbc7" />
+              <rect x="2" y="2" width="28" height="9" rx="3" fill="#e7aeb9" />
+            </g>
+          ))}
+        </>
+      ) : null}
       {template === 'EMBER' ? (
         <>
           <rect x="0" y="0" width="120" height="40" rx="4" fill="#24140f" />
@@ -218,6 +243,8 @@ export function DesignWorkspace({
   const [justSaved, setJustSaved] = useState(false);
   const [emberPreviewDraft, setEmberPreviewDraft] = useState<EmberTemplateSettings | null>(null);
   const [emberPreviewLanguage, setEmberPreviewLanguage] = useState<'ar' | 'en' | null>(null);
+  const [bloomPreviewDraft, setBloomPreviewDraft] = useState<BloomTemplateSettings | null>(null);
+  const [bloomPreviewLanguage, setBloomPreviewLanguage] = useState<'ar' | 'en' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -257,9 +284,12 @@ export function DesignWorkspace({
     }
   }
 
+  const previewLocale = selected === 'EMBER' ? emberPreviewLanguage
+    : selected === 'BLOOM' ? bloomPreviewLanguage : null;
+  const designPreview = selected === 'EMBER' || selected === 'BLOOM';
   const previewSrc = qrCode
-    ? `/q/${qrCode}?template=${selected.toLowerCase()}${selected === 'EMBER'
-        ? `&designPreview=1${emberPreviewLanguage ? `&lang=${emberPreviewLanguage}` : ''}`
+    ? `/q/${qrCode}?template=${selected.toLowerCase()}${designPreview
+        ? `&designPreview=1${previewLocale ? `&lang=${previewLocale}` : ''}`
         : ''}`
     : null;
 
@@ -369,6 +399,15 @@ export function DesignWorkspace({
             />
           ) : null}
 
+          {selected === 'BLOOM' && allowedTemplates.includes('BLOOM') && canManage ? (
+            <BloomTemplateEditor
+              restaurantId={restaurantId}
+              canManage={canManage}
+              onDraftChange={setBloomPreviewDraft}
+              onCopyLanguageChange={setBloomPreviewLanguage}
+            />
+          ) : null}
+
           <div className="flex flex-wrap items-center gap-3">
             <Button onClick={() => void save()} disabled={!canManage || !dirty || isSaving}>
               {t('design.save')}
@@ -380,7 +419,13 @@ export function DesignWorkspace({
         <PreviewPane
           src={previewSrc}
           isLoading={qrCode === undefined}
-          emberDraft={selected === 'EMBER' ? emberPreviewDraft : null}
+          premiumDraft={
+            selected === 'EMBER' && emberPreviewDraft
+              ? { kind: 'ember', settings: emberPreviewDraft }
+              : selected === 'BLOOM' && bloomPreviewDraft
+                ? { kind: 'bloom', settings: bloomPreviewDraft }
+                : null
+          }
         />
       </div>
     </div>
@@ -395,14 +440,19 @@ const DESKTOP_HEIGHT = 1000;
  * renders the page at a 1280px-wide viewport and scales it down to fit the panel, so the whole
  * desktop layout is visible without scrolling sideways.
  */
+type PremiumPreviewDraft =
+  | { kind: 'ember'; settings: EmberTemplateSettings }
+  | { kind: 'bloom'; settings: BloomTemplateSettings }
+  | null;
+
 function PreviewPane({
   src,
   isLoading,
-  emberDraft,
+  premiumDraft,
 }: {
   src: string | null;
   isLoading: boolean;
-  emberDraft: EmberTemplateSettings | null;
+  premiumDraft: PremiumPreviewDraft;
 }) {
   const { t } = useStaffI18n();
   const [device, setDevice] = useState<'mobile' | 'desktop'>('mobile');
@@ -411,15 +461,18 @@ function PreviewPane({
 
   // Update the existing iframe, not its URL, so typing doesn't reset scroll
   // or the guest cart. No API request or database mutation is performed here.
-  const sendEmberDraft = useCallback(() => {
-    if (!src?.includes('designPreview=1') || !emberDraft) return;
+  const sendPremiumDraft = useCallback(() => {
+    if (!src?.includes('designPreview=1') || !premiumDraft) return;
     frameRef.current?.contentWindow?.postMessage(
-      { type: EMBER_DESIGN_PREVIEW_UPDATE, settings: emberDraft },
+      {
+        type: premiumDraft.kind === 'ember' ? EMBER_DESIGN_PREVIEW_UPDATE : BLOOM_DESIGN_PREVIEW_UPDATE,
+        settings: premiumDraft.settings,
+      },
       window.location.origin,
     );
-  }, [src, emberDraft]);
+  }, [src, premiumDraft]);
 
-  useEffect(() => { sendEmberDraft(); }, [sendEmberDraft]);
+  useEffect(() => { sendPremiumDraft(); }, [sendPremiumDraft]);
 
   // The iframe announces when its message listener has mounted. The handshake
   // also restores the live draft after mobile/desktop or language navigation.
@@ -429,12 +482,14 @@ function PreviewPane({
       if (event.origin !== window.location.origin ||
           event.source !== frameRef.current?.contentWindow ||
           !event.data || typeof event.data !== 'object' ||
-          (event.data as { type?: unknown }).type !== EMBER_DESIGN_PREVIEW_READY) return;
-      sendEmberDraft();
+          (event.data as { type?: unknown }).type !== (
+            premiumDraft?.kind === 'bloom' ? BLOOM_DESIGN_PREVIEW_READY : EMBER_DESIGN_PREVIEW_READY
+          )) return;
+      sendPremiumDraft();
     };
     window.addEventListener('message', receiveReady);
     return () => window.removeEventListener('message', receiveReady);
-  }, [src, sendEmberDraft]);
+  }, [src, sendPremiumDraft, premiumDraft?.kind]);
   const [width, setWidth] = useState(0);
 
   useEffect(() => {
@@ -481,7 +536,7 @@ function PreviewPane({
             <div className="mx-auto w-full max-w-[400px] overflow-hidden rounded-[32px] border-[6px] border-foreground/80 bg-background shadow-lg">
               <iframe
                 ref={frameRef}
-                onLoad={sendEmberDraft}
+                onLoad={sendPremiumDraft}
                 key={`m-${src}`}
                 src={src}
                 title={t('design.preview')}
@@ -498,7 +553,7 @@ function PreviewPane({
               <div style={{ height: DESKTOP_HEIGHT * scale }} className="relative overflow-hidden">
                 <iframe
                   ref={frameRef}
-                  onLoad={sendEmberDraft}
+                  onLoad={sendPremiumDraft}
                   key={`d-${src}`}
                   src={src}
                   title={t('design.preview')}
@@ -519,7 +574,9 @@ function PreviewPane({
           </div>
         )}
       </div>
-      <p className="text-center text-xs text-muted-foreground">{t(emberDraft && src?.includes('designPreview=1') ? 'design.emberPreviewLiveHint' : 'design.previewHint')}</p>
+      <p className="text-center text-xs text-muted-foreground">{t(premiumDraft && src?.includes('designPreview=1')
+        ? premiumDraft.kind === 'bloom' ? 'design.bloomPreviewLiveHint' : 'design.emberPreviewLiveHint'
+        : 'design.previewHint')}</p>
     </aside>
   );
 }
