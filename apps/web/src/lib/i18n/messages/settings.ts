@@ -9,9 +9,6 @@ export const settingsMessages = defineMessages({
     'settings.tab.delivery': 'Delivery',
     'settings.tab.guestQr': 'Restaurant QR',
 
-    'settings.qr.mobile.nav': 'Restaurant QR sections',
-    'settings.qr.mobile.preview': 'QR code',
-    'settings.qr.mobile.appearance': 'Customize',
     'settings.qr.appearance': 'Appearance',
     'settings.qr.appearanceHint':
       'Saved for the whole restaurant and applied to the Restaurant QR and every table QR. Keep strong contrast so phones can scan it.',
@@ -144,9 +141,6 @@ export const settingsMessages = defineMessages({
     'settings.tab.delivery': 'التوصيل',
     'settings.tab.guestQr': 'رمز QR للمطعم',
 
-    'settings.qr.mobile.nav': 'أقسام رمز QR',
-    'settings.qr.mobile.preview': 'رمز QR',
-    'settings.qr.mobile.appearance': 'تخصيص المظهر',
     'settings.qr.appearance': 'المظهر',
     'settings.qr.appearanceHint':
       'يُحفظ للمطعم كله ويُطبّق على رمز QR للمطعم وعلى كل رموز الطاولات. حافظ على تباين قوي كي تتمكن الهواتف من مسحه.',

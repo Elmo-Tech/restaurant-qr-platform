@@ -78,7 +78,6 @@ export function RestaurantQrPanel({
   const [saveError, setSaveError] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [mobilePanel, setMobilePanel] = useState<'preview' | 'appearance'>('preview');
 
   const load = useCallback(async () => {
     setError(null);
@@ -272,21 +271,9 @@ export function RestaurantQrPanel({
             {!isActive ? <Alert variant="info">{t('tables.generic.inactiveNotice')}</Alert> : null}
 
             <div className="min-w-0">
-              <div role="tablist" aria-label={t('settings.qr.mobile.nav')} className="mb-4 grid grid-cols-2 gap-2 rounded-xl bg-muted p-1 sm:hidden">
-                {(['preview','appearance'] as const).map(panel=>(
-                  <button key={panel} type="button" role="tab" aria-selected={mobilePanel===panel}
-                    aria-controls={panel==='preview'?'restaurant-qr-preview':'restaurant-qr-appearance'}
-                    onClick={()=>setMobilePanel(panel)}
-                    className={`min-h-11 rounded-lg px-3 py-2 text-sm font-semibold transition-colors ${
-                      mobilePanel===panel?'bg-card text-foreground shadow-sm':'text-muted-foreground'
-                    }`}>
-                    {t(panel==='preview'?'settings.qr.mobile.preview':'settings.qr.mobile.appearance')}
-                  </button>
-                ))}
-              </div>
               <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-6">
               {/* ---- preview: exactly what is downloaded and printed ---- */}
-              <div id="restaurant-qr-preview" role="tabpanel" className={`min-w-0 flex-col gap-3 ${mobilePanel==='preview'?'flex':'hidden sm:flex'}`}>
+              <div id="restaurant-qr-preview" className="flex min-w-0 flex-col gap-3">
                 <div
                   className={`flex min-w-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/50 p-2 sm:p-4 ${
                     isActive ? '' : 'opacity-60'
@@ -348,7 +335,7 @@ export function RestaurantQrPanel({
               </div>
 
               {/* ---- appearance ---- */}
-              <div id="restaurant-qr-appearance" role="tabpanel" className={`min-w-0 flex-col gap-5 ${mobilePanel==='appearance' ? 'flex' : 'hidden sm:flex'}`}>
+              <div id="restaurant-qr-appearance" className="flex min-w-0 flex-col gap-5">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">
                     {t('settings.qr.appearance')}

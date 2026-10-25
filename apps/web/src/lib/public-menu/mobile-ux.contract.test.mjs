@@ -36,11 +36,16 @@ test('all premium menus share a page-height sticky category bar, with no duplica
  assert.ok(chips.includes('sticky top-0'));
 });
 
-test('the QR editor is usable within phone width and settings navigation scrolls',()=>{
- assert.ok(qr.includes("mobilePanel==='appearance'"));
- assert.ok(qr.includes("role=\"tablist\""));
+test('QR preview and its live customization remain visible together on phones',()=>{
+ const preview = qr.indexOf('id="restaurant-qr-preview"');
+ const appearance = qr.indexOf('id="restaurant-qr-appearance"');
+ assert.ok(preview > 0 && appearance > preview, 'QR must be above its customization');
+ assert.ok(qr.includes('id="restaurant-qr-preview" className="flex min-w-0 flex-col gap-3"'));
+ assert.ok(qr.includes('id="restaurant-qr-appearance" className="flex min-w-0 flex-col gap-5"'));
+ assert.ok(!qr.includes('mobilePanel'), 'no mobile tabs or hidden editor');
+ assert.ok(!qr.includes('role="tabpanel"'), 'preview and customization are not mutually exclusive');
  assert.ok(qr.includes('max-w-[300px] rounded-lg object-contain'));
- assert.ok(qr.includes('grid min-w-0 gap-5'));
+ assert.ok(qr.includes('grid min-w-0 gap-5 lg:grid-cols-'), 'stack on mobile; two columns on desktop');
  assert.ok(qr.includes('xl:grid-cols-2'));
  assert.ok(settings.includes('scrollable'));
  assert.ok(nav.includes('flex-nowrap overflow-x-auto'));
