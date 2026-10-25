@@ -323,7 +323,7 @@ export function RestaurantQrPanel({
                   <Button
                     variant="secondary"
                     className="min-w-0 flex-1"
-                    disabled={!image.dataUrl
+                    disabled={!image.dataUrl}
                     onClick={() => window.print()}
                   >
                     {t('tables.qr.print')}

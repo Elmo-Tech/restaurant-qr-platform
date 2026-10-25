@@ -1294,8 +1294,6 @@ export function PublicMenuView({
               onIncrement={handleCardIncrement}
               onDecrement={handleCardDecrement}
               onClearSearch={handleClearSearch}
-              {/* Premium categories now share the global sticky CategoryChips.
-                   Do not repeat internal tabs inside each premium menu section. */}
               brewSettings={template==='brew'?brewSettings:undefined}
               brewLocale={locale}
               bloomSectionEyebrow={locale === 'ar' ? bloomSettings.sectionEyebrowAr : bloomSettings.sectionEyebrowEn}
