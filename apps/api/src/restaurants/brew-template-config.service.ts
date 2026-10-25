@@ -1,11 +1,16 @@
 import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { ImageStorageService } from '../storage/image-storage.service';
+import { Prisma } from '../generated/prisma/client';
 import {
   DEFAULT_BREW_SETTINGS,
   normalizeBrewSettings,
   type BrewTemplateSettings,
 } from './brew-template-config';
+
+/** Encode category mappings as plain JSON before writing Prisma JSON fields. */
+const asJson = (settings: BrewTemplateSettings): Prisma.InputJsonValue =>
+  JSON.parse(JSON.stringify(settings)) as Prisma.InputJsonValue;
 
 export interface BrewConfigView {
   draft: BrewTemplateSettings;
@@ -53,10 +58,10 @@ export class BrewTemplateConfigService {
         restaurantId,
         template: 'BREW',
         schemaVersion: 1,
-        draftSettings: { ...draft },
-        publishedSettings: { ...DEFAULT_BREW_SETTINGS },
+        draftSettings: asJson(draft),
+        publishedSettings: asJson(DEFAULT_BREW_SETTINGS),
       },
-      update: { draftSettings: { ...draft } },
+      update: { draftSettings: asJson(draft) },
       select: { draftSettings: true, publishedSettings: true },
     });
     return {
@@ -98,9 +103,9 @@ export class BrewTemplateConfigService {
         where: { restaurantId_template: { restaurantId, template: 'BREW' } },
         create: {
           restaurantId, template: 'BREW', schemaVersion: 1,
-          draftSettings: { ...next }, publishedSettings: { ...DEFAULT_BREW_SETTINGS },
+          draftSettings: asJson(next), publishedSettings: asJson(DEFAULT_BREW_SETTINGS),
         },
-        update: { draftSettings: { ...next } },
+        update: { draftSettings: asJson(next) },
         select: { draftSettings: true, publishedSettings: true },
       });
       if (oldUnpublishedPath) await this.images.deleteImageBestEffort(oldUnpublishedPath);
@@ -139,10 +144,10 @@ export class BrewTemplateConfigService {
         restaurantId,
         template: 'BREW',
         schemaVersion: 1,
-        draftSettings: { ...reset },
-        publishedSettings: { ...DEFAULT_BREW_SETTINGS },
+        draftSettings: asJson(reset),
+        publishedSettings: asJson(DEFAULT_BREW_SETTINGS),
       },
-      update: { draftSettings: { ...reset } },
+      update: { draftSettings: asJson(reset) },
       select: { draftSettings: true, publishedSettings: true },
     });
     // Only delete the unreferenced draft upload. A currently published photo
@@ -171,10 +176,10 @@ export class BrewTemplateConfigService {
         restaurantId,
         template: 'BREW',
         schemaVersion: 1,
-        draftSettings: { ...published },
-        publishedSettings: { ...published },
+        draftSettings: asJson(published),
+        publishedSettings: asJson(published),
       },
-      update: { publishedSettings: { ...published } },
+      update: { publishedSettings: asJson(published) },
       select: { draftSettings: true, publishedSettings: true },
     });
     // The last published upload can be deleted only after it has no draft
