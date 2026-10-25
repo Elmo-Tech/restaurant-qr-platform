@@ -181,6 +181,6 @@ describe('template tiers (DEC-052)', () => {
   it('gives all of both tiers for "all"', () => {
     expect(
       templateTierCountsOf({ includesFeature: true, all: true, selected: [] }),
-    ).toEqual({ standard: 5, premium: 5 });
+    ).toEqual({ standard: 5, premium: 6 });
   });
 });
