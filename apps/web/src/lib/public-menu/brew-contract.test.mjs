@@ -41,3 +41,43 @@ test('BREW customizations are private until staff publish',()=>{
  assert.ok(api.includes('categoryPromos'));
  assert.ok(api.includes("'palette'"));
 });
+
+/** Protect both light and dark guest color systems from unreadable combinations. */
+test('all BREW palette/theme combinations keep accessible primary and button contrast',()=>{
+ const selectors=[
+  ".brew-experience",
+  ".brew-experience[data-brew-palette='MOCHA']",
+  ".brew-experience[data-brew-palette='SAGE']",
+  "[data-guest-theme='dark'] .brew-experience",
+  "[data-guest-theme='dark'] .brew-experience[data-brew-palette='MOCHA']",
+  "[data-guest-theme='dark'] .brew-experience[data-brew-palette='SAGE']",
+ ];
+ const parseHex=(hex)=>[0,2,4].map(i=>{
+  const value=parseInt(hex.slice(1+i,3+i),16)/255;
+  return value<=0.04045?value/12.92:((value+0.055)/1.055)**2.4;
+ });
+ const luminance=(hex)=>parseHex(hex).reduce((sum,value,i)=>sum+value*[0.2126,0.7152,0.0722][i],0);
+ const contrast=(a,b)=>{
+  const values=[luminance(a),luminance(b)].sort((x,y)=>y-x);
+  return (values[0]+0.05)/(values[1]+0.05);
+ };
+ for(const selector of selectors){
+  const pos=css.indexOf(selector+' {');
+  assert.ok(pos>=0,'Missing palette rule: '+selector);
+  const rule=css.slice(pos,css.indexOf('}',pos));
+  const color=(key)=>{
+   const match=rule.match(new RegExp('--'+key+':\\s*(#[a-fA-F0-9]{6})'));
+   assert.ok(match,'Missing color '+key+' for '+selector);
+   return match[1];
+  };
+  const pairs=[
+   ['g-text','g-bg'],
+   ['g-accent-text','g-bg'],
+   ['g-on-accent','g-accent']
+  ];
+  for(const [foreground,background] of pairs){
+   const ratio=contrast(color(foreground),color(background));
+   assert.ok(ratio>=4.5,selector+': '+foreground+' / '+background+' contrast '+ratio.toFixed(2)+' is below 4.5');
+  }
+ }
+});
