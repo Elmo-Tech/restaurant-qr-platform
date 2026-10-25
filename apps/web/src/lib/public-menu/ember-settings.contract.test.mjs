@@ -5,6 +5,9 @@ import {
   DEFAULT_EMBER_SETTINGS,
   normalizeEmberTemplateSettings,
   normalizeEmberTemplateConfigView,
+  isEmberPreviewUpdate,
+  EMBER_DESIGN_PREVIEW_UPDATE,
+  EMBER_DESIGN_PREVIEW_READY,
 } from './ember-settings.ts';
 
 test('legacy draft returned by an older API fills every editable field', () => {
@@ -52,4 +55,20 @@ test('customized copy remains intact, invalid stored photo paths are rejected', 
   });
   assert.equal(uploaded.heroImageMode, 'CUSTOM');
   assert.equal(uploaded.heroImageAssetPath, '/media/0c5fd0cb-ed79-4846-a27d-8bd21bfd29c7.webp');
+});
+
+test('only the dedicated same-origin EMBER preview message type may update appearance', () => {
+  assert.equal(isEmberPreviewUpdate(null), false);
+  assert.equal(isEmberPreviewUpdate([]), false);
+  assert.equal(isEmberPreviewUpdate({ type: EMBER_DESIGN_PREVIEW_READY }), false);
+  assert.equal(isEmberPreviewUpdate({ type: 'other' }), false);
+  assert.equal(isEmberPreviewUpdate({
+    type: EMBER_DESIGN_PREVIEW_UPDATE,
+    settings: { palette: 'COPPER', headlineAr: 'معاينة غير منشورة' },
+  }), true);
+  const settings = normalizeEmberTemplateSettings({
+    palette: 'COPPER', headlineAr: 'معاينة غير منشورة',
+  });
+  assert.equal(settings.palette, 'COPPER');
+  assert.equal(settings.headlineAr, 'معاينة غير منشورة');
 });
