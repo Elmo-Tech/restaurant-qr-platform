@@ -13,6 +13,7 @@ import {
   type BloomTemplateSettings,
 } from '../public-menu/bloom-settings';
 import type { MenuTemplateApi } from '../public-menu/templates';
+import {BREW_COPY_KEYS,normalizeBrewTemplateSettings,normalizeBrewTemplateConfigView,type BrewTemplateSettings,type BrewTemplateConfigView} from '../public-menu/brew-settings';
 import type { ContactField, RestaurantContact } from '../contact/types';
 import { apiFetch, apiFetchFormData } from '../api/client';
 import type { QrStyle } from '../qr/style';
@@ -225,6 +226,37 @@ export async function publishBloomTemplateConfig(restaurantId: string): Promise<
     `${restaurantPath(restaurantId)}/bloom-template/publish`, { method: 'POST' },
   );
   return normalizeBloomTemplateConfigView(body.data);
+}
+
+
+/** BREW private appearance draft and publication. */
+export async function getBrewTemplateConfig(restaurantId:string):Promise<BrewTemplateConfigView>{
+ const x=await apiFetch<{data:unknown}>(`${restaurantPath(restaurantId)}/brew-template`);
+ return normalizeBrewTemplateConfigView(x.data);
+}
+export async function saveBrewTemplateDraft(restaurantId:string,settings:BrewTemplateSettings):Promise<BrewTemplateConfigView>{
+ const expected=normalizeBrewTemplateSettings(settings);
+ const body=Object.fromEntries(Object.entries(expected).filter(([k])=>k!=='promoImageAssetPath'));
+ const x=await apiFetch<{data:unknown}>(`${restaurantPath(restaurantId)}/brew-template/draft`,{method:'PATCH',body});
+ const result=normalizeBrewTemplateConfigView(x.data);
+ for(const k of [...BREW_COPY_KEYS,'motion','promoMode','promoEnabled','promoImageMode'] as const)
+  if(result.draft[k]!==expected[k])throw new Error('BREW settings were not saved. Restart latest API.');
+ if(JSON.stringify(result.draft.categoryPromos)!==JSON.stringify(expected.categoryPromos))
+   throw new Error('BREW category promos were not saved. Restart latest API.');
+ return result;
+}
+export async function uploadBrewPromoImage(restaurantId:string,file:File):Promise<BrewTemplateConfigView>{
+ const form=new FormData();form.set('image',file);
+ const x=await apiFetchFormData<{data:unknown}>(`${restaurantPath(restaurantId)}/brew-template/promo-image`,form);
+ return normalizeBrewTemplateConfigView(x.data);
+}
+export async function resetBrewPromoImage(restaurantId:string):Promise<BrewTemplateConfigView>{
+ const x=await apiFetch<{data:unknown}>(`${restaurantPath(restaurantId)}/brew-template/promo-image`,{method:'DELETE'});
+ return normalizeBrewTemplateConfigView(x.data);
+}
+export async function publishBrewTemplate(restaurantId:string):Promise<BrewTemplateConfigView>{
+ const x=await apiFetch<{data:unknown}>(`${restaurantPath(restaurantId)}/brew-template/publish`,{method:'POST'});
+ return normalizeBrewTemplateConfigView(x.data);
 }
 
 /** Switch Pickup and / or Delivery on or off for the whole Restaurant (omitted fields stay unchanged). */
