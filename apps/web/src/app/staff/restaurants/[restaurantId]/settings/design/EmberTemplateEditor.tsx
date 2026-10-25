@@ -185,7 +185,6 @@ export function EmberTemplateEditor({
       setSavedDraft(normalizeEmberTemplateSettings(result.draft));
       setPublished(normalizeEmberTemplateSettings(result.published));
       setNotice('published');
-      onPublished();
     } catch (caught) {
       if (isUnauthenticatedError(caught)) redirectToLogin();
       else setError(describeError(caught));
