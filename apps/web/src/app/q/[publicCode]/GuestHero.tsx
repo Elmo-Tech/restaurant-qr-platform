@@ -43,7 +43,7 @@ export function LanguageSwitch({
   label: string;
   /** Retain the template preview query across in-frame locale switching. */
   designPreview?: boolean;
-  previewTemplate?: 'ember' | 'bloom';
+  previewTemplate?: 'ember' | 'bloom' | 'brew';
 }) {
   if (available.length <= 1) return <span />;
   const ordered = [...available].sort((a, b) => (a === 'ar' ? -1 : b === 'ar' ? 1 : 0));
