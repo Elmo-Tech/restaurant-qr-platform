@@ -19,4 +19,5 @@ jobs:
       - run: npm run typecheck:api
       - run: npm run typecheck:web
       - run: npm run typecheck:platform
+      - run: node --test apps/web/src/lib/public-menu/brew-contract.test.mjs
       - run: npm run test --workspace=apps/api -- --runInBand brew-template-config.spec.ts templates.spec.ts
