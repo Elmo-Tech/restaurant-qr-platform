@@ -11,6 +11,7 @@ import {
   type PlanFeatureKey,
   type PlanSubscription,
   type UpgradeOption,
+  type CataloguePricing,
 } from '../../../../../lib/subscription/api';
 import {
   describeError,
@@ -462,9 +463,12 @@ function ComparePlans({
   onRequest: ((option: UpgradeOption) => void) | null;
 }) {
   const { t } = useStaffI18n();
+  const [mobilePlanIndex, setMobilePlanIndex] = useState(0);
   const has = (key: PlanFeatureKey) => data.features.find((f) => f.key === key)?.included ?? false;
   const options = data.upgrades;
   const currentName = data.subscription?.packageName ?? data.package?.name ?? t('subscription.compare.yourPlan');
+  const selectedOption = mobilePlanIndex > 0 ? options[mobilePlanIndex - 1] ?? null : null;
+  const activeFeature = (key: PlanFeatureKey) => selectedOption ? selectedOption.features.includes(key) : has(key);
 
   if (options.length === 0) {
     return (
@@ -473,7 +477,11 @@ function ComparePlans({
           <Tick strong />
           <div>
             <h3 className="text-base font-semibold text-foreground">{t('subscription.upgrade.none')}</h3>
-            <ul className="mt-3 grid gap-x-8 gap-y-2 sm:grid-cols-2">
+            <p className="mt-2 font-semibold text-foreground">{currentName}</p>
+            <PlanPrice pricing={data.currentPricing} currency={data.billingCurrency}
+              money={money} numberFmt={numberFmt} day={day}
+              fallbackSubscription={data.subscription} />
+            <ul className="mt-4 grid gap-x-8 gap-y-2 sm:grid-cols-2">
               {data.features
                 .filter((f) => f.included)
                 .map((f) => (
@@ -495,7 +503,71 @@ function ComparePlans({
         <p className="mt-0.5 text-xs text-muted-foreground">{t('subscription.compare.hint')}</p>
       </div>
 
-      <div className="overflow-x-auto">
+
+      {/* Phone-first plan picker: no 820px table and no horizontal page scrolling. */}
+      <div className="space-y-4 p-4 lg:hidden">
+        <div role="tablist" aria-label={t('subscription.compare.mobileChoose')}
+          className="flex min-w-0 gap-2 overflow-x-auto pb-2 [scrollbar-width:thin]">
+          {[{id:'current',name:currentName},...options.map(option=>({id:option.id,name:option.name}))].map((item,index)=>(
+            <button key={item.id} type="button" role="tab" aria-selected={mobilePlanIndex===index}
+              onClick={()=>setMobilePlanIndex(index)}
+              className={`min-h-11 shrink-0 rounded-xl border px-4 py-2 text-sm font-semibold transition-colors ${
+                mobilePlanIndex===index?'border-primary bg-primary text-primary-foreground':'border-border bg-card text-foreground'
+              }`}>
+              {item.name}
+            </button>
+          ))}
+        </div>
+        <div role="tabpanel" className="min-w-0 overflow-hidden rounded-xl border border-border bg-muted/20">
+          <div className="border-b border-border bg-card p-4">
+            {selectedOption ? (
+              <p className="mb-1 text-xs font-semibold text-primary">{t('subscription.compare.nextStep')}</p>
+            ) : (
+              <p className="mb-1 text-xs font-semibold text-primary">{t('subscription.compare.yourPlan')}</p>
+            )}
+            <h4 className="text-xl font-bold text-foreground">{selectedOption?.name??currentName}</h4>
+            <PlanPrice pricing={selectedOption??data.currentPricing} currency={data.billingCurrency}
+              money={money} numberFmt={numberFmt} day={day}
+              fallbackSubscription={selectedOption?null:data.subscription} />
+          </div>
+          <div className="divide-y divide-border">
+            {data.features.map(feature=>{
+              const included=activeFeature(feature.key);
+              const newFeature=!!selectedOption&&included&&!has(feature.key);
+              const isDesign=feature.key==='MENU_TEMPLATES';
+              const templateNote=isDesign&&included
+                ? t('subscription.compare.designTiers',{
+                    standard:selectedOption?.templateStandard??data.templates.currentStandard,
+                    premium:selectedOption?.templatePremium??data.templates.currentPremium,
+                  })
+                : null;
+              return (
+                <div key={feature.key} className={`flex min-w-0 items-start gap-3 px-4 py-3 ${newFeature?'bg-warning-soft/60':''}`}>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-semibold text-foreground">
+                      {t(`subscription.feature.${feature.key}` as MessageKey)}
+                    </span>
+                    <span className="mt-0.5 block text-xs leading-relaxed text-muted-foreground">
+                      {t(`subscription.feature.${feature.key}.hint` as MessageKey)}
+                    </span>
+                    {templateNote?<span className="mt-1 block text-xs font-medium text-muted-foreground">{templateNote}</span>:null}
+                  </span>
+                  <span className="shrink-0 pt-0.5">{included?<Tick strong={newFeature}/>:<span className="text-muted-foreground">—</span>}</span>
+                </div>
+              );
+            })}
+          </div>
+          {selectedOption&&onRequest?(
+            <div className="border-t border-border bg-card p-4">
+              <Button className="w-full" onClick={()=>onRequest(selectedOption)}>
+                {t('subscription.upgrade.request')}
+              </Button>
+            </div>
+          ):null}
+        </div>
+      </div>
+
+      <div className="hidden overflow-x-auto lg:block">
         <table className="w-full min-w-[820px] border-separate border-spacing-0 text-sm">
           <thead>
             <tr>
@@ -509,6 +581,9 @@ function ComparePlans({
                 <p className="mt-2 text-lg font-bold text-foreground">
                   <bdi>{currentName}</bdi>
                 </p>
+                <PlanPrice pricing={data.currentPricing} currency={data.billingCurrency}
+                  money={money} numberFmt={numberFmt} day={day}
+                  fallbackSubscription={data.subscription}/>
               </th>
               {options.map((option, index) => (
                 <th key={option.id} scope="col" className="min-w-[170px] border-t-2 border-transparent px-4 pb-4 pt-5 text-start align-top">
@@ -522,7 +597,7 @@ function ComparePlans({
                   <p className="mt-2 text-lg font-bold text-foreground">
                     <bdi>{option.name}</bdi>
                   </p>
-                  <PlanPrice option={option} currency={data.billingCurrency} money={money} numberFmt={numberFmt} day={day} />
+                  <PlanPrice pricing={option} currency={data.billingCurrency} money={money} numberFmt={numberFmt} day={day} />
                 </th>
               ))}
             </tr>
@@ -608,39 +683,62 @@ function Cell({ on, isNew, note }: { on: boolean; isNew: boolean; note?: string 
 }
 
 function PlanPrice({
-  option,
+  pricing,
   currency,
   money,
   numberFmt,
   day,
+  fallbackSubscription = null,
 }: {
-  option: UpgradeOption;
+  pricing: CataloguePricing | null;
   currency: string;
   money: (value: string, currency: string) => string;
   numberFmt: Intl.NumberFormat;
   day: (value: string) => string;
+  /** Only for an existing plan without a public catalogue price. */
+  fallbackSubscription?: PlanSubscription | null;
 }) {
   const { t } = useStaffI18n();
-  if (option.priceMonthly === null && option.priceYearly === null) {
-    return <p className="mt-1 text-xs font-normal text-muted-foreground">{t('subscription.upgrade.noPrice')}</p>;
+  if (!pricing || (pricing.priceMonthly === null && pricing.priceYearly === null)) {
+    return fallbackSubscription
+      ? <p className="mt-2 text-xs text-muted-foreground">
+          {t('subscription.price')}: <bdi dir="ltr" className="font-semibold text-foreground">
+            {money(fallbackSubscription.finalPrice,fallbackSubscription.currencyCode)}
+          </bdi>
+          {fallbackSubscription.period ? <span className="ms-1">
+            {t(`subscription.compare.per${fallbackSubscription.period==='MONTHLY'?'Month':'Year'}`)}
+          </span> : null}
+        </p>
+      : <p className="mt-2 text-xs text-muted-foreground">{t('subscription.upgrade.noPrice')}</p>;
   }
+  const renderPeriod = (original:string|null, discounted:string|null, period:'Month'|'Year') => {
+    if(original===null) return null;
+    const hasOffer = discounted!==null && discounted!==original;
+    return (
+      <div className="mt-2">
+        {hasOffer ? (
+          <p className="text-xs text-muted-foreground">
+            <span className="sr-only">{t('subscription.compare.beforeDiscount')}</span>
+            <del dir="ltr" className="tabular-nums decoration-2">{money(original,currency)}</del>
+          </p>
+        ) : null}
+        <p className="flex flex-wrap items-baseline gap-1">
+          <bdi dir="ltr" className="text-base font-bold tabular-nums text-foreground">
+            {money(hasOffer?discounted:original,currency)}
+          </bdi>
+          <span className="text-xs text-muted-foreground">{t(period==='Month'?'subscription.compare.perMonth':'subscription.compare.perYear')}</span>
+        </p>
+      </div>
+    );
+  };
   return (
     <div className="mt-1 font-normal">
-      {option.priceMonthly !== null ? (
-        <p className="text-foreground">
-          <bdi dir="ltr" className="text-base font-semibold tabular-nums">{money(option.priceMonthly, currency)}</bdi>
-          <span className="ms-1 text-xs text-muted-foreground">{t('subscription.compare.perMonth')}</span>
-        </p>
-      ) : null}
-      {option.priceYearly !== null ? (
-        <p className="text-xs text-muted-foreground">
-          <bdi dir="ltr" className="tabular-nums">{money(option.priceYearly, currency)}</bdi> {t('subscription.compare.perYear')}
-        </p>
-      ) : null}
-      {option.offer ? (
-        <p className="mt-1.5 inline-block rounded-md bg-warning-soft px-2 py-0.5 text-[11px] font-semibold text-warning">
-          {t('subscription.upgrade.offer', { percent: numberFmt.format(Number(option.offer.percent)) })}
-          {option.offer.endsAt ? ` · ${t('subscription.upgrade.offerUntil', { date: day(option.offer.endsAt) })}` : ''}
+      {renderPeriod(pricing.priceMonthly,pricing.discountedMonthly,'Month')}
+      {renderPeriod(pricing.priceYearly,pricing.discountedYearly,'Year')}
+      {pricing.offer ? (
+        <p className="mt-2 inline-block rounded-md bg-warning-soft px-2 py-1 text-[11px] font-semibold text-warning">
+          {t('subscription.upgrade.offer',{percent:numberFmt.format(Number(pricing.offer.percent))})}
+          {pricing.offer.endsAt ? ` · ${t('subscription.upgrade.offerUntil',{date:day(pricing.offer.endsAt)})}` : ''}
         </p>
       ) : null}
     </div>
