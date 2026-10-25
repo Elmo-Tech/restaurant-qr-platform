@@ -14,8 +14,14 @@ const settings=read('lib/public-menu/brew-settings.ts');
 test('BREW is an isolated premium layout with reference coffee typography',()=>{
  assert.match(templates,/\bbrew: \{ hero: 'brew', cards: 'brew'/);
  assert.ok(hero.includes('brew-v2-art')&&hero.includes('brew-v2-display'));
- assert.ok(css.includes('font-family:var(--font-bloom-display),Georgia,serif'));
+ assert.ok(css.includes('font-family: var(--font-bloom-display), var(--font-bloom-arabic), Georgia, serif'));
  assert.ok(css.includes("data-guest-theme='dark'"));
+ assert.ok(css.includes("data-brew-palette='MOCHA'"));
+ assert.ok(css.includes("data-brew-palette='SAGE'"));
+ assert.ok(css.includes("color: var(--g-text);"));
+ assert.ok(css.includes("flex-direction: column; align-items: flex-start;"));
+ assert.ok(css.includes("align-self: flex-end;"));
+ assert.ok(!css.includes("position:absolute;left:20px;bottom:0;font-size:76px"));
  assert.ok(view.includes('data-brew-palette='));
  assert.ok(settings.includes("BREW_PALETTES=['FOREST','MOCHA','SAGE']"));
 });

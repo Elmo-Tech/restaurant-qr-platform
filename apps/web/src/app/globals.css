@@ -1205,5 +1205,434 @@ html:has([data-guest-theme="light"]) {
   transform: none !important;
 }
 
-/* BREW coffee premium: reference-specific layout. */
-.brew-experience{--g-bg:#eee8da;--g-surface:#f7f3e9;--g-surface-2:#e6e2d5;--g-line:#b8b9a8;--g-text:#273c31;--g-text-2:#677566;--g-text-3:#837d67;--g-accent:#2d4d3b;--g-on-accent:#fff9e7;--g-accent-soft:#dbe2d6;--g-price:#2a4435;--g-accent-text:#294b38;background:#eee8da;color:#273c31;font-family:var(--font-bloom-arabic),Tajawal,sans-serif;min-height:100vh}.brew-v2-display{font-family:var(--font-bloom-display),Georgia,serif;font-synthesis:none;font-weight:600}.brew-v2-header{background:radial-gradient(#866c4e28 .35px,transparent .35px) 0 0/5px 5px,#eee8da;border-bottom:1px solid #bdb9a6}.brew-v2-nav{max-width:1320px;margin:auto;padding:20px 5.8%;display:flex;justify-content:space-between;align-items:center;gap:12px}.brew-v2-brand{display:flex;align-items:center;gap:9px}.brew-v2-brand strong{font-size:35px}.brew-v2-mark{display:grid;place-items:center;width:42px;height:42px;background:#294538;color:#f4e8d0;border-radius:50%}.brew-v2-navnote{font-size:10px;color:#8c907e}.brew-v2-nav button{border:1px solid #9eaf9e;padding:9px 16px;border-radius:99px}.brew-v2-hero{display:grid;grid-template-columns:1.13fr .87fr;gap:25px;max-width:1320px;margin:auto;padding:0 5.8% 44px;min-height:420px;align-items:center}.brew-v2-copy h1{font-size:clamp(70px,10vw,130px);line-height:.8;letter-spacing:-.08em;direction:ltr;text-align:right;margin:28px 0}.brew-v2-copy h1 span,.brew-v2-copy h1 i{display:block}.brew-v2-copy h1 i{font-weight:500;color:#a97b4d}.brew-v2-copy p{line-height:2.1;color:#677566;max-width:430px}.brew-v2-copy small{display:block;color:#846b4f;margin:16px 0}.brew-v2-eyebrow{font-size:11px;letter-spacing:.2em;color:#9d7853;font-weight:800}.brew-v2-tools{display:flex;gap:10px;flex-wrap:wrap;margin-top:15px}.brew-v2-art{height:440px;background:radial-gradient(circle at 48% 40%,#66816b,#334f42 55%,#273c32);border-radius:220px 220px 15px 15px;position:relative;overflow:hidden}.brew-v2-artframe{position:absolute;inset:18px;border:1px solid #d0bf90aa;border-radius:200px 200px 8px 8px}.brew-v2-art svg{width:100%;height:100%;filter:drop-shadow(12px 20px 15px #101e206a);animation:brewFloat 7s ease-in-out infinite}.brew-v2-seal{position:absolute;bottom:22px;left:26px;color:#f5e5b7;font-family:var(--font-bloom-display),serif;font-size:22px;line-height:.9;transform:rotate(-8deg)}.brew-v2-sectionhead{display:flex;align-items:end;justify-content:space-between;gap:18px;padding:24px 0}.brew-v2-sectionhead h2{font-size:clamp(45px,7vw,75px);direction:ltr;margin:0}.brew-v2-sectionhead p{max-width:250px;font-size:12px;color:#8d8069}.brew-v2-tabs{display:flex;gap:7px;overflow:auto;padding:5px 0 20px}.brew-v2-tabs button{border:1px solid #a1aa9b;border-radius:99px;padding:10px 17px;white-space:nowrap}.brew-v2-tabs button.active{background:#2f4a3b;color:#fff}.brew-v2-list{border-top:1px solid #b0b9a9;display:grid;grid-template-columns:1.1fr .9fr;gap:38px;padding-top:20px}.brew-v2-rows{min-width:0}.brew-v2-rows>article{border-color:#c4c9bb}.brew-v2-promo{min-height:300px;background:linear-gradient(145deg,#31533e,#203b2d);border-radius:4px 100px 4px 4px;padding:34px 35px;color:#f3edda;position:relative;overflow:hidden}.brew-v2-promo:before{content:'✳';position:absolute;left:-20px;top:0;font-size:240px;opacity:.06}.brew-v2-promo small{color:#b7cda9;font-size:11px;letter-spacing:.18em}.brew-v2-promo h3{font-size:clamp(40px,5vw,62px);line-height:.9;margin:28px 0 12px;direction:ltr}.brew-v2-promo p{color:#cad5bb}.brew-v2-promo-icon{position:absolute;left:20px;bottom:0;font-size:76px}.brew-v2-promo-photo{position:absolute;left:18px;bottom:13px;width:95px;height:95px;object-fit:cover;border-radius:50%}[data-guest-theme='dark'] .brew-experience{--g-bg:#1d2923;--g-surface:#26382e;--g-surface-2:#354b3e;--g-line:#526558;--g-text:#f4efdc;--g-text-2:#d3d8c5;--g-text-3:#b6bea9;--g-accent:#c9af7b;--g-on-accent:#223428;--g-accent-soft:#354d40;--g-price:#e6cb9c;--g-accent-text:#f1d4a5;background:#1d2923}.brew-experience[data-brew-motion='OFF'] .brew-v2-art svg{animation:none}@keyframes brewFloat{50%{transform:translateY(-10px) rotate(1deg)}}@media(max-width:720px){.brew-v2-nav{padding:16px 5%}.brew-v2-navnote{display:none}.brew-v2-brand strong{font-size:26px}.brew-v2-hero{display:flex;flex-direction:column;padding:0 5% 30px;gap:14px;min-height:0}.brew-v2-copy{width:100%;padding-top:15px}.brew-v2-copy h1{font-size:clamp(76px,16vw,112px);margin:20px 0 8px}.brew-v2-art{width:100%;height:285px;border-radius:170px 170px 5px 5px}.brew-v2-list{grid-template-columns:1fr;gap:8px}.brew-v2-promo{min-height:220px;padding:25px}.brew-v2-promo h3{font-size:46px}.brew-v2-sectionhead h2{font-size:48px}}@media(prefers-reduced-motion:reduce){.brew-v2-art svg{animation:none}}
+/* ---- BREW premium specialty-coffee design ----
+ * The original FOREST palette is the reference; MOCHA and SAGE are curated presets.
+ * Guest dark mode is independent of the palette. Other templates are unaffected.
+ * Latin display: the existing Cormorant Garamond normal/italic, Arabic: Tajawal.
+ */
+.brew-experience {
+  --g-bg: #f0ecdf;
+  --g-surface: #fffdf7;
+  --g-surface-2: #e8e8dd;
+  --g-line: #bbc4b6;
+  --g-text: #253d30;
+  --g-text-2: #506655;
+  --g-text-3: #607568;
+  --g-accent: #294b39;
+  --g-on-accent: #ffffff;
+  --g-accent-soft: #e1e9df;
+  --g-price: #2e553d;
+  --g-accent-text: #274b38;
+  --g-shadow: 0 12px 30px rgb(31 59 42 / 0.12);
+  --brew-paper: #f1ede1;
+  --brew-pattern-dot: rgb(108 93 72 / 0.10);
+  --brew-eyebrow: #865f36;
+  --brew-display-accent: #a97b4d;
+  --brew-art-bg: radial-gradient(circle at 48% 40%, #67816b, #334f42 55%, #273c32);
+  --brew-art-ring: rgb(208 191 144 / 0.70);
+  --brew-art-seal: #f5e5b7;
+  --brew-promo-bg: linear-gradient(145deg, #365b44, #213e2e);
+  --brew-promo-title: #fff7e3;
+  --brew-promo-muted: #dfebd2;
+  --brew-promo-eyebrow: #c6dbb8;
+  color-scheme: light;
+  color: var(--g-text);
+  background: var(--g-bg);
+  font-family: var(--font-bloom-arabic), Tahoma, sans-serif;
+  min-height: 100dvh;
+  overflow-x: clip;
+}
+.brew-experience[data-brew-palette='MOCHA'] {
+  --g-bg: #f5ede4; --g-surface: #fffaf4; --g-surface-2: #e9ded3;
+  --g-line: #c9b4a4; --g-text: #4a3027; --g-text-2: #71554a;
+  --g-text-3: #785b4e; --g-accent: #694333; --g-on-accent: #ffffff;
+  --g-accent-soft: #f1ded1; --g-price: #75452f; --g-accent-text: #68402f;
+  --brew-paper: #f4e9df; --brew-pattern-dot: rgb(134 89 59 / 0.10);
+  --brew-eyebrow: #815331; --brew-display-accent: #b27b47;
+  --brew-art-bg: radial-gradient(circle at 48% 40%, #90715c, #654737 55%, #3e2a24);
+  --brew-art-ring: rgb(246 212 162 / 0.65);
+  --brew-promo-bg: linear-gradient(145deg, #76513e, #422e27);
+  --brew-promo-title: #fff3e5; --brew-promo-muted: #f2dbcb; --brew-promo-eyebrow: #f2d2ad;
+}
+.brew-experience[data-brew-palette='SAGE'] {
+  --g-bg: #eef2e8; --g-surface: #fcfdf7; --g-surface-2: #e0e9dc;
+  --g-line: #acc2b1; --g-text: #2b4738; --g-text-2: #4f695a;
+  --g-text-3: #5a7465; --g-accent: #375e49; --g-on-accent: #ffffff;
+  --g-accent-soft: #d9e7d8; --g-price: #305c45; --g-accent-text: #315642;
+  --brew-paper: #eff4eb; --brew-pattern-dot: rgb(85 116 91 / 0.11);
+  --brew-eyebrow: #76613d; --brew-display-accent: #91764d;
+  --brew-art-bg: radial-gradient(circle at 48% 40%, #7f9b84, #496d57 55%, #2f4b39);
+  --brew-art-ring: rgb(228 221 177 / 0.76);
+  --brew-promo-bg: linear-gradient(145deg, #5c7b60, #2f503e);
+  --brew-promo-title: #fffdf0; --brew-promo-muted: #e4eedd; --brew-promo-eyebrow: #deebcf;
+}
+/* These selectors override the preset values without changing the saved palette. */
+[data-guest-theme='dark'] .brew-experience {
+  --g-bg: #192820; --g-surface: #26392e; --g-surface-2: #324a3c;
+  --g-line: #496352; --g-text: #f5f2e5; --g-text-2: #d5e1d3;
+  --g-text-3: #b8cab8; --g-accent: #c9dfb5; --g-on-accent: #1a3023;
+  --g-accent-soft: #375141; --g-price: #e7d2a4; --g-accent-text: #d7e9c6;
+  --g-shadow: 0 12px 35px rgb(0 0 0 / 0.32);
+  --brew-paper: #1f3026; --brew-pattern-dot: rgb(216 225 200 / 0.06);
+  --brew-eyebrow: #e5c89a; --brew-display-accent: #e1b983;
+  --brew-art-bg: radial-gradient(circle at 48% 40%, #58745e, #2c493a 55%, #1d342a);
+  --brew-art-ring: rgb(210 204 151 / 0.62);
+  --brew-promo-bg: linear-gradient(145deg, #40674f, #2a4a38);
+  --brew-promo-title: #fff9e9; --brew-promo-muted: #e1ebd8; --brew-promo-eyebrow: #d9e9c7;
+  color-scheme: dark;
+}
+[data-guest-theme='dark'] .brew-experience[data-brew-palette='MOCHA'] {
+  --g-bg: #251d1a; --g-surface: #352921; --g-surface-2: #46362e;
+  --g-line: #695144; --g-text: #fff2e2; --g-text-2: #e0c8b6;
+  --g-text-3: #ceb4a1; --g-accent: #edc29b; --g-on-accent: #30201b;
+  --g-accent-soft: #553c30; --g-price: #f6c795; --g-accent-text: #f5d1af;
+  --brew-paper: #2e231f; --brew-pattern-dot: rgb(233 203 171 / 0.07);
+  --brew-eyebrow: #edc7a7; --brew-display-accent: #e6b47f;
+  --brew-art-bg: radial-gradient(circle at 48% 40%, #765a49, #493528 57%, #30221c);
+  --brew-art-ring: rgb(238 190 130 / 0.60);
+  --brew-promo-bg: linear-gradient(145deg, #76513f, #50392f);
+  --brew-promo-title: #fff7ed; --brew-promo-muted: #f1d9c8; --brew-promo-eyebrow: #f0cda7;
+}
+[data-guest-theme='dark'] .brew-experience[data-brew-palette='SAGE'] {
+  --g-bg: #18251f; --g-surface: #283e31; --g-surface-2: #395340;
+  --g-line: #516c56; --g-text: #f0f5e8; --g-text-2: #d3e2d3;
+  --g-text-3: #b7c9b9; --g-accent: #c5e0bf; --g-on-accent: #21382c;
+  --g-accent-soft: #395442; --g-price: #e6d6ad; --g-accent-text: #d5e8ca;
+  --brew-paper: #21342a; --brew-pattern-dot: rgb(217 233 210 / 0.06);
+  --brew-eyebrow: #e0c998; --brew-display-accent: #e0c18a;
+  --brew-art-bg: radial-gradient(circle at 48% 40%, #6c8972, #355b45 55%, #223b2d);
+  --brew-art-ring: rgb(228 229 188 / 0.66);
+  --brew-promo-bg: linear-gradient(145deg, #608069, #385741);
+  --brew-promo-title: #fffdf0; --brew-promo-muted: #e1efdd; --brew-promo-eyebrow: #d9ebce;
+}
+.brew-v2-display {
+  font-family: var(--font-bloom-display), var(--font-bloom-arabic), Georgia, serif;
+  font-synthesis: none;
+  font-weight: 600;
+}
+.brew-experience .brew-v2-header {
+  color: var(--g-text);
+  background:
+    radial-gradient(var(--brew-pattern-dot) 0.5px, transparent 0.5px) 0 0 / 5px 5px,
+    var(--brew-paper);
+  border-bottom: 1px solid var(--g-line);
+}
+.brew-v2-nav {
+  max-width: 1320px;
+  margin-inline: auto;
+  padding: 20px 5.8%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 16px;
+}
+.brew-v2-brand { display: flex; align-items: center; min-width: 0; gap: 10px; }
+.brew-v2-brand strong {
+  display: block;
+  max-width: min(360px, 35vw);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: clamp(24px, 2.8vw, 35px);
+  line-height: 1.15;
+}
+.brew-v2-mark {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 42px; height: 42px;
+  background: #294538; color: #f4e8d0;
+  border-radius: 50%;
+}
+.brew-v2-navnote { font-size: 10px; color: var(--g-text-3); }
+.brew-v2-nav button {
+  flex: none;
+  border: 1px solid var(--g-line);
+  color: var(--g-accent-text);
+  padding: 9px 16px;
+  border-radius: 99px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.brew-v2-nav button:hover { background: var(--g-accent-soft); }
+.brew-v2-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.13fr) minmax(0, .87fr);
+  align-items: center;
+  gap: clamp(24px, 4vw, 56px);
+  max-width: 1320px;
+  margin-inline: auto;
+  padding: 0 5.8% 44px;
+  min-height: 420px;
+}
+.brew-v2-copy { min-width: 0; }
+.brew-v2-eyebrow {
+  color: var(--brew-eyebrow);
+  font-size: 11px;
+  letter-spacing: .18em;
+  font-weight: 800;
+}
+.brew-v2-copy h1 {
+  color: var(--g-text);
+  font-size: clamp(68px, 9.5vw, 130px);
+  line-height: .86;
+  letter-spacing: -.075em;
+  direction: ltr;
+  text-align: right;
+  max-width: 100%;
+  margin: 28px 0;
+  overflow-wrap: anywhere;
+}
+.brew-v2-copy h1 span,
+.brew-v2-copy h1 i { display: block; }
+.brew-v2-copy h1 i {
+  font-weight: 500;
+  color: var(--brew-display-accent);
+}
+.brew-v2-copy p {
+  color: var(--g-text-2);
+  line-height: 1.9;
+  max-width: 440px;
+  font-size: 15px;
+}
+.brew-v2-copy small {
+  display: block;
+  color: var(--brew-eyebrow);
+  margin: 16px 0;
+  font-size: 11px;
+  letter-spacing: .035em;
+}
+.brew-v2-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-top: 15px;
+  color: var(--g-text);
+}
+.brew-v2-art {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  height: clamp(320px, 31vw, 440px);
+  min-width: 0;
+  background: var(--brew-art-bg);
+  border-radius: 220px 220px 14px 14px;
+}
+.brew-v2-artframe {
+  position: absolute;
+  inset: 18px;
+  border: 1px solid var(--brew-art-ring);
+  border-radius: 210px 210px 8px 8px;
+  pointer-events: none;
+}
+.brew-v2-art svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  max-height: 100%;
+  filter: drop-shadow(12px 20px 15px rgb(16 30 32 / 0.35));
+  animation: brewFloat 7s ease-in-out infinite;
+}
+.brew-v2-seal {
+  position: absolute;
+  bottom: 22px;
+  left: 26px;
+  color: var(--brew-art-seal, #f5e5b7);
+  font: 600 22px/.9 var(--font-bloom-display), Georgia, serif;
+  transform: rotate(-8deg);
+  pointer-events: none;
+}
+.brew-experience #brew-menu-start { scroll-margin-top: 20px; }
+.brew-v2-menu-section { width: 100%; min-width: 0; max-width: 1300px; margin-inline: auto; }
+.brew-v2-sectionhead {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 22px;
+  padding: 24px 0;
+  min-width: 0;
+}
+.brew-v2-sectionhead h2 {
+  flex: 0 1 auto;
+  min-width: 0;
+  max-width: 100%;
+  margin: 0;
+  color: var(--g-text);
+  font-size: clamp(46px, 6vw, 76px);
+  line-height: 1.05;
+  letter-spacing: -.055em;
+  direction: ltr;
+  overflow-wrap: anywhere;
+}
+.brew-v2-sectionhead p {
+  flex: 0 1 275px;
+  max-width: 275px;
+  color: var(--g-text-2);
+  font-size: 13px;
+  line-height: 1.85;
+}
+.brew-v2-tabs {
+  display: flex;
+  width: 100%;
+  min-width: 0;
+  gap: 8px;
+  overflow-x: auto;
+  padding: 6px 2px 20px;
+  scrollbar-width: none;
+  overscroll-behavior-inline: contain;
+  scroll-snap-type: x proximity;
+}
+.brew-v2-tabs::-webkit-scrollbar { display: none; }
+.brew-v2-tabs button {
+  flex: 0 0 auto;
+  border: 1px solid var(--g-line);
+  border-radius: 99px;
+  background: transparent;
+  color: var(--g-text);
+  padding: 10px 16px;
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1.45;
+  white-space: nowrap;
+  scroll-snap-align: start;
+}
+.brew-v2-tabs button:hover { background: var(--g-accent-soft); }
+.brew-v2-tabs button[aria-pressed='true'] {
+  background: var(--g-accent);
+  color: var(--g-on-accent);
+  border-color: var(--g-accent);
+}
+.brew-v2-list {
+  border-top: 1px solid var(--g-line);
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+  align-items: start;
+  gap: clamp(20px, 3vw, 40px);
+  padding-top: 20px;
+}
+.brew-v2-rows { min-width: 0; }
+.brew-v2-rows > article {
+  border-color: var(--g-line);
+  padding-block: 15px;
+}
+.brew-v2-promo {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-self: start;
+  gap: 11px;
+  min-width: 0;
+  min-height: clamp(300px, 30vw, 430px);
+  padding: 32px 33px 25px;
+  border-radius: 5px 92px 5px 5px;
+  background: var(--brew-promo-bg);
+  color: var(--brew-promo-title);
+  overflow: hidden;
+  isolation: isolate;
+}
+.brew-v2-promo::before {
+  content: '✳';
+  position: absolute;
+  inset-inline-end: -28px;
+  top: 12px;
+  font-size: 225px;
+  line-height: 1;
+  color: var(--brew-promo-title);
+  opacity: .055;
+  z-index: -1;
+  pointer-events: none;
+}
+.brew-v2-promo small {
+  display: block;
+  color: var(--brew-promo-eyebrow);
+  font-size: 11px;
+  letter-spacing: .13em;
+  font-weight: 800;
+}
+.brew-v2-promo h3 {
+  color: var(--brew-promo-title);
+  font-size: clamp(39px, 4.2vw, 61px);
+  line-height: 1.02;
+  letter-spacing: -.045em;
+  margin: 14px 0 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+}
+.brew-v2-promo p {
+  color: var(--brew-promo-muted);
+  font-size: 14px;
+  line-height: 1.85;
+  overflow-wrap: anywhere;
+}
+.brew-v2-promo-icon {
+  position: relative;
+  display: block;
+  align-self: flex-end;
+  margin-top: auto;
+  padding-top: 14px;
+  font-size: 62px;
+  line-height: 1;
+  filter: drop-shadow(0 5px 7px rgb(0 0 0 / .14));
+  pointer-events: none;
+}
+.brew-v2-promo-photo {
+  display: block;
+  position: relative;
+  align-self: flex-end;
+  flex: none;
+  margin-top: auto;
+  padding-top: 14px;
+  width: 112px;
+  height: 112px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+/* Layout prioritizes legible category content over maintaining rigid desktop columns. */
+@media (max-width: 900px) {
+  .brew-v2-hero { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 22px; }
+  .brew-v2-copy h1 { font-size: clamp(58px, 10vw, 98px); }
+  .brew-v2-sectionhead h2 { font-size: clamp(44px, 6.5vw, 65px); }
+  .brew-v2-list { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .brew-v2-promo { min-height: 280px; }
+}
+@media (max-width: 640px) {
+  .brew-v2-nav { padding: 16px 5%; gap: 10px; }
+  .brew-v2-navnote { display: none; }
+  .brew-v2-brand { gap: 7px; flex: 1; }
+  .brew-v2-brand strong { max-width: 46vw; font-size: 27px; }
+  .brew-v2-mark { width: 36px; height: 36px; }
+  .brew-v2-nav button { padding: 8px 11px; font-size: 12px; }
+  .brew-v2-hero { display: flex; flex-direction: column; min-height: 0; padding: 8px 5% 28px; gap: 24px; }
+  .brew-v2-copy { width: 100%; }
+  .brew-v2-eyebrow { font-size: 10px; letter-spacing: .10em; }
+  .brew-v2-copy h1 { font-size: clamp(57px, 14vw, 88px); line-height: .9; margin: 19px 0 16px; }
+  .brew-v2-copy p { font-size: 14px; line-height: 1.85; max-width: none; }
+  .brew-v2-copy small { margin: 12px 0; }
+  .brew-v2-tools { margin-top: 13px; }
+  .brew-v2-art { height: clamp(232px, 70vw, 325px); max-width: 520px; border-radius: 180px 180px 9px 9px; }
+  .brew-v2-artframe { inset: 13px; }
+  .brew-v2-seal { font-size: 17px; bottom: 18px; left: 19px; }
+  .brew-v2-sectionhead { flex-direction: column; align-items: flex-start; gap: 12px; padding: 19px 0 17px; }
+  .brew-v2-sectionhead h2 { flex: none; width: 100%; font-size: clamp(39px, 11vw, 58px); line-height: 1.02; }
+  .brew-v2-sectionhead p { flex: none; width: 100%; max-width: none; font-size: 12px; line-height: 1.75; }
+  .brew-v2-tabs { gap: 7px; padding-bottom: 16px; }
+  .brew-v2-tabs button { padding: 10px 15px; font-size: 12px; min-height: 40px; }
+  .brew-v2-list { gap: 22px; padding-top: 12px; }
+  .brew-v2-rows > article { padding-block: 13px; }
+  .brew-v2-promo { min-height: 260px; padding: 27px 24px 21px; border-top-right-radius: 78px; }
+  .brew-v2-promo h3 { font-size: clamp(36px, 10vw, 54px); margin: 11px 0 0; }
+  .brew-v2-promo-icon { font-size: 52px; }
+  .brew-v2-promo-photo { width: 84px; height: 84px; }
+}
+@media (max-width: 360px) {
+  .brew-v2-copy h1 { font-size: clamp(50px, 13.5vw, 66px); }
+  .brew-v2-sectionhead h2 { font-size: 39px; }
+  .brew-v2-promo h3 { font-size: 36px; }
+  .brew-v2-nav button { padding-inline: 9px; }
+}
+@keyframes brewFloat { 50% { transform: translateY(-8px) rotate(1deg); } }
+.brew-experience[data-brew-motion='OFF'] .brew-v2-art svg { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .brew-v2-art svg { animation: none; }
+}
