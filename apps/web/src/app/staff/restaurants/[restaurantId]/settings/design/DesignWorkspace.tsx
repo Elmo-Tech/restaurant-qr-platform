@@ -168,6 +168,23 @@ function Wireframe({ template }: { template: Template }): ReactNode {
           ))}
         </>
       ) : null}
+      {template === 'BREW' ? (
+        <>
+          <rect width="120" height="76" rx="5" fill="#eee8da"/>
+          <path d="M7 9 Q7 4 13 4 H42 Q48 4 48 9 V40 H7Z" fill="#294538"/>
+          <ellipse cx="28" cy="26" rx="17" ry="10" fill="#f8f3e3"/>
+          <ellipse cx="28" cy="25" rx="13" ry="7" fill="#946b45"/>
+          <path d="M24 23 Q28 17 32 23 Q34 26 28 29Z" fill="#fff4dc"/>
+          <rect x="62" y="9" width="48" height="5" rx="2" fill="#294538"/>
+          <rect x="70" y="18" width="40" height="4" rx="2" fill="#a97b4d"/>
+          <rect x="8" y="47" width="103" height="2" rx="1" fill="#d3c9ac"/>
+          {[0,1,2].map(n=><g key={n} transform={`translate(8 ${54+n*7})`}>
+            <rect width="49" height="2" rx="1" fill="#5a7763"/>
+            <rect x="40" width="9" height="2" rx="1" fill="#aa8058"/>
+          </g>)}
+          <rect x="70" y="52" width="40" height="22" rx="3" fill="#294538"/>
+        </>
+      ) : null}
       {template === 'BLOOM' ? (
         <>
           <rect x="0" y="0" width="120" height="76" rx="5" fill="#fff4f2" />
