@@ -2,6 +2,10 @@ import { EMPTY_CONTACT } from '../restaurants/restaurant-contact';
 import { PublicMenuService } from './public-menu.service';
 import { ALL_FEATURES } from '../entitlements/features';
 import { MENU_TEMPLATE_KEYS } from '../entitlements/templates';
+import { DEFAULT_EMBER_SETTINGS } from '../restaurants/ember-template-config';
+import { DEFAULT_BLOOM_SETTINGS } from '../restaurants/bloom-template-config';
+import { DEFAULT_BREW_SETTINGS } from '../restaurants/brew-template-config';
+import { DEFAULT_EDITORIAL_SETTINGS } from '../restaurants/editorial-template-config';
 
 function decimal(value: string) {
   return { toFixed: () => value } as unknown as { toFixed: (digits: number) => string };
@@ -97,6 +101,7 @@ function buildPrismaMock() {
     .mockResolvedValue([{ locale: 'en' }, { locale: 'ar' }]);
   const menuFindFirst = jest.fn().mockResolvedValue(MENU_ROW);
   const tableSessionFindFirst = jest.fn().mockResolvedValue(null);
+  const templateConfigFindUnique = jest.fn().mockResolvedValue(null);
   const platformPublicSettingsFindUnique = jest
     .fn()
     .mockResolvedValue({ poweredByUrl: 'https://menu.elmotechsoft.online/' });
@@ -147,6 +152,7 @@ function buildPrismaMock() {
       branch: { findMany: branchFindMany },
       tableSession: { findFirst: tableSessionFindFirst },
       platformPublicSettings: { findUnique: platformPublicSettingsFindUnique },
+      restaurantTemplateConfig: { findUnique: templateConfigFindUnique },
     },
     tableSessionFindFirst,
     qrCodeFindUnique,
@@ -155,6 +161,7 @@ function buildPrismaMock() {
     categoryFindMany,
     branchFindMany,
     platformPublicSettingsFindUnique,
+    templateConfigFindUnique,
   };
 }
 
@@ -403,6 +410,34 @@ describe('PublicMenuService.getPublicMenu', () => {
     });
   });
 
+  it('exposes only the saved Editorial price mode, never an unpublished draft', async () => {
+    const mock = buildPrismaMock();
+    mock.templateConfigFindUnique.mockImplementation(({ where }: {
+      where: { restaurantId_template: { restaurantId: string; template: string } }
+    }) => {
+      if (where.restaurantId_template.template === 'EDITORIAL') {
+        return Promise.resolve({
+          publishedSettings: { priceDisplay: 'FROM' },
+          draftSettings: { priceDisplay: 'ALL_VARIANTS' },
+        });
+      }
+      return Promise.resolve(null);
+    });
+    const service = buildService(mock);
+    const result = await service.getPublicMenu({
+      publicCode: 'generic-qr',
+      explicitLang: 'ar',
+      acceptLanguageHeader: null,
+    });
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    expect(result.data.context.restaurant.editorialSettings).toEqual({ priceDisplay: 'FROM' });
+    expect(mock.templateConfigFindUnique).toHaveBeenCalledWith({
+      where: { restaurantId_template: { restaurantId: 'restaurant-1', template: 'EDITORIAL' } },
+      select: { publishedSettings: true },
+    });
+  });
+
   it('resolves a TABLE QR with its Branch/Table context', async () => {
     const mock = buildPrismaMock();
     mock.qrCodeFindUnique.mockResolvedValue(TABLE_QR_ROW);
@@ -425,6 +460,10 @@ describe('PublicMenuService.getPublicMenu', () => {
         logoAssetPath: null,
         coverAssetPath: null,
         menuTemplate: 'CLASSIC',
+        emberSettings: DEFAULT_EMBER_SETTINGS,
+        bloomSettings: DEFAULT_BLOOM_SETTINGS,
+        brewSettings: DEFAULT_BREW_SETTINGS,
+        editorialSettings: DEFAULT_EDITORIAL_SETTINGS,
         contact: EMPTY_CONTACT,
         shareCode: 'generic-qr',
         hours: null,
@@ -465,6 +504,10 @@ describe('PublicMenuService.getPublicMenu', () => {
         logoAssetPath: null,
         coverAssetPath: null,
         menuTemplate: 'CLASSIC',
+        emberSettings: DEFAULT_EMBER_SETTINGS,
+        bloomSettings: DEFAULT_BLOOM_SETTINGS,
+        brewSettings: DEFAULT_BREW_SETTINGS,
+        editorialSettings: DEFAULT_EDITORIAL_SETTINGS,
         contact: EMPTY_CONTACT,
         shareCode: 'generic-qr',
         hours: null,

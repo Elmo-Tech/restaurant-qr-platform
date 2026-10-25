@@ -70,6 +70,7 @@ import { GuestHeroEmber } from './GuestHeroEmber';
 import { GuestHeroBloom } from './GuestHeroBloom';
 import { GuestHeroBrew } from './GuestHeroBrew';
 import {DEFAULT_BREW_SETTINGS,BREW_DESIGN_PREVIEW_READY,isBrewPreviewUpdate,normalizeBrewTemplateSettings,type BrewTemplateSettings} from '../../../lib/public-menu/brew-settings';
+import {DEFAULT_EDITORIAL_SETTINGS, EDITORIAL_DESIGN_PREVIEW_READY, isEditorialPreviewUpdate, normalizeEditorialTemplateSettings,type EditorialTemplateSettings} from '../../../lib/public-menu/editorial-settings';
 import {
   DEFAULT_BLOOM_SETTINGS,
   BLOOM_DESIGN_PREVIEW_READY,
@@ -165,6 +166,19 @@ export function PublicMenuView({
     return ()=>window.removeEventListener('message',listen);
   },[designPreview,template]);
   const brewSettings=designPreview&&template==='brew'&&brewLiveDraft?brewLiveDraft:data.context.restaurant.brewSettings??DEFAULT_BREW_SETTINGS;
+  const [editorialLiveDraft,setEditorialLiveDraft]=useState<EditorialTemplateSettings|null>(null);
+  useEffect(()=>{
+    if(!designPreview||template!=='editorial'||window.parent===window)return;
+    const handlePreview=(event:MessageEvent)=>{
+      if(event.origin!==window.location.origin || event.source!==window.parent || !isEditorialPreviewUpdate(event.data))return;
+      setEditorialLiveDraft(normalizeEditorialTemplateSettings(event.data.settings));
+    };
+    window.addEventListener('message',handlePreview);
+    window.parent.postMessage({type:EDITORIAL_DESIGN_PREVIEW_READY},window.location.origin);
+    return()=>window.removeEventListener('message',handlePreview);
+  },[designPreview,template]);
+  const editorialSettings=designPreview&&template==='editorial'&&editorialLiveDraft
+    ? editorialLiveDraft : data.context.restaurant.editorialSettings??DEFAULT_EDITORIAL_SETTINGS;
   const hasCategories = data.menu.categories.length > 0;
   // Both premium demo references show one category at a time.
   // Search results still span all categories so no matching products disappear.
@@ -1294,6 +1308,7 @@ export function PublicMenuView({
               }}
               bloomSectionEyebrow={locale === 'ar' ? bloomSettings.sectionEyebrowAr : bloomSettings.sectionEyebrowEn}
               bloomSectionHeadline={locale === 'ar' ? bloomSettings.sectionHeadlineAr : bloomSettings.sectionHeadlineEn}
+              editorialPriceDisplay={template==='editorial'?editorialSettings.priceDisplay:undefined}
               template={template}
             />
           </div>

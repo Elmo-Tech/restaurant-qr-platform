@@ -13,6 +13,8 @@ import { BloomTemplateConfigController } from './bloom-template-config.controlle
 import { BloomTemplateConfigService } from './bloom-template-config.service';
 import { BrewTemplateConfigController } from './brew-template-config.controller';
 import { BrewTemplateConfigService } from './brew-template-config.service';
+import { EditorialTemplateConfigController } from './editorial-template-config.controller';
+import { EditorialTemplateConfigService } from './editorial-template-config.service';
 
 /**
  * LOC-2A, approved LOC-1 contract: Restaurant Language Settings. Imports
@@ -28,7 +30,7 @@ import { BrewTemplateConfigService } from './brew-template-config.service';
  */
 @Module({
   imports: [DatabaseModule, AuthModule, StorageModule, EntitlementsModule],
-  controllers: [RestaurantsController, RestaurantProfileController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController],
-  providers: [RestaurantLocalesService, RestaurantProfileService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService],
+  controllers: [RestaurantsController, RestaurantProfileController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController, EditorialTemplateConfigController],
+  providers: [RestaurantLocalesService, RestaurantProfileService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, EditorialTemplateConfigService],
 })
 export class RestaurantsModule {}
