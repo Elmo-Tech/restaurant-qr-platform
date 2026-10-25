@@ -36,6 +36,7 @@ export function SettingsTabs({
     <NavTabs
       ariaLabel={t('settings.title')}
       activeKey={active}
+      scrollable
       items={TABS.map((tab) => ({
         key: tab.key,
         label: t(tab.label),

@@ -22,13 +22,16 @@ export function NavTabs({
   items,
   activeKey,
   ariaLabel,
+  scrollable = false,
 }: {
   items: readonly NavTabItem[];
   activeKey: string;
   ariaLabel: string;
+  /** Compact phone navigation, without wrapping route tabs into multiple rows. */
+  scrollable?: boolean;
 }) {
   return (
-    <nav aria-label={ariaLabel} className="flex flex-wrap gap-1 border-b border-border">
+    <nav aria-label={ariaLabel} className={cn('flex min-w-0 gap-1 border-b border-border', scrollable ? 'flex-nowrap overflow-x-auto overscroll-x-contain pb-px [scrollbar-width:thin]' : 'flex-wrap')}>
       {items.map((item) => {
         const isActive = item.key === activeKey;
         return (
