@@ -775,3 +775,165 @@ html:has([data-guest-theme="light"]) {
   background: var(--g-accent);
 }
 .ember-experience .ember-v2-section-count { color: var(--g-text-3); }
+
+
+/* ---- EMBER premium light theme (guest-only) ----
+ * Applies ONLY when the existing GuestThemeProvider is in light mode.
+ * This rule group must appear AFTER the dark palette presets and cinematic
+ * V2 components so all 3 premium palettes have light-surface equivalents.
+ * Dark EMBER stays pixel-for-pixel unchanged.
+ */
+[data-guest-theme='light'] .ember-experience {
+  color-scheme: light;
+  --g-bg: #fffaf5;
+  --g-surface: #ffffff;
+  --g-surface-2: #fff0e5;
+  --g-line: #e8cbbc;
+  --g-text: #25150f;
+  --g-text-2: #694b3c;
+  --g-text-3: #765548;
+  --g-accent: #b34c22;
+  --g-on-accent: #ffffff;
+  --g-accent-soft: #f9e3d7;
+  --g-price: #9d3919;
+  --g-accent-text: #903c1b;
+  --g-shadow: 0 12px 32px rgb(100 48 22 / .13);
+  --ember-light-hero:
+    radial-gradient(ellipse at 22% 37%, rgb(221 132 77 / .16), transparent 58%),
+    linear-gradient(115deg, #fff1e5 0%, #fffaf5 64%, #fff6ed 100%);
+  --ember-light-glow: radial-gradient(ellipse at center, rgb(224 123 49 / .19), transparent 71%);
+  color: var(--g-text);
+  background: radial-gradient(ellipse at 95% 6%, rgb(222 125 64 / .09), transparent 38%), var(--g-bg);
+}
+/* These three-light variants override the later dark-palette declarations.
+ * Palette choice and light/dark mode are independent (not competing inputs).
+ */
+[data-guest-theme='light'] .ember-experience[data-ember-palette='NOIR'] {
+  --g-bg: #f8f5f0;
+  --g-surface: #fffdfa;
+  --g-surface-2: #f0eae0;
+  --g-line: #d9cdbb;
+  --g-text: #29241f;
+  --g-text-2: #62574a;
+  --g-text-3: #75695d;
+  --g-accent: #765632;
+  --g-on-accent: #ffffff;
+  --g-accent-soft: #efe5d5;
+  --g-price: #6a4d2b;
+  --g-accent-text: #6a4d2b;
+  --g-shadow: 0 12px 30px rgb(53 43 31 / .12);
+  --ember-light-hero:
+    radial-gradient(ellipse at 24% 42%, rgb(179 152 105 / .14), transparent 60%),
+    linear-gradient(118deg, #f1ebdf 0%, #fffdfa 65%, #f8f3e9 100%);
+  --ember-light-glow: radial-gradient(ellipse at center, rgb(168 136 84 / .18), transparent 73%);
+}
+[data-guest-theme='light'] .ember-experience[data-ember-palette='COPPER'] {
+  --g-bg: #fff5ee;
+  --g-surface: #ffffff;
+  --g-surface-2: #fae5d6;
+  --g-line: #e9c6ad;
+  --g-text: #2d1911;
+  --g-text-2: #6e5041;
+  --g-text-3: #80604e;
+  --g-accent: #ad4924;
+  --g-on-accent: #ffffff;
+  --g-accent-soft: #f9decb;
+  --g-price: #91391c;
+  --g-accent-text: #913c1d;
+  --g-shadow: 0 12px 32px rgb(128 62 29 / .13);
+  --ember-light-hero:
+    radial-gradient(ellipse at 22% 45%, rgb(205 120 65 / .15), transparent 58%),
+    linear-gradient(118deg, #fbe7d7 0%, #fff8f0 63%, #fff0e4 100%);
+  --ember-light-glow: radial-gradient(ellipse at center, rgb(195 94 39 / .19), transparent 72%);
+}
+
+/* The hero itself was hard-coded dark in EMBER V2, so it needs a true light
+ * treatment as well as the shared guest tokens. Same photo and layout.
+ */
+[data-guest-theme='light'] .ember-experience .ember-v2-header {
+  color: var(--g-text);
+  background: var(--ember-light-hero);
+  border-bottom-color: var(--g-line);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-nav {
+  border-bottom-color: var(--g-line);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-brand-logo {
+  border-color: var(--g-line);
+  box-shadow: 0 6px 22px rgb(95 52 29 / .09);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-nav-note,
+[data-guest-theme='light'] .ember-experience .ember-v2-subtitle,
+[data-guest-theme='light'] .ember-experience .ember-v2-restaurant-details {
+  color: var(--g-text-2);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-eyebrow,
+[data-guest-theme='light'] .ember-experience .ember-v2-signature {
+  color: var(--g-accent-text);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-signature > span:last-child {
+  background: var(--g-accent-text);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-cart-button {
+  color: var(--g-text);
+  background: color-mix(in srgb, var(--g-surface) 88%, transparent);
+  border-color: var(--g-line);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-cart-button:hover {
+  background: var(--g-accent-soft);
+  border-color: var(--g-accent);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-visual-glow {
+  background: var(--ember-light-glow);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-photo-fallback {
+  color: var(--g-accent-text);
+  border-color: var(--g-line);
+  background: radial-gradient(circle at 45% 40%, var(--g-surface) 0%, var(--g-surface-2) 68%, var(--g-bg) 100%);
+  box-shadow: 0 0 55px rgb(166 95 47 / .13);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-tools-nav nav,
+[data-guest-theme='light'] .ember-experience .ember-v2-tools-nav button {
+  color: var(--g-text);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-toolbar {
+  background: var(--g-surface);
+  border-color: var(--g-line);
+  box-shadow: var(--g-shadow);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-chipbar {
+  background: color-mix(in srgb, var(--g-bg) 93%, transparent);
+  border-color: var(--g-line);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-chip {
+  background: var(--g-surface);
+  color: var(--g-text-2);
+  border-color: var(--g-line);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-chip-active {
+  background: var(--g-accent);
+  color: var(--g-on-accent);
+  border-color: var(--g-accent);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-card-photo {
+  background: var(--g-surface-2);
+}
+[data-guest-theme='light'] .ember-experience main article.ember-v2-card {
+  background: var(--g-surface);
+  border-color: var(--g-line);
+  box-shadow: 0 6px 22px rgb(87 51 28 / .07);
+}
+[data-guest-theme='light'] .ember-experience main article.ember-v2-card:hover {
+  border-color: var(--g-accent);
+  box-shadow: 0 18px 36px rgb(87 51 28 / .14);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-tab:hover {
+  color: var(--g-text);
+  border-color: var(--g-accent);
+}
+[data-guest-theme='light'] .ember-experience .ember-v2-tab-active,
+[data-guest-theme='light'] .ember-experience .ember-v2-tab[aria-pressed='true'] {
+  background: var(--g-accent);
+  border-color: var(--g-accent);
+  color: var(--g-on-accent);
+}
