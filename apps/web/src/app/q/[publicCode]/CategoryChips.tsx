@@ -76,7 +76,7 @@ export function CategoryChips({
 
   return (
     <div
-      className={`sticky top-0 z-30 mt-2 border-b bg-[color-mix(in_srgb,var(--g-bg)_90%,transparent)] backdrop-blur-md transition-colors ${template === 'ember' ? 'ember-v2-chipbar' : ''} ${
+      className={`sticky top-0 z-30 mt-2 border-b bg-[color-mix(in_srgb,var(--g-bg)_90%,transparent)] backdrop-blur-md transition-colors ${template === 'ember' ? 'ember-v2-chipbar' : template === 'bloom' ? 'bloom-v2-chipbar' : template === 'brew' ? 'brew-v2-chipbar' : ''} ${
         compact ? 'border-g-line' : 'border-transparent'
       }`}
     >
