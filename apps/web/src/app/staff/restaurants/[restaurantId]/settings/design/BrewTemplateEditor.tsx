@@ -44,8 +44,25 @@ export function BrewTemplateEditor({restaurantId,canManage,onDraftChange,onCopyL
   catch(e){if(isUnauthenticatedError(e))redirectToLogin();else setError(describeError(e))}
   finally{setBusy(false)}
  }
- async function upload(f:File){const invalid=validateImageFile(f);if(invalid){setError(invalid);return}
-  await action(()=>uploadBrewPromoImage(restaurantId,f),'Promo photo uploaded to draft. Publish to show it to guests.');
+ /**
+  * Upload/reset saves only the server-owned image field. Preserve unsaved palette
+  * and text edits, just like BLOOM, so selecting a color before an upload is safe.
+  */
+ async function mediaAction(job:()=>Promise<{draft:BrewTemplateSettings;published:BrewTemplateSettings}>,message:string){
+  setBusy(true);setError(null);setNotice('');
+  try{
+   const result=await job();
+   const serverDraft=normalizeBrewTemplateSettings(result.draft);
+   setSaved(serverDraft);
+   setPublished(normalizeBrewTemplateSettings(result.published));
+   setDraft(current=>({...current,promoImageMode:serverDraft.promoImageMode,promoImageAssetPath:serverDraft.promoImageAssetPath}));
+   setNotice(message);
+  }catch(e){if(isUnauthenticatedError(e))redirectToLogin();else setError(describeError(e))}
+  finally{setBusy(false)}
+ }
+ async function upload(f:File){
+  const invalid=validateImageFile(f);if(invalid){setError(invalid);return}
+  await mediaAction(()=>uploadBrewPromoImage(restaurantId,f),'Promo photo uploaded to draft. Publish to show it to guests.');
  }
  if(loading)return <p className="text-sm text-muted-foreground">Loading BREW settings…</p>;
  return <section className="space-y-4 rounded-xl border border-border bg-secondary/40 p-4">
@@ -96,7 +113,7 @@ export function BrewTemplateEditor({restaurantId,canManage,onDraftChange,onCopyL
       onSelectFile={file=>void upload(file)} isBusy={busy||!canManage} error={error} selectLabel="Upload promo photo (optional)"
       helperText="Default coffee artwork is used until a photo is uploaded" previewShape="wide"/>
     {draft.promoImageAssetPath?<button type="button" className="text-xs underline"
-      onClick={()=>void action(()=>resetBrewPromoImage(restaurantId),'Original cup restored in draft.')}>Restore coffee illustration</button>:null}
+      onClick={()=>void mediaAction(()=>resetBrewPromoImage(restaurantId),'Original cup restored in draft.')}>Restore coffee illustration</button>:null}
    </>:null}
   </div>
   <p className="text-xs text-muted-foreground">Preview updates immediately. Save Draft stays private. Publish Appearance changes the guest menu.</p>
