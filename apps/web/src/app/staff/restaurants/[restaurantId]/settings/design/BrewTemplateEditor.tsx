@@ -84,7 +84,7 @@ export function BrewTemplateEditor({restaurantId,canManage,onDraftChange,onCopyL
       </select></label>{categoryId&&draft.categoryPromos[categoryId]?<button className="text-xs underline" type="button"
        onClick={()=>{const x={...draft.categoryPromos};delete x[categoryId];update('categoryPromos',x)}}>Remove category override</button>:null}</>:null}
     <ImageField idPrefix="brew-promo" imageUrl={draft.promoImageMode==='CUSTOM'?resolveAssetUrl(draft.promoImageAssetPath):null}
-      onSelectFile={file=>void upload(file)} isBusy={busy||!canManage} selectLabel="Upload promo photo (optional)"
+      onSelectFile={file=>void upload(file)} isBusy={busy||!canManage} error={error} selectLabel="Upload promo photo (optional)"
       helperText="Default coffee artwork is used until a photo is uploaded" previewShape="wide"/>
     {draft.promoImageAssetPath?<button type="button" className="text-xs underline"
       onClick={()=>void action(()=>resetBrewPromoImage(restaurantId),'Original cup restored in draft.')}>Restore coffee illustration</button>:null}
