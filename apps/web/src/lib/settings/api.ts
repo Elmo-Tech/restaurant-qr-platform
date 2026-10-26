@@ -268,7 +268,7 @@ export async function getFolioTemplateConfig(restaurantId: string): Promise<Foli
 }
 export async function saveFolioTemplateDraft(restaurantId: string, settings: FolioTemplateSettings): Promise<FolioTemplateConfigView> {
   const expected = normalizeFolioTemplateSettings(settings);
-  const body = Object.fromEntries(Object.entries(expected).filter(([key]) => key !== 'artworkAssetPath'));
+  const body = Object.fromEntries(Object.entries(expected).filter(([key]) => key !== 'artworkAssetPath' && key !== 'categoryArtwork'));
   const response = await apiFetch<{data: unknown}>(`${restaurantPath(restaurantId)}/folio-template/draft`, {method: 'PATCH', body});
   const result = normalizeFolioTemplateConfigView(response.data);
   const keys = [...FOLIO_COPY_KEYS, 'palette', 'motion', 'artworkMode'] as const;
@@ -282,6 +282,26 @@ export async function uploadFolioArtwork(restaurantId: string, file: File): Prom
   const x = await apiFetchFormData<{data: unknown}>(`${restaurantPath(restaurantId)}/folio-template/artwork`, form);
   return normalizeFolioTemplateConfigView(x.data);
 }
+/** FOLIO-only category artwork: never modifies the global menu Category image. */
+export async function uploadFolioCategoryArtwork(
+  restaurantId: string, categoryId: string, file: File,
+): Promise<FolioTemplateConfigView> {
+  const form = new FormData(); form.set('image', file);
+  const x = await apiFetchFormData<{data: unknown}>(
+    `${restaurantPath(restaurantId)}/folio-template/categories/${categoryId}/artwork`, form,
+  );
+  return normalizeFolioTemplateConfigView(x.data);
+}
+export async function resetFolioCategoryArtwork(
+  restaurantId: string, categoryId: string,
+): Promise<FolioTemplateConfigView> {
+  const x = await apiFetch<{data: unknown}>(
+    `${restaurantPath(restaurantId)}/folio-template/categories/${categoryId}/artwork`,
+    {method: 'DELETE'},
+  );
+  return normalizeFolioTemplateConfigView(x.data);
+}
+
 export async function resetFolioArtwork(restaurantId: string): Promise<FolioTemplateConfigView> {
   const x = await apiFetch<{data: unknown}>(`${restaurantPath(restaurantId)}/folio-template/artwork`, {method: 'DELETE'});
   return normalizeFolioTemplateConfigView(x.data);

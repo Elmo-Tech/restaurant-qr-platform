@@ -1217,13 +1217,7 @@ export function PublicMenuView({
                 copy={copy}
               />
             ) : null}
-            announcements={
-              <AnnouncementBar
-                announcements={data.context.announcements ?? []}
-                publicCode={publicCode}
-                copy={copy}
-              />
-            }
+            announcements={data.context.announcements ?? []}
             warning={tableLocked ? (
               <TableClosedNotice
                 copy={copy}

@@ -6,7 +6,7 @@ import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import { toMinorUnits } from '../../../lib/public-menu/money';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import type { FolioTemplateSettings } from '../../../lib/public-menu/folio-settings';
-import type { PublicMenuCategory, PublicMenuProduct } from '../../../lib/public-menu/types';
+import type { PublicMenuCategory, PublicMenuProduct, PublicAnnouncement } from '../../../lib/public-menu/types';
 import { HeroActions, LanguageSwitch } from './GuestHero';
 
 const PRODUCTS_PER_PAGE = 4;
@@ -134,7 +134,7 @@ export interface FolioExperienceProps {
   query: string; onQueryChange: (value: string) => void; onClearSearch: () => void;
   onOpenProduct: (product: PublicMenuProduct) => void;
   onQuickAdd: (product: PublicMenuProduct) => void;
-  modeSwitch: ReactNode; announcements: ReactNode; warning: ReactNode;
+  modeSwitch: ReactNode; announcements: PublicAnnouncement[]; warning: ReactNode;
 }
 
 /**
@@ -151,7 +151,6 @@ export function FolioExperience(p: FolioExperienceProps) {
   const [photoFailed, setPhotoFailed] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
   const swipeStart = useRef<{ x: number; y: number } | null>(null);
-  const chapterRefs = useRef(new Map<string, HTMLButtonElement>());
   const spreads = useMemo(() => paginateFolio(p.categories), [p.categories]);
   const index = Math.max(0, Math.min(spreadIndex, spreads.length - 1));
   const spread = spreads[index] ?? null;
@@ -163,26 +162,22 @@ export function FolioExperience(p: FolioExperienceProps) {
   const coverTagline = ar ? settings.coverTaglineAr : settings.coverTaglineEn;
   const coverCta = ar ? settings.coverCtaAr : settings.coverCtaEn;
   const footer = ar ? settings.pageFooterAr : settings.pageFooterEn;
-  const featuredPhoto = p.categories.flatMap(c => c.products)
-    .find(item => item.featured && item.primaryImageAssetPath)?.primaryImageAssetPath ??
-    p.categories.flatMap(c => c.products).find(item => item.primaryImageAssetPath)?.primaryImageAssetPath;
-  const imageUrl = settings.artworkMode === 'CUSTOM'
-    ? resolveAssetUrl(settings.artworkAssetPath)
-    : settings.artworkMode === 'FEATURED'
-      ? resolveAssetUrl(featuredPhoto ?? null) : null;
+  // Each chapter owns its image. Priority: FOLIO override, regular category
+  // image, this category's product photo, then global fallback/illustration.
+  const category = spread?.category;
+  const categoryPhoto = category?.products.find(item => item.featured && item.primaryImageAssetPath)
+    ?.primaryImageAssetPath ?? category?.products.find(item => item.primaryImageAssetPath)?.primaryImageAssetPath ?? null;
+  const globalFallback = settings.artworkMode === 'CUSTOM' ? settings.artworkAssetPath : null;
+  const chosenArtwork = category
+    ? settings.categoryArtwork[category.id] ?? category.imageAssetPath ?? categoryPhoto ?? globalFallback
+    : globalFallback;
+  const imageUrl = resolveAssetUrl(chosenArtwork);
 
   useEffect(() => { setPhotoFailed(false); }, [imageUrl]);
   useEffect(() => { setSpreadIndex(0); setAnimation(null); }, [p.query]);
   useEffect(() => {
     if (spreadIndex >= spreads.length) setSpreadIndex(Math.max(0, spreads.length - 1));
   }, [spreadIndex, spreads.length]);
-  useEffect(() => {
-    if (!opened || !activeCategoryId) return;
-    chapterRefs.current.get(activeCategoryId)?.scrollIntoView({
-      block: 'nearest', inline: 'nearest', behavior: 'instant',
-    });
-  }, [opened, activeCategoryId]);
-
   function navigate(next: number) {
     if (next < 0 || next >= spreads.length || next === index) return;
     setAnimation(next > index ? 'next' : 'prev');
@@ -231,10 +226,16 @@ export function FolioExperience(p: FolioExperienceProps) {
             publicCode={p.publicCode} label={p.copy.language} designPreview={p.designPreview} previewTemplate="folio"/>
           <HeroActions copy={p.copy} restaurantName={p.restaurantName} shareCode={p.shareCode}
             onTrack={p.onTrack} hasActiveOrder={p.hasActiveOrder}/>
+          {p.announcements.length ? (
+            <details className="folio-v2-notices">
+              <summary>{p.copy.announcementsLabel} <span>{p.announcements.length}</span></summary>
+              <ul>{p.announcements.map(a => <li key={a.id} dir="auto">{a.text}</li>)}</ul>
+            </details>
+          ) : null}
         </div>
       </header>
 
-      <div className="folio-v2-meta">{p.announcements}{p.warning}</div>
+      {p.warning ? <div className="folio-v2-meta">{p.warning}</div> : null}
       {p.modeSwitch ? <div className="folio-v2-mode">{p.modeSwitch}</div> : null}
 
       {(opened || isSearching) && <nav className="folio-v2-sticky" aria-label={p.copy.categories}>
@@ -248,7 +249,6 @@ export function FolioExperience(p: FolioExperienceProps) {
           </label>
           <div className="folio-v2-chapters">
             {categoryLinks.map(category => <button key={category.id} type="button"
-              ref={node => { if (node) chapterRefs.current.set(category.id, node); else chapterRefs.current.delete(category.id); }}
               onClick={() => jumpToCategory(category.id)}
               aria-current={activeCategoryId === category.id ? 'page' : undefined}
               className={activeCategoryId === category.id ? 'active' : ''}>{category.name}</button>)}
@@ -283,7 +283,8 @@ export function FolioExperience(p: FolioExperienceProps) {
             <div className="folio-v2-artframe">
               {imageUrl && !photoFailed ? (
                 // eslint-disable-next-line @next/next/no-img-element -- Published restaurant image.
-                <img src={imageUrl} alt="" onError={() => setPhotoFailed(true)} />
+                <img src={imageUrl} alt={category?.name ?? ''} loading="lazy" decoding="async"
+                  onError={() => setPhotoFailed(true)} />
               ) : <FolioPlate />}
             </div>
             <div className="folio-v2-artfooter">{footer}</div>
@@ -296,6 +297,13 @@ export function FolioExperience(p: FolioExperienceProps) {
             {spread ? (
               <>
                 <h2 dir="auto">{spread.category.name}</h2>
+                <div className="folio-v2-inline-art" aria-label={spread.category.name}>
+                  {imageUrl && !photoFailed ? (
+                    // eslint-disable-next-line @next/next/no-img-element -- Restaurant photo from the API.
+                    <img src={imageUrl} alt={spread.category.name} loading="lazy" decoding="async"
+                      onError={() => setPhotoFailed(true)} />
+                  ) : <FolioPlate />}
+                </div>
                 <div className="folio-v2-rule"/>
                 <p className="folio-v2-subtitle" dir="auto">{spread.category.description || subtitle}</p>
                 <ol className="folio-v2-items">
