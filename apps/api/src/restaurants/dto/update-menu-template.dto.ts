@@ -12,6 +12,7 @@ export const MENU_TEMPLATES = [
   'EMBER',
   'BLOOM',
   'BREW',
+  'FOLIO',
 ] as const;
 export type MenuTemplateInput = (typeof MENU_TEMPLATES)[number];
 
