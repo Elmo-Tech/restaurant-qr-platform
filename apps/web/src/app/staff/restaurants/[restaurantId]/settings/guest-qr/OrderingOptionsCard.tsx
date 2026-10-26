@@ -255,7 +255,7 @@ function OrderingRows({
   return (
     <ul className="flex flex-col divide-y divide-border rounded-lg border border-border">
       {rows.map((row) => (
-        <li key={row.type} className="flex items-center gap-3 px-4 py-3">
+        <li key={row.type} className="flex min-w-0 flex-wrap items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4">
           <span
             className={`flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg ${
               row.enabled ? 'bg-accent text-accent-foreground' : 'bg-muted text-muted-foreground'
@@ -263,7 +263,7 @@ function OrderingRows({
           >
             {row.icon}
           </span>
-          <div className="min-w-0 flex-1">
+          <div className="min-w-[150px] flex-1">
             <p className="text-sm font-semibold text-foreground">{row.title}</p>
             <p className="text-xs text-muted-foreground">{row.hint}</p>
           </div>

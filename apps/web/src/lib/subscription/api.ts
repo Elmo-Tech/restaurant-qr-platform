@@ -30,7 +30,16 @@ export interface PlanSubscription {
   paymentStatus: PaymentStatus;
 }
 
-export interface UpgradeOption {
+/** Catalogue list prices and the eligible current offer, not the agreed subscription snapshot. */
+export interface CataloguePricing {
+  priceMonthly: string | null;
+  priceYearly: string | null;
+  discountedMonthly: string | null;
+  discountedYearly: string | null;
+  offer: { percent: string; label: string | null; endsAt: string | null } | null;
+}
+
+export interface UpgradeOption extends CataloguePricing {
   id: string;
   name: string;
   description: string | null;
@@ -42,10 +51,6 @@ export interface UpgradeOption {
   /** The same, split by tier (DEC-052). */
   templateStandard: number;
   templatePremium: number;
-  priceMonthly: string | null;
-  priceYearly: string | null;
-  /** An offer that is on today. */
-  offer: { percent: string; label: string | null; endsAt: string | null } | null;
 }
 
 export interface OpenRequest {
@@ -61,6 +66,8 @@ export interface MySubscription {
   billingCurrency: 'EGP' | 'USD';
   graceDays: number;
   package: { id: string; name: string } | null;
+  /** Public catalogue pricing of current package; actual agreed price stays in subscription.finalPrice. */
+  currentPricing: CataloguePricing | null;
   features: { key: PlanFeatureKey; included: boolean }[];
   /** The Guest menu templates the restaurant may use now, out of all of them (DEC-051). */
   templates: {
@@ -72,6 +79,9 @@ export interface MySubscription {
     totalPremium: number;
   };
   subscription: PlanSubscription | null;
+  /** All ACTIVE catalogue packages other than the current, including lower tiers. */
+  comparisonPlans?: UpgradeOption[];
+  /** Only eligible upgrade targets; never used to hide plans in comparisons. */
   upgrades: UpgradeOption[];
   openRequest: OpenRequest | null;
 }

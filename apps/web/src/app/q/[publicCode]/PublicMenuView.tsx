@@ -274,7 +274,8 @@ export function PublicMenuView({
       }))
       .filter((category) => category.products.length > 0);
   }, [data.menu.categories, isSearching, normalizedQuery, searchIndex]);
-  const premiumVisibleCategories = (template === 'ember' || template === 'bloom' || template === 'brew') && !isSearching
+  const isPremiumSingleCategory = template === 'ember' || template === 'bloom' || template === 'brew';
+  const premiumVisibleCategories = isPremiumSingleCategory && !isSearching
     ? visibleCategories.filter((category) => category.id === premiumCategoryId)
     : visibleCategories;
   const searchResultCount = visibleCategories.reduce(
@@ -283,6 +284,20 @@ export function PublicMenuView({
   );
 
   const showFeatured = featuredProducts.length > 0 && !isSearching;
+  const selectPremiumCategory = (id: string) => {
+    // Category content switches in place, unlike normal templates which jump to an anchored section.
+    // Clear search first so every category is selectable, then keep the chip strip at the top.
+    setQuery('');
+    setPremiumCategoryId(id);
+    window.requestAnimationFrame(() => {
+      const anchor = document.getElementById('premium-menu-start');
+      if (!anchor) return;
+      anchor.scrollIntoView({
+        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+        block: 'start',
+      });
+    });
+  };
   const navigation = useMenuNavigation(
     [
       ...(featuredProducts.length > 0 ? [FEATURED_SECTION_ID] : []),
@@ -1217,11 +1232,11 @@ export function PublicMenuView({
 
         {/* A sticky element only sticks inside its parent: the chips must be a direct child of
             this page-height root (no short wrapper), or the bar scrolls away with its own box. */}
-        {hasCategories && template !== 'ember' && template !== 'bloom' && template !== 'brew' ? (
+        {hasCategories ? (
           <CategoryChips
             items={chipItems}
-            activeId={navigation.activeId}
-            onSelect={navigation.select}
+            activeId={isPremiumSingleCategory ? premiumCategoryId : navigation.activeId}
+            onSelect={isPremiumSingleCategory ? selectPremiumCategory : navigation.select}
             compact={navigation.compact}
             onJumpToSearch={handleJumpToSearch}
             copy={copy}
@@ -1230,8 +1245,8 @@ export function PublicMenuView({
         ) : null}
 
         <main
-          id={template === 'ember' ? 'ember-menu-start' : template === 'bloom' ? 'bloom-menu-start' : template === 'brew' ? 'brew-menu-start' : undefined}
-          className={`px-4 pt-5 lg:px-8 lg:pt-7 ${showCartBar ? 'pb-[150px]' : 'pb-16'}`}
+          id={isPremiumSingleCategory ? 'premium-menu-start' : undefined}
+          className={`scroll-mt-[76px] px-4 pt-5 lg:px-8 lg:pt-7 ${showCartBar ? 'pb-[150px]' : 'pb-16'}`}
         >
           <div className="mx-auto flex max-w-[1280px] flex-col gap-[34px] lg:gap-[52px]">
             {!canOrder ? (
@@ -1279,33 +1294,8 @@ export function PublicMenuView({
               onIncrement={handleCardIncrement}
               onDecrement={handleCardDecrement}
               onClearSearch={handleClearSearch}
-              emberCategoryTabs={template === 'ember' && !isSearching
-                ? data.menu.categories.map((category) => ({ id: category.id, name: category.name }))
-                : undefined}
-              emberActiveCategoryId={premiumCategoryId}
-              onEmberCategorySelect={(id) => {
-                setPremiumCategoryId(id);
-                document.getElementById('ember-menu-start')?.scrollIntoView({
-                  behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-                  block: 'start',
-                });
-              }}
               brewSettings={template==='brew'?brewSettings:undefined}
               brewLocale={locale}
-              brewCategoryTabs={template==='brew'&&!isSearching?data.menu.categories.map(c=>({id:c.id,name:c.name})):undefined}
-              brewActiveCategoryId={premiumCategoryId}
-              onBrewCategorySelect={id=>{setPremiumCategoryId(id);document.getElementById('brew-menu-start')?.scrollIntoView({behavior:'smooth'});}}
-              bloomCategoryTabs={template === 'bloom' && !isSearching
-                ? data.menu.categories.map((category) => ({ id: category.id, name: category.name }))
-                : undefined}
-              bloomActiveCategoryId={premiumCategoryId}
-              onBloomCategorySelect={(id) => {
-                setPremiumCategoryId(id);
-                document.getElementById('bloom-menu-start')?.scrollIntoView({
-                  behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
-                  block: 'start',
-                });
-              }}
               bloomSectionEyebrow={locale === 'ar' ? bloomSettings.sectionEyebrowAr : bloomSettings.sectionEyebrowEn}
               bloomSectionHeadline={locale === 'ar' ? bloomSettings.sectionHeadlineAr : bloomSettings.sectionHeadlineEn}
               editorialPriceDisplay={template==='editorial'?editorialSettings.priceDisplay:undefined}

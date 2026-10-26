@@ -174,9 +174,9 @@ export function RestaurantQrPanel({
   const filename = `${sanitizeFilenameSegment(restaurantName)}-restaurant-qr.png`;
 
   return (
-    <Card className="overflow-hidden p-0">
+    <Card className="min-w-0 max-w-full overflow-hidden p-0">
       {/* header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-5 py-4">
+      <div className="flex min-w-0 flex-wrap items-center justify-between gap-3 border-b border-border px-3 py-4 sm:px-5">
         <div className="flex min-w-0 items-center gap-3">
           <span className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-accent text-accent-foreground">
             <IconQr className="h-5 w-5" />
@@ -235,7 +235,7 @@ export function RestaurantQrPanel({
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-4 p-5">
+      <div className="flex min-w-0 flex-col gap-4 p-3 sm:p-5">
         {error ? (
           <Alert variant="error">
             <div className="flex items-center justify-between gap-4">
@@ -270,11 +270,12 @@ export function RestaurantQrPanel({
           <>
             {!isActive ? <Alert variant="info">{t('tables.generic.inactiveNotice')}</Alert> : null}
 
-            <div className="grid gap-6 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)]">
+            <div className="min-w-0">
+              <div className="grid min-w-0 gap-5 lg:grid-cols-[minmax(0,340px)_minmax(0,1fr)] lg:gap-6">
               {/* ---- preview: exactly what is downloaded and printed ---- */}
-              <div className="flex flex-col gap-3">
+              <div id="restaurant-qr-preview" className="flex min-w-0 flex-col gap-3">
                 <div
-                  className={`flex items-center justify-center rounded-xl border border-border bg-muted/50 p-4 ${
+                  className={`flex min-w-0 items-center justify-center overflow-hidden rounded-xl border border-border bg-muted/50 p-2 sm:p-4 ${
                     isActive ? '' : 'opacity-60'
                   }`}
                 >
@@ -283,7 +284,7 @@ export function RestaurantQrPanel({
                     <img
                       src={image.dataUrl}
                       alt={t('tables.qr.alt.restaurant')}
-                      className="h-auto w-full max-w-[300px] rounded-lg shadow-sm"
+                      className="block h-auto min-w-0 w-full max-w-[300px] rounded-lg object-contain shadow-sm"
                     />
                   ) : image.failed ? (
                     <p className="py-16 text-center text-xs text-destructive">
@@ -300,15 +301,15 @@ export function RestaurantQrPanel({
                   <p className="text-xs text-warning">{t('settings.qr.logoFailed')}</p>
                 ) : null}
 
-                <div className="flex flex-wrap gap-2">
-                  <Button asChild disabled={!image.dataUrl} className="flex-1">
+                <div className="flex min-w-0 flex-wrap gap-2 max-[390px]:flex-col">
+                  <Button asChild disabled={!image.dataUrl} className="min-w-0 flex-1">
                     <a href={image.dataUrl ?? undefined} download={filename}>
                       {t('settings.qr.download')}
                     </a>
                   </Button>
                   <Button
                     variant="secondary"
-                    className="flex-1"
+                    className="min-w-0 flex-1"
                     disabled={!image.dataUrl}
                     onClick={() => window.print()}
                   >
@@ -316,8 +317,8 @@ export function RestaurantQrPanel({
                   </Button>
                 </div>
 
-                <div className="flex items-center gap-2 rounded-md bg-muted px-3 py-2">
-                  <p dir="ltr" className="min-w-0 flex-1 truncate text-start text-xs text-muted-foreground">
+                <div className="flex min-w-0 flex-wrap items-center gap-2 rounded-md bg-muted px-2 py-2 sm:px-3">
+                  <p dir="ltr" className="min-w-0 basis-full flex-1 truncate text-start text-xs text-muted-foreground sm:basis-auto">
                     {guestUrl}
                   </p>
                   <Button variant="ghost" size="sm" onClick={() => void copyLink()}>
@@ -334,7 +335,7 @@ export function RestaurantQrPanel({
               </div>
 
               {/* ---- appearance ---- */}
-              <div className="flex min-w-0 flex-col gap-5">
+              <div id="restaurant-qr-appearance" className="flex min-w-0 flex-col gap-5">
                 <div>
                   <h3 className="text-sm font-semibold text-foreground">
                     {t('settings.qr.appearance')}
@@ -388,7 +389,7 @@ export function RestaurantQrPanel({
                     </div>
                   </div>
 
-                  <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="grid min-w-0 gap-4 xl:grid-cols-2">
                     <ColorField
                       label={t('settings.qr.foreground')}
                       value={draft.foregroundColor}
@@ -472,6 +473,7 @@ export function RestaurantQrPanel({
 
                 <p className="text-xs text-muted-foreground">{t('settings.qr.testHint')}</p>
               </div>
+              </div>
             </div>
           </>
         ) : null}
@@ -520,7 +522,7 @@ function ColorField({
   }, [value]);
 
   return (
-    <div className="flex flex-col gap-1.5">
+    <div className="flex min-w-0 flex-col gap-1.5">
       <span className="text-xs font-medium text-muted-foreground">{label}</span>
       <div className="flex items-center gap-2">
         <input

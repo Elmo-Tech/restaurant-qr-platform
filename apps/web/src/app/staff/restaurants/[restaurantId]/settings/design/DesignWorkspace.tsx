@@ -260,6 +260,8 @@ export function DesignWorkspace({
   const { t } = useStaffI18n();
   const [saved, setSaved] = useState<Template>(initialTemplate);
   const [selected, setSelected] = useState<Template>(initialTemplate);
+  // Keep the selected template's settings beside its card, not below an ever-growing catalogue.
+  const [customizeOpen, setCustomizeOpen] = useState(true);
   const [qrCode, setQrCode] = useState<string | null | undefined>(undefined);
   const [isSaving, setIsSaving] = useState(false);
   const [justSaved, setJustSaved] = useState(false);
@@ -351,102 +353,111 @@ export function DesignWorkspace({
             <div key={tier} className="space-y-3">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  {tier === 'PREMIUM' ? (
-                    <span aria-hidden="true" className="text-warning">
-                      ★
-                    </span>
-                  ) : null}
+                  {tier === 'PREMIUM' ? <span aria-hidden="true" className="text-warning">★</span> : null}
                   {t(tier === 'PREMIUM' ? 'design.premiumHeading' : 'design.standardHeading')}
                 </h3>
                 <p className="mt-0.5 text-xs text-muted-foreground">
                   {t(tier === 'PREMIUM' ? 'design.premiumHint' : 'design.standardHint')}
                 </p>
               </div>
-          <ul
-            role="radiogroup"
-            aria-label={t(tier === 'PREMIUM' ? 'design.premiumHeading' : 'design.standardHeading')}
-            className="grid gap-3 sm:grid-cols-2"
-          >
-            {TEMPLATES.filter((template) => PREMIUM.includes(template.key) === (tier === 'PREMIUM')).map((template) => {
-              const isSelected = selected === template.key;
-              const locked = !allowedTemplates.includes(template.key);
-              return (
-                <li key={template.key}>
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={isSelected}
-                    disabled={!canManage || locked}
-                    onClick={() => {
-                      setSelected(template.key);
-                      setJustSaved(false);
-                    }}
-                    className={`flex w-full flex-col gap-2 rounded-xl border p-3 text-start transition-colors disabled:cursor-not-allowed disabled:opacity-70 ${
-                      isSelected
-                        ? 'border-primary bg-accent ring-2 ring-primary/40'
-                        : 'border-border bg-card hover:border-primary/50'
-                    }`}
-                  >
-                    <span className="block h-24 w-full rounded-lg border border-border bg-background p-1.5">
-                      <Wireframe template={template.key} />
-                    </span>
-                    <span className="flex items-center justify-between gap-2">
-                      <span className="text-sm font-semibold text-foreground">{t(template.title)}</span>
-                      {saved === template.key ? (
-                        <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">
-                          {t('design.current')}
+              <ul
+                role="radiogroup"
+                aria-label={t(tier === 'PREMIUM' ? 'design.premiumHeading' : 'design.standardHeading')}
+                className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2"
+              >
+                {TEMPLATES.filter((item) => PREMIUM.includes(item.key) === (tier === 'PREMIUM')).map((template) => {
+                  const isSelected = selected === template.key;
+                  const locked = !allowedTemplates.includes(template.key);
+                  const customizable = template.key === 'EMBER' || template.key === 'BLOOM' ||
+                    template.key === 'BREW' || template.key === 'EDITORIAL';
+                  const expanded = isSelected && customizable && customizeOpen && !locked && canManage;
+                  return (
+                    <li key={template.key} className={`min-w-0 ${expanded ? 'sm:col-span-2' : ''}`}>
+                      <button
+                        type="button"
+                        role="radio"
+                        aria-checked={isSelected}
+                        disabled={!canManage || locked}
+                        onClick={() => {
+                          setSelected(template.key);
+                          setCustomizeOpen(true);
+                          setJustSaved(false);
+                        }}
+                        className={`flex w-full min-w-0 flex-col gap-2 rounded-xl border p-3 text-start transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-70 ${
+                          isSelected
+                            ? 'border-primary bg-accent ring-2 ring-primary/40'
+                            : 'border-border bg-card hover:border-primary/50'
+                        }`}
+                      >
+                        <span className={`block h-24 w-full overflow-hidden rounded-lg border border-border bg-background p-1.5 ${expanded ? 'sm:max-w-[330px]' : ''}`}>
+                          <Wireframe template={template.key} />
                         </span>
-                      ) : isSelected ? (
-                        <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
-                          {t('design.previewing')}
+                        <span className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2">
+                          <span className="min-w-0 text-sm font-semibold text-foreground">{t(template.title)}</span>
+                          {saved === template.key ? (
+                            <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">
+                              {t('design.current')}
+                            </span>
+                          ) : isSelected ? (
+                            <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">
+                              {t('design.previewing')}
+                            </span>
+                          ) : locked ? (
+                            <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
+                              {t(tier === 'PREMIUM' ? 'design.premiumLockedTag' : 'design.lockedTag')}
+                            </span>
+                          ) : null}
                         </span>
-                      ) : locked ? (
-                        <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] font-semibold text-muted-foreground">
-                          {t(tier === 'PREMIUM' ? 'design.premiumLockedTag' : 'design.lockedTag')}
-                        </span>
+                        <span className="text-xs leading-relaxed text-muted-foreground">{t(template.hint)}</span>
+                      </button>
+
+                      {isSelected && !locked && canManage ? (
+                        <div className="mt-3 flex min-w-0 flex-col gap-3" aria-label={t(template.title)}>
+                          {customizable ? (
+                            <button type="button"
+                              aria-expanded={customizeOpen}
+                              aria-controls={`template-customization-${template.key}`}
+                              onClick={() => setCustomizeOpen((value) => !value)}
+                              className="flex min-h-11 w-full items-center justify-between gap-3 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-start text-sm font-semibold text-primary focus-visible:outline-2 focus-visible:outline-primary"
+                            >
+                              <span>{t(customizeOpen ? 'design.hideCustomization' : 'design.customize')}</span>
+                              <span aria-hidden="true">{customizeOpen ? '−' : '+'}</span>
+                            </button>
+                          ) : null}
+                          {customizable ? (
+                            <div id={`template-customization-${template.key}`} hidden={!customizeOpen} className="min-w-0">
+                              {expanded && template.key === 'EMBER' ? (
+                                <EmberTemplateEditor restaurantId={restaurantId} canManage={canManage}
+                                  onDraftChange={setEmberPreviewDraft} onCopyLanguageChange={setEmberPreviewLanguage}/>
+                              ) : null}
+                              {expanded && template.key === 'BLOOM' ? (
+                                <BloomTemplateEditor restaurantId={restaurantId} canManage={canManage}
+                                  onDraftChange={setBloomPreviewDraft} onCopyLanguageChange={setBloomPreviewLanguage}/>
+                              ) : null}
+                              {expanded && template.key === 'BREW' ? (
+                                <BrewTemplateEditor restaurantId={restaurantId} canManage={canManage}
+                                  onDraftChange={setBrewPreviewDraft} onCopyLanguageChange={setBrewPreviewLanguage}/>
+                              ) : null}
+                              {expanded && template.key === 'EDITORIAL' ? (
+                                <EditorialPriceDisplayEditor restaurantId={restaurantId} canManage={canManage}
+                                  onPreviewChange={setEditorialPreview}/>
+                              ) : null}
+                            </div>
+                          ) : null}
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Button onClick={() => void save()} disabled={!dirty || isSaving}>
+                              {t('design.save')}
+                            </Button>
+                            {dirty ? <span className="text-xs text-muted-foreground">{t('design.unsaved')}</span> : null}
+                          </div>
+                        </div>
                       ) : null}
-                    </span>
-                    <span className="text-xs leading-relaxed text-muted-foreground">{t(template.hint)}</span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
+                    </li>
+                  );
+                })}
+              </ul>
             </div>
           ))}
-
-          {selected === 'EMBER' && allowedTemplates.includes('EMBER') && canManage ? (
-            <EmberTemplateEditor
-              restaurantId={restaurantId}
-              canManage={canManage}
-              onDraftChange={setEmberPreviewDraft}
-              onCopyLanguageChange={setEmberPreviewLanguage}
-            />
-          ) : null}
-
-          {selected === 'BLOOM' && allowedTemplates.includes('BLOOM') && canManage ? (
-            <BloomTemplateEditor
-              restaurantId={restaurantId}
-              canManage={canManage}
-              onDraftChange={setBloomPreviewDraft}
-              onCopyLanguageChange={setBloomPreviewLanguage}
-            />
-          ) : null}
-
-          {selected === 'EDITORIAL' && allowedTemplates.includes('EDITORIAL') && canManage ? (
-            <EditorialPriceDisplayEditor
-              restaurantId={restaurantId}
-              canManage={canManage}
-              onPreviewChange={setEditorialPreview}
-            />
-          ) : null}
-          {selected==='BREW'&&allowedTemplates.includes('BREW')&&canManage?<BrewTemplateEditor restaurantId={restaurantId} canManage={canManage} onDraftChange={setBrewPreviewDraft} onCopyLanguageChange={setBrewPreviewLanguage}/>:null}
-          <div className="flex flex-wrap items-center gap-3">
-            <Button onClick={() => void save()} disabled={!canManage || !dirty || isSaving}>
-              {t('design.save')}
-            </Button>
-            {dirty ? <span className="text-xs text-muted-foreground">{t('design.unsaved')}</span> : null}
-          </div>
         </section>
 
         <PreviewPane
