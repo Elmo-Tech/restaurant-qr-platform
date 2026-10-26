@@ -187,10 +187,8 @@ export function FolioExperience(p: FolioExperienceProps) {
     setAnimation(next > index ? 'next' : 'prev');
     setSpreadIndex(next);
     if (window.matchMedia('(max-width: 720px)').matches) {
-      menuRef.current?.scrollIntoView({
-        block: 'start',
-        behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth',
-      });
+      // A long animated document scroll used to lag behind quick page swipes.
+      menuRef.current?.scrollIntoView({ block: 'start', behavior: 'instant' });
     }
   }
   function jumpToCategory(id: string) {
