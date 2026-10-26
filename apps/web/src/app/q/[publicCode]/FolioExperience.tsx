@@ -278,6 +278,7 @@ export function FolioExperience(p: FolioExperienceProps) {
             }
           }}
         >
+          {opened ? <>
           <article className="folio-v2-page folio-v2-artpage" aria-label={footer}>
             <span className="folio-v2-kicker">{p.restaurantName} / SIGNATURE</span>
             <div className="folio-v2-artframe">
@@ -322,6 +323,7 @@ export function FolioExperience(p: FolioExperienceProps) {
             )}
             <span className="folio-v2-page-no">{formatPage(index * 2 + 2)}</span>
           </article>
+          </> : null}
           <div className="folio-v2-cover" aria-hidden={opened ? 'true' : undefined}>
             <div className="folio-v2-cover-content">
               <div className="folio-v2-cover-ornament" aria-hidden="true">❦</div>

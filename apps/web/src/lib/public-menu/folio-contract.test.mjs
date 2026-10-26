@@ -44,6 +44,19 @@ test('FOLIO ships responsive mobile book, sticky navigation and motion control',
   assert.match(css, /data-has-cart='true'/);
 });
 
+test('FOLIO uses no infinite announcement ticker and no hidden-mobile artwork', () => {
+  assert.match(component, /p\.announcements\.map/);
+  assert.doesNotMatch(component, /<AnnouncementBar/);
+  assert.match(component, /categoryArtwork\[category\.id\]/);
+  assert.match(component, /spread\.category\.name/);
+  assert.match(component, /folio-v2-inline-art/);
+  assert.match(component, /\{opened \? <>/);
+  assert.match(css, /\[data-guest-theme='light'\] \.folio-experience/);
+  assert.match(css, /\.folio-v2-inline-art img \{/);
+  assert.doesNotMatch(css, /perspective:1500px/);
+  assert.doesNotMatch(css, /backdrop-filter:blur\(14px\)/);
+});
+
 test('appearance stays typed and draft-only until published', () => {
   assert.match(appearance, /FOLIO_DESIGN_PREVIEW_READY/);
   assert.match(appearance, /artworkAssetPath/);
