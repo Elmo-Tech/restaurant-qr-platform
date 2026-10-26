@@ -8,6 +8,8 @@ export interface FolioTemplateSettings {
   motion: FolioMotion;
   artworkMode: FolioArtworkMode;
   artworkAssetPath: string | null;
+  /** FOLIO-only custom photos per category. Never writable through the ordinary settings PATCH. */
+  categoryArtwork: Record<string, string>;
   eyebrowAr: string; eyebrowEn: string;
   headlineAr: string; headlineEn: string;
   coverTaglineAr: string; coverTaglineEn: string;
@@ -22,6 +24,7 @@ export const DEFAULT_FOLIO_SETTINGS: FolioTemplateSettings = {
   motion: 'SUBTLE',
   artworkMode: 'ILLUSTRATION',
   artworkAssetPath: null,
+  categoryArtwork: {},
   eyebrowAr: 'EXPERIENCE THE ART OF DINING',
   eyebrowEn: 'EXPERIENCE THE ART OF DINING',
   headlineAr: 'Every meal tells a story.',
@@ -52,6 +55,16 @@ export function isFolioArtworkPath(value: unknown): value is string {
     /^\/media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|png|webp)$/.test(value);
 }
 
+export const FOLIO_CATEGORY_ID = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+export function normalizeFolioCategoryArtwork(raw: unknown): Record<string,string> {
+  if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {};
+  return Object.fromEntries(
+    Object.entries(raw).slice(0, 120).filter(([id, path]) =>
+      FOLIO_CATEGORY_ID.test(id) && isFolioArtworkPath(path),
+    ),
+  );
+}
+
 export function normalizeFolioSettings(raw: unknown): FolioTemplateSettings {
   const value: Record<string, unknown> = raw && typeof raw === 'object' && !Array.isArray(raw)
     ? raw as Record<string, unknown> : {};
@@ -71,5 +84,6 @@ export function normalizeFolioSettings(raw: unknown): FolioTemplateSettings {
     motion: value.motion === 'OFF' ? 'OFF' : 'SUBTLE',
     artworkMode: mode,
     artworkAssetPath: image,
+    categoryArtwork: normalizeFolioCategoryArtwork(value.categoryArtwork),
   };
 }

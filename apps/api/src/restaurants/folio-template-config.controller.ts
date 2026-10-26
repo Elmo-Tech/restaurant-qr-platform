@@ -1,5 +1,5 @@
 import {
-  Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, Post, Req,
+  Body, Controller, Delete, Get, HttpCode, HttpStatus, Patch, Post, Req, Param, ParseUUIDPipe,
   UploadedFile, UseGuards, UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -61,6 +61,28 @@ export class FolioTemplateConfigController {
     const id = req.restaurantAccess.restaurantId; await this.assertAvailable(id);
     return { data: await this.configs.resetDraftArtwork(id) };
   }
+  @Post('categories/:categoryId/artwork')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(CsrfGuard)
+  @UseInterceptors(FileInterceptor('image', {limits: {fileSize: MAX_IMAGE_BYTES * 2}}))
+  async uploadCategory(@Req() req: RestaurantAuthorizedRequest,
+    @Param('categoryId', new ParseUUIDPipe({ version: '4' })) categoryId: string,
+    @UploadedFile() file: UploadedImageFile | undefined): Promise<{data: FolioConfigView}> {
+    const id = req.restaurantAccess.restaurantId;
+    await this.assertAvailable(id);
+    assertValidImageUpload(file);
+    return { data: await this.configs.setDraftCategoryArtwork(id, categoryId, file.buffer, file.mimetype) };
+  }
+  @Delete('categories/:categoryId/artwork')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(CsrfGuard)
+  async resetCategory(@Req() req: RestaurantAuthorizedRequest,
+    @Param('categoryId', new ParseUUIDPipe({ version: '4' })) categoryId: string): Promise<{data: FolioConfigView}> {
+    const id = req.restaurantAccess.restaurantId;
+    await this.assertAvailable(id);
+    return { data: await this.configs.resetDraftCategoryArtwork(id, categoryId) };
+  }
+
   @Post('publish')
   @HttpCode(HttpStatus.OK)
   @UseGuards(CsrfGuard)

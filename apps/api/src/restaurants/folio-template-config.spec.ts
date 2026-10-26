@@ -19,6 +19,13 @@ describe('FOLIO premium defaults and security', () => {
     expect(settings.artworkAssetPath).toBeNull();
     expect(settings.headlineEn).toBe('Test');
     expect('css' in settings).toBe(false);
+    expect(settings.categoryArtwork).toEqual({});
+    expect(normalizeFolioSettings({
+      categoryArtwork: {
+        'a0b1c2d3-1111-4222-8333-ffeeddccbbaa': 'https://untrusted.example/image.svg',
+        '__proto__': '/media/01234567-89ab-4cde-8f01-23456789abcd.webp',
+      },
+    }).categoryArtwork).toEqual({});
   });
   it('allows server-owned artwork paths only', () => {
     const path = '/media/01234567-89ab-4cde-8f01-23456789abcd.webp';

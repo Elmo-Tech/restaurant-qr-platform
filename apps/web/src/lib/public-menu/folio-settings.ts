@@ -3,6 +3,7 @@ export type FolioPalette = 'FOREST' | 'BURGUNDY' | 'MIDNIGHT';
 export type FolioArtworkMode = 'ILLUSTRATION' | 'FEATURED' | 'CUSTOM';
 export interface FolioTemplateSettings {
   palette: FolioPalette; motion: 'SUBTLE' | 'OFF'; artworkMode: FolioArtworkMode; artworkAssetPath: string | null;
+  categoryArtwork: Record<string, string>;
   eyebrowAr: string; eyebrowEn: string; headlineAr: string; headlineEn: string;
   coverTaglineAr: string; coverTaglineEn: string; coverCtaAr: string; coverCtaEn: string;
   collectionLabelAr: string; collectionLabelEn: string; chapterSubtitleAr: string; chapterSubtitleEn: string;
@@ -11,6 +12,7 @@ export interface FolioTemplateSettings {
 export interface FolioTemplateConfigView { draft: FolioTemplateSettings; published: FolioTemplateSettings; }
 export const DEFAULT_FOLIO_SETTINGS: FolioTemplateSettings = {
   palette: 'FOREST', motion: 'SUBTLE', artworkMode: 'ILLUSTRATION', artworkAssetPath: null,
+  categoryArtwork: {},
   eyebrowAr: 'EXPERIENCE THE ART OF DINING', eyebrowEn: 'EXPERIENCE THE ART OF DINING',
   headlineAr: 'Every meal tells a story.', headlineEn: 'Every meal tells a story.',
   coverTaglineAr: 'THE SIGNATURE COLLECTION', coverTaglineEn: 'THE SIGNATURE COLLECTION',
@@ -37,7 +39,17 @@ export function normalizeFolioTemplateSettings(raw: unknown): FolioTemplateSetti
   const asset = typeof row.artworkAssetPath === 'string' &&
     /^\/media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|png|webp)$/.test(row.artworkAssetPath)
     ? row.artworkAssetPath : null;
-  return { ...copy,
+  const categoryArtwork = Object.fromEntries(
+    Object.entries(
+      row.categoryArtwork && typeof row.categoryArtwork === 'object' && !Array.isArray(row.categoryArtwork)
+        ? row.categoryArtwork : {},
+    ).slice(0,120).filter(([id, path]) =>
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(id) &&
+      typeof path === 'string' &&
+      /^\/media\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\.(?:jpg|png|webp)$/.test(path),
+    ),
+  );
+  return { ...copy, categoryArtwork,
     palette: row.palette === 'BURGUNDY' || row.palette === 'MIDNIGHT' ? row.palette : 'FOREST',
     motion: row.motion === 'OFF' ? 'OFF' : 'SUBTLE',
     artworkMode: row.artworkMode === 'FEATURED' ? 'FEATURED' :

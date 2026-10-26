@@ -1,4 +1,4 @@
-import { Injectable, InternalServerErrorException, Logger } from '@nestjs/common';
+import { Injectable, InternalServerErrorException, Logger, NotFoundException } from '@nestjs/common';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../database/prisma.service';
 import { ImageStorageService } from '../storage/image-storage.service';
@@ -45,6 +45,7 @@ export class FolioTemplateConfigService {
     const draft = normalizeFolioSettings({
       ...input,
       artworkAssetPath: current.artworkAssetPath,
+      categoryArtwork: current.categoryArtwork,
     });
     return this.persist(restaurantId, draft);
   }
@@ -86,6 +87,59 @@ export class FolioTemplateConfigService {
     }
     return next;
   }
+  /** A FOLIO-owned photo is removed only if no draft or published page references it. */
+  private async cleanupArtwork(path: string | null, draft: FolioTemplateSettings, published: FolioTemplateSettings) {
+    if (!path) return;
+    const referenced = [
+      draft.artworkAssetPath, published.artworkAssetPath,
+      ...Object.values(draft.categoryArtwork), ...Object.values(published.categoryArtwork),
+    ];
+    if (!referenced.includes(path)) await this.images.deleteImageBestEffort(path);
+  }
+
+  private async requireCategory(restaurantId: string, categoryId: string) {
+    const category = await this.prisma.category.findFirst({
+      where: { id: categoryId, restaurantId, status: 'ACTIVE' },
+      select: { id: true },
+    });
+    if (!category) throw new NotFoundException('Category is not available for this restaurant');
+  }
+
+  async setDraftCategoryArtwork(restaurantId: string, categoryId: string, buffer: Buffer, mimeType: string): Promise<FolioConfigView> {
+    await this.requireCategory(restaurantId, categoryId);
+    let saved: { assetPath: string };
+    try { saved = await this.images.saveImage(buffer, mimeType); }
+    catch (error) {
+      this.logger.error('FOLIO category artwork upload failed', error instanceof Error ? error.stack : String(error));
+      throw new InternalServerErrorException('Could not save FOLIO category artwork');
+    }
+    try {
+      const previous = this.view(await this.read(restaurantId));
+      const next = await this.persist(restaurantId, {
+        ...previous.draft,
+        categoryArtwork: { ...previous.draft.categoryArtwork, [categoryId]: saved.assetPath },
+      });
+      await this.cleanupArtwork(previous.draft.categoryArtwork[categoryId] ?? null, next.draft, next.published);
+      return next;
+    } catch (error) {
+      await this.images.deleteImageBestEffort(saved.assetPath);
+      throw error;
+    }
+  }
+
+  async resetDraftCategoryArtwork(restaurantId: string, categoryId: string): Promise<FolioConfigView> {
+    await this.requireCategory(restaurantId, categoryId);
+    const previous = this.view(await this.read(restaurantId));
+    const nextArtwork = { ...previous.draft.categoryArtwork };
+    const discarded = nextArtwork[categoryId] ?? null;
+    delete nextArtwork[categoryId];
+    const next = await this.persist(restaurantId, {
+      ...previous.draft, categoryArtwork: nextArtwork,
+    });
+    await this.cleanupArtwork(discarded, next.draft, next.published);
+    return next;
+  }
+
   async publish(restaurantId: string): Promise<FolioConfigView> {
     const old = this.view(await this.read(restaurantId));
     const published = old.draft;
@@ -103,6 +157,10 @@ export class FolioTemplateConfigService {
         old.published.artworkAssetPath !== old.draft.artworkAssetPath) {
       await this.images.deleteImageBestEffort(old.published.artworkAssetPath);
     }
-    return this.view(row);
+    const next = this.view(row);
+    for (const path of Object.values(old.published.categoryArtwork)) {
+      await this.cleanupArtwork(path, next.draft, next.published);
+    }
+    return next;
   }
 }

@@ -15,10 +15,11 @@ function setup() {
   const upsert = jest.fn();
   const saveImage = jest.fn();
   const deleteImageBestEffort = jest.fn();
-  const prisma = { restaurantTemplateConfig: { findUnique, upsert } } as unknown as PrismaService;
+  const findFirst = jest.fn();
+  const prisma = { restaurantTemplateConfig: { findUnique, upsert }, category: { findFirst } } as unknown as PrismaService;
   const images = { saveImage, deleteImageBestEffort } as unknown as ImageStorageService;
   const service = new FolioTemplateConfigService(prisma, images);
-  return { service, findUnique, upsert, saveImage, deleteImageBestEffort };
+  return { service, findUnique, findFirst, upsert, saveImage, deleteImageBestEffort };
 }
 
 describe('FOLIO premium draft and publication safety', () => {
@@ -92,6 +93,48 @@ describe('FOLIO premium draft and publication safety', () => {
     }));
     await h.service.resetDraftArtwork(restaurantId);
     expect(h.deleteImageBestEffort).not.toHaveBeenCalled();
+  });
+
+  it('allows an owned category to upload its own draft illustration without changing others', async () => {
+    const h = setup();
+    const categoryId = 'a0b1c2d3-1111-4222-8333-ffeeddccbbaa';
+    h.findFirst.mockResolvedValue({ id: categoryId });
+    h.saveImage.mockResolvedValue({ assetPath: replacement });
+    h.findUnique.mockResolvedValue({ draftSettings: DEFAULT_FOLIO_SETTINGS, publishedSettings: DEFAULT_FOLIO_SETTINGS });
+    h.upsert.mockImplementation(async (args: {update: {draftSettings: object}}) => ({
+      draftSettings: args.update.draftSettings, publishedSettings: DEFAULT_FOLIO_SETTINGS,
+    }));
+    const next = await h.service.setDraftCategoryArtwork(restaurantId, categoryId, Buffer.from('photo'), 'image/webp');
+    expect(next.draft.categoryArtwork[categoryId]).toBe(replacement);
+    expect(next.published.categoryArtwork).toEqual({});
+    expect(h.findFirst).toHaveBeenCalledWith(expect.objectContaining({
+      where: {id: categoryId, restaurantId, status: 'ACTIVE'},
+    }));
+  });
+
+  it('rejects an unknown or foreign category before storing a file', async () => {
+    const h = setup();
+    h.findFirst.mockResolvedValue(null);
+    await expect(h.service.setDraftCategoryArtwork(restaurantId,
+      'a0b1c2d3-1111-4222-8333-ffeeddccbbaa', Buffer.from('photo'),'image/webp'))
+      .rejects.toMatchObject({status: 404});
+    expect(h.saveImage).not.toHaveBeenCalled();
+  });
+
+  it('does not trust category artwork paths from a PATCH body', async () => {
+    const h = setup();
+    h.findUnique.mockResolvedValue({ draftSettings: {
+      ...DEFAULT_FOLIO_SETTINGS,
+      categoryArtwork: {'a0b1c2d3-1111-4222-8333-ffeeddccbbaa': original},
+    }});
+    h.upsert.mockImplementation(async (args:{update:{draftSettings:object}})=>({
+      draftSettings: args.update.draftSettings,publishedSettings: DEFAULT_FOLIO_SETTINGS,
+    }));
+    const result = await h.service.saveDraft(restaurantId,{
+      ...DEFAULT_FOLIO_SETTINGS,
+      categoryArtwork: {'a0b1c2d3-1111-4222-8333-ffeeddccbbaa': replacement},
+    });
+    expect(result.draft.categoryArtwork['a0b1c2d3-1111-4222-8333-ffeeddccbbaa']).toBe(original);
   });
 
   it('returns an error on image storage failure without writing a draft', async () => {
