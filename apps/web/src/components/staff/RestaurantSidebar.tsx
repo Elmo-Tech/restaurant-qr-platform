@@ -2,7 +2,6 @@ import type { ReactNode } from 'react';
 import Link from 'next/link';
 import type { RestaurantStatus } from '../../lib/auth/types';
 import {
-  IconClose,
   IconDashboard,
   IconKitchen,
   IconMenu,
@@ -73,8 +72,6 @@ interface RestaurantSidebarProps {
   canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
   canViewSubscription?: boolean;
-  isMobileOpen: boolean;
-  onCloseMobile: () => void;
 }
 
 const ICON_CLASS = 'h-[18px] w-[18px]';
@@ -428,10 +425,7 @@ export function RestaurantSidebar({
   canViewRestaurantSettings,
   canViewSubscription,
   user,
-  isMobileOpen,
-  onCloseMobile,
 }: RestaurantSidebarProps) {
-  const { t } = useStaffI18n();
   return (
     <>
       <aside className="hidden w-64 flex-shrink-0 lg:flex lg:flex-col">
@@ -453,44 +447,7 @@ export function RestaurantSidebar({
         />
       </aside>
 
-      {isMobileOpen ? (
-        <div className="fixed inset-0 z-40 lg:hidden">
-          <div
-            className="absolute inset-0 bg-foreground/30"
-            onClick={onCloseMobile}
-            aria-hidden="true"
-          />
-          <div className="absolute inset-y-0 start-0 flex w-72 max-w-[85vw] flex-col shadow-xl">
-            <div className="flex justify-end bg-sidebar px-3 pt-3">
-              <button
-                type="button"
-                onClick={onCloseMobile}
-                aria-label={t('shell.closeNavigation')}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-md text-sidebar-muted-foreground hover:bg-sidebar-surface hover:text-sidebar-foreground"
-              >
-                <IconClose className="h-5 w-5" />
-              </button>
-            </div>
-            <SidebarContent
-              user={user}
-              restaurantId={restaurantId}
-              restaurantName={restaurantName}
-              restaurantStatus={restaurantStatus}
-              restaurantLogoUrl={restaurantLogoUrl}
-              currentSection={currentSection}
-              canViewMenu={canViewMenu}
-              canViewTables={canViewTables}
-              canViewOrders={canViewOrders}
-              packageHides={packageHides}
-          canViewKitchen={canViewKitchen}
-              canViewStaff={canViewStaff}
-              canViewRestaurantSettings={canViewRestaurantSettings}
-              canViewSubscription={canViewSubscription}
-              onNavigate={onCloseMobile}
-            />
-          </div>
-        </div>
-      ) : null}
+
     </>
   );
 }

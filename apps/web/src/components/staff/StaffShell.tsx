@@ -1,10 +1,11 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { usePathname } from 'next/navigation';
 import type { RestaurantStatus } from '../../lib/auth/types';
 import { RestaurantSidebar, type PackageHides, type StaffSection } from './RestaurantSidebar';
 import { StaffTopbar } from './StaffTopbar';
+import { MobileNavigation } from './MobileNavigation';
 import { Breadcrumbs } from './Breadcrumbs';
 import { useStaffI18n } from '../../lib/i18n/client';
 
@@ -70,7 +71,7 @@ function resolveSection(pathname: string, restaurantId: string): StaffSection {
  * Restaurant workspace shell (UX-1, Section 3): sidebar + top bar + content
  * geometry shared by every `/staff/restaurants/[restaurantId]/...` page.
  * The one Client Component boundary needed for pathname-aware active
- * navigation/breadcrumbs and the mobile drawer's open/close state (Section
+ * navigation/breadcrumbs and the mobile app-style navigation (Section
  * 16 permits this narrowly) -- `children` is whatever Server Component page
  * the route already renders, completely unmodified.
  */
@@ -92,7 +93,6 @@ export function StaffShell({
 }: StaffShellProps) {
   const pathname = usePathname();
   const { t } = useStaffI18n();
-  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const section = resolveSection(pathname, restaurantId);
 
   const breadcrumbItems =
@@ -161,13 +161,13 @@ export function StaffShell({
           accountHref: `/staff/restaurants/${restaurantId}/account`,
           isAccountActive: section === 'account',
         }}
-        isMobileOpen={isMobileNavOpen}
-        onCloseMobile={() => setIsMobileNavOpen(false)}
       />
 
       <div className="flex min-w-0 max-w-full flex-1 flex-col">
         <StaffTopbar
-          onOpenMobileNav={() => setIsMobileNavOpen(true)}
+          restaurantName={restaurantName}
+          restaurantLogoUrl={restaurantLogoUrl}
+          currentPageLabel={breadcrumbItems[breadcrumbItems.length - 1].label}
           breadcrumb={<Breadcrumbs items={breadcrumbItems} />}
         />
         {/* UX-2 geometry fix: no `mx-auto` -- centering a capped max-width
@@ -176,9 +176,25 @@ export function StaffShell({
             left gutter on wide viewports. Left-anchored with a generous
             (not huge) max-width instead: content starts right after the
             page gutter, and only stops growing on very large monitors. */}
-        <main className="w-full min-w-0 max-w-[1600px] flex-1 px-4 py-6 sm:px-8 lg:px-10">
+        <main className="w-full min-w-0 max-w-[1600px] flex-1 px-4 pt-4 pb-[calc(7rem+env(safe-area-inset-bottom))] sm:px-8 sm:pt-6 lg:px-10 lg:pb-6">
           {children}
         </main>
+        <MobileNavigation
+          restaurantId={restaurantId}
+          restaurantName={restaurantName}
+          restaurantLogoUrl={restaurantLogoUrl}
+          userEmail={userEmail}
+          access={{
+            canViewMenu,
+            canViewOrders,
+            canViewTables,
+            canViewKitchen,
+            canViewStaff,
+            canViewRestaurantSettings,
+            canViewSubscription,
+            packageHides,
+          }}
+        />
       </div>
     </div>
   );
