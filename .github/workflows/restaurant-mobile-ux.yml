@@ -23,6 +23,8 @@ jobs:
         run: node --experimental-strip-types --test apps/web/src/lib/staff/mobile-navigation.test.mjs
       - name: Check responsive UX integration
         run: node --test apps/web/src/lib/staff/mobile-navigation.contract.test.mjs
+      - name: Verify dev session doctor script
+        run: node --check scripts/dev-session-doctor.mjs
       - name: Typecheck web
         run: npm run typecheck:web
       # The pre-existing full-repo lint has errors in GuestHeroBloom,
