@@ -1673,10 +1673,6 @@ html:has([data-guest-theme="light"]) {
   --g-on-accent: #152630; --g-accent-text: #f0d6ae;
   background: radial-gradient(ellipse at 14% 16%, #4464795a, transparent 54%), var(--g-bg);
 }
-[data-guest-theme='dark'] .folio-experience {
-  /* The reference is dark by default; darker ambient lighting respects the guest toggle. */
-  --g-surface: #202c26; --g-surface-2: #2b3c32;
-}
 /* The real guest theme toggle affects FOLIO, not just other templates. */
 [data-guest-theme='light'] .folio-experience {
   --folio-ink:#283629; --folio-gold:#806337; --folio-outline:#b3a17e;
@@ -1707,6 +1703,16 @@ html:has([data-guest-theme="light"]) {
 [data-guest-theme='light'] .folio-v2-cover button {background:#dfc58c;color:#273729;}
 [data-guest-theme='light'] .folio-v2-mode {background:var(--g-surface);}
 [data-guest-theme='light'] .folio-v2-item-add {color:#72502c;}
+[data-guest-theme='light'] .folio-v2-chapters button.active {
+  background:var(--g-accent);color:var(--g-on-accent);border-color:var(--g-accent);
+}
+[data-guest-theme='light'] .folio-v2-notices>summary>span {
+  background:var(--g-accent);color:var(--g-on-accent);
+}
+[data-guest-theme='light'] .folio-v2-chapters button:hover:not(.active) {
+  background:var(--g-surface-2);
+}
+
 .folio-v2-display { font-family: var(--font-bloom-display), var(--font-bloom-arabic), Georgia,serif; font-weight: 500; }
 .folio-v2-wrap { padding-bottom: 35px; }
 .folio-v2-notices { position:relative; z-index:44; }
