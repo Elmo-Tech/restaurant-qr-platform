@@ -25,6 +25,20 @@ jobs:
         run: node --test apps/web/src/lib/staff/mobile-navigation.contract.test.mjs
       - name: Verify dev session doctor script
         run: node --check scripts/dev-session-doctor.mjs
+      - name: Parse Windows PowerShell launchers
+        shell: pwsh
+        run: |
+          foreach ($file in @('start-dev.ps1', 'stop-dev.ps1')) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $file).Path, [ref]$null, [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+            }
+            Write-Host "PowerShell syntax OK: $file"
+          }
       - name: Typecheck web
         run: npm run typecheck:web
       # The pre-existing full-repo lint has errors in GuestHeroBloom,
