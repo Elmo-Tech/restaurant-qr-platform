@@ -47,7 +47,8 @@ test('FOLIO ships responsive mobile book, sticky navigation and motion control',
 test('FOLIO uses no infinite announcement ticker and no hidden-mobile artwork', () => {
   assert.match(component, /p\.announcements\.map/);
   assert.doesNotMatch(component, /<AnnouncementBar/);
-  assert.match(component, /categoryArtwork\[category\.id\]/);
+  assert.match(component, /pickFolioArtwork\(settings, spread\?\.category/);
+  assert.match(appearance, /settings\.categoryArtwork\[category\.id\]/);
   assert.match(component, /spread\.category\.name/);
   assert.match(component, /folio-v2-inline-art/);
   assert.match(component, /\{opened \? <>/);
