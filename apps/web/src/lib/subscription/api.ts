@@ -79,6 +79,9 @@ export interface MySubscription {
     totalPremium: number;
   };
   subscription: PlanSubscription | null;
+  /** All ACTIVE catalogue packages other than the current, including lower tiers. */
+  comparisonPlans?: UpgradeOption[];
+  /** Only eligible upgrade targets; never used to hide plans in comparisons. */
   upgrades: UpgradeOption[];
   openRequest: OpenRequest | null;
 }

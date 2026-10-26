@@ -24,37 +24,39 @@ export interface UpgradeCandidate<P extends PackageForOptions> {
   moreTemplates: boolean;
 }
 
-export function upgradeCandidates<P extends PackageForOptions>(input: {
+export interface CandidateInput<P extends PackageForOptions> {
   currentPackageId: string | null;
-  /** The features the Restaurant effectively has today (package, overrides and defaults applied). */
   effective: Readonly<Record<FeatureKey, boolean>>;
-  /** How many templates the Restaurant may use now. */
   currentTemplateCount: number;
-  /** How many premium templates it may use now. */
   currentPremiumCount?: number;
   packages: readonly P[];
-}): UpgradeCandidate<P>[] {
-  return (
-    input.packages
-      .filter(
-        (pkg) => pkg.status === 'ACTIVE' && pkg.id !== input.currentPackageId,
-      )
-      .map((pkg) => ({
-        pkg,
-        adds: FEATURE_KEYS.filter(
-          (key) => pkg.features.includes(key) && !input.effective[key],
-        ),
-        moreTemplates:
-          pkg.templateCount > input.currentTemplateCount ||
-          (pkg.templatePremium ?? 0) > (input.currentPremiumCount ?? 0),
-      }))
-      // a package is worth offering when it adds a feature or more templates
-      .filter(
-        (candidate) => candidate.adds.length > 0 || candidate.moreTemplates,
-      )
-      .sort(
-        (a, b) =>
-          a.adds.length - b.adds.length || a.pkg.name.localeCompare(b.pkg.name),
-      )
+}
+
+/** All ACTIVE packages other than the current one, including less expensive tiers. */
+export function comparisonCandidates<P extends PackageForOptions>(
+  input: CandidateInput<P>,
+): UpgradeCandidate<P>[] {
+  return input.packages
+    .filter((pkg) => pkg.status === 'ACTIVE' && pkg.id !== input.currentPackageId)
+    .map((pkg) => ({
+      pkg,
+      adds: FEATURE_KEYS.filter((key) =>
+        pkg.features.includes(key) && !input.effective[key],
+      ),
+      moreTemplates:
+        pkg.templateCount > input.currentTemplateCount ||
+        (pkg.templatePremium ?? 0) > (input.currentPremiumCount ?? 0),
+    }))
+    .sort((a, b) =>
+      a.adds.length - b.adds.length || a.pkg.name.localeCompare(b.pkg.name),
+    );
+}
+
+/** Upgrade requests, unlike comparisons, must only offer an actual improvement. */
+export function upgradeCandidates<P extends PackageForOptions>(
+  input: CandidateInput<P>,
+): UpgradeCandidate<P>[] {
+  return comparisonCandidates(input).filter(
+    (candidate) => candidate.adds.length > 0 || candidate.moreTemplates,
   );
 }

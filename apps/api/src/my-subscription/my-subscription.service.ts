@@ -33,7 +33,7 @@ import {
   type PackageTemplateRule,
 } from '../entitlements/templates';
 import { PlatformAuditService } from '../platform/platform-audit.service';
-import { upgradeCandidates } from './plan-options';
+import { comparisonCandidates, upgradeCandidates } from './plan-options';
 import { cataloguePricing, type CataloguePriceView } from './catalog-pricing';
 
 export interface PlanSubscriptionView {
@@ -92,6 +92,9 @@ export interface MySubscriptionView {
     totalPremium: number;
   };
   subscription: PlanSubscriptionView | null;
+  /** All ACTIVE catalogue packages other than the current plan, including lower tiers. */
+  comparisonPlans: UpgradeOptionView[];
+  /** Only plans that add features or eligible templates. */
   upgrades: UpgradeOptionView[];
   openRequest: OpenRequestView | null;
 }
@@ -272,31 +275,34 @@ export class MySubscriptionService {
         templates: { select: { template: true } },
       },
     });
-    const upgrades = upgradeCandidates({
+    const enrichedPackages = packages.map((pkg) => {
+      const rule: PackageTemplateRule = {
+        includesFeature: pkg.features.some((f) => f.feature === 'MENU_TEMPLATES'),
+        all: pkg.allTemplates,
+        allStandard: pkg.allStandardTemplates,
+        selected: pkg.templates.map((t) => t.template),
+      };
+      const templateTiers = templateTierCountsOf(rule);
+      return {
+        ...pkg,
+        features: FEATURE_KEYS.filter((key) => pkg.features.some((f) => f.feature === key)),
+        templateCount: templateCountOf(rule),
+        templateTiers,
+        templatePremium: templateTiers.premium,
+      };
+    });
+    const candidateInput = {
       currentPackageId: restaurant.packageId,
       effective,
       currentTemplateCount: currentTemplates.length,
       currentPremiumCount: tierCounts(currentTemplates).premium,
-      packages: packages.map((pkg) => {
-        const rule: PackageTemplateRule = {
-          includesFeature: pkg.features.some(
-            (f) => f.feature === 'MENU_TEMPLATES',
-          ),
-          all: pkg.allTemplates,
-          allStandard: pkg.allStandardTemplates,
-          selected: pkg.templates.map((t) => t.template),
-        };
-        return {
-          ...pkg,
-          features: FEATURE_KEYS.filter((key) =>
-            pkg.features.some((f) => f.feature === key),
-          ),
-          templateCount: templateCountOf(rule),
-          templateTiers: templateTierCountsOf(rule),
-          templatePremium: templateTierCountsOf(rule).premium,
-        };
-      }),
-    }).map(({ pkg, adds }): UpgradeOptionView => {
+      packages: enrichedPackages,
+    };
+    const toView = (candidate: {
+      pkg: (typeof enrichedPackages)[number];
+      adds: FeatureKey[];
+    }): UpgradeOptionView => {
+      const { pkg, adds } = candidate;
       return {
         id: pkg.id,
         name: pkg.name,
@@ -308,7 +314,19 @@ export class MySubscriptionService {
         templatePremium: pkg.templateTiers.premium,
         ...cataloguePricing(pkg, currency, today),
       };
-    });
+    };
+    // A genuine comparison includes all ACTIVE plans, not only requested upgrades.
+    // Order from least to most expensive using public catalogue prices.
+    const comparisonPlans = comparisonCandidates(candidateInput)
+      .map(toView)
+      .sort((a, b) => {
+        const amount = (plan: UpgradeOptionView) => Number(
+          plan.discountedMonthly ?? plan.priceMonthly ??
+          plan.discountedYearly ?? plan.priceYearly ?? Number.MAX_SAFE_INTEGER,
+        );
+        return amount(a) - amount(b) || a.name.localeCompare(b.name);
+      });
+    const upgrades = upgradeCandidates(candidateInput).map(toView);
 
     return {
       billingCurrency: currency,
@@ -328,6 +346,7 @@ export class MySubscriptionService {
         totalPremium: PREMIUM_TEMPLATE_KEYS.length,
       },
       subscription,
+      comparisonPlans,
       upgrades,
       openRequest: restaurant.subscriptionRequests[0]
         ? toOpenView(restaurant.subscriptionRequests[0])

@@ -22,4 +22,4 @@ jobs:
       - run: node --test apps/web/src/lib/public-menu/mobile-ux.contract.test.mjs
       - run: node --test apps/web/src/lib/public-menu/editorial-price-display.contract.test.mjs
       - run: node --test apps/web/src/lib/public-menu/brew-contract.test.mjs
-      - run: npm run test --workspace=apps/api -- --runInBand catalog-pricing.spec.ts editorial-template-config.spec.ts public-menu.service.spec.ts templates.spec.ts
+      - run: npm run test --workspace=apps/api -- --runInBand catalog-pricing.spec.ts plan-options.spec.ts my-subscription.view.spec.ts editorial-template-config.spec.ts public-menu.service.spec.ts templates.spec.ts

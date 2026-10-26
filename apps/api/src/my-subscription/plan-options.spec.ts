@@ -1,5 +1,5 @@
 import { resolveFeatures } from '../entitlements/features';
-import { upgradeCandidates, type PackageForOptions } from './plan-options';
+import { comparisonCandidates, upgradeCandidates, type PackageForOptions } from './plan-options';
 
 const pkg = (
   id: string,
@@ -35,6 +35,20 @@ describe('upgradeCandidates (DEC-050)', () => {
       'ORDER_TRACKING',
       'DASHBOARD_ORDERING',
     ]);
+  });
+
+
+  it('compares BASIC with a restaurant on PLUS while never offering BASIC as an upgrade', () => {
+    const input = {
+      currentPackageId: 'PLUS',
+      effective: effectiveFor(['MENU_TEMPLATES', 'WHATSAPP_ORDERING']),
+      currentTemplateCount: 1,
+      packages: [pro, plus, basic, pkg('LEGACY', ['MENU_TEMPLATES'], 'ARCHIVED')],
+    };
+    const visible = comparisonCandidates(input);
+    expect(visible.map(({ pkg }) => pkg.id)).toEqual(['BASIC', 'PRO']);
+    expect(visible[0].adds).toEqual([]);
+    expect(upgradeCandidates(input).map(({ pkg }) => pkg.id)).toEqual(['PRO']);
   });
 
   it('never offers the package the restaurant is on', () => {

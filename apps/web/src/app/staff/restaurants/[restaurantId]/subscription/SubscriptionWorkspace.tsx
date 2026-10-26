@@ -465,7 +465,9 @@ function ComparePlans({
   const { t } = useStaffI18n();
   const [mobilePlanIndex, setMobilePlanIndex] = useState(0);
   const has = (key: PlanFeatureKey) => data.features.find((f) => f.key === key)?.included ?? false;
-  const options = data.upgrades;
+  const options = data.comparisonPlans ?? data.upgrades;
+  const upgradeIds = new Set(data.upgrades.map((item) => item.id));
+  const firstUpgradeId = data.upgrades[0]?.id;
   const currentName = data.subscription?.packageName ?? data.package?.name ?? t('subscription.compare.yourPlan');
   const selectedOption = mobilePlanIndex > 0 ? options[mobilePlanIndex - 1] ?? null : null;
   const activeFeature = (key: PlanFeatureKey) => selectedOption ? selectedOption.features.includes(key) : has(key);
@@ -520,11 +522,11 @@ function ComparePlans({
         </div>
         <div role="tabpanel" className="min-w-0 overflow-hidden rounded-xl border border-border bg-muted/20">
           <div className="border-b border-border bg-card p-4">
-            {selectedOption ? (
-              <p className="mb-1 text-xs font-semibold text-primary">{t('subscription.compare.nextStep')}</p>
-            ) : (
-              <p className="mb-1 text-xs font-semibold text-primary">{t('subscription.compare.yourPlan')}</p>
-            )}
+            <p className="mb-1 text-xs font-semibold text-primary">
+              {selectedOption
+                ? t(upgradeIds.has(selectedOption.id) ? 'subscription.compare.availableUpgrade' : 'subscription.compare.compareOnly')
+                : t('subscription.compare.yourPlan')}
+            </p>
             <h4 className="text-xl font-bold text-foreground">{selectedOption?.name??currentName}</h4>
             <PlanPrice pricing={selectedOption??data.currentPricing} currency={data.billingCurrency}
               money={money} numberFmt={numberFmt} day={day}
@@ -557,7 +559,7 @@ function ComparePlans({
               );
             })}
           </div>
-          {selectedOption&&onRequest?(
+          {selectedOption&&onRequest&&upgradeIds.has(selectedOption.id)?(
             <div className="border-t border-border bg-card p-4">
               <Button className="w-full" onClick={()=>onRequest(selectedOption)}>
                 {t('subscription.upgrade.request')}
@@ -585,11 +587,15 @@ function ComparePlans({
                   money={money} numberFmt={numberFmt} day={day}
                   fallbackSubscription={data.subscription}/>
               </th>
-              {options.map((option, index) => (
+              {options.map((option) => (
                 <th key={option.id} scope="col" className="min-w-[170px] border-t-2 border-transparent px-4 pb-4 pt-5 text-start align-top">
-                  {index === 0 ? (
+                  {option.id === firstUpgradeId ? (
                     <span className="inline-block whitespace-nowrap rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-foreground">
                       {t('subscription.compare.nextStep')}
+                    </span>
+                  ) : !upgradeIds.has(option.id) ? (
+                    <span className="inline-block rounded-full bg-muted px-2.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
+                      {t('subscription.compare.compareOnly')}
                     </span>
                   ) : (
                     <span className="inline-block h-[18px]" />
@@ -648,11 +654,17 @@ function ComparePlans({
               <tr>
                 <td className="sticky start-0 z-10 border-t border-border bg-card" />
                 <td className="border-t border-border bg-primary/5" />
-                {options.map((option, index) => (
+                {options.map((option) => (
                   <td key={option.id} className="border-t border-border px-4 py-4">
-                    <Button variant={index === 0 ? 'primary' : 'secondary'} className="w-full" onClick={() => onRequest(option)}>
-                      {t('subscription.upgrade.request')}
-                    </Button>
+                    {upgradeIds.has(option.id) ? (
+                      <Button variant={option.id === firstUpgradeId ? 'primary' : 'secondary'} className="w-full" onClick={() => onRequest(option)}>
+                        {t('subscription.upgrade.request')}
+                      </Button>
+                    ) : (
+                      <span className="block py-2 text-center text-xs text-muted-foreground">
+                        {t('subscription.compare.compareOnly')}
+                      </span>
+                    )}
                   </td>
                 ))}
               </tr>
