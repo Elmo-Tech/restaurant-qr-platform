@@ -167,10 +167,14 @@ export function FolioExperience(p: FolioExperienceProps) {
   const category = spread?.category;
   const categoryPhoto = category?.products.find(item => item.featured && item.primaryImageAssetPath)
     ?.primaryImageAssetPath ?? category?.products.find(item => item.primaryImageAssetPath)?.primaryImageAssetPath ?? null;
-  const globalFallback = settings.artworkMode === 'CUSTOM' ? settings.artworkAssetPath : null;
+  // The global artwork mode remains meaningful. Category photos always win;
+  // FEATURED uses a real item photo, CUSTOM uses the uploaded fallback, and
+  // ILLUSTRATION retains the original plate when a chapter has no own photo.
+  const defaultArtwork = settings.artworkMode === 'FEATURED' ? categoryPhoto
+    : settings.artworkMode === 'CUSTOM' ? settings.artworkAssetPath : null;
   const chosenArtwork = category
-    ? settings.categoryArtwork[category.id] ?? category.imageAssetPath ?? categoryPhoto ?? globalFallback
-    : globalFallback;
+    ? settings.categoryArtwork[category.id] ?? category.imageAssetPath ?? defaultArtwork
+    : defaultArtwork;
   const imageUrl = resolveAssetUrl(chosenArtwork);
 
   useEffect(() => { setPhotoFailed(false); }, [imageUrl]);
