@@ -1,0 +1,29 @@
+name: Restaurant Mobile UX Checks
+
+on:
+  push:
+    branches:
+      - feat/restaurant-mobile-ux
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  mobile-ux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Verify mobile navigation and entitlement combinations
+        run: node --experimental-strip-types --test apps/web/src/lib/staff/mobile-navigation.test.mjs
+      - name: Check responsive UX integration
+        run: node --test apps/web/src/lib/staff/mobile-navigation.contract.test.mjs
+      - name: Typecheck web
+        run: npm run typecheck:web
+      - name: Lint web
+        run: npm run lint:web
