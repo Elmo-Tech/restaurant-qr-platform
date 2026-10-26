@@ -100,7 +100,12 @@ Write-Host 'PostgreSQL: ready (port 5432)'
 
 # Pending database migrations (a no-op when there are none)
 Push-Location (Join-Path $root 'apps\api')
-try { & npx prisma migrate deploy | Out-Host } finally { Pop-Location }
+try {
+  & npx prisma migrate deploy | Out-Host
+  if ($LASTEXITCODE -ne 0) {
+    throw 'Database migration failed. Cannot start the API against a possibly outdated schema. Check Prisma/PostgreSQL logs.'
+  }
+} finally { Pop-Location }
 
 # 3. API
 function Test-ApiReady {
@@ -112,7 +117,12 @@ function Test-ApiReady {
 if ($Rebuild -or -not (Test-Path (Join-Path $root 'apps\api\dist\main.js'))) {
   Write-Host 'Building the API...'
   Push-Location $root
-  try { & npm run build:api } finally { Pop-Location }
+  try {
+    & npm run build:api
+    if ($LASTEXITCODE -ne 0) {
+      throw 'API build failed. Refusing to start a stale dist/main.js. Fix the build errors first.'
+    }
+  } finally { Pop-Location }
 }
 if (-not (Test-Port $apiPort)) {
   Write-Host "Starting the API on port $apiPort..."
