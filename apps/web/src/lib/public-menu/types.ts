@@ -2,6 +2,7 @@ import type { RestaurantContact } from '../contact/types';
 import type { EmberTemplateSettings } from './ember-settings';
 import type { BloomTemplateSettings } from './bloom-settings';
 import type { BrewTemplateSettings } from './brew-settings';
+import type { FolioTemplateSettings } from './folio-settings';
 import type { EditorialTemplateSettings } from './editorial-settings';
 
 /** Mirrors the Backend's public Guest Menu response shape exactly (FT-3) -- never a Staff `menu/types.ts` type, since the public payload's shape (flattened, already-resolved names/descriptions, no translation rows) is genuinely different. */
@@ -40,6 +41,7 @@ export interface PublicMenuContext {
     /** Real restaurant's published BLOOM appearance; preview overrides never stored here. */
     bloomSettings?: BloomTemplateSettings;
     brewSettings?: BrewTemplateSettings;
+    folioSettings?: FolioTemplateSettings;
     /** Only the published Editorial display preference, not a Staff preview. */
     editorialSettings?: EditorialTemplateSettings;
     /** Contact details for the Guest Menu; a field is null when not set. */

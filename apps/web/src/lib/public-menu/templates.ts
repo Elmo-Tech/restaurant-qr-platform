@@ -27,6 +27,7 @@ export const MENU_TEMPLATES = [
   'ember',
   'bloom',
   'brew',
+  'folio',
 ] as const;
 
 export type MenuTemplate = (typeof MENU_TEMPLATES)[number];
@@ -39,13 +40,13 @@ export const DEFAULT_MENU_TEMPLATE: MenuTemplate = 'classic';
 /** The building blocks a template is made of. Each component reads the one choice that is its own. */
 export interface TemplateLayout {
   /** The header at the top of the menu. */
-  hero: 'classic' | 'floating' | 'centered' | 'compact' | 'editorial' | 'ember' | 'bloom' | 'brew';
+  hero: 'classic' | 'floating' | 'centered' | 'compact' | 'editorial' | 'ember' | 'bloom' | 'brew' | 'folio';
   /** The product card. `tile-dense` is the two-column phone grid. */
-  cards: 'classic' | 'row' | 'tile' | 'tile-dense' | 'line' | 'editorial' | 'ember' | 'bloom' | 'brew';
+  cards: 'classic' | 'row' | 'tile' | 'tile-dense' | 'line' | 'editorial' | 'ember' | 'bloom' | 'brew' | 'folio';
   /** Category headings: a saffron bar at the start, or centred between two thin rules. */
   headings: 'bar' | 'centered' | 'editorial';
   /** The category strip: pills, squarer chips, or underlined text tabs. */
-  chips: 'pill' | 'square' | 'tabs' | 'ember' | 'bloom' | 'brew';
+  chips: 'pill' | 'square' | 'tabs' | 'ember' | 'bloom' | 'brew' | 'folio';
   /** False = no product photo anywhere (cards, cart, product page, featured banners). */
   photos: boolean;
   /** Show the "Our picks" photo banners above the menu (they need photos, and push the menu down). */
@@ -63,6 +64,7 @@ const LAYOUTS: Record<MenuTemplate, TemplateLayout> = {
   ember: { hero: 'ember', cards: 'ember', headings: 'bar', chips: 'ember', photos: true, featured: false },
   bloom: { hero: 'bloom', cards: 'bloom', headings: 'bar', chips: 'bloom', photos: true, featured: false },
   brew: { hero: 'brew', cards: 'brew', headings: 'bar', chips: 'brew', photos: false, featured: false },
+  folio: { hero: 'folio', cards: 'folio', headings: 'centered', chips: 'folio', photos: true, featured: false },
   editorial: {
     hero: 'editorial',
     cards: 'editorial',
