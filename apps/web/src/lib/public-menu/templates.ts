@@ -42,11 +42,11 @@ export interface TemplateLayout {
   /** The header at the top of the menu. */
   hero: 'classic' | 'floating' | 'centered' | 'compact' | 'editorial' | 'ember' | 'bloom' | 'brew' | 'folio';
   /** The product card. `tile-dense` is the two-column phone grid. */
-  cards: 'classic' | 'row' | 'tile' | 'tile-dense' | 'line' | 'editorial' | 'ember' | 'bloom' | 'brew' | 'folio';
+  cards: 'classic' | 'row' | 'tile' | 'tile-dense' | 'line' | 'editorial' | 'ember' | 'bloom' | 'brew';
   /** Category headings: a saffron bar at the start, or centred between two thin rules. */
   headings: 'bar' | 'centered' | 'editorial';
   /** The category strip: pills, squarer chips, or underlined text tabs. */
-  chips: 'pill' | 'square' | 'tabs' | 'ember' | 'bloom' | 'brew' | 'folio';
+  chips: 'pill' | 'square' | 'tabs' | 'ember' | 'bloom' | 'brew';
   /** False = no product photo anywhere (cards, cart, product page, featured banners). */
   photos: boolean;
   /** Show the "Our picks" photo banners above the menu (they need photos, and push the menu down). */
