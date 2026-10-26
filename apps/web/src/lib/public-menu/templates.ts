@@ -64,7 +64,8 @@ const LAYOUTS: Record<MenuTemplate, TemplateLayout> = {
   ember: { hero: 'ember', cards: 'ember', headings: 'bar', chips: 'ember', photos: true, featured: false },
   bloom: { hero: 'bloom', cards: 'bloom', headings: 'bar', chips: 'bloom', photos: true, featured: false },
   brew: { hero: 'brew', cards: 'brew', headings: 'bar', chips: 'brew', photos: false, featured: false },
-  folio: { hero: 'folio', cards: 'folio', headings: 'centered', chips: 'folio', photos: true, featured: false },
+  // FOLIO renders a dedicated book in PublicMenuView, keeping shared cart and checkout.
+  folio: { hero: 'folio', cards: 'line', headings: 'centered', chips: 'tabs', photos: true, featured: false },
   editorial: {
     hero: 'editorial',
     cards: 'editorial',
