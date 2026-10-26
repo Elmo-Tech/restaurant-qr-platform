@@ -150,6 +150,7 @@ export function FolioExperience(p: FolioExperienceProps) {
   const [animation, setAnimation] = useState<'next' | 'prev' | null>(null);
   const [photoFailed, setPhotoFailed] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const swipeStart = useRef<{ x: number; y: number } | null>(null);
   const chapterRefs = useRef(new Map<string, HTMLButtonElement>());
   const spreads = useMemo(() => paginateFolio(p.categories), [p.categories]);
   const index = Math.max(0, Math.min(spreadIndex, spreads.length - 1));
@@ -203,7 +204,7 @@ export function FolioExperience(p: FolioExperienceProps) {
   const isSearching = p.query.trim().length > 0;
 
   return (
-    <div className="folio-v2-wrap">
+    <div className="folio-v2-wrap" data-has-cart={p.cartCount > 0 && p.canOrder ? 'true' : undefined}>
       <header ref={p.sentinelRef} className="folio-v2-header">
         <nav aria-label={p.restaurantName} className="folio-v2-topnav">
           <div className="folio-v2-brand">
@@ -258,7 +259,25 @@ export function FolioExperience(p: FolioExperienceProps) {
       </nav>}
 
       <main className="folio-v2-deck" ref={menuRef} id="folio-menu-start">
-        <div className={'folio-v2-book' + (opened ? ' is-open' : '')}>
+        <div className={'folio-v2-book' + (opened ? ' is-open' : '')}
+          onTouchStart={event => {
+            // Don't hijack a tap or product action. Swiping the paper itself turns a page.
+            if (!opened || (event.target as HTMLElement).closest('button, input, select, a')) return;
+            const point = event.changedTouches[0];
+            if (point) swipeStart.current = { x: point.clientX, y: point.clientY };
+          }}
+          onTouchEnd={event => {
+            const initial = swipeStart.current;
+            swipeStart.current = null;
+            const point = event.changedTouches[0];
+            if (!initial || !point || !opened) return;
+            const dx = point.clientX - initial.x;
+            const dy = point.clientY - initial.y;
+            if (Math.abs(dx) >= 70 && Math.abs(dx) > Math.abs(dy) * 1.6) {
+              navigate(index + (dx < 0 ? 1 : -1));
+            }
+          }}
+        >
           <article className="folio-v2-page folio-v2-artpage" aria-label={footer}>
             <span className="folio-v2-kicker">{p.restaurantName} / SIGNATURE</span>
             <div className="folio-v2-artframe">

@@ -39,6 +39,9 @@ test('FOLIO ships responsive mobile book, sticky navigation and motion control',
   assert.match(css, /data-folio-motion='OFF'/);
   assert.match(component, /onClick=\{\(\) => jumpToCategory\(category\.id\)\}/);
   assert.match(component, /ref=\{menuRef\}/);
+  assert.match(component, /onTouchStart/);
+  assert.match(component, /onTouchEnd/);
+  assert.match(css, /data-has-cart='true'/);
 });
 
 test('appearance stays typed and draft-only until published', () => {

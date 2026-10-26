@@ -1682,6 +1682,7 @@ html:has([data-guest-theme="light"]) {
 }
 .folio-v2-display { font-family: var(--font-bloom-display), var(--font-bloom-arabic), Georgia,serif; font-weight: 500; }
 .folio-v2-wrap { padding-bottom: 35px; }
+.folio-v2-wrap[data-has-cart='true'] { padding-bottom: 155px; }
 .folio-v2-header { margin: auto; max-width: 1200px; padding: 22px 28px 6px; }
 .folio-v2-topnav { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 48px; }
 .folio-v2-brand { display: inline-flex; align-items: center; gap: 13px; min-width: 0; }
@@ -1836,7 +1837,7 @@ html:has([data-guest-theme="light"]) {
   .folio-v2-intro h1 {font-size:clamp(38px,10vw,55px);line-height:1.05;}
   .folio-v2-tools {margin-top:6px;}
   .folio-v2-deck {padding:14px 12px 0;scroll-margin-top:115px;}
-  .folio-v2-book {display:block;min-height:545px;filter:drop-shadow(3px 12px 13px #0008);}
+  .folio-v2-book {display:block;min-height:545px;filter:drop-shadow(3px 12px 13px #0008);touch-action:pan-y;}
   .folio-v2-book:before,.folio-v2-artpage {display:none;}
   .folio-v2-menupage {min-height:545px;width:100%;border-radius:5px;
     padding:28px 22px 34px;background:linear-gradient(105deg,#e5d3b6,#f7efd9 10%,#f3e9cf);}
