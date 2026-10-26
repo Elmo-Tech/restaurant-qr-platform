@@ -21,3 +21,4 @@ jobs:
       - run: npm run typecheck:platform
       - run: npm run test --workspace=apps/api -- --runInBand folio-template-config.spec.ts folio-template-config.service.spec.ts templates.spec.ts
       - run: node --test apps/web/src/lib/public-menu/folio-contract.test.mjs
+      - run: node --experimental-strip-types --test apps/web/src/lib/public-menu/folio-artwork.test.mjs

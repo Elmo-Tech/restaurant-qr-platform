@@ -65,6 +65,30 @@ export function normalizeFolioTemplateConfigView(raw: unknown): FolioTemplateCon
     published: normalizeFolioTemplateSettings(row.published),
   };
 }
+/**
+ * Pure book artwork resolution, tested across chapters and media modes.
+ * A FOLIO-only override wins; otherwise the original category photo wins.
+ * A globally configured image is only a fallback, never shared blindly across
+ * every category at the expense of its own photo.
+ */
+export function pickFolioArtwork(
+  settings: FolioTemplateSettings,
+  category: {
+    id: string;
+    imageAssetPath: string | null;
+    products: { featured: boolean; primaryImageAssetPath: string | null }[];
+  } | null,
+): string | null {
+  const featured = category?.products.find(item => item.featured && item.primaryImageAssetPath)
+    ?.primaryImageAssetPath ?? category?.products.find(item => item.primaryImageAssetPath)
+    ?.primaryImageAssetPath ?? null;
+  const fallback = settings.artworkMode === 'FEATURED' ? featured
+    : settings.artworkMode === 'CUSTOM' ? settings.artworkAssetPath : null;
+  return category
+    ? settings.categoryArtwork[category.id] ?? category.imageAssetPath ?? fallback
+    : fallback;
+}
+
 export const FOLIO_DESIGN_PREVIEW_READY = 'wayta:folio-preview:ready:v1';
 export const FOLIO_DESIGN_PREVIEW_UPDATE = 'wayta:folio-preview:update:v1';
 export function isFolioPreviewUpdate(value: unknown): value is {

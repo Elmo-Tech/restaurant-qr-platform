@@ -5,7 +5,7 @@ import { Price } from '../../../components/guest/Price';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import { toMinorUnits } from '../../../lib/public-menu/money';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
-import type { FolioTemplateSettings } from '../../../lib/public-menu/folio-settings';
+import { pickFolioArtwork, type FolioTemplateSettings } from '../../../lib/public-menu/folio-settings';
 import type { PublicMenuCategory, PublicMenuProduct, PublicAnnouncement } from '../../../lib/public-menu/types';
 import { HeroActions, LanguageSwitch } from './GuestHero';
 
@@ -162,20 +162,8 @@ export function FolioExperience(p: FolioExperienceProps) {
   const coverTagline = ar ? settings.coverTaglineAr : settings.coverTaglineEn;
   const coverCta = ar ? settings.coverCtaAr : settings.coverCtaEn;
   const footer = ar ? settings.pageFooterAr : settings.pageFooterEn;
-  // Each chapter owns its image. Priority: FOLIO override, regular category
-  // image, this category's product photo, then global fallback/illustration.
+  const imageUrl = resolveAssetUrl(pickFolioArtwork(settings, spread?.category ?? null));
   const category = spread?.category;
-  const categoryPhoto = category?.products.find(item => item.featured && item.primaryImageAssetPath)
-    ?.primaryImageAssetPath ?? category?.products.find(item => item.primaryImageAssetPath)?.primaryImageAssetPath ?? null;
-  // The global artwork mode remains meaningful. Category photos always win;
-  // FEATURED uses a real item photo, CUSTOM uses the uploaded fallback, and
-  // ILLUSTRATION retains the original plate when a chapter has no own photo.
-  const defaultArtwork = settings.artworkMode === 'FEATURED' ? categoryPhoto
-    : settings.artworkMode === 'CUSTOM' ? settings.artworkAssetPath : null;
-  const chosenArtwork = category
-    ? settings.categoryArtwork[category.id] ?? category.imageAssetPath ?? defaultArtwork
-    : defaultArtwork;
-  const imageUrl = resolveAssetUrl(chosenArtwork);
 
   useEffect(() => { setPhotoFailed(false); }, [imageUrl]);
   useEffect(() => { setSpreadIndex(0); setAnimation(null); }, [p.query]);

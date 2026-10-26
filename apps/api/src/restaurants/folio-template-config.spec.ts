@@ -22,6 +22,12 @@ describe('FOLIO premium defaults and security', () => {
     expect(settings.categoryArtwork).toEqual({});
     expect(normalizeFolioSettings({
       categoryArtwork: {
+        'a0b1c2d3-1111-4222-8333-ffeeddccbbaa': '/media/01234567-89ab-4cde-8f01-23456789abcd.webp',
+      },
+    }).categoryArtwork['a0b1c2d3-1111-4222-8333-ffeeddccbbaa'])
+      .toBe('/media/01234567-89ab-4cde-8f01-23456789abcd.webp');
+    expect(normalizeFolioSettings({
+      categoryArtwork: {
         'a0b1c2d3-1111-4222-8333-ffeeddccbbaa': 'https://untrusted.example/image.svg',
         '__proto__': '/media/01234567-89ab-4cde-8f01-23456789abcd.webp',
       },
