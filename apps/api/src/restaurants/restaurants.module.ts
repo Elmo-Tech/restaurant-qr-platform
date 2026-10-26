@@ -13,6 +13,8 @@ import { BloomTemplateConfigController } from './bloom-template-config.controlle
 import { BloomTemplateConfigService } from './bloom-template-config.service';
 import { BrewTemplateConfigController } from './brew-template-config.controller';
 import { BrewTemplateConfigService } from './brew-template-config.service';
+import { FolioTemplateConfigController } from './folio-template-config.controller';
+import { FolioTemplateConfigService } from './folio-template-config.service';
 import { EditorialTemplateConfigController } from './editorial-template-config.controller';
 import { EditorialTemplateConfigService } from './editorial-template-config.service';
 
@@ -30,7 +32,7 @@ import { EditorialTemplateConfigService } from './editorial-template-config.serv
  */
 @Module({
   imports: [DatabaseModule, AuthModule, StorageModule, EntitlementsModule],
-  controllers: [RestaurantsController, RestaurantProfileController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController, EditorialTemplateConfigController],
-  providers: [RestaurantLocalesService, RestaurantProfileService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, EditorialTemplateConfigService],
+  controllers: [RestaurantsController, RestaurantProfileController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController, FolioTemplateConfigController, EditorialTemplateConfigController],
+  providers: [RestaurantLocalesService, RestaurantProfileService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, FolioTemplateConfigService, EditorialTemplateConfigService],
 })
 export class RestaurantsModule {}

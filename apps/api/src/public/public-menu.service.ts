@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { normalizeEmberSettings, type EmberTemplateSettings } from '../restaurants/ember-template-config';
 import { normalizeBloomSettings, type BloomTemplateSettings } from '../restaurants/bloom-template-config';
 import { normalizeBrewSettings, type BrewTemplateSettings } from '../restaurants/brew-template-config';
+import { normalizeFolioSettings, type FolioTemplateSettings } from '../restaurants/folio-template-config';
 import { normalizeEditorialSettings, type EditorialTemplateSettings } from '../restaurants/editorial-template-config';
 import {
   DEFAULT_POWERED_BY_URL,
@@ -78,6 +79,8 @@ export interface PublicMenuContext {
     bloomSettings?: BloomTemplateSettings;
     /** Only published BREW settings, never Staff draft values. */
     brewSettings?: BrewTemplateSettings;
+    /** Published FOLIO book appearance; private draft is never exposed to guests. */
+    folioSettings?: FolioTemplateSettings;
     /** Editorial pricing layout only; reads published values, never drafts. */
     editorialSettings?: EditorialTemplateSettings;
     /** Contact details for the Guest Menu (DEC-042); a field is null when not set. */
@@ -840,6 +843,16 @@ export class PublicMenuService {
       ? normalizeBrewSettings(brewRow?.publishedSettings)
       : null;
 
+    const folioRow = templates.includes('FOLIO')
+      ? await this.prisma.restaurantTemplateConfig.findUnique({
+          where: { restaurantId_template: { restaurantId: qr.restaurantId, template: 'FOLIO' } },
+          select: { publishedSettings: true },
+        })
+      : null;
+    const folioSettings = templates.includes('FOLIO')
+      ? normalizeFolioSettings(folioRow?.publishedSettings)
+      : null;
+
     const editorialRow = templates.includes('EDITORIAL')
       ? await this.prisma.restaurantTemplateConfig.findUnique({
           where: { restaurantId_template: { restaurantId: qr.restaurantId, template: 'EDITORIAL' } },
@@ -875,6 +888,7 @@ export class PublicMenuService {
             ...(emberSettings ? { emberSettings } : {}),
             ...(bloomSettings ? { bloomSettings } : {}),
             ...(brewSettings ? { brewSettings } : {}),
+            ...(folioSettings ? { folioSettings } : {}),
             ...(editorialSettings ? { editorialSettings } : {}),
             contact: contactFromColumns(qr.restaurant),
             shareCode,
