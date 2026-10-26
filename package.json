@@ -7,6 +7,7 @@
     "dev:rebuild": "powershell -NoProfile -ExecutionPolicy Bypass -File start-dev.ps1 -Rebuild",
     "dev:stop": "powershell -NoProfile -ExecutionPolicy Bypass -File stop-dev.ps1",
     "dev:restart": "powershell -NoProfile -ExecutionPolicy Bypass -File stop-dev.ps1 && powershell -NoProfile -ExecutionPolicy Bypass -File start-dev.ps1 -Rebuild",
+    "dev:doctor": "node scripts/dev-session-doctor.mjs",
     "dev:web": "npm run dev --workspace=apps/web",
     "dev:api": "npm run start:dev --workspace=apps/api",
     "dev:platform": "npm run dev --workspace=apps/platform",

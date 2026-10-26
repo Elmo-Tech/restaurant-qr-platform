@@ -1,12 +1,28 @@
 <#
-  Stops the local development servers (API :4100, web :3000, platform console :3001) and their windows.
+  Stops the local development servers (API port from .env, web :3000, platform console :3001) and their windows.
   The PostgreSQL container keeps running, so the data and the next start stay fast; add -Database to stop it too.
 
   Usage (from the repository root):   npm run dev:stop        or       .\stop-dev.ps1 [-Database]
 #>
 param([switch]$Database)
 
-foreach ($port in 4100, 3000, 3001) {
+$root = $PSScriptRoot
+$envPath = Join-Path $root '.env'
+$portText = [Environment]::GetEnvironmentVariable('API_PORT', 'Process')
+if (-not $portText -and (Test-Path -LiteralPath $envPath)) {
+  foreach ($line in (Get-Content -LiteralPath $envPath)) {
+    if ($line -match '^\s*API_PORT\s*=\s*(\d+)\s*(?:#.*)?$') {
+      $portText = $Matches[1]
+      break
+    }
+  }
+}
+if (-not $portText) { $portText = '4000' }
+[int]$apiPort = 0
+if (-not [int]::TryParse($portText, [ref]$apiPort) -or $apiPort -lt 1 -or $apiPort -gt 65535) {
+  throw 'Invalid API_PORT in .env.'
+}
+foreach ($port in (@($apiPort, 3000, 3001) | Select-Object -Unique)) {
   $owners = Get-NetTCPConnection -LocalPort $port -State Listen -ErrorAction SilentlyContinue |
     Select-Object -ExpandProperty OwningProcess -Unique
   foreach ($processId in $owners) {
