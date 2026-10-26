@@ -69,6 +69,8 @@ import {
 import { GuestHeroEmber } from './GuestHeroEmber';
 import { GuestHeroBloom } from './GuestHeroBloom';
 import { GuestHeroBrew } from './GuestHeroBrew';
+import { FolioExperience } from './FolioExperience';
+import { DEFAULT_FOLIO_SETTINGS, FOLIO_DESIGN_PREVIEW_READY, isFolioPreviewUpdate, normalizeFolioTemplateSettings, type FolioTemplateSettings } from '../../../lib/public-menu/folio-settings';
 import {DEFAULT_BREW_SETTINGS,BREW_DESIGN_PREVIEW_READY,isBrewPreviewUpdate,normalizeBrewTemplateSettings,type BrewTemplateSettings} from '../../../lib/public-menu/brew-settings';
 import {DEFAULT_EDITORIAL_SETTINGS, EDITORIAL_DESIGN_PREVIEW_READY, isEditorialPreviewUpdate, normalizeEditorialTemplateSettings,type EditorialTemplateSettings} from '../../../lib/public-menu/editorial-settings';
 import {
@@ -166,6 +168,21 @@ export function PublicMenuView({
     return ()=>window.removeEventListener('message',listen);
   },[designPreview,template]);
   const brewSettings=designPreview&&template==='brew'&&brewLiveDraft?brewLiveDraft:data.context.restaurant.brewSettings??DEFAULT_BREW_SETTINGS;
+  const [folioLiveDraft, setFolioLiveDraft] = useState<FolioTemplateSettings | null>(null);
+  useEffect(() => {
+    if (!designPreview || template !== 'folio' || window.parent === window) return;
+    const listen = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== window.parent ||
+          !isFolioPreviewUpdate(event.data)) return;
+      setFolioLiveDraft(normalizeFolioTemplateSettings(event.data.settings));
+    };
+    window.addEventListener('message', listen);
+    window.parent.postMessage({ type: FOLIO_DESIGN_PREVIEW_READY }, window.location.origin);
+    return () => window.removeEventListener('message', listen);
+  }, [designPreview, template]);
+  const folioSettings = designPreview && template === 'folio' && folioLiveDraft
+    ? folioLiveDraft
+    : data.context.restaurant.folioSettings ?? DEFAULT_FOLIO_SETTINGS;
   const [editorialLiveDraft,setEditorialLiveDraft]=useState<EditorialTemplateSettings|null>(null);
   useEffect(()=>{
     if(!designPreview||template!=='editorial'||window.parent===window)return;
@@ -1156,14 +1173,72 @@ export function PublicMenuView({
       <div
           dir={dir}
           lang={locale}
-          className={`g-body relative ${template === 'ember' ? 'ember-experience' : template === 'bloom' ? 'bloom-experience' : template === 'brew' ? 'brew-experience' : ''}`}
+          className={`g-body relative ${template === 'ember' ? 'ember-experience' : template === 'bloom' ? 'bloom-experience' : template === 'brew' ? 'brew-experience' : template === 'folio' ? 'folio-experience' : ''}`}
           data-ember-palette={template === 'ember' ? emberSettings.palette : undefined}
           data-ember-motion={template === 'ember' ? emberSettings.motion : undefined}
+          data-folio-palette={template === 'folio' ? folioSettings.palette : undefined}
+          data-folio-motion={template === 'folio' ? folioSettings.motion : undefined}
           data-brew-palette={template==='brew'?brewSettings.palette:undefined}
           data-brew-motion={template==='brew'?brewSettings.motion:undefined}
           data-bloom-palette={template === 'bloom' ? bloomSettings.palette : undefined}
           data-bloom-motion={template === 'bloom' ? bloomSettings.motion : undefined}
         >
+        {template === 'folio' ? (
+          <FolioExperience
+            sentinelRef={navigation.headerRef}
+            restaurantName={data.context.restaurant.name}
+            logoUrl={logoUrl}
+            settings={folioSettings}
+            locale={data.locale}
+            publicCode={publicCode}
+            designPreview={designPreview}
+            shareCode={data.context.restaurant.shareCode}
+            onTrack={trackingAvailable ? openTracking : null}
+            hasActiveOrder={hasActiveOrder}
+            canOrder={canOrder}
+            cartCount={cartCount}
+            onCartOpen={() => setIsCartOpen(true)}
+            categories={visibleCategories}
+            menuCategoryCount={data.menu.categories.length}
+            currency={currency}
+            copy={copy}
+            query={query}
+            onQueryChange={setQuery}
+            onClearSearch={handleClearSearch}
+            onOpenProduct={handleOpenProduct}
+            onQuickAdd={handleQuickAdd}
+            modeSwitch={showModeSwitch ? (
+              <ModeSwitch
+                variant="hero"
+                value={fulfillment}
+                pickupAvailable={pickupAvailable}
+                deliveryAvailable={deliveryAvailable}
+                onChange={handleFulfillmentChange}
+                copy={copy}
+              />
+            ) : null}
+            announcements={
+              <AnnouncementBar
+                announcements={data.context.announcements ?? []}
+                publicCode={publicCode}
+                copy={copy}
+              />
+            }
+            warning={tableLocked ? (
+              <TableClosedNotice
+                copy={copy}
+                isChecking={isRecheckingOrdering}
+                status={orderingRecheck}
+                onCheckAgain={() => void checkOrderingAgain()}
+              />
+            ) : orderingRecheck === 'reopened' ? (
+              <p role="status">{copy.tableOrderingReopened}</p>
+            ) : !canOrder ? (
+              <p role="status">{copy.pickupUnavailable}</p>
+            ) : null}
+          />
+        ) : (
+          <>
         <Hero {...heroProps} />
 
         <div className="relative z-20 px-4 lg:px-8">
@@ -1303,6 +1378,9 @@ export function PublicMenuView({
             />
           </div>
         </main>
+
+        </>
+        )}
 
         <GuestContact contact={data.context.restaurant.contact} copy={copy} />
 
