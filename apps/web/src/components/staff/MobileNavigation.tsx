@@ -72,6 +72,7 @@ export function MobileNavigation({
   useEffect(() => {
     if (!moreOpen) return;
     const previousOverflow = document.body.style.overflow;
+    const returnFocus = openButtonRef.current;
     document.body.style.overflow = 'hidden';
     closeButtonRef.current?.focus();
     const onKeyDown = (event: KeyboardEvent) => {
@@ -99,7 +100,7 @@ export function MobileNavigation({
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener('keydown', onKeyDown);
-      openButtonRef.current?.focus();
+      returnFocus?.focus();
     };
   }, [moreOpen]);
 
