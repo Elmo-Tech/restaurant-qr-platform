@@ -63,11 +63,36 @@ export function MobileNavigation({
   const pathname = usePathname();
   const { t } = useStaffI18n();
   const [moreOpen, setMoreOpen] = useState(false);
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
   const openButtonRef = useRef<HTMLButtonElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   const sheetRef = useRef<HTMLDivElement>(null);
   const model = buildMobileNavigation(restaurantId, access);
   const overflowActive = model.more.some(item => isMobileNavActive(pathname, item));
+
+  // A fixed dock should not compete with the on-screen keyboard while a
+  // search field or product form is being edited. visualViewport also handles
+  // iOS safe-area/keyboard layouts without browser-specific CSS hacks.
+  useEffect(() => {
+    const viewport = window.visualViewport;
+    if (!viewport) return;
+    const checkKeyboard = () => {
+      const editing = document.activeElement instanceof HTMLElement
+        && document.activeElement.matches('input, textarea, [contenteditable="true"]');
+      const coveredHeight = window.innerHeight - viewport.height - viewport.offsetTop;
+      setKeyboardVisible(editing && coveredHeight > 150);
+    };
+    viewport.addEventListener('resize', checkKeyboard);
+    viewport.addEventListener('scroll', checkKeyboard);
+    document.addEventListener('focusin', checkKeyboard);
+    document.addEventListener('focusout', checkKeyboard);
+    return () => {
+      viewport.removeEventListener('resize', checkKeyboard);
+      viewport.removeEventListener('scroll', checkKeyboard);
+      document.removeEventListener('focusin', checkKeyboard);
+      document.removeEventListener('focusout', checkKeyboard);
+    };
+  }, []);
 
   useEffect(() => {
     if (!moreOpen) return;
@@ -107,7 +132,7 @@ export function MobileNavigation({
   return (
     <>
       <nav aria-label={t('mobileNav.aria')}
-        className="fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card shadow-[0_-6px_20px_rgba(0,0,0,0.07)] lg:hidden print:hidden">
+        className={'fixed inset-x-0 bottom-0 z-40 border-t border-border bg-card shadow-[0_-6px_20px_rgba(0,0,0,0.07)] lg:hidden print:hidden' + (keyboardVisible ? ' hidden' : '')}>
         <div className="mx-auto flex w-full max-w-2xl items-stretch gap-1 px-2 pt-1.5 pb-[calc(0.5rem+env(safe-area-inset-bottom))]">
           {model.dock.map(item => {
             const active = isMobileNavActive(pathname, item);

@@ -14,6 +14,8 @@ test('dock links, More actions and mobile shell have working focus semantics', (
   assert.match(bottom, /<nav aria-label=/);
   assert.match(bottom, /aria-current=\{active \? 'page'/);
   assert.match(bottom, /aria-haspopup="dialog"/);
+  assert.match(bottom, /window\.visualViewport/);
+  assert.match(bottom, /keyboardVisible \? ' hidden'/);
   assert.match(bottom, /role="dialog" aria-modal="true"/);
   assert.match(bottom, /closeButtonRef\.current\?\.focus/);
   assert.match(bottom, /event\.key === 'Escape'/);
