@@ -16,6 +16,7 @@ import {
 } from "@/lib/api/platform";
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
+import { AiSettingsSection } from "./AiSettingsSection";
 
 function validHttpsUrl(value: string): boolean {
   try {
@@ -272,6 +273,13 @@ export function SettingsView() {
           <Button type="submit" disabled={bulkBusy || bulkDays.trim() === ""}>{bulkBusy ? t("common.saving") : t("settings.trial.bulkApply")}</Button>
         </form>
       </Card>
+      <section aria-labelledby="ai-settings-heading" className="space-y-4 pt-4">
+        <div>
+          <h2 id="ai-settings-heading" className="text-lg font-semibold tracking-tight text-foreground">{t("ai.section.title")}</h2>
+          <p className="mt-1 text-sm text-muted-foreground">{t("ai.section.description")}</p>
+        </div>
+        <AiSettingsSection />
+      </section>
       </div>
     </>
   );

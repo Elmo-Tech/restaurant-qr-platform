@@ -23,6 +23,10 @@ const ACTION_LABEL: Record<string, MessageKey> = {
   "platform.public_settings_updated": "action.platform.public_settings_updated",
   "platform.trial_settings_updated": "action.platform.trial_settings_updated",
   "platform.active_trials_adjusted": "action.platform.active_trials_adjusted",
+  "platform.ai_settings_updated": "action.platform.ai_settings_updated",
+  "platform.ai_key_added": "action.platform.ai_key_added",
+  "platform.ai_key_updated": "action.platform.ai_key_updated",
+  "platform.ai_key_deleted": "action.platform.ai_key_deleted",
   "restaurant.country_changed": "action.restaurant.country_changed",
   "restaurant.auto_suspended": "action.restaurant.auto_suspended",
   "restaurant.auto_reactivated": "action.restaurant.auto_reactivated",
@@ -37,6 +41,8 @@ const ACTION_LABEL: Record<string, MessageKey> = {
 };
 
 const PACKAGE_PARTS = ["name", "description", "status", "prices", "offer", "templates", "features"] as const;
+
+const AI_FIELDS = ["engine", "model", "fallbackModel", "label", "status"] as const;
 
 const METHODS = ["CASH", "BANK_TRANSFER", "INSTAPAY", "MOBILE_WALLET", "OTHER"] as const;
 
@@ -135,6 +141,24 @@ export function describeChange(entry: AuditEntry, t: Translate): string {
       from: String(details.from ?? ""),
       to: String(details.to ?? ""),
     });
+  }
+  if (entry.action === "platform.ai_settings_updated" || entry.action === "platform.ai_key_updated") {
+    const changed = asRecord(details.changed);
+    const parts = AI_FIELDS.filter((field) => field in changed).map((field) => {
+      const change = asRecord(changed[field]);
+      const shown = (value: unknown) =>
+        field === "engine" && (value === "N8N" || value === "DIRECT")
+          ? t(`ai.engine.${value}`)
+          : field === "status" && (value === "ACTIVE" || value === "DISABLED")
+            ? t(`ai.keys.status.${value}`)
+            : String(value ?? "-");
+      return `${t(`activity.aiField.${field}`)}: ${shown(change.from)} → ${shown(change.to)}`;
+    });
+    const key = entry.action === "platform.ai_key_updated" ? `····${String(details.last4 ?? "")}: ` : "";
+    return key + parts.join("; ");
+  }
+  if (entry.action === "platform.ai_key_added" || entry.action === "platform.ai_key_deleted") {
+    return `${String(details.label ?? "")} ····${String(details.last4 ?? "")}`.trim();
   }
   return "";
 }
