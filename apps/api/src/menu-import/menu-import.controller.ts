@@ -8,11 +8,11 @@ import {
   Patch,
   Post,
   Req,
-  UploadedFile,
+  UploadedFiles,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
-import { FileInterceptor } from '@nestjs/platform-express';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import {
   IsBoolean,
   IsIn,
@@ -29,7 +29,9 @@ import type { RestaurantAuthorizedRequest } from '../auth/guard/restaurant-autho
 import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
-import { MAX_IMPORT_FILE_BYTES } from './menu-import-file';
+import { MenuImportFeatureGuard } from './menu-import-feature.guard';
+import { MAX_IMPORT_FILE_BYTES, MAX_IMPORT_FILES } from './menu-import-file';
+import { MenuImportUploadErrorsInterceptor } from './menu-import-upload-errors.interceptor';
 import type { UploadedMenuFile } from './menu-import-file';
 import { MenuImportService } from './menu-import.service';
 import type { DraftView, ImportJobView } from './menu-import.service';
@@ -102,18 +104,24 @@ const WRITE_GUARDS = [
 export class MenuImportController {
   constructor(private readonly service: MenuImportService) {}
 
+  // The feature gate is a guard, so a Restaurant without MENU_IMPORT is refused before the upload is read (DEC-057).
   @Post()
   @HttpCode(HttpStatus.ACCEPTED)
-  @UseGuards(...WRITE_GUARDS)
+  @UseGuards(...WRITE_GUARDS, MenuImportFeatureGuard)
   @RequirePermission(PERMISSIONS.MENU_MANAGE)
   @UseInterceptors(
-    FileInterceptor('file', {
-      limits: { fileSize: MAX_IMPORT_FILE_BYTES + 1, files: 1 },
+    MenuImportUploadErrorsInterceptor,
+    // One more than the limit, so the 11th file gets the stable IMPORT_FILE_INVALID from `inspectMenuFiles`.
+    FilesInterceptor('file', MAX_IMPORT_FILES + 1, {
+      limits: {
+        fileSize: MAX_IMPORT_FILE_BYTES + 1,
+        files: MAX_IMPORT_FILES + 1,
+      },
     }),
   )
   async start(
     @Body() dto: StartImportDto,
-    @UploadedFile() file: UploadedMenuFile | undefined,
+    @UploadedFiles() files: UploadedMenuFile[] | undefined,
     @Req() request: RestaurantAuthorizedRequest,
   ) {
     const data = await this.service.startImport({
@@ -121,7 +129,7 @@ export class MenuImportController {
       userId: request.auth.userId,
       targetMenuId: dto.targetMenuId,
       languageHint: dto.languageHint,
-      file,
+      files,
     });
     return { data };
   }

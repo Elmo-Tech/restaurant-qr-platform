@@ -58,6 +58,8 @@ const KNOWN_FAILURE_CODES = new Set([
   'EMPTY_SHEET',
   'NOT_CONFIGURED',
   'MODEL_ERROR',
+  /** Every model key of the extraction service is at its limit (DEC-057). */
+  'MODEL_BUSY',
   'INVALID_MODEL_OUTPUT',
   'TRUNCATED_OUTPUT',
   'EMPTY_RESULT',
@@ -73,6 +75,7 @@ export type NormalizeFailureCode =
   | 'EMPTY_SHEET'
   | 'NOT_CONFIGURED'
   | 'MODEL_ERROR'
+  | 'MODEL_BUSY'
   | 'INVALID_MODEL_OUTPUT'
   | 'TRUNCATED_OUTPUT';
 

@@ -1,5 +1,7 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access -- loosely typed JSON response bodies */
 import { randomUUID } from 'node:crypto';
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import request from 'supertest';
@@ -11,6 +13,7 @@ import { PrismaService } from './../src/database/prisma.service';
 import {
   ExtractorUnavailableError,
   MenuImportExtractor,
+  type ExtractionInput,
 } from './../src/menu-import/menu-import-extractor';
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
 
@@ -21,11 +24,14 @@ import { ensureStarterRole } from './fixtures/ensure-starter-role';
  */
 class FakeExtractor extends MenuImportExtractor {
   configured = true;
+  /** What the Backend handed to the extraction service, one entry per call. */
+  inputs: ExtractionInput[] = [];
   next: () => Promise<unknown> = () => Promise.resolve(null);
   isConfigured(): boolean {
     return this.configured;
   }
-  extract(): Promise<unknown> {
+  extract(input: ExtractionInput): Promise<unknown> {
+    this.inputs.push(input);
     return this.next();
   }
 }
@@ -106,6 +112,7 @@ describe('Menu import (e2e)', () => {
   });
 
   beforeEach(() => {
+    fake.inputs = [];
     fake.configured = true;
     fake.next = () => Promise.resolve(extraction);
   });
@@ -151,7 +158,8 @@ describe('Menu import (e2e)', () => {
     await app.close();
   });
 
-  async function seed() {
+  /** `menuImport` = false leaves the restaurant as a new one is: no package, no override, so no Menu Import (DEC-057). */
+  async function seed(menuImport = true) {
     const restaurant = await prisma.restaurant.create({
       data: {
         publicId: `rest-${randomUUID()}`,
@@ -159,6 +167,9 @@ describe('Menu import (e2e)', () => {
         status: 'ACTIVE',
         defaultLocale: 'en',
         currencyCode: 'EGP',
+        features: menuImport
+          ? { create: [{ feature: 'MENU_IMPORT', enabled: true }] }
+          : undefined,
       },
     });
     restaurantIds.push(restaurant.id);
@@ -251,6 +262,21 @@ describe('Menu import (e2e)', () => {
       .set('Origin', ORIGIN)
       .field('targetMenuId', menuId)
       .attach('file', file, name);
+
+  const uploadMany = (
+    restaurantId: string,
+    cookie: string,
+    menuId: string,
+    files: { buffer: Buffer; name: string }[],
+  ) => {
+    const req = request(app.getHttpServer())
+      .post(url(restaurantId))
+      .set('Cookie', cookie)
+      .set('Origin', ORIGIN)
+      .field('targetMenuId', menuId);
+    for (const file of files) req.attach('file', file.buffer, file.name);
+    return req;
+  };
 
   const post = (
     path: string,
@@ -527,6 +553,7 @@ describe('Menu import (e2e)', () => {
     ]);
     const huge = await upload(restaurant.id, cookie, menu.id, big, 'big.pdf');
     expect(huge.status).toBe(413);
+    expect(errorCode(huge)).toBe('IMPORT_FILE_TOO_LARGE');
     await upload(restaurant.id, cookie, other.menu.id).expect(404);
 
     fake.configured = false;
@@ -543,6 +570,311 @@ describe('Menu import (e2e)', () => {
     const cashier = await login(restaurant.id, 'CASHIER');
     await upload(restaurant.id, cashier, menu.id).expect(403);
     await get(url(restaurant.id), cashier).expect(403);
+  });
+
+  it('reads several images in one import: one job, the files in upload order, names joined, size summed', async () => {
+    const { restaurant, menu } = await seed();
+    const cookie = await login(restaurant.id, 'OWNER');
+    const jpg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0, 0]);
+    const started = await uploadMany(restaurant.id, cookie, menu.id, [
+      { buffer: PNG, name: 'page-1.png' },
+      { buffer: jpg, name: 'page-2.jpg' },
+      { buffer: PNG, name: 'page-3.png' },
+    ]).expect(202);
+    const publicId = data(started).publicId as string;
+    const job = await waitFor(
+      restaurant.id,
+      cookie,
+      publicId,
+      'READY_FOR_REVIEW',
+    );
+    expect(job.sourceType).toBe('IMAGE');
+    expect(job.sourceFileName).toBe('page-1.png, page-2.jpg, page-3.png');
+    // ONE call to the extraction service carrying all three files, in order, with their real types
+    expect(fake.inputs).toHaveLength(1);
+    expect(fake.inputs[0].files.map((f) => f.fileName)).toEqual([
+      'page-1.png',
+      'page-2.jpg',
+      'page-3.png',
+    ]);
+    expect(fake.inputs[0].files.map((f) => f.mimeType)).toEqual([
+      'image/png',
+      'image/jpeg',
+      'image/png',
+    ]);
+    const row = await prisma.menuImportJob.findFirstOrThrow({
+      where: { publicId },
+    });
+    expect(row.sourceSizeBytes).toBe(PNG.length * 2 + jpg.length);
+  });
+
+  it('refuses sets of files that are not allowed, with stable codes, and starts nothing', async () => {
+    const { restaurant, menu } = await seed();
+    const cookie = await login(restaurant.id, 'OWNER');
+    const pdf = Buffer.from('%PDF-1.7 menu');
+    const images = (count: number) =>
+      Array.from({ length: count }, (_, i) => ({
+        buffer: PNG,
+        name: `p${i}.png`,
+      }));
+
+    const eleven = await uploadMany(
+      restaurant.id,
+      cookie,
+      menu.id,
+      images(11),
+    ).expect(422);
+    expect(errorCode(eleven)).toBe('IMPORT_FILE_INVALID');
+    // far over the limit: the upload parser refuses, and it still answers with the stable code
+    const twelve = await uploadMany(
+      restaurant.id,
+      cookie,
+      menu.id,
+      images(12),
+    ).expect(422);
+    expect(errorCode(twelve)).toBe('IMPORT_FILE_INVALID');
+    const mixed = await uploadMany(restaurant.id, cookie, menu.id, [
+      ...images(1),
+      { buffer: pdf, name: 'menu.pdf' },
+    ]).expect(422);
+    expect(errorCode(mixed)).toBe('IMPORT_FILE_INVALID');
+    await uploadMany(restaurant.id, cookie, menu.id, [
+      { buffer: pdf, name: 'a.pdf' },
+      { buffer: pdf, name: 'b.pdf' },
+    ]).expect(422);
+    const heavy = Buffer.concat([PNG, Buffer.alloc(9 * 1024 * 1024)]);
+    const tooMuch = await uploadMany(
+      restaurant.id,
+      cookie,
+      menu.id,
+      Array.from({ length: 5 }, (_, i) => ({
+        buffer: heavy,
+        name: `h${i}.png`,
+      })),
+    ).expect(413);
+    expect(errorCode(tooMuch)).toBe('IMPORT_FILE_TOO_LARGE');
+
+    expect(fake.inputs).toHaveLength(0);
+    expect(
+      await prisma.menuImportJob.count({
+        where: { restaurantId: restaurant.id },
+      }),
+    ).toBe(0);
+    // exactly ten images are fine
+    await uploadMany(restaurant.id, cookie, menu.id, images(10)).expect(202);
+  });
+
+  it('is a platform feature: off by default, on and off per restaurant, refused before the upload is read', async () => {
+    const { restaurant, menu } = await seed(false);
+    const cookie = await login(restaurant.id, 'OWNER');
+
+    // no package and no override: not available. Even a garbage file gets the feature answer, so nothing was read.
+    const refused = await upload(restaurant.id, cookie, menu.id).expect(403);
+    expect(errorCode(refused)).toBe('FEATURE_NOT_AVAILABLE');
+    expect((refused.body as { error: { feature: string } }).error.feature).toBe(
+      'MENU_IMPORT',
+    );
+    const garbage = await upload(
+      restaurant.id,
+      cookie,
+      menu.id,
+      Buffer.from('not a menu'),
+      'x.png',
+    ).expect(403);
+    expect(errorCode(garbage)).toBe('FEATURE_NOT_AVAILABLE');
+    expect(fake.inputs).toHaveLength(0);
+    // reading is not gated
+    await get(url(restaurant.id), cookie).expect(200);
+
+    // an explicit off is the same
+    await prisma.restaurantFeature.create({
+      data: {
+        restaurantId: restaurant.id,
+        feature: 'MENU_IMPORT',
+        enabled: false,
+      },
+    });
+    await upload(restaurant.id, cookie, menu.id).expect(403);
+
+    // the platform switches it on for this restaurant
+    await prisma.restaurantFeature.update({
+      where: {
+        restaurantId_feature: {
+          restaurantId: restaurant.id,
+          feature: 'MENU_IMPORT',
+        },
+      },
+      data: { enabled: true },
+    });
+    await upload(restaurant.id, cookie, menu.id).expect(202);
+  });
+
+  it('lets Staff finish a Draft that already exists after the feature is switched off', async () => {
+    const { restaurant, menu, cookie, publicId, draft } = await readyDraft();
+    await prisma.restaurantFeature.deleteMany({
+      where: { restaurantId: restaurant.id, feature: 'MENU_IMPORT' },
+    });
+    await upload(restaurant.id, cookie, menu.id).expect(403);
+
+    await get(url(restaurant.id, `/${publicId}`), cookie).expect(200);
+    await get(url(restaurant.id, `/${publicId}/draft`), cookie).expect(200);
+    const mystery = (draft.categories[0].products as Obj[]).find(
+      (p) => p.names.en === 'Mystery',
+    ) as Obj;
+    await patch(
+      url(restaurant.id, `/${publicId}/products/${mystery.id as string}`),
+      cookie,
+      { included: false },
+    ).expect(204);
+    await post(url(restaurant.id, `/${publicId}/discard`), cookie).expect(204);
+  });
+
+  it('ends the job with MODEL_BUSY when every model key of the extraction service is at its limit', async () => {
+    const { restaurant, menu } = await seed();
+    const cookie = await login(restaurant.id, 'OWNER');
+    fake.next = () =>
+      Promise.resolve({
+        schemaVersion: 1,
+        status: 'FAILED',
+        errorCode: 'MODEL_BUSY',
+        errorMessage: 'Every Gemini key is at its limit right now.',
+      });
+    const started = await upload(restaurant.id, cookie, menu.id).expect(202);
+    const failed = await waitFor(
+      restaurant.id,
+      cookie,
+      data(started).publicId as string,
+      'FAILED',
+    );
+    expect(failed.errorCode).toBe('MODEL_BUSY');
+  });
+
+  it('keeps the SOME_FILES_FAILED warning when only some of the images could be read', async () => {
+    const { restaurant, menu } = await seed();
+    const cookie = await login(restaurant.id, 'OWNER');
+    fake.next = () =>
+      Promise.resolve({ ...extraction, warnings: ['SOME_FILES_FAILED'] });
+    const started = await uploadMany(restaurant.id, cookie, menu.id, [
+      { buffer: PNG, name: 'a.png' },
+      { buffer: PNG, name: 'b.png' },
+    ]).expect(202);
+    const job = await waitFor(
+      restaurant.id,
+      cookie,
+      data(started).publicId as string,
+      'READY_FOR_REVIEW',
+    );
+    expect(job.warnings).toContain('SOME_FILES_FAILED');
+  });
+
+  const sheetFixture = (name: string): Buffer =>
+    readFileSync(join(__dirname, 'fixtures', 'menu-import', name));
+
+  it('reads an Excel file that follows the template without n8n or a model', async () => {
+    const { restaurant, menu } = await seed();
+    const cookie = await login(restaurant.id, 'OWNER');
+    // even with the extraction service not configured: the Backend reads the sheet itself
+    fake.configured = false;
+    const started = await upload(
+      restaurant.id,
+      cookie,
+      menu.id,
+      sheetFixture('menu-template-sample.xlsx'),
+      'menu.xlsx',
+    ).expect(202);
+    const publicId = data(started).publicId as string;
+    const job = await waitFor(
+      restaurant.id,
+      cookie,
+      publicId,
+      'READY_FOR_REVIEW',
+    );
+    expect(job.sourceType).toBe('SPREADSHEET');
+    expect(fake.inputs).toHaveLength(0);
+    const row = await prisma.menuImportJob.findFirstOrThrow({
+      where: { publicId },
+    });
+    expect(row.modelName).toBe('excel-template');
+
+    const draft = data(
+      await get(url(restaurant.id, `/${publicId}/draft`), cookie).expect(200),
+    );
+    const products = (draft.categories as Obj[]).flatMap(
+      (c) => c.products as Obj[],
+    );
+    expect(products.map((p) => p.names.en as string)).toEqual(
+      expect.arrayContaining(['Margherita', 'Pepperoni', 'Cola', 'Water']),
+    );
+    const byName = (name: string) =>
+      products.find((p) => p.names.en === name) as Obj;
+    expect(byName('Margherita').sizes).toHaveLength(2);
+    expect(byName('Pepperoni').price).toBe('95.00');
+    expect(byName('Cola').price).toBe('15.50');
+    expect(byName('Water').flags).toContain('MISSING_PRICE'); // the usual review rules still apply
+  });
+
+  it('sends an Excel file in another layout to the extraction service', async () => {
+    const { restaurant, menu } = await seed();
+    const cookie = await login(restaurant.id, 'OWNER');
+    const started = await upload(
+      restaurant.id,
+      cookie,
+      menu.id,
+      sheetFixture('menu-other-layout.xlsx'),
+      'prices.xlsx',
+    ).expect(202);
+    await waitFor(
+      restaurant.id,
+      cookie,
+      data(started).publicId as string,
+      'READY_FOR_REVIEW',
+    );
+    expect(fake.inputs).toHaveLength(1);
+    expect(fake.inputs[0].files[0].fileName).toBe('prices.xlsx');
+
+    // and without the extraction service such a file cannot be read
+    await waitFor(
+      restaurant.id,
+      cookie,
+      data(started).publicId as string,
+      'READY_FOR_REVIEW',
+    );
+    await post(
+      url(restaurant.id, `/${data(started).publicId as string}/discard`),
+      cookie,
+    ).expect(204);
+    fake.configured = false;
+    const off = await upload(
+      restaurant.id,
+      cookie,
+      menu.id,
+      sheetFixture('menu-other-layout.xlsx'),
+      'prices.xlsx',
+    ).expect(503);
+    expect(errorCode(off)).toBe('AI_UNAVAILABLE');
+  });
+
+  it('refuses a corrupt .xlsx with the stable code before reading it', async () => {
+    const { restaurant, menu } = await seed();
+    const cookie = await login(restaurant.id, 'OWNER');
+    const corrupt = Buffer.concat([
+      Buffer.from([0x50, 0x4b, 0x03, 0x04]),
+      Buffer.from('this is not a real workbook'),
+    ]);
+    const refused = await upload(
+      restaurant.id,
+      cookie,
+      menu.id,
+      corrupt,
+      'menu.xlsx',
+    ).expect(422);
+    expect(errorCode(refused)).toBe('IMPORT_FILE_INVALID');
+    expect(fake.inputs).toHaveLength(0);
+    expect(
+      await prisma.menuImportJob.count({
+        where: { restaurantId: restaurant.id },
+      }),
+    ).toBe(0);
   });
 
   it('never exposes a job of another restaurant', async () => {

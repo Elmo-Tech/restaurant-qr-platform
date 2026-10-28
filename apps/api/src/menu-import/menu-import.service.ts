@@ -20,12 +20,15 @@ import type {
   NormalizedExtraction,
   NormalizedPriceOption,
 } from './menu-import-extraction';
-import { inspectMenuFile } from './menu-import-file';
+import { inspectMenuFiles, XLSX_MIME } from './menu-import-file';
 import type { UploadedMenuFile } from './menu-import-file';
 import {
   ExtractorUnavailableError,
   MenuImportExtractor,
 } from './menu-import-extractor';
+import type { ExtractionInput } from './menu-import-extractor';
+import { readMenuTemplate } from './menu-import-sheet';
+import type { SheetExtraction } from './menu-import-sheet';
 
 /** A Job still PROCESSING after this long is presumed dead (API restarted, n8n hung). */
 const STUCK_AFTER_MS = 10 * 60 * 1000;
@@ -256,15 +259,25 @@ export class MenuImportService {
     userId: string;
     targetMenuId: string;
     languageHint: string | undefined;
-    file: UploadedMenuFile | undefined;
+    files: UploadedMenuFile[] | undefined;
   }): Promise<{ publicId: string; status: MenuImportStatus }> {
-    const inspected = inspectMenuFile(input.file);
-    const file = input.file as UploadedMenuFile;
+    const inspected = inspectMenuFiles(input.files);
     const languageHint = LANGUAGE_HINTS.has(input.languageHint ?? '')
       ? (input.languageHint as string)
       : 'auto';
 
-    if (!this.extractor.isConfigured()) {
+    // An .xlsx that follows the template is read right here: no n8n and no model (DEC-058).
+    // Any other file needs the extraction service.
+    let sheet: SheetExtraction | null = null;
+    if (
+      inspected.sourceType === 'SPREADSHEET' &&
+      inspected.mimeType === XLSX_MIME
+    ) {
+      const read = await readMenuTemplate(inspected.files[0].buffer);
+      if (read.kind === 'template') sheet = read.extraction;
+    }
+
+    if (sheet === null && !this.extractor.isConfigured()) {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_UNAVAILABLE',
@@ -295,9 +308,9 @@ export class MenuImportService {
           createdByUserId: input.userId,
           status: 'PROCESSING',
           sourceType: inspected.sourceType,
-          sourceFileName: inspected.safeName,
+          sourceFileName: inspected.fileName,
           sourceMimeType: inspected.mimeType,
-          sourceSizeBytes: file.buffer.length,
+          sourceSizeBytes: inspected.totalBytes,
           languageHint,
         },
       });
@@ -314,13 +327,12 @@ export class MenuImportService {
       throw error;
     }
 
-    // The file lives only in this closure; it is never stored.
-    void this.runExtraction(job, {
-      buffer: file.buffer,
-      mimeType: inspected.mimeType,
-      fileName: inspected.safeName,
-      languageHint,
-    });
+    // The files live only in this closure; they are never stored.
+    void this.runExtraction(
+      job,
+      { files: inspected.files, languageHint },
+      sheet,
+    );
 
     return { publicId: job.publicId, status: job.status };
   }
@@ -328,17 +340,14 @@ export class MenuImportService {
   /** Background task: never throws, always leaves the Job READY_FOR_REVIEW or FAILED. */
   private async runExtraction(
     job: JobRow,
-    input: {
-      buffer: Buffer;
-      mimeType: string;
-      fileName: string;
-      languageHint: string;
-    },
+    input: ExtractionInput,
+    /** A sheet the Backend already read (DEC-058): the extraction service is not called. */
+    sheet: SheetExtraction | null = null,
   ): Promise<void> {
     try {
       let raw: unknown;
       try {
-        raw = await this.extractor.extract(input);
+        raw = sheet ?? (await this.extractor.extract(input));
       } catch (error) {
         if (!(error instanceof ExtractorUnavailableError)) {
           this.logger.error(`import ${job.publicId} extractor crashed`);

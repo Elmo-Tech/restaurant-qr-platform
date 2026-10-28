@@ -2,10 +2,15 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { EnvConfig } from '../config/env.schema';
 
-export interface ExtractionInput {
+export interface ExtractionFile {
   buffer: Buffer;
   mimeType: string;
   fileName: string;
+}
+
+export interface ExtractionInput {
+  /** 1 to 10 images, or one PDF, or one spreadsheet (DEC-057), in upload order. */
+  files: ExtractionFile[];
   /** 'auto' | 'ar' | 'en' */
   languageHint: string;
 }
@@ -46,11 +51,13 @@ export class N8nMenuImportExtractor extends MenuImportExtractor {
       this.config.get('MENU_IMPORT_TIMEOUT_SECONDS', { infer: true }) * 1000;
 
     const form = new FormData();
-    form.append(
-      'file',
-      new Blob([new Uint8Array(input.buffer)], { type: input.mimeType }),
-      input.fileName,
-    );
+    for (const file of input.files) {
+      form.append(
+        'file',
+        new Blob([new Uint8Array(file.buffer)], { type: file.mimeType }),
+        file.fileName,
+      );
+    }
     form.append('languageHint', input.languageHint);
 
     const controller = new AbortController();

@@ -5,7 +5,11 @@ import {
   matchKey,
   normalizeExtraction,
 } from './menu-import-extraction';
-import { inspectMenuFile } from './menu-import-file';
+import {
+  inspectMenuFile,
+  inspectMenuFiles,
+  MAX_IMPORT_FILES,
+} from './menu-import-file';
 
 function ok(raw: unknown) {
   const result = normalizeExtraction(raw);
@@ -181,6 +185,32 @@ describe('menu import extraction normalizer', () => {
     });
   });
 
+  it('keeps the stable failure codes of the extraction service, MODEL_BUSY included, and collapses unknown ones', () => {
+    const failed = (errorCode: string) =>
+      normalizeExtraction({ schemaVersion: 1, status: 'FAILED', errorCode });
+    expect(failed('MODEL_BUSY')).toEqual({ ok: false, code: 'MODEL_BUSY' });
+    expect(failed('MODEL_ERROR')).toEqual({ ok: false, code: 'MODEL_ERROR' });
+    expect(failed('SOMETHING_NEW')).toEqual({
+      ok: false,
+      code: 'EXTRACTION_FAILED',
+    });
+  });
+
+  it('passes the SOME_FILES_FAILED warning through (some of several images could not be read)', () => {
+    const data = ok(
+      base(
+        [
+          {
+            translations: { en: { name: 'A' } },
+            products: [product('B', null, '5')],
+          },
+        ],
+        { warnings: ['SOME_FILES_FAILED'] },
+      ),
+    );
+    expect(data.warnings).toEqual(['SOME_FILES_FAILED']);
+  });
+
   it('only accepts uppercase warning codes from the model', () => {
     const data = ok(
       base(
@@ -259,5 +289,143 @@ describe('menu import file inspection', () => {
       size: 10 * 1024 * 1024 + 1,
     };
     expect(() => inspectMenuFile(big)).toThrow();
+  });
+});
+
+describe('menu import file set inspection (DEC-057)', () => {
+  const PNG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0];
+  const JPG = [0xff, 0xd8, 0xff, 0xe0, 0];
+  const PDF = [...Buffer.from('%PDF-1.7')];
+  const XLSX = [0x50, 0x4b, 0x03, 0x04, 0, 0];
+  const upload = (bytes: number[] | Buffer, name: string) => {
+    const buffer = Buffer.from(bytes);
+    return {
+      buffer,
+      originalname: name,
+      mimetype: 'application/octet-stream',
+      size: buffer.length,
+    };
+  };
+  const codeOf = (run: () => unknown): string => {
+    try {
+      run();
+    } catch (error) {
+      return (
+        error as { getResponse(): { error: { code: string } } }
+      ).getResponse().error.code;
+    }
+    return 'NO_ERROR';
+  };
+
+  it('accepts one to ten images of any mix of formats, in upload order', () => {
+    const set = inspectMenuFiles([
+      upload(PNG, 'page 1.png'),
+      upload(JPG, 'page 2.jpg'),
+      upload(PNG, 'page 3.png'),
+    ]);
+    expect(set.sourceType).toBe('IMAGE');
+    expect(set.files.map((f) => f.fileName)).toEqual([
+      'page 1.png',
+      'page 2.jpg',
+      'page 3.png',
+    ]);
+    expect(set.files.map((f) => f.mimeType)).toEqual([
+      'image/png',
+      'image/jpeg',
+      'image/png',
+    ]);
+    expect(set.fileName).toBe('page 1.png, page 2.jpg, page 3.png');
+    expect(set.mimeType).toBe('image/png');
+    expect(set.totalBytes).toBe(PNG.length * 2 + JPG.length);
+    const ten = Array.from({ length: MAX_IMPORT_FILES }, (_, i) =>
+      upload(PNG, `p${i}.png`),
+    );
+    expect(inspectMenuFiles(ten).files).toHaveLength(MAX_IMPORT_FILES);
+  });
+
+  it('keeps a single file of any kind working as before', () => {
+    expect(inspectMenuFiles([upload(PDF, 'menu.pdf')])).toMatchObject({
+      sourceType: 'PDF',
+      fileName: 'menu.pdf',
+      mimeType: 'application/pdf',
+    });
+    expect(inspectMenuFiles([upload(XLSX, 'prices.xlsx')]).sourceType).toBe(
+      'SPREADSHEET',
+    );
+  });
+
+  it('rejects nothing, too many files, and mixes that are not allowed, with the stable code', () => {
+    expect(codeOf(() => inspectMenuFiles(undefined))).toBe(
+      'IMPORT_FILE_INVALID',
+    );
+    expect(codeOf(() => inspectMenuFiles([]))).toBe('IMPORT_FILE_INVALID');
+    const eleven = Array.from({ length: MAX_IMPORT_FILES + 1 }, (_, i) =>
+      upload(PNG, `p${i}.png`),
+    );
+    expect(codeOf(() => inspectMenuFiles(eleven))).toBe('IMPORT_FILE_INVALID');
+    expect(
+      codeOf(() =>
+        inspectMenuFiles([upload(PNG, 'a.png'), upload(PDF, 'b.pdf')]),
+      ),
+    ).toBe('IMPORT_FILE_INVALID');
+    expect(
+      codeOf(() =>
+        inspectMenuFiles([upload(PDF, 'a.pdf'), upload(PDF, 'b.pdf')]),
+      ),
+    ).toBe('IMPORT_FILE_INVALID');
+    expect(
+      codeOf(() =>
+        inspectMenuFiles([upload(XLSX, 'a.xlsx'), upload(XLSX, 'b.xlsx')]),
+      ),
+    ).toBe('IMPORT_FILE_INVALID');
+    expect(
+      codeOf(() =>
+        inspectMenuFiles([upload(PNG, 'a.png'), upload([1, 2, 3, 4], 'b.png')]),
+      ),
+    ).toBe('IMPORT_FILE_INVALID');
+  });
+
+  it('rejects files that are over 10 MB, or over 40 MB together, with the stable code', () => {
+    const size = 9 * 1024 * 1024;
+    const image = (name: string) =>
+      upload(Buffer.concat([Buffer.from(PNG), Buffer.alloc(size)]), name);
+    expect(
+      codeOf(() =>
+        inspectMenuFiles([
+          image('1.png'),
+          image('2.png'),
+          image('3.png'),
+          image('4.png'),
+        ]),
+      ),
+    ).toBe('NO_ERROR'); // 36 MB
+    expect(
+      codeOf(() =>
+        inspectMenuFiles([
+          image('1.png'),
+          image('2.png'),
+          image('3.png'),
+          image('4.png'),
+          image('5.png'),
+        ]),
+      ),
+    ).toBe('IMPORT_FILE_TOO_LARGE'); // 45 MB
+    expect(
+      codeOf(() =>
+        inspectMenuFiles([
+          upload(
+            Buffer.concat([Buffer.from(PNG), Buffer.alloc(10 * 1024 * 1024)]),
+            'big.png',
+          ),
+        ]),
+      ),
+    ).toBe('IMPORT_FILE_TOO_LARGE');
+  });
+
+  it('cuts a long list of names for the Job record', () => {
+    const names = Array.from({ length: 10 }, (_, i) =>
+      upload(PNG, `a-rather-long-menu-page-name-${i}.png`),
+    );
+    expect(inspectMenuFiles(names).fileName.length).toBeLessThanOrEqual(120);
   });
 });
