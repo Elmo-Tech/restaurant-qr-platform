@@ -23,6 +23,8 @@ export const FEATURE_KEYS = [
   'TABLE_ORDERING',
   /** The kitchen screen: accepted orders as tickets to prepare (DEC-054). Orders still need one of the two above. */
   'KITCHEN',
+  /** AI menu import from photos, a PDF or an Excel file (DEC-057). OFF unless the platform turns it on. */
+  'MENU_IMPORT',
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
@@ -31,6 +33,19 @@ export type FeatureMap = Record<FeatureKey, boolean>;
 
 /** What a Restaurant gets for a feature it has no override for. The ONE place this default lives. */
 export const DEFAULT_ENTITLEMENT = true;
+
+/**
+ * Features that are OFF until the platform turns them on, because each use spends a metered resource
+ * (DEC-057: model requests). A Package includes one only if it lists it, and a Restaurant with no Package
+ * does not have it. They are a platform tool, so customers never see them in packages, My subscription,
+ * upgrade options or contracts (`CUSTOMER_FEATURE_KEYS`).
+ */
+export const OPT_IN_FEATURES: readonly FeatureKey[] = ['MENU_IMPORT'];
+
+/** The features customers see: every feature except the opt-in ones. */
+export const CUSTOMER_FEATURE_KEYS: readonly FeatureKey[] = FEATURE_KEYS.filter(
+  (key) => !OPT_IN_FEATURES.includes(key),
+);
 
 /** Where a feature's effective value comes from (the order of precedence, strongest first). */
 export type FeatureSource = 'override' | 'package' | 'default';
@@ -47,7 +62,9 @@ export function resolveFeatures(
   const map = Object.fromEntries(
     FEATURE_KEYS.map((key) => [
       key,
-      packageFeatures ? packageFeatures.includes(key) : DEFAULT_ENTITLEMENT,
+      packageFeatures
+        ? packageFeatures.includes(key)
+        : DEFAULT_ENTITLEMENT && !OPT_IN_FEATURES.includes(key),
     ]),
   ) as FeatureMap;
   for (const override of overrides) {
@@ -58,8 +75,10 @@ export function resolveFeatures(
   return map;
 }
 
-/** Every feature on: what a test or a caller without a Restaurant context assumes. */
-export const ALL_FEATURES: FeatureMap = resolveFeatures([]);
+/** Every feature on, opt-in ones included: what a test or a caller without a Restaurant context assumes. */
+export const ALL_FEATURES: FeatureMap = Object.fromEntries(
+  FEATURE_KEYS.map((key) => [key, true]),
+) as FeatureMap;
 
 /** Thrown when a Staff action needs a feature the platform has not allowed this Restaurant. */
 export class FeatureNotAvailableError extends Error {

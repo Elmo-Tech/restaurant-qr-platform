@@ -1,7 +1,9 @@
 import { effectiveOrdering } from './effective-ordering';
 import {
   ALL_FEATURES,
+  CUSTOMER_FEATURE_KEYS,
   FEATURE_KEYS,
+  OPT_IN_FEATURES,
   resolveFeatures,
   type FeatureMap,
 } from './features';
@@ -14,16 +16,53 @@ const SWITCHES = {
   whatsappNumber: '+201012345678',
 };
 
+/** What a Restaurant with no package and no override gets: everything except the opt-in features (DEC-057). */
+const NO_PACKAGE_DEFAULTS: FeatureMap = { ...ALL_FEATURES, MENU_IMPORT: false };
+
 const without = (...keys: (typeof FEATURE_KEYS)[number][]): FeatureMap => ({
   ...ALL_FEATURES,
   ...Object.fromEntries(keys.map((key) => [key, false])),
 });
 
 describe('feature entitlements', () => {
-  it('gives every feature when there is no override', () => {
-    expect(resolveFeatures([])).toEqual(ALL_FEATURES);
+  it('gives every feature except the opt-in ones when there is no override', () => {
+    expect(resolveFeatures([])).toEqual(NO_PACKAGE_DEFAULTS);
     expect(Object.values(ALL_FEATURES).every(Boolean)).toBe(true);
     expect(Object.keys(ALL_FEATURES)).toEqual([...FEATURE_KEYS]);
+    expect(OPT_IN_FEATURES).toEqual(['MENU_IMPORT']);
+  });
+
+  it('menu import is off by default and only an override or a package that lists it turns it on (DEC-057)', () => {
+    expect(resolveFeatures([]).MENU_IMPORT).toBe(false);
+    expect(resolveFeatures([], null).MENU_IMPORT).toBe(false);
+    // a package that does not list it does not include it, even a package with every other feature
+    expect(resolveFeatures([], CUSTOMER_FEATURE_KEYS).MENU_IMPORT).toBe(false);
+    expect(resolveFeatures([], ['MENU_IMPORT']).MENU_IMPORT).toBe(true);
+    // the platform switches it on for one Restaurant (no package, or a package without it) and off again
+    expect(
+      resolveFeatures([{ feature: 'MENU_IMPORT', enabled: true }]).MENU_IMPORT,
+    ).toBe(true);
+    expect(
+      resolveFeatures([{ feature: 'MENU_IMPORT', enabled: true }], [])
+        .MENU_IMPORT,
+    ).toBe(true);
+    expect(
+      resolveFeatures(
+        [{ feature: 'MENU_IMPORT', enabled: false }],
+        ['MENU_IMPORT'],
+      ).MENU_IMPORT,
+    ).toBe(false);
+    // switching it on changes no other feature
+    expect({
+      ...resolveFeatures([{ feature: 'MENU_IMPORT', enabled: true }]),
+    }).toEqual(ALL_FEATURES);
+  });
+
+  it('customers never see the opt-in features', () => {
+    expect(CUSTOMER_FEATURE_KEYS).not.toContain('MENU_IMPORT');
+    expect(CUSTOMER_FEATURE_KEYS).toHaveLength(
+      FEATURE_KEYS.length - OPT_IN_FEATURES.length,
+    );
   });
 
   it('applies overrides both ways and ignores unknown keys', () => {
@@ -49,8 +88,8 @@ describe('feature entitlements', () => {
     expect(inPackage.TABLE_ORDERING).toBe(false);
     // an empty package gives nothing; no package gives everything
     expect(Object.values(resolveFeatures([], [])).some(Boolean)).toBe(false);
-    expect(resolveFeatures([], null)).toEqual(ALL_FEATURES);
-    expect(resolveFeatures([], undefined)).toEqual(ALL_FEATURES);
+    expect(resolveFeatures([], null)).toEqual(NO_PACKAGE_DEFAULTS);
+    expect(resolveFeatures([], undefined)).toEqual(NO_PACKAGE_DEFAULTS);
     // an unknown name in a package changes nothing
     expect(resolveFeatures([], ['SOMETHING_NEW'])).toEqual(
       resolveFeatures([], []),

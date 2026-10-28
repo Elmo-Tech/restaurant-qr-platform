@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import type { EnvConfig } from '../config/env.schema';
 import { PrismaService } from '../database/prisma.service';
 import {
-  FEATURE_KEYS,
+  CUSTOMER_FEATURE_KEYS,
   resolveFeatures,
   type FeatureKey,
 } from '../entitlements/features';
@@ -285,7 +285,7 @@ export class MySubscriptionService {
       const templateTiers = templateTierCountsOf(rule);
       return {
         ...pkg,
-        features: FEATURE_KEYS.filter((key) => pkg.features.some((f) => f.feature === key)),
+        features: CUSTOMER_FEATURE_KEYS.filter((key) => pkg.features.some((f) => f.feature === key)),
         templateCount: templateCountOf(rule),
         templateTiers,
         templatePremium: templateTiers.premium,
@@ -336,7 +336,7 @@ export class MySubscriptionService {
         name: restaurant.package.name,
       },
       currentPricing: restaurant.package ? cataloguePricing(restaurant.package, currency, today) : null,
-      features: FEATURE_KEYS.map((key) => ({ key, included: effective[key] })),
+      features: CUSTOMER_FEATURE_KEYS.map((key) => ({ key, included: effective[key] })),
       templates: {
         current: currentTemplates.length,
         total: MENU_TEMPLATE_KEYS.length,

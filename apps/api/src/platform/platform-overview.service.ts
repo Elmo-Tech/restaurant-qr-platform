@@ -10,7 +10,10 @@ import {
   subscriptionPhase,
   todayInCairo,
 } from './billing/subscription-dates';
-import { FEATURE_KEYS, resolveFeatures } from '../entitlements/features';
+import {
+  CUSTOMER_FEATURE_KEYS,
+  resolveFeatures,
+} from '../entitlements/features';
 import {
   PlatformAuditService,
   type AuditEntryView,
@@ -274,7 +277,7 @@ export class PlatformOverviewService {
         row.features,
         row.package?.features.map((f) => f.feature),
       );
-      return FEATURE_KEYS.some((key) => !effective[key]);
+      return CUSTOMER_FEATURE_KEYS.some((key) => !effective[key]);
     }).length;
   }
 }

@@ -2,7 +2,10 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { EnvConfig } from '../../config/env.schema';
 import { PrismaService } from '../../database/prisma.service';
-import { FEATURE_KEYS, type FeatureKey } from '../../entitlements/features';
+import {
+  CUSTOMER_FEATURE_KEYS,
+  type FeatureKey,
+} from '../../entitlements/features';
 import { Prisma } from '../../generated/prisma/client';
 import { PlatformAuditService } from '../platform-audit.service';
 import type { PlatformAdminPrincipal } from '../platform-auth.service';
@@ -992,7 +995,7 @@ export class PlatformBillingService {
       pkg: {
         id: pkg.id,
         name: pkg.name,
-        features: FEATURE_KEYS.filter((key) =>
+        features: CUSTOMER_FEATURE_KEYS.filter((key) =>
           pkg.features.some((f) => f.feature === key),
         ),
       },

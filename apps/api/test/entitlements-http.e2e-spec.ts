@@ -309,7 +309,7 @@ describeSandbox('Feature entitlements (real PostgreSQL)', () => {
       .post(`/api/v1/public/qr/${qr}/whatsapp-order`)
       .send({ clientRequestId: randomUUID(), ...body });
 
-  it('gives a Restaurant every feature by default, and an override affects only that Restaurant', async () => {
+  it('gives a Restaurant every feature except the opt-in ones by default, and an override affects only that Restaurant', async () => {
     const world = await seedWorld('ent-default');
     const other = await seedWorld('ent-default-other');
     const owner = await addStaff(world.restaurantId, 'OWNER');
@@ -328,6 +328,9 @@ describeSandbox('Feature entitlements (real PostgreSQL)', () => {
       MENU_TEMPLATES: true,
       DASHBOARD_ORDERING: true,
       TABLE_ORDERING: true,
+      KITCHEN: true,
+      // the one opt-in feature (DEC-057): off until the platform turns it on
+      MENU_IMPORT: false,
     };
     expect(await me(owner)).toEqual(everything);
     expect((await menu(world.genericQr)).context.tracking).toBe(true);

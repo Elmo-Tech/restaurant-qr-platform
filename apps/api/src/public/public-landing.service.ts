@@ -1,5 +1,8 @@
 import { Injectable } from '@nestjs/common';
-import { FEATURE_KEYS, type FeatureKey } from '../entitlements/features';
+import {
+  CUSTOMER_FEATURE_KEYS,
+  type FeatureKey,
+} from '../entitlements/features';
 import { templateTierCountsOf } from '../entitlements/templates';
 import { PrismaService } from '../database/prisma.service';
 import {
@@ -107,7 +110,7 @@ export class PublicLandingService {
         id: row.id,
         name: { ar: row.name, en: row.nameEn },
         description: { ar: row.description, en: row.descriptionEn },
-        features: FEATURE_KEYS.filter((key) =>
+        features: CUSTOMER_FEATURE_KEYS.filter((key) =>
           row.features.some((f) => f.feature === key),
         ),
         designs: templateTierCountsOf({

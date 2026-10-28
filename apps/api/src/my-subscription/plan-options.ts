@@ -1,4 +1,4 @@
-import { FEATURE_KEYS, type FeatureKey } from '../entitlements/features';
+import { CUSTOMER_FEATURE_KEYS, type FeatureKey } from '../entitlements/features';
 
 /**
  * Which packages are worth offering a Restaurant as an upgrade (DEC-050): every ACTIVE package other than
@@ -40,7 +40,7 @@ export function comparisonCandidates<P extends PackageForOptions>(
     .filter((pkg) => pkg.status === 'ACTIVE' && pkg.id !== input.currentPackageId)
     .map((pkg) => ({
       pkg,
-      adds: FEATURE_KEYS.filter((key) =>
+      adds: CUSTOMER_FEATURE_KEYS.filter((key) =>
         pkg.features.includes(key) && !input.effective[key],
       ),
       moreTemplates:

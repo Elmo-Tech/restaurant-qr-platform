@@ -12,6 +12,7 @@ import { PasswordHasherService } from './../src/auth/password/password-hasher.se
 import type { StarterRoleKind } from './../src/auth/permission/role-permissions';
 import { validationExceptionFactory } from './../src/common/http/validation-exception.factory';
 import { PrismaService } from './../src/database/prisma.service';
+import { FEATURE_KEYS } from './../src/entitlements/features';
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
 
 /**
@@ -422,7 +423,7 @@ describeSandbox('Platform control dashboard API (real PostgreSQL)', () => {
       { email: expect.any(String) as string, status: 'ACTIVE' },
     ]);
     const features = detail.body.data.features as { key: string }[];
-    expect(features).toHaveLength(6);
+    expect(features).toHaveLength(FEATURE_KEYS.length);
     expect(features.find((f) => f.key === 'WHATSAPP_ORDERING')).toEqual({
       key: 'WHATSAPP_ORDERING',
       enabled: false,

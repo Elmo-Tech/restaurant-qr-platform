@@ -185,6 +185,7 @@ enum FeatureKey {
   DASHBOARD_ORDERING
   TABLE_ORDERING
   KITCHEN
+  MENU_IMPORT
 
   @@map("feature_key")
 }
