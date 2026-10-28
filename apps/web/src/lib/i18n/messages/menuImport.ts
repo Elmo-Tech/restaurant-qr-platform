@@ -15,6 +15,15 @@ export const menuImportMessages = defineMessages({
       'Choose one or more photos (JPG, PNG or WEBP, up to 10), or one PDF, or one Excel file (.xlsx / .xls). Up to 10 MB each and 40 MB in all. The files themselves are not kept.',
     'import.upload.templateHint': 'Do you have your menu in Excel? Fill in our template and upload it: it is read straight away.',
     'import.upload.template': 'Download the Excel template',
+    'import.ai.summary': 'Prepare the Excel with ChatGPT, Claude or Gemini',
+    'import.ai.body':
+      'Attach your menu photos to any AI chat together with the instructions below and ask for the Excel file. Check it, then upload it here: it is read straight away.',
+    'import.ai.noFile':
+      'If the chat answers with a table instead of a file, paste it into Excel or Google Sheets and save it as .xlsx.',
+    'import.ai.label': 'Instructions for the AI chat',
+    'import.ai.copy': 'Copy the instructions',
+    'import.ai.copied': 'Copied',
+    'import.ai.copyFailed': 'Could not copy. Select the text above and copy it.',
     'import.upload.selected': 'Selected: {count} of {max}',
     'import.upload.remove': 'Remove',
     'import.upload.removeNamed': 'Remove {name}',
@@ -128,6 +137,15 @@ export const menuImportMessages = defineMessages({
       'اختر صورة أو أكثر (JPG أو PNG أو WEBP حتى 10 صور)، أو ملف PDF واحدًا، أو ملف Excel واحدًا (.xlsx / .xls). حتى 10 ميجابايت للملف و40 ميجابايت للمجموع. الملفات نفسها لا تُحفظ.',
     'import.upload.templateHint': 'عندك المنيو في ملف Excel؟ املأ القالب الجاهز وارفعه: يُقرأ فورًا.',
     'import.upload.template': 'تنزيل قالب Excel',
+    'import.ai.summary': 'جهّز ملف Excel بواسطة ChatGPT أو Claude أو Gemini',
+    'import.ai.body':
+      'أرفق صور المنيو في أي شات ذكاء اصطناعي مع التعليمات التالية واطلب ملف Excel. راجعه ثم ارفعه هنا: يُقرأ فورًا.',
+    'import.ai.noFile':
+      'إذا ردّ الشات بجدول بدل ملف، الصقه في Excel أو Google Sheets واحفظه بصيغة .xlsx.',
+    'import.ai.label': 'تعليمات شات الذكاء الاصطناعي',
+    'import.ai.copy': 'نسخ التعليمات',
+    'import.ai.copied': 'تم النسخ',
+    'import.ai.copyFailed': 'تعذّر النسخ. حدّد النص بالأعلى وانسخه.',
     'import.upload.selected': 'المختار: {count} من {max}',
     'import.upload.remove': 'إزالة',
     'import.upload.removeNamed': 'إزالة {name}',

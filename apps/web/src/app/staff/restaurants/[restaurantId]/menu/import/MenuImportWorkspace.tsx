@@ -30,6 +30,7 @@ import { FormField } from '../../../../../../components/ui/FormField';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { Select } from '../../../../../../components/ui/Select';
+import { AiPromptHelp } from './AiPromptHelp';
 import { ImportReview } from './ImportReview';
 import { MenuReadingAnimation } from './MenuReadingAnimation';
 
@@ -221,6 +222,7 @@ export function MenuImportWorkspace({
                   {t('import.upload.template')}
                 </a>
               </p>
+              <AiPromptHelp />
               {pickProblem ? (
                 <p role="alert" className="text-sm text-destructive" dir="auto">
                   {problemText(pickProblem)}
