@@ -13,6 +13,7 @@ import {
   getAudit,
   getRestaurant,
   listPackages,
+  OPT_IN_FEATURES,
   setRestaurantFeature,
   setRestaurantStatus,
   type AuditEntry,
@@ -275,7 +276,10 @@ export function RestaurantDetailView({ restaurantId }: { restaurantId: string })
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-2">
                         <p className="text-sm font-medium text-foreground">{t(`feature.${feature.key}`)}</p>
-                        <Badge tone={feature.enabled ? "success" : "danger"} dot>
+                        <Badge
+                          tone={feature.enabled ? "success" : OPT_IN_FEATURES.includes(feature.key) && !feature.overridden ? "neutral" : "danger"}
+                          dot
+                        >
                           {feature.enabled ? t("features.allowed") : t("features.notAllowed")}
                         </Badge>
                         {feature.overridden ? <Badge tone="primary">{t(restaurant.package ? "features.exception" : "features.custom")}</Badge> : null}

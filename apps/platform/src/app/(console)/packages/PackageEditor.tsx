@@ -16,6 +16,7 @@ import {
   PREMIUM_TEMPLATES,
   STANDARD_TEMPLATES,
   isDisplayOnly,
+  OPT_IN_FEATURES,
   ORDERING_GROUP,
   updatePackage,
   type FeatureKey,
@@ -686,7 +687,11 @@ export function PackageEditor({ packageId }: { packageId: string | null }) {
               description={t("package.featuresHint")}
               action={
                 <div className="flex shrink-0 gap-2">
-                  <Button type="button" size="sm" onClick={() => set("features", [...FEATURE_KEYS])}>
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => set("features", FEATURE_KEYS.filter((key) => !OPT_IN_FEATURES.includes(key)))}
+                  >
                     {t("package.selectAll")}
                   </Button>
                   <Button type="button" size="sm" onClick={() => set("features", [])}>

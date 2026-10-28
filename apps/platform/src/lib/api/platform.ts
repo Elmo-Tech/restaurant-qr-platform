@@ -11,8 +11,15 @@ export const FEATURE_KEYS = [
   "DASHBOARD_ORDERING",
   "KITCHEN",
   "TABLE_ORDERING",
+  "MENU_IMPORT",
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
+
+/**
+ * Features that are OFF until the platform turns them on (DEC-057): a package includes one only if it lists it, and a
+ * restaurant with no package does not have it. "Select all" skips them, and a restaurant without them is not "restricted".
+ */
+export const OPT_IN_FEATURES: readonly FeatureKey[] = ["MENU_IMPORT"];
 
 /**
  * The three ways a guest can place an order. Each is its own feature: a package with none of them
