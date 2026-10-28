@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { isValidEncryptionKey } from '../ai-settings/ai-secret-crypto';
 
 /**
  * Validates only the API runtime configuration that has a concrete current
@@ -239,6 +240,32 @@ export const envSchema = z
       .min(10)
       .max(540)
       .default(300),
+    // DEC-059: the chat endpoint the Backend calls when the direct engine is chosen. Optional: the default is
+    // Gemini's OpenAI-compatible endpoint. Another value points the Backend at a test server or another provider.
+    AI_CHAT_COMPLETIONS_URL: z.preprocess(
+      (value) =>
+        typeof value === 'string' && value.trim() === '' ? undefined : value,
+      z
+        .string()
+        .trim()
+        .url('AI_CHAT_COMPLETIONS_URL must be a valid URL')
+        .optional(),
+    ),
+    // DEC-059: encrypts the model API keys that the Platform team saves from the console (AES-256-GCM).
+    // 32 random bytes, base64. Optional: without it the console cannot save keys and Menu Import keeps using n8n.
+    // Set it once and never change it: a different key cannot read the keys already saved.
+    AI_KEYS_ENCRYPTION_KEY: z.preprocess(
+      (value) =>
+        typeof value === 'string' && value.trim() === '' ? undefined : value,
+      z
+        .string()
+        .trim()
+        .refine(
+          isValidEncryptionKey,
+          'AI_KEYS_ENCRYPTION_KEY must be 32 random bytes, base64 encoded',
+        )
+        .optional(),
+    ),
 
     // FT-9: how many reverse-proxy hops to trust for the client IP
     // (`X-Forwarded-For`). 0 = trust none (direct connection, the local-dev

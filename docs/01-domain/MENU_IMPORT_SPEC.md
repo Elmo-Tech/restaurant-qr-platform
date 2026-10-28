@@ -10,6 +10,9 @@
 >
 > **Amended by DEC-058 (2026-10-27):** an Excel file that follows the template is read by the Backend
 > without n8n or a model (sections 3A, 21).
+>
+> **Amended by DEC-059 (2026-10-28):** the Backend can call the model itself, with the engine and the model keys
+> managed from the Platform console (section 17A).
 
 ## Document Purpose
 
@@ -83,7 +86,13 @@ through the same validation and review as any other import (section 18), so a mi
 a blocker. Only the first sheet is read and formulas are not evaluated. A `.xls` file, or an Excel
 file without these headers, is sent to n8n as before (section 17).
 
-The template file is offered for download on the import page.
+The template file is offered for download on the import page. Under it, a folded block gives ready-made
+instructions (with a copy button) for any AI chat: the restaurant attaches its menu photos, the chat prepares this
+template, and the restaurant uploads the result here. It is a manual fallback that costs no model request on our
+side. The text is English on purpose, lives in `apps/web/src/lib/menu-import/ai-prompt.ts`, tells the chat to keep
+the menu's own languages and never to invent a price or a description, and must list exactly the template's columns.
+Add-ons and more than 3 sizes are not part of the template, so the instructions ask the chat to leave them out and
+name them in a note.
 
 ---
 
@@ -369,6 +378,40 @@ goes to another key without waiting; a rejected key is put aside for hours. When
 limited the workflow waits at most 20 seconds and then answers `FAILED` with
 `errorCode = MODEL_BUSY`. Retries are few: none on a limited key, at most 3 on a server error.
 Details: `N8N_ORCHESTRATION.md`.
+
+---
+
+# 17A. Extraction Engines (DEC-059)
+
+Two engines read a menu; the Platform team chooses one in the console (default `N8N`):
+
+| Engine | Who calls the model |
+|---|---|
+| `N8N` | the n8n webhook (section 17) |
+| `DIRECT` | the Backend, over an OpenAI-compatible endpoint (Gemini by default) |
+
+Both return the same answer, which goes through the same validation (section 18), so the Draft and the review do
+not depend on the engine. `DIRECT` can only be selected when the encryption variable is set and at least one key
+is active; the switch back to `N8N` is always allowed.
+
+`DIRECT` rules (the same as the n8n workflow):
+
+- Each image is its own request, at most 4 at the same time; answers are merged in upload order, the same
+  category on two images is one category, a repeated product is dropped.
+- One request per PDF; an `.xlsx` file that is not the template is sent as a text table (first sheet, at most
+  800 rows). A legacy `.xls` file is not opened by the Backend: the import fails with `UNSUPPORTED_FILE` and the
+  user is asked to save it as `.xlsx`.
+- Keys rotate: a request uses an available key (fewest requests in flight, then least recently used); a key at
+  its limit (429) is put aside for the provider's delay (one minute by default, one hour for a daily quota); a
+  rejected key (401, 403) is put aside for six hours; the file goes to another key at once.
+- A server error (5xx, timeout) is retried at most 3 times with a 2, 4 and 6 second pause, with the fallback
+  model when one is set. One call waits at most 60 seconds (a call that only hangs is a busy model, not a failed file) and no new round starts after 180 seconds; the
+  answer is then `MODEL_BUSY`, never a timeout.
+- If some images fail and others succeed the result is `EXTRACTED` with `SOME_FILES_FAILED`; if all fail it is
+  `FAILED`. With no usable key the import fails with `AI_UNAVAILABLE`.
+- Key values are never logged and never returned by an API.
+- The endpoint is Gemini's OpenAI-compatible one. `AI_CHAT_COMPLETIONS_URL` replaces it (a test server or another
+  provider); it is not passed through the production compose file.
 
 ---
 

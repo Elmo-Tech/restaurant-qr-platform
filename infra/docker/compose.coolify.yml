@@ -113,6 +113,8 @@ services:
       N8N_MENU_IMPORT_URL: ${N8N_MENU_IMPORT_URL:-}
       N8N_MENU_IMPORT_SECRET: ${N8N_MENU_IMPORT_SECRET:-}
       MENU_IMPORT_TIMEOUT_SECONDS: ${MENU_IMPORT_TIMEOUT_SECONDS:-300}
+      # encrypts the model API keys saved from the Platform console (DEC-059); empty = keys cannot be saved
+      AI_KEYS_ENCRYPTION_KEY: ${AI_KEYS_ENCRYPTION_KEY:-}
     volumes:
       - uploads:/var/lib/restaurant-qr/uploads
     depends_on:

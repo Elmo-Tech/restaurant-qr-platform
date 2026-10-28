@@ -701,6 +701,50 @@ model PlatformTrialSettings {
   @@map("platform_trial_settings")
 }
 
+// Which engine reads a menu for Menu Import (DEC-059): the n8n webhook, or the Backend calling the model directly.
+enum AiExtractionEngine {
+  N8N
+  DIRECT
+
+  @@map("ai_extraction_engine")
+}
+
+enum AiKeyStatus {
+  ACTIVE
+  DISABLED
+
+  @@map("ai_key_status")
+}
+
+// Singleton: the engine, the model and its fallback, managed from the Platform console (DEC-059).
+model PlatformAiSettings {
+  id            String             @id @default("ai")
+  engine        AiExtractionEngine @default(N8N)
+  model         String
+  fallbackModel String?            @map("fallback_model")
+  createdAt     DateTime           @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt     DateTime           @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@map("platform_ai_settings")
+}
+
+// A model API key of the pool (DEC-059). `secretEncrypted` is AES-256-GCM ciphertext (`v1:iv:tag:data`); the key to
+// open it lives in the server environment, never here. No endpoint returns the secret: only the label and `last4`.
+model PlatformAiKey {
+  id              String      @id @default(uuid()) @db.Uuid
+  label           String
+  secretEncrypted String      @map("secret_encrypted")
+  // SHA-256 of the key: refuses the same key twice without decrypting anything.
+  fingerprint     String      @unique
+  last4           String      @db.VarChar(4)
+  status          AiKeyStatus @default(ACTIVE)
+  createdAt       DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+
+  @@index([status])
+  @@map("platform_ai_keys")
+}
+
 // A per-Restaurant override of what the platform allows (DEC-043). No row = the default (every feature).
 model RestaurantFeature {
   id           String     @id @default(uuid()) @db.Uuid

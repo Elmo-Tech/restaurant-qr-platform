@@ -29,7 +29,8 @@ export class ExtractorUnavailableError extends Error {
  * is UNTRUSTED -- it goes through `normalizeExtraction` before anything is stored.
  */
 export abstract class MenuImportExtractor {
-  abstract isConfigured(): boolean;
+  /** Whether the chosen engine can work right now. It may read a setting, so it can be asynchronous (DEC-059). */
+  abstract isConfigured(): boolean | Promise<boolean>;
   abstract extract(input: ExtractionInput): Promise<unknown>;
 }
 

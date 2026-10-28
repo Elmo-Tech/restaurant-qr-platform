@@ -1419,6 +1419,38 @@ sheets, images inside a sheet.
 
 ---
 
+### DEC-059 — Menu Extraction by the Backend, with Model Keys Managed in the Console
+
+**Status:** Accepted (owner, 2026-10-28). Amends DEC-039 and DEC-040 for Menu Import only.
+
+Menu Import can read a menu with the **Backend calling the model directly** (engine `DIRECT`) instead of
+the n8n webhook (engine `N8N`, the default and the behavior before this decision). The engine, the model, an
+optional fallback model and the pool of **API keys** are Platform settings managed from the Platform console, so
+a key or a model can be changed in minutes without a deployment. The Guest AI Assistant is not affected and stays
+on n8n (DEC-016).
+
+Keys are stored **encrypted** in the database (AES-256-GCM); the encryption key is the server variable
+`AI_KEYS_ENCRYPTION_KEY`, set once and never stored in the database. No API ever returns a key: the console shows
+a label and the last four characters, and the Platform audit log records who added, disabled or removed a key
+without its value. Without the variable the console cannot save keys and the engine stays `N8N`. The engine can
+only be switched to `DIRECT` when the variable is set and at least one key is active, and it can be switched back
+to `N8N` at any time.
+
+The direct engine behaves like the n8n workflow (MENU_IMPORT_SPEC.md #17A): each image is its own request (up to 4
+at once) and the answers are merged; a key at its limit is put aside and the file goes to another key; a call waits
+at most 60 seconds and no new round starts after 180 seconds, so a busy model answers `MODEL_BUSY` before the
+Backend limit; a fallback model is tried after a server error. It handles every file kind (images, PDF, and an Excel
+file that is not the template, sent to the model as a text table). An Excel file that follows the template is still
+read without any model (DEC-058).
+
+The reason is maintainability and testing: the logic is ordinary code in the repository, covered by the same tests,
+and the team keeps the "change a key or model in minutes" convenience that n8n gave.
+
+**Not in scope:** keys per Restaurant, usage counters or quotas, providers other than the OpenAI-compatible
+endpoint (Gemini by default), classical OCR, moving the Guest AI Assistant.
+
+---
+
 ---
 
 ---

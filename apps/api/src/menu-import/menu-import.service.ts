@@ -277,7 +277,7 @@ export class MenuImportService {
       if (read.kind === 'template') sheet = read.extraction;
     }
 
-    if (sheet === null && !this.extractor.isConfigured()) {
+    if (sheet === null && !(await this.extractor.isConfigured())) {
       throw new ServiceUnavailableException({
         error: {
           code: 'AI_UNAVAILABLE',

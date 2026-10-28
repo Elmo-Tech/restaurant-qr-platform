@@ -1793,6 +1793,20 @@ is Platform-owned global branding configuration, never Restaurant/Tenant content
 
 ---
 
+# 68K. Platform AI Settings and Keys (DEC-059, 2026-10-28)
+
+Migration `20261112090000_platform_ai_settings` (additive): enums `ai_extraction_engine` (`N8N`, `DIRECT`) and
+`ai_key_status` (`ACTIVE`, `DISABLED`); the singleton `platform_ai_settings` (`id = ai`, `engine` default `N8N`,
+`model`, optional `fallback_model`, timestamps; CHECKs keep it a singleton and the model names plain identifiers),
+seeded with `N8N` and `gemini-3.8-flash`; and `platform_ai_keys` (`id`, `label` 1 to 60 characters,
+`secret_encrypted` = `v1:<iv>:<tag>:<ciphertext>` from AES-256-GCM, `fingerprint` = SHA-256 of the key with a UNIQUE
+index so the same key is refused twice without decrypting anything, `last4`, `status`, timestamps; index on
+`status`). The table never holds a usable secret: the encryption key is the server variable
+`AI_KEYS_ENCRYPTION_KEY`, and no endpoint returns a key. Platform-wide configuration, never Tenant content.
+Rollback (before the engine is switched): drop both tables and both types.
+
+---
+
 # 69. Variant Price
 
 V1 uses:
