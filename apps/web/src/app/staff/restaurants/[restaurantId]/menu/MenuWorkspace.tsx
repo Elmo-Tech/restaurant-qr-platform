@@ -28,6 +28,8 @@ export interface MenuWorkspaceProps {
   currencyCode: string;
   /** `menu.manage` AND `allBranches === true` (Section 5). */
   canManage: boolean;
+  /** The platform turned Menu Import on for this Restaurant (DEC-057); without it the entry is not shown. */
+  canImportMenu: boolean;
   /** `menu.manage` alone, regardless of Branch scope -- used only for the explanatory read-only note (Section 24). */
   hasMenuManagePermission: boolean;
   /** FT-1, Section 20: optional Menu/Category to select on first load, restoring context from the Product Editor's "Back to Menu" link. Ignored if either id no longer matches a loaded Menu/Category. */
@@ -72,6 +74,7 @@ export function MenuWorkspace({
   restaurantId,
   currencyCode,
   canManage,
+  canImportMenu,
   hasMenuManagePermission,
   initialMenuId,
   initialCategoryId,
@@ -447,7 +450,7 @@ export function MenuWorkspace({
         description={t('menu.subtitle')}
         actions={
           <>
-            {canManage ? (
+            {canManage && canImportMenu ? (
               <Button asChild variant="secondary">
                 <Link href={`/staff/restaurants/${restaurantId}/menu/import`}>{t('import.entry')}</Link>
               </Button>

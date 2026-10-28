@@ -230,6 +230,7 @@ export function ImportReview({
 const WARNING_KEYS: Record<string, true> = {
   'import.review.warning.RESULT_TRUNCATED': true,
   'import.review.warning.MODEL_OUTPUT_MAY_BE_INCOMPLETE': true,
+  'import.review.warning.SOME_FILES_FAILED': true,
 };
 
 interface CategoryCardProps {

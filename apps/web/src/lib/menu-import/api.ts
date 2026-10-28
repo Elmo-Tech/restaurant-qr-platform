@@ -11,12 +11,13 @@ const base = (restaurantId: string) => `/restaurants/${restaurantId}/menu-import
 
 export async function startImport(
   restaurantId: string,
-  input: { file: File; targetMenuId: string; languageHint: ImportLanguageHint },
+  input: { files: File[]; targetMenuId: string; languageHint: ImportLanguageHint },
 ): Promise<{ publicId: string; status: ImportJob['status'] }> {
   const form = new FormData();
   form.append('targetMenuId', input.targetMenuId);
   form.append('languageHint', input.languageHint);
-  form.append('file', input.file);
+  // One `file` part per file, in the order the user picked them (the Backend keeps that order).
+  for (const file of input.files) form.append('file', file);
   const body = await apiFetchFormData<{ data: { publicId: string; status: ImportJob['status'] } }>(
     base(restaurantId),
     form,

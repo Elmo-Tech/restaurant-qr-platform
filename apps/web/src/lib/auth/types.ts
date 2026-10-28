@@ -9,7 +9,9 @@ export type FeatureKey =
   | 'MENU_TEMPLATES'
   | 'DASHBOARD_ORDERING'
   | 'TABLE_ORDERING'
-  | 'KITCHEN';
+  | 'KITCHEN'
+  /** AI menu import (DEC-057): the one opt-in feature, OFF unless the platform turns it on. */
+  | 'MENU_IMPORT';
 
 export type FeatureMap = Record<FeatureKey, boolean>;
 /**

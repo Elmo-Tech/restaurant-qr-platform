@@ -21,6 +21,14 @@ export function usesKitchen(membership: AuthContextMembership): boolean {
   return featureOn(membership, 'KITCHEN') && receivesDashboardOrders(membership);
 }
 
+/**
+ * Menu Import from a file (DEC-057): an opt-in platform feature, OFF unless the platform turned it on for this
+ * Restaurant. Unlike the others, a missing feature map (an older response) means NOT available.
+ */
+export function usesMenuImport(membership: AuthContextMembership): boolean {
+  return membership.restaurant.features?.MENU_IMPORT === true;
+}
+
 /** Table ordering: the tables board, table sessions and table orders. */
 export function usesTableOrdering(membership: AuthContextMembership): boolean {
   return featureOn(membership, 'TABLE_ORDERING');

@@ -1,10 +1,16 @@
 'use client';
 
 import Link from 'next/link';
-import { useCallback, useEffect, useRef, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../../lib/i18n/messages';
 import * as importApi from '../../../../../../lib/menu-import/api';
+import {
+  addToSelection,
+  formatFileSize,
+  MAX_IMPORT_FILES,
+  type SelectionProblem,
+} from '../../../../../../lib/menu-import/files';
 import type {
   ApproveResult,
   ImportJob,
@@ -48,7 +54,8 @@ export function MenuImportWorkspace({
   const [menus, setMenus] = useState<Menu[]>([]);
   const [error, setError] = useState<string | null>(null);
 
-  const [file, setFile] = useState<File | null>(null);
+  const [files, setFiles] = useState<File[]>([]);
+  const [pickProblem, setPickProblem] = useState<SelectionProblem | null>(null);
   const [menuId, setMenuId] = useState('');
   const [hint, setHint] = useState<ImportLanguageHint>('auto');
   const [submitting, setSubmitting] = useState(false);
@@ -105,7 +112,7 @@ export function MenuImportWorkspace({
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setError(null);
-    if (!file) {
+    if (files.length === 0) {
       setError(t('import.upload.noFile'));
       return;
     }
@@ -116,16 +123,54 @@ export function MenuImportWorkspace({
     setSubmitting(true);
     try {
       const started = await importApi.startImport(restaurantId, {
-        file,
+        files,
         targetMenuId: menuId,
         languageHint: hint,
       });
       setStage({ kind: 'job', job: await importApi.getImport(restaurantId, started.publicId) });
-      setFile(null);
+      setFiles([]);
+      setPickProblem(null);
     } catch (caught) {
       fail(caught);
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  /** Adds what the user picked to the list (several images at once, or one PDF / Excel file). */
+  function handlePick(event: ChangeEvent<HTMLInputElement>) {
+    const picked = Array.from(event.target.files ?? []);
+    // Reset, so the same file can be picked again after it was removed from the list.
+    event.target.value = '';
+    if (picked.length === 0) return;
+    const result = addToSelection(files, picked);
+    setFiles(result.files);
+    setPickProblem(result.problem);
+    setError(null);
+  }
+
+  function removeFile(index: number) {
+    setFiles((current) => current.filter((unused, position) => position !== index));
+    setPickProblem(null);
+  }
+
+  function clearFiles() {
+    setFiles([]);
+    setPickProblem(null);
+  }
+
+  function problemText(problem: SelectionProblem): string {
+    switch (problem.code) {
+      case 'type':
+        return t('import.upload.err.type', { name: problem.name });
+      case 'size':
+        return t('import.upload.err.size', { name: problem.name });
+      case 'tooMany':
+        return t('import.upload.err.tooMany', { max: MAX_IMPORT_FILES });
+      case 'mixed':
+        return t('import.upload.err.mixed');
+      case 'total':
+        return t('import.upload.err.total');
     }
   }
 
@@ -161,10 +206,66 @@ export function MenuImportWorkspace({
                 id="import-file"
                 type="file"
                 accept={ACCEPT}
-                onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+                multiple
+                onChange={handlePick}
                 className="block w-full cursor-pointer rounded-md border border-input bg-card text-sm text-foreground file:me-3 file:cursor-pointer file:border-0 file:bg-secondary file:px-4 file:py-2.5 file:text-sm file:font-medium file:text-secondary-foreground"
               />
               <p className="text-xs text-muted-foreground">{t('import.upload.fileHint')}</p>
+              <p className="text-xs text-muted-foreground">
+                {t('import.upload.templateHint')}{' '}
+                <a
+                  href="/templates/menu-import-template.xlsx"
+                  download
+                  className="font-medium text-primary underline underline-offset-2 hover:no-underline"
+                >
+                  {t('import.upload.template')}
+                </a>
+              </p>
+              {pickProblem ? (
+                <p role="alert" className="text-sm text-destructive" dir="auto">
+                  {problemText(pickProblem)}
+                </p>
+              ) : null}
+              {files.length > 0 ? (
+                <div className="mt-1 flex flex-col gap-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <p className="text-sm font-medium text-foreground">
+                      {t('import.upload.selected', { count: files.length, max: MAX_IMPORT_FILES })}
+                    </p>
+                    {files.length > 1 ? (
+                      <Button type="button" variant="ghost" size="sm" onClick={clearFiles}>
+                        {t('import.upload.clear')}
+                      </Button>
+                    ) : null}
+                  </div>
+                  <ul className="divide-y divide-border rounded-md border border-border bg-card">
+                    {files.map((file, index) => (
+                      <li
+                        key={`${file.name}|${file.size}|${file.lastModified}`}
+                        className="flex items-center justify-between gap-3 px-3 py-2"
+                      >
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm text-foreground" dir="auto">
+                            {file.name}
+                          </span>
+                          <span className="block text-xs text-muted-foreground" dir="ltr">
+                            {formatFileSize(file.size)}
+                          </span>
+                        </span>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => removeFile(index)}
+                          aria-label={t('import.upload.removeNamed', { name: file.name })}
+                        >
+                          {t('import.upload.remove')}
+                        </Button>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
             </FormField>
 
             <FormField label={t('import.upload.menu')} htmlFor="import-menu">
@@ -276,4 +377,5 @@ const knownFailures: Record<string, true> = {
   'import.failed.UNSUPPORTED_FILE': true,
   'import.failed.FILE_TOO_LARGE': true,
   'import.failed.TRUNCATED_OUTPUT': true,
+  'import.failed.MODEL_BUSY': true,
 };
