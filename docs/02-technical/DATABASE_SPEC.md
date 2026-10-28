@@ -1724,7 +1724,7 @@ Potential fields:
 
 # 68A. Menu Import Draft Tables (DEC-040, 2026-10-17)
 
-Added by migration `20261017120000_add_menu_import` (additive only). `menu_import_jobs` (one row per import: status, source type and sanitized file name, language hint, detected locales, model name, stable `error_code`, warnings, timestamps), `menu_import_categories` and `menu_import_products` (the Draft rows, each carrying `restaurant_id`), and `menu_import_category_translations` / `menu_import_product_translations` (names and descriptions per locale; never language columns). `price` is `DECIMAL(14,2)`, null when the file showed none; `price_options` holds the extracted sizes as JSON. `matched_*_id` and `created_*_id` are plain references (no foreign key) and are re-verified against the Tenant before use. The uploaded file is never stored.
+Added by migration `20261017120000_add_menu_import` (additive only). `menu_import_jobs` (one row per import: status, source type and sanitized file name, language hint, detected locales, model name, stable `error_code`, warnings, timestamps), `menu_import_categories` and `menu_import_products` (the Draft rows, each carrying `restaurant_id`), and `menu_import_category_translations` / `menu_import_product_translations` (names and descriptions per locale; never language columns). `price` is `DECIMAL(14,2)`, null when the file showed none; `price_options` holds the extracted sizes as JSON. `matched_*_id` and `created_*_id` are plain references (no foreign key) and are re-verified against the Tenant before use. The uploaded file is never stored. For an import of several images (DEC-057) `source_file_name` holds the sanitized names joined with a comma (cut at 120 characters), `source_mime_type` the type of the first file and `source_size_bytes` the total; no column was added.
 
 Custom SQL: a partial unique index `menu_import_jobs_one_processing_per_restaurant` (at most one `PROCESSING` job per Restaurant) and a check that a Draft price is never negative.
 
@@ -1769,6 +1769,8 @@ Migration `20261024090000_product_suggestions` (additive): enum `suggestions_mod
 # 68H. Feature Entitlements (DEC-043, 2026-10-18)
 
 Migration `20261025090000_restaurant_features` (additive): enum `feature_key` (`WHATSAPP_ORDERING`, `ORDER_TRACKING`, `SMART_SUGGESTIONS`, `MENU_TEMPLATES`, `DASHBOARD_ORDERING`, `TABLE_ORDERING`) and table `restaurant_features` (`restaurant_id`, `feature`, `enabled`, timestamps, UNIQUE (`restaurant_id`, `feature`), FK to `restaurants` ON DELETE CASCADE: configuration, not history). A missing row means the default (allowed); the default is one constant in the Backend, not a column. Adding a feature is a new enum value plus its Backend checks. Rollback (before use): `DROP TABLE "restaurant_features"; DROP TYPE "feature_key";`
+
+Migration `20261111090000_feature_menu_import` (DEC-057, additive): one `feature_key` value, `MENU_IMPORT` (AI menu import). No backfill: no existing package includes it, so no restaurant has it until the Platform team switches it on. It is the one feature that is off by default for a Restaurant with no package (an opt-in list in the Backend, next to `DEFAULT_ENTITLEMENT`). A value cannot be removed from a PostgreSQL enum; rollback is `DELETE FROM package_features WHERE feature = 'MENU_IMPORT'; DELETE FROM restaurant_features WHERE feature = 'MENU_IMPORT';` and stop using it in the application.
 
 ---
 

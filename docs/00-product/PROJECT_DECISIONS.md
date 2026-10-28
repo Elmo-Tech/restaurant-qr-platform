@@ -1364,6 +1364,61 @@ Trial Package with duplicated entitlements.
 
 ---
 
+### DEC-057 — Menu Import: Several Images and a Platform Feature
+
+**Status:** Accepted (owner, 2026-10-27). Amends DEC-040.
+
+One menu import can take several files of one kind: 1 to 10 images, or one PDF, or one Excel file
+(10 MB per file, 40 MB in all). It is one Job and one Draft. The extraction workflow reads the images
+at the same time (up to 4) and merges them: the same category on two images is one category and a
+repeated product is dropped. If some images fail and others succeed, the Draft is created with the
+warning `SOME_FILES_FAILED`. The extraction workflow also keeps a pool of model keys in n8n (pasted
+in the Build request node, or set as an environment variable): a key that hits its limit is put aside and the request goes to another key, with few
+retries; when every key is limited the Job fails with `MODEL_BUSY`. Keys are never in Git, the
+Backend or the workflow JSON.
+
+Menu Import becomes a Platform feature, `MENU_IMPORT` (DEC-043, DEC-046), controlled from the
+Platform console like the other package features, and it is **off by default**: no existing Package
+includes it, and a Restaurant with no Package does not have it. The Platform team switches it on for
+a Restaurant while its menu is set up and off afterwards, or includes it in a Package. Without it,
+starting an import answers `403 FEATURE_NOT_AVAILABLE` naming `MENU_IMPORT` and the dashboard hides
+the action; reading Jobs and reviewing, approving or discarding an existing Draft still work, and
+content already created stays.
+
+The reason is model quota. This replaces the DEC-040 statement that the import is free and always
+available: the cost is now controlled by availability, not by a counter.
+
+**Not in scope:** per-Restaurant import counters or allowances, charging per import, mixing images
+with a PDF or Excel file, reordering images.
+
+---
+
+### DEC-058 — Menu Import: an Excel Template Read by the Backend
+
+**Status:** Accepted (owner, 2026-10-27). Amends DEC-040 and DEC-057.
+
+An Excel file (`.xlsx`) that follows the Platform's menu template is read by the **Backend
+itself**: no n8n, no model call, no tokens. The Backend recognizes it by its header row, maps the
+rows to the same extraction shape n8n returns, and runs it through the same validation
+(`normalizeExtraction`), so the Draft, the review and the approval are identical. Any other Excel
+file keeps going to n8n, where the model reads it, exactly as before. The template (`name_ar`,
+`name_en`, `category_ar`, `price`, sizes, see MENU_IMPORT_SPEC.md #3A) can be downloaded from the
+import page.
+
+The reason is cost and reliability: a structured sheet needs no model, and it gives the Platform
+team a free fallback when the model quota is used up (a menu photo can be turned into the template
+by hand or with an assistant and then uploaded). The `MENU_IMPORT` feature (DEC-057) still gates
+both ways: the Platform team decides which Restaurants may import.
+
+Reading `.xlsx` uses the maintained library `read-excel-file`, behind safety limits (archive size
+after decompression, entry count, rows; formulas are never evaluated, only stored values are
+read). Legacy `.xls` files are not read by the Backend and still go to n8n.
+
+**Not in scope:** guessing arbitrary column layouts without the template headers, `.xls`, several
+sheets, images inside a sheet.
+
+---
+
 ---
 
 ---

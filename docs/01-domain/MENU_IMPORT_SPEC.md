@@ -3,6 +3,13 @@
 > **Status: Accepted (2026-10-17); in implementation.** The owner's decisions on the open questions are recorded in
 > section 27. It becomes authoritative when DEC-040 is accepted, and the import
 > is built after Product Variants (DEC-041).
+>
+> **Amended by DEC-057 (2026-10-27):** one import can take several images, and Menu Import is a
+> Platform feature (`MENU_IMPORT`) that is off unless the Platform team turns it on
+> (sections 3, 4A, 10, 17, 20, 21, 24, 26).
+>
+> **Amended by DEC-058 (2026-10-27):** an Excel file that follows the template is read by the Backend
+> without n8n or a model (sections 3A, 21).
 
 ## Document Purpose
 
@@ -45,12 +52,38 @@ Each can be a later proposal. None is implied.
 
 | Source | Accepted files | Notes |
 |---|---|---|
-| Image | `.jpg` `.jpeg` `.png` `.webp` | one image per import |
-| PDF | `.pdf` | digital or scanned; multi-page |
-| Spreadsheet | `.xlsx` `.xls` | rows are read as a table |
+| Image | `.jpg` `.jpeg` `.png` `.webp` | 1 to 10 images per import, read at the same time and merged into one Draft |
+| PDF | `.pdf` | digital or scanned; multi-page; one PDF per import |
+| Spreadsheet | `.xlsx` `.xls` | rows are read as a table; one file per import |
 
-Maximum file size is **10 MB**. Maximum result is **80 categories** and
+Maximum size is **10 MB per file** and **40 MB in all**. An import is either 1 to 10 images,
+or exactly one PDF, or exactly one spreadsheet; any other mix is rejected. Maximum result is
+**80 categories** and
 **800 products**; anything beyond is dropped and reported as a warning.
+
+---
+
+# 3A. The Excel Template (DEC-058)
+
+A `.xlsx` file whose first sheet has the template header row is read by the Backend: no n8n and no
+model. The header row is the first non-empty row. Headers are matched ignoring case, spaces, hyphens
+and underscores, and their order does not matter.
+
+| Header | Meaning |
+|---|---|
+| `category_ar`, `category_en` | Category name per language. A blank cell reuses the category above. |
+| `name_ar`, `name_en` | Product name per language. At least one is needed for a row to count. |
+| `description_ar`, `description_en` | Optional description per language. |
+| `price` | The product price: a number or text; Arabic digits, decimal commas and currency words are accepted. |
+| `size1_ar`, `size1_en`, `size1_price` (and `size2_...`, `size3_...`) | Optional sizes. With sizes, a blank `price` uses the cheapest size. |
+
+A file is the template when its header row has `name_ar` or `name_en` AND `price` or `size1_price`.
+Rows without a name are skipped and every product is read as high confidence. The result goes
+through the same validation and review as any other import (section 18), so a missing price is still
+a blocker. Only the first sheet is read and formulas are not evaluated. A `.xls` file, or an Excel
+file without these headers, is sent to n8n as before (section 17).
+
+The template file is offered for download on the import page.
 
 ---
 
@@ -63,6 +96,30 @@ receives the same generic `403 PERMISSION_DENIED` as any caller without the
 Permission.
 
 Guests, the AI Assistant and n8n never start or approve an import.
+
+---
+
+# 4A. Availability: a Platform Feature (DEC-057)
+
+Menu Import is a Platform feature, `MENU_IMPORT` (DEC-043, DEC-046), and it is **off unless the
+Platform team turns it on**. It is the only feature that is not on by default: a Package includes
+it only when the Package lists it (no existing Package does), and a Restaurant with no Package
+does not have it. The Platform team switches it on for one Restaurant while that Restaurant's menu
+is being set up and off again afterwards, from the Restaurant's feature switches in the Platform
+console, or includes it in a Package.
+
+Without the feature:
+
+- `POST /menu-imports` answers `403 FEATURE_NOT_AVAILABLE` naming `MENU_IMPORT`, before any file
+  is read and before any model is called.
+- The dashboard hides the **Import menu** action, and the import page says the feature is not
+  included.
+- Reading Jobs, and reviewing, editing, approving or discarding a Draft that already exists, keep
+  working: they cost nothing and a Draft must never be stranded. Menu content already created
+  stays.
+
+The reason is model quota: every import spends provider requests, so it is offered to a customer
+by the Platform team and not to every Restaurant at all times.
 
 ---
 
@@ -143,7 +200,7 @@ again. The Job keeps only the display file name (sanitized), MIME type and size.
 
 1. The Backend validates the file (section 21) and creates the Job
    (`PROCESSING`), then answers `202 Accepted`.
-2. A background task in the API process sends the file to the n8n webhook
+2. A background task in the API process sends the file, or all the images, to the n8n webhook
    (section 17) and waits up to **5 minutes**.
 3. The Backend validates the response itself (section 18). It does not trust
    n8n's cleaning.
@@ -262,19 +319,10 @@ manual testing. It is authenticated with a shared secret header and, when
 available, an HMAC signature with timestamp (`N8N_ORCHESTRATION.md` #30-#32).
 The secret lives in n8n credentials and Backend configuration, never in Git.
 
-**Request (schemaVersion 1):**
-
-```json
-{
-  "schemaVersion": 1,
-  "requestId": "opaque id for logs",
-  "sourceType": "IMAGE | PDF | SPREADSHEET",
-  "fileName": "menu.pdf",
-  "mimeType": "application/pdf",
-  "fileBase64": "...",
-  "languageHint": "auto | ar | en"
-}
-```
+**Request (multipart/form-data):** one or more `file` parts and a text part `languageHint`
+(`auto | ar | en`). The files are 1 to 10 images, or exactly one PDF, or exactly one spreadsheet
+(section 3). The Backend has already validated them by content, so each part carries its true MIME
+type. n8n does not receive the Restaurant, the user or the Menu.
 
 **Response:** the cleaned result of the workflow:
 
@@ -306,9 +354,21 @@ The secret lives in n8n credentials and Backend configuration, never in Git.
 }
 ```
 
-The reference workflow is `infra/n8n/workflows/menu-extract-simple.json`. The
-model, endpoint and credentials are configured inside n8n and are not part of
-the contract.
+The reference workflows are `infra/n8n/workflows/menu-extract-api.json` (the webhook) and
+`menu-extract-simple.json` (the form used for manual tests). The model, endpoint and credentials are
+configured inside n8n and are not part of the contract.
+
+**Several images.** n8n reads each image as its own model request (up to 4 at the same time) and
+merges the answers in upload order into one result: the same category on two images is one
+category and a repeated product is dropped. If some images fail and others succeed, the result is
+`EXTRACTED` with the warning `SOME_FILES_FAILED`; if all fail it is `FAILED`.
+
+**Model keys.** The workflow uses a pool of provider keys kept in n8n, as a list in the `Build request` node or in an environment variable (never in
+Git, the Backend or the committed workflow JSON). A key that hits its rate limit is put aside and the request
+goes to another key without waiting; a rejected key is put aside for hours. When every key is
+limited the workflow waits at most 20 seconds and then answers `FAILED` with
+`errorCode = MODEL_BUSY`. Retries are few: none on a limited key, at most 3 on a server error.
+Details: `N8N_ORCHESTRATION.md`.
 
 ---
 
@@ -381,7 +441,7 @@ Base: `/api/v1/restaurants/{restaurantId}/menu-imports`. Every route uses
 
 | Method and path | Purpose |
 |---|---|
-| `POST /` (multipart: `file`, `targetMenuId`, `languageHint?`) | upload, `202` with `{ publicId, status }` |
+| `POST /` (multipart: `file` repeated for several images, `targetMenuId`, `languageHint?`) | upload, `202` with `{ publicId, status }`; needs the `MENU_IMPORT` feature (section 4A) |
 | `GET /` | recent Jobs of the Restaurant |
 | `GET /{importId}` | Job status, counts, warnings, error code |
 | `GET /{importId}/draft` | categories and products with translations and flags |
@@ -400,16 +460,21 @@ Stable errors (the frontend never parses messages, `CLAUDE.md` #92):
 
 | Code | HTTP | When |
 |---|---|---|
-| `IMPORT_FILE_INVALID` | 422 | unsupported or corrupt file |
-| `IMPORT_FILE_TOO_LARGE` | 413 | over 10 MB |
+| `IMPORT_FILE_INVALID` | 422 | unsupported or corrupt file, or a mix that is not allowed (images with a PDF, two PDFs, more than 10 files) |
+| `IMPORT_FILE_TOO_LARGE` | 413 | a file over 10 MB, or the files together over 40 MB |
 | `IMPORT_ALREADY_RUNNING` | 409 | a Job is already `PROCESSING` |
 | `IMPORT_NOT_FOUND` | 404 | unknown or foreign Job |
 | `IMPORT_NOT_READY` | 409 | action needs `READY_FOR_REVIEW` |
 | `IMPORT_DRAFT_INCOMPLETE` | 422 | blockers remain; response lists them |
 | `IMPORT_ALREADY_APPROVED` | 409 | Job already approved |
 | `AI_UNAVAILABLE` | 503 | extraction service not reachable |
+| `FEATURE_NOT_AVAILABLE` | 403 | `MENU_IMPORT` is not enabled for the Restaurant (upload only, section 4A) |
 
 AI failure never affects the Menu or ordering APIs (`CLAUDE.md` #43).
+
+A Job can end `FAILED` with `errorCode = MODEL_BUSY` when every model key of the extraction service
+is at its limit; Staff try again in a minute. A Job can end `READY_FOR_REVIEW` with the warning
+`SOME_FILES_FAILED` when some of several images could not be read.
 
 ---
 
@@ -417,11 +482,20 @@ AI failure never affects the Menu or ordering APIs (`CLAUDE.md` #43).
 
 - Validate by **file content** (magic bytes), not by extension or declared MIME
   type (`SECURITY_SPEC.md` #92).
-- Enforce the 10 MB limit before reading the whole body into memory.
+- Enforce the 10 MB limit per file and the limit of 10 files before reading the whole body into
+  memory; the files together may not exceed 40 MB.
+- Inspect every file on its own. The set must be 1 to 10 images, or exactly one PDF, or exactly one
+  spreadsheet; any other mix is `IMPORT_FILE_INVALID`.
+- The Job keeps the sanitized file names joined with a comma (cut at 120 characters), the type of the
+  first file and the total size in bytes. No column is added.
 - Generate no storage path from the file name; the sanitized display name is
   informational only.
-- PDF and Excel files are containers. The Backend does not open or execute
-  them; they are passed to n8n as bytes and size-limited.
+- PDF and other Excel files are containers: the Backend does not open or execute
+  them; they are passed to n8n as bytes and size-limited. The one exception is an
+  `.xlsx` that follows the template (section 3A): the Backend reads its stored cell
+  values with a maintained library behind limits (at most 50 MB after decompression,
+  200 archive entries, 2000 rows), never evaluates formulas, and refuses a corrupt or
+  oversized archive with `IMPORT_FILE_INVALID`.
 - The route has its own rate limit (`API_CONVENTIONS.md` #128).
 
 ---
@@ -467,8 +541,9 @@ instead):
 
 # 24. Limits and Cost
 
-Menu Import is a mostly one-time onboarding action, so its cost is absorbed by
-the Platform for now. **No per-Restaurant allowance is built in this phase.**
+Menu Import is a mostly one-time onboarding action. Its cost is controlled by availability and not
+by a counter: the Platform team turns the `MENU_IMPORT` feature on for a Restaurant while its menu
+is set up and off afterwards (section 4A, DEC-057). **No per-Restaurant allowance is built.**
 
 - Abuse protection stays: one active Job per Restaurant (section 7) and a rate
   limit on the upload route.
@@ -504,9 +579,10 @@ AI translation arrives.
 # 26. Review UX (Staff)
 
 Entry: a **Import menu** action on the Menu management page (visible with
-`menu.manage`).
+`menu.manage`, and only when the Restaurant has the `MENU_IMPORT` feature, section 4A).
 
-1. **Upload:** file drop area, target Menu, optional language hint. Explains
+1. **Upload:** a file picker (several images can be chosen at once and each one can be removed
+   from the list), target Menu, optional language hint. Explains
    that it can take a few minutes and that the user may leave the page.
 2. **Processing:** a clear state with the Job in the recent list; the page
    polls the Job status.
@@ -531,7 +607,8 @@ and is reviewed on a mockup before implementation.
    before the import (section 15).
 3. **Cost and limits:** the import is free for Restaurants and is mostly a
    one-time action. No allowance, cost estimate or provider-plan work now; they
-   are decided during pricing, after the application is complete (section 24).
+   are decided during pricing, after the application is complete (section 24). Amended by
+   DEC-057: the import is switched on per Restaurant by the Platform team (section 4A).
 4. **Duplicates:** matching products are excluded by default and matching
    categories are reused (section 16).
 5. **Source file:** not stored in this phase (section 9). The owner accepts
@@ -567,6 +644,13 @@ Each slice is reviewed before the next.
 - Permission: `menu.manage` and Restaurant-wide scope required; other roles
   `403`.
 - File validation: wrong type, corrupt, oversize, extension / MIME mismatch.
+- Excel template: a file with the template headers creates a Draft with no call to n8n (even when
+  n8n is not configured); a file without them goes to n8n; a corrupt or oversized archive is
+  `IMPORT_FILE_INVALID`.
+- Several images: 1 to 10 accepted; 11 rejected; images with a PDF, two PDFs, or a total over 40 MB
+  rejected.
+- Feature gate: without `MENU_IMPORT` the upload is `403 FEATURE_NOT_AVAILABLE` and no model call is
+  made; an existing Draft can still be reviewed, approved or discarded.
 - One active Job; stuck Job becomes `FAILED` on read.
 - n8n failure, timeout, malformed and hostile responses create no Menu content.
 - Approval is atomic, idempotent, honors blockers and default Locale, never
