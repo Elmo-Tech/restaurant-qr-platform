@@ -78,3 +78,19 @@ test('all new navigation text has Arabic and English translations', () => {
     assert.ok(ar.includes("'menuHub." + key + "'"), 'Missing Arabic key ' + key);
   }
 });
+
+test('nested editors retain context, premium back controls and correct breadcrumbs', () => {
+  const modifier = source(root + '/menu/modifier-presets/ModifierPresetsWorkspace.tsx');
+  const importer = source(root + '/menu/import/MenuImportWorkspace.tsx');
+  const product = source(root + '/menu/products/ProductEditor.tsx');
+  assert.match(modifier, /MenuHubBackLink restaurantId=\{restaurantId\} parent="menus"/);
+  assert.match(importer, /MenuHubBackLink restaurantId=\{restaurantId\} parent="menus"/);
+  assert.match(product, /href=\{backHref\}/); // preserves selected category in the return URL
+  assert.match(product, /focus-visible:outline-2/);
+  assert.match(back, /parent === 'menus'/);
+  assert.match(shell, /t\('menu\.section\.library'\)/);
+  assert.match(shell, /t\('import\.title'\)/);
+  assert.match(shell, /t\('product\.createTitle'\)/);
+  assert.match(shell, /t\('menuHub\.productEditor'\)/);
+  assert.match(shell, /t\('settings\.tab\.hours'\)/);
+});
