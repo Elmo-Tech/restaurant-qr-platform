@@ -2,7 +2,6 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../../lib/auth/session';
 import { getStaffI18n } from '../../../../../../lib/i18n/server';
-import { canViewMenu } from '../../../../../../lib/menu/capabilities';
 import { canViewRestaurantSettings } from '../../../../../../lib/settings/capabilities';
 import { Alert } from '../../../../../../components/ui/Alert';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
@@ -23,7 +22,6 @@ export default async function GuestExperiencePage({ params }: {
       state: t(member.restaurant.status === 'SUSPENDED' ? 'guard.state.suspended' : 'guard.state.inactive'),
     })}</Alert>;
   }
-  if (!canViewMenu(member)) return <Alert variant="error">{t('guard.noPermission.menu')}</Alert>;
   if (!canViewRestaurantSettings(member)) return <Alert variant="error">{t('guard.noPermission.settings')}</Alert>;
 
   const base = `/staff/restaurants/${encodeURIComponent(restaurantId)}`;
