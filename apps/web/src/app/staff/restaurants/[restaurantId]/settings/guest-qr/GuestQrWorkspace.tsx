@@ -3,7 +3,6 @@
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import { MenuHubBackLink } from '../../../../../../components/staff/MenuHubBackLink';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
-import { SettingsTabs } from '../SettingsTabs';
 import type { FeatureMap } from '../../../../../../lib/auth/types';
 import type { QrStyle } from '../../../../../../lib/qr/style';
 import { OrderingOptionsCard } from './OrderingOptionsCard';
@@ -52,8 +51,21 @@ export function GuestQrWorkspace({
       <MenuHubBackLink restaurantId={restaurantId} parent="hub" />
       <PageHeader title={t('menuHub.share')} description={t('menuHub.share.description')} />
 
-      <SettingsTabs restaurantId={restaurantId} active="guest-qr" />
+      <RestaurantQrPanel
+        restaurantId={restaurantId}
+        restaurantName={restaurantName}
+        logoAssetPath={logoAssetPath}
+        canManageQr={canManage}
+        canStyle={canManageOrderTypes}
+        initialStyle={qrStyle}
+        webOrigin={webOrigin}
+      />
 
+      {/* The channel switches stay here until the separately scoped Settings
+          redesign. Present them clearly without altering routing behavior. */}
+      <div className="rounded-xl border border-[#efd9b7] bg-[#fff8ed] px-4 py-3 text-xs leading-6 text-[#80511d] sm:text-sm">
+        {t('menuHub.orderingLegacyNote')}
+      </div>
       <OrderingOptionsCard
         restaurantId={restaurantId}
         initialPickupEnabled={pickupEnabled}
@@ -65,15 +77,6 @@ export function GuestQrWorkspace({
         canManage={canManageOrderTypes}
       />
 
-      <RestaurantQrPanel
-        restaurantId={restaurantId}
-        restaurantName={restaurantName}
-        logoAssetPath={logoAssetPath}
-        canManageQr={canManage}
-        canStyle={canManageOrderTypes}
-        initialStyle={qrStyle}
-        webOrigin={webOrigin}
-      />
     </div>
   );
 }
