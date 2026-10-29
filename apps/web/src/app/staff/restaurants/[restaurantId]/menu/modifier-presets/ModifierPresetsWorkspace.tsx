@@ -97,7 +97,7 @@ export function ModifierPresetsWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <MenuHubBackLink restaurantId={restaurantId} parent="hub" />
+      <MenuHubBackLink restaurantId={restaurantId} parent="menus" />
       <PageHeader title={t('presets.title')} description={t('presets.subtitle')} />
 
       <MenuSectionTabs restaurantId={restaurantId} active="modifier-library" />
