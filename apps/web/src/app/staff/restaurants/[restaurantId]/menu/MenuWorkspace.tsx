@@ -445,6 +445,7 @@ export function MenuWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
+      <Link href={`/staff/restaurants/${restaurantId}/menu/overview`} className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"><span aria-hidden="true" className="rtl:rotate-180">←</span>{t('menuHub.back')}</Link>
       <PageHeader
         title={t('menu.title')}
         description={t('menu.subtitle')}
