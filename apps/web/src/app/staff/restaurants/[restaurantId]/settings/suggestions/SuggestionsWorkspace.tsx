@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../../lib/i18n/messages';
 import * as suggestionsApi from '../../../../../../lib/suggestions/api';
@@ -13,7 +14,6 @@ import {
 import { Alert } from '../../../../../../components/ui/Alert';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
-import { SettingsTabs } from '../SettingsTabs';
 
 const MODES: { key: SuggestionsMode; title: MessageKey; hint: MessageKey }[] = [
   { key: 'OFF', title: 'suggestions.mode.off', hint: 'suggestions.mode.offHint' },
@@ -86,8 +86,8 @@ export function SuggestionsWorkspace({
 
   return (
     <div className="flex flex-col gap-4">
+      <Link href={`/staff/restaurants/${restaurantId}/menu/guest-experience`} className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"><span aria-hidden="true" className="rtl:rotate-180">←</span>{t('menuHub.backGuest')}</Link>
       <PageHeader title={t('settings.title')} description={t('settings.subtitle')} />
-      <SettingsTabs restaurantId={restaurantId} active="suggestions" />
 
       <section className="flex max-w-3xl flex-col gap-4 rounded-xl border border-border bg-card p-5">
         <div>
