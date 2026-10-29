@@ -96,7 +96,7 @@ export function isMobileNavActive(pathname: string, item: MobileNavigationItem):
   if (item.key === 'dashboard' || item.key === 'account' || item.key === 'subscription') {
     return pathname === item.href;
   }
-  const base = item.href.slice(0, item.href.lastIndexOf('/'));
+  const base = item.href.split('/').slice(0, 4).join('/');
   const menuSettings = ['design', 'announcements', 'suggestions', 'guest-qr'].some((part) => {
     const url = `${base}/settings/${part}`;
     return pathname === url || pathname.startsWith(url + '/');
