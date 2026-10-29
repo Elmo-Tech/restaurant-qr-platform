@@ -209,7 +209,7 @@ function SidebarContent({
 }) {
   const { t } = useStaffI18n();
   return (
-    <div className="flex h-full flex-col bg-sidebar">
+    <div className="flex h-full min-h-0 flex-col bg-sidebar">
       <div className="px-5 py-5">
         <WaytaLockup tone="dark" size={34} />
       </div>
@@ -238,7 +238,7 @@ function SidebarContent({
         ) : null}
       </div>
 
-      <nav className="flex-1 overflow-y-auto px-3 pb-4">
+      <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4">
         <ul className="flex flex-col gap-0.5">
           <ActiveLink
             item={{
@@ -428,7 +428,7 @@ export function RestaurantSidebar({
 }: RestaurantSidebarProps) {
   return (
     <>
-      <aside className="hidden w-64 flex-shrink-0 lg:flex lg:flex-col">
+      <aside className="hidden w-64 flex-shrink-0 lg:sticky lg:top-0 lg:flex lg:h-screen lg:h-dvh lg:self-start lg:flex-col">
         <SidebarContent
           user={user}
           restaurantId={restaurantId}
