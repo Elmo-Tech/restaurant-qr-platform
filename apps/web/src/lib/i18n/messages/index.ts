@@ -13,6 +13,7 @@ import { opsMessages } from './ops';
 import { errorMessages } from './errors';
 import { menuImportMessages } from './menuImport';
 import { menuMessages } from './menu';
+import { menuHubMessages } from './menuHub';
 import { menuStructureMessages } from './menuStructure';
 import { ordersMessages } from './orders';
 import { presetsMessages } from './presets';
@@ -48,6 +49,7 @@ const en = {
   ...errorMessages.en,
   ...menuImportMessages.en,
   ...menuMessages.en,
+  ...menuHubMessages.en,
   ...menuStructureMessages.en,
   ...ordersMessages.en,
   ...presetsMessages.en,
@@ -78,6 +80,7 @@ const ar = {
   ...errorMessages.ar,
   ...menuImportMessages.ar,
   ...menuMessages.ar,
+  ...menuHubMessages.ar,
   ...menuStructureMessages.ar,
   ...ordersMessages.ar,
   ...presetsMessages.ar,
