@@ -96,13 +96,18 @@ export function isMobileNavActive(pathname: string, item: MobileNavigationItem):
   if (item.key === 'dashboard' || item.key === 'account' || item.key === 'subscription') {
     return pathname === item.href;
   }
+  const base = item.href.slice(0, item.href.lastIndexOf('/'));
+  const menuSettings = ['design', 'announcements', 'suggestions', 'guest-qr'].some((part) => {
+    const url = `${base}/settings/${part}`;
+    return pathname === url || pathname.startsWith(url + '/');
+  });
   if (item.key === 'settings') {
     const root = item.href.slice(0, -('/profile'.length));
-    return pathname === root || pathname.startsWith(root + '/');
+    return !menuSettings && (pathname === root || pathname.startsWith(root + '/'));
   }
   if (item.key === 'menu') {
     const root = item.href.slice(0, -('/overview'.length));
-    return pathname === root || pathname.startsWith(root + '/');
+    return menuSettings || pathname === root || pathname.startsWith(root + '/');
   }
   return pathname === item.href || pathname.startsWith(item.href + '/');
 }
