@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import Link from 'next/link';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import * as menuApi from '../../../../../../lib/menu/api';
 import type {
@@ -26,6 +25,7 @@ import { Card } from '../../../../../../components/ui/Card';
 import { FormField } from '../../../../../../components/ui/FormField';
 import { Input } from '../../../../../../components/ui/Input';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
+import { MenuHubBackLink } from '../../../../../../components/staff/MenuHubBackLink';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { LanguageTabs, type LanguageTabOption } from '../../../../../../components/menu/LanguageTabs';
 import { TranslationFields } from '../../../../../../components/menu/TranslationFields';
@@ -97,7 +97,7 @@ export function ModifierPresetsWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={`/staff/restaurants/${restaurantId}/menu/overview`} className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"><span aria-hidden="true" className="rtl:rotate-180">←</span>{t('menuHub.back')}</Link>
+      <MenuHubBackLink restaurantId={restaurantId} parent="hub" />
       <PageHeader title={t('presets.title')} description={t('presets.subtitle')} />
 
       <MenuSectionTabs restaurantId={restaurantId} active="modifier-library" />
