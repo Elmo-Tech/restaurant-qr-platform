@@ -119,6 +119,46 @@ describe('menu import extraction normalizer', () => {
     expect(a.price).toBe('90.00');
   });
 
+  it('keeps text in a language that only a category name, a description or a size label uses', () => {
+    // Arabic product names, an English-only category, an English-only description and English-only size labels.
+    const data = ok(
+      base([
+        {
+          translations: { en: { name: 'BURGER' } },
+          products: [
+            {
+              translations: {
+                ar: { name: 'تشكن رويال', description: 'وصف عربي' },
+              },
+              price: '105',
+              confidence: 'HIGH',
+            },
+            {
+              translations: { ar: { name: 'كريب' } },
+              price: null,
+              priceOptions: [
+                { translations: { en: { label: 'Regular' } }, price: '50' },
+                { translations: { en: { label: 'Cone' } }, price: '70' },
+              ],
+              confidence: 'HIGH',
+            },
+          ],
+        },
+      ]),
+    );
+    expect(data.languages).toEqual(['ar', 'en']); // product-name languages first
+    const [royal, crepe] = data.categories[0].products;
+    expect(data.categories[0].names).toEqual({ en: 'BURGER' });
+    expect(royal.descriptions).toEqual({ ar: 'وصف عربي' });
+    expect(crepe.priceOptions.map((o) => o.labels.en)).toEqual([
+      'Regular',
+      'Cone',
+    ]);
+    // English counts no product name, so nothing is flagged as missing its English name.
+    expect(royal.flags).toEqual([]);
+    expect(crepe.flags).toEqual([]);
+  });
+
   it('merges duplicate categories, drops duplicate products, empty ones and nameless ones', () => {
     const data = ok(
       base([

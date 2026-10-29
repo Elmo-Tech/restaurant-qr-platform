@@ -215,6 +215,43 @@ describe('menu import Excel template: rows to extraction', () => {
     expect(extraction?.model).toBe('excel-template');
   });
 
+  it('keeps a category or a size named only in a language that no product name uses', () => {
+    // Arabic product names, but the first category is written in English only (a real menu file did exactly this).
+    const extraction = rowsToExtraction([
+      HEADER,
+      blank({
+        category_en: 'BURGER',
+        name_ar: 'تشكن رويال',
+        description_ar: 'صدور فراخ + صوص',
+        price: 105,
+      }),
+      blank({ name_ar: 'بيف رويال', price: 100 }),
+      blank({
+        category_ar: 'الكريبات',
+        name_ar: 'كريب',
+        size1_en: 'Regular',
+        size1_price: 50,
+        size2_en: 'Cone',
+        size2_price: 70,
+      }),
+    ]);
+    const result = normalizeExtraction(extraction);
+    if (!result.ok) throw new Error('the sheet should normalize');
+    const [burger, crepes] = result.data.categories;
+    expect(burger.names).toEqual({ en: 'BURGER' });
+    expect(burger.products).toHaveLength(2);
+    expect(burger.products[0].descriptions).toEqual({
+      ar: 'صدور فراخ + صوص',
+    });
+    expect(crepes.products[0].priceOptions.map((o) => o.price)).toEqual([
+      '50.00',
+      '70.00',
+    ]);
+    expect(crepes.products[0].priceOptions[0].labels).toEqual({
+      en: 'Regular',
+    });
+  });
+
   it('puts products with no category into a default one, and only reports the languages that are used', () => {
     const extraction = rowsToExtraction([
       HEADER,

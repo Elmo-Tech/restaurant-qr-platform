@@ -26,6 +26,7 @@ import { ConfirmDialog } from '../../../../../../components/ui/ConfirmDialog';
 import { Input } from '../../../../../../components/ui/Input';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
 import { Select } from '../../../../../../components/ui/Select';
+import { Textarea } from '../../../../../../components/ui/Textarea';
 
 interface ImportReviewProps {
   restaurantId: string;
@@ -250,6 +251,7 @@ interface CategoryCardProps {
       included?: boolean;
       price?: string | null;
       names?: Record<string, string | null>;
+      descriptions?: Record<string, string | null>;
     },
   ) => Promise<void>;
 }
@@ -351,10 +353,15 @@ function ProductRow({
     included?: boolean;
     price?: string | null;
     names?: Record<string, string | null>;
+    descriptions?: Record<string, string | null>;
   }) => Promise<void>;
 }) {
   const { t } = useStaffI18n();
   const hasSizes = product.sizes.length >= 2;
+  // A description belongs to a language the product has a name in (the Backend keeps one translation per language).
+  const descriptionLocales = locales.filter((code) => Boolean(product.names[code]));
+  const hasDescription = descriptionLocales.some((code) => Boolean(product.descriptions[code]));
+  const [addingDescription, setAddingDescription] = useState(false);
 
   return (
     <li className="flex flex-col gap-3 p-4">
@@ -418,6 +425,38 @@ function ProductRow({
           </div>
         )}
       </div>
+
+      {hasDescription || addingDescription ? (
+        <div className="grid gap-3 sm:grid-cols-2">
+          {descriptionLocales.map((code) => (
+            <div key={code} className="flex flex-col gap-1">
+              <label className="text-xs font-medium text-muted-foreground" htmlFor={`pd-${product.id}-${code}`}>
+                {t('import.product.description', { language: localeLabel(code) })}
+              </label>
+              <Textarea
+                id={`pd-${product.id}-${code}`}
+                key={`${code}-${product.descriptions[code] ?? ''}`}
+                rows={2}
+                maxLength={500}
+                dir={localeDirection(code)}
+                defaultValue={product.descriptions[code] ?? ''}
+                onBlur={(event) => {
+                  const value = event.target.value.trim();
+                  if (value !== (product.descriptions[code] ?? '')) {
+                    void onChange({ descriptions: { [code]: value === '' ? null : value } });
+                  }
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      ) : descriptionLocales.length > 0 ? (
+        <div>
+          <Button type="button" variant="ghost" size="sm" onClick={() => setAddingDescription(true)}>
+            {t('import.product.addDescription')}
+          </Button>
+        </div>
+      ) : null}
 
       {hasSizes ? (
         <div className="text-sm">

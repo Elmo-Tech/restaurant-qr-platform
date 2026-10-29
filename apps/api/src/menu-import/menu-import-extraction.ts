@@ -275,6 +275,21 @@ export function normalizeExtraction(raw: unknown): NormalizeResult {
         usage.set(locale, (usage.get(locale) ?? 0) + 1);
     }
   }
+  // A language that only a category name, a description or a size label uses is still part of the menu: keeping
+  // just the product-name languages would erase that text (an Arabic menu whose first category is named in
+  // English lost the category's name). Such a language counts zero products, so it never makes a product
+  // "missing a translation" and sorts after the product-name languages.
+  const addExtra = (map: Record<string, string>) => {
+    for (const locale of Object.keys(map))
+      if (!usage.has(locale)) usage.set(locale, 0);
+  };
+  for (const category of kept) {
+    addExtra(category.names);
+    for (const product of category.products) {
+      addExtra(product.descriptions);
+      for (const option of product.priceOptions) addExtra(option.labels);
+    }
+  }
   const languages = Array.from(usage.keys())
     .sort((a, b) => {
       const ia = declared.indexOf(a);
