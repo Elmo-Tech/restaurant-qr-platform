@@ -1,0 +1,50 @@
+import { defineMessages } from './define';
+
+/**
+ * Menu Cards Hub: navigation labels only. The actual Product, Design,
+ * Announcement, Suggestions and QR editors retain their existing APIs.
+ */
+export const menuHubMessages = defineMessages({
+  en: {
+    'menuHub.title': 'Electronic Menu',
+    'menuHub.subtitle': 'Everything guests see on your menu, organized by task.',
+    'menuHub.menus': 'Menus & Products',
+    'menuHub.menus.description': 'Manage menus, categories, products, options, prices and imports.',
+    'menuHub.design': 'Menu Design',
+    'menuHub.design.description': 'Choose a template, customize its appearance and preview the guest menu.',
+    'menuHub.guest': 'Guest Experience',
+    'menuHub.guest.description': 'Manage announcements and product recommendations for guests.',
+    'menuHub.share': 'Share Menu & QR',
+    'menuHub.share.description': 'Manage the restaurant QR, link, visual style, preview and downloads.',
+    'menuHub.announcements': 'Manage Announcements',
+    'menuHub.announcements.description': 'Create, edit and schedule messages displayed on the guest menu.',
+    'menuHub.suggestions': 'Product Suggestions',
+    'menuHub.suggestions.description': 'Choose manual, automatic, both or off. Manual picks live in each product editor.',
+    'menuHub.back': 'Back to Electronic Menu',
+    'menuHub.backGuest': 'Back to Guest Experience',
+    'menuHub.productSuggestionsLink': 'Open Menus & Products to edit manual recommendations',
+    'menuHub.shareNote': 'QR codes for individual tables are still managed under Tables & QR.',
+    'menuHub.locked': 'Not available with your current restaurant permissions or package.',
+  },
+  ar: {
+    'menuHub.title': 'المنيو الإلكتروني',
+    'menuHub.subtitle': 'كل ما يظهر لضيوفك في المنيو، مرتب حسب المهمة التي تريد تنفيذها.',
+    'menuHub.menus': 'القوائم والمنتجات',
+    'menuHub.menus.description': 'إدارة القوائم والأقسام والمنتجات والإضافات والأسعار والاستيراد.',
+    'menuHub.design': 'تصميم المنيو',
+    'menuHub.design.description': 'اختر قالبًا وخصص مظهره وشاهد معاينة المنيو قبل اعتماده.',
+    'menuHub.guest': 'تجربة الضيف',
+    'menuHub.guest.description': 'إدارة إعلانات المنيو والاقتراحات التي تظهر للعميل.',
+    'menuHub.share': 'مشاركة المنيو وQR',
+    'menuHub.share.description': 'إدارة QR المطعم والرابط والمظهر والمعاينة والتحميل.',
+    'menuHub.announcements': 'إدارة الإعلانات',
+    'menuHub.announcements.description': 'إضافة الإعلانات وتعديلها وجدولتها وعرضها على منيو الضيف.',
+    'menuHub.suggestions': 'اقتراحات المنتجات',
+    'menuHub.suggestions.description': 'الاختيارات اليدوية والتلقائية أو كلاهما أو الإيقاف؛ تخصيص المنتجات يدويًا من محرر كل منتج.',
+    'menuHub.back': 'رجوع إلى المنيو الإلكتروني',
+    'menuHub.backGuest': 'رجوع إلى تجربة الضيف',
+    'menuHub.productSuggestionsLink': 'افتح القوائم والمنتجات لضبط اقتراحات كل منتج',
+    'menuHub.shareNote': 'رموز QR الخاصة بالطاولات ما زالت ضمن الطاولات ورموز QR.',
+    'menuHub.locked': 'غير متاح حسب صلاحيات المطعم أو الباقة الحالية.',
+  },
+});
