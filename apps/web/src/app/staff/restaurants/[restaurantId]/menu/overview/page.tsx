@@ -56,7 +56,7 @@ export default async function MenuOverviewPage({ params }: Props) {
   const base = `/staff/restaurants/${restaurantId}`;
   const settings = canViewRestaurantSettings(member);
   // The existing QR settings route additionally needs tables.view.
-  const qr = settings && canViewTables(member) && member.restaurant.features !== undefined;
+  const qr = settings && canViewTables(member);
   return (
     <div className="flex flex-col gap-6">
       <PageHeader title={t('menuHub.title')} description={t('menuHub.subtitle')} />
