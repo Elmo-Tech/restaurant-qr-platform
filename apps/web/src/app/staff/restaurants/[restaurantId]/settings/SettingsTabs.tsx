@@ -12,9 +12,6 @@ const TABS: { key: SettingsSection; label: MessageKey; path: string }[] = [
   { key: 'languages', label: 'settings.tab.languages', path: 'languages' },
   { key: 'delivery', label: 'settings.tab.delivery', path: 'delivery' },
   { key: 'hours', label: 'settings.tab.hours', path: 'hours' },
-  { key: 'announcements', label: 'settings.tab.announcements', path: 'announcements' },
-  { key: 'design', label: 'settings.tab.design', path: 'design' },
-  { key: 'suggestions', label: 'settings.tab.suggestions', path: 'suggestions' },
   { key: 'guest-qr', label: 'settings.tab.guestQr', path: 'guest-qr' },
 ];
 
