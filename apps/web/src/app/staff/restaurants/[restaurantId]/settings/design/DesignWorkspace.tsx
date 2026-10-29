@@ -13,6 +13,7 @@ import {
 } from '../../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../../components/ui/Alert';
 import { Button } from '../../../../../../components/ui/Button';
+import { MenuHubBackLink } from '../../../../../../components/staff/MenuHubBackLink';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import type { MenuTemplateApi } from '../../../../../../lib/public-menu/templates';
 import { EmberTemplateEditor } from './EmberTemplateEditor';
@@ -321,8 +322,8 @@ export function DesignWorkspace({
 
   return (
     <div className="flex flex-col gap-4">
-      <Link href={`/staff/restaurants/${restaurantId}/menu/overview`} className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"><span aria-hidden="true" className="rtl:rotate-180">←</span>{t('menuHub.back')}</Link>
-      <PageHeader title={t('settings.title')} description={t('settings.subtitle')} />
+      <MenuHubBackLink restaurantId={restaurantId} parent="hub" />
+      <PageHeader title={t('menuHub.design')} description={t('menuHub.design.description')} />
 
       <div className="grid gap-6 lg:grid-cols-[minmax(0,5fr)_minmax(0,6fr)]">
         <section className="flex min-w-0 flex-col gap-4 rounded-xl border border-border bg-card p-5">
