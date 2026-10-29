@@ -95,47 +95,39 @@ export function StaffShell({
   const { t } = useStaffI18n();
   const section = resolveSection(pathname, restaurantId);
 
-  const breadcrumbItems =
-    section === 'settings'
-      ? [
-          { label: restaurantName, href: `/staff/restaurants/${restaurantId}` },
-          {
-            label: t('nav.settingsShort'),
-            href: `/staff/restaurants/${restaurantId}/settings/profile`,
-          },
-          {
-            label: pathname.includes('/settings/delivery')
-              ? t('settings.tab.delivery')
-              : pathname.includes('/settings/guest-qr')
-                ? t('settings.tab.guestQr')
-                : pathname.includes('/settings/branches')
-                ? t('settings.tab.branches')
-                : pathname.includes('/settings/languages')
-                  ? t('settings.tab.languages')
-                  : t('settings.tab.profile'),
-          },
-        ]
-      : [
-          { label: restaurantName, href: `/staff/restaurants/${restaurantId}` },
-          {
-            label:
-              section === 'menu'
-                ? t('nav.menu')
-                : section === 'tables'
-                  ? t('nav.tables')
-                  : section === 'orders'
-                    ? t('nav.orders')
-                    : section === 'kitchen'
-                      ? t('nav.kitchen')
-                      : section === 'staff'
-                      ? t('nav.staff')
-                      : section === 'account'
-                        ? t('account.title')
-                        : section === 'subscription'
-                          ? t('nav.subscription')
-                        : t('nav.dashboard'),
-          },
-        ];
+  const base = `/staff/restaurants/${restaurantId}`;
+  const hubPath = `${base}/menu/overview`;
+  const guestPath = `${base}/menu/guest-experience`;
+  const isGuestSetting = pathname.includes('/settings/announcements') || pathname.includes('/settings/suggestions');
+  const isMenuSetting = isGuestSetting || pathname.includes('/settings/design') || pathname.includes('/settings/guest-qr');
+  const menuCrumbs = [{ label: restaurantName, href: base }, { label: t('menuHub.title'), href: hubPath }];
+  const breadcrumbItems = isMenuSetting
+    ? [...menuCrumbs,
+        ...(isGuestSetting ? [{ label: t('menuHub.guest'), href: guestPath }] : []),
+        { label: pathname.includes('/announcements') ? t('menuHub.announcements')
+          : pathname.includes('/suggestions') ? t('menuHub.suggestions')
+          : pathname.includes('/design') ? t('menuHub.design') : t('menuHub.share') }]
+    : section === 'menu'
+      ? [...menuCrumbs, ...(pathname === hubPath ? [] : [
+          ...(pathname === guestPath ? [{ label: t('menuHub.guest') }] :
+            [{ label: t('menuHub.menus') }]),
+        ])]
+      : section === 'settings'
+        ? [
+            { label: restaurantName, href: base },
+            { label: t('nav.settingsShort'), href: `${base}/settings/profile` },
+            { label: pathname.includes('/settings/delivery') ? t('settings.tab.delivery')
+              : pathname.includes('/settings/branches') ? t('settings.tab.branches')
+              : pathname.includes('/settings/languages') ? t('settings.tab.languages')
+              : t('settings.tab.profile') },
+          ]
+        : [
+            { label: restaurantName, href: base },
+            { label: section === 'tables' ? t('nav.tables') : section === 'orders' ? t('nav.orders')
+              : section === 'kitchen' ? t('nav.kitchen') : section === 'staff' ? t('nav.staff')
+              : section === 'account' ? t('account.title') : section === 'subscription'
+                ? t('nav.subscription') : t('nav.dashboard') },
+          ];
 
   return (
     // `overflow-x-clip`: nothing inside the shell (a wide row, an off-screen element) may ever
