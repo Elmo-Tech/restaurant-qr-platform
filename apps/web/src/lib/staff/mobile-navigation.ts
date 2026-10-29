@@ -38,7 +38,7 @@ export interface MobileNavigationModel {
 const definitions: Record<MobileSection, { label: MessageKey; shortLabel: MessageKey; path: string }> = {
   dashboard: { label: 'nav.dashboard', shortLabel: 'mobileNav.home', path: '' },
   orders: { label: 'nav.orders', shortLabel: 'mobileNav.orders', path: '/orders' },
-  menu: { label: 'nav.menu', shortLabel: 'mobileNav.menu', path: '/menu' },
+  menu: { label: 'nav.menu', shortLabel: 'mobileNav.menu', path: '/menu/overview' },
   tables: { label: 'nav.tables', shortLabel: 'mobileNav.tables', path: '/tables' },
   kitchen: { label: 'nav.kitchen', shortLabel: 'mobileNav.kitchen', path: '/kitchen' },
   staff: { label: 'nav.staff', shortLabel: 'mobileNav.staff', path: '/staff' },
@@ -98,6 +98,10 @@ export function isMobileNavActive(pathname: string, item: MobileNavigationItem):
   }
   if (item.key === 'settings') {
     const root = item.href.slice(0, -('/profile'.length));
+    return pathname === root || pathname.startsWith(root + '/');
+  }
+  if (item.key === 'menu') {
+    const root = item.href.slice(0, -('/overview'.length));
     return pathname === root || pathname.startsWith(root + '/');
   }
   return pathname === item.href || pathname.startsWith(item.href + '/');
