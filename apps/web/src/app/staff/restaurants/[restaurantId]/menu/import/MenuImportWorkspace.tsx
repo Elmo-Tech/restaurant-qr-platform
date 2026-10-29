@@ -28,6 +28,7 @@ import { Button } from '../../../../../../components/ui/Button';
 import { Card } from '../../../../../../components/ui/Card';
 import { FormField } from '../../../../../../components/ui/FormField';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
+import { MenuHubBackLink } from '../../../../../../components/staff/MenuHubBackLink';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { Select } from '../../../../../../components/ui/Select';
 import { AiPromptHelp } from './AiPromptHelp';
@@ -184,14 +185,10 @@ export function MenuImportWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
+      <MenuHubBackLink restaurantId={restaurantId} parent="menus" />
       <PageHeader
         title={t('import.title')}
         description={t('import.subtitle')}
-        actions={
-          <Button asChild variant="secondary">
-            <Link href={menuHref}>{t('import.back')}</Link>
-          </Button>
-        }
       />
 
       {error ? <Alert variant="error">{error}</Alert> : null}
