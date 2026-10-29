@@ -23,6 +23,28 @@ Approved design reference: owner-approved Menu Cards Hub V2 (2026-10-30).
 - `settings/*` original URLs and management actions are retained, including all nine settings features.
 - Hub cards check effective `menu.view`, `restaurant.view`, and for the existing QR route `tables.view`, matching the existing page guards. Existing backend guards remain authoritative.
 
+## Approved V2 visual refinement (2026-10-30)
+
+The initial navigation implementation was too plain compared with the accepted interactive prototype. The owner explicitly requested visual parity, improved parent navigation, and correct sidebar location.
+
+- Hero: charcoal-to-warm-brown gradient, restaurant badge, `Everything for your restaurant menu` headline and tilted amber book motif.
+- Hub Cards: purposeful color-coded icon, small `01 / 04` numbering, heading, description, bottom divider, `Open page / افتح الصفحة` action and directional arrow. Single-column app-like layout on phones.
+- Guest Experience: two **rich** management cards with existing full Announcement CRUD and the four Suggestion modes as their destinations; never replace them with two toggles.
+- Shared `MenuHubBackLink` for logical parent navigation, independent of browser history.
+- Existing `settings/design`, `settings/announcements`, `settings/suggestions`, `settings/guest-qr` remain as deep links, but activate **Electronic Menu**, not Restaurant Settings, in desktop and mobile navigation.
+- Removed Design, Announcements, and Suggestions from the nine-tab restaurant-settings strip, because their home is the new Hub. **Restaurant QR remains listed in Settings** temporarily so the unchanged ordering-channel controls are still discoverable.
+- On the QR page, the real QR panel appears first; the existing ordering-channel switches still exist beneath it unchanged, with a transition note.
+- Sidebar uses viewport-height sticky rail with independently scrolling navigation and persistent language/account footer.
+- Hub can be visited by `menu.view` **or** `restaurant.view`; individual cards and original pages still enforce their actual permissions and entitlements. Suggestions card respects `SMART_SUGGESTIONS`.
+
+All changes are visual/presentation only; **no new Backend API, data shape or migration**.
+
+## Automated QA (branch-only)
+
+`.github/workflows/menu-cards-hub.yml` is scoped to `feat/menu-cards-hub-navigation` and runs Node 24, `npm ci`, Web TypeScript typecheck, narrow eslint, existing mobile tests and new source-contract tests.
+
+**Do not mark CI green without a finished passing run.** The final visual, functionality and role/package QA must be done against the real running app before merging.
+
 ## Regression checks before merge
 
 1. Verify exact routes with authorized owner, branch-scoped manager, menu-only user, settings-only user, and limited packages.
