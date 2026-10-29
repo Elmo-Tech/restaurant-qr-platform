@@ -27,6 +27,7 @@ export const MENU_TEMPLATES = [
   'ember',
   'bloom',
   'brew',
+  'folio',
 ] as const;
 
 export type MenuTemplate = (typeof MENU_TEMPLATES)[number];
@@ -39,7 +40,7 @@ export const DEFAULT_MENU_TEMPLATE: MenuTemplate = 'classic';
 /** The building blocks a template is made of. Each component reads the one choice that is its own. */
 export interface TemplateLayout {
   /** The header at the top of the menu. */
-  hero: 'classic' | 'floating' | 'centered' | 'compact' | 'editorial' | 'ember' | 'bloom' | 'brew';
+  hero: 'classic' | 'floating' | 'centered' | 'compact' | 'editorial' | 'ember' | 'bloom' | 'brew' | 'folio';
   /** The product card. `tile-dense` is the two-column phone grid. */
   cards: 'classic' | 'row' | 'tile' | 'tile-dense' | 'line' | 'editorial' | 'ember' | 'bloom' | 'brew';
   /** Category headings: a saffron bar at the start, or centred between two thin rules. */
@@ -63,6 +64,8 @@ const LAYOUTS: Record<MenuTemplate, TemplateLayout> = {
   ember: { hero: 'ember', cards: 'ember', headings: 'bar', chips: 'ember', photos: true, featured: false },
   bloom: { hero: 'bloom', cards: 'bloom', headings: 'bar', chips: 'bloom', photos: true, featured: false },
   brew: { hero: 'brew', cards: 'brew', headings: 'bar', chips: 'brew', photos: false, featured: false },
+  // FOLIO renders a dedicated book in PublicMenuView, keeping shared cart and checkout.
+  folio: { hero: 'folio', cards: 'line', headings: 'centered', chips: 'tabs', photos: true, featured: false },
   editorial: {
     hero: 'editorial',
     cards: 'editorial',

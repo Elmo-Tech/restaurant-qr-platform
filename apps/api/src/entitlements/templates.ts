@@ -16,6 +16,7 @@ export const MENU_TEMPLATE_KEYS = [
   'EMBER',
   'BLOOM',
   'BREW',
+  'FOLIO',
 ] as const;
 
 export type MenuTemplateKey = (typeof MENU_TEMPLATE_KEYS)[number];
@@ -35,6 +36,7 @@ export const TEMPLATE_TIERS: Record<MenuTemplateKey, TemplateTier> = {
   EMBER: 'PREMIUM',
   BLOOM: 'PREMIUM',
   BREW: 'PREMIUM',
+  FOLIO: 'PREMIUM',
 };
 
 export const STANDARD_TEMPLATE_KEYS = MENU_TEMPLATE_KEYS.filter(

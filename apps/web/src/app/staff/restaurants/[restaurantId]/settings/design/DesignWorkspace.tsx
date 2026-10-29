@@ -19,8 +19,10 @@ import { SettingsTabs } from '../SettingsTabs';
 import { EmberTemplateEditor } from './EmberTemplateEditor';
 import { BloomTemplateEditor } from './BloomTemplateEditor';
 import { BrewTemplateEditor } from './BrewTemplateEditor';
+import { FolioTemplateEditor } from './FolioTemplateEditor';
 import { EditorialPriceDisplayEditor } from './EditorialPriceDisplayEditor';
 import {BREW_DESIGN_PREVIEW_READY,BREW_DESIGN_PREVIEW_UPDATE,type BrewTemplateSettings} from '../../../../../../lib/public-menu/brew-settings';
+import { FOLIO_DESIGN_PREVIEW_READY, FOLIO_DESIGN_PREVIEW_UPDATE, type FolioTemplateSettings } from '../../../../../../lib/public-menu/folio-settings';
 import { EDITORIAL_DESIGN_PREVIEW_READY, EDITORIAL_DESIGN_PREVIEW_UPDATE, type EditorialTemplateSettings } from '../../../../../../lib/public-menu/editorial-settings';
 import {
   EMBER_DESIGN_PREVIEW_READY,
@@ -36,7 +38,7 @@ import {
 type Template = MenuTemplateApi;
 
 /** The premium designs (DEC-052); the rest are standard. Mirrors the API. */
-const PREMIUM: readonly Template[] = ['GALLERY', 'MENU', 'FLOATING', 'EMBER', 'BLOOM', 'BREW'];
+const PREMIUM: readonly Template[] = ['GALLERY', 'MENU', 'FLOATING', 'EMBER', 'BLOOM', 'BREW', 'FOLIO'];
 const TIERS = ['STANDARD', 'PREMIUM'] as const;
 
 const TEMPLATES: { key: Template; title: MessageKey; hint: MessageKey }[] = [
@@ -51,6 +53,7 @@ const TEMPLATES: { key: Template; title: MessageKey; hint: MessageKey }[] = [
   { key: 'EMBER', title: 'design.ember', hint: 'design.emberHint' },
   { key: 'BLOOM', title: 'design.bloom', hint: 'design.bloomHint' },
   { key:'BREW',title:'design.brew',hint:'design.brewHint'},
+  { key:'FOLIO',title:'design.folio',hint:'design.folioHint'},
 ];
 
 /** A simple wireframe of each layout, drawn with the theme colours (no images to load). */
@@ -170,6 +173,22 @@ function Wireframe({ template }: { template: Template }): ReactNode {
           ))}
         </>
       ) : null}
+      {template === 'FOLIO' ? (
+        <>
+          <rect width="120" height="76" rx="5" fill="#24352b" />
+          <rect x="5" y="5" width="53" height="66" rx="2" fill="#e6d9bd"/>
+          <rect x="62" y="5" width="53" height="66" rx="2" fill="#efe4cb"/>
+          <rect x="57" y="6" width="7" height="64" rx="3" fill="#a9936e"/>
+          <rect x="14" y="16" width="33" height="3" rx="1" fill="#765e41"/>
+          {[0,1,2,3].map(n => <g key={n} transform={`translate(12 ${25+n*10})`}>
+            <rect width="26" height="2.5" rx="1" fill="#917652"/>
+            <rect x="30" width="13" height="2.5" rx="1" fill="#b38a50"/>
+          </g>)}
+          <ellipse cx="88" cy="39" rx="22" ry="15" fill="#c6b794"/>
+          <ellipse cx="88" cy="37" rx="18" ry="12" fill="#fff1d2"/>
+          <ellipse cx="88" cy="37" rx="11" ry="7" fill="#8b422a"/>
+        </>
+      ) : null}
       {template === 'BREW' ? (
         <>
           <rect width="120" height="76" rx="5" fill="#eee8da"/>
@@ -272,6 +291,8 @@ export function DesignWorkspace({
   const [editorialPreview,setEditorialPreview]=useState<EditorialTemplateSettings|null>(null);
   const [brewPreviewDraft,setBrewPreviewDraft]=useState<BrewTemplateSettings|null>(null);
   const [brewPreviewLanguage,setBrewPreviewLanguage]=useState<'ar'|'en'|null>(null);
+  const [folioPreviewDraft, setFolioPreviewDraft] = useState<FolioTemplateSettings | null>(null);
+  const [folioPreviewLanguage, setFolioPreviewLanguage] = useState<'ar' | 'en' | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -312,8 +333,9 @@ export function DesignWorkspace({
   }
 
   const previewLocale = selected === 'EMBER' ? emberPreviewLanguage
-    : selected === 'BLOOM' ? bloomPreviewLanguage : selected==='BREW'?brewPreviewLanguage:null;
-  const designPreview = selected === 'EMBER' || selected === 'BLOOM' || selected==='BREW' || selected==='EDITORIAL';
+    : selected === 'BLOOM' ? bloomPreviewLanguage : selected === 'BREW' ? brewPreviewLanguage
+      : selected === 'FOLIO' ? folioPreviewLanguage : null;
+  const designPreview = selected === 'EMBER' || selected === 'BLOOM' || selected === 'BREW' || selected === 'EDITORIAL' || selected === 'FOLIO';
   const previewSrc = qrCode
     ? `/q/${qrCode}?template=${selected.toLowerCase()}${designPreview
         ? `&designPreview=1${previewLocale ? `&lang=${previewLocale}` : ''}`
@@ -369,7 +391,7 @@ export function DesignWorkspace({
                   const isSelected = selected === template.key;
                   const locked = !allowedTemplates.includes(template.key);
                   const customizable = template.key === 'EMBER' || template.key === 'BLOOM' ||
-                    template.key === 'BREW' || template.key === 'EDITORIAL';
+                    template.key === 'BREW' || template.key === 'EDITORIAL' || template.key === 'FOLIO';
                   const expanded = isSelected && customizable && customizeOpen && !locked && canManage;
                   return (
                     <li key={template.key} className={`min-w-0 ${expanded ? 'sm:col-span-2' : ''}`}>
@@ -434,6 +456,10 @@ export function DesignWorkspace({
                                 <BloomTemplateEditor restaurantId={restaurantId} canManage={canManage}
                                   onDraftChange={setBloomPreviewDraft} onCopyLanguageChange={setBloomPreviewLanguage}/>
                               ) : null}
+                              {expanded && template.key === 'FOLIO' ? (
+                                <FolioTemplateEditor restaurantId={restaurantId} canManage={canManage}
+                                  onDraftChange={setFolioPreviewDraft} onCopyLanguageChange={setFolioPreviewLanguage}/>
+                              ) : null}
                               {expanded && template.key === 'BREW' ? (
                                 <BrewTemplateEditor restaurantId={restaurantId} canManage={canManage}
                                   onDraftChange={setBrewPreviewDraft} onCopyLanguageChange={setBrewPreviewLanguage}/>
@@ -468,6 +494,7 @@ export function DesignWorkspace({
               ? { kind: 'ember', settings: emberPreviewDraft }
               : selected === 'BLOOM' && bloomPreviewDraft
                 ? { kind: 'bloom', settings: bloomPreviewDraft }
+                : selected==='FOLIO' && folioPreviewDraft ? {kind:'folio',settings:folioPreviewDraft}
                 : selected==='BREW'&&brewPreviewDraft?{kind:'brew',settings:brewPreviewDraft}
                 : selected==='EDITORIAL'&&editorialPreview?{kind:'editorial',settings:editorialPreview}:null
           }
@@ -489,6 +516,7 @@ type PremiumPreviewDraft =
   | { kind: 'ember'; settings: EmberTemplateSettings }
   | { kind: 'bloom'; settings: BloomTemplateSettings }
   | { kind:'brew';settings:BrewTemplateSettings }
+  | { kind: 'folio'; settings: FolioTemplateSettings }
   | { kind:'editorial';settings:EditorialTemplateSettings }
   | null;
 
@@ -512,7 +540,7 @@ function PreviewPane({
     if (!src?.includes('designPreview=1') || !premiumDraft) return;
     frameRef.current?.contentWindow?.postMessage(
       {
-        type: premiumDraft.kind === 'ember' ? EMBER_DESIGN_PREVIEW_UPDATE : premiumDraft.kind==='brew'?BREW_DESIGN_PREVIEW_UPDATE:premiumDraft.kind==='editorial'?EDITORIAL_DESIGN_PREVIEW_UPDATE:BLOOM_DESIGN_PREVIEW_UPDATE,
+        type: premiumDraft.kind === 'folio' ? FOLIO_DESIGN_PREVIEW_UPDATE : premiumDraft.kind === 'ember' ? EMBER_DESIGN_PREVIEW_UPDATE : premiumDraft.kind==='brew'?BREW_DESIGN_PREVIEW_UPDATE:premiumDraft.kind==='editorial'?EDITORIAL_DESIGN_PREVIEW_UPDATE:BLOOM_DESIGN_PREVIEW_UPDATE,
         settings: premiumDraft.settings,
       },
       window.location.origin,
@@ -530,7 +558,7 @@ function PreviewPane({
           event.source !== frameRef.current?.contentWindow ||
           !event.data || typeof event.data !== 'object' ||
           (event.data as { type?: unknown }).type !== (
-            premiumDraft?.kind === 'bloom' ? BLOOM_DESIGN_PREVIEW_READY : premiumDraft?.kind==='brew'?BREW_DESIGN_PREVIEW_READY:premiumDraft?.kind==='editorial'?EDITORIAL_DESIGN_PREVIEW_READY:EMBER_DESIGN_PREVIEW_READY
+            premiumDraft?.kind === 'folio' ? FOLIO_DESIGN_PREVIEW_READY : premiumDraft?.kind === 'bloom' ? BLOOM_DESIGN_PREVIEW_READY : premiumDraft?.kind==='brew'?BREW_DESIGN_PREVIEW_READY:premiumDraft?.kind==='editorial'?EDITORIAL_DESIGN_PREVIEW_READY:EMBER_DESIGN_PREVIEW_READY
           )) return;
       sendPremiumDraft();
     };
@@ -622,7 +650,7 @@ function PreviewPane({
         )}
       </div>
       <p className="text-center text-xs text-muted-foreground">{t(premiumDraft && src?.includes('designPreview=1')
-        ? premiumDraft.kind === 'bloom' ? 'design.bloomPreviewLiveHint' : premiumDraft.kind==='brew'?'design.brewPreviewLiveHint':premiumDraft.kind==='editorial'?'design.editorialPricePreviewHint':'design.emberPreviewLiveHint'
+        ? premiumDraft.kind === 'folio' ? 'design.folioPreviewLiveHint' : premiumDraft.kind === 'bloom' ? 'design.bloomPreviewLiveHint' : premiumDraft.kind==='brew'?'design.brewPreviewLiveHint':premiumDraft.kind==='editorial'?'design.editorialPricePreviewHint':'design.emberPreviewLiveHint'
         : 'design.previewHint')}</p>
     </aside>
   );

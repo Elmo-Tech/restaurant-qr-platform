@@ -154,6 +154,15 @@ describe('template tiers (DEC-052)', () => {
     expect(allowedTemplates({ featureEnabled: true, rule: { ...rule, selected: ['BREW'] } })).toContain('BREW');
   });
 
+  it('entitles the FOLIO book only to premium selections or all-premium access', () => {
+    const rule = { includesFeature: true, all: false, allStandard: true, selected: [] };
+    expect(allowedTemplates({ featureEnabled: true, rule })).not.toContain('FOLIO');
+    expect(allowedTemplates({ featureEnabled: true, rule: { ...rule, selected: ['FOLIO'] } }))
+      .toContain('FOLIO');
+    expect(allowedTemplates({ featureEnabled: true, rule: { ...rule, all: true } }))
+      .toContain('FOLIO');
+  });
+
   it('treats the photo-free Editorial design as standard', () => {
     const keys = allowedTemplates({
       featureEnabled: true,
@@ -181,6 +190,6 @@ describe('template tiers (DEC-052)', () => {
   it('gives all of both tiers for "all"', () => {
     expect(
       templateTierCountsOf({ includesFeature: true, all: true, selected: [] }),
-    ).toEqual({ standard: 5, premium: 6 });
+    ).toEqual({ standard: 5, premium: 7 });
   });
 });
