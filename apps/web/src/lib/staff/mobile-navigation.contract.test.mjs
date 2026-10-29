@@ -29,7 +29,10 @@ test('shell reserves phone bottom safe area; desktop sidebar stays intact', () =
   assert.match(shell, /<MobileNavigation/);
   assert.match(shell, /pb-\[calc\(7rem\+env\(safe-area-inset-bottom\)\)\]/);
   assert.match(shell, /lg:pb-6/);
-  assert.match(sidebar, /hidden w-64 flex-shrink-0 lg:flex/);
+  assert.match(sidebar, /hidden w-64 flex-shrink-0 lg:sticky lg:top-0 lg:flex/);
+  assert.match(sidebar, /lg:h-screen lg:h-dvh lg:self-start/);
+  assert.match(sidebar, /min-h-0 flex-1 overflow-y-auto/);
+  assert.match(shell, /\['design', 'announcements', 'suggestions', 'guest-qr'\]/);
   assert.doesNotMatch(sidebar, /isMobileOpen/);
   assert.match(bottom, /lg:hidden print:hidden/);
   assert.match(topbar, /lg:block/);
