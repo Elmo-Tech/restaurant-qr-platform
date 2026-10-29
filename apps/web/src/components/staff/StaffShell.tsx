@@ -107,27 +107,40 @@ export function StaffShell({
   const base = `/staff/restaurants/${restaurantId}`;
   const hubPath = `${base}/menu/overview`;
   const guestPath = `${base}/menu/guest-experience`;
-  const isGuestSetting = pathname.includes('/settings/announcements') || pathname.includes('/settings/suggestions');
-  const isMenuSetting = isGuestSetting || pathname.includes('/settings/design') || pathname.includes('/settings/guest-qr');
+  const menuRoot = `${base}/menu`;
+  const menuSettingPath = (part: string) => `${base}/settings/${part}`;
+  const isAtOrUnder = (root: string) => pathname === root || pathname.startsWith(`${root}/`);
+  const isGuestSetting = ['announcements', 'suggestions'].some(part => isAtOrUnder(menuSettingPath(part)));
+  const isMenuSetting = ['announcements', 'suggestions', 'design', 'guest-qr'].some(part => isAtOrUnder(menuSettingPath(part)));
+
   const menuCrumbs = [{ label: restaurantName, href: base }, { label: t('menuHub.title'), href: hubPath }];
+  const menuContentCrumbs = [...menuCrumbs, { label: t('menuHub.menus'), href: menuRoot }];
+
+  // Match the *actual* route hierarchy, not only the nearest sidebar category:
+  // Hub > Menus & Products > Import / Modifier Library / Product editor.
   const breadcrumbItems = isMenuSetting
     ? [...menuCrumbs,
         ...(isGuestSetting ? [{ label: t('menuHub.guest'), href: guestPath }] : []),
-        { label: pathname.includes('/announcements') ? t('menuHub.announcements')
-          : pathname.includes('/suggestions') ? t('menuHub.suggestions')
-          : pathname.includes('/design') ? t('menuHub.design') : t('menuHub.share') }]
+        { label: isAtOrUnder(menuSettingPath('announcements')) ? t('menuHub.announcements')
+          : isAtOrUnder(menuSettingPath('suggestions')) ? t('menuHub.suggestions')
+          : isAtOrUnder(menuSettingPath('design')) ? t('menuHub.design') : t('menuHub.share') }]
     : section === 'menu'
-      ? [...menuCrumbs, ...(pathname === hubPath ? [] : [
-          ...(pathname === guestPath ? [{ label: t('menuHub.guest') }] :
-            [{ label: t('menuHub.menus') }]),
-        ])]
+      ? pathname === hubPath ? menuCrumbs
+        : pathname === guestPath ? [...menuCrumbs, { label: t('menuHub.guest') }]
+        : pathname === menuRoot ? [...menuCrumbs, { label: t('menuHub.menus') }]
+        : isAtOrUnder(`${menuRoot}/modifier-presets`) ? [...menuContentCrumbs, { label: t('menu.section.library') }]
+        : isAtOrUnder(`${menuRoot}/import`) ? [...menuContentCrumbs, { label: t('import.title') }]
+        : isAtOrUnder(`${menuRoot}/products`) ? [...menuContentCrumbs,
+            { label: pathname.endsWith('/new') ? t('product.createTitle') : t('menuHub.productEditor') }]
+        : [...menuContentCrumbs]
       : section === 'settings'
         ? [
             { label: restaurantName, href: base },
             { label: t('nav.settingsShort'), href: `${base}/settings/profile` },
-            { label: pathname.includes('/settings/delivery') ? t('settings.tab.delivery')
-              : pathname.includes('/settings/branches') ? t('settings.tab.branches')
-              : pathname.includes('/settings/languages') ? t('settings.tab.languages')
+            { label: isAtOrUnder(menuSettingPath('delivery')) ? t('settings.tab.delivery')
+              : isAtOrUnder(menuSettingPath('branches')) ? t('settings.tab.branches')
+              : isAtOrUnder(menuSettingPath('languages')) ? t('settings.tab.languages')
+              : isAtOrUnder(menuSettingPath('hours')) ? t('settings.tab.hours')
               : t('settings.tab.profile') },
           ]
         : [
