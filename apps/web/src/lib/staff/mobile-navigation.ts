@@ -70,7 +70,7 @@ export function buildMobileNavigation(
   const allowed: Record<MobileSection, boolean> = {
     dashboard: true,
     orders: access.canViewOrders && !access.packageHides?.orders,
-    menu: access.canViewMenu,
+    menu: access.canViewMenu || access.canViewRestaurantSettings,
     tables: access.canViewTables && !access.packageHides?.tables,
     kitchen: access.canViewKitchen,
     staff: access.canViewStaff,
