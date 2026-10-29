@@ -1,5 +1,4 @@
 import Link from 'next/link';
-import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../../lib/auth/session';
 import { getStaffI18n } from '../../../../../../lib/i18n/server';
@@ -10,35 +9,75 @@ import { Alert } from '../../../../../../components/ui/Alert';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 
 interface Props { params: Promise<{ restaurantId: string }> }
+type CardKind = 'menus' | 'design' | 'guest' | 'share';
+type Tone = 'amber' | 'violet' | 'mint' | 'navy';
 
-function HubCard({ title, description, href, icon, enabled, unavailable }: {
-  title: string; description: string; href: string; icon: ReactNode;
-  enabled: boolean; unavailable: string;
-}) {
-  const body = (
-    <>
-      <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary">{icon}</span>
-      <span className="flex min-w-0 flex-1 flex-col gap-2">
-        <span className="text-lg font-bold text-foreground">{title}</span>
-        <span className="text-sm leading-6 text-muted-foreground">{description}</span>
-        {!enabled ? <span className="text-xs text-muted-foreground">{unavailable}</span> : null}
-      </span>
-      {enabled ? <span aria-hidden="true" className="text-2xl text-primary rtl:rotate-180">→</span> : null}
-    </>
+const tones: Record<Tone, { icon: string; hover: string }> = {
+  amber: { icon: 'bg-[#fff0df] text-[#ab5200]', hover: 'hover:border-[#edb884]' },
+  violet: { icon: 'bg-[#f2edff] text-[#7651bd]', hover: 'hover:border-[#bca5e4]' },
+  mint: { icon: 'bg-[#e5f6ed] text-[#167e51]', hover: 'hover:border-[#9dceb2]' },
+  navy: { icon: 'bg-[#e8f0fa] text-[#315981]', hover: 'hover:border-[#9fb8d4]' },
+};
+
+function MenuIcon({ kind, className = 'size-6' }: { kind: CardKind | 'hero'; className?: string }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+      strokeLinecap="round" strokeLinejoin="round" className={className}>
+      {kind === 'menus' ? <><path d="M4 5h16M4 12h16M4 19h16" /><path d="M7 3v4M7 10v4M7 17v4" /></>
+        : kind === 'design' ? <><path d="M4 20l5-1L20 8l-4-4L5 15l-1 5Z" /><path d="m13 7 4 4" /></>
+          : kind === 'guest' ? <><path d="m12 2 2.3 6.7L21 11l-6.7 2.3L12 20l-2.3-6.7L3 11l6.7-2.3L12 2Z" /><path d="M20 19h-4M18 17v4" /></>
+            : kind === 'share' ? <><rect x="3" y="3" width="7" height="7" rx="1" /><rect x="14" y="3" width="7" height="7" rx="1" /><rect x="3" y="14" width="7" height="7" rx="1" /><path d="M14 14h3v3h-3zM21 14v4m-7 3h4m3 0v-1" /></>
+              : <><path d="M12 6c-2.4-1.9-5.5-2.2-9-1v14c3.5-1.2 6.6-.9 9 1 2.4-1.9 5.5-2.2 9-1V5c-3.5-1.2-6.6-.9-9 1Z" /><path d="M12 6v14" /></>}
+    </svg>
   );
-  const classes = 'flex min-h-44 items-start gap-4 rounded-2xl border border-border bg-card p-5 text-start shadow-sm transition-colors sm:p-6';
-  return enabled
-    ? <Link href={href} className={classes + ' hover:border-primary/50 hover:bg-primary/5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary'}>{body}</Link>
-    : <div className={classes + ' opacity-65'} aria-disabled="true">{body}</div>;
 }
 
-const icon = (path: string) => (
-  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.7" strokeLinecap="round" strokeLinejoin="round" className="size-6">
-    <path d={path} />
-  </svg>
-);
+function HubCard({ title, description, href, kind, tone, number, enabled, unavailable, openLabel }: {
+  title: string;
+  description: string;
+  href: string;
+  kind: CardKind;
+  tone: Tone;
+  number: string;
+  enabled: boolean;
+  unavailable: string;
+  openLabel: string;
+}) {
+  const style = tones[tone];
+  const layout = `group grid min-h-[148px] grid-cols-[48px_minmax(0,1fr)] gap-x-3 gap-y-2 rounded-2xl border border-border bg-card p-4 text-start shadow-sm transition-all duration-200 sm:flex sm:min-h-[210px] sm:flex-col sm:gap-4 sm:p-6 ${enabled
+    ? `hover:-translate-y-0.5 hover:shadow-lg ${style.hover} focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary`
+    : 'opacity-60'}`;
+  const body = (
+    <>
+      <div className="col-start-1 row-span-2 flex items-start justify-between gap-3 sm:w-full">
+        <span className={`flex size-12 shrink-0 items-center justify-center rounded-2xl ${style.icon}`}>
+          <MenuIcon kind={kind} className="size-[26px]" />
+        </span>
+        <span dir="ltr" className="hidden text-xs font-semibold tabular-nums text-muted-foreground/80 sm:inline">
+          {number} / 04
+        </span>
+      </div>
+      <div className="col-start-2 row-start-1 min-w-0 sm:w-full">
+        <h2 className="text-base font-bold leading-6 text-foreground sm:text-lg">{title}</h2>
+        <p className="mt-1.5 text-xs leading-6 text-muted-foreground sm:text-sm">{description}</p>
+      </div>
+      <div className="col-start-2 row-start-2 flex w-full items-center justify-between gap-3 border-t border-border/70 pt-2 text-xs font-bold text-primary sm:mt-auto sm:pt-3 sm:text-sm">
+        <span>{enabled ? openLabel : unavailable}</span>
+        {enabled ? (
+          <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+            strokeLinecap="round" strokeLinejoin="round" className="size-4 transition-transform group-hover:translate-x-1 rtl:rotate-180 rtl:group-hover:-translate-x-1">
+            <path d="M5 12h14m-6-6 6 6-6 6" />
+          </svg>
+        ) : null}
+      </div>
+    </>
+  );
+  return enabled
+    ? <Link href={href} className={layout}>{body}</Link>
+    : <div className={layout} aria-disabled="true">{body}</div>;
+}
 
-/** Navigation-only hub. Existing menu and settings screens stay authoritative. */
+/** Uses existing permissions and workspaces; no copies of product or design editors. */
 export default async function MenuOverviewPage({ params }: Props) {
   const { restaurantId } = await params;
   const [session, { t }] = await Promise.all([getAuthSessionState(), getStaffI18n()]);
@@ -53,22 +92,48 @@ export default async function MenuOverviewPage({ params }: Props) {
   }
   if (!canViewMenu(member)) return <Alert variant="error">{t('guard.noPermission.menu')}</Alert>;
 
-  const base = `/staff/restaurants/${restaurantId}`;
+  const base = `/staff/restaurants/${encodeURIComponent(restaurantId)}`;
   const settings = canViewRestaurantSettings(member);
-  // The existing QR settings route additionally needs tables.view.
-  const qr = settings && canViewTables(member);
+  const qr = settings && canViewTables(member); // Existing QR page requires both grants.
+  const openLabel = t('menuHub.openPage');
+  const unavailable = t('menuHub.locked');
+
   return (
-    <div className="flex flex-col gap-6">
+    <div className="mx-auto flex w-full max-w-[1320px] flex-col gap-5 sm:gap-6">
       <PageHeader title={t('menuHub.title')} description={t('menuHub.subtitle')} />
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:gap-5">
-        <HubCard title={t('menuHub.menus')} description={t('menuHub.menus.description')} href={base + '/menu'}
-          enabled icon={icon('M4 5h16M4 12h16M4 19h16')} unavailable={t('menuHub.locked')} />
-        <HubCard title={t('menuHub.design')} description={t('menuHub.design.description')} href={base + '/settings/design'}
-          enabled={settings} icon={icon('M4 20l5-1 11-11-4-4L5 15l-1 5ZM14 6l4 4')} unavailable={t('menuHub.locked')} />
-        <HubCard title={t('menuHub.guest')} description={t('menuHub.guest.description')} href={base + '/menu/guest-experience'}
-          enabled={settings} icon={icon('M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8L12 3ZM19 16v5M16.5 18.5h5')} unavailable={t('menuHub.locked')} />
-        <HubCard title={t('menuHub.share')} description={t('menuHub.share.description')} href={base + '/settings/guest-qr'}
-          enabled={qr} icon={icon('M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h3M20 14v3M14 20h6')} unavailable={t('menuHub.locked')} />
+      <section className="relative isolate overflow-hidden rounded-[20px] bg-[linear-gradient(110deg,#1b232d_0%,#242b37_58%,#3e2a23_100%)] px-5 py-6 text-white shadow-md sm:px-8 sm:py-8">
+        <div aria-hidden="true" className="pointer-events-none absolute -start-20 -top-24 size-64 rounded-full bg-[#ba681b]/20 blur-3xl" />
+        <div className="relative flex items-center justify-between gap-5">
+          <div className="min-w-0">
+            <span className="inline-flex max-w-full items-center rounded-full border border-[#91613f] bg-[#4b352c]/70 px-3 py-1 text-[11px] font-semibold text-[#ffd19d]">
+              <span dir="auto" className="truncate">{t('menuHub.heroBadge', { name: member.restaurant.name })}</span>
+            </span>
+            <h2 className="mt-3 text-xl font-extrabold leading-tight tracking-tight text-white sm:text-2xl">
+              {t('menuHub.heroTitle')}
+            </h2>
+            <p className="mt-2 max-w-xl text-xs leading-6 text-[#d8dfec] sm:text-sm sm:leading-7">
+              {t('menuHub.heroDescription')}
+            </p>
+          </div>
+          <span aria-hidden="true" className="flex size-14 shrink-0 -rotate-6 items-center justify-center rounded-2xl bg-[#cc7012] text-white shadow-xl sm:size-[76px] sm:rounded-[20px]">
+            <MenuIcon kind="hero" className="size-7 sm:size-10" />
+          </span>
+        </div>
+      </section>
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
+        <HubCard title={t('menuHub.menus')} description={t('menuHub.menus.description')}
+          href={base + '/menu'} kind="menus" tone="amber" number="01" enabled
+          unavailable={unavailable} openLabel={openLabel} />
+        <HubCard title={t('menuHub.design')} description={t('menuHub.design.description')}
+          href={base + '/settings/design'} kind="design" tone="violet" number="02" enabled={settings}
+          unavailable={unavailable} openLabel={openLabel} />
+        <HubCard title={t('menuHub.guest')} description={t('menuHub.guest.description')}
+          href={base + '/menu/guest-experience'} kind="guest" tone="mint" number="03" enabled={settings}
+          unavailable={unavailable} openLabel={openLabel} />
+        <HubCard title={t('menuHub.share')} description={t('menuHub.share.description')}
+          href={base + '/settings/guest-qr'} kind="share" tone="navy" number="04" enabled={qr}
+          unavailable={unavailable} openLabel={openLabel} />
       </div>
     </div>
   );
