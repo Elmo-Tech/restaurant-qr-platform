@@ -250,7 +250,7 @@ function SidebarContent({
             isActive={currentSection === 'dashboard'}
             onNavigate={onNavigate}
           />
-          {canViewMenu ? (
+          {canViewMenu || canViewRestaurantSettings ? (
             <ActiveLink
               item={{
                 key: 'menu',
