@@ -254,7 +254,7 @@ function SidebarContent({
             <ActiveLink
               item={{
                 key: 'menu',
-                label: t('nav.menu'),
+                label: t('menuHub.title'),
                 href: `/staff/restaurants/${restaurantId}/menu/overview`,
                 icon: <IconMenu className={ICON_CLASS} />,
               }}
@@ -265,7 +265,7 @@ function SidebarContent({
             <DisabledRow
               item={{
                 key: 'menu',
-                label: t('nav.menu'),
+                label: t('menuHub.title'),
                 icon: <IconMenu className={ICON_CLASS} />,
                 badge: t('common.noAccess'),
               }}
