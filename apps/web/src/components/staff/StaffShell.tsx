@@ -37,6 +37,15 @@ function resolveSection(pathname: string, restaurantId: string): StaffSection {
   const subscriptionPath = `${dashboardPath}/subscription`;
   const settingsPath = `${dashboardPath}/settings`;
 
+  // These existing URLs live under /settings for compatibility, but belong
+  // to the Electronic Menu workspace. Sidebar and mobile nav must agree.
+  if (['design', 'announcements', 'suggestions', 'guest-qr'].some((part) => {
+    const path = `${settingsPath}/${part}`;
+    return pathname === path || pathname.startsWith(`${path}/`);
+  })) {
+    return 'menu';
+  }
+
   if (pathname === menuPath || pathname.startsWith(`${menuPath}/`)) {
     return 'menu';
   }
