@@ -255,7 +255,7 @@ function SidebarContent({
               item={{
                 key: 'menu',
                 label: t('nav.menu'),
-                href: `/staff/restaurants/${restaurantId}/menu`,
+                href: `/staff/restaurants/${restaurantId}/menu/overview`,
                 icon: <IconMenu className={ICON_CLASS} />,
               }}
               isActive={currentSection === 'menu'}
