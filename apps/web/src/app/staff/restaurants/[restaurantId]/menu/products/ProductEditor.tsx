@@ -689,11 +689,11 @@ export function ProductEditor({
           <Button variant="secondary" onClick={() => void load()}>
             {t('common.retry')}
           </Button>
-          <Link href={`/staff/restaurants/${restaurantId}/menu`}>
-            <Button variant="secondary" type="button">
+          <Button asChild variant="secondary">
+            <Link href={`/staff/restaurants/${restaurantId}/menu`}>
               {t('product.backToMenu')}
-            </Button>
-          </Link>
+            </Link>
+          </Button>
         </div>
       </Card>
     );
@@ -795,10 +795,14 @@ export function ProductEditor({
       <div className="sticky top-2 z-20 flex flex-col gap-3 rounded-xl border border-border bg-card/95 px-4 py-3 shadow-sm backdrop-blur">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="min-w-0">
-            <Link href={backHref} className="text-sm text-primary hover:underline">
-              <span aria-hidden="true" className="inline-block rtl:rotate-180">
-                ←
-              </span>{' '}
+            <Link href={backHref}
+              className="group inline-flex min-h-9 items-center gap-2 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-semibold text-primary shadow-sm transition-colors hover:border-primary/30 hover:bg-accent/40 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+              <span aria-hidden="true" className="flex size-6 shrink-0 items-center justify-center rounded-md bg-accent text-accent-foreground">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round"
+                  strokeLinejoin="round" className="size-4 rtl:rotate-180">
+                  <path d="M19 12H5m7 7-7-7 7-7" />
+                </svg>
+              </span>
               {t('product.backToMenu')}
             </Link>
             <h1 className="mt-0.5 truncate text-lg font-semibold text-foreground">
