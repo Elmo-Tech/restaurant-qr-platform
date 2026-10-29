@@ -1,7 +1,6 @@
 'use client';
 
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
-import Link from 'next/link';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../../lib/i18n/messages';
 import * as announcementsApi from '../../../../../../lib/announcements/api';
@@ -24,6 +23,7 @@ import { Dialog } from '../../../../../../components/ui/Dialog';
 import { FormField } from '../../../../../../components/ui/FormField';
 import { Input } from '../../../../../../components/ui/Input';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
+import { MenuHubBackLink } from '../../../../../../components/staff/MenuHubBackLink';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { SectionCard } from '../../../../../../components/ui/SectionCard';
 import { Select } from '../../../../../../components/ui/Select';
@@ -170,8 +170,8 @@ export function AnnouncementsWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={`/staff/restaurants/${restaurantId}/menu/guest-experience`} className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"><span aria-hidden="true" className="rtl:rotate-180">←</span>{t('menuHub.backGuest')}</Link>
-      <PageHeader title={t('settings.title')} description={t('settings.subtitle')} />
+      <MenuHubBackLink restaurantId={restaurantId} parent="guest" />
+      <PageHeader title={t('menuHub.announcements')} description={t('announcements.description')} />
 
       {error ? <Alert variant="error">{error}</Alert> : null}
       {notice ? <Alert variant="success">{notice}</Alert> : null}
