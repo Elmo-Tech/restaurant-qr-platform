@@ -17,6 +17,7 @@ import {
 } from '../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
+import { MenuHubBackLink } from '../../../../../components/staff/MenuHubBackLink';
 import { PageHeader } from '../../../../../components/ui/PageHeader';
 import { MenuContextBar } from './MenuContextBar';
 import { CategoryNavigation } from './CategoryNavigation';
@@ -445,7 +446,7 @@ export function MenuWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <Link href={`/staff/restaurants/${restaurantId}/menu/overview`} className="inline-flex min-h-11 w-fit items-center gap-2 rounded-lg text-sm font-semibold text-primary hover:underline focus-visible:outline-2 focus-visible:outline-primary"><span aria-hidden="true" className="rtl:rotate-180">←</span>{t('menuHub.back')}</Link>
+      <MenuHubBackLink restaurantId={restaurantId} parent="hub" />
       <PageHeader
         title={t('menu.title')}
         description={t('menu.subtitle')}
