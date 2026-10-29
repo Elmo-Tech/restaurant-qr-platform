@@ -38,7 +38,7 @@ export interface MobileNavigationModel {
 const definitions: Record<MobileSection, { label: MessageKey; shortLabel: MessageKey; path: string }> = {
   dashboard: { label: 'nav.dashboard', shortLabel: 'mobileNav.home', path: '' },
   orders: { label: 'nav.orders', shortLabel: 'mobileNav.orders', path: '/orders' },
-  menu: { label: 'nav.menu', shortLabel: 'mobileNav.menu', path: '/menu/overview' },
+  menu: { label: 'menuHub.title', shortLabel: 'mobileNav.menu', path: '/menu/overview' },
   tables: { label: 'nav.tables', shortLabel: 'mobileNav.tables', path: '/tables' },
   kitchen: { label: 'nav.kitchen', shortLabel: 'mobileNav.kitchen', path: '/kitchen' },
   staff: { label: 'nav.staff', shortLabel: 'mobileNav.staff', path: '/staff' },
