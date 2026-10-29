@@ -90,7 +90,11 @@ export default async function MenuOverviewPage({ params }: Props) {
       state: t(member.restaurant.status === 'SUSPENDED' ? 'guard.state.suspended' : 'guard.state.inactive'),
     })}</Alert>;
   }
-  if (!canViewMenu(member)) return <Alert variant="error">{t('guard.noPermission.menu')}</Alert>;
+  // The Hub is a launcher for two pre-existing permission domains:
+  // menu.view for products and restaurant.view for design/guest settings.
+  if (!canViewMenu(member) && !canViewRestaurantSettings(member)) {
+    return <Alert variant="error">{t('guard.noPermission.menu')}</Alert>;
+  }
 
   const base = `/staff/restaurants/${encodeURIComponent(restaurantId)}`;
   const settings = canViewRestaurantSettings(member);
@@ -123,7 +127,7 @@ export default async function MenuOverviewPage({ params }: Props) {
 
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4">
         <HubCard title={t('menuHub.menus')} description={t('menuHub.menus.description')}
-          href={base + '/menu'} kind="menus" tone="amber" number="01" enabled
+          href={base + '/menu'} kind="menus" tone="amber" number="01" enabled={canViewMenu(member)}
           unavailable={unavailable} openLabel={openLabel} />
         <HubCard title={t('menuHub.design')} description={t('menuHub.design.description')}
           href={base + '/settings/design'} kind="design" tone="violet" number="02" enabled={settings}
