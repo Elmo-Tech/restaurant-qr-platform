@@ -1,0 +1,38 @@
+name: Menu Cards Hub UX Checks
+
+on:
+  push:
+    branches: [feat/menu-cards-hub-navigation]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Validate Menu Cards Hub navigation and feature preservation
+        run: node --test apps/web/src/lib/staff/menu-hub.contract.test.mjs
+      - name: Test mobile navigation permissions and active routes
+        run: node --experimental-strip-types --test apps/web/src/lib/staff/mobile-navigation.test.mjs
+      - name: Check existing mobile shell contracts
+        run: node --test apps/web/src/lib/staff/mobile-navigation.contract.test.mjs
+      - name: Typecheck Web
+        run: npm run typecheck:web
+      - name: Lint changed Hub and navigation components
+        run: >-
+          npm exec --workspace=apps/web -- eslint
+          'src/app/staff/restaurants/[restaurantId]/menu/overview/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/menu/guest-experience/page.tsx'
+          'src/components/staff/MenuHubBackLink.tsx'
+          'src/components/staff/RestaurantSidebar.tsx'
+          'src/components/staff/StaffShell.tsx'
+          'src/lib/staff/mobile-navigation.ts'
+          'src/lib/i18n/messages/menuHub.ts'
