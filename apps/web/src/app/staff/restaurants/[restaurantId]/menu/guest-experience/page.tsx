@@ -34,6 +34,7 @@ export default async function GuestExperiencePage({ params }: {
       label: t('menuHub.announcementsTag'),
       action: t('menuHub.manageAnnouncements'),
       href: base + '/settings/announcements',
+      enabled: true,
       iconBg: 'bg-[#fff0e4] text-[#ad5c13]',
       options: [
         t('announcements.add'),
@@ -49,6 +50,7 @@ export default async function GuestExperiencePage({ params }: {
       label: t('menuHub.suggestionsTag'),
       action: t('menuHub.manageSuggestions'),
       href: base + '/settings/suggestions',
+      enabled: Boolean(member.restaurant.features.SMART_SUGGESTIONS),
       iconBg: 'bg-[#f0eaff] text-[#7b4eb5]',
       options: [
         t('suggestions.mode.off'),
@@ -87,7 +89,7 @@ export default async function GuestExperiencePage({ params }: {
             </div>
 
             <span className="inline-flex w-fit items-center rounded-full border border-[#efcfac] bg-[#fff5e9] px-3 py-1 text-xs font-bold text-[#95500c]">
-              {section.label}
+              {section.enabled ? section.label : t('features.suggestions.locked')}
             </span>
 
             <p className="text-sm leading-7 text-muted-foreground">{section.description}</p>
@@ -101,14 +103,20 @@ export default async function GuestExperiencePage({ params }: {
             </div>
 
             <div className="mt-auto pt-1">
-              <Link href={section.href}
-                className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto">
-                {section.action}
-                <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
-                  strokeLinecap="round" strokeLinejoin="round" className="size-4 rtl:rotate-180">
-                  <path d="M5 12h14m-6-6 6 6-6 6" />
-                </svg>
-              </Link>
+              {section.enabled ? (
+                <Link href={section.href}
+                  className="inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl bg-primary px-4 py-3 text-sm font-bold text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:w-auto">
+                  {section.action}
+                  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"
+                    strokeLinecap="round" strokeLinejoin="round" className="size-4 rtl:rotate-180">
+                    <path d="M5 12h14m-6-6 6 6-6 6" />
+                  </svg>
+                </Link>
+              ) : (
+                <span aria-disabled="true" className="inline-flex min-h-11 items-center rounded-xl border border-border bg-muted px-4 py-3 text-sm text-muted-foreground">
+                  {t('features.suggestions.locked')}
+                </span>
+              )}
             </div>
           </article>
         ))}
