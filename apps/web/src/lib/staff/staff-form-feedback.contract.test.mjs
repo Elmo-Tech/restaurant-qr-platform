@@ -34,6 +34,6 @@ test('Toast is keyboard-dismissible, polite for success and persistent validatio
   assert.match(toast, /focus-visible:outline-2/);
   assert.match(toast, /safe-area-inset-top/);
   assert.match(toast, /setTimeout/);
-  assert.match(field, /id=\{`${htmlFor\}-error`\}/);
+  assert.ok(field.includes('id={`${htmlFor}-error`}'));
   assert.match(field, /role="alert"/);
 });
