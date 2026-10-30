@@ -36,3 +36,21 @@ Status: **Implemented on draft PR #11, QA pending.** This extends `feat/staff-se
 - CI: `npm ci`, International Phone unit tests, save feedback regressions, Web TypeScript, targeted ESLint.
 
 Out of scope: changing optional **branch** phones (different DTO/validation) and platform signup contacts; changing ordering or design UI, settings navigation and onboarding. Those have their own review scope.
+
+
+## Owner correction — Premium Unified Phone Field (2026-10-30)
+
+The owner rejected the original **two separate boxes** (country selector beside a separate input) as poor UI/UX. The reference images show **one cohesive control**, with a compact flag/dial-code trigger inside the number field.
+
+Implementation replaces the original split control with:
+- A **single 48px rounded input frame** and an internal divider. Flag + `+20` + compact chevron on the left; the national number gets the rest of the field.
+- A real searchable country picker, including selected checkmark, pinned commonly used countries, localized names, dial codes and search by country name/ISO/calling code.
+- Desktop: compact popover below the field. Mobile: comfortable bottom-sheet picker with an overlay, internal scrolling, clear close control and keyboard behavior. No forced software keyboard when first opening the picker on mobile.
+- Visible focus treatment, keyboard ArrowUp/ArrowDown/Enter/Escape, screen-reader labels, selected country and focus management.
+- **True SVG flags** for 25 common countries bundled at `apps/web/public/flags/wayta-common-flags.svg` under the `flag-icons` MIT licence (`apps/web/public/flags/LICENSE-flag-icons.txt`); these don't rely on Windows emoji rendering. Less common options use small lazy flag images from the free `flagcdn.com` CDN with an offline emoji/ISO fallback. No paid key or phone verification service is used.
+- Wider (but still readable) contact form `max-w-3xl`, with responsive single-column phone fields below desktop widths.
+- The **same** existing `libphonenumber-js` validation and E.164 state adapter, same Backend contact PATCH and legacy-field safety; only the presentation changed.
+
+Regression checks: screenshot at 320/360/390/430/768px and desktop in Arabic/English, country search and mobile sheet, flag visibility on **Windows Chrome/Edge**, typing/pasting Egypt and international numbers, error focus and saved value roundtrip.
+
+**This remains a draft PR. Automated checks do not substitute for visual QA in a real browser.**
