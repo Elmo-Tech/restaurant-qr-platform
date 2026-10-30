@@ -87,6 +87,7 @@ export function InternationalPhoneField({
   const searchRef = useRef<HTMLInputElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
 
   const filter = normalizedSearch(query);
   const visible = useMemo(() => {
@@ -122,6 +123,19 @@ export function InternationalPhoneField({
       document.removeEventListener('keydown', onKey);
     };
   }, [isOpen]);
+
+  // Keep the keyboard-highlighted option in the scrollable country list.
+  useEffect(() => {
+    if (!isOpen || !allVisible.length) return;
+    const country = allVisible[Math.min(activeIndex, allVisible.length - 1)]?.country;
+    const list = listRef.current;
+    const row = country ? document.getElementById(`${id}-country-option-${country}`) : null;
+    if (!list || !row) return;
+    const bounds = list.getBoundingClientRect();
+    const target = row.getBoundingClientRect();
+    if (target.bottom > bounds.bottom) list.scrollTop += target.bottom - bounds.bottom;
+    else if (target.top < bounds.top) list.scrollTop -= bounds.top - target.top;
+  }, [activeIndex, filter, id, isOpen, allVisible.length]);
 
   function toggleCountries() {
     if (disabled) return;
@@ -266,7 +280,7 @@ export function InternationalPhoneField({
                   />
                 </div>
               </div>
-              <div id={`${id}-country-list`} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3 pt-2">
+              <div ref={listRef} id={`${id}-country-list`} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3 pt-2">
                 {allVisible.length === 0 ? (
                   <p className="px-3 py-8 text-center text-sm text-muted-foreground">{t('contact.country.noResults')}</p>
                 ) : (
