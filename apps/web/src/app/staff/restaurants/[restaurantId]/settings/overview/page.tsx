@@ -81,7 +81,13 @@ export default async function RestaurantSettingsOverviewPage({ params }: {
   const cards: { kind: HubKind; title: string; description: string; href: string; enabled: boolean }[] = [
     { kind: 'profile', title: t('settingsHub.profile'), description: t('settingsHub.profile.description'), href: base+'/profile', enabled: true },
     { kind: 'ordering', title: t('settingsHub.ordering'), description: t('settingsHub.ordering.description'), href: base+'/ordering', enabled: true },
-    { kind: 'branches', title: t('settingsHub.branches'), description: t('settingsHub.branches.description'), href: base+'/branches', enabled: canViewBranches(member) },
+    // A restaurant viewer may have delivery access without branches.view.
+    // Keep that feature discoverable, but do not link to a forbidden Branches page.
+    { kind: 'branches',
+      title: canViewBranches(member) ? t('settingsHub.branches') : t('settingsHub.delivery'),
+      description: canViewBranches(member) ? t('settingsHub.branches.description') : t('settings.delivery.subtitle'),
+      href: canViewBranches(member) ? base+'/branches' : base+'/delivery',
+      enabled: true },
     { kind: 'languages', title: t('settingsHub.languages'), description: t('settingsHub.languages.description'), href: base+'/languages', enabled: true },
   ];
 
