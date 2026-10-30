@@ -6,7 +6,7 @@ Status: **Implemented on draft PR #11, QA pending.** This extends `feat/staff-se
 
 - Phone and WhatsApp fields in Settings → Restaurant Profile → Contact now show a **native country dropdown** plus a local-number input. The default country is Egypt (`EG`, **+20**).
 - The list is generated from `libphonenumber-js` data (popular countries first and every other supported country afterwards), localized to the active Staff language using `Intl.DisplayNames`. It works without an API key, a country lookup endpoint or payment.
-- Full international paste (e.g. `+447911123456`) recognizes the country and switches the country picker. Input can contain Arabic/Persian/full-width numerals.
+- Full international paste (e.g. `+447400123456`) recognizes the country and switches the country picker. Input can contain Arabic/Persian/full-width numerals.
 - Client validates country-specific lengths/patterns and converts to **E.164** before submitting. The API remains authoritative and receives the **same existing contact PATCH payload**.
 - Existing E.164 values reopen with their original country and readable national format.
 - **Legacy safety:** Existing `phone` values without `+` (allowed by the old server) remain byte-for-byte unchanged when saving other settings. They are normalized only if the user edits that phone field; invalid numbers are shown to the user instead of silently replaced.
@@ -25,7 +25,7 @@ Status: **Implemented on draft PR #11, QA pending.** This extends `feat/staff-se
 ## QA checklist
 
 - Egyptian local phone `01012175532` -> `+201012175532`.
-- Paste UK `+447911123456` -> country GB, number unchanged and **not** `+20+44...`.
+- Paste UK `+447400123456` -> country GB, number unchanged and **not** `+20+44...`.
 - Save, reload and edit stored Egyptian, Saudi and UK phone numbers.
 - Invalid/short/alphabetic input -> field-level error, focus/scroll, no API call.
 - Empty phone/WhatsApp -> clear the field; Hotline `16512` unaffected.
