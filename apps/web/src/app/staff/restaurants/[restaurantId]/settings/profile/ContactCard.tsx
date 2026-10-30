@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../../lib/i18n/messages';
 import * as settingsApi from '../../../../../../lib/settings/api';
@@ -20,6 +20,8 @@ import { Button } from '../../../../../../components/ui/Button';
 import { FormField } from '../../../../../../components/ui/FormField';
 import { Input } from '../../../../../../components/ui/Input';
 import { SectionCard } from '../../../../../../components/ui/SectionCard';
+import { StaffFeedbackToast, type StaffFeedbackVariant } from '../../../../../../components/staff/StaffFeedbackToast';
+import { focusInvalidFormField } from '../../../../../../lib/staff/focus-invalid-field';
 
 const PHONE_FIELDS: readonly ContactField[] = ['phone', 'whatsapp', 'hotline'];
 
@@ -40,6 +42,8 @@ export function ContactCard({
   canManage: boolean;
 }) {
   const { t } = useStaffI18n();
+  const formRef = useRef<HTMLFormElement>(null);
+  const [feedback, setFeedback] = useState<{ variant: StaffFeedbackVariant; message: string } | null>(null);
   const [saved, setSaved] = useState<Record<ContactField, string>>(() => toDraft(initialContact));
   const [draft, setDraft] = useState<Record<ContactField, string>>(() => toDraft(initialContact));
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ContactField, string>>>({});
@@ -54,6 +58,7 @@ export function ContactCard({
     setFieldErrors({});
     setFormError(null);
     setNotice(null);
+    setFeedback(null);
     const changes: Partial<Record<ContactField, string | null>> = {};
     for (const field of CONTACT_FIELDS) {
       const value = draft[field].trim();
@@ -66,6 +71,7 @@ export function ContactCard({
       setSaved(nextDraft);
       setDraft(nextDraft);
       setNotice(t('contact.saved'));
+      setFeedback({ variant: 'success', message: t('contact.saved') });
     } catch (caught) {
       if (isUnauthenticatedError(caught)) {
         redirectToLogin();
@@ -75,19 +81,23 @@ export function ContactCard({
         ? (caught.details as { field?: ContactField } | undefined)?.field
         : undefined;
       if (field && CONTACT_FIELDS.includes(field)) {
-        setFieldErrors({
-          [field]: t(
-            field === 'whatsapp'
-              ? 'contact.error.whatsapp'
-              : field === 'hotline'
-                ? 'contact.error.hotline'
-                : PHONE_FIELDS.includes(field)
-                ? 'contact.error.phone'
-                : 'contact.error.url',
-          ),
-        });
+        const fieldError = t(
+          field === 'whatsapp'
+            ? 'contact.error.whatsapp'
+            : field === 'hotline'
+              ? 'contact.error.hotline'
+              : PHONE_FIELDS.includes(field)
+              ? 'contact.error.phone'
+              : 'contact.error.url',
+        );
+        setFieldErrors({ [field]: fieldError });
+        setFeedback({ variant: 'error', message: fieldError });
+        // Error text stays beside the field; scroll/focus to make it discoverable.
+        focusInvalidFormField(formRef.current, `contact-${field}`);
       } else {
-        setFormError(describeError(caught));
+        const message = describeError(caught);
+        setFormError(message);
+        setFeedback({ variant: 'error', message });
       }
     } finally {
       setIsSaving(false);
@@ -110,10 +120,12 @@ export function ContactCard({
         value={draft[field]}
         disabled={!canManage || isSaving}
         aria-invalid={fieldErrors[field] ? true : undefined}
+        aria-describedby={fieldErrors[field] ? `contact-${field}-error` : undefined}
         onChange={(event) => {
           setDraft((current) => ({ ...current, [field]: event.target.value }));
           setFieldErrors((current) => ({ ...current, [field]: undefined }));
           setNotice(null);
+          setFeedback(null);
         }}
       />
     </FormField>
@@ -121,7 +133,8 @@ export function ContactCard({
 
   return (
     <SectionCard title={t('contact.heading')} description={t('contact.description')}>
-      <form onSubmit={(event) => void handleSave(event)} className="flex max-w-xl flex-col gap-5" noValidate>
+      <StaffFeedbackToast message={feedback?.message ?? null} variant={feedback?.variant} onDismiss={() => setFeedback(null)} />
+      <form ref={formRef} onSubmit={(event) => void handleSave(event)} className="flex max-w-xl flex-col gap-5" noValidate>
         {formError ? <Alert variant="error">{formError}</Alert> : null}
         {notice ? <Alert variant="success">{notice}</Alert> : null}
 
