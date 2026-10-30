@@ -16,6 +16,12 @@ test('contact save has both persistent inline errors and visible viewport feedba
   assert.match(contact, /aria-describedby=/);
   assert.match(contact, /ref=\{formRef\}/);
   assert.match(contact, /settingsApi\.updateContact/);
+  assert.match(contact, /InternationalPhoneField/);
+  assert.match(contact, /normalizePhoneDraft/);
+  assert.match(contact, /if \(!phone.edited\) continue;/);
+  assert.match(contact, /setPhoneDrafts\(phoneDraftsFromContact\(nextDraft\)\)/);
+  assert.match(contact, /input\('hotline', '16512'\)/);
+  assert.doesNotMatch(contact, /input\('whatsapp',/);
 });
 
 test('profile feedback covers name, image upload and removal while keeping original API calls', () => {
