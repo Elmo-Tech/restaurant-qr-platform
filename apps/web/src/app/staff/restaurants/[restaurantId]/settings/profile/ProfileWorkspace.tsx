@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { useRouter } from 'next/navigation';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import * as settingsApi from '../../../../../../lib/settings/api';
@@ -20,6 +20,8 @@ import { FormField } from '../../../../../../components/ui/FormField';
 import { Input } from '../../../../../../components/ui/Input';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { SectionCard } from '../../../../../../components/ui/SectionCard';
+import { StaffFeedbackToast, type StaffFeedbackVariant } from '../../../../../../components/staff/StaffFeedbackToast';
+import { focusInvalidFormField } from '../../../../../../lib/staff/focus-invalid-field';
 import { SettingsTabs } from '../SettingsTabs';
 import { ContactCard } from './ContactCard';
 import type { RestaurantContact } from '../../../../../../lib/contact/types';
@@ -58,6 +60,8 @@ export function ProfileWorkspace({
 }: ProfileWorkspaceProps) {
   const { t } = useStaffI18n();
   const router = useRouter();
+  const nameFormRef = useRef<HTMLFormElement>(null);
+  const [feedback, setFeedback] = useState<{ variant: StaffFeedbackVariant; message: string } | null>(null);
 
   const [savedName, setSavedName] = useState(initialName);
   const [name, setName] = useState(initialName);
@@ -87,25 +91,32 @@ export function ProfileWorkspace({
     if (isSavingName || !canManage) return;
 
     if (!trimmedName) {
-      setNameError(t('profile.name.error.required'));
+      const message = t('profile.name.error.required');
+      setNameError(message);
+      setFeedback({ variant: 'error', message });
+      focusInvalidFormField(nameFormRef.current, 'restaurant-name');
       return;
     }
     setNameError(null);
     setFormError(null);
     setNotice(null);
+    setFeedback(null);
     setIsSavingName(true);
     try {
       const profile = await settingsApi.updateRestaurantProfile(restaurantId, { name: trimmedName });
       setSavedName(profile.name);
       setName(profile.name);
       setNotice(t('profile.saved'));
+      setFeedback({ variant: 'success', message: t('profile.saved') });
       router.refresh();
     } catch (error) {
       if (isUnauthenticatedError(error)) {
         redirectToLogin();
         return;
       }
-      setFormError(describeError(error));
+      const message = describeError(error);
+      setFormError(message);
+      setFeedback({ variant: 'error', message });
     } finally {
       setIsSavingName(false);
     }
@@ -117,6 +128,7 @@ export function ProfileWorkspace({
     const validationError = validateImageFile(file);
     if (validationError) {
       setLogoError(validationError);
+      setFeedback({ variant: 'error', message: validationError });
       return;
     }
     setLogoError(null);
@@ -125,13 +137,16 @@ export function ProfileWorkspace({
       const profile = await settingsApi.uploadRestaurantLogo(restaurantId, file);
       setLogoAssetPath(profile.logoAssetPath);
       setNotice(t('profile.logo.saved'));
+      setFeedback({ variant: 'success', message: t('profile.logo.saved') });
       router.refresh();
     } catch (error) {
       if (isUnauthenticatedError(error)) {
         redirectToLogin();
         return;
       }
-      setLogoError(describeError(error));
+      const message = describeError(error);
+      setLogoError(message);
+      setFeedback({ variant: 'error', message });
     } finally {
       setIsLogoBusy(false);
     }
@@ -146,13 +161,16 @@ export function ProfileWorkspace({
       setLogoAssetPath(null);
       setConfirmRemove(false);
       setNotice(t('profile.logo.removed'));
+      setFeedback({ variant: 'success', message: t('profile.logo.removed') });
       router.refresh();
     } catch (error) {
       if (isUnauthenticatedError(error)) {
         redirectToLogin();
         return;
       }
-      setRemoveError(describeError(error));
+      const message = describeError(error);
+      setRemoveError(message);
+      setFeedback({ variant: 'error', message });
     } finally {
       setIsLogoBusy(false);
     }
@@ -167,18 +185,22 @@ export function ProfileWorkspace({
       const validationError = await validateCoverImageFile(file);
       if (validationError) {
         setCoverError(validationError);
+        setFeedback({ variant: 'error', message: validationError });
         return;
       }
       const profile = await settingsApi.uploadRestaurantCover(restaurantId, file);
       setCoverAssetPath(profile.coverAssetPath);
       setNotice(t('profile.cover.saved'));
+      setFeedback({ variant: 'success', message: t('profile.cover.saved') });
       router.refresh();
     } catch (error) {
       if (isUnauthenticatedError(error)) {
         redirectToLogin();
         return;
       }
-      setCoverError(describeError(error));
+      const message = describeError(error);
+      setCoverError(message);
+      setFeedback({ variant: 'error', message });
     } finally {
       setIsCoverBusy(false);
     }
@@ -193,13 +215,16 @@ export function ProfileWorkspace({
       setCoverAssetPath(null);
       setConfirmRemoveCover(false);
       setNotice(t('profile.cover.removed'));
+      setFeedback({ variant: 'success', message: t('profile.cover.removed') });
       router.refresh();
     } catch (error) {
       if (isUnauthenticatedError(error)) {
         redirectToLogin();
         return;
       }
-      setRemoveCoverError(describeError(error));
+      const message = describeError(error);
+      setRemoveCoverError(message);
+      setFeedback({ variant: 'error', message });
     } finally {
       setIsCoverBusy(false);
     }
@@ -216,22 +241,26 @@ export function ProfileWorkspace({
       ) : !canManage ? (
         <Alert variant="info">{t('profile.viewOnly')}</Alert>
       ) : null}
+      <StaffFeedbackToast message={feedback?.message ?? null} variant={feedback?.variant} onDismiss={() => setFeedback(null)} />
       {notice ? <Alert variant="success">{notice}</Alert> : null}
 
       <SectionCard title={t('profile.heading')} description={t('profile.description')}>
-        <form onSubmit={handleSaveName} className="flex max-w-xl flex-col gap-5" noValidate>
+        <form ref={nameFormRef} onSubmit={handleSaveName} className="flex max-w-xl flex-col gap-5" noValidate>
           {formError ? <Alert variant="error">{formError}</Alert> : null}
 
           <FormField label={t('profile.name')} htmlFor="restaurant-name" error={nameError ?? undefined}>
             <Input
               id="restaurant-name"
               dir="auto"
+              aria-invalid={nameError ? true : undefined}
+              aria-describedby={nameError ? 'restaurant-name-error' : undefined}
               maxLength={NAME_MAX_LENGTH}
               value={name}
               disabled={!canManage || isSavingName}
               onChange={(event) => {
                 setName(event.target.value);
                 setNameError(null);
+                setFeedback(null);
               }}
             />
           </FormField>
