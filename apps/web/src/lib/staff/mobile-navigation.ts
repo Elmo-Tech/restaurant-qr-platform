@@ -42,7 +42,7 @@ const definitions: Record<MobileSection, { label: MessageKey; shortLabel: Messag
   tables: { label: 'nav.tables', shortLabel: 'mobileNav.tables', path: '/tables' },
   kitchen: { label: 'nav.kitchen', shortLabel: 'mobileNav.kitchen', path: '/kitchen' },
   staff: { label: 'nav.staff', shortLabel: 'mobileNav.staff', path: '/staff' },
-  settings: { label: 'nav.settings', shortLabel: 'mobileNav.settings', path: '/settings/profile' },
+  settings: { label: 'nav.settings', shortLabel: 'mobileNav.settings', path: '/settings/overview' },
   subscription: { label: 'nav.subscription', shortLabel: 'mobileNav.subscription', path: '/subscription' },
   account: { label: 'account.link', shortLabel: 'account.link', path: '/account' },
 };
@@ -102,7 +102,7 @@ export function isMobileNavActive(pathname: string, item: MobileNavigationItem):
     return pathname === url || pathname.startsWith(url + '/');
   });
   if (item.key === 'settings') {
-    const root = item.href.slice(0, -('/profile'.length));
+    const root = item.href.slice(0, -('/overview'.length));
     return !menuSettings && (pathname === root || pathname.startsWith(root + '/'));
   }
   if (item.key === 'menu') {
