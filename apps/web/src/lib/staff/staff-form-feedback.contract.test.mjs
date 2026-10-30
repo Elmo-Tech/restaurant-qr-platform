@@ -8,6 +8,7 @@ const profile = read('../../app/staff/restaurants/[restaurantId]/settings/profil
 const toast = read('../../components/staff/StaffFeedbackToast.tsx');
 const field = read('../../components/ui/FormField.tsx');
 const phone = read('../../components/staff/InternationalPhoneField.tsx');
+const localFlags = read('../../../public/flags/wayta-common-flags.svg');
 
 test('contact save has both persistent inline errors and visible viewport feedback', () => {
   assert.match(contact, /StaffFeedbackToast/);
@@ -68,4 +69,10 @@ test('Country picker has search, keyboard navigation, mobile presentation and ac
   assert.match(phone, /prefers-reduced-motion|focus-visible/);
   assert.match(phone, /aria-activedescendant/);
   assert.match(phone, /src=\{\`https:\/\/flagcdn\.com\/w40\//);
+});
+
+test('real bundled flag assets include Egypt and sample EU countries for Windows rendering', () => {
+  for (const iso of ['eg', 'sa', 'ae', 'gb', 'fr', 'de', 'gr', 'ie']) {
+    assert.ok(localFlags.includes('id="wayta-flag-' + iso + '"'), 'Missing actual SVG flag ' + iso);
+  }
 });
