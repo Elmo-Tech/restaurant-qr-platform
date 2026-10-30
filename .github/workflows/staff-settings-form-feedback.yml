@@ -20,6 +20,8 @@ jobs:
       - run: npm ci
       - name: Test first-invalid-field focus and reduced motion
         run: node --experimental-strip-types --test apps/web/src/lib/staff/focus-invalid-field.test.mjs
+      - name: Test International Phone Inputs
+        run: node --experimental-strip-types --test apps/web/src/lib/contact/international-phone.test.mjs
       - name: Verify save feedback contract
         run: node --test apps/web/src/lib/staff/staff-form-feedback.contract.test.mjs
       - name: Verify Menu Cards Hub and mobile navigation on stacked branch
@@ -34,5 +36,8 @@ jobs:
           src/components/staff/StaffFeedbackToast.tsx
           src/components/ui/FormField.tsx
           src/lib/staff/focus-invalid-field.ts
+          src/components/staff/InternationalPhoneField.tsx
+          src/lib/contact/international-phone.ts
+          src/lib/i18n/messages/contact.ts
           'src/app/staff/restaurants/[restaurantId]/settings/profile/ContactCard.tsx'
           'src/app/staff/restaurants/[restaurantId]/settings/profile/ProfileWorkspace.tsx'
