@@ -22,8 +22,25 @@ import { Input } from '../../../../../../components/ui/Input';
 import { SectionCard } from '../../../../../../components/ui/SectionCard';
 import { StaffFeedbackToast, type StaffFeedbackVariant } from '../../../../../../components/staff/StaffFeedbackToast';
 import { focusInvalidFormField } from '../../../../../../lib/staff/focus-invalid-field';
+import { InternationalPhoneField } from '../../../../../../components/staff/InternationalPhoneField';
+import {
+  normalizePhoneDraft,
+  phoneDraftFromStored,
+  type InternationalPhoneDraft,
+} from '../../../../../../lib/contact/international-phone';
 
 const PHONE_FIELDS: readonly ContactField[] = ['phone', 'whatsapp', 'hotline'];
+type InternationalContactField = 'phone' | 'whatsapp';
+const INTERNATIONAL_CONTACT_FIELDS: readonly InternationalContactField[] = ['phone', 'whatsapp'];
+
+function phoneDraftsFromContact(
+  contact: Record<ContactField, string>,
+): Record<InternationalContactField, InternationalPhoneDraft> {
+  return {
+    phone: phoneDraftFromStored(contact.phone),
+    whatsapp: phoneDraftFromStored(contact.whatsapp),
+  };
+}
 
 const toDraft = (contact: RestaurantContact): Record<ContactField, string> =>
   Object.fromEntries(CONTACT_FIELDS.map((field) => [field, contact[field] ?? ''])) as Record<
@@ -46,12 +63,21 @@ export function ContactCard({
   const [feedback, setFeedback] = useState<{ variant: StaffFeedbackVariant; message: string } | null>(null);
   const [saved, setSaved] = useState<Record<ContactField, string>>(() => toDraft(initialContact));
   const [draft, setDraft] = useState<Record<ContactField, string>>(() => toDraft(initialContact));
+  const [phoneDrafts, setPhoneDrafts] = useState(() => phoneDraftsFromContact(toDraft(initialContact)));
   const [fieldErrors, setFieldErrors] = useState<Partial<Record<ContactField, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
 
-  const dirty = CONTACT_FIELDS.some((field) => draft[field].trim() !== saved[field]);
+  const dirty = CONTACT_FIELDS.some((field) => {
+    if (field === 'phone' || field === 'whatsapp') {
+      const phone = phoneDrafts[field];
+      if (!phone.edited) return false;
+      const checked = normalizePhoneDraft(phone);
+      return !checked.valid || (checked.value ?? '') !== saved[field];
+    }
+    return draft[field].trim() !== saved[field];
+  });
 
   // Inputs are disabled while Saving. Wait until React has rendered the
   // re-enabled control after the API error before moving keyboard focus.
@@ -65,21 +91,43 @@ export function ContactCard({
 
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
+    if (isSaving || !canManage) return;
     setFieldErrors({});
     setFormError(null);
     setNotice(null);
     setFeedback(null);
+
     const changes: Partial<Record<ContactField, string | null>> = {};
+    const validationErrors: Partial<Record<ContactField, string>> = {};
     for (const field of CONTACT_FIELDS) {
+      if (field === 'phone' || field === 'whatsapp') {
+        const phone = phoneDrafts[field];
+        if (!phone.edited) continue; // Preserve old numbers, even those without a country prefix.
+        const checked = normalizePhoneDraft(phone);
+        if (!checked.valid) {
+          validationErrors[field] = t(field === 'whatsapp' ? 'contact.error.whatsapp' : 'contact.error.phone');
+          continue;
+        }
+        if ((checked.value ?? '') !== saved[field]) changes[field] = checked.value;
+        continue;
+      }
       const value = draft[field].trim();
       if (value !== saved[field]) changes[field] = value === '' ? null : value;
     }
+    const firstInvalid = INTERNATIONAL_CONTACT_FIELDS.find(field => validationErrors[field]);
+    if (firstInvalid) {
+      setFieldErrors(validationErrors);
+      setFeedback({ variant: 'error', message: validationErrors[firstInvalid]! });
+      return; // Stop before the API request, leaving other fields unsaved until errors are fixed.
+    }
+    if (Object.keys(changes).length === 0) return;
     setIsSaving(true);
     try {
       const next = await settingsApi.updateContact(restaurantId, changes);
       const nextDraft = toDraft(next);
       setSaved(nextDraft);
       setDraft(nextDraft);
+      setPhoneDrafts(phoneDraftsFromContact(nextDraft));
       setNotice(t('contact.saved'));
       setFeedback({ variant: 'success', message: t('contact.saved') });
     } catch (caught) {
@@ -112,6 +160,23 @@ export function ContactCard({
       setIsSaving(false);
     }
   }
+
+  const internationalInput = (field: InternationalContactField) => (
+    <InternationalPhoneField
+      key={field}
+      id={`contact-${field}`}
+      label={t(`contact.field.${field}` as MessageKey)}
+      value={phoneDrafts[field]}
+      error={fieldErrors[field]}
+      disabled={!canManage || isSaving}
+      onChange={(value) => {
+        setPhoneDrafts(current => ({ ...current, [field]: value }));
+        setFieldErrors(current => ({ ...current, [field]: undefined }));
+        setNotice(null);
+        setFeedback(null);
+      }}
+    />
+  );
 
   const input = (field: ContactField, placeholder: string) => (
     <FormField
@@ -147,12 +212,14 @@ export function ContactCard({
         {formError ? <Alert variant="error">{formError}</Alert> : null}
         {notice ? <Alert variant="success">{notice}</Alert> : null}
 
-        <div className="grid gap-4 sm:grid-cols-3">
-          {input('phone', '+20 10 1234 5678')}
-          {input('whatsapp', '+20 10 1234 5678')}
+        <div className="grid gap-4 lg:grid-cols-2">
+          {internationalInput('phone')}
+          {internationalInput('whatsapp')}
+        </div>
+        <p className="text-xs leading-6 text-muted-foreground">{t('contact.phoneNote')}</p>
+        <div className="max-w-xs">
           {input('hotline', '16512')}
         </div>
-        <p className="-mt-2 text-xs text-muted-foreground">{t('contact.phoneNote')}</p>
 
         <div className="grid gap-4 sm:grid-cols-2">
           {input('instagramUrl', 'instagram.com/your.restaurant')}
