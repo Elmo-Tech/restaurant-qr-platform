@@ -22,7 +22,7 @@ import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { SectionCard } from '../../../../../../components/ui/SectionCard';
 import { StaffFeedbackToast, type StaffFeedbackVariant } from '../../../../../../components/staff/StaffFeedbackToast';
 import { focusInvalidFormField } from '../../../../../../lib/staff/focus-invalid-field';
-import { SettingsTabs } from '../SettingsTabs';
+import { SettingsBackLink } from '../../../../../../components/staff/SettingsBackLink';
 import { ContactCard } from './ContactCard';
 import type { RestaurantContact } from '../../../../../../lib/contact/types';
 
@@ -232,9 +232,8 @@ export function ProfileWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t('settings.title')} description={t('settings.subtitle')} />
-
-      <SettingsTabs restaurantId={restaurantId} active="profile" />
+      <SettingsBackLink restaurantId={restaurantId} />
+      <PageHeader title={t('settingsHub.profile')} description={t('settingsHub.profile.description')} />
 
       {!canManage && hasRestaurantManagePermission ? (
         <Alert variant="info">{t('profile.needsFullScope')}</Alert>
@@ -355,7 +354,9 @@ export function ProfileWorkspace({
         </div>
       </SectionCard>
 
-      <ContactCard restaurantId={restaurantId} initialContact={initialContact} canManage={canManage} />
+      <div id="contact-settings" className="scroll-mt-24">
+        <ContactCard restaurantId={restaurantId} initialContact={initialContact} canManage={canManage} />
+      </div>
 
       <ConfirmDialog
         open={confirmRemoveCover}
