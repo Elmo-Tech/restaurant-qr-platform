@@ -10,7 +10,8 @@ const field = read('../../components/ui/FormField.tsx');
 
 test('contact save has both persistent inline errors and visible viewport feedback', () => {
   assert.match(contact, /StaffFeedbackToast/);
-  assert.match(contact, /focusInvalidFormField\(formRef\.current, `contact-\$\{field\}`\)/);
+  assert.match(contact, /focusInvalidFormField\(formRef\.current, `contact-\$\{firstInvalid\}`\)/);
+  assert.match(contact, /if \(isSaving\) return;/);
   assert.match(contact, /setFieldErrors\(\{ \[field\]: fieldError \}\)/);
   assert.match(contact, /aria-describedby=/);
   assert.match(contact, /ref=\{formRef\}/);
