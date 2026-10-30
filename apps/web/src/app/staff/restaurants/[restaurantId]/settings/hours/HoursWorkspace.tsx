@@ -18,7 +18,7 @@ import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { SectionCard } from '../../../../../../components/ui/SectionCard';
 import { Select } from '../../../../../../components/ui/Select';
 import { Switch } from '../../../../../../components/ui/Switch';
-import { SettingsTabs } from '../SettingsTabs';
+import { SettingsBackLink } from '../../../../../../components/staff/SettingsBackLink';
 
 const MAX_INTERVALS = 4;
 const EMPTY_DAYS: HoursDay[] = Array.from({ length: 7 }, (_, day) => ({ day, intervals: [] }));
@@ -36,7 +36,9 @@ const weekOrder = (locale: string): number[] => (locale === 'ar' ? [6, 0, 1, 2, 
 /** True when closing is at or before opening: the period ends after midnight. */
 const endsAfterMidnight = (opens: string, closes: string): boolean => closes !== '' && opens !== '' && closes <= opens;
 
-export function HoursWorkspace({ restaurantId, canManage }: { restaurantId: string; canManage: boolean }) {
+export function HoursWorkspace({ restaurantId, canManage, initialBranchId }: {
+  restaurantId: string; canManage: boolean; initialBranchId?: string;
+}) {
   const { t, locale } = useStaffI18n();
   const [branches, setBranches] = useState<BranchItem[] | null>(null);
   const [branchId, setBranchId] = useState('');
@@ -57,7 +59,9 @@ export function HoursWorkspace({ restaurantId, canManage }: { restaurantId: stri
       .then((list) => {
         if (cancelled) return;
         setBranches(list);
-        setBranchId((list.find((branch) => branch.status === 'ACTIVE') ?? list[0])?.id ?? '');
+        setBranchId((list.find((branch) => branch.id === initialBranchId)
+          ?? list.find((branch) => branch.status === 'ACTIVE')
+          ?? list[0])?.id ?? '');
       })
       .catch((caught: unknown) => {
         if (!cancelled) fail(caught);
@@ -65,12 +69,12 @@ export function HoursWorkspace({ restaurantId, canManage }: { restaurantId: stri
     return () => {
       cancelled = true;
     };
-  }, [restaurantId, fail]);
+  }, [restaurantId, initialBranchId, fail]);
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t('settings.title')} description={t('settings.subtitle')} />
-      <SettingsTabs restaurantId={restaurantId} active="hours" />
+      <SettingsBackLink restaurantId={restaurantId} parent="branches" />
+      <PageHeader title={t('settingsHub.hours')} description={t('hours.description')} />
 
       {error ? <Alert variant="error">{error}</Alert> : null}
 
