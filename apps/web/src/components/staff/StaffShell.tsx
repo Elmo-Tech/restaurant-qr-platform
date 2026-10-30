@@ -136,12 +136,20 @@ export function StaffShell({
       : section === 'settings'
         ? [
             { label: restaurantName, href: base },
-            { label: t('nav.settingsShort'), href: `${base}/settings/profile` },
-            { label: isAtOrUnder(menuSettingPath('delivery')) ? t('settings.tab.delivery')
-              : isAtOrUnder(menuSettingPath('branches')) ? t('settings.tab.branches')
-              : isAtOrUnder(menuSettingPath('languages')) ? t('settings.tab.languages')
-              : isAtOrUnder(menuSettingPath('hours')) ? t('settings.tab.hours')
-              : t('settings.tab.profile') },
+            ...(pathname === `${base}/settings/overview` || pathname === `${base}/settings`
+              ? [{ label: t('settingsHub.title') }]
+              : [
+                  { label: t('settingsHub.title'), href: `${base}/settings/overview` },
+                  ...(isAtOrUnder(menuSettingPath('hours')) || isAtOrUnder(menuSettingPath('delivery'))
+                    ? [{ label: t('settingsHub.branches'), href: `${base}/settings/branches` }]
+                    : []),
+                  { label: isAtOrUnder(menuSettingPath('ordering')) ? t('settingsHub.ordering')
+                    : isAtOrUnder(menuSettingPath('delivery')) ? t('settingsHub.delivery')
+                    : isAtOrUnder(menuSettingPath('hours')) ? t('settingsHub.hours')
+                    : isAtOrUnder(menuSettingPath('branches')) ? t('settingsHub.branches')
+                    : isAtOrUnder(menuSettingPath('languages')) ? t('settingsHub.languages')
+                    : t('settingsHub.profile') },
+                ]),
           ]
         : [
             { label: restaurantName, href: base },
