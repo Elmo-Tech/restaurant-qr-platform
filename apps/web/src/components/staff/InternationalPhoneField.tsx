@@ -15,7 +15,8 @@ import {
 import { FormField } from '../ui/FormField';
 import { Input } from '../ui/Input';
 
-const BUNDLED_FLAGS = new Set(['EG', 'SA', 'AE', 'KW', 'QA', 'BH', 'OM', 'JO', 'US', 'GB']);
+const BUNDLED_FLAGS = new Set(['EG', 'SA', 'AE', 'KW', 'QA', 'BH', 'OM', 'JO', 'US', 'GB',
+  'FR', 'DE', 'GI', 'GR', 'HU', 'IS', 'IE', 'IT', 'ES', 'TR', 'CA', 'AU', 'IN', 'MA', 'TN']);
 
 function CountryFlag({ country }: { country: CountryCode }) {
   const code = country.toLowerCase();
