@@ -1,0 +1,62 @@
+name: Staff Settings Form Feedback Checks
+
+on:
+  push:
+    branches: [feat/staff-settings-form-feedback]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Test first-invalid-field focus and reduced motion
+        run: node --experimental-strip-types --test apps/web/src/lib/staff/focus-invalid-field.test.mjs
+      - name: Test International Phone Inputs
+        run: node --experimental-strip-types --test apps/web/src/lib/contact/international-phone.test.mjs
+      - name: Verify save feedback contract
+        run: node --test apps/web/src/lib/staff/staff-form-feedback.contract.test.mjs
+      - name: Verify Menu Cards Hub and mobile navigation on stacked branch
+        run: |
+          node --test apps/web/src/lib/staff/menu-hub.contract.test.mjs
+          node --experimental-strip-types --test apps/web/src/lib/staff/mobile-navigation.test.mjs
+      - name: Verify reorganized restaurant settings and preserved workflows
+        run: node --test apps/web/src/lib/staff/restaurant-settings-hub.contract.test.mjs
+      - name: Typecheck Web
+        run: npm run typecheck:web
+      - name: Lint touched form UX files
+        run: >-
+          npm exec --workspace=apps/web -- eslint
+          src/components/staff/StaffFeedbackToast.tsx
+          src/components/ui/FormField.tsx
+          src/lib/staff/focus-invalid-field.ts
+          src/components/staff/InternationalPhoneField.tsx
+          src/lib/contact/international-phone.ts
+          src/lib/i18n/messages/contact.ts
+          'src/app/staff/restaurants/[restaurantId]/settings/profile/ContactCard.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/profile/ProfileWorkspace.tsx'
+          src/components/staff/SettingsBackLink.tsx
+          src/components/staff/RestaurantSidebar.tsx
+          src/components/staff/StaffShell.tsx
+          src/lib/staff/mobile-navigation.ts
+          src/lib/i18n/messages/settingsHub.ts
+          'src/app/staff/restaurants/[restaurantId]/settings/overview/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/ordering/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/ordering/OrderingWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/branches/BranchesWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/branches/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/hours/HoursWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/hours/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/delivery/DeliveryWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/delivery/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/languages/LanguagesWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/guest-qr/GuestQrWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/guest-qr/page.tsx'

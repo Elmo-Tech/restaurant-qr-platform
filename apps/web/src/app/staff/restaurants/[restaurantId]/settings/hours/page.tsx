@@ -7,6 +7,7 @@ import { HoursWorkspace } from './HoursWorkspace';
 
 interface HoursSettingsPageProps {
   params: Promise<{ restaurantId: string }>;
+  searchParams: Promise<{ branchId?: string }>;
 }
 
 /**
@@ -14,8 +15,8 @@ interface HoursSettingsPageProps {
  * Membership / operational checks as the other Settings pages; viewing needs
  * `branches.view`, saving `branches.manage` (UX hints only: the Backend guards decide).
  */
-export default async function HoursSettingsPage({ params }: HoursSettingsPageProps) {
-  const { restaurantId } = await params;
+export default async function HoursSettingsPage({ params, searchParams }: HoursSettingsPageProps) {
+  const [{ restaurantId }, { branchId }] = await Promise.all([params, searchParams]);
   const { t } = await getStaffI18n();
   const sessionState = await getAuthSessionState();
 
@@ -47,5 +48,6 @@ export default async function HoursSettingsPage({ params }: HoursSettingsPagePro
     return <Alert variant="error">{t('branches.guard.noPermission')}</Alert>;
   }
 
-  return <HoursWorkspace restaurantId={restaurantId} canManage={canManageBranches(membership)} />;
+  return <HoursWorkspace restaurantId={restaurantId} canManage={canManageBranches(membership)}
+    initialBranchId={branchId} />;
 }

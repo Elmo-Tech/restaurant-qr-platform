@@ -21,7 +21,8 @@ import { FormField } from '../../../../../../components/ui/FormField';
 import { Input } from '../../../../../../components/ui/Input';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
-import { SettingsTabs } from '../SettingsTabs';
+import Link from 'next/link';
+import { SettingsBackLink } from '../../../../../../components/staff/SettingsBackLink';
 import { LocalizedNameFields } from '../../../../../../components/staff/LocalizedNameFields';
 import {
   initialNameValues,
@@ -41,6 +42,7 @@ export interface DeliveryWorkspaceProps {
   /** `restaurant.manage` AND `allBranches === true`. */
   canManage: boolean;
   hasRestaurantManagePermission: boolean;
+  initialBranchId?: string;
 }
 
 /**
@@ -56,6 +58,7 @@ export function DeliveryWorkspace({
   currencyCode,
   canManage,
   hasRestaurantManagePermission: hasManagePermission,
+  initialBranchId,
 }: DeliveryWorkspaceProps) {
   const { t } = useStaffI18n();
   const [branches, setBranches] = useState<DeliveryBranch[] | null>(null);
@@ -110,9 +113,14 @@ export function DeliveryWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t('settings.title')} description={t('settings.delivery.subtitle')} />
-
-      <SettingsTabs restaurantId={restaurantId} active="delivery" />
+      <SettingsBackLink restaurantId={restaurantId} parent="branches" />
+      <PageHeader title={t('settingsHub.delivery')} description={t('settings.delivery.subtitle')} />
+      {initialBranchId ? (
+        <Link href={`/staff/restaurants/${encodeURIComponent(restaurantId)}/settings/delivery`}
+          className="w-fit text-sm font-semibold text-primary underline underline-offset-4">
+          {t('settingsHub.allDelivery')}
+        </Link>
+      ) : null}
 
       {!canManage && hasManagePermission ? (
         <Alert variant="info">{t('settings.delivery.needsFullScope')}</Alert>
@@ -139,7 +147,9 @@ export function DeliveryWorkspace({
         </Card>
       ) : null}
 
-      {branches?.map((branch) => (
+      {(initialBranchId && branches?.some(branch => branch.id === initialBranchId)
+        ? branches.filter(branch => branch.id === initialBranchId)
+        : branches)?.map((branch) => (
         <BranchCard
           key={branch.id}
           restaurantId={restaurantId}

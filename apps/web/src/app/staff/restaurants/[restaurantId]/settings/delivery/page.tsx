@@ -11,6 +11,7 @@ import { DeliveryWorkspace } from './DeliveryWorkspace';
 
 interface DeliverySettingsPageProps {
   params: Promise<{ restaurantId: string }>;
+  searchParams: Promise<{ branchId?: string }>;
 }
 
 /**
@@ -20,8 +21,8 @@ interface DeliverySettingsPageProps {
  * (`restaurant.view` to see it; `restaurant.manage` + Restaurant-wide Branch
  * scope to change it -- UX hints only, the Backend guards are authoritative).
  */
-export default async function DeliverySettingsPage({ params }: DeliverySettingsPageProps) {
-  const { restaurantId } = await params;
+export default async function DeliverySettingsPage({ params, searchParams }: DeliverySettingsPageProps) {
+  const [{ restaurantId }, { branchId }] = await Promise.all([params, searchParams]);
   const { t } = await getStaffI18n();
   const sessionState = await getAuthSessionState();
 
@@ -65,6 +66,7 @@ export default async function DeliverySettingsPage({ params }: DeliverySettingsP
       // Same rule as Languages: `restaurant.manage` AND full Branch scope.
       canManage={canManageLanguages(membership)}
       hasRestaurantManagePermission={hasRestaurantManagePermission(membership)}
+      initialBranchId={branchId}
     />
   );
 }

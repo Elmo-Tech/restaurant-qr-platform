@@ -34,6 +34,18 @@ It covers:
 
 This document is the source of truth for V1 staff UX behavior.
 
+> **Owner-approved navigation amendment (2026-10-30, implementation Draft):**
+> Restaurant Settings use a four-card task-based hub for Identity & Contact,
+> Ordering Channels, Branches & Operations, and Menu Languages. Ordering is
+> separate from Restaurant QR, while Branches link to each branch's Hours and
+> Delivery Zones. Design, Announcements, Suggestions and generic QR live under
+> the separately approved Electronic Menu Cards Hub.
+> For exact routes, permission boundaries and QA, see
+> [RESTAURANT_SETTINGS_HUB_UX.md](RESTAURANT_SETTINGS_HUB_UX.md) and
+> [MENU_CARDS_HUB_IMPLEMENTATION.md](MENU_CARDS_HUB_IMPLEMENTATION.md).
+> This amendment is **not merged or deployed** until PR review and owner QA.
+
+
 ---
 
 # 1. Core Staff Principle

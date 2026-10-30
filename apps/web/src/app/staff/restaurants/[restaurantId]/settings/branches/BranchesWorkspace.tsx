@@ -19,7 +19,8 @@ import { LoadingState } from '../../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { SectionCard } from '../../../../../../components/ui/SectionCard';
 import { IconQr } from '../../../../../../components/staff/icons';
-import { SettingsTabs } from '../SettingsTabs';
+import Link from 'next/link';
+import { SettingsBackLink } from '../../../../../../components/staff/SettingsBackLink';
 import { BranchFormDialog } from './BranchFormDialog';
 
 export interface BranchesWorkspaceProps {
@@ -30,6 +31,8 @@ export interface BranchesWorkspaceProps {
   canManage: boolean;
   /** `branches.manage` AND `allBranches` -- creating a Branch is Restaurant-structural. UX only. */
   canCreate: boolean;
+  /** Delivery workspace requires restaurant.view (independent of branches.view). */
+  canViewDelivery: boolean;
 }
 
 function browserTimezone(): string {
@@ -52,6 +55,7 @@ export function BranchesWorkspace({
   defaultLocale,
   canManage,
   canCreate,
+  canViewDelivery,
 }: BranchesWorkspaceProps) {
   const { t, locale } = useStaffI18n();
   const [branches, setBranches] = useState<BranchItem[] | null>(null);
@@ -136,9 +140,8 @@ export function BranchesWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t('settings.title')} description={t('settings.subtitle')} />
-
-      <SettingsTabs restaurantId={restaurantId} active="branches" />
+      <SettingsBackLink restaurantId={restaurantId} />
+      <PageHeader title={t('settingsHub.branches')} description={t('settingsHub.branches.description')} />
 
       <SectionCard
         title={t('branches.heading')}
@@ -211,6 +214,20 @@ export function BranchesWorkspace({
                         <dd dir="auto">{branch.address ?? t('branches.noAddress')}</dd>
                       </div>
                     </dl>
+
+                    <div className="flex flex-wrap gap-2 border-t border-border pt-3">
+                      <Link
+                        href={`/staff/restaurants/${encodeURIComponent(restaurantId)}/settings/hours?branchId=${encodeURIComponent(branch.id)}`}
+                        className="inline-flex min-h-10 items-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-semibold text-primary hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-primary">
+                        {t('settingsHub.hours')}
+                      </Link>
+                      {canViewDelivery ? (
+                        <Link href={`/staff/restaurants/${encodeURIComponent(restaurantId)}/settings/delivery?branchId=${encodeURIComponent(branch.id)}`}
+                          className="inline-flex min-h-10 items-center rounded-lg border border-border bg-card px-3 py-2 text-sm font-semibold text-foreground hover:bg-muted focus-visible:outline-2 focus-visible:outline-primary">
+                          {t('settingsHub.delivery')}
+                        </Link>
+                      ) : null}
+                    </div>
 
                     {rowError?.branchId === branch.id ? <Alert variant="error">{rowError.message}</Alert> : null}
 

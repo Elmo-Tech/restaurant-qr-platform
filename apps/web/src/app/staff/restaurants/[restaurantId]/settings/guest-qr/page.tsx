@@ -69,12 +69,6 @@ export default async function GuestQrSettingsPage({ params }: GuestQrSettingsPag
       canManage={canManageGenericQr(membership)}
       // Same rule as Languages / Delivery: `restaurant.manage` AND full Branch scope.
       canManageOrderTypes={canManageLanguages(membership)}
-      pickupEnabled={membership.restaurant.pickupEnabled}
-      deliveryEnabled={membership.restaurant.deliveryEnabled}
-      tableOrderingEnabled={membership.restaurant.tableOrderingEnabled}
-      whatsappOrderingEnabled={membership.restaurant.whatsappOrderingEnabled}
-      hasWhatsappNumber={Boolean(membership.restaurant.contact.whatsapp)}
-      features={membership.restaurant.features}
       qrStyle={membership.restaurant.qrStyle}
       logoAssetPath={membership.restaurant.logoAssetPath}
       webOrigin={getWebOrigin()}

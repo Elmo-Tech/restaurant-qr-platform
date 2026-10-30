@@ -14,7 +14,7 @@ import { Button } from '../../../../../../components/ui/Button';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { SectionCard } from '../../../../../../components/ui/SectionCard';
-import { SettingsTabs } from '../SettingsTabs';
+import { SettingsBackLink } from '../../../../../../components/staff/SettingsBackLink';
 import { LanguageRow } from './LanguageRow';
 import { MakeDefaultDialog } from './MakeDefaultDialog';
 
@@ -133,9 +133,8 @@ export function LanguagesWorkspace({
 
   return (
     <div className="flex flex-col gap-6">
-      <PageHeader title={t('settings.title')} description={t('settings.subtitle')} />
-
-      <SettingsTabs restaurantId={restaurantId} active="languages" />
+      <SettingsBackLink restaurantId={restaurantId} />
+      <PageHeader title={t('settingsHub.languages')} description={t('settingsHub.languages.description')} />
 
       <SectionCard title={t('settings.languages.heading')} description={t('settings.languages.description')}>
         <div className="flex flex-col gap-5">

@@ -367,7 +367,7 @@ function SidebarContent({
                 item={{
                   key: 'settings',
                   label: t('nav.settings'),
-                  href: `/staff/restaurants/${restaurantId}/settings/profile`,
+                  href: `/staff/restaurants/${restaurantId}/settings/overview`,
                   icon: <IconSettings className={ICON_CLASS} />,
                 }}
                 isActive={currentSection === 'settings'}

@@ -62,6 +62,11 @@ test('active state matches nested routes without prefix collision',()=>{
     assert.equal(isMobileNavActive(url, settings), false);
   }
   assert.equal(isMobileNavActive('/staff/restaurants/r/settings/profile',settings),true);
+  assert.equal(isMobileNavActive('/staff/restaurants/r/settings/overview',settings),true);
+  assert.equal(isMobileNavActive('/staff/restaurants/r/settings/ordering',settings),true);
+  assert.equal(isMobileNavActive('/staff/restaurants/r/settings/hours',settings),true);
+  assert.equal(isMobileNavActive('/staff/restaurants/r/settings/delivery',settings),true);
+  assert.equal(isMobileNavActive('/staff/restaurants/r/settings/ordering',menu),false);
   assert.equal(isMobileNavActive('/staff/restaurants/r/menu/overview',menu),true);
 });
 

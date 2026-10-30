@@ -1,11 +1,10 @@
 'use client';
 
+import Link from 'next/link';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import { MenuHubBackLink } from '../../../../../../components/staff/MenuHubBackLink';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
-import type { FeatureMap } from '../../../../../../lib/auth/types';
 import type { QrStyle } from '../../../../../../lib/qr/style';
-import { OrderingOptionsCard } from './OrderingOptionsCard';
 import { RestaurantQrPanel } from './RestaurantQrPanel';
 
 /**
@@ -19,12 +18,6 @@ export function GuestQrWorkspace({
   restaurantName,
   canManage,
   canManageOrderTypes,
-  pickupEnabled,
-  deliveryEnabled,
-  tableOrderingEnabled,
-  whatsappOrderingEnabled,
-  hasWhatsappNumber,
-  features,
   qrStyle,
   logoAssetPath,
   webOrigin,
@@ -35,12 +28,6 @@ export function GuestQrWorkspace({
   canManage: boolean;
   /** `restaurant.manage` AND full Restaurant branch scope (order types are Restaurant-wide). */
   canManageOrderTypes: boolean;
-  pickupEnabled: boolean;
-  deliveryEnabled: boolean;
-  tableOrderingEnabled: boolean;
-  whatsappOrderingEnabled: boolean;
-  hasWhatsappNumber: boolean;
-  features: FeatureMap;
   qrStyle: QrStyle;
   logoAssetPath: string | null;
   webOrigin: string;
@@ -61,21 +48,13 @@ export function GuestQrWorkspace({
         webOrigin={webOrigin}
       />
 
-      {/* The channel switches stay here until the separately scoped Settings
-          redesign. Present them clearly without altering routing behavior. */}
-      <div className="rounded-xl border border-[#efd9b7] bg-[#fff8ed] px-4 py-3 text-xs leading-6 text-[#80511d] sm:text-sm">
-        {t('menuHub.orderingLegacyNote')}
+      <div className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">
+        <p className="max-w-2xl leading-6 text-muted-foreground">{t('settingsHub.qrLinkHint')}</p>
+        <Link href={`/staff/restaurants/${encodeURIComponent(restaurantId)}/settings/ordering`}
+          className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg border border-primary/30 bg-primary/10 px-4 py-2 font-semibold text-primary hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-primary">
+          {t('settingsHub.qrLink')}
+        </Link>
       </div>
-      <OrderingOptionsCard
-        restaurantId={restaurantId}
-        initialPickupEnabled={pickupEnabled}
-        initialDeliveryEnabled={deliveryEnabled}
-        initialTableOrderingEnabled={tableOrderingEnabled}
-        initialWhatsappOrderingEnabled={whatsappOrderingEnabled}
-        hasWhatsappNumber={hasWhatsappNumber}
-        features={features}
-        canManage={canManageOrderTypes}
-      />
 
     </div>
   );

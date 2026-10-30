@@ -56,14 +56,17 @@ test('legacy settings URLs are treated as menu, with stable sidebar and real QR 
   assert.match(sidebar, /lg:h-screen lg:h-dvh/);
   assert.match(mobile, /menuSettings/);
   assert.match(qr, /<RestaurantQrPanel/);
-  assert.match(qr, /<OrderingOptionsCard/);
+  assert.doesNotMatch(qr, /<OrderingOptionsCard/); // relocated to Settings > Ordering
+  const ordering = source(root + '/settings/ordering/OrderingWorkspace.tsx');
+  assert.match(ordering, /<OrderingOptionsCard/);
+  assert.match(qr, /settingsHub.qrLink/);
   assert.match(design, /<MenuHubBackLink/);
   assert.match(design, /menuHub\.design/);
   assert.doesNotMatch(design, /<SettingsTabs/);
   assert.doesNotMatch(tabs, /key: 'design',/);
   assert.doesNotMatch(tabs, /key: 'announcements',/);
   assert.doesNotMatch(tabs, /key: 'suggestions',/);
-  assert.match(tabs, /key: 'guest-qr'/); // Ordering switches remain discoverable until separate settings redesign.
+  assert.match(qr, /settings\/ordering/); // Existing bookmarked QR links point staff to ordering.
   assert.match(back, /parent === 'guest'/);
   assert.match(back, /menuHub\.backGuest/);
 });
@@ -92,5 +95,5 @@ test('nested editors retain context, premium back controls and correct breadcrum
   assert.match(shell, /t\('import\.title'\)/);
   assert.match(shell, /t\('product\.createTitle'\)/);
   assert.match(shell, /t\('menuHub\.productEditor'\)/);
-  assert.match(shell, /t\('settings\.tab\.hours'\)/);
+  assert.match(shell, /t\('settingsHub\.hours'\)/);
 });

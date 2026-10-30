@@ -67,6 +67,7 @@ export default async function BranchesSettingsPage({ params }: BranchesSettingsP
       defaultLocale={membership.restaurant.defaultLocale}
       canManage={canManageBranches(membership)}
       canCreate={canCreateBranch(membership)}
+      canViewDelivery={canViewRestaurantSettings(membership)}
     />
   );
 }
