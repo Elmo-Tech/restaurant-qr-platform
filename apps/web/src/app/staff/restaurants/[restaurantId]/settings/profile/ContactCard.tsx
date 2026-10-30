@@ -1,6 +1,6 @@
 'use client';
 
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../../lib/i18n/messages';
 import * as settingsApi from '../../../../../../lib/settings/api';
@@ -53,6 +53,16 @@ export function ContactCard({
 
   const dirty = CONTACT_FIELDS.some((field) => draft[field].trim() !== saved[field]);
 
+  // Inputs are disabled while Saving. Wait until React has rendered the
+  // re-enabled control after the API error before moving keyboard focus.
+  useEffect(() => {
+    if (isSaving) return;
+    const firstInvalid = CONTACT_FIELDS.find((field) => Boolean(fieldErrors[field]));
+    if (firstInvalid) {
+      focusInvalidFormField(formRef.current, `contact-${firstInvalid}`);
+    }
+  }, [fieldErrors, isSaving]);
+
   async function handleSave(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     setFieldErrors({});
@@ -92,8 +102,7 @@ export function ContactCard({
         );
         setFieldErrors({ [field]: fieldError });
         setFeedback({ variant: 'error', message: fieldError });
-        // Error text stays beside the field; scroll/focus to make it discoverable.
-        focusInvalidFormField(formRef.current, `contact-${field}`);
+        // The effect focuses this control once it is enabled again.
       } else {
         const message = describeError(caught);
         setFormError(message);
