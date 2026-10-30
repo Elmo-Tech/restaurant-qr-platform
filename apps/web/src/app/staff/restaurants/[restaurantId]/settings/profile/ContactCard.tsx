@@ -208,7 +208,7 @@ export function ContactCard({
   return (
     <SectionCard title={t('contact.heading')} description={t('contact.description')}>
       <StaffFeedbackToast message={feedback?.message ?? null} variant={feedback?.variant} onDismiss={() => setFeedback(null)} />
-      <form ref={formRef} onSubmit={(event) => void handleSave(event)} className="flex max-w-xl flex-col gap-5" noValidate>
+      <form ref={formRef} onSubmit={(event) => void handleSave(event)} className="flex max-w-3xl flex-col gap-5" noValidate>
         {formError ? <Alert variant="error">{formError}</Alert> : null}
         {notice ? <Alert variant="success">{notice}</Alert> : null}
 
