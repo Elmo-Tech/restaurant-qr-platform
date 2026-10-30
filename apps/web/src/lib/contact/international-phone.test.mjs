@@ -20,10 +20,10 @@ test('Egypt is the default and local Egyptian mobile numbers save in E.164', () 
 
 test('pasting a full international phone number selects its country and never duplicates code', () => {
   const fromEgypt = phoneDraftFromStored('');
-  const pasted = editPhoneDraft(fromEgypt, '+44 7911 123456');
+  const pasted = editPhoneDraft(fromEgypt, '+44 7400 123456');
   assert.equal(pasted.country, 'GB');
   assert.deepEqual(normalizePhoneDraft(pasted), { valid: true, value: '+447911123456' });
-  const again = editPhoneDraft(pasted, '+44 7911 123456');
+  const again = editPhoneDraft(pasted, '+44 7400 123456');
   assert.deepEqual(normalizePhoneDraft(again), { valid: true, value: '+447911123456' });
 });
 
