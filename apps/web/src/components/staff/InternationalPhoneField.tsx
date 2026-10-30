@@ -105,7 +105,8 @@ export function InternationalPhoneField({
 
   useEffect(() => {
     if (!isOpen) return;
-    searchRef.current?.focus();
+    // On phones, don't open the software keyboard automatically over the bottom sheet.
+    if (window.matchMedia('(min-width: 640px)').matches) searchRef.current?.focus();
     const onPointerDown = (event: PointerEvent) => {
       if (event.target instanceof Node && !rootRef.current?.contains(event.target)) setIsOpen(false);
     };
@@ -155,9 +156,10 @@ export function InternationalPhoneField({
       <button
         key={option.country}
         type="button"
+        id={`${id}-country-option-${option.country}`}
         tabIndex={index === activeIndex ? 0 : -1}
         aria-current={selected ? 'true' : undefined}
-        className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2 text-start text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-2 focus-visible:outline-primary ${selected ? 'bg-primary/10 font-semibold text-primary' : 'text-foreground'}`}
+        className={`flex min-h-10 w-full items-center gap-3 rounded-lg px-3 py-2 text-start text-sm transition-colors hover:bg-accent focus-visible:bg-accent focus-visible:outline-2 focus-visible:outline-primary ${selected ? 'bg-primary/10 font-semibold text-primary' : index === activeIndex ? 'bg-accent/70 text-foreground' : 'text-foreground'}`}
         onMouseEnter={() => setActiveIndex(index)}
         onClick={() => selectCountry(option.country)}
       >
@@ -252,6 +254,10 @@ export function InternationalPhoneField({
                     type="search"
                     autoComplete="off"
                     aria-label={t('contact.country.search')}
+                    aria-controls={`${id}-country-list`}
+                    aria-activedescendant={allVisible.length > 0
+                      ? `${id}-country-option-${allVisible[Math.min(activeIndex, allVisible.length - 1)].country}`
+                      : undefined}
                     placeholder={t('contact.country.search')}
                     value={query}
                     onChange={(event) => { setQuery(event.target.value); setActiveIndex(0); }}
@@ -260,7 +266,7 @@ export function InternationalPhoneField({
                   />
                 </div>
               </div>
-              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3 pt-2">
+              <div id={`${id}-country-list`} className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-2 pb-3 pt-2">
                 {allVisible.length === 0 ? (
                   <p className="px-3 py-8 text-center text-sm text-muted-foreground">{t('contact.country.noResults')}</p>
                 ) : (
