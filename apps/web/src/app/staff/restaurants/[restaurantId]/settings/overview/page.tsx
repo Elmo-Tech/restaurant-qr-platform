@@ -6,6 +6,7 @@ import { canViewRestaurantSettings } from '../../../../../../lib/settings/capabi
 import { canViewBranches } from '../../../../../../lib/branches/capabilities';
 import { Alert } from '../../../../../../components/ui/Alert';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
+import { RestaurantSetupPanel } from '../../../../../../components/staff/RestaurantSetupPanel';
 
 type HubKind = 'profile' | 'ordering' | 'branches' | 'languages';
 
@@ -116,6 +117,10 @@ export default async function RestaurantSettingsOverviewPage({ params }: {
         {cards.map((card,i)=><SettingCard key={card.kind} {...card}
           index={i+1} openLabel={t('settingsHub.openPage')} lockedLabel={t('settingsHub.noAccess')}/>)}
       </div>
+      {(member.role === 'OWNER' || member.role === 'MANAGER') && member.allBranches ? (
+        <RestaurantSetupPanel restaurantId={restaurantId} mode="settings"
+          memberRole={member.role} fullRestaurantScope={member.allBranches} />
+      ) : null}
     </div>
   );
 }
