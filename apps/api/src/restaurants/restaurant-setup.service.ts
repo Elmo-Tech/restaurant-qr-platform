@@ -130,12 +130,18 @@ function setupRows(
 ): RestaurantSetupStep[] {
   const values = deriveSetupStatuses(snapshot, state);
   const base = '/staff/restaurants/' + encodeURIComponent(restaurantId);
-  const menuAccess = permissions.includes(PERMISSIONS.MENU_VIEW);
-  const branchesAccess = permissions.includes(PERMISSIONS.BRANCHES_VIEW);
+  const canEditSettings = permissions.includes(PERMISSIONS.RESTAURANT_MANAGE);
+  const canEditMenu = permissions.includes(PERMISSIONS.MENU_MANAGE);
+  const canSeeMenu = permissions.includes(PERMISSIONS.MENU_VIEW);
+  const canEditBranches = permissions.includes(PERMISSIONS.BRANCHES_VIEW)
+    && permissions.includes(PERMISSIONS.BRANCHES_MANAGE);
   return KEYS.map(key => {
-    const menu = key === 'MENU' || key === 'PRODUCTS' || key === 'PREVIEW';
-    const branch = key === 'OPERATIONS';
-    const allowed = menu ? menuAccess : branch ? branchesAccess : true;
+    // Don't offer CTAs that reach a read-only page when finishing that task
+    // requires management permissions. No new permission is granted by setup.
+    const allowed = key === 'MENU' || key === 'PRODUCTS' ? canSeeMenu && canEditMenu
+      : key === 'OPERATIONS' ? canEditBranches
+      : key === 'PREVIEW' ? canSeeMenu && canEditSettings
+      : canEditSettings;
     const href = !allowed ? null
       : key === 'BRANDING' ? base + '/settings/profile'
       : key === 'CONTACT' ? base + '/settings/profile#contact-settings'
