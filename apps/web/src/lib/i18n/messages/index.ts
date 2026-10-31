@@ -23,6 +23,7 @@ import { rolesMessages } from './roles';
 import { sessionsMessages } from './sessions';
 import { settingsMessages } from './settings';
 import { settingsHubMessages } from './settingsHub';
+import { restaurantSetupMessages } from './restaurantSetup';
 import { staffMessages } from './staff';
 import { subscriptionMessages } from './subscription';
 import { tablesMessages } from './tables';
@@ -60,6 +61,7 @@ const en = {
   ...sessionsMessages.en,
   ...settingsMessages.en,
   ...settingsHubMessages.en,
+  ...restaurantSetupMessages.en,
   ...staffMessages.en,
   ...subscriptionMessages.en,
   ...tablesMessages.en,
@@ -92,6 +94,7 @@ const ar = {
   ...sessionsMessages.ar,
   ...settingsMessages.ar,
   ...settingsHubMessages.ar,
+  ...restaurantSetupMessages.ar,
   ...staffMessages.ar,
   ...subscriptionMessages.ar,
   ...tablesMessages.ar,
