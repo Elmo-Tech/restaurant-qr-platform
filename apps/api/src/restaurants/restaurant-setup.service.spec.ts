@@ -4,17 +4,27 @@ import { ALL_FEATURES } from '../entitlements/features';
 function snapshot(): Parameters<typeof deriveSetupStatuses>[0] {
   return {
     restaurant: {
-      logoAssetPath: null, coverAssetPath: null, contactPhone: null,
-      whatsappNumber: null, hotlineNumber: null, facebookUrl: null,
-      instagramUrl: null, websiteUrl: null,
+      logoAssetPath: null,
+      coverAssetPath: null,
+      contactPhone: null,
+      whatsappNumber: null,
+      hotlineNumber: null,
+      facebookUrl: null,
+      instagramUrl: null,
+      websiteUrl: null,
       defaultLocale: 'ar',
-      pickupEnabled: true, deliveryEnabled: true, tableOrderingEnabled: true,
+      pickupEnabled: true,
+      deliveryEnabled: true,
+      tableOrderingEnabled: true,
       whatsappOrderingEnabled: false,
     },
     activeLocales: ['en', 'ar'],
     features: { ...ALL_FEATURES },
-    activeMenuCount: 0, liveProductCount: 0,
-    activeBranchCount: 1, activeZoneCount: 0, activeTableCount: 0,
+    activeMenuCount: 0,
+    liveProductCount: 0,
+    activeBranchCount: 1,
+    activeZoneCount: 0,
+    activeTableCount: 0,
   };
 }
 function setup(): Parameters<typeof deriveSetupStatuses>[1] {
@@ -53,7 +63,9 @@ describe('restaurant setup: live truth, not default settings', () => {
     sample.restaurant.deliveryEnabled = false;
     sample.restaurant.tableOrderingEnabled = true;
     sample.features.TABLE_ORDERING = false;
-    expect(deriveSetupStatuses(sample, setup()).OPERATIONS).toBe('NOT_APPLICABLE');
+    expect(deriveSetupStatuses(sample, setup()).OPERATIONS).toBe(
+      'NOT_APPLICABLE',
+    );
   });
 
   it('requires active menu, visible product, active branches and zones only when relevant', () => {
@@ -64,14 +76,18 @@ describe('restaurant setup: live truth, not default settings', () => {
     sample.activeZoneCount = 1;
     expect(deriveSetupStatuses(sample, setup()).MENU).toBe('DONE');
     expect(deriveSetupStatuses(sample, setup()).PRODUCTS).toBe('DONE');
-    expect(deriveSetupStatuses(sample, setup()).OPERATIONS).toBe('NEEDS_REVIEW');
+    expect(deriveSetupStatuses(sample, setup()).OPERATIONS).toBe(
+      'NEEDS_REVIEW',
+    );
     expect(deriveSetupStatuses(sample, setup()).PREVIEW).toBe('NEEDS_REVIEW');
   });
 
   it('branding skip is explicitly different from a fully configured logo/cover', () => {
     const settings = setup();
     settings.brandingSkippedAt = new Date();
-    expect(deriveSetupStatuses(snapshot(), settings).BRANDING).toBe('INTENTIONALLY_SKIPPED');
+    expect(deriveSetupStatuses(snapshot(), settings).BRANDING).toBe(
+      'INTENTIONALLY_SKIPPED',
+    );
     const sample = snapshot();
     sample.restaurant.logoAssetPath = 'a.svg';
     sample.restaurant.coverAssetPath = 'b.png';
