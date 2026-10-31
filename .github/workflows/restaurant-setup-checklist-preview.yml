@@ -23,6 +23,8 @@ jobs:
         run: node --experimental-strip-types --test apps/web/src/lib/staff/restaurant-setup.test.mjs
       - name: Verify guarded design preview contract
         run: node --test apps/web/src/lib/staff/restaurant-setup-preview.contract.test.mjs
+      - name: Verify live setup wiring, tenant boundaries and safe migration
+        run: node --test apps/web/src/lib/staff/restaurant-setup-live.contract.test.mjs
       - name: Preserve Menu Hub, Settings Hub and mobile navigation
         run: |
           node --test apps/web/src/lib/staff/menu-hub.contract.test.mjs
