@@ -28,6 +28,12 @@ jobs:
           node --test apps/web/src/lib/staff/menu-hub.contract.test.mjs
           node --test apps/web/src/lib/staff/restaurant-settings-hub.contract.test.mjs
           node --experimental-strip-types --test apps/web/src/lib/staff/mobile-navigation.test.mjs
+      - name: Validate Prisma schema (without connecting to a database)
+        run: npm run db:validate
+      - name: Typecheck API (generates Prisma Client, never runs migration)
+        run: npm run typecheck:api
+      - name: Test backend setup permissions, derivation and provisioning
+        run: npm exec --workspace=apps/api -- jest --runInBand restaurant-setup.service.spec.ts restaurant-setup.controller.spec.ts provision-restaurant.spec.ts
       - name: Typecheck Web
         run: npm run typecheck:web
       - name: Lint setup implementation files
@@ -37,5 +43,19 @@ jobs:
           src/lib/i18n/messages/restaurantSetup.ts
           src/lib/i18n/messages/index.ts
           src/components/staff/RestaurantSetupChecklistCard.tsx
+          src/components/staff/RestaurantSetupPanel.tsx
+          src/lib/staff/restaurant-setup-api.ts
+          'src/app/staff/restaurants/[restaurantId]/setup/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/dashboard/OperationsDashboard.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/overview/page.tsx'
           'src/app/staff/restaurants/[restaurantId]/setup-preview/page.tsx'
           'src/app/staff/restaurants/[restaurantId]/setup-preview/SetupPreviewWorkspace.tsx'
+      - name: Lint API setup services and guards
+        run: >-
+          npm exec --workspace=apps/api -- eslint
+          src/restaurants/restaurant-setup.service.ts
+          src/restaurants/restaurant-setup.controller.ts
+          src/restaurants/restaurant-setup.service.spec.ts
+          src/restaurants/restaurant-setup.controller.spec.ts
+          src/provisioning/provision-restaurant.ts
