@@ -214,6 +214,7 @@ describe('provisionRestaurant', () => {
         'qrCode',
         'restaurant',
         'restaurantLocale',
+        'restaurantSetup',
         'restaurantMembership',
         'restaurantRole',
         'user',
