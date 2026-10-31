@@ -44,6 +44,12 @@ function build(options: { existingUser?: { id: string } | null; owned?: unknown 
         return Promise.resolve({ id: 'restaurant-1', publicId: 'restaurant-public-1' });
       }),
     },
+    restaurantSetup: {
+      create: jest.fn().mockImplementation(() => {
+        calls.push('setup');
+        return Promise.resolve({});
+      }),
+    },
     restaurantLocale: {
       createMany: jest.fn().mockImplementation(() => {
         calls.push('locales');
@@ -122,6 +128,7 @@ describe('provisionRestaurant', () => {
     expect(m.prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(m.calls).toEqual([
       'restaurant',
+      'setup',
       'locales',
       'user',
       'role',
