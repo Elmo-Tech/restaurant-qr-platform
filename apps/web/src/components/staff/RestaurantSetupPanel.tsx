@@ -50,11 +50,17 @@ export function RestaurantSetupPanel({
   }, [allowed, restaurantId]);
 
   useEffect(() => {
-    void reload();
+    // Defer the initial request out of the synchronous effect body. This
+    // avoids cascading React renders while preserving a fresh Backend read.
+    let active = true;
+    queueMicrotask(() => { if (active) void reload(); });
     const onFocus = () => { void reload(); };
     // Returning from another Setup step refreshes canonical Backend truth.
     window.addEventListener('focus', onFocus);
-    return () => window.removeEventListener('focus', onFocus);
+    return () => {
+      active = false;
+      window.removeEventListener('focus', onFocus);
+    };
   }, [reload]);
 
   useEffect(() => {
