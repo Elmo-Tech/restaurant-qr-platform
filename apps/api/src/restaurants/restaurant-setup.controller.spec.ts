@@ -72,6 +72,14 @@ describe('RestaurantSetupController security contract', () => {
     expect(mock.setHidden).toHaveBeenCalledWith('restaurant-1', 'user-1', true);
   });
 
+  it('only the owner may waive optional branding for the whole restaurant', async () => {
+    await expect(controller.review({ step: 'BRANDING_SKIP' }, request('MANAGER')))
+      .rejects.toMatchObject({ status: 403 });
+    expect(mock.review).not.toHaveBeenCalled();
+    await controller.review({ step: 'BRANDING_SKIP' }, request('OWNER'));
+    expect(mock.review).toHaveBeenCalledWith('restaurant-1', 'BRANDING_SKIP');
+  });
+
   it('stores explicit, non-client-derived review keys only', async () => {
     await controller.review({ step: 'ORDERING' }, request());
     expect(mock.review).toHaveBeenCalledWith('restaurant-1', 'ORDERING');
