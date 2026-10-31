@@ -69,6 +69,7 @@ export interface ProvisioningTx {
     create(args: unknown): Promise<unknown>;
   };
   restaurant: { create(args: unknown): Promise<{ id: string; publicId: string }> };
+  restaurantSetup: { create(args: unknown): Promise<unknown> };
   restaurantLocale: { createMany(args: unknown): Promise<unknown> };
   branch: { create(args: unknown): Promise<{ id: string; name: string }> };
   qrCode: { create(args: unknown): Promise<{ publicCode: string }> };
@@ -199,6 +200,12 @@ export async function provisionRestaurant(
           currencyCode: input.currencyCode,
         },
         select: { id: true, publicId: true },
+      });
+
+      // Only NEW restaurants enter optional setup. Existing tenants never get a
+      // row from migration or from a provisioning no-op.
+      await tx.restaurantSetup.create({
+        data: { restaurantId: restaurant.id },
       });
 
       // Every Platform-supported locale is active from day one; the default is one of them.
