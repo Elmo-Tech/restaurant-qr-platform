@@ -73,7 +73,13 @@ function RowIcon({ status }: { status: SetupStepStatus }) {
   );
 }
 
-function SetupStepRow({ step, expanded }: { step: SetupStepView; expanded: boolean }) {
+function SetupStepRow({ step, expanded, onReview, onSkipBranding, busy = false }: {
+  step: SetupStepView;
+  expanded: boolean;
+  onReview?: (key: SetupStepKey) => void;
+  onSkipBranding?: () => void;
+  busy?: boolean;
+}) {
   const { t } = useStaffI18n();
   const copy = STEP_TEXT[step.key];
   const actionable = step.status === 'NEEDS_ACTION' || step.status === 'NEEDS_REVIEW';
@@ -110,27 +116,41 @@ function SetupStepRow({ step, expanded }: { step: SetupStepView; expanded: boole
           </svg>
         </Link>
       ) : null}
+      {expanded && onReview && step.status === 'NEEDS_REVIEW' ? (
+        <button type="button" disabled={busy} onClick={() => onReview(step.key)}
+          className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60">
+          {t(step.key === 'PREVIEW' ? 'setup.action.confirmPreview' : 'setup.action.confirmReview')}
+        </button>
+      ) : null}
+      {expanded && onSkipBranding && step.key === 'BRANDING' && step.status === 'NEEDS_ACTION' ? (
+        <button type="button" disabled={busy} onClick={onSkipBranding}
+          className="inline-flex min-h-11 shrink-0 items-center text-xs font-semibold text-muted-foreground underline underline-offset-4 focus-visible:outline-2 focus-visible:outline-primary disabled:opacity-60">
+          {t('setup.action.skipBranding')}
+        </button>
+      ) : null}
     </li>
   );
 }
 
-/**
- * A pure display component for VERIFIED future setup step data. For this PR it
- * appears ONLY in an explicitly marked design-preview route with sample data.
- * It must not be inserted into production Dashboard before a guarded Backend
- * readiness endpoint and persisted user visibility/owner review exist.
- */
+/** Shared, accessible visual card; only its parent owns real data and writes. */
 export function RestaurantSetupChecklistCard({
   steps,
   onHide,
+  onReview,
+  onSkipBranding,
+  busy = false,
   preview = false,
 }: {
   steps: readonly SetupStepView[];
   onHide?: () => void;
+  onReview?: (key: SetupStepKey) => void;
+  onSkipBranding?: () => void;
+  busy?: boolean;
   preview?: boolean;
 }) {
   const { t } = useStaffI18n();
   const [expanded, setExpanded] = useState(false);
+  const [helperOpen, setHelperOpen] = useState(false);
   const summary = summarizeSetupSteps(steps);
   const available = steps.filter(step => step.status !== 'NOT_APPLICABLE');
   const finishedExample = available.find(step => step.status === 'DONE');
@@ -206,7 +226,8 @@ export function RestaurantSetupChecklistCard({
               return items.length ? (
                 <div key={group.key} className="space-y-2">
                   <h3 className="text-sm font-bold text-foreground">{t(group.title)}</h3>
-                  <ul className="space-y-2">{items.map(step => <SetupStepRow key={step.key} step={step} expanded />)}</ul>
+                  <ul className="space-y-2">{items.map(step => <SetupStepRow key={step.key} step={step}
+                    expanded onReview={onReview} onSkipBranding={onSkipBranding} busy={busy} />)}</ul>
                 </div>
               ) : null;
             })}
@@ -238,6 +259,28 @@ export function RestaurantSetupChecklistCard({
             </button>
           ) : null}
         </div>
+        {!preview && summary.nextAction ? (
+          <div className="rounded-xl border border-[#d5dce5] bg-muted/40 px-3 py-3">
+            <button type="button" aria-expanded={helperOpen}
+              onClick={() => setHelperOpen(open => !open)}
+              className="flex min-h-11 w-full items-center gap-2 text-start text-sm font-semibold text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+              <span aria-hidden="true" className="flex size-8 items-center justify-center rounded-lg bg-[#fff0df] text-[#a75508]">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8"
+                  strokeLinecap="round" strokeLinejoin="round" className="size-5">
+                  <rect x="4" y="7" width="16" height="13" rx="4" /><path d="M12 3v4m-4 7h.01m8 0h.01M9 17h6" />
+                </svg>
+              </span>
+              <span className="flex-1">{t('setup.helper.title')}</span>
+              <span className="text-xs text-muted-foreground">{t(helperOpen ? 'setup.action.showLess' : 'setup.action.showAll')}</span>
+            </button>
+            {helperOpen ? (
+              <p className="mt-2 text-xs leading-6 text-muted-foreground sm:text-sm">
+                {t(STEP_TEXT[summary.nextAction.key].detail)}
+                {' '}{t('setup.helper.noAi')}
+              </p>
+            ) : null}
+          </div>
+        ) : null}
         {preview ? <p className="text-xs text-muted-foreground">{t('setup.preview.notPersisted')}</p> : null}
       </div>
     </section>
