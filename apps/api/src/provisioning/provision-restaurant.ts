@@ -95,9 +95,7 @@ function isValidTimezone(value: string): boolean {
 }
 
 /** Trims and validates the operator input. Returns problems (never echoing the password) or the normalized values. */
-export function validateProvisionInput(
-  input: ProvisionRestaurantInput,
-):
+export function validateProvisionInput(input: ProvisionRestaurantInput):
   | {
       ok: true;
       value: ProvisionRestaurantInput & {
