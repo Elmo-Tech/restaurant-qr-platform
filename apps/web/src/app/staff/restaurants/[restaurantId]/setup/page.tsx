@@ -8,7 +8,7 @@ import { PageHeader } from '../../../../../components/ui/PageHeader';
 import { RestaurantSetupPanel } from '../../../../../components/staff/RestaurantSetupPanel';
 
 /**
- * The REAL guide. Unlike /setup-preview, it never uses synthetic states;
+ * The REAL guide never uses synthetic states;
  * the guarded NestJS endpoint computes every step from current data.
  * Old restaurants explicitly opt in. No forced wizard or popup.
  */
