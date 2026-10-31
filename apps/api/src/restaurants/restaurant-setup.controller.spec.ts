@@ -15,7 +15,8 @@ function request(role: 'OWNER' | 'MANAGER' | 'CASHIER' = 'OWNER') {
     restaurantAccess: {
       restaurantId: 'restaurant-1',
       membershipId: 'membership-1',
-      role, allBranches: true,
+      role,
+      allBranches: true,
     },
   } as unknown as RestaurantAuthorizedRequest;
 }
@@ -39,42 +40,69 @@ describe('RestaurantSetupController security contract', () => {
   it('requires session, tenant access, RESTAURANT_VIEW and full restaurant scope on read', () => {
     const handler = RestaurantSetupController.prototype.getStatus;
     expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
-      AuthGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard,
+      AuthGuard,
+      RestaurantAccessGuard,
+      PermissionGuard,
+      AllBranchesRequiredGuard,
     ]);
-    expect(Reflect.getMetadata(REQUIRED_PERMISSION_KEY, handler)).toEqual(PERMISSIONS.RESTAURANT_VIEW);
+    expect(Reflect.getMetadata(REQUIRED_PERMISSION_KEY, handler)).toEqual(
+      PERMISSIONS.RESTAURANT_VIEW,
+    );
   });
 
-  it.each(mutations)('%s requires CSRF, tenant, permission and allBranches for writes', key => {
-    const handler = RestaurantSetupController.prototype[key];
-    expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
-      AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard,
-    ]);
-    const required = key === 'setVisibility' ? PERMISSIONS.RESTAURANT_VIEW : PERMISSIONS.RESTAURANT_MANAGE;
-    expect(Reflect.getMetadata(REQUIRED_PERMISSION_KEY, handler)).toEqual(required);
-  });
+  it.each(mutations)(
+    '%s requires CSRF, tenant, permission and allBranches for writes',
+    (key) => {
+      const handler = RestaurantSetupController.prototype[key];
+      expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
+        AuthGuard,
+        CsrfGuard,
+        RestaurantAccessGuard,
+        PermissionGuard,
+        AllBranchesRequiredGuard,
+      ]);
+      const required =
+        key === 'setVisibility'
+          ? PERMISSIONS.RESTAURANT_VIEW
+          : PERMISSIONS.RESTAURANT_MANAGE;
+      expect(Reflect.getMetadata(REQUIRED_PERMISSION_KEY, handler)).toEqual(
+        required,
+      );
+    },
+  );
 
   it('never leaks setup to CASHIER even with restaurant.view', async () => {
-    await expect(controller.getStatus(request('CASHIER'))).rejects.toMatchObject({ status: 403 });
+    await expect(
+      controller.getStatus(request('CASHIER')),
+    ).rejects.toMatchObject({ status: 403 });
     expect(mock.getStatus).not.toHaveBeenCalled();
   });
 
   it('only OWNER can enroll/finalize, never a MANAGER with manage permissions', async () => {
-    await expect(controller.enroll(request('MANAGER'))).rejects.toMatchObject({ status: 403 });
-    await expect(controller.complete(request('MANAGER'))).rejects.toMatchObject({ status: 403 });
+    await expect(controller.enroll(request('MANAGER'))).rejects.toMatchObject({
+      status: 403,
+    });
+    await expect(controller.complete(request('MANAGER'))).rejects.toMatchObject(
+      { status: 403 },
+    );
     expect(mock.enroll).not.toHaveBeenCalled();
     expect(mock.complete).not.toHaveBeenCalled();
   });
 
   it('uses only authorized restaurantId and auth userId for read and visibility', async () => {
     await controller.getStatus(request());
-    expect(mock.getStatus).toHaveBeenCalledWith(expect.objectContaining({ restaurantId: 'restaurant-1' }), 'user-1');
+    expect(mock.getStatus).toHaveBeenCalledWith(
+      expect.objectContaining({ restaurantId: 'restaurant-1' }),
+      'user-1',
+    );
     await controller.setVisibility({ hidden: true }, request());
     expect(mock.setHidden).toHaveBeenCalledWith('restaurant-1', 'user-1', true);
   });
 
   it('only the owner may waive optional branding for the whole restaurant', async () => {
-    await expect(controller.review({ step: 'BRANDING_SKIP' }, request('MANAGER')))
-      .rejects.toMatchObject({ status: 403 });
+    await expect(
+      controller.review({ step: 'BRANDING_SKIP' }, request('MANAGER')),
+    ).rejects.toMatchObject({ status: 403 });
     expect(mock.review).not.toHaveBeenCalled();
     await controller.review({ step: 'BRANDING_SKIP' }, request('OWNER'));
     expect(mock.review).toHaveBeenCalledWith('restaurant-1', 'BRANDING_SKIP');
