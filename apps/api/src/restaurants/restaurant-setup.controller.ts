@@ -94,6 +94,8 @@ export class RestaurantSetupController {
   async review(@Body() dto: SetupReviewDto, @Req() request: RestaurantAuthorizedRequest):
     Promise<{ data: RestaurantSetupStatus }> {
     this.assertMember(request);
+    // A deliberate waiver is a Restaurant-wide policy decision for OWNER.
+    if (dto.step === 'BRANDING_SKIP') this.assertOwner(request);
     await this.setup.review(request.restaurantAccess.restaurantId, dto.step);
     return { data: await this.setup.getStatus(request.restaurantAccess, request.auth.userId) };
   }
