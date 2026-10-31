@@ -51,7 +51,7 @@ test('hide is per-user, final confirmation is owner-only, and review is explicit
 
 test('backend only persists review signatures and canonical verified values', () => {
   assert.match(service, /deriveSetupStatuses/);
-  assert.match(service, /category: \{ status: 'ACTIVE', menu: \{ status: 'ACTIVE', restaurantId \} \}/);
+  assert.match(service, /category:\\s*\\{\\s*status:\\s*'ACTIVE',\\s*menu:\\s*\\{\\s*status:\\s*'ACTIVE',\\s*restaurantId\\s*\\}/);
   assert.match(service, /resolveFeatures\(/);
   assert.match(service, /TransactionIsolationLevel\.Serializable/);
   assert.match(service, /previewConfirmedAt: new Date/);
