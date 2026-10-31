@@ -24,7 +24,9 @@ export interface RestaurantSetupStatus {
   steps: RestaurantSetupStep[];
 }
 
-const NO_SETUP = { enrolled: false, hidden: false, completed: false, steps: [] } as const;
+const NO_SETUP: Pick<RestaurantSetupStatus, 'enrolled' | 'hidden' | 'completed' | 'steps'> = {
+  enrolled: false, hidden: false, completed: false, steps: [],
+};
 
 interface SetupSnapshot {
   restaurant: {
