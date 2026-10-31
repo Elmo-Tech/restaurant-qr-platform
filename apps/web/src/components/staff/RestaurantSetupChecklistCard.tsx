@@ -86,7 +86,7 @@ function SetupStepRow({ step, expanded, onReview, onSkipBranding, busy = false }
   const href = actionable ? step.href : null;
 
   return (
-    <li className="flex min-w-0 items-start gap-3 rounded-xl border border-border/75 bg-card px-3 py-3 sm:px-4">
+    <li className="flex min-w-0 flex-wrap items-start gap-3 rounded-xl border border-border/75 bg-card px-3 py-3 sm:px-4">
       <RowIcon status={step.status} />
       <div className="min-w-0 flex-1 self-center">
         <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -106,6 +106,7 @@ function SetupStepRow({ step, expanded, onReview, onSkipBranding, busy = false }
           <p className="mt-1 text-xs text-muted-foreground">{t('setup.action.whyLocked')}</p>
         ) : null}
       </div>
+      <div className="flex w-full flex-wrap items-center justify-end gap-2 ps-12 sm:w-auto sm:ps-0">
       {href ? (
         <Link href={href}
           className="inline-flex min-h-11 shrink-0 items-center justify-center gap-1 rounded-lg px-2 text-xs font-bold text-primary transition-colors hover:bg-accent focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary sm:px-3 sm:text-sm">
@@ -128,6 +129,7 @@ function SetupStepRow({ step, expanded, onReview, onSkipBranding, busy = false }
           {t('setup.action.skipBranding')}
         </button>
       ) : null}
+      </div>
     </li>
   );
 }
