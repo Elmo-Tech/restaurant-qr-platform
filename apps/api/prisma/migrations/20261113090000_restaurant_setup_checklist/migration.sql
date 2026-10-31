@@ -42,8 +42,19 @@ CREATE INDEX "restaurant_setup_visibility_user_id_idx" ON "restaurant_setup_visi
 -- supported access path. Supabase Data API roles have no direct table rights.
 ALTER TABLE "restaurant_setups" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "restaurant_setup_visibility" ENABLE ROW LEVEL SECURITY;
-REVOKE ALL ON TABLE "restaurant_setups", "restaurant_setup_visibility"
-  FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON TABLE "restaurant_setups", "restaurant_setup_visibility" FROM PUBLIC;
+
+-- On a plain isolated PostgreSQL test instance Supabase's anon/authenticated
+-- roles might not exist. Revoke them where present without failing migration.
+DO $
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
+    REVOKE ALL ON TABLE "restaurant_setups", "restaurant_setup_visibility" FROM anon;
+  END IF;
+  IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
+    REVOKE ALL ON TABLE "restaurant_setups", "restaurant_setup_visibility" FROM authenticated;
+  END IF;
+END $;
 
 -- Rollback BEFORE any setup data matters (manual, explicit approval only):
 -- DROP TABLE IF EXISTS "restaurant_setup_visibility";
