@@ -17,12 +17,13 @@ type Mode = 'dashboard' | 'page' | 'settings';
 const GUIDE_ROLES = new Set(['OWNER', 'MANAGER']);
 
 export function RestaurantSetupPanel({
-  restaurantId, mode, memberRole, fullRestaurantScope,
+  restaurantId, mode, memberRole, fullRestaurantScope, onDashboardVisibilityChange,
 }: {
   restaurantId: string;
   mode: Mode;
   memberRole: string;
   fullRestaurantScope: boolean;
+  onDashboardVisibilityChange?: (visible: boolean) => void;
 }) {
   const { t } = useStaffI18n();
   const [status, setStatus] = useState<LiveSetupStatus | null>(null);
@@ -55,6 +56,11 @@ export function RestaurantSetupPanel({
     window.addEventListener('focus', onFocus);
     return () => window.removeEventListener('focus', onFocus);
   }, [reload]);
+
+  useEffect(() => {
+    if (mode !== 'dashboard') return;
+    onDashboardVisibilityChange?.(Boolean(status?.enrolled && !status.hidden && !status.completed));
+  }, [mode, onDashboardVisibilityChange, status]);
 
   const perform = useCallback(async (action: () => Promise<LiveSetupStatus>) => {
     if (busy) return;
