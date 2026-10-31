@@ -5,9 +5,24 @@ import { resolveFeatures, type FeatureMap } from '../entitlements/features';
 import { PERMISSIONS, type Permission } from '../auth/permission/permission';
 import type { RestaurantAccessContext } from '../auth/context/restaurant-access.service';
 
-const KEYS = ['BRANDING', 'CONTACT', 'LANGUAGES', 'MENU', 'PRODUCTS', 'ORDERING', 'OPERATIONS', 'PREVIEW'] as const;
+const KEYS = [
+  'BRANDING',
+  'CONTACT',
+  'LANGUAGES',
+  'MENU',
+  'PRODUCTS',
+  'ORDERING',
+  'OPERATIONS',
+  'PREVIEW',
+] as const;
 export type SetupStepKey = (typeof KEYS)[number];
-export type SetupStatusKey = 'DONE' | 'NEEDS_ACTION' | 'NEEDS_REVIEW' | 'INTENTIONALLY_SKIPPED' | 'NOT_APPLICABLE' | 'UNAVAILABLE';
+export type SetupStatusKey =
+  | 'DONE'
+  | 'NEEDS_ACTION'
+  | 'NEEDS_REVIEW'
+  | 'INTENTIONALLY_SKIPPED'
+  | 'NOT_APPLICABLE'
+  | 'UNAVAILABLE';
 type Group = 'identity' | 'menu' | 'orders';
 export interface RestaurantSetupStep {
   key: SetupStepKey;
@@ -24,8 +39,14 @@ export interface RestaurantSetupStatus {
   steps: RestaurantSetupStep[];
 }
 
-const NO_SETUP: Pick<RestaurantSetupStatus, 'enrolled' | 'hidden' | 'completed' | 'steps'> = {
-  enrolled: false, hidden: false, completed: false, steps: [],
+const NO_SETUP: Pick<
+  RestaurantSetupStatus,
+  'enrolled' | 'hidden' | 'completed' | 'steps'
+> = {
+  enrolled: false,
+  hidden: false,
+  completed: false,
+  steps: [],
 };
 
 interface SetupSnapshot {
@@ -54,8 +75,10 @@ interface SetupSnapshot {
 }
 
 function effectiveChannels(s: SetupSnapshot) {
-  const r = s.restaurant, f = s.features;
-  const canPickupDelivery = f.DASHBOARD_ORDERING || (f.WHATSAPP_ORDERING && r.whatsappOrderingEnabled);
+  const r = s.restaurant,
+    f = s.features;
+  const canPickupDelivery =
+    f.DASHBOARD_ORDERING || (f.WHATSAPP_ORDERING && r.whatsappOrderingEnabled);
   return {
     pickup: canPickupDelivery && r.pickupEnabled,
     delivery: canPickupDelivery && r.deliveryEnabled,
@@ -68,7 +91,10 @@ function currentSignatures(s: SetupSnapshot) {
   const channels = effectiveChannels(s);
   const locales = [...s.activeLocales].sort();
   return {
-    languages: JSON.stringify({ default: s.restaurant.defaultLocale, enabled: locales }),
+    languages: JSON.stringify({
+      default: s.restaurant.defaultLocale,
+      enabled: locales,
+    }),
     ordering: JSON.stringify({
       channels,
       raw: {
@@ -88,44 +114,78 @@ function currentSignatures(s: SetupSnapshot) {
 }
 
 /** Canonical facts, not previously ticked boxes or client-supplied progress. */
-export function deriveSetupStatuses(s: SetupSnapshot, state: Pick<RestaurantSetup,
-  'languagesSignature' | 'orderingSignature' | 'operationsSignature' |
-  'previewConfirmedAt' | 'brandingSkippedAt'>): Record<SetupStepKey, SetupStatusKey> {
+export function deriveSetupStatuses(
+  s: SetupSnapshot,
+  state: Pick<
+    RestaurantSetup,
+    | 'languagesSignature'
+    | 'orderingSignature'
+    | 'operationsSignature'
+    | 'previewConfirmedAt'
+    | 'brandingSkippedAt'
+  >,
+): Record<SetupStepKey, SetupStatusKey> {
   const channels = effectiveChannels(s);
   const signs = currentSignatures(s);
   const hasContact = [
-    s.restaurant.contactPhone, s.restaurant.whatsappNumber,
-    s.restaurant.hotlineNumber, s.restaurant.facebookUrl,
-    s.restaurant.instagramUrl, s.restaurant.websiteUrl,
-  ].some(value => Boolean(value?.trim()));
-  const usableContact = hasContact && (!channels.whatsapp || Boolean(s.restaurant.whatsappNumber?.trim()));
+    s.restaurant.contactPhone,
+    s.restaurant.whatsappNumber,
+    s.restaurant.hotlineNumber,
+    s.restaurant.facebookUrl,
+    s.restaurant.instagramUrl,
+    s.restaurant.websiteUrl,
+  ].some((value) => Boolean(value?.trim()));
+  const usableContact =
+    hasContact &&
+    (!channels.whatsapp || Boolean(s.restaurant.whatsappNumber?.trim()));
   const hasOperations = channels.pickup || channels.delivery || channels.table;
-  const branchesReady = s.activeBranchCount > 0 &&
+  const branchesReady =
+    s.activeBranchCount > 0 &&
     (!channels.delivery || s.activeZoneCount > 0) &&
     (!channels.table || s.activeTableCount > 0);
-  const branding = s.restaurant.logoAssetPath && s.restaurant.coverAssetPath
-    ? 'DONE' : state.brandingSkippedAt ? 'INTENTIONALLY_SKIPPED' : 'NEEDS_ACTION';
+  const branding =
+    s.restaurant.logoAssetPath && s.restaurant.coverAssetPath
+      ? 'DONE'
+      : state.brandingSkippedAt
+        ? 'INTENTIONALLY_SKIPPED'
+        : 'NEEDS_ACTION';
   return {
     BRANDING: branding,
     CONTACT: usableContact ? 'DONE' : 'NEEDS_ACTION',
-    LANGUAGES: s.activeLocales.includes(s.restaurant.defaultLocale)
-      && state.languagesSignature === signs.languages ? 'DONE' : 'NEEDS_REVIEW',
+    LANGUAGES:
+      s.activeLocales.includes(s.restaurant.defaultLocale) &&
+      state.languagesSignature === signs.languages
+        ? 'DONE'
+        : 'NEEDS_REVIEW',
     MENU: s.activeMenuCount > 0 ? 'DONE' : 'NEEDS_ACTION',
     PRODUCTS: s.liveProductCount > 0 ? 'DONE' : 'NEEDS_ACTION',
-    ORDERING: state.orderingSignature === signs.ordering ? 'DONE' : 'NEEDS_REVIEW',
-    OPERATIONS: !hasOperations ? 'NOT_APPLICABLE'
-      : branchesReady && state.operationsSignature === signs.operations ? 'DONE'
-      : branchesReady ? 'NEEDS_REVIEW' : 'NEEDS_ACTION',
-    PREVIEW: state.previewConfirmedAt && s.liveProductCount > 0 ? 'DONE' : 'NEEDS_REVIEW',
+    ORDERING:
+      state.orderingSignature === signs.ordering ? 'DONE' : 'NEEDS_REVIEW',
+    OPERATIONS: !hasOperations
+      ? 'NOT_APPLICABLE'
+      : branchesReady && state.operationsSignature === signs.operations
+        ? 'DONE'
+        : branchesReady
+          ? 'NEEDS_REVIEW'
+          : 'NEEDS_ACTION',
+    PREVIEW:
+      state.previewConfirmedAt && s.liveProductCount > 0
+        ? 'DONE'
+        : 'NEEDS_REVIEW',
   };
 }
 
 function groupFor(key: SetupStepKey): Group {
-  return ['BRANDING', 'CONTACT', 'LANGUAGES'].includes(key) ? 'identity'
-    : ['MENU', 'PRODUCTS'].includes(key) ? 'menu' : 'orders';
+  return ['BRANDING', 'CONTACT', 'LANGUAGES'].includes(key)
+    ? 'identity'
+    : ['MENU', 'PRODUCTS'].includes(key)
+      ? 'menu'
+      : 'orders';
 }
 function setupRows(
-  restaurantId: string, snapshot: SetupSnapshot, state: RestaurantSetup,
+  restaurantId: string,
+  snapshot: SetupSnapshot,
+  state: RestaurantSetup,
   permissions: readonly Permission[],
 ): RestaurantSetupStep[] {
   const values = deriveSetupStatuses(snapshot, state);
@@ -133,34 +193,59 @@ function setupRows(
   const canEditSettings = permissions.includes(PERMISSIONS.RESTAURANT_MANAGE);
   const canEditMenu = permissions.includes(PERMISSIONS.MENU_MANAGE);
   const canSeeMenu = permissions.includes(PERMISSIONS.MENU_VIEW);
-  const canEditBranches = permissions.includes(PERMISSIONS.BRANCHES_VIEW)
-    && permissions.includes(PERMISSIONS.BRANCHES_MANAGE);
-  return KEYS.map(key => {
+  const canEditBranches =
+    permissions.includes(PERMISSIONS.BRANCHES_VIEW) &&
+    permissions.includes(PERMISSIONS.BRANCHES_MANAGE);
+  return KEYS.map((key) => {
     // Don't offer CTAs that reach a read-only page when finishing that task
     // requires management permissions. No new permission is granted by setup.
-    const allowed = key === 'MENU' || key === 'PRODUCTS' ? canSeeMenu && canEditMenu
-      : key === 'OPERATIONS' ? canEditBranches
-      : key === 'PREVIEW' ? canSeeMenu && canEditSettings
-      : canEditSettings;
-    const href = !allowed ? null
-      : key === 'BRANDING' ? base + '/settings/profile'
-      : key === 'CONTACT' ? base + '/settings/profile#contact-settings'
-      : key === 'LANGUAGES' ? base + '/settings/languages'
-      : key === 'MENU' || key === 'PRODUCTS' ? base + '/menu'
-      : key === 'ORDERING' ? base + '/settings/ordering'
-      : key === 'OPERATIONS' ? base + '/settings/branches'
-      : base + '/menu/overview';
+    const allowed =
+      key === 'MENU' || key === 'PRODUCTS'
+        ? canSeeMenu && canEditMenu
+        : key === 'OPERATIONS'
+          ? canEditBranches
+          : key === 'PREVIEW'
+            ? canSeeMenu && canEditSettings
+            : canEditSettings;
+    const href = !allowed
+      ? null
+      : key === 'BRANDING'
+        ? base + '/settings/profile'
+        : key === 'CONTACT'
+          ? base + '/settings/profile#contact-settings'
+          : key === 'LANGUAGES'
+            ? base + '/settings/languages'
+            : key === 'MENU' || key === 'PRODUCTS'
+              ? base + '/menu'
+              : key === 'ORDERING'
+                ? base + '/settings/ordering'
+                : key === 'OPERATIONS'
+                  ? base + '/settings/branches'
+                  : base + '/menu/overview';
     return {
-      key, group: groupFor(key), href,
-      status: !allowed && values[key] !== 'NOT_APPLICABLE'
-        && values[key] !== 'INTENTIONALLY_SKIPPED' ? 'UNAVAILABLE' : values[key],
+      key,
+      group: groupFor(key),
+      href,
+      status:
+        !allowed &&
+        values[key] !== 'NOT_APPLICABLE' &&
+        values[key] !== 'INTENTIONALLY_SKIPPED'
+          ? 'UNAVAILABLE'
+          : values[key],
     };
   });
 }
 
 function canFinish(rows: readonly RestaurantSetupStep[]) {
-  return rows.length > 0 && rows.every(row =>
-    row.status === 'DONE' || row.status === 'NOT_APPLICABLE' || row.status === 'INTENTIONALLY_SKIPPED');
+  return (
+    rows.length > 0 &&
+    rows.every(
+      (row) =>
+        row.status === 'DONE' ||
+        row.status === 'NOT_APPLICABLE' ||
+        row.status === 'INTENTIONALLY_SKIPPED',
+    )
+  );
 }
 
 function error(code: string, message: string): ConflictException {
@@ -178,34 +263,60 @@ type SetupDb = Prisma.TransactionClient;
 export class RestaurantSetupService {
   constructor(private readonly prisma: PrismaService) {}
 
-  private async snapshot(db: SetupDb, restaurantId: string): Promise<SetupSnapshot> {
-    const [restaurant, menus, products, branches, zones, tables] = await Promise.all([
-      db.restaurant.findUniqueOrThrow({
-        where: { id: restaurantId },
-        select: {
-          logoAssetPath: true, coverAssetPath: true, contactPhone: true,
-          whatsappNumber: true, hotlineNumber: true, facebookUrl: true,
-          instagramUrl: true, websiteUrl: true, defaultLocale: true,
-          pickupEnabled: true, deliveryEnabled: true, tableOrderingEnabled: true,
-          whatsappOrderingEnabled: true,
-          locales: { where: { isActive: true }, select: { locale: true } },
-          features: { select: { feature: true, enabled: true } },
-          package: { select: { features: { select: { feature: true } } } },
-        },
-      }),
-      db.menu.count({ where: { restaurantId, status: 'ACTIVE' } }),
-      db.product.count({ where: {
-        restaurantId, status: 'ACTIVE',
-        category: { status: 'ACTIVE', menu: { status: 'ACTIVE', restaurantId } },
-      } }),
-      db.branch.count({ where: { restaurantId, status: 'ACTIVE' } }),
-      db.deliveryZone.count({ where: {
-        restaurantId, status: 'ACTIVE', branch: { status: 'ACTIVE' },
-      } }),
-      db.table.count({ where: {
-        restaurantId, status: 'ACTIVE', branch: { status: 'ACTIVE' },
-      } }),
-    ]);
+  private async snapshot(
+    db: SetupDb,
+    restaurantId: string,
+  ): Promise<SetupSnapshot> {
+    const [restaurant, menus, products, branches, zones, tables] =
+      await Promise.all([
+        db.restaurant.findUniqueOrThrow({
+          where: { id: restaurantId },
+          select: {
+            logoAssetPath: true,
+            coverAssetPath: true,
+            contactPhone: true,
+            whatsappNumber: true,
+            hotlineNumber: true,
+            facebookUrl: true,
+            instagramUrl: true,
+            websiteUrl: true,
+            defaultLocale: true,
+            pickupEnabled: true,
+            deliveryEnabled: true,
+            tableOrderingEnabled: true,
+            whatsappOrderingEnabled: true,
+            locales: { where: { isActive: true }, select: { locale: true } },
+            features: { select: { feature: true, enabled: true } },
+            package: { select: { features: { select: { feature: true } } } },
+          },
+        }),
+        db.menu.count({ where: { restaurantId, status: 'ACTIVE' } }),
+        db.product.count({
+          where: {
+            restaurantId,
+            status: 'ACTIVE',
+            category: {
+              status: 'ACTIVE',
+              menu: { status: 'ACTIVE', restaurantId },
+            },
+          },
+        }),
+        db.branch.count({ where: { restaurantId, status: 'ACTIVE' } }),
+        db.deliveryZone.count({
+          where: {
+            restaurantId,
+            status: 'ACTIVE',
+            branch: { status: 'ACTIVE' },
+          },
+        }),
+        db.table.count({
+          where: {
+            restaurantId,
+            status: 'ACTIVE',
+            branch: { status: 'ACTIVE' },
+          },
+        }),
+      ]);
     return {
       restaurant: {
         logoAssetPath: restaurant.logoAssetPath,
@@ -222,20 +333,35 @@ export class RestaurantSetupService {
         tableOrderingEnabled: restaurant.tableOrderingEnabled,
         whatsappOrderingEnabled: restaurant.whatsappOrderingEnabled,
       },
-      activeLocales: restaurant.locales.map(v => v.locale),
-      features: resolveFeatures(restaurant.features, restaurant.package?.features.map(v => v.feature)),
-      activeMenuCount: menus, liveProductCount: products, activeBranchCount: branches,
-      activeZoneCount: zones, activeTableCount: tables,
+      activeLocales: restaurant.locales.map((v) => v.locale),
+      features: resolveFeatures(
+        restaurant.features,
+        restaurant.package?.features.map((v) => v.feature),
+      ),
+      activeMenuCount: menus,
+      liveProductCount: products,
+      activeBranchCount: branches,
+      activeZoneCount: zones,
+      activeTableCount: tables,
     };
   }
 
-  async getStatus(access: RestaurantAccessContext, userId: string): Promise<RestaurantSetupStatus> {
+  async getStatus(
+    access: RestaurantAccessContext,
+    userId: string,
+  ): Promise<RestaurantSetupStatus> {
     const owner = access.role === 'OWNER';
-    const canReview = access.permissions.includes(PERMISSIONS.RESTAURANT_MANAGE);
-    const setup = await this.prisma.restaurantSetup.findUnique({ where: { restaurantId: access.restaurantId } });
+    const canReview = access.permissions.includes(
+      PERMISSIONS.RESTAURANT_MANAGE,
+    );
+    const setup = await this.prisma.restaurantSetup.findUnique({
+      where: { restaurantId: access.restaurantId },
+    });
     if (!setup) return { ...NO_SETUP, owner, canReview };
     const visibility = await this.prisma.restaurantSetupVisibility.findUnique({
-      where: { restaurantId_userId: { restaurantId: access.restaurantId, userId } },
+      where: {
+        restaurantId_userId: { restaurantId: access.restaurantId, userId },
+      },
     });
     const snap = await this.snapshot(this.prisma, access.restaurantId);
     return {
@@ -257,9 +383,16 @@ export class RestaurantSetupService {
     });
   }
 
-  async setHidden(restaurantId: string, userId: string, hidden: boolean): Promise<void> {
-    const existing = await this.prisma.restaurantSetup.findUnique({ where: { restaurantId } });
-    if (!existing) throw error('SETUP_NOT_ENROLLED', 'Start the setup guide first.');
+  async setHidden(
+    restaurantId: string,
+    userId: string,
+    hidden: boolean,
+  ): Promise<void> {
+    const existing = await this.prisma.restaurantSetup.findUnique({
+      where: { restaurantId },
+    });
+    if (!existing)
+      throw error('SETUP_NOT_ENROLLED', 'Start the setup guide first.');
     await this.prisma.restaurantSetupVisibility.upsert({
       where: { restaurantId_userId: { restaurantId, userId } },
       update: { hiddenAt: hidden ? new Date() : null },
@@ -267,44 +400,89 @@ export class RestaurantSetupService {
     });
   }
 
-  async review(restaurantId: string, key: 'LANGUAGES' | 'ORDERING' | 'OPERATIONS' | 'PREVIEW' | 'BRANDING_SKIP'): Promise<void> {
-    const state = await this.prisma.restaurantSetup.findUnique({ where: { restaurantId } });
-    if (!state) throw error('SETUP_NOT_ENROLLED', 'Start the setup guide first.');
-    if (state.completedAt) throw error('SETUP_ALREADY_COMPLETED', 'This setup was already completed.');
+  async review(
+    restaurantId: string,
+    key: 'LANGUAGES' | 'ORDERING' | 'OPERATIONS' | 'PREVIEW' | 'BRANDING_SKIP',
+  ): Promise<void> {
+    const state = await this.prisma.restaurantSetup.findUnique({
+      where: { restaurantId },
+    });
+    if (!state)
+      throw error('SETUP_NOT_ENROLLED', 'Start the setup guide first.');
+    if (state.completedAt)
+      throw error(
+        'SETUP_ALREADY_COMPLETED',
+        'This setup was already completed.',
+      );
     const snap = await this.snapshot(this.prisma, restaurantId);
     const signs = currentSignatures(snap);
     const states = deriveSetupStatuses(snap, state);
-    if (key === 'LANGUAGES' && !snap.activeLocales.includes(snap.restaurant.defaultLocale)) {
-      throw error('SETUP_LANGUAGE_INCOMPLETE', 'Enable your default menu language first.');
+    if (
+      key === 'LANGUAGES' &&
+      !snap.activeLocales.includes(snap.restaurant.defaultLocale)
+    ) {
+      throw error(
+        'SETUP_LANGUAGE_INCOMPLETE',
+        'Enable your default menu language first.',
+      );
     }
     if (key === 'OPERATIONS' && states.OPERATIONS === 'NEEDS_ACTION') {
-      throw error('SETUP_OPERATIONS_INCOMPLETE', 'Complete the enabled branch, delivery or table requirements first.');
+      throw error(
+        'SETUP_OPERATIONS_INCOMPLETE',
+        'Complete the enabled branch, delivery or table requirements first.',
+      );
     }
     if (key === 'PREVIEW' && snap.liveProductCount === 0) {
-      throw error('SETUP_MENU_EMPTY', 'Publish at least one visible product before confirming preview.');
+      throw error(
+        'SETUP_MENU_EMPTY',
+        'Publish at least one visible product before confirming preview.',
+      );
     }
-    const data = key === 'LANGUAGES' ? { languagesSignature: signs.languages }
-      : key === 'ORDERING' ? { orderingSignature: signs.ordering }
-      : key === 'OPERATIONS' ? { operationsSignature: signs.operations }
-      : key === 'PREVIEW' ? { previewConfirmedAt: new Date() }
-      : { brandingSkippedAt: new Date() };
+    const data =
+      key === 'LANGUAGES'
+        ? { languagesSignature: signs.languages }
+        : key === 'ORDERING'
+          ? { orderingSignature: signs.ordering }
+          : key === 'OPERATIONS'
+            ? { operationsSignature: signs.operations }
+            : key === 'PREVIEW'
+              ? { previewConfirmedAt: new Date() }
+              : { brandingSkippedAt: new Date() };
     await this.prisma.restaurantSetup.update({ where: { restaurantId }, data });
   }
 
-  async complete(access: RestaurantAccessContext, userId: string): Promise<void> {
+  async complete(
+    access: RestaurantAccessContext,
+    userId: string,
+  ): Promise<void> {
     // The caller is OWNER, required by Controller; repeat live reads in a
     // serializable transaction to guard against stale client readiness.
-    await this.prisma.$transaction(async tx => {
-      const state = await tx.restaurantSetup.findUnique({ where: { restaurantId: access.restaurantId } });
-      if (!state) throw error('SETUP_NOT_ENROLLED', 'Start the setup guide first.');
-      if (state.completedAt) return; // safe retry, never changes the original confirmer
-      const snap = await this.snapshot(tx, access.restaurantId);
-      const rows = setupRows(access.restaurantId, snap, state, access.permissions);
-      if (!canFinish(rows)) throw error('SETUP_NOT_READY', 'Review all applicable setup steps before completing.');
-      await tx.restaurantSetup.update({
-        where: { restaurantId: access.restaurantId },
-        data: { completedAt: new Date(), completedByUserId: userId },
-      });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+    await this.prisma.$transaction(
+      async (tx) => {
+        const state = await tx.restaurantSetup.findUnique({
+          where: { restaurantId: access.restaurantId },
+        });
+        if (!state)
+          throw error('SETUP_NOT_ENROLLED', 'Start the setup guide first.');
+        if (state.completedAt) return; // safe retry, never changes the original confirmer
+        const snap = await this.snapshot(tx, access.restaurantId);
+        const rows = setupRows(
+          access.restaurantId,
+          snap,
+          state,
+          access.permissions,
+        );
+        if (!canFinish(rows))
+          throw error(
+            'SETUP_NOT_READY',
+            'Review all applicable setup steps before completing.',
+          );
+        await tx.restaurantSetup.update({
+          where: { restaurantId: access.restaurantId },
+          data: { completedAt: new Date(), completedByUserId: userId },
+        });
+      },
+      { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
+    );
   }
 }
