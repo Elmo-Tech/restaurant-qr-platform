@@ -46,7 +46,7 @@ REVOKE ALL ON TABLE "restaurant_setups", "restaurant_setup_visibility" FROM PUBL
 
 -- On a plain isolated PostgreSQL test instance Supabase's anon/authenticated
 -- roles might not exist. Revoke them where present without failing migration.
-DO $
+DO $$
 BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'anon') THEN
     REVOKE ALL ON TABLE "restaurant_setups", "restaurant_setup_visibility" FROM anon;
@@ -54,7 +54,7 @@ BEGIN
   IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'authenticated') THEN
     REVOKE ALL ON TABLE "restaurant_setups", "restaurant_setup_visibility" FROM authenticated;
   END IF;
-END $;
+END $$;
 
 -- Rollback BEFORE any setup data matters (manual, explicit approval only):
 -- DROP TABLE IF EXISTS "restaurant_setup_visibility";
