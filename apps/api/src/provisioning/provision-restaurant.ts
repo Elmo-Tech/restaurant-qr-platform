@@ -65,10 +65,14 @@ export interface ProvisioningTx {
     create(args: unknown): Promise<{ id: string }>;
   };
   restaurantMembership: {
-    findFirst(args: unknown): Promise<{ restaurant: { publicId: string } } | null>;
+    findFirst(
+      args: unknown,
+    ): Promise<{ restaurant: { publicId: string } } | null>;
     create(args: unknown): Promise<unknown>;
   };
-  restaurant: { create(args: unknown): Promise<{ id: string; publicId: string }> };
+  restaurant: {
+    create(args: unknown): Promise<{ id: string; publicId: string }>;
+  };
   restaurantSetup: { create(args: unknown): Promise<unknown> };
   restaurantLocale: { createMany(args: unknown): Promise<unknown> };
   branch: { create(args: unknown): Promise<{ id: string; name: string }> };
@@ -94,7 +98,12 @@ function isValidTimezone(value: string): boolean {
 export function validateProvisionInput(
   input: ProvisionRestaurantInput,
 ):
-  | { ok: true; value: ProvisionRestaurantInput & { defaultLocale: PlatformSupportedLocale } }
+  | {
+      ok: true;
+      value: ProvisionRestaurantInput & {
+        defaultLocale: PlatformSupportedLocale;
+      };
+    }
   | { ok: false; problems: string[] } {
   const problems: string[] = [];
   const restaurantName = input.restaurantName.trim();
@@ -117,10 +126,14 @@ export function validateProvisionInput(
     problems.push('currency must be a 3-letter ISO code such as EGP');
   }
   if (defaultLocale === null) {
-    problems.push(`default locale must be one of: ${PLATFORM_SUPPORTED_LOCALES.join(', ')}`);
+    problems.push(
+      `default locale must be one of: ${PLATFORM_SUPPORTED_LOCALES.join(', ')}`,
+    );
   }
   if (!isValidTimezone(timezone)) {
-    problems.push('timezone must be a valid IANA timezone such as Africa/Cairo');
+    problems.push(
+      'timezone must be a valid IANA timezone such as Africa/Cairo',
+    );
   }
   if (input.ownerPassword.length === 0) {
     problems.push('owner password is required');
@@ -161,7 +174,9 @@ export async function provisionRestaurant(
   } catch {
     return {
       outcome: 'invalidInput',
-      problems: ['owner password does not satisfy the password policy (length)'],
+      problems: [
+        'owner password does not satisfy the password policy (length)',
+      ],
     };
   }
 
@@ -183,10 +198,16 @@ export async function provisionRestaurant(
           select: { restaurant: { select: { publicId: true } } },
         });
         if (owned) {
-          return { outcome: 'alreadyProvisioned' as const, restaurantPublicId: owned.restaurant.publicId };
+          return {
+            outcome: 'alreadyProvisioned' as const,
+            restaurantPublicId: owned.restaurant.publicId,
+          };
         }
         // An unrelated existing identity: never attach, never overwrite its password.
-        return { outcome: 'conflict' as const, reason: 'ownerEmailInUse' as const };
+        return {
+          outcome: 'conflict' as const,
+          reason: 'ownerEmailInUse' as const,
+        };
       }
 
       const restaurant = await tx.restaurant.create({
@@ -285,7 +306,10 @@ export async function provisionRestaurant(
     });
   } catch (error) {
     // A concurrent provisioning of the same owner e-mail lost the unique race.
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+    if (
+      error instanceof Prisma.PrismaClientKnownRequestError &&
+      error.code === 'P2002'
+    ) {
       return { outcome: 'conflict', reason: 'ownerEmailInUse' };
     }
     throw error;
