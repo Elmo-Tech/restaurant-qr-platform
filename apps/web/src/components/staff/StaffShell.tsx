@@ -118,7 +118,11 @@ export function StaffShell({
 
   // Match the *actual* route hierarchy, not only the nearest sidebar category:
   // Hub > Menus & Products > Import / Modifier Library / Product editor.
-  const breadcrumbItems = isMenuSetting
+  const breadcrumbItems = pathname === `${base}/setup`
+    ? [{ label: restaurantName, href: base }, { label: t('setup.title') }]
+    : pathname === `${base}/setup-preview`
+      ? [{ label: restaurantName, href: base }, { label: t('setup.preview.pageTitle') }]
+      : isMenuSetting
     ? [...menuCrumbs,
         ...(isGuestSetting ? [{ label: t('menuHub.guest'), href: guestPath }] : []),
         { label: isAtOrUnder(menuSettingPath('announcements')) ? t('menuHub.announcements')
