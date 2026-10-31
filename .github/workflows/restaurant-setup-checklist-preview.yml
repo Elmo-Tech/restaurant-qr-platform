@@ -19,6 +19,24 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Format setup API files for review (temporary branch-only diagnostic)
+        run: |
+          npm exec --workspace=apps/api -- prettier --write \
+            src/restaurants/restaurant-setup.service.ts \
+            src/restaurants/restaurant-setup.controller.ts \
+            src/restaurants/restaurant-setup.service.spec.ts \
+            src/restaurants/restaurant-setup.controller.spec.ts \
+            src/provisioning/provision-restaurant.ts
+          for path in apps/api/src/restaurants/restaurant-setup.service.ts \
+                      apps/api/src/restaurants/restaurant-setup.controller.ts \
+                      apps/api/src/restaurants/restaurant-setup.service.spec.ts \
+                      apps/api/src/restaurants/restaurant-setup.controller.spec.ts \
+                      apps/api/src/provisioning/provision-restaurant.ts; do
+            echo "WAYTA_FORMAT_BEGIN:${path}"
+            base64 -w 0 "$path"
+            echo
+            echo "WAYTA_FORMAT_END:${path}"
+          done
       - name: Verify setup step statuses and sample scenarios
         run: node --experimental-strip-types --test apps/web/src/lib/staff/restaurant-setup.test.mjs
       - name: Verify guarded design preview contract
