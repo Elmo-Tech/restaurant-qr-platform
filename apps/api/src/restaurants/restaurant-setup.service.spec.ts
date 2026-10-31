@@ -1,7 +1,7 @@
 import { deriveSetupStatuses } from './restaurant-setup.service';
 import { ALL_FEATURES } from '../entitlements/features';
 
-function snapshot() {
+function snapshot(): Parameters<typeof deriveSetupStatuses>[0] {
   return {
     restaurant: {
       logoAssetPath: null, coverAssetPath: null, contactPhone: null,
@@ -17,7 +17,7 @@ function snapshot() {
     activeBranchCount: 1, activeZoneCount: 0, activeTableCount: 0,
   };
 }
-function setup() {
+function setup(): Parameters<typeof deriveSetupStatuses>[1] {
   return {
     languagesSignature: null,
     orderingSignature: null,
