@@ -7,6 +7,8 @@ import { RestaurantsController } from './restaurants.controller';
 import { RestaurantLocalesService } from './restaurant-locales.service';
 import { RestaurantProfileController } from './restaurant-profile.controller';
 import { RestaurantProfileService } from './restaurant-profile.service';
+import { RestaurantSetupController } from './restaurant-setup.controller';
+import { RestaurantSetupService } from './restaurant-setup.service';
 import { EmberTemplateConfigController } from './ember-template-config.controller';
 import { EmberTemplateConfigService } from './ember-template-config.service';
 import { BloomTemplateConfigController } from './bloom-template-config.controller';
@@ -30,7 +32,7 @@ import { EditorialTemplateConfigService } from './editorial-template-config.serv
  */
 @Module({
   imports: [DatabaseModule, AuthModule, StorageModule, EntitlementsModule],
-  controllers: [RestaurantsController, RestaurantProfileController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController, EditorialTemplateConfigController],
-  providers: [RestaurantLocalesService, RestaurantProfileService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, EditorialTemplateConfigService],
+  controllers: [RestaurantsController, RestaurantProfileController, RestaurantSetupController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController, EditorialTemplateConfigController],
+  providers: [RestaurantLocalesService, RestaurantProfileService, RestaurantSetupService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, EditorialTemplateConfigService],
 })
 export class RestaurantsModule {}
