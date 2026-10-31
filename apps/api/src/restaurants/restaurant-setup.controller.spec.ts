@@ -38,6 +38,7 @@ describe('RestaurantSetupController security contract', () => {
   });
 
   it('requires session, tenant access, RESTAURANT_VIEW and full restaurant scope on read', () => {
+    // eslint-disable-next-line @typescript-eslint/unbound-method
     const handler = RestaurantSetupController.prototype.getStatus;
     expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
       AuthGuard,
@@ -53,6 +54,7 @@ describe('RestaurantSetupController security contract', () => {
   it.each(mutations)(
     '%s requires CSRF, tenant, permission and allBranches for writes',
     (key) => {
+      // eslint-disable-next-line @typescript-eslint/unbound-method
       const handler = RestaurantSetupController.prototype[key];
       expect(Reflect.getMetadata(GUARDS_METADATA, handler)).toEqual([
         AuthGuard,
