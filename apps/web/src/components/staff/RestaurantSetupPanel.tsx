@@ -36,7 +36,7 @@ export function RestaurantSetupPanel({
   const dashboardHref = '/staff/restaurants/' + encodeURIComponent(restaurantId);
 
   const reload = useCallback(async () => {
-    if (!allowed) { setLoading(false); return; }
+    if (!allowed) return;
     try {
       const current = await getSetupStatus(restaurantId);
       setStatus(current);
