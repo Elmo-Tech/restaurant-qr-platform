@@ -15,6 +15,7 @@ import {
   hasRestaurantManagePermission,
 } from '../../../../lib/settings/capabilities';
 import { SubscriptionBanner } from '../../../../components/subscription/SubscriptionBanner';
+import { RestaurantSetupPanel } from '../../../../components/staff/RestaurantSetupPanel';
 import { canViewStaff } from '../../../../lib/staff/capabilities';
 import {
   offersPickupAndDelivery,
@@ -220,6 +221,8 @@ export default async function RestaurantLandingPage({
   };
   const showOperations =
     restaurant.status === 'ACTIVE' && (access.orders || access.sessions || access.analytics);
+  const setupEligible = (membership.role === 'OWNER' || membership.role === 'MANAGER')
+    && membership.allBranches && canViewRestaurantSettings(membership);
 
   return (
     <div className="flex flex-col gap-8">
@@ -261,9 +264,15 @@ export default async function RestaurantLandingPage({
           }}
           webOrigin={getWebOrigin()}
           access={access}
+          setupEligible={setupEligible}
+          setupRole={membership.role}
         />
       ) : (
         <>
+          {setupEligible ? (
+            <RestaurantSetupPanel restaurantId={restaurantId} mode="dashboard"
+              memberRole={membership.role} fullRestaurantScope={membership.allBranches} />
+          ) : null}
           <div className="grid grid-cols-2 gap-6 rounded-lg border border-border bg-card p-5 shadow-sm sm:grid-cols-4">
             <ContextFact label={t('dashboard.fact.status')}>
               <StatusBadge status={restaurant.status} label={statusLabel} />

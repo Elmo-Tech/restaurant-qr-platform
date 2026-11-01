@@ -1,0 +1,63 @@
+name: Restaurant Setup Checklist Preview Checks
+
+on:
+  push:
+    branches: [feat/restaurant-setup-checklist]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Verify setup step statuses and sample scenarios
+        run: node --experimental-strip-types --test apps/web/src/lib/staff/restaurant-setup.test.mjs
+      - name: Verify guarded design preview contract
+        run: node --test apps/web/src/lib/staff/restaurant-setup-preview.contract.test.mjs
+      - name: Verify live setup wiring, tenant boundaries and safe migration
+        run: node --test apps/web/src/lib/staff/restaurant-setup-live.contract.test.mjs
+      - name: Preserve Menu Hub, Settings Hub and mobile navigation
+        run: |
+          node --test apps/web/src/lib/staff/menu-hub.contract.test.mjs
+          node --test apps/web/src/lib/staff/restaurant-settings-hub.contract.test.mjs
+          node --experimental-strip-types --test apps/web/src/lib/staff/mobile-navigation.test.mjs
+      - name: Validate Prisma schema (without connecting to a database)
+        run: npm run db:validate
+      - name: Typecheck API (generates Prisma Client, never runs migration)
+        run: npm run typecheck:api
+      - name: Test backend setup permissions, derivation and provisioning
+        run: npm exec --workspace=apps/api -- jest --runInBand restaurant-setup.service.spec.ts restaurant-setup.controller.spec.ts provision-restaurant.spec.ts
+      - name: Typecheck Web
+        run: npm run typecheck:web
+      - name: Lint setup implementation files
+        run: >-
+          npm exec --workspace=apps/web -- eslint
+          src/lib/staff/restaurant-setup.ts
+          src/lib/i18n/messages/restaurantSetup.ts
+          src/lib/i18n/messages/index.ts
+          src/components/staff/RestaurantSetupChecklistCard.tsx
+          src/components/staff/RestaurantSetupPanel.tsx
+          src/lib/staff/restaurant-setup-api.ts
+          'src/app/staff/restaurants/[restaurantId]/setup/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/dashboard/OperationsDashboard.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/overview/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/setup-preview/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/setup-preview/SetupPreviewWorkspace.tsx'
+      - name: Lint API setup services and guards
+        run: >-
+          npm exec --workspace=apps/api -- eslint
+          src/restaurants/restaurant-setup.service.ts
+          src/restaurants/restaurant-setup.controller.ts
+          src/restaurants/restaurant-setup.service.spec.ts
+          src/restaurants/restaurant-setup.controller.spec.ts
+          src/provisioning/provision-restaurant.ts

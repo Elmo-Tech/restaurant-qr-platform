@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
+import { RestaurantSetupPanel } from '../../../../../components/staff/RestaurantSetupPanel';
 import { localizedName } from '../../../../../lib/i18n/localized-name';
 import * as dashboardApi from '../../../../../lib/dashboard/api';
 import type { DashboardMetrics } from '../../../../../lib/dashboard/types';
@@ -88,6 +89,8 @@ export function OperationsDashboard({
   channels,
   webOrigin,
   access,
+  setupEligible,
+  setupRole,
 }: {
   restaurantId: string;
   currencyCode: string;
@@ -100,6 +103,8 @@ export function OperationsDashboard({
   channels: { table: boolean; pickupDelivery: boolean };
   webOrigin: string;
   access: DashboardAccess;
+  setupEligible: boolean;
+  setupRole: string;
 }) {
   const { t, locale, formatTime } = useStaffI18n();
   const now = useNow(30_000);
@@ -122,6 +127,7 @@ export function OperationsDashboard({
   const [toggleBusy, setToggleBusy] = useState<OrderType | null>(null);
   const [toggleError, setToggleError] = useState<string | null>(null);
   const [soldOutOpen, setSoldOutOpen] = useState(false);
+  const [setupVisible, setSetupVisible] = useState(false);
 
   const requestRef = useRef(0);
   const basePath = `/staff/restaurants/${restaurantId}`;
@@ -320,7 +326,12 @@ export function OperationsDashboard({
 
   const attentionLoading =
     (access.orders && orders === null) || (!access.orders && access.sessions && board === null);
-  const showAttention = access.orders || access.sessions || attention.length > 0;
+  // Keep urgent warnings (incl. inactive QR) visible; only redundant
+  // informational setup reminders are replaced by the active setup guide.
+  const attentionItems = setupVisible
+    ? attention.filter(item => item.key !== 'qr-none' && item.key !== 'no-tables')
+    : attention;
+  const showAttention = access.orders || access.sessions || attentionItems.length > 0;
 
   return (
     <div className="flex flex-col gap-6">
@@ -373,7 +384,17 @@ export function OperationsDashboard({
 
       {toggleError ? <Alert variant="error">{toggleError}</Alert> : null}
 
-      {showAttention ? <AttentionPanel items={attention} loading={attentionLoading} /> : null}
+      {showAttention ? <AttentionPanel items={attentionItems} loading={attentionLoading} /> : null}
+
+      {/* Only eligible enrolled restaurants receive this compact, verified
+          guide, after urgent operational alerts. Never synthetic demo state. */}
+      {setupEligible ? <RestaurantSetupPanel
+        restaurantId={restaurantId}
+        mode="dashboard"
+        memberRole={setupRole}
+        fullRestaurantScope
+        onDashboardVisibilityChange={setSetupVisible}
+      /> : null}
 
       <QuickActions
         restaurantId={restaurantId}
