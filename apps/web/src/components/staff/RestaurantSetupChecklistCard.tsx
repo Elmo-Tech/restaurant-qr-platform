@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useState } from 'react';
 import { useStaffI18n } from '../../lib/i18n/client';
 import type { MessageKey } from '../../lib/i18n/messages';
+import { OpenGuestMenuButton } from '../menu/OpenGuestMenuButton';
 import {
   summarizeSetupSteps,
   type SetupStepGroup,
@@ -73,9 +74,10 @@ function RowIcon({ status }: { status: SetupStepStatus }) {
   );
 }
 
-function SetupStepRow({ step, expanded, onReview, onSkipBranding, busy = false }: {
+function SetupStepRow({ step, expanded, restaurantId, onReview, onSkipBranding, busy = false }: {
   step: SetupStepView;
   expanded: boolean;
+  restaurantId?: string;
   onReview?: (key: SetupStepKey) => void;
   onSkipBranding?: () => void;
   busy?: boolean;
@@ -83,7 +85,8 @@ function SetupStepRow({ step, expanded, onReview, onSkipBranding, busy = false }
   const { t } = useStaffI18n();
   const copy = STEP_TEXT[step.key];
   const actionable = step.status === 'NEEDS_ACTION' || step.status === 'NEEDS_REVIEW';
-  const href = actionable ? step.href : null;
+  const href = actionable && (step.key !== 'PREVIEW' || !restaurantId) ? step.href : null;
+  const showGuestMenu = actionable && step.key === 'PREVIEW' && Boolean(restaurantId);
 
   return (
     <li className="flex min-w-0 flex-wrap items-start gap-3 rounded-xl border border-border/75 bg-card px-3 py-3 sm:px-4">
@@ -105,6 +108,9 @@ function SetupStepRow({ step, expanded, onReview, onSkipBranding, busy = false }
         {step.status === 'UNAVAILABLE' && expanded ? (
           <p className="mt-1 text-xs text-muted-foreground">{t('setup.action.whyLocked')}</p>
         ) : null}
+        {expanded && step.hint === 'TABLES_REQUIRED_FOR_ORDERING' ? (
+          <p className="mt-1 text-xs leading-5 text-muted-foreground">{t('setup.hint.tablesRequired')}</p>
+        ) : null}
       </div>
       <div className="flex w-full flex-wrap items-center justify-end gap-2 ps-12 sm:w-auto sm:ps-0">
       {href ? (
@@ -117,7 +123,8 @@ function SetupStepRow({ step, expanded, onReview, onSkipBranding, busy = false }
           </svg>
         </Link>
       ) : null}
-      {expanded && onReview && step.status === 'NEEDS_REVIEW' ? (
+      {showGuestMenu && restaurantId ? <OpenGuestMenuButton restaurantId={restaurantId} /> : null}
+      {(expanded || step.key === 'PREVIEW') && onReview && step.status === 'NEEDS_REVIEW' ? (
         <button type="button" disabled={busy} onClick={() => onReview(step.key)}
           className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60">
           {t(step.key === 'PREVIEW' ? 'setup.action.confirmPreview' : 'setup.action.confirmReview')}
@@ -137,6 +144,7 @@ function SetupStepRow({ step, expanded, onReview, onSkipBranding, busy = false }
 /** Shared, accessible visual card; only its parent owns real data and writes. */
 export function RestaurantSetupChecklistCard({
   steps,
+  restaurantId,
   onHide,
   onReview,
   onSkipBranding,
@@ -144,6 +152,7 @@ export function RestaurantSetupChecklistCard({
   preview = false,
 }: {
   steps: readonly SetupStepView[];
+  restaurantId?: string;
   onHide?: () => void;
   onReview?: (key: SetupStepKey) => void;
   onSkipBranding?: () => void;
@@ -155,11 +164,13 @@ export function RestaurantSetupChecklistCard({
   const [helperOpen, setHelperOpen] = useState(false);
   const summary = summarizeSetupSteps(steps);
   const available = steps.filter(step => step.status !== 'NOT_APPLICABLE');
-  const finishedExample = available.find(step => step.status === 'DONE');
   const pendingExamples = available.filter(step =>
     step.status === 'NEEDS_ACTION' || step.status === 'NEEDS_REVIEW' || step.status === 'UNAVAILABLE');
-  const compactRows = [...(finishedExample ? [finishedExample] : []), ...pendingExamples.slice(0, finishedExample ? 2 : 3)];
+  const previewReview = pendingExamples.find(step => step.key === 'PREVIEW' && step.status === 'NEEDS_REVIEW');
+  const firstPending = pendingExamples.filter(step => step !== previewReview).slice(0, previewReview ? 2 : 3);
+  const compactRows = previewReview ? [...firstPending, previewReview] : firstPending;
   const smallRows = compactRows.length > 0 ? compactRows : available.slice(0, 3);
+  const tableHint = available.some(step => step.hint === 'TABLES_REQUIRED_FOR_ORDERING');
   const nextHref = summary.nextAction?.href;
   const totalLabel = summary.percentage === null
     ? t('setup.progress.unknown')
@@ -229,16 +240,24 @@ export function RestaurantSetupChecklistCard({
                 <div key={group.key} className="space-y-2">
                   <h3 className="text-sm font-bold text-foreground">{t(group.title)}</h3>
                   <ul className="space-y-2">{items.map(step => <SetupStepRow key={step.key} step={step}
-                    expanded onReview={onReview} onSkipBranding={onSkipBranding} busy={busy} />)}</ul>
+                    expanded restaurantId={restaurantId} onReview={onReview}
+                    onSkipBranding={onSkipBranding} busy={busy} />)}</ul>
                 </div>
               ) : null;
             })}
           </div>
         ) : (
           <ul className="space-y-2">
-            {smallRows.map(step => <SetupStepRow key={step.key} step={step} expanded={false} />)}
+            {smallRows.map(step => <SetupStepRow key={step.key} step={step} expanded={false}
+              restaurantId={restaurantId} onReview={onReview} busy={busy} />)}
           </ul>
         )}
+
+        {!expanded && tableHint ? (
+          <p role="note" className="rounded-xl border border-border bg-muted/45 px-3 py-2 text-xs leading-5 text-muted-foreground">
+            {t('setup.hint.tablesRequired')}
+          </p>
+        ) : null}
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border/80 pt-4">
           <div className="flex flex-wrap items-center gap-2">

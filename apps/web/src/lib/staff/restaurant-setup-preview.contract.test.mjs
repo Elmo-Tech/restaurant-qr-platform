@@ -43,6 +43,8 @@ test('checklist has premium unified card, accessible progress and responsive con
   assert.match(card, /min-h-11/);
   assert.match(card, /<Link href=\{href\}/);
   assert.match(card, /summary\.nextAction/);
+  assert.match(card, /pendingExamples/);
+  assert.doesNotMatch(card, /finishedExample/);
   assert.doesNotMatch(card, /isRestaurantReady|createOrder|handlePayment/);
 });
 

@@ -31,7 +31,6 @@ class SetupVisibilityDto {
 const REVIEW_KEYS = [
   'LANGUAGES',
   'ORDERING',
-  'OPERATIONS',
   'PREVIEW',
   'BRANDING_SKIP',
 ] as const;

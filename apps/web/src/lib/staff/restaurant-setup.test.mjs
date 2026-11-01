@@ -93,3 +93,10 @@ test('guest preview route never implicitly requires table QR settings', () => {
   const branch = rows.find(s => s.key === 'OPERATIONS');
   assert.equal(branch.href, null);
 });
+
+test('live preview can remain the next action without a staff Menu Hub href', () => {
+  const rows = [{ key: 'PREVIEW', group: 'orders', status: 'NEEDS_REVIEW', href: null }];
+  const summary = summarizeSetupSteps(rows);
+  assert.equal(summary.nextAction, rows[0]);
+  assert.equal(summary.readyForOwnerReview, false);
+});

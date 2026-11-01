@@ -114,4 +114,17 @@ describe('RestaurantSetupController security contract', () => {
     await controller.review({ step: 'ORDERING' }, request());
     expect(mock.review).toHaveBeenCalledWith('restaurant-1', 'ORDERING');
   });
+
+  it('allows OWNER and full-scope MANAGER to confirm preview, but only OWNER can finalize', async () => {
+    await controller.review({ step: 'PREVIEW' }, request('OWNER'));
+    await controller.review({ step: 'PREVIEW' }, request('MANAGER'));
+    expect(mock.review).toHaveBeenNthCalledWith(1, 'restaurant-1', 'PREVIEW');
+    expect(mock.review).toHaveBeenNthCalledWith(2, 'restaurant-1', 'PREVIEW');
+
+    await expect(controller.complete(request('MANAGER'))).rejects.toMatchObject(
+      { status: 403 },
+    );
+    await controller.complete(request('OWNER'));
+    expect(mock.complete).toHaveBeenCalledTimes(1);
+  });
 });

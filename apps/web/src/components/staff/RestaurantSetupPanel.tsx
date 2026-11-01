@@ -205,7 +205,7 @@ export function RestaurantSetupPanel({
   const summary = summarizeSetupSteps(status.steps);
   const review = (step: SetupStepKey) => {
     if (!status.canReview) return;
-    if (step !== 'LANGUAGES' && step !== 'ORDERING' && step !== 'OPERATIONS' && step !== 'PREVIEW') return;
+    if (step !== 'LANGUAGES' && step !== 'ORDERING' && step !== 'PREVIEW') return;
     void perform(() => reviewSetupStep(restaurantId, step as SetupReviewAction));
   };
 
@@ -220,6 +220,7 @@ export function RestaurantSetupPanel({
       </div>
       <RestaurantSetupChecklistCard
         steps={status.steps}
+        restaurantId={restaurantId}
         busy={busy}
         onHide={() => void perform(() => setSetupVisibility(restaurantId, true))}
         onReview={status.canReview ? review : undefined}

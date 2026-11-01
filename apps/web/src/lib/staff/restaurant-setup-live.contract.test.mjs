@@ -9,6 +9,9 @@ const ops = read(base + '/dashboard/OperationsDashboard.tsx');
 const settings = read(base + '/settings/overview/page.tsx');
 const setupPage = read(base + '/setup/page.tsx');
 const panel = read('../../components/staff/RestaurantSetupPanel.tsx');
+const card = read('../../components/staff/RestaurantSetupChecklistCard.tsx');
+const guestMenuButton = read('../../components/menu/OpenGuestMenuButton.tsx');
+const translations = read('../i18n/messages/restaurantSetup.ts');
 const api = read('./restaurant-setup-api.ts');
 const service = read('../../../../api/src/restaurants/restaurant-setup.service.ts');
 const controller = read('../../../../api/src/restaurants/restaurant-setup.controller.ts');
@@ -56,7 +59,34 @@ test('backend only persists review signatures and canonical verified values', ()
   assert.match(service, /TransactionIsolationLevel\.Serializable/);
   assert.match(service, /previewConfirmedAt: new Date/);
   assert.match(service, /restaurantSetupVisibility\.upsert/);
+  assert.doesNotMatch(service, /state\.operationsSignature ===/);
+  assert.doesNotMatch(service, /!channels\.table \|\| s\.activeTableCount > 0/);
   assert.doesNotMatch(service, /updateOrderingOptions|setRestaurantLocaleState|createOrder/);
+});
+
+test('operations auto-completes from active branch and required delivery zone, with tables only a hint', () => {
+  assert.match(service, /s\.activeBranchCount > 0/);
+  assert.match(service, /!channels\.delivery \|\| s\.activeZoneCount > 0/);
+  assert.match(service, /TABLES_REQUIRED_FOR_ORDERING/);
+  assert.match(card, /setup\.hint\.tablesRequired/);
+  assert.doesNotMatch(controller, /'OPERATIONS',/);
+  assert.doesNotMatch(api, /'OPERATIONS'/);
+});
+
+test('preview opens the real public Guest Menu and requires a separate one-click confirmation', () => {
+  assert.match(card, /OpenGuestMenuButton/);
+  assert.match(card, /expanded \|\| step\.key === 'PREVIEW'/);
+  assert.match(guestMenuButton, /getGuestMenuPublicCode\(restaurantId\)/);
+  assert.match(guestMenuButton, /`\/q\/\$\{encodeURIComponent\(state\.publicCode\)\}`/);
+  assert.doesNotMatch(guestMenuButton, /reviewSetupStep|confirmPreview/);
+  assert.match(translations, /'setup\.action\.confirmPreview': 'I previewed the menu'/);
+  assert.match(translations, /'setup\.action\.confirmPreview': 'عاينت المنيو'/);
+});
+
+test('compact checklist prioritizes pending work rather than a completed example', () => {
+  assert.match(card, /pendingExamples/);
+  assert.match(card, /previewReview/);
+  assert.doesNotMatch(card, /finishedExample/);
 });
 
 test('migration preserves old tenants and prevents public Supabase Data API access', () => {

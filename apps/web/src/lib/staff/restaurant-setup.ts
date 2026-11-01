@@ -18,6 +18,7 @@ export type SetupStepStatus =
   | 'INTENTIONALLY_SKIPPED'
   | 'UNAVAILABLE'
   | 'UNKNOWN';
+export type SetupStepHint = 'TABLES_REQUIRED_FOR_ORDERING';
 
 export interface SetupStepView {
   key: SetupStepKey;
@@ -25,6 +26,7 @@ export interface SetupStepView {
   status: SetupStepStatus;
   /** Only authorized, pre-existing Staff routes may be passed to a clickable row. */
   href: string | null;
+  hint?: SetupStepHint | null;
 }
 
 export interface SetupProgressSummary {
@@ -51,7 +53,8 @@ export function summarizeSetupSteps(steps: readonly SetupStepView[]): SetupProgr
   const done = applicable.filter(step => step.status === 'DONE').length;
   const total = applicable.length;
   const nextAction = applicable.find(
-    step => step.href && (step.status === 'NEEDS_ACTION' || step.status === 'NEEDS_REVIEW'),
+    step => (step.href || step.key === 'PREVIEW')
+      && (step.status === 'NEEDS_ACTION' || step.status === 'NEEDS_REVIEW'),
   ) ?? null;
   return {
     done,

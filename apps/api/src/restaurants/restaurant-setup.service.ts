@@ -23,12 +23,14 @@ export type SetupStatusKey =
   | 'INTENTIONALLY_SKIPPED'
   | 'NOT_APPLICABLE'
   | 'UNAVAILABLE';
+export type SetupStepHint = 'TABLES_REQUIRED_FOR_ORDERING';
 type Group = 'identity' | 'menu' | 'orders';
 export interface RestaurantSetupStep {
   key: SetupStepKey;
   group: Group;
   status: SetupStatusKey;
   href: string | null;
+  hint: SetupStepHint | null;
 }
 export interface RestaurantSetupStatus {
   enrolled: boolean;
@@ -104,12 +106,6 @@ function currentSignatures(s: SetupSnapshot) {
         whatsapp: s.restaurant.whatsappOrderingEnabled,
       },
     }),
-    operations: JSON.stringify({
-      channels,
-      activeBranches: s.activeBranchCount,
-      activeZones: s.activeZoneCount,
-      activeTables: s.activeTableCount,
-    }),
   };
 }
 
@@ -120,7 +116,6 @@ export function deriveSetupStatuses(
     RestaurantSetup,
     | 'languagesSignature'
     | 'orderingSignature'
-    | 'operationsSignature'
     | 'previewConfirmedAt'
     | 'brandingSkippedAt'
   >,
@@ -140,9 +135,7 @@ export function deriveSetupStatuses(
     (!channels.whatsapp || Boolean(s.restaurant.whatsappNumber?.trim()));
   const hasOperations = channels.pickup || channels.delivery || channels.table;
   const branchesReady =
-    s.activeBranchCount > 0 &&
-    (!channels.delivery || s.activeZoneCount > 0) &&
-    (!channels.table || s.activeTableCount > 0);
+    s.activeBranchCount > 0 && (!channels.delivery || s.activeZoneCount > 0);
   const branding =
     s.restaurant.logoAssetPath && s.restaurant.coverAssetPath
       ? 'DONE'
@@ -163,15 +156,15 @@ export function deriveSetupStatuses(
       state.orderingSignature === signs.ordering ? 'DONE' : 'NEEDS_REVIEW',
     OPERATIONS: !hasOperations
       ? 'NOT_APPLICABLE'
-      : branchesReady && state.operationsSignature === signs.operations
+      : branchesReady
         ? 'DONE'
-        : branchesReady
-          ? 'NEEDS_REVIEW'
-          : 'NEEDS_ACTION',
+        : 'NEEDS_ACTION',
     PREVIEW:
-      state.previewConfirmedAt && s.liveProductCount > 0
-        ? 'DONE'
-        : 'NEEDS_REVIEW',
+      s.liveProductCount === 0
+        ? 'NEEDS_ACTION'
+        : state.previewConfirmedAt
+          ? 'DONE'
+          : 'NEEDS_REVIEW',
   };
 }
 
@@ -189,6 +182,7 @@ function setupRows(
   permissions: readonly Permission[],
 ): RestaurantSetupStep[] {
   const values = deriveSetupStatuses(snapshot, state);
+  const channels = effectiveChannels(snapshot);
   const base = '/staff/restaurants/' + encodeURIComponent(restaurantId);
   const canEditSettings = permissions.includes(PERMISSIONS.RESTAURANT_MANAGE);
   const canEditMenu = permissions.includes(PERMISSIONS.MENU_MANAGE);
@@ -221,11 +215,17 @@ function setupRows(
                 ? base + '/settings/ordering'
                 : key === 'OPERATIONS'
                   ? base + '/settings/branches'
-                  : base + '/menu/overview';
+                  : null;
     return {
       key,
       group: groupFor(key),
       href,
+      hint:
+        key === 'OPERATIONS' &&
+        channels.table &&
+        snapshot.activeTableCount === 0
+          ? 'TABLES_REQUIRED_FOR_ORDERING'
+          : null,
       status:
         !allowed &&
         values[key] !== 'NOT_APPLICABLE' &&
@@ -402,7 +402,7 @@ export class RestaurantSetupService {
 
   async review(
     restaurantId: string,
-    key: 'LANGUAGES' | 'ORDERING' | 'OPERATIONS' | 'PREVIEW' | 'BRANDING_SKIP',
+    key: 'LANGUAGES' | 'ORDERING' | 'PREVIEW' | 'BRANDING_SKIP',
   ): Promise<void> {
     const state = await this.prisma.restaurantSetup.findUnique({
       where: { restaurantId },
@@ -416,7 +416,6 @@ export class RestaurantSetupService {
       );
     const snap = await this.snapshot(this.prisma, restaurantId);
     const signs = currentSignatures(snap);
-    const states = deriveSetupStatuses(snap, state);
     if (
       key === 'LANGUAGES' &&
       !snap.activeLocales.includes(snap.restaurant.defaultLocale)
@@ -424,12 +423,6 @@ export class RestaurantSetupService {
       throw error(
         'SETUP_LANGUAGE_INCOMPLETE',
         'Enable your default menu language first.',
-      );
-    }
-    if (key === 'OPERATIONS' && states.OPERATIONS === 'NEEDS_ACTION') {
-      throw error(
-        'SETUP_OPERATIONS_INCOMPLETE',
-        'Complete the enabled branch, delivery or table requirements first.',
       );
     }
     if (key === 'PREVIEW' && snap.liveProductCount === 0) {
@@ -443,11 +436,9 @@ export class RestaurantSetupService {
         ? { languagesSignature: signs.languages }
         : key === 'ORDERING'
           ? { orderingSignature: signs.ordering }
-          : key === 'OPERATIONS'
-            ? { operationsSignature: signs.operations }
-            : key === 'PREVIEW'
-              ? { previewConfirmedAt: new Date() }
-              : { brandingSkippedAt: new Date() };
+          : key === 'PREVIEW'
+            ? { previewConfirmedAt: new Date() }
+            : { brandingSkippedAt: new Date() };
     await this.prisma.restaurantSetup.update({ where: { restaurantId }, data });
   }
 

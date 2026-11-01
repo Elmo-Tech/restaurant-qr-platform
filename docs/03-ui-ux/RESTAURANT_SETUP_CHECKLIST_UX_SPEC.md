@@ -110,8 +110,8 @@ Checklist has **eight possible steps**, grouped into three phases. The visible c
 | `MENU` | "أنشئ المنيو" | At least one `ACTIVE` menu exists; do not count a deleted/inactive menu. | `/menu` | Needs `menu.view` for actionable link; mutation needs `menu.manage` with full Branch scope |
 | `PRODUCTS` | "أضف أصناف أو استورد المنيو" | At least one `ACTIVE` product in an `ACTIVE` category of an `ACTIVE` menu. A pending import or inactive product does **not** count as guest-visible content. | `/menu` / its existing import entry | Show import as an option only when `MENU_IMPORT` entitlement is on; manual product entry stays first-class |
 | `ORDERING` | "راجع طرق استقبال الطلبات" | Explicit confirmation of the **effective currently allowed** ordering choices, regardless of default-true switches. Menu-only/view-only is a deliberate valid choice. | `/settings/ordering` | No package-specific toggles invented; restaurant settings and original Backend guards remain authoritative |
-| `OPERATIONS` | "جهّز الفرع والتوصيل" | Applicability varies: when operating pickup/delivery, review an active branch and operating details; if delivery is actually enabled **and entitled**, require a usable delivery zone; when table ordering is enabled **and entitled**, require at least one usable table. Supporting hours details are recommended where supported, not a new blocker. A "reviewed branch" marker may be needed if default branch creation otherwise yields a misleading check. | `/settings/branches` with existing Hours, Delivery and Tables links | Omit entirely for a genuinely menu-only restaurant; show only relevant subitems and routes |
-| `PREVIEW` | "جرّب المنيو قبل مشاركته" | User explicitly confirms a successful guest-menu preview. An active Generic QR may be shown as extra evidence for eligible restaurants, **but QR existence alone is not a test**. | Existing Open Guest Menu / `/menu/overview` / Restaurant QR when authorized | For WhatsApp-only/menu-only users with no `tables.view`, use guest preview, not an inaccessible QR settings page |
+| `OPERATIONS` | "جهّز الفرع والتوصيل" | **Owner-approved simplification:** mark `DONE` automatically when at least one ACTIVE Branch exists and, only when effective Delivery is enabled, at least one ACTIVE Delivery Zone exists. Tables and an additional operations review signature are never checklist blockers. If effective Table Ordering is enabled with no active Tables, show a nonblocking hint that table ordering cannot work until Tables are configured; do not claim that channel is operational. | `/settings/branches` with existing Delivery and Tables destinations where authorized | Preserve `NOT_APPLICABLE` when no operational channel applies; never mutate actual channel settings |
+| `PREVIEW` | "جرّب المنيو قبل مشاركته" | Require at least one guest-visible ACTIVE Product, then let OWNER/MANAGER explicitly confirm the preview. Opening a tab alone is not confirmation and no order, checkout, QR scan or activity tracking is required. | Existing Open Guest Menu using `/q/:publicCode` from the current guest-menu-link mechanism | Show the Guest Menu action and direct `عاينت المنيو` / `I previewed the menu` confirmation in compact mode; do not route to Staff Menu Hub |
 
 **Critical distinction:** `MENU` and `PRODUCTS` may each be actionable independently, but show a useful dependency message (e.g. create a menu first). No hard navigation lock; an import might create menu/categories/products in one approval transaction.
 
@@ -146,12 +146,12 @@ Progress `X / Y` = DONE + allowed intentional optional exclusions, divided by ap
 
 Prefer two **small dedicated records**, not fields overloaded onto orders, menu, or auth session:
 
-1. **RestaurantSetupProgress** (one per Restaurant): optional enrollment/eligibility, version, languageReviewSignature, orderingReviewSignature, operationsReviewSignature if required, previewConfirmedAt, ownerCompletedAt, optional branding waiver, audit timestamps/actor.
+1. **RestaurantSetupProgress** (one per Restaurant): optional enrollment/eligibility, version, languageReviewSignature, orderingReviewSignature, previewConfirmedAt, ownerCompletedAt, optional branding waiver, audit timestamps/actor. The existing operations signature column is not required by the simplified product rule and is ignored.
 2. **RestaurantSetupVisibility** (unique Restaurant + User): userHiddenAt (or explicit display preference). Hiding the guide has zero effects on RestaurantSetupProgress.
 
-These names/shapes are a **technical proposal**, not permission to add a migration. The Backend should calculate read-only completed steps from canonical Restaurant/Menu/Category/Product/Branch/Delivery/Table records, and only persist reviews/visibility/final confirmation. No duplicate per-step "checked" booleans for steps provable from data.
+These names/shapes are a **technical proposal**, not permission to add a migration. The Backend should calculate read-only completed steps from canonical Restaurant/Menu/Category/Product/Branch/Delivery records, use Table data only for the nonblocking operational hint, and persist only reviews/visibility/final confirmation that cannot be proven automatically. No duplicate per-step "checked" booleans for steps provable from data.
 
-Review signatures are snapshots of the relevant **effective choices**, avoiding false review after defaults or channel changes. Existing Restaurant updates must never auto-complete user review.
+Language and ordering review signatures are snapshots of the relevant **effective choices**, avoiding false review after defaults or channel changes. Operations is canonical-data driven and needs no review signature. Existing Restaurant updates must never auto-complete user review.
 
 **Safe rollout:** No schema changes on shared local databases (past FOLIO enum / `/auth/me` failure). Before implementation, agree a backward-compatible migration plan, isolated dev database, staging preflight and rollback/roll-forward expectations. Do not run `prisma migrate` against a shared local/prod DB while branches diverge.
 
@@ -196,24 +196,27 @@ Review signatures are snapshots of the relevant **effective choices**, avoiding 
 2. Menu-only restaurant with all ordering channels off, deliberately reviewed: no table/delivery requirements; can preview without a Table QR.
 3. WhatsApp-only entitled restaurant: no table prompts; valid WhatsApp contact required, pickup/delivery semantics from current server retained.
 4. Manual product creation and Menu Import flow: approved products count only if ACTIVE in ACTIVE category/menu; pending imports do not count.
-5. Restaurant with several branches: link from setup to real branch editor; when delivery active, zone requirement uses the correct branch scope and does not leak another branch.
+5. Restaurant with several branches: link from setup to real branch editor; when delivery is active, the zone requirement uses the correct Restaurant-wide scope and does not leak another branch. An ACTIVE Branch plus the required ACTIVE Delivery Zone completes OPERATIONS even with no Tables; Table Ordering shows a nonblocking warning instead.
 6. Owner, full-scope manager, limited manager, cashier, waiter, kitchen and custom-role account: verify visibility, disabled links, and **OWNER-only** final confirmation.
 7. Existing production Restaurant: no automatic guide; explicit owner opt-in is reversible/non-destructive.
 8. Hide as one user: same user hidden on another device, another user unaffected; no restaurant completion flag changed.
 9. Confirm last step: full backend recheck, explicit owner action; simulate concurrent data removal and stale state.
-10. Change ordering/default language after a review but before finalization: review step becomes pending again if the effective signature changed.
-11. Operational priority: pending orders/QR outage stay prominent; redundant setup alerts do not spam alongside guide.
-12. CI: focused pure step-derivation tests; tenant/auth/entitlement integration tests; web TypeScript/lint; end-to-end browser tests for mobile, RTL/LTR, links, dismissal and disabled feature states.
-13. Schema work, if approved, uses **isolated DB + staging preflight**; no merge/deploy based on merely passing frontend tests.
+10. PREVIEW opens the real public Guest Menu, exposes its explicit confirmation in compact mode, persists only after confirmation, and does not infer completion from opening a tab or any Guest activity.
+11. Change ordering/default language after a review but before finalization: review step becomes pending again if the effective signature changed.
+12. Operational priority: pending orders/QR outage stay prominent; redundant setup alerts do not spam alongside guide.
+13. CI: focused pure step-derivation tests; tenant/auth/entitlement integration tests; web TypeScript/lint; end-to-end browser tests for mobile, RTL/LTR, links, dismissal and disabled feature states.
+14. Schema work, if approved, uses **isolated DB + staging preflight**; no merge/deploy based on merely passing frontend tests.
 
 ## 10. Implementation sequence AFTER owner approves this spec
 
 **Gate A — product/UX approval** (this document only):
+
 - Confirm eight possible steps and applicability, review actions, compact Dashboard location, initial audience, OWNER-only final confirmation, per-user hide and old-customer opt-in.
 - Confirm server-backed persistence strategy and where the optional brand waiver applies.
 - Record accepted decisions in `docs/00-product/PROJECT_DECISIONS.md` **only after explicit approval**.
 
 **Gate B — minimal implementation, separate from existing PRs**:
+
 1. Add Backend status derivation and authorization tests using canonical data. Build a seeded fixture matrix.
 2. Add deliberate minimal persistence in a safe isolated-DB branch environment; review migrations/backward compatibility before any shared-DB action.
 3. Build reusable Staff Setup card + expanded list (AR/EN, accessible/mobile-first) reusing existing Wayta visual tokens. Place beneath urgent operational attention; Settings Hub contains restore/open link.

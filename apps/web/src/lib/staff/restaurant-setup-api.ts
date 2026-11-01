@@ -11,7 +11,7 @@ export interface LiveSetupStatus {
 }
 
 export type SetupReviewAction =
-  | 'LANGUAGES' | 'ORDERING' | 'OPERATIONS' | 'PREVIEW' | 'BRANDING_SKIP';
+  | 'LANGUAGES' | 'ORDERING' | 'PREVIEW' | 'BRANDING_SKIP';
 
 const endpoint = (restaurantId: string) =>
   '/restaurants/' + encodeURIComponent(restaurantId) + '/setup';
