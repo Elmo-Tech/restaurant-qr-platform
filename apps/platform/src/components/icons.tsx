@@ -44,6 +44,12 @@ export const IconActivity = (p: P) => (
     <path d="M3 12h4l2.5-7 5 14 2.5-7H21" />
   </Icon>
 );
+export const IconPlay = (p: P) => (
+  <Icon {...p}>
+    <rect x="3.5" y="4.5" width="17" height="15" rx="2.5" />
+    <path d="M10 9.2v5.6l4.6-2.8z" />
+  </Icon>
+);
 export const IconLogout = (p: P) => (
   <Icon {...p}>
     <path d="M9.5 4.5H6.5a2 2 0 0 0-2 2v11a2 2 0 0 0 2 2h3" />

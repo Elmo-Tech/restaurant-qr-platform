@@ -439,6 +439,31 @@ export interface AdminSummary {
   lastLoginAt: string | null;
   createdAt: string;
 }
+
+/** Temporary demo restaurants (DEC-060). The link is returned once, when it is made. */
+export interface DemoSummary {
+  id: string;
+  publicId: string;
+  label: string;
+  /** LOCKED = ended, still inside the grace period before it is removed. */
+  status: "ACTIVE" | "LOCKED";
+  createdAt: string;
+  expiresAt: string;
+  removedAt: string;
+  opened: boolean;
+  lastOpenedAt: string | null;
+  openCount: number;
+}
+export const listDemos = () => data(platformFetch<{ data: DemoSummary[] }>("/demos"));
+export const createDemo = (input: { label: string; hours: number }) =>
+  data(platformFetch<{ data: { demo: DemoSummary; link: string } }>("/demos", { method: "POST", body: input }));
+export const extendDemo = (id: string, hours: number) =>
+  data(platformFetch<{ data: DemoSummary }>(`/demos/${encodeURIComponent(id)}/extend`, { method: "POST", body: { hours } }));
+export const newDemoLink = (id: string) =>
+  data(platformFetch<{ data: { demo: DemoSummary; link: string } }>(`/demos/${encodeURIComponent(id)}/link`, { method: "POST" }));
+export const removeDemo = (id: string) =>
+  platformFetch<void>(`/demos/${encodeURIComponent(id)}`, { method: "DELETE" });
+
 export const listAdmins = () => data(platformFetch<{ data: AdminSummary[] }>("/admins"));
 export const createAdmin = (input: { email: string; displayName: string; password: string }) =>
   data(platformFetch<{ data: AdminSummary }>("/admins", { method: "POST", body: input }));

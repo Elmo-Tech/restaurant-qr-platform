@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState, type ReactNode } from "react";
-import { IconActivity, IconGlobe, IconInbox, IconLogout, IconMenu, IconOverview, IconPackage, IconStore, IconUsers } from "@/components/icons";
+import { IconActivity, IconGlobe, IconInbox, IconLogout, IconMenu, IconOverview, IconPackage, IconPlay, IconStore, IconUsers } from "@/components/icons";
 import { WaytaLockup } from "@/components/brand/Wayta";
 import { LanguageSwitch, ThemeSwitch } from "@/components/shell/Preferences";
 import { logout, type Admin } from "@/lib/api/platform";
@@ -14,6 +14,7 @@ import { cn } from "@/lib/utils";
 const NAV: { href: string; label: MessageKey; icon: typeof IconOverview; match: (path: string) => boolean }[] = [
   { href: "/", label: "nav.overview", icon: IconOverview, match: (path) => path === "/" },
   { href: "/restaurants", label: "nav.restaurants", icon: IconStore, match: (path) => path.startsWith("/restaurants") },
+  { href: "/demos", label: "nav.demos", icon: IconPlay, match: (path) => path.startsWith("/demos") },
   { href: "/packages", label: "nav.packages", icon: IconPackage, match: (path) => path.startsWith("/packages") },
   { href: "/leads", label: "nav.leads", icon: IconUsers, match: (path) => path.startsWith("/leads") },
   { href: "/requests", label: "nav.requests", icon: IconInbox, match: (path) => path.startsWith("/requests") },

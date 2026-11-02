@@ -27,6 +27,10 @@ const ACTION_LABEL: Record<string, MessageKey> = {
   "platform.ai_key_added": "action.platform.ai_key_added",
   "platform.ai_key_updated": "action.platform.ai_key_updated",
   "platform.ai_key_deleted": "action.platform.ai_key_deleted",
+  "platform.demo_created": "action.platform.demo_created",
+  "platform.demo_extended": "action.platform.demo_extended",
+  "platform.demo_link_regenerated": "action.platform.demo_link_regenerated",
+  "platform.demo_removed": "action.platform.demo_removed",
   "restaurant.country_changed": "action.restaurant.country_changed",
   "restaurant.auto_suspended": "action.restaurant.auto_suspended",
   "restaurant.auto_reactivated": "action.restaurant.auto_reactivated",
@@ -156,6 +160,9 @@ export function describeChange(entry: AuditEntry, t: Translate): string {
     });
     const key = entry.action === "platform.ai_key_updated" ? `····${String(details.last4 ?? "")}: ` : "";
     return key + parts.join("; ");
+  }
+  if (entry.action.startsWith("platform.demo_")) {
+    return String(details.label ?? "");
   }
   if (entry.action === "platform.ai_key_added" || entry.action === "platform.ai_key_deleted") {
     return `${String(details.label ?? "")} ····${String(details.last4 ?? "")}`.trim();
