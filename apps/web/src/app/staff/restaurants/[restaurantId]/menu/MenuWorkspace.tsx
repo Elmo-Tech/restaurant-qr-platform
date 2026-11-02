@@ -22,6 +22,7 @@ import { PageHeader } from '../../../../../components/ui/PageHeader';
 import { MenuContextBar } from './MenuContextBar';
 import { CategoryNavigation } from './CategoryNavigation';
 import { ProductList } from './ProductList';
+import { StartFreshMenuAction } from './StartFreshMenuAction';
 
 export interface MenuWorkspaceProps {
   restaurantId: string;
@@ -443,6 +444,7 @@ export function MenuWorkspace({
     categoryNames[category.id] = category.translation.name;
   }
   const selectedMenu = menus?.find((menu) => menu.id === selectedMenuId);
+  const currentPrimaryMenu = menus?.find((menu) => menu.isPrimary && menu.status === 'ACTIVE');
 
   return (
     <div className="flex flex-col gap-6">
@@ -482,6 +484,15 @@ export function MenuWorkspace({
         onPrimaryChanged={() => void loadMenus()}
         onMenuNotFound={() => void loadMenus()}
       />
+
+      {canManage && currentPrimaryMenu ? (
+        <StartFreshMenuAction
+          restaurantId={restaurantId}
+          primaryMenuId={currentPrimaryMenu.id}
+          primaryMenuName={currentPrimaryMenu.translation.name}
+          onCompleted={(menuId) => void loadMenus(menuId)}
+        />
+      ) : null}
 
       {orderError ? <Alert variant="error">{orderError}</Alert> : null}
 

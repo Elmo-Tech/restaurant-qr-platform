@@ -1,0 +1,49 @@
+name: Safe Menu Start Fresh Checks
+
+on:
+  push:
+    branches: [feat/menu-start-fresh]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Verify unchanged Prisma schema
+        run: npm run db:validate
+      - name: Typecheck API
+        run: npm run typecheck:api
+      - name: Test menu management including new start-fresh safety
+        run: npm exec --workspace=apps/api -- jest --runInBand menus-start-fresh.spec.ts menus.service.spec.ts menus.controller.spec.ts
+      - name: Typecheck Web
+        run: npm run typecheck:web
+      - name: Lint changed Backend
+        run: >-
+          npm exec --workspace=apps/api -- eslint
+          src/menu/dto/start-fresh-menu.dto.ts
+          src/menu/menus.service.ts
+          src/menu/menus.controller.ts
+          src/menu/menus-start-fresh.spec.ts
+      - name: Lint changed Web
+        run: >-
+          npm exec --workspace=apps/web -- eslint
+          src/lib/menu/api.ts
+          src/lib/i18n/messages/menu.ts
+          'src/app/staff/restaurants/[restaurantId]/menu/StartFreshMenuAction.tsx'
+          'src/app/staff/restaurants/[restaurantId]/menu/MenuWorkspace.tsx'
+      - name: Check formatting of changed Backend
+        run: >-
+          npm exec --workspace=apps/api -- prettier --check
+          src/menu/dto/start-fresh-menu.dto.ts
+          src/menu/menus.service.ts
+          src/menu/menus.controller.ts
+          src/menu/menus-start-fresh.spec.ts

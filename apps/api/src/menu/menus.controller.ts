@@ -25,6 +25,7 @@ import { RequirePermission } from '../auth/permission/require-permission.decorat
 import { LocaleParamPipe } from '../restaurants/locale-param.pipe';
 import type { PlatformSupportedLocale } from '../restaurants/platform-locales';
 import { CreateMenuDto } from './dto/create-menu.dto';
+import { StartFreshMenuDto } from './dto/start-fresh-menu.dto';
 import { PutTranslationDto } from './dto/put-translation.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 import {
@@ -137,6 +138,54 @@ export class MenusController {
     });
 
     return { data };
+  }
+
+  /**
+   * Intentionally non-destructive: replaces a loaded active primary Menu
+   * with a clean one and preserves the old Menu and historical Order refs.
+   * Only Restaurant-wide menu.manage can start fresh (same guards as Create).
+   */
+  @Post('start-fresh')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(
+    AuthGuard,
+    CsrfGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async startFreshMenu(
+    @Body() dto: StartFreshMenuDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: { menuId: string; changed: boolean } }> {
+    const result = await this.menusService.startFreshMenu({
+      restaurantId: request.restaurantAccess.restaurantId,
+      expectedPrimaryMenuId: dto.expectedPrimaryMenuId,
+    });
+
+    if (result.outcome === 'menuNotFound') {
+      throw new NotFoundException(MENU_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'menuChanged') {
+      throw new ConflictException({
+        error: {
+          code: 'MENU_PRIMARY_CHANGED',
+          message: 'The primary menu changed. Reload before starting fresh.',
+        },
+      });
+    }
+    if (result.outcome === 'activeImport') {
+      throw new ConflictException({
+        error: {
+          code: 'MENU_IMPORT_PENDING',
+          message: 'Finish or discard the pending menu import first.',
+        },
+      });
+    }
+    return {
+      data: { menuId: result.menuId, changed: result.outcome === 'started' },
+    };
   }
 
   /**
