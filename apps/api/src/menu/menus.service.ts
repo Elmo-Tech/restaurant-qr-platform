@@ -337,6 +337,7 @@ export class MenusService {
       const pendingImports = await tx.menuImportJob.count({
         where: {
           restaurantId: input.restaurantId,
+          targetMenu: { status: 'ACTIVE' },
           status: { in: ['PROCESSING', 'READY_FOR_REVIEW'] },
         },
       });
