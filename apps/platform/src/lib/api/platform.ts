@@ -106,7 +106,15 @@ export interface Overview {
   recentActivity: AuditEntry[];
 }
 
+/** Private customer contact details, visible only to Platform Administrators. */
+export interface OwnerContact {
+  fullName: string;
+  phone: string;
+  facebookUrl: string | null;
+}
+
 export interface RestaurantSummary {
+  ownerContact: OwnerContact | null;
   id: string;
   publicId: string;
   name: string;
@@ -220,8 +228,34 @@ export interface ExclusiveDesignView {
   status: ExclusiveDesignStatus;
 }
 
+export type AcquisitionSourceType =
+  | "CUSTOMER_REFERRAL"
+  | "EMPLOYEE_REFERRAL"
+  | "SALES"
+  | "SOCIAL_MEDIA"
+  | "PAID_AD"
+  | "WEBSITE"
+  | "DIRECT"
+  | "OTHER"
+  | "UNKNOWN";
+
+export interface RestaurantAcquisitionInput {
+  sourceType: AcquisitionSourceType;
+  referringRestaurantId?: string | null;
+  sourceName?: string | null;
+  sourcePlatform?: string | null;
+  sourceDetail?: string | null;
+  campaign?: string | null;
+}
+
+export interface RestaurantAcquisitionView extends RestaurantAcquisitionInput {
+  referringRestaurantName: string | null;
+  recordedAt: string;
+}
+
 export interface RestaurantDetail extends RestaurantSummary {
   exclusiveDesign: ExclusiveDesignView | null;
+  acquisition: RestaurantAcquisitionView | null;
   settings: {
     pickupEnabled: boolean;
     deliveryEnabled: boolean;
@@ -348,6 +382,18 @@ export const setExclusiveDesign = (
     ),
   );
 
+/** Correct an existing client's primary contact without touching their login. */
+export const updateRestaurantOwnerContact = (
+  id: string,
+  contact: OwnerContact,
+) =>
+  data(
+    platformFetch<{ data: OwnerContact }>(
+      `/restaurants/${encodeURIComponent(id)}/owner-contact`,
+      { method: "PUT", body: contact },
+    ),
+  );
+
 export const setRestaurantStatus = (id: string, status: "ACTIVE" | "SUSPENDED") =>
   data(
     platformFetch<{ data: { status: RestaurantStatus } }>(`/restaurants/${encodeURIComponent(id)}/status`, {
@@ -374,6 +420,8 @@ export interface NewRestaurantInput {
   timezone: string;
   countryCode?: string;
   packageId: string | null;
+  acquisition?: RestaurantAcquisitionInput | null;
+  ownerContact?: OwnerContact | null;
 }
 export const createRestaurant = (input: NewRestaurantInput) =>
   data(
