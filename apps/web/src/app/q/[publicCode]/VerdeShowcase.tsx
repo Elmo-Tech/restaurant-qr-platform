@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { resolveAssetUrl } from '../../../lib/media/asset-url';
 
 export function VerdeThemeToggle({ locale }: { locale: string }) {
   const [mode, setMode] = useState<'light' | 'signature'>('light');
@@ -60,7 +59,7 @@ export function VerdeShowcase({
           <div className="verde-art-ring" />
           {photo
             // eslint-disable-next-line @next/next/no-img-element -- tenant-uploaded media
-            ? <img src={resolveAssetUrl(photo) ?? undefined} alt="" />
+            ? <img src={photo} alt="" />
             : <span className="verde-art-illustration">✳</span>}
           <span className="verde-art-stamp">VERDE<br />NAPOLETANA</span>
         </div>
