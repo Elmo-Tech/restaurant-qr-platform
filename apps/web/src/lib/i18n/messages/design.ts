@@ -5,6 +5,11 @@ export const designMessages = defineMessages({
   en: {
     'settings.tab.design': 'Menu design',
     'design.heading': 'Menu design',
+    'design.exclusive.heading': 'Your exclusive menu design',
+    'design.exclusive.reserved': 'Your own design is being prepared. Your current guest menu stays unchanged; only the Wayta team can activate your reserved design.',
+    'design.exclusive.active': 'A temporary design is active exclusively for your restaurant. The Wayta team manages this selection until your bespoke version is ready.',
+    'design.exclusive.disabled': 'Your reserved design is disabled. Your restaurant currently uses the usual package design.',
+
     'design.description':
       'Choose how your menu looks to guests. Only the layout changes: the same dishes, prices and ordering. Pick a design to preview it on your real menu, then save.',
     'design.classic': 'Classic',
@@ -160,6 +165,11 @@ export const designMessages = defineMessages({
   ar: {
     'settings.tab.design': 'تصميم المنيو',
     'design.heading': 'تصميم المنيو',
+    'design.exclusive.heading': 'تصميم المنيو الخاص بمطعمك',
+    'design.exclusive.reserved': 'تصميمك الحصري قيد التجهيز. شكل المنيو الحالي مش هيتغير لحد ما فريق ويتا يفعّل التصميم المحجوز.',
+    'design.exclusive.active': 'فيه تصميم مؤقت مفعّل لمطعمك فقط. فريق ويتا مسؤول عن تغييره لحد ما نجهز التصميم الخاص بيك.',
+    'design.exclusive.disabled': 'التصميم المحجوز متوقف حاليًا، والمطعم بيستخدم التصميم العادي حسب الباقة.',
+
     'design.description':
       'اختر شكل عرض منيو مطعمك للضيوف. يتغير الشكل فقط: نفس الأطباق والأسعار والطلب. اختر تصميمًا لتراه على منيو مطعمك الحقيقي ثم احفظه.',
     'design.classic': 'كلاسيك',
