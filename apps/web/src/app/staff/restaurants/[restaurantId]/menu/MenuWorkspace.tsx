@@ -444,6 +444,7 @@ export function MenuWorkspace({
     categoryNames[category.id] = category.translation.name;
   }
   const selectedMenu = menus?.find((menu) => menu.id === selectedMenuId);
+  const currentPrimaryMenu = menus?.find((menu) => menu.isPrimary && menu.status === 'ACTIVE');
 
   return (
     <div className="flex flex-col gap-6">
@@ -484,14 +485,11 @@ export function MenuWorkspace({
         onMenuNotFound={() => void loadMenus()}
       />
 
-      {canManage &&
-      selectedMenu?.isPrimary &&
-      selectedMenu.status === 'ACTIVE' &&
-      (categories?.length ?? 0) > 0 ? (
+      {canManage && currentPrimaryMenu ? (
         <StartFreshMenuAction
           restaurantId={restaurantId}
-          primaryMenuId={selectedMenu.id}
-          primaryMenuName={selectedMenu.translation.name}
+          primaryMenuId={currentPrimaryMenu.id}
+          primaryMenuName={currentPrimaryMenu.translation.name}
           onCompleted={(menuId) => void loadMenus(menuId)}
         />
       ) : null}
