@@ -1,7 +1,7 @@
 # Wayta Pre-Release Integration — Local Acceptance Gate (2026-11-02)
 
-**Branch:** `integration/wayta-pre-release-2026-11-02`  
-**Base:** `main` @ `d352bc8ba2d7aca27c82947f090474f318c46fc3`.  
+**Branch:** `integration/wayta-pre-release-2026-11-02`
+**Base:** `main` @ `d352bc8ba2d7aca27c82947f090474f318c46fc3`.
 **Status:** Code integrated for QA; not approved for merge, database migration or Production deployment.
 
 ## Included in this integration branch

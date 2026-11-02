@@ -1,6 +1,6 @@
 # Start Fresh with an Empty Menu — Safe Reset
 
-**Branch:** `feat/menu-start-fresh` (from main `d352bc8`)  
+**Branch:** `feat/menu-start-fresh` (from main `d352bc8`)
 **Status:** Draft code; unit/CI and local DB+browser acceptance required. Not deployed.
 
 ## Problem and choice

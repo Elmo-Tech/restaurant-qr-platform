@@ -1,8 +1,8 @@
 # Exclusive Custom Menu Design — Implementation Contract (Draft)
 
-**Branch:** `feat/exclusive-restaurant-menu-design`  
-**Status:** Tenant-private stock-template reservation and activation implemented in Draft branch code (schema/migration SQL, Backend/Admin/Staff and public QR integration). CI validation and browser/DB QA pending; no production deployment.  
-**Base:** `main` at `d352bc8ba2d7aca27c82947f090474f318c46fc3`.  
+**Branch:** `feat/exclusive-restaurant-menu-design`
+**Status:** Tenant-private stock-template reservation and activation implemented in Draft branch code (schema/migration SQL, Backend/Admin/Staff and public QR integration). CI validation and browser/DB QA pending; no production deployment.
+**Base:** `main` at `d352bc8ba2d7aca27c82947f090474f318c46fc3`.
 **Scope:** A truly restaurant-exclusive branded Guest Menu design, not another package template.
 
 ## 1. Product contract

@@ -1,7 +1,7 @@
 # Restaurant Owner Contact — Internal Customer Directory
 
-**Branch:** `feat/platform-restaurant-owner-contacts` (based on `feat/restaurant-acquisition-source`; includes PR #14 content).  
-**Status:** Draft code. No database migration has been applied and no browser/DB QA has run.  
+**Branch:** `feat/platform-restaurant-owner-contacts` (based on `feat/restaurant-acquisition-source`; includes PR #14 content).
+**Status:** Draft code. No database migration has been applied and no browser/DB QA has run.
 **Scope:** Platform Console only (ElmoTech business contacts).
 
 ## Product behavior

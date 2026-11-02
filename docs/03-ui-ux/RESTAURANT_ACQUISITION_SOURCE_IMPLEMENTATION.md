@@ -1,7 +1,7 @@
 # Restaurant Acquisition Source — Implementation Contract (Draft)
 
-**Branch:** `feat/restaurant-acquisition-source`  
-**Base:** `main` at `d352bc8ba2d7aca27c82947f090474f318c46fc3`.  
+**Branch:** `feat/restaurant-acquisition-source`
+**Base:** `main` at `d352bc8ba2d7aca27c82947f090474f318c46fc3`.
 **Status:** Draft implementation in progress (schema + migration SQL + source validation + atomic Platform provisioning integration + create form + Platform detail source card). **No database migration has been applied; end-to-end browser QA and local DB tests are pending.**
 
 ## Product need
