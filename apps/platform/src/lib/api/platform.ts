@@ -213,7 +213,33 @@ export interface PackageInput {
   status?: PackageStatus;
 }
 
+export type AcquisitionSourceType =
+  | "CUSTOMER_REFERRAL"
+  | "EMPLOYEE_REFERRAL"
+  | "SALES"
+  | "SOCIAL_MEDIA"
+  | "PAID_AD"
+  | "WEBSITE"
+  | "DIRECT"
+  | "OTHER"
+  | "UNKNOWN";
+
+export interface RestaurantAcquisitionInput {
+  sourceType: AcquisitionSourceType;
+  referringRestaurantId?: string | null;
+  sourceName?: string | null;
+  sourcePlatform?: string | null;
+  sourceDetail?: string | null;
+  campaign?: string | null;
+}
+
+export interface RestaurantAcquisitionView extends RestaurantAcquisitionInput {
+  referringRestaurantName: string | null;
+  recordedAt: string;
+}
+
 export interface RestaurantDetail extends RestaurantSummary {
+  acquisition: RestaurantAcquisitionView | null;
   settings: {
     pickupEnabled: boolean;
     deliveryEnabled: boolean;
@@ -354,6 +380,7 @@ export interface NewRestaurantInput {
   timezone: string;
   countryCode?: string;
   packageId: string | null;
+  acquisition?: RestaurantAcquisitionInput | null;
 }
 export const createRestaurant = (input: NewRestaurantInput) =>
   data(
