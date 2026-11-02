@@ -17,11 +17,20 @@ import {
 import type { Prisma, RestaurantStatus } from '../generated/prisma/client';
 import { PlatformAuditService } from './platform-audit.service';
 import type { PlatformAdminPrincipal } from './platform-auth.service';
+import type { NormalizedOwnerContact } from './restaurant-owner-contact';
 import type { AcquisitionSourceType } from './restaurant-acquisition';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+export interface OwnerContactView {
+  fullName: string;
+  phone: string;
+  facebookUrl: string | null;
+}
+
 export interface RestaurantSummary {
+  /** Private to Platform Administrators; never part of Staff/Guest contracts. */
+  ownerContact: OwnerContactView | null;
   id: string;
   publicId: string;
   name: string;
@@ -146,6 +155,16 @@ export class PlatformRestaurantsService {
             OR: [
               { name: { contains: search, mode: 'insensitive' } },
               { publicId: { contains: search, mode: 'insensitive' } },
+              {
+                ownerContact: {
+                  is: { fullName: { contains: search, mode: 'insensitive' } },
+                },
+              },
+              {
+                ownerContact: {
+                  is: { phone: { contains: search.replace(/[\s().-]/g, '') } },
+                },
+              },
             ],
           }
         : {}),
@@ -165,6 +184,9 @@ export class PlatformRestaurantsService {
           defaultLocale: true,
           currencyCode: true,
           createdAt: true,
+          ownerContact: {
+            select: { fullName: true, phone: true, facebookUrl: true },
+          },
           _count: {
             select: { branches: true, products: true, memberships: true },
           },
@@ -203,6 +225,7 @@ export class PlatformRestaurantsService {
         defaultLocale: row.defaultLocale,
         currencyCode: row.currencyCode,
         createdAt: row.createdAt.toISOString(),
+        ownerContact: row.ownerContact,
         counts: {
           branches: row._count.branches,
           products: row._count.products,
@@ -239,6 +262,9 @@ export class PlatformRestaurantsService {
         whatsappOrderingEnabled: true,
         menuTemplate: true,
         suggestionsMode: true,
+        ownerContact: {
+          select: { fullName: true, phone: true, facebookUrl: true },
+        },
         acquisition: {
           select: {
             sourceType: true,
@@ -315,6 +341,7 @@ export class PlatformRestaurantsService {
         package: row.package && { id: row.package.id, name: row.package.name },
         disabledFeatures: disabledFeatures(row.features, row.package),
         subscription: this.briefOf(row.subscriptions),
+        ownerContact: row.ownerContact,
         acquisition: row.acquisition
           ? {
               sourceType: row.acquisition.sourceType,
@@ -349,6 +376,47 @@ export class PlatformRestaurantsService {
         },
       },
     };
+  }
+
+  /** Platform-only primary contact correction; never changes a login User. */
+  async setOwnerContact(
+    admin: PlatformAdminPrincipal,
+    restaurantId: string,
+    contact: NormalizedOwnerContact,
+  ): Promise<RestaurantLookup<OwnerContactView>> {
+    if (!UUID.test(restaurantId)) return { outcome: 'notFound' };
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: {
+        id: true,
+        name: true,
+        ownerContact: {
+          select: { fullName: true, phone: true, facebookUrl: true },
+        },
+      },
+    });
+    if (!restaurant) return { outcome: 'notFound' };
+    const before = restaurant.ownerContact;
+    if (
+      !before ||
+      before.fullName !== contact.fullName ||
+      before.phone !== contact.phone ||
+      before.facebookUrl !== contact.facebookUrl
+    ) {
+      await this.prisma.restaurantOwnerContact.upsert({
+        where: { restaurantId },
+        create: { restaurantId, ...contact },
+        update: contact,
+      });
+      // Don't put customer phone numbers or social profile URLs in audit logs.
+      await this.audit.record({
+        admin,
+        action: 'restaurant.owner_contact_updated',
+        restaurant: { id: restaurant.id, name: restaurant.name },
+        details: { contactUpdated: true },
+      });
+    }
+    return { outcome: 'ok', data: contact };
   }
 
   /** Switch an account on or off. A suspended Restaurant's Staff and Guests are refused by the existing status checks. */
