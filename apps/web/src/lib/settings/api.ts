@@ -94,7 +94,8 @@ export async function updateRestaurantProfile(
 /** Private design assignment; full Restaurant management scope required. */
 export interface ExclusiveDesignStatusView {
   baseTemplate: MenuTemplateApi;
-  status: 'RESERVED' | 'ACTIVE_BASE' | 'DISABLED';
+  status: 'RESERVED' | 'ACTIVE_BASE' | 'ACTIVE_CUSTOM' | 'DISABLED';
+  rendererKey?: 'VERDE_NAPOLI_V1';
 }
 export async function getExclusiveDesign(
   restaurantId: string,
