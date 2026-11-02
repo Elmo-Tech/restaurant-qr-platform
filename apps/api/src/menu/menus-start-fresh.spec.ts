@@ -77,7 +77,6 @@ describe('Start fresh with an empty primary Menu', () => {
     expect(m.tx.menuImportJob.count).toHaveBeenCalledWith({
       where: {
         restaurantId: RESTAURANT_ID,
-        targetMenuId: MENU_ID,
         status: { in: ['PROCESSING', 'READY_FOR_REVIEW'] },
       },
     });
@@ -105,6 +104,16 @@ describe('Start fresh with an empty primary Menu', () => {
     expect(m.tx.menu.updateMany).toHaveBeenCalledWith({
       where: { id: MENU_ID, restaurantId: RESTAURANT_ID, isPrimary: true, status: 'ACTIVE' },
       data: { isPrimary: false, status: 'INACTIVE' },
+    });
+    expect(m.tx.menu.updateMany).toHaveBeenCalledWith({
+      where: { restaurantId: RESTAURANT_ID, status: 'ACTIVE' },
+      data: { isPrimary: false, status: 'INACTIVE' },
+    });
+    expect(m.tx.category.count).toHaveBeenCalledWith({
+      where: {
+        restaurantId: RESTAURANT_ID,
+        menu: { status: 'ACTIVE' },
+      },
     });
     expect(m.tx.menu.create).toHaveBeenCalledWith({
       data: {
