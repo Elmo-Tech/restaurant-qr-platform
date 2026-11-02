@@ -91,6 +91,20 @@ export async function updateRestaurantProfile(
   return body.data;
 }
 
+/** Private design assignment; full Restaurant management scope required. */
+export interface ExclusiveDesignStatusView {
+  baseTemplate: MenuTemplateApi;
+  status: 'RESERVED' | 'ACTIVE_BASE' | 'DISABLED';
+}
+export async function getExclusiveDesign(
+  restaurantId: string,
+): Promise<ExclusiveDesignStatusView | null> {
+  const body = await apiFetch<{ data: ExclusiveDesignStatusView | null }>(
+    `${restaurantPath(restaurantId)}/exclusive-design`,
+  );
+  return body.data;
+}
+
 /** Save the Restaurant QR appearance; the Backend refuses a style that would not scan. */
 export async function updateQrStyle(
   restaurantId: string,
