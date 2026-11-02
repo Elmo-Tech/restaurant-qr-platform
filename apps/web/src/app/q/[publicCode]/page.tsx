@@ -53,6 +53,7 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
     <PublicMenuView
       data={result.data}
       publicCode={publicCode}
+      exclusiveRendererKey={result.data.context.restaurant.exclusiveRendererKey}
       template={parseMenuTemplate(
         (previewAllowed ? template : undefined) ?? result.data.context.restaurant.menuTemplate,
       )}
