@@ -8,7 +8,8 @@ import { IconArrowLeft } from "@/components/icons";
 import { Alert, Button, Card, CardHeader, Input, Label, PageHeader, Select } from "@/components/ui";
 import { ApiError, isNetworkFailure } from "@/lib/api/errors";
 import { packageErrorKey } from "@/lib/api/package-errors";
-import { createRestaurant, listPackages, type PackageSummary } from "@/lib/api/platform";
+import { createRestaurant, listPackages, type PackageSummary, type RestaurantAcquisitionInput } from "@/lib/api/platform";
+import { AcquisitionSourceFields } from "./AcquisitionSourceFields";
 import { useI18n } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -24,6 +25,7 @@ interface FormState {
   ownerEmail: string;
   ownerPassword: string;
   packageId: string;
+  acquisition: RestaurantAcquisitionInput | null;
 }
 
 const INITIAL: FormState = {
@@ -36,6 +38,7 @@ const INITIAL: FormState = {
   ownerEmail: "",
   ownerPassword: "",
   packageId: "",
+  acquisition: null,
 };
 
 export function NewRestaurantForm() {
@@ -71,6 +74,14 @@ export function NewRestaurantForm() {
     if (form.ownerPassword.length < 8) return "restaurantNew.err.password";
     if (!/^[A-Za-z]{3}$/.test(form.currencyCode.trim())) return "restaurantNew.err.currency";
     if (!/^[A-Za-z]{2}$/.test(form.countryCode.trim())) return "restaurantNew.err.country";
+    const source = form.acquisition;
+    if (!source) return "restaurantNew.err.source";
+    const kind = source.sourceType;
+    if (kind === "CUSTOMER_REFERRAL" && !source.referringRestaurantId && !source.sourceName?.trim()) return "restaurantNew.err.sourceDetail";
+    if ((kind === "EMPLOYEE_REFERRAL" || kind === "SALES") && !source.sourceName?.trim()) return "restaurantNew.err.sourceDetail";
+    if ((kind === "SOCIAL_MEDIA" || kind === "PAID_AD") && !source.sourcePlatform) return "restaurantNew.err.sourceDetail";
+    if (source.sourcePlatform === "OTHER" && !source.sourceDetail?.trim()) return "restaurantNew.err.sourceDetail";
+    if ((kind === "WEBSITE" || kind === "DIRECT" || kind === "OTHER") && !source.sourceDetail?.trim()) return "restaurantNew.err.sourceDetail";
     return null;
   }
 
@@ -96,6 +107,7 @@ export function NewRestaurantForm() {
         timezone: form.timezone.trim(),
         countryCode: form.countryCode.trim().toUpperCase(),
         packageId: form.packageId === "" ? null : form.packageId,
+        acquisition: form.acquisition,
       });
       router.push(`/restaurants/${created.id}`);
     } catch (caught) {
@@ -202,6 +214,14 @@ export function NewRestaurantForm() {
               </div>
             </div>
           </div>
+        </Card>
+
+        <Card>
+          <CardHeader title={t("acquisition.section")} description={t("acquisition.description")} />
+          <AcquisitionSourceFields
+            value={form.acquisition}
+            onChange={(acquisition) => set("acquisition", acquisition)}
+          />
         </Card>
 
         <Card>
