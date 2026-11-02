@@ -1,8 +1,8 @@
 # Wayta + VERDE — Combined Release Candidate / Manual Acceptance Gate
 
-**Date:** 2026-11-02 (Africa/Cairo)  
-**Status:** DRAFT / CODE REVIEW. **Not approved for merge to main or deployment.**  
-**Working branch:** `integration/wayta-verde-release-candidate-2026-11-02`  
+**Date:** 2026-11-02 (Africa/Cairo)
+**Status:** DRAFT / CODE REVIEW. **Not approved for merge to main or deployment.**
+**Working branch:** `integration/wayta-verde-release-candidate-2026-11-02`
 **Baseline:** `main` at `d352bc8ba2d7aca27c82947f090474f318c46fc3`.
 
 ## Exact Git provenance
