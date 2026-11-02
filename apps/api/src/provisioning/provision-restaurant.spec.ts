@@ -66,6 +66,12 @@ function build(
         return Promise.resolve({});
       }),
     },
+    restaurantOwnerContact: {
+      create: jest.fn().mockImplementation(() => {
+        calls.push('ownerContact');
+        return Promise.resolve({});
+      }),
+    },
     restaurantLocale: {
       createMany: jest.fn().mockImplementation(() => {
         calls.push('locales');
@@ -196,6 +202,27 @@ describe('provisionRestaurant', () => {
       type: 'GENERIC',
       status: 'ACTIVE',
     });
+  });
+
+  it('stores a Platform-only primary contact atomically, never exposing it as Guest phone or login data', async () => {
+    const m = build();
+    const ownerContact = {
+      fullName: 'Ahmed Hassan',
+      phone: '+201012345678',
+      facebookUrl: 'https://facebook.com/owner',
+    };
+    await provisionRestaurant(m.prisma as never, m.hasher, {
+      ...INPUT,
+      ownerContact,
+    });
+
+    expect(m.prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(m.tx.restaurantOwnerContact.create).toHaveBeenCalledWith({
+      data: { restaurantId: 'restaurant-1', ...ownerContact },
+    });
+    expect(m.calls.indexOf('ownerContact')).toBeGreaterThan(m.calls.indexOf('restaurant'));
+    expect(m.tx.user.create.mock.calls[0][0].data).not.toHaveProperty('phone');
+    expect(m.tx.restaurant.create.mock.calls[0][0].data).not.toHaveProperty('contactPhone');
   });
 
   it('seeds the five starter Roles for the new Restaurant (Owner first), and the Owner holds the Owner Role', async () => {
