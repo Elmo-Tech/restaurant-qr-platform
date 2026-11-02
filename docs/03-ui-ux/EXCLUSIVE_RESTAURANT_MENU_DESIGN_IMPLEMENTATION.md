@@ -1,7 +1,7 @@
 # Exclusive Custom Menu Design — Implementation Contract (Draft)
 
 **Branch:** `feat/exclusive-restaurant-menu-design`  
-**Status:** Architecture agreed in principle; runtime/schema/UI implementation and owner acceptance pending.  
+**Status:** Updated owner direction (2026-11-02): a tenant-private design **reservation** using an existing stock renderer as a temporary base. Runtime/schema/UI implementation and browser/DB QA pending.  
 **Base:** `main` at `d352bc8ba2d7aca27c82947f090474f318c46fc3`.  
 **Scope:** A truly restaurant-exclusive branded Guest Menu design, not another package template.
 
@@ -14,6 +14,24 @@ A bespoke design is developed for one Restaurant by ElmoTech and assigned by Pla
 - Guests manipulating the current `?template=` preview parameter.
 
 The Restaurant's ordinary QR URLs remain `/q/{publicCode}`. Guests are **supposed** to see the published bespoke layout when visiting that Restaurant's QR; exclusivity means other Restaurant accounts cannot select/use it, not that the public page is secret.
+
+## 1A. Updated rollout: reserve an exclusive design slot FIRST
+
+The owner wants to create and fully prepare a Restaurant account **before** the final bespoke design is ready. The safest practical contract is a **private per-Restaurant design assignment** with a temporary base template from Wayta's existing stable collection (e.g. BLOOM, EMBER, BREW, CLASSIC).
+
+**Critical distinction:** The *assignment, published configuration and future renderer* are exclusive to that Restaurant. The **underlying stock renderer is not unique** while used as a placeholder, and must **NOT** be removed from the package catalog or made unavailable to other existing restaurants. Once a truly bespoke renderer has been authored and deployed, the same Restaurant assignment switches to its unique `rendererKey` and published version; no Restaurant recreation, menu reimport, QR rotation or Order reconfiguration is required.
+
+Proposed states:
+- **RESERVED:** Platform Admin selects `baseTemplate` and records the assignment. Restaurant can finish Setup Checklist, menu, contact, branches and QR. Guests continue seeing its currently selected normal Menu template. Staff sees **Your exclusive design is being prepared** (not a false claim that the final design exists).
+- **ACTIVE_BASE:** Platform Admin explicitly chooses to show the selected stock renderer to guests as a temporary, tenant-configured bridge. Staff sees **Temporary design active**; other Restaurants do not see this private assignment.
+- **ACTIVE_CUSTOM:** A compiled, reviewed `rendererKey` and published version are present. Only the assigned Restaurant's public QR selects this renderer.
+- **DISABLED:** Return to the Restaurant's ordinary package-allowed saved stock template. Preserve assignment/history.
+
+Private assignment never becomes a `MenuTemplate` enum member or an `allTemplates` package selection. The Platform Console is the ONLY authority to assign, enable or change the base/future renderer. Staff can view status and optionally edit whitelisted appearance settings, never transfer ownership. Public QR resolution must only return a status and renderer/config from the **QR-resolved** Restaurant's assignment, and must never trust a query `designId`.
+
+**Package entitlement:** Existing stock template selection rules remain intact for ordinary customers. For an exclusive temporary assignment, the Platform explicitly grants the selected base renderer **only to the assigned tenant**, without upgrading the package's general catalog. For staff-side preview, avoid a public query-param permission bypass: scope previews to tenant and permitted roles or use the Backend-resolved published template. Do not accidentally expose the whole premium library.
+
+**Customer account preparation:** Create Restaurant + OWNER + Branch + QR + Setup via the existing Platform onboarding flow. Then Platform Admin links an exclusive slot (RESERVED), chooses a temporary stock template and optionally activates that temporary design. Later update only the assignment to the bespoke renderer; keep all real Restaurant/Guest state.
 
 ## 2. Existing implementation to preserve
 
@@ -77,9 +95,9 @@ The existing `main` production deploy status was unverified at specification tim
 
 ## 8. Planned implementation slices
 
-1. Tenant-bound DB model, trusted registry and Backend isolation contracts (+ migrations/tests).
-2. Platform Console assignment, review, publish, rollback and audit.
-3. Private preview and Staff design card/settings, built for mobile/RTL.
-4. First bespoke renderer for one approved Restaurant, browser QA, owner sign-off.
+1. Tenant-private design **reservation** with a selected stock base template and explicit state, plus safe Platform-only assignment API, tenant isolation and tests.
+2. Backend-resolved temporary base activation and tenant-scoped staff status card, preserving package/stock semantics.
+3. Platform Admin UX for reserve/activate/disable, audit and safe preview.
+4. Later bespoke compiled renderer with versioned publication, rollback and shared Guest Menu regression QA.
 
 **No portion is considered implemented, deployed or approved solely because this document exists.**
