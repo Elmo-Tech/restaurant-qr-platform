@@ -273,6 +273,8 @@ export function DesignWorkspace({
   const [brewPreviewDraft,setBrewPreviewDraft]=useState<BrewTemplateSettings|null>(null);
   const [brewPreviewLanguage,setBrewPreviewLanguage]=useState<'ar'|'en'|null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exclusiveDesign, setExclusiveDesign] = useState<settingsApi.ExclusiveDesignStatusView | null>(null);
+  const exclusiveActive = exclusiveDesign?.status === 'ACTIVE_BASE';
 
   useEffect(() => {
     let cancelled = false;
@@ -289,9 +291,19 @@ export function DesignWorkspace({
     };
   }, [restaurantId]);
 
+  useEffect(() => {
+    if (!canManage) return;
+    let cancelled = false;
+    settingsApi.getExclusiveDesign(restaurantId)
+      .then((result) => { if (!cancelled) setExclusiveDesign(result); })
+      .catch(() => { /* private status is optional; do not leak errors into stock selection */ });
+    return () => { cancelled = true; };
+  }, [canManage, restaurantId]);
+
   const dirty = selected !== saved;
 
   async function save() {
+    if (exclusiveActive) return;
     setIsSaving(true);
     setError(null);
     setJustSaved(false);
@@ -334,6 +346,25 @@ export function DesignWorkspace({
             </p>
           </div>
 
+          {exclusiveDesign ? (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+              <p className="text-sm font-semibold text-foreground">
+                {t('design.exclusive.heading')}
+              </p>
+              <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                {t(
+                  exclusiveDesign.status === 'RESERVED'
+                    ? 'design.exclusive.reserved'
+                    : exclusiveDesign.status === 'ACTIVE_BASE'
+                      ? 'design.exclusive.active'
+                      : 'design.exclusive.disabled',
+                )}
+              </p>
+              <p className="mt-2 text-sm font-semibold text-primary">
+                {exclusiveDesign.baseTemplate}
+              </p>
+            </div>
+          ) : null}
           {error ? <Alert variant="error">{error}</Alert> : null}
           {justSaved && !dirty ? <Alert variant="success">{t('design.saved')}</Alert> : null}
           {!canManage ? <Alert variant="info">{t('design.needsFullScope')}</Alert> : null}
@@ -377,7 +408,7 @@ export function DesignWorkspace({
                         type="button"
                         role="radio"
                         aria-checked={isSelected}
-                        disabled={!canManage || locked}
+                        disabled={!canManage || locked || exclusiveActive}
                         onClick={() => {
                           setSelected(template.key);
                           setCustomizeOpen(true);
@@ -445,7 +476,7 @@ export function DesignWorkspace({
                             </div>
                           ) : null}
                           <div className="flex flex-wrap items-center gap-2">
-                            <Button onClick={() => void save()} disabled={!dirty || isSaving}>
+                            <Button onClick={() => void save()} disabled={!dirty || isSaving || exclusiveActive}>
                               {t('design.save')}
                             </Button>
                             {dirty ? <span className="text-xs text-muted-foreground">{t('design.unsaved')}</span> : null}
