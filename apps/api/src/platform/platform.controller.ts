@@ -81,7 +81,11 @@ import {
   type AdminRefusal,
   type AdminView,
 } from './platform-admins.service';
-import { CreateRestaurantDto } from './dto/create-restaurant.dto';
+import {
+  CreateRestaurantDto,
+  RestaurantOwnerContactDto,
+} from './dto/create-restaurant.dto';
+import { validateOwnerContact } from './restaurant-owner-contact';
 import { ExclusiveDesignDto } from './dto/exclusive-design.dto';
 import { UpdatePlatformPublicSettingsDto } from './dto/platform-public-settings.dto';
 import {
@@ -607,6 +611,35 @@ export class PlatformController {
     if (result.outcome !== 'ok') {
       throw new NotFoundException(RESTAURANT_NOT_FOUND);
     }
+    return { data: result.data };
+  }
+
+  @Put('restaurants/:restaurantId/owner-contact')
+  @UseGuards(PlatformAuthGuard)
+  async updateOwnerContact(
+    @Param('restaurantId') restaurantId: string,
+    @Body() body: RestaurantOwnerContactDto,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: { fullName: string; phone: string; facebookUrl: string | null } }> {
+    const validated = validateOwnerContact(body);
+    if (!validated.ok || !validated.value) {
+      throw new HttpException(
+        {
+          error: {
+            code: 'RESTAURANT_INVALID',
+            message: 'The customer contact is not valid.',
+          },
+        },
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
+    }
+    const result = await this.restaurants.setOwnerContact(
+      request.platformAdmin,
+      restaurantId,
+      validated.value,
+    );
+    if (result.outcome !== 'ok')
+      throw new NotFoundException(RESTAURANT_NOT_FOUND);
     return { data: result.data };
   }
 
