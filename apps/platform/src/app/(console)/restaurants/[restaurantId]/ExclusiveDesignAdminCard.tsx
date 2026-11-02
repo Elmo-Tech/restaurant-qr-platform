@@ -32,7 +32,7 @@ export function ExclusiveDesignAdminCard({
   const [problem, setProblem] = useState(false);
   const [saved, setSaved] = useState(false);
   const changed = !current || baseTemplate !== current.baseTemplate || status !== current.status;
-  const needsConfirmation = status === "ACTIVE_BASE" &&
+  const needsConfirmation = (status === "ACTIVE_BASE" || status === "ACTIVE_CUSTOM") &&
     (current?.status !== "ACTIVE_BASE" || current?.baseTemplate !== baseTemplate);
 
   async function save() {
@@ -41,7 +41,8 @@ export function ExclusiveDesignAdminCard({
     setSaved(false);
     setProblem(false);
     try {
-      const next = await setExclusiveDesign(restaurantId, { baseTemplate, status });
+      const next = await setExclusiveDesign(restaurantId, { baseTemplate, status,
+      ...(status === "ACTIVE_CUSTOM" ? { rendererKey: "VERDE_NAPOLI_V1" as const } : {}) });
       onSaved(next);
       setSaved(true);
       setConfirmed(false);
@@ -105,10 +106,16 @@ export function ExclusiveDesignAdminCard({
             >
               <option value="RESERVED">{t("exclusive.reserved")}</option>
               <option value="ACTIVE_BASE">{t("exclusive.active")}</option>
+              <option value="ACTIVE_CUSTOM">VERDE — Napoli Club (exclusive)</option>
               <option value="DISABLED">{t("exclusive.disabled")}</option>
             </Select>
           </div>
         </div>
+        {status === "ACTIVE_CUSTOM" ? (
+          <p className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs leading-6 text-foreground">
+            The bespoke VERDE renderer will be shown only for this Restaurant’s QR. Before activating, verify this is the contracted VERDE tenant and review its live menu. This is not a stock template.
+          </p>
+        ) : null}
         {status === "RESERVED" ? (
           <p className="rounded-lg bg-surface-2 p-3 text-xs leading-6 text-muted-foreground">
             {t("exclusive.reservedHint")}
