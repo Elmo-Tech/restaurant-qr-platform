@@ -33,7 +33,7 @@ export function ExclusiveDesignAdminCard({
   const [saved, setSaved] = useState(false);
   const changed = !current || baseTemplate !== current.baseTemplate || status !== current.status;
   const needsConfirmation = (status === "ACTIVE_BASE" || status === "ACTIVE_CUSTOM") &&
-    (current?.status !== "ACTIVE_BASE" || current?.baseTemplate !== baseTemplate);
+    (current?.status !== status || current?.baseTemplate !== baseTemplate);
 
   async function save() {
     if (busy || !changed || (needsConfirmation && !confirmed)) return;
@@ -69,7 +69,9 @@ export function ExclusiveDesignAdminCard({
                     ? "exclusive.reserved"
                     : current.status === "ACTIVE_BASE"
                       ? "exclusive.active"
-                      : "exclusive.disabled",
+                      : current.status === "ACTIVE_CUSTOM"
+                        ? "exclusive.custom"
+                        : "exclusive.disabled",
                 )}`
               : t("exclusive.none")}
           </p>
