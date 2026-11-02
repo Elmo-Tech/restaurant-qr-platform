@@ -28,8 +28,9 @@ jobs:
         run: npm run typecheck:platform
       - name: Lint changed Backend and Platform files
         run: |
-          npm exec --workspace=apps/api -- eslint --rule 'prettier/prettier: off'             src/platform/restaurant-owner-contact.ts             src/platform/restaurant-owner-contact.spec.ts             src/platform/dto/create-restaurant.dto.ts             src/platform/platform-restaurant-creation.service.ts             src/platform/platform-restaurants.service.ts             src/platform/platform.controller.ts             src/provisioning/provision-restaurant.ts             # Existing provisioning Jest file has inherited unsafe-any lint errors.
-            # It is tested by Jest above; do not change unrelated historical casts here.
-          npm exec --workspace=apps/platform -- eslint --rule 'prettier/prettier: off'             src/lib/api/platform.ts src/lib/i18n/messages.ts             'src/app/(console)/restaurants/new/NewRestaurantForm.tsx'             'src/app/(console)/restaurants/[restaurantId]/OwnerContactCard.tsx'             'src/app/(console)/restaurants/[restaurantId]/RestaurantDetailView.tsx'             'src/app/(console)/restaurants/RestaurantsView.tsx'
+          # The inherited provisioning test mock has legacy unsafe-any diagnostics.
+          # Its changes are tested above; lint Backend production and new tests here.
+          npm exec --workspace=apps/api -- eslint --rule 'prettier/prettier: off' src/platform/restaurant-owner-contact.ts src/platform/restaurant-owner-contact.spec.ts src/platform/dto/create-restaurant.dto.ts src/platform/platform-restaurant-creation.service.ts src/platform/platform-restaurants.service.ts src/platform/platform.controller.ts src/provisioning/provision-restaurant.ts
+          npm exec --workspace=apps/platform -- eslint --rule 'prettier/prettier: off' src/lib/api/platform.ts src/lib/i18n/messages.ts 'src/app/(console)/restaurants/new/NewRestaurantForm.tsx' 'src/app/(console)/restaurants/[restaurantId]/OwnerContactCard.tsx' 'src/app/(console)/restaurants/[restaurantId]/RestaurantDetailView.tsx' 'src/app/(console)/restaurants/RestaurantsView.tsx'
       - name: Check new validation modules formatting
         run: npm exec --workspace=apps/api -- prettier --check src/platform/restaurant-owner-contact.ts src/platform/restaurant-owner-contact.spec.ts
