@@ -12,10 +12,10 @@
 4. **Start Fresh with a Blank Menu** — from PR #15 / `feat/menu-start-fresh`. Staff can archive every ACTIVE Menu and start a new empty PRIMARY Menu, keeping old Menus/products/media/OrderItems and QR. This is **NOT irreversible hard deletion**.
 
 Integration PRs #17/#18 brought the menu features; PR #16 brought acquisition + owner contacts. Shared Prisma, Platform API, Console UI and i18n conflicts were reconciled to retain **both** feature sets.
+5. **Menu Import language retention + complete AI extraction prompt** — exact owner branch `fix/menu-import-keep-inactive-language-text-and-complete-prompt` at `277d2b069a269aaf3cbad8a444005786955df7b5`, integrated via PR #20. Retains text when only an inactive language is printed and directs manual Excel AI extraction to include all menu extras/add-on categories.
 
 ## Explicitly NOT included yet
 
-- User's local branch `fix/menu-import-keep-inactive-language-text-and-complete-prompt` was **not found** on GitHub as of the integration snapshot. A similarly named remote branch `fix/menu-import-keep-category-language-and-show-descriptions` is a different branch; do not substitute. Once the owner publishes the intended branch, inspect its exact commits and merge it into this integration branch, then re-run code/local QA.
 - The finished bespoke restaurant-specific renderer, versioned publish/rollback for it, and customer Demo experience.
 - No local Database execution, manual browser acceptance, OWNER sign-off, main merge or production deploy is inferred from passing CI.
 
@@ -27,7 +27,7 @@ Integration PRs #17/#18 brought the menu features; PR #16 brought acquisition + 
 - focused Backend tests for setup-related provisioning, owner contact, acquisition, exclusive assignment/public menu, menus start-fresh and menu controllers,
 - focused semantic lint of new Platform modules.
 
-CI status must be verified for the **final integration commit**, including the user's menu import fix once pushed. A green result establishes only code-level confidence, NOT real DB or browser QA.
+CI status must be verified for the **final integration commit**, including the now-integrated Menu Import fix. A green result establishes only code-level confidence, NOT real DB or browser QA.
 
 ## Database safety (critical)
 
@@ -48,7 +48,7 @@ For code-only safe startup, `npm run dev:doctor` is read-only; `npm run dev:web`
 - **Contact directory:** search by owner name and phone, paginate, open tap-to-call/Facebook, update an old Restaurant's contact; audit records update without PII; Staff and Guest endpoints never return private owner contact or acquisition source.
 - **Exclusive design:** Reserve/Activate/Disable stock base from Platform Admin; only assigned Restaurant sees private status and activated renderer; another Restaurant on `allTemplates`, no package or limited package cannot see/select the private assignment. Guest QR and table QR show correct renderer; no effect on prices/modifiers/checkout.
 - **Blank menu:** on a disposable Restaurant, run Start Fresh, verify all ACTIVE Menus archived and one new blank primary; stale carts cannot submit archived products; historical order and media records remain; restore archived Menu manually; pending Menu Import and stale/non-owner attempts refuse safely.
-- **Menu import fix** (when included): inactive-language content remains intact; Arabic/English prompt completion is accurate; no duplicate translations, unintended overwrite or category loss.
+- **Menu import fix** (now included): inactive-language content remains intact; Arabic/English prompt completion is accurate; no duplicate translations, unintended overwrite or category loss.
 - **UI:** Platform and Staff AR RTL/EN LTR, mobile 320/360/390/430px, accessible dialogs, focus and navigation, correct package/role controls.
 - **Production deployment issue:** independently verify Coolify rollout of prior `main` before considering a new Production release.
 
