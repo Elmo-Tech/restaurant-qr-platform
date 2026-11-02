@@ -106,7 +106,15 @@ export interface Overview {
   recentActivity: AuditEntry[];
 }
 
+/** Private customer contact details, visible only to Platform Administrators. */
+export interface OwnerContact {
+  fullName: string;
+  phone: string;
+  facebookUrl: string | null;
+}
+
 export interface RestaurantSummary {
+  ownerContact: OwnerContact | null;
   id: string;
   publicId: string;
   name: string;
@@ -354,6 +362,18 @@ export function listRestaurants(input: { search: string; status: RestaurantStatu
 }
 export const getRestaurant = (id: string) =>
   data(platformFetch<{ data: RestaurantDetail }>(`/restaurants/${encodeURIComponent(id)}`));
+/** Correct an existing client's primary contact without touching their login. */
+export const updateRestaurantOwnerContact = (
+  id: string,
+  contact: OwnerContact,
+) =>
+  data(
+    platformFetch<{ data: OwnerContact }>(
+      `/restaurants/${encodeURIComponent(id)}/owner-contact`,
+      { method: "PUT", body: contact },
+    ),
+  );
+
 export const setRestaurantStatus = (id: string, status: "ACTIVE" | "SUSPENDED") =>
   data(
     platformFetch<{ data: { status: RestaurantStatus } }>(`/restaurants/${encodeURIComponent(id)}/status`, {
@@ -381,6 +401,7 @@ export interface NewRestaurantInput {
   countryCode?: string;
   packageId: string | null;
   acquisition?: RestaurantAcquisitionInput | null;
+  ownerContact?: OwnerContact | null;
 }
 export const createRestaurant = (input: NewRestaurantInput) =>
   data(
