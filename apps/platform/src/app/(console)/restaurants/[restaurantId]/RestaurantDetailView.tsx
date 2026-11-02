@@ -27,6 +27,7 @@ import { useI18n } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils";
 import { BillingSection } from "./billing/BillingSection";
+import { OwnerContactCard } from "./OwnerContactCard";
 
 type FeatureChoice = "default" | "allowed" | "notAllowed";
 
@@ -427,6 +428,15 @@ export function RestaurantDetailView({ restaurantId }: { restaurantId: string })
               ) : null}
             </dl>
           </Card>
+
+          <OwnerContactCard
+            restaurantId={restaurantId}
+            contact={restaurant.ownerContact}
+            onSaved={(ownerContact) => {
+              setRestaurant((current) => current ? { ...current, ownerContact } : current);
+              reloadAudit();
+            }}
+          />
 
           <Card>
             <CardHeader title={t("detail.owners")} />
