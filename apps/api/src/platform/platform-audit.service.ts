@@ -12,6 +12,7 @@ export type PlatformAction =
   | 'admin.password_changed'
   | 'restaurant.created'
   | 'restaurant.status_changed'
+  | 'restaurant.owner_contact_updated'
   | 'restaurant.feature_changed'
   | 'restaurant.exclusive_design_updated'
   | 'restaurant.package_changed'
