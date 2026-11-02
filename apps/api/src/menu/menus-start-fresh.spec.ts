@@ -90,6 +90,7 @@ describe('Start fresh with an empty primary Menu', () => {
     expect(m.tx.menuImportJob.count).toHaveBeenCalledWith({
       where: {
         restaurantId: RESTAURANT_ID,
+        targetMenu: { status: 'ACTIVE' },
         status: { in: ['PROCESSING', 'READY_FOR_REVIEW'] },
       },
     });
