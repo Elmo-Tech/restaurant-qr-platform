@@ -77,7 +77,7 @@ describe('Platform Admin: tenant-owned exclusive design assignment', () => {
     expect(t.audit.record).not.toHaveBeenCalled();
   });
 
-  it('requires a private Platform assignment before activating a base renderer', async () => {
+  it('updates a reserved assignment into an active base renderer with audit', async () => {
     const t = setup();
     const activated = { baseTemplate: 'BLOOM' as const, status: 'ACTIVE_BASE' as const };
     t.prisma.restaurantExclusiveDesign.findUnique.mockResolvedValueOnce(reservation);
@@ -90,7 +90,7 @@ describe('Platform Admin: tenant-owned exclusive design assignment', () => {
     expect(t.audit.record).toHaveBeenCalledWith(
       expect.objectContaining({
         details: {
-          from: reservation,
+          from: { template: 'BLOOM', status: 'RESERVED' },
           to: { template: 'BLOOM', status: 'ACTIVE_BASE' },
         },
       }),
