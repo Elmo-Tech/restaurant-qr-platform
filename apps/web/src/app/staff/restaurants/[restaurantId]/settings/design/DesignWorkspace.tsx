@@ -300,7 +300,12 @@ export function DesignWorkspace({
     return () => { cancelled = true; };
   }, [canManage, restaurantId]);
 
-  const dirty = selected !== saved;
+  // A Platform-assigned temporary design owns the public Guest layout, while
+  // the stock picker remains the fallback once Platform disables it.
+  const activePreview = exclusiveActive && exclusiveDesign
+    ? exclusiveDesign.baseTemplate
+    : selected;
+  const dirty = !exclusiveActive && selected !== saved;
 
   async function save() {
     if (exclusiveActive) return;
@@ -323,11 +328,11 @@ export function DesignWorkspace({
     }
   }
 
-  const previewLocale = selected === 'EMBER' ? emberPreviewLanguage
-    : selected === 'BLOOM' ? bloomPreviewLanguage : selected==='BREW'?brewPreviewLanguage:null;
-  const designPreview = selected === 'EMBER' || selected === 'BLOOM' || selected==='BREW' || selected==='EDITORIAL';
+  const previewLocale = activePreview === 'EMBER' ? emberPreviewLanguage
+    : activePreview === 'BLOOM' ? bloomPreviewLanguage : activePreview==='BREW'?brewPreviewLanguage:null;
+  const designPreview = activePreview === 'EMBER' || activePreview === 'BLOOM' || activePreview==='BREW' || activePreview==='EDITORIAL';
   const previewSrc = qrCode
-    ? `/q/${qrCode}?template=${selected.toLowerCase()}${designPreview
+    ? `/q/${qrCode}?template=${activePreview.toLowerCase()}${designPreview
         ? `&designPreview=1${previewLocale ? `&lang=${previewLocale}` : ''}`
         : ''}`
     : null;
@@ -495,12 +500,12 @@ export function DesignWorkspace({
           src={previewSrc}
           isLoading={qrCode === undefined}
           premiumDraft={
-            selected === 'EMBER' && emberPreviewDraft
+            activePreview === 'EMBER' && emberPreviewDraft
               ? { kind: 'ember', settings: emberPreviewDraft }
-              : selected === 'BLOOM' && bloomPreviewDraft
+              : activePreview === 'BLOOM' && bloomPreviewDraft
                 ? { kind: 'bloom', settings: bloomPreviewDraft }
-                : selected==='BREW'&&brewPreviewDraft?{kind:'brew',settings:brewPreviewDraft}
-                : selected==='EDITORIAL'&&editorialPreview?{kind:'editorial',settings:editorialPreview}:null
+                : activePreview==='BREW'&&brewPreviewDraft?{kind:'brew',settings:brewPreviewDraft}
+                : activePreview==='EDITORIAL'&&editorialPreview?{kind:'editorial',settings:editorialPreview}:null
           }
         />
       </div>
