@@ -1,4 +1,5 @@
 name: One-Time Menu Start Fresh Formatter
+# Run exactly once after the complete all-active-menu reset patch is committed.
 
 on:
   push:
