@@ -109,7 +109,9 @@ export class PlatformRestaurantCreationService {
       where: { publicId: result.restaurantPublicId },
       data: {
         packageId: input.packageId,
-        ...(input.countryCode ? { countryCode: input.countryCode.toUpperCase() } : {}),
+        ...(input.countryCode
+          ? { countryCode: input.countryCode.toUpperCase() }
+          : {}),
       },
       select: { id: true, publicId: true, name: true },
     });

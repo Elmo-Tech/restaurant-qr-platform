@@ -10,7 +10,10 @@ import {
   ValidateIf,
 } from 'class-validator';
 
-import { ACQUISITION_SOURCE_TYPES, type AcquisitionSourceType } from '../restaurant-acquisition';
+import {
+  ACQUISITION_SOURCE_TYPES,
+  type AcquisitionSourceType,
+} from '../restaurant-acquisition';
 
 export class RestaurantAcquisitionDto {
   @IsIn(ACQUISITION_SOURCE_TYPES)

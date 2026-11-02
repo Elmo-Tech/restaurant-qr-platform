@@ -97,9 +97,16 @@ export function validateAcquisitionInput(raw: unknown): AcquisitionValidation {
   }
   const sourceType = input.sourceType as AcquisitionSourceType;
   const problems: string[] = [];
-  const referringRestaurantId = text(input.referringRestaurantId, 'referringRestaurantId', 36, problems);
+  const referringRestaurantId = text(
+    input.referringRestaurantId,
+    'referringRestaurantId',
+    36,
+    problems,
+  );
   const sourceName = text(input.sourceName, 'sourceName', 200, problems);
-  const sourcePlatform = text(input.sourcePlatform, 'sourcePlatform', 40, problems)?.toUpperCase() ?? null;
+  const sourcePlatform =
+    text(input.sourcePlatform, 'sourcePlatform', 40, problems)?.toUpperCase() ??
+    null;
   const sourceDetail = text(input.sourceDetail, 'sourceDetail', 300, problems);
   const campaign = text(input.campaign, 'campaign', 160, problems);
 
@@ -108,13 +115,18 @@ export function validateAcquisitionInput(raw: unknown): AcquisitionValidation {
   }
   if (sourceType === 'CUSTOMER_REFERRAL') {
     if (Boolean(referringRestaurantId) === Boolean(sourceName)) {
-      problems.push('Choose an existing referring Restaurant OR enter its name');
+      problems.push(
+        'Choose an existing referring Restaurant OR enter its name',
+      );
     }
   } else if (referringRestaurantId) {
     problems.push('referringRestaurantId is valid only for customer referrals');
   }
 
-  if ((sourceType === 'EMPLOYEE_REFERRAL' || sourceType === 'SALES') && !sourceName) {
+  if (
+    (sourceType === 'EMPLOYEE_REFERRAL' || sourceType === 'SALES') &&
+    !sourceName
+  ) {
     problems.push('Enter the employee or salesperson name');
   }
   if (
@@ -125,7 +137,9 @@ export function validateAcquisitionInput(raw: unknown): AcquisitionValidation {
   }
   if (sourceType === 'SOCIAL_MEDIA' || sourceType === 'PAID_AD') {
     const options: readonly string[] =
-      sourceType === 'SOCIAL_MEDIA' ? SOCIAL_MEDIA_PLATFORMS : PAID_AD_PLATFORMS;
+      sourceType === 'SOCIAL_MEDIA'
+        ? SOCIAL_MEDIA_PLATFORMS
+        : PAID_AD_PLATFORMS;
     if (!sourcePlatform || !options.includes(sourcePlatform)) {
       problems.push('Select a valid social or advertising platform');
     }
