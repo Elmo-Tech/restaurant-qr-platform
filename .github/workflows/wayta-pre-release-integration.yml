@@ -1,0 +1,56 @@
+name: Wayta Pre-Release Integration QA
+
+on:
+  push:
+    branches:
+      - integration/wayta-pre-release-2026-11-02
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  integrated-code-qa:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout integration branch
+        uses: actions/checkout@v4
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate combined Prisma schema (read-only, no database)
+        run: npm run db:validate
+      - name: Typecheck API with combined generated Prisma client
+        run: npm run typecheck:api
+      - name: Run integrated focused Backend tests
+        run: >-
+          npm exec --workspace=apps/api -- jest --runInBand
+          restaurant-owner-contact.spec.ts
+          restaurant-acquisition.spec.ts
+          provision-restaurant.spec.ts
+          platform-exclusive-design.spec.ts
+          menus-start-fresh.spec.ts
+          menus.service.spec.ts
+          menus.controller.spec.ts
+          public-menu.service.spec.ts
+          public-menu.controller.spec.ts
+      - name: Typecheck Staff Web
+        run: npm run typecheck:web
+      - name: Typecheck Platform Console
+        run: npm run typecheck:platform
+      - name: Lint new Platform source without inheriting legacy formatting errors
+        run: >-
+          npm exec --workspace=apps/api -- eslint
+          --rule 'prettier/prettier: off'
+          src/platform/restaurant-owner-contact.ts
+          src/platform/restaurant-owner-contact.spec.ts
+          src/platform/restaurant-acquisition.ts
+          src/platform/restaurant-acquisition.spec.ts
+          src/platform/dto/create-restaurant.dto.ts
+          src/platform/dto/exclusive-design.dto.ts
+      - name: Verify migration file and merge whitespace
+        run: git diff --check HEAD~1 HEAD
