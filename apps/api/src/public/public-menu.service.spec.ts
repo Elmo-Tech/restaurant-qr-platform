@@ -800,6 +800,58 @@ describe('Exclusive Menu Design tenant-only base reservation', () => {
     });
   }
 
+  it('resolves the compiled VERDE renderer only for its assigned Restaurant without unlocking stock templates', async () => {
+    const assigned = await menuFor({
+      exclusiveDesign: {
+        baseTemplate: 'CLASSIC',
+        status: 'ACTIVE_CUSTOM',
+        rendererKey: 'VERDE_NAPOLI_V1',
+      },
+    });
+    expect(assigned.outcome).toBe('found');
+    if (assigned.outcome !== 'found') return;
+    expect(assigned.data.context.restaurant.exclusiveRendererKey).toBe('VERDE_NAPOLI_V1');
+    expect(assigned.data.context.restaurant.menuTemplate).toBe('CLASSIC');
+    expect(assigned.data.context.allowedTemplates).toEqual(['CLASSIC']);
+    expect(JSON.stringify(assigned.data)).not.toContain('exclusiveDesign');
+
+    const otherRestaurant = await menuFor({ exclusiveDesign: null });
+    expect(otherRestaurant.outcome).toBe('found');
+    if (otherRestaurant.outcome !== 'found') return;
+    expect(otherRestaurant.data.context.restaurant.exclusiveRendererKey).toBeUndefined();
+    expect(otherRestaurant.data.context.allowedTemplates).toEqual(['CLASSIC']);
+  });
+
+  it.each(['RESERVED', 'ACTIVE_BASE', 'DISABLED'])(
+    'does not expose a stored bespoke renderer while its status is %s',
+    async (status) => {
+      const result = await menuFor({
+        exclusiveDesign: {
+          baseTemplate: 'CLASSIC',
+          status,
+          rendererKey: 'VERDE_NAPOLI_V1',
+        },
+      });
+      expect(result.outcome).toBe('found');
+      if (result.outcome !== 'found') return;
+      expect(result.data.context.restaurant.exclusiveRendererKey).toBeUndefined();
+    },
+  );
+
+  it('resolves the VERDE renderer for the authorized Table QR path too', async () => {
+    const result = await menuFor({
+      exclusiveDesign: {
+        baseTemplate: 'CLASSIC',
+        status: 'ACTIVE_CUSTOM',
+        rendererKey: 'VERDE_NAPOLI_V1',
+      },
+    }, 'TABLE');
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    expect(result.data.context.qrType).toBe('TABLE');
+    expect(result.data.context.restaurant.exclusiveRendererKey).toBe('VERDE_NAPOLI_V1');
+  });
+
   it('activates a stock BLOOM base only for the QR-resolved assigned Restaurant, even with Classic-only package', async () => {
     const exclusive = await menuFor({
       exclusiveDesign: { baseTemplate: 'BLOOM', status: 'ACTIVE_BASE' },
