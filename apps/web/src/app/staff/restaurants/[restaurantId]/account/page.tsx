@@ -27,13 +27,14 @@ export default async function AccountPage({ params }: AccountPageProps) {
     return <Alert variant="error">{sessionState.message}</Alert>;
   }
 
-  const hasMembership = sessionState.context.memberships.some(
+  const membership = sessionState.context.memberships.find(
     (candidate) => candidate.restaurant.id === restaurantId,
   );
 
-  if (!hasMembership) {
+  if (!membership) {
     return <Alert variant="error">{t('guard.restaurantNotFound')}</Alert>;
   }
 
-  return <AccountWorkspace email={sessionState.context.user.email} />;
+  // A demo owner's address is a throw-away one (DEC-060): the visitor sees a plain label instead.
+  return <AccountWorkspace email={membership.restaurant.demoExpiresAt ? t('demo.visitor') : sessionState.context.user.email} />;
 }
