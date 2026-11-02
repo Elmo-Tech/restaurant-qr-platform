@@ -7,7 +7,7 @@
 
 Restaurant Staff should be able to empty a menu and start again quickly, especially when onboarding a client or replacing a poorly imported menu. **This is not a hard-delete feature.** Historical `order_items.product_id`, `order_items.variant_id`, `order_item_modifiers` and menu import references use `ON DELETE RESTRICT` where necessary. Deleting Products/Categories/Menu outright could break data integrity, historical pricing, refunds or reports.
 
-**Approved first implementation direction:** "Start with a blank menu" archives the existing ACTIVE primary Menu (sets `status=INACTIVE`, `isPrimary=false`) and creates a new ACTIVE empty primary Menu. Existing categories, products, images, variants, modifiers, historical Orders, and import jobs are left untouched in their archived context. Old menu remains accessible for reference and possible restoration.
+**Approved first implementation direction:** "Start with a blank menu" archives the Restaurant's existing ACTIVE Menus (sets `status=INACTIVE`, `isPrimary=false`) and creates a new ACTIVE empty primary Menu. Existing categories, products, images, variants, modifiers, historical Orders, and import jobs are left untouched in their archived context. Old menus remain accessible for reference and possible restoration.
 
 The public QR URL, Restaurant identity, Package, branches, ordering channel settings and all staff sessions remain unchanged. Guests see the new empty primary menu; stale guest carts cannot buy archived products, because `PublicOrdersService` rechecks each Product's Category belongs to the current ACTIVE primary Menu inside the order transaction.
 
@@ -41,7 +41,7 @@ Auth guards: existing `AuthGuard`, `CsrfGuard`, `RestaurantAccessGuard`, `Permis
 
 - This **does not permanently delete** old menu data or images; historical data protection is intentional.
 - Old menus remain visible to authorized Staff, marked INACTIVE. Reactivating and switching primary is possible using existing Staff menu editing controls, but a dedicated one-click Undo/Restore can be added after browser QA.
-- This V1 action targets the **current primary Menu** only, not every menu in a Restaurant that might be inactive/secondary. If a future true "delete unused draft" action is needed, require a separate proposal with reference checks, explicit backup, audit and confirmation.
+- This V1 action archives **all currently ACTIVE Menus**, but does not permanently delete or conceal archived Menus in Staff. A later dedicated Archive view can make them less prominent. If a future true "delete unused draft" action is needed, require a separate proposal with reference checks, explicit backup, audit and confirmation.
 - No new Prisma schema or migration. Code-level CI never proves DB/Guest integration.
 
 ## QA / release gate
