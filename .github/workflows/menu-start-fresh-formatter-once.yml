@@ -1,0 +1,41 @@
+name: One-Time Menu Start Fresh Formatter
+
+on:
+  push:
+    branches: [feat/menu-start-fresh]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: "${{ github.event.head_commit.message == 'ci(menu): run one-time format pass' }}"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Format new and edited Backend code
+        run: >-
+          npm exec --workspace=apps/api -- prettier --write
+          src/menu/dto/start-fresh-menu.dto.ts
+          src/menu/menus.service.ts
+          src/menu/menus.controller.ts
+          src/menu/menus-start-fresh.spec.ts
+      - name: Ensure patch is clean
+        run: git diff --check
+      - name: Commit to feature branch only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/api/src/menu/dto/start-fresh-menu.dto.ts
+          git add apps/api/src/menu/menus.service.ts
+          git add apps/api/src/menu/menus.controller.ts
+          git add apps/api/src/menu/menus-start-fresh.spec.ts
+          if ! git diff --cached --quiet; then
+            git commit -m "style(menu): format safe start-fresh implementation"
+            git push origin "HEAD:refs/heads/feat/menu-start-fresh"
+          fi
