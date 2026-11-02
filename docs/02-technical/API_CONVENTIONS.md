@@ -2355,6 +2355,12 @@ The internal API of the platform team's console (`apps/platform`), all under `/a
   - `PATCH /platform/settings/ai/keys/{keyId}` accepts `{ label?, status? }` (`platform.ai_key_updated`); `DELETE /platform/settings/ai/keys/{keyId}` answers `204` (`platform.ai_key_deleted`). While the engine is `DIRECT` the last active key can be neither disabled nor deleted (`409 KEYS_MISSING`).
   - `POST /platform/settings/ai/keys/{keyId}/test` sends one tiny request with that key and the chosen model and answers `{ result: OK | LIMITED | REJECTED | UNAVAILABLE | REQUEST_REFUSED, model, httpStatus }`. It never returns the provider's text.
   - Refusals use the error envelope: `409 ENCRYPTION_NOT_CONFIGURED`, `409 KEYS_MISSING`, `409 KEY_DUPLICATE`, `409 KEY_LIMIT` (20 keys), `409 KEY_UNREADABLE`, `422 KEY_INVALID`, `422 LABEL_INVALID`, `422 MODEL_INVALID`, `404 KEY_NOT_FOUND` (also for a malformed id).
+- **Temporary demo restaurants (DEC-060)**:
+  - `GET /platform/demos` returns `[{ id, publicId, label, status: ACTIVE | LOCKED, createdAt, expiresAt, removedAt, opened, lastOpenedAt, openCount }]` (platform-authenticated, Origin-checked).
+  - `POST /platform/demos` accepts `{ label (1 to 80), hours (1 to 336) }` and answers `201 { demo, link }`. The link is shown only here. `409 DEMO_LIMIT_REACHED` at the configured maximum, `422 DEMO_INVALID` for a bad label.
+  - `POST /platform/demos/{id}/extend` accepts `{ hours }`; `POST /platform/demos/{id}/link` replaces the link (the old one stops working) and answers `{ demo, link }`; `DELETE /platform/demos/{id}` removes it now (`204`). A normal restaurant id answers `404 DEMO_NOT_FOUND`. Audited as `platform.demo_created`, `demo_extended`, `demo_link_regenerated`, `demo_removed`.
+  - `POST /demo/enter` (public, rate limited like a sign-in) accepts `{ token }`, sets the staff session cookie and answers `{ data: { redirectTo } }`; any wrong, expired or locked link is `404 DEMO_LINK_INVALID`.
+  - In a demo restaurant the Backend answers `403 DEMO_RESTRICTED` for password change, invitations, staff and roles, subscription requests, image upload and removal, and Menu Import. The sign-in context carries `restaurant.demoExpiresAt` (null for a normal restaurant).
 - The public Guest Menu context includes `platform.poweredByUrl`. If the singleton settings row is unavailable during a pre-migration/seed state, the Backend safely falls back to `https://menu.elmotechsoft.online/`.
 
 ---

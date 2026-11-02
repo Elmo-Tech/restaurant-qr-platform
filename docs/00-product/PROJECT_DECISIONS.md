@@ -1451,6 +1451,30 @@ endpoint (Gemini by default), classical OCR, moving the Guest AI Assistant.
 
 ---
 
+### DEC-060 — Temporary Demo Restaurants
+
+**Status:** Accepted (owner, 2026-11-02). Specification: `docs/01-domain/DEMO_RESTAURANTS_SPEC.md`.
+
+The Platform team can create a **temporary demo restaurant** for a prospect from the console: a full, private
+restaurant built from a curated bilingual template (24 products with photos, sizes, extras, discounts, two
+branches with tables and delivery zones, announcements and suggestions), opened by a **secret link** with no
+password. It has a fixed life (1 hour to 14 days), is locked when it ends and **removed completely** shortly after.
+
+The template is data shipped with the API (`apps/api/demo-template/`), not a live restaurant. A demo is a normal
+restaurant row flagged `is_demo` with an expiry, so every dashboard feature works as it does for a customer. The
+Backend refuses what a demo must not do (password, staff, subscription requests, uploads, Menu Import) and the purge
+refuses anything that is not a demo; it is built from the database's foreign keys and an end-to-end test checks that
+no row is left in any table with a `restaurant_id` and that no other restaurant changes. Demos are excluded from the
+Platform totals.
+
+The reason is sales: a prospect sees the real product at once, with no setup by us and no shared account, and what
+they do never affects anyone else.
+
+**Not in scope:** a public self-service "Try the demo", seeded order history, a test-order button, converting a demo
+into a trial, several templates.
+
+---
+
 ---
 
 ---
