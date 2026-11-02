@@ -23,8 +23,9 @@ function build() {
     },
     menuTranslation: { create: jest.fn().mockResolvedValue({}) },
   };
+  type TransactionMock = typeof tx;
   const db = {
-    $transaction: jest.fn((fn: (tx: typeof tx) => Promise<unknown>) => fn(tx)),
+    $transaction: jest.fn((fn: (client: TransactionMock) => Promise<unknown>) => fn(tx)),
   };
   return { tx, db, service: new MenusService(db as never) };
 }
