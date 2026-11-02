@@ -2,7 +2,7 @@
 
 **Branch:** `feat/restaurant-acquisition-source`  
 **Base:** `main` at `d352bc8ba2d7aca27c82947f090474f318c46fc3`.  
-**Status:** Architecture/UX first slice only; no API, database or UI implementation yet.
+**Status:** Draft implementation in progress (schema + migration SQL + source validation + atomic Platform provisioning integration + create form + Platform detail source card). **No database migration has been applied; end-to-end browser QA and local DB tests are pending.**
 
 ## Product need
 
@@ -67,6 +67,15 @@ For older restaurants show 'Unknown/Not recorded' rather than backfill guesses. 
 - Create and later edit actions appear in Platform Audit; historic Unknown behavior preserved.
 - AR/EN localization, mobile layout, keyboard/focus, privacy/non-exposure in public/staff endpoints.
 - Running code should update `AGENTS.md`-compatible decision/amendment docs and focused API/Web tests.
+
+## Current implementation on this branch
+
+- `apps/api/prisma/schema.prisma` and `20261114090000_restaurant_acquisition_source/migration.sql` add a private acquisition record with optional registered Restaurant referral and readable name snapshot. Existing restaurants are not backfilled.
+- `apps/api/src/platform/restaurant-acquisition.ts` validates source-type dependent fields before provisioning; `provision-restaurant.ts` verifies a selected referring Restaurant and saves the attribution in the **same** transaction as the new Restaurant, OWNER, first Branch and QR.
+- `NewRestaurantForm.tsx` and `AcquisitionSourceFields.tsx` collect source information dynamically; the existing-customer picker searches the Platform-admin-only restaurant API, while free text remains available for unregistered referrers.
+- Platform Restaurant details expose the source privately; the Staff and public Guest contracts remain unchanged.
+- Current first release **does not yet support editing a source after creation or source analytics**. Those are follow-on slices, not a completed capability.
+- Branch-only GitHub Actions check Prisma schema, API/Platform type checks, focused tests, lint and formatting without connecting to a database. A green result is code-level CI, **not** DB/browser QA.
 
 ## Implementation slices
 
