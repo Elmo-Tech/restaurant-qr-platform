@@ -17,6 +17,8 @@ import {
 import type { Prisma, RestaurantStatus } from '../generated/prisma/client';
 import { PlatformAuditService } from './platform-audit.service';
 import type { PlatformAdminPrincipal } from './platform-auth.service';
+import type { MenuTemplateKey } from '../entitlements/templates';
+import type { ExclusiveDesignMode } from './dto/exclusive-design.dto';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -61,7 +63,13 @@ export interface FeatureState {
   baseEnabled: boolean;
 }
 
+export interface ExclusiveDesignView {
+  baseTemplate: MenuTemplateKey;
+  status: ExclusiveDesignMode;
+}
+
 export interface RestaurantDetail extends RestaurantSummary {
+  exclusiveDesign: ExclusiveDesignView | null;
   /** The Restaurant's own settings (read only here). */
   settings: {
     pickupEnabled: boolean;
@@ -225,6 +233,7 @@ export class PlatformRestaurantsService {
         whatsappOrderingEnabled: true,
         menuTemplate: true,
         suggestionsMode: true,
+        exclusiveDesign: { select: { baseTemplate: true, status: true } },
         _count: {
           select: {
             branches: true,
@@ -289,6 +298,12 @@ export class PlatformRestaurantsService {
         package: row.package && { id: row.package.id, name: row.package.name },
         disabledFeatures: disabledFeatures(row.features, row.package),
         subscription: this.briefOf(row.subscriptions),
+        exclusiveDesign: row.exclusiveDesign
+          ? {
+              baseTemplate: row.exclusiveDesign.baseTemplate,
+              status: row.exclusiveDesign.status,
+            }
+          : null,
         settings: {
           pickupEnabled: row.pickupEnabled,
           deliveryEnabled: row.deliveryEnabled,
@@ -311,6 +326,53 @@ export class PlatformRestaurantsService {
         },
       },
     };
+  }
+
+  /**
+   * Only Platform Admins can configure a Restaurant's private design slot.
+   * No new global template key is created. RESERVED never changes the Guest
+   * layout; ACTIVE_BASE uses this Restaurant's one selected stock renderer.
+   */
+  async setExclusiveDesign(
+    admin: PlatformAdminPrincipal,
+    restaurantId: string,
+    input: ExclusiveDesignView,
+  ): Promise<RestaurantLookup<ExclusiveDesignView>> {
+    if (!UUID.test(restaurantId)) return { outcome: 'notFound' };
+    const restaurant = await this.prisma.restaurant.findUnique({
+      where: { id: restaurantId },
+      select: { id: true, name: true },
+    });
+    if (!restaurant) return { outcome: 'notFound' };
+
+    const before = await this.prisma.restaurantExclusiveDesign.findUnique({
+      where: { restaurantId },
+      select: { baseTemplate: true, status: true },
+    });
+    if (!before || before.baseTemplate !== input.baseTemplate || before.status !== input.status) {
+      await this.prisma.restaurantExclusiveDesign.upsert({
+        where: { restaurantId },
+        create: {
+          restaurantId,
+          baseTemplate: input.baseTemplate,
+          status: input.status,
+        },
+        update: {
+          baseTemplate: input.baseTemplate,
+          status: input.status,
+        },
+      });
+      await this.audit.record({
+        admin,
+        action: 'restaurant.exclusive_design_updated',
+        restaurant: { id: restaurant.id, name: restaurant.name },
+        details: {
+          from: before ? { template: before.baseTemplate, status: before.status } : null,
+          to: { template: input.baseTemplate, status: input.status },
+        },
+      });
+    }
+    return { outcome: 'ok', data: input };
   }
 
   /** Switch an account on or off. A suspended Restaurant's Staff and Guests are refused by the existing status checks. */
