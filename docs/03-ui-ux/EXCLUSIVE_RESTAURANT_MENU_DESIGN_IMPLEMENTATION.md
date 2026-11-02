@@ -1,7 +1,7 @@
 # Exclusive Custom Menu Design — Implementation Contract (Draft)
 
 **Branch:** `feat/exclusive-restaurant-menu-design`  
-**Status:** Updated owner direction (2026-11-02): a tenant-private design **reservation** using an existing stock renderer as a temporary base. Runtime/schema/UI implementation and browser/DB QA pending.  
+**Status:** Tenant-private stock-template reservation and activation implemented in Draft branch code (schema/migration SQL, Backend/Admin/Staff and public QR integration). CI validation and browser/DB QA pending; no production deployment.  
 **Base:** `main` at `d352bc8ba2d7aca27c82947f090474f318c46fc3`.  
 **Scope:** A truly restaurant-exclusive branded Guest Menu design, not another package template.
 
@@ -80,6 +80,15 @@ The Backend resolves `publicCode -> Restaurant -> published exclusive assignment
 Preserve the existing Guest Menu's **shared** order/cart/variant/modifier/discount/checkout and status components. An exclusive skin may change the hero, sections, category navigation, card presentation and design tokens, but must never fork pricing or order submission rules.
 
 If the renderer is unknown, the published schema version is unsupported, or loading fails, fall back safely to the currently allowed stock menu layout with monitored diagnostics — not a blank page. Draft data must never be returned by the public menu API.
+
+## 6A. Current Draft branch implementation (2026-11-02)
+
+- Added `RestaurantExclusiveDesign` with `restaurantId` PK and `baseTemplate` / `RESERVED | ACTIVE_BASE | DISABLED`, plus additive RLS-protected migration `20261115090000_exclusive_menu_design_reservations`. The migration has NOT been run on local/staging/Production.
+- Platform Admin can reserve, activate, change or disable a tenant's temporary base stock design from Restaurant detail using a guarded Platform endpoint and audit log.
+- Public Guest QR resolves assignment **only** from the QR-owned Restaurant. `ACTIVE_BASE` overrides its public stock presentation and unlocks only that one base renderer for this Restaurant. `RESERVED` and `DISABLED` leave the regular Package-gated menu layout unchanged.
+- Staff's full-scope Menu Design view displays a private status card, previews the temporary renderer, and cannot replace the Platform-active selection with an ordinary stock choice. This private card is never shown to other Restaurants.
+- Unit coverage includes `PublicMenuService` tenant-limited base, inactive reservation fallback and generic/table QR, and Platform Admin assignment/audit. Code-level CI does not prove database migration, production readiness or browser UX.
+- **Not implemented:** final unique renderer, versioned config drafts/publish/rollback, direct Staff customization of bespoke configuration, or browser-verified first client design. These remain subsequent owner-approved phases.
 
 ## 7. Safety and review gate
 
