@@ -25,7 +25,9 @@ function build() {
   };
   type TransactionMock = typeof tx;
   const db = {
-    $transaction: jest.fn((fn: (client: TransactionMock) => Promise<unknown>) => fn(tx)),
+    $transaction: jest.fn((fn: (client: TransactionMock) => Promise<unknown>) =>
+      fn(tx),
+    ),
   };
   return { tx, db, service: new MenusService(db as never) };
 }
@@ -33,20 +35,24 @@ function build() {
 describe('Start fresh with an empty primary Menu', () => {
   it('rejects malformed Menu ID before any database transaction', async () => {
     const m = build();
-    await expect(m.service.startFreshMenu({
-      restaurantId: RESTAURANT_ID,
-      expectedPrimaryMenuId: 'bad',
-    })).resolves.toEqual({ outcome: 'menuNotFound' });
+    await expect(
+      m.service.startFreshMenu({
+        restaurantId: RESTAURANT_ID,
+        expectedPrimaryMenuId: 'bad',
+      }),
+    ).resolves.toEqual({ outcome: 'menuNotFound' });
     expect(m.db.$transaction).not.toHaveBeenCalled();
   });
 
   it('does not expose another Restaurant menu or make any writes', async () => {
     const m = build();
     m.tx.menu.findFirst.mockResolvedValue(null);
-    await expect(m.service.startFreshMenu({
-      restaurantId: RESTAURANT_ID,
-      expectedPrimaryMenuId: MENU_ID,
-    })).resolves.toEqual({ outcome: 'menuNotFound' });
+    await expect(
+      m.service.startFreshMenu({
+        restaurantId: RESTAURANT_ID,
+        expectedPrimaryMenuId: MENU_ID,
+      }),
+    ).resolves.toEqual({ outcome: 'menuNotFound' });
     expect(m.tx.menu.findFirst).toHaveBeenCalledWith({
       where: { id: MENU_ID, restaurantId: RESTAURANT_ID },
       select: { id: true, isPrimary: true, status: true, displayOrder: true },
@@ -58,22 +64,29 @@ describe('Start fresh with an empty primary Menu', () => {
   it('refuses to archive a stale or inactive primary Menu', async () => {
     const m = build();
     m.tx.menu.findFirst.mockResolvedValue({
-      id: MENU_ID, isPrimary: false, status: 'INACTIVE', displayOrder: 0,
+      id: MENU_ID,
+      isPrimary: false,
+      status: 'INACTIVE',
+      displayOrder: 0,
     });
-    await expect(m.service.startFreshMenu({
-      restaurantId: RESTAURANT_ID,
-      expectedPrimaryMenuId: MENU_ID,
-    })).resolves.toEqual({ outcome: 'menuChanged' });
+    await expect(
+      m.service.startFreshMenu({
+        restaurantId: RESTAURANT_ID,
+        expectedPrimaryMenuId: MENU_ID,
+      }),
+    ).resolves.toEqual({ outcome: 'menuChanged' });
     expect(m.tx.menu.updateMany).not.toHaveBeenCalled();
   });
 
   it('blocks pending AI import before archiving a target Menu', async () => {
     const m = build();
     m.tx.menuImportJob.count.mockResolvedValue(1);
-    await expect(m.service.startFreshMenu({
-      restaurantId: RESTAURANT_ID,
-      expectedPrimaryMenuId: MENU_ID,
-    })).resolves.toEqual({ outcome: 'activeImport' });
+    await expect(
+      m.service.startFreshMenu({
+        restaurantId: RESTAURANT_ID,
+        expectedPrimaryMenuId: MENU_ID,
+      }),
+    ).resolves.toEqual({ outcome: 'activeImport' });
     expect(m.tx.menuImportJob.count).toHaveBeenCalledWith({
       where: {
         restaurantId: RESTAURANT_ID,
@@ -86,23 +99,32 @@ describe('Start fresh with an empty primary Menu', () => {
   it('is a no-op when the selected current primary already has no Categories', async () => {
     const m = build();
     m.tx.category.count.mockResolvedValue(0);
-    await expect(m.service.startFreshMenu({
-      restaurantId: RESTAURANT_ID,
-      expectedPrimaryMenuId: MENU_ID,
-    })).resolves.toEqual({ outcome: 'alreadyEmpty', menuId: MENU_ID });
+    await expect(
+      m.service.startFreshMenu({
+        restaurantId: RESTAURANT_ID,
+        expectedPrimaryMenuId: MENU_ID,
+      }),
+    ).resolves.toEqual({ outcome: 'alreadyEmpty', menuId: MENU_ID });
     expect(m.tx.menu.updateMany).not.toHaveBeenCalled();
   });
 
   it('archives current primary and creates an empty Arabic menu in one transaction', async () => {
     const m = build();
-    await expect(m.service.startFreshMenu({
-      restaurantId: RESTAURANT_ID,
-      expectedPrimaryMenuId: MENU_ID,
-    })).resolves.toEqual({ outcome: 'started', menuId: NEW_MENU_ID });
+    await expect(
+      m.service.startFreshMenu({
+        restaurantId: RESTAURANT_ID,
+        expectedPrimaryMenuId: MENU_ID,
+      }),
+    ).resolves.toEqual({ outcome: 'started', menuId: NEW_MENU_ID });
 
     expect(m.db.$transaction).toHaveBeenCalledTimes(1);
     expect(m.tx.menu.updateMany).toHaveBeenCalledWith({
-      where: { id: MENU_ID, restaurantId: RESTAURANT_ID, isPrimary: true, status: 'ACTIVE' },
+      where: {
+        id: MENU_ID,
+        restaurantId: RESTAURANT_ID,
+        isPrimary: true,
+        status: 'ACTIVE',
+      },
       data: { isPrimary: false, status: 'INACTIVE' },
     });
     expect(m.tx.menu.updateMany).toHaveBeenCalledWith({
@@ -126,33 +148,53 @@ describe('Start fresh with an empty primary Menu', () => {
       select: { id: true },
     });
     expect(m.tx.menuTranslation.create).toHaveBeenCalledWith({
-      data: { menuId: NEW_MENU_ID, locale: 'ar', name: 'منيو جديدة', description: null },
+      data: {
+        menuId: NEW_MENU_ID,
+        locale: 'ar',
+        name: 'منيو جديدة',
+        description: null,
+      },
     });
     // No Product, Category, Order or historical snapshots are deleted.
-    expect(Object.keys(m.tx).sort()).toEqual([
-      'menu', 'menuImportJob', 'category', 'restaurant', 'menuTranslation',
-    ].sort());
+    expect(Object.keys(m.tx).sort()).toEqual(
+      [
+        'menu',
+        'menuImportJob',
+        'category',
+        'restaurant',
+        'menuTranslation',
+      ].sort(),
+    );
   });
 
   it('does not create a replacement when a concurrent operation changed the primary', async () => {
     const m = build();
     m.tx.menu.updateMany.mockResolvedValue({ count: 0 });
-    await expect(m.service.startFreshMenu({
-      restaurantId: RESTAURANT_ID,
-      expectedPrimaryMenuId: MENU_ID,
-    })).resolves.toEqual({ outcome: 'menuChanged' });
+    await expect(
+      m.service.startFreshMenu({
+        restaurantId: RESTAURANT_ID,
+        expectedPrimaryMenuId: MENU_ID,
+      }),
+    ).resolves.toEqual({ outcome: 'menuChanged' });
     expect(m.tx.menu.create).not.toHaveBeenCalled();
   });
 
   it('produces an English blank menu when English is the default locale', async () => {
     const m = build();
-    m.tx.restaurant.findUniqueOrThrow.mockResolvedValue({ defaultLocale: 'en' });
+    m.tx.restaurant.findUniqueOrThrow.mockResolvedValue({
+      defaultLocale: 'en',
+    });
     await m.service.startFreshMenu({
       restaurantId: RESTAURANT_ID,
       expectedPrimaryMenuId: MENU_ID,
     });
     expect(m.tx.menuTranslation.create).toHaveBeenCalledWith({
-      data: { menuId: NEW_MENU_ID, locale: 'en', name: 'New Menu', description: null },
+      data: {
+        menuId: NEW_MENU_ID,
+        locale: 'en',
+        name: 'New Menu',
+        description: null,
+      },
     });
   });
 });

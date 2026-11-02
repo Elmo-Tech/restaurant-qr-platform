@@ -309,7 +309,9 @@ export class MenusService {
    * jobs block the operation, so imports are not accidentally approved into
    * an archived Menu. Empty menus are an idempotent no-op.
    */
-  async startFreshMenu(input: StartFreshMenuInput): Promise<StartFreshMenuResult> {
+  async startFreshMenu(
+    input: StartFreshMenuInput,
+  ): Promise<StartFreshMenuResult> {
     if (!isWellFormedUuid(input.expectedPrimaryMenuId)) {
       return { outcome: 'menuNotFound' };
     }
@@ -346,7 +348,8 @@ export class MenusService {
           menu: { status: 'ACTIVE' },
         },
       });
-      if (categoryCount === 0) return { outcome: 'alreadyEmpty', menuId: current.id };
+      if (categoryCount === 0)
+        return { outcome: 'alreadyEmpty', menuId: current.id };
 
       const restaurant = await tx.restaurant.findUniqueOrThrow({
         where: { id: input.restaurantId },

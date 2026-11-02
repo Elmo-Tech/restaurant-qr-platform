@@ -183,7 +183,9 @@ export class MenusController {
         },
       });
     }
-    return { data: { menuId: result.menuId, changed: result.outcome === 'started' } };
+    return {
+      data: { menuId: result.menuId, changed: result.outcome === 'started' },
+    };
   }
 
   /**
