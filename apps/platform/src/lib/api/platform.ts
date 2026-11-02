@@ -221,9 +221,10 @@ export interface PackageInput {
   status?: PackageStatus;
 }
 
-export type ExclusiveDesignStatus = "RESERVED" | "ACTIVE_BASE" | "DISABLED";
+export type ExclusiveDesignStatus = "RESERVED" | "ACTIVE_BASE" | "ACTIVE_CUSTOM" | "DISABLED";
 export type ExclusiveBaseTemplate = "CLASSIC" | PackageTemplate;
 export interface ExclusiveDesignView {
+  rendererKey?: "VERDE_NAPOLI_V1";
   baseTemplate: ExclusiveBaseTemplate;
   status: ExclusiveDesignStatus;
 }
