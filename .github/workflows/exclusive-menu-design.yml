@@ -1,0 +1,44 @@
+name: Exclusive Menu Design Reservation Checks
+
+on:
+  push:
+    branches: [feat/exclusive-restaurant-menu-design]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Validate additive Prisma schema without database access
+        run: npm run db:validate
+      - name: Typecheck API
+        run: npm run typecheck:api
+      - name: Test entitlement and public menu regressions
+        run: npm exec --workspace=apps/api -- jest --runInBand public-menu.service.spec.ts public-menu.controller.spec.ts
+      - name: Typecheck Platform Console
+        run: npm run typecheck:platform
+      - name: Typecheck Staff Web
+        run: npm run typecheck:web
+      - name: Lint changed API files
+        run: >-
+          npm exec --workspace=apps/api -- eslint
+          src/platform/dto/exclusive-design.dto.ts
+          src/platform/platform-restaurants.service.ts
+          src/platform/platform.controller.ts
+          src/platform/platform-audit.service.ts
+          src/public/public-menu.service.ts
+          src/restaurants/restaurant-profile.service.ts
+          src/restaurants/restaurant-profile.controller.ts
+      - name: Lint changed Web/Platform files
+        run: |
+          npm exec --workspace=apps/platform -- eslint             src/lib/api/platform.ts src/lib/i18n/messages.ts             'src/app/(console)/restaurants/[restaurantId]/ExclusiveDesignAdminCard.tsx'             'src/app/(console)/restaurants/[restaurantId]/RestaurantDetailView.tsx'
+          npm exec --workspace=apps/web -- eslint             src/lib/settings/api.ts src/lib/i18n/messages/design.ts             'src/app/staff/restaurants/[restaurantId]/settings/design/DesignWorkspace.tsx'
