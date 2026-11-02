@@ -274,7 +274,7 @@ export function DesignWorkspace({
   const [brewPreviewLanguage,setBrewPreviewLanguage]=useState<'ar'|'en'|null>(null);
   const [error, setError] = useState<string | null>(null);
   const [exclusiveDesign, setExclusiveDesign] = useState<settingsApi.ExclusiveDesignStatusView | null>(null);
-  const exclusiveActive = exclusiveDesign?.status === 'ACTIVE_BASE';
+  const exclusiveActive = exclusiveDesign?.status === 'ACTIVE_BASE' || exclusiveDesign?.status === 'ACTIVE_CUSTOM';
 
   useEffect(() => {
     let cancelled = false;
