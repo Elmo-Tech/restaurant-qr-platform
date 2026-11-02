@@ -15,6 +15,21 @@ import {
   type AcquisitionSourceType,
 } from '../restaurant-acquisition';
 
+export class RestaurantOwnerContactDto {
+  @IsString()
+  @MaxLength(120)
+  fullName!: string;
+
+  @IsString()
+  @MaxLength(32)
+  phone!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  facebookUrl?: string | null;
+}
+
 export class RestaurantAcquisitionDto {
   @IsIn(ACQUISITION_SOURCE_TYPES)
   sourceType!: AcquisitionSourceType;
@@ -95,4 +110,10 @@ export class CreateRestaurantDto {
   @ValidateNested()
   @Type(() => RestaurantAcquisitionDto)
   acquisition?: RestaurantAcquisitionDto | null;
+
+  /** Internal ElmoTech customer contact, separate from Owner login/public phone. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RestaurantOwnerContactDto)
+  ownerContact?: RestaurantOwnerContactDto | null;
 }
