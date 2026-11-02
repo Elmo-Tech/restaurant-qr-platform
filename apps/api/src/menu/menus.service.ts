@@ -298,7 +298,7 @@ export class MenusService {
   }
 
   /**
-   * Non-destructive "start fresh": archive the current primary Menu and make a
+   * Non-destructive "start fresh": archive ALL ACTIVE Restaurant Menus and make a
    * completely empty new primary Menu in ONE transaction. Historical Orders,
    * Product/Variant/Modifier references, category media and Menu Import records
    * are untouched and remain on the archived Menu. The public QR continues
@@ -335,14 +335,16 @@ export class MenusService {
       const pendingImports = await tx.menuImportJob.count({
         where: {
           restaurantId: input.restaurantId,
-          targetMenuId: current.id,
           status: { in: ['PROCESSING', 'READY_FOR_REVIEW'] },
         },
       });
       if (pendingImports > 0) return { outcome: 'activeImport' };
 
       const categoryCount = await tx.category.count({
-        where: { restaurantId: input.restaurantId, menuId: current.id },
+        where: {
+          restaurantId: input.restaurantId,
+          menu: { status: 'ACTIVE' },
+        },
       });
       if (categoryCount === 0) return { outcome: 'alreadyEmpty', menuId: current.id };
 
@@ -362,6 +364,14 @@ export class MenusService {
         data: { isPrimary: false, status: 'INACTIVE' },
       });
       if (archived.count !== 1) return { outcome: 'menuChanged' };
+
+      // The owner requested a FULL menu reset, not only the primary: archive
+      // any other active menus as well. Retain all their rows, product media,
+      // imports and historical order references for safe restoration.
+      await tx.menu.updateMany({
+        where: { restaurantId: input.restaurantId, status: 'ACTIVE' },
+        data: { isPrimary: false, status: 'INACTIVE' },
+      });
 
       const created = await tx.menu.create({
         data: {
