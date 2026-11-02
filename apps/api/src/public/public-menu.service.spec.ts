@@ -773,6 +773,78 @@ describe('PublicMenuService.getPublicMenu', () => {
   });
 });
 
+describe('Exclusive Menu Design tenant-only base reservation', () => {
+  const limitedEntitlements = {
+    forRestaurant: () => Promise.resolve(ALL_FEATURES),
+    detailsFor: () =>
+      Promise.resolve({ features: ALL_FEATURES, templates: ['CLASSIC'] }),
+  };
+
+  function menuFor(
+    row: object,
+    qrType: 'GENERIC' | 'TABLE' = 'GENERIC',
+  ) {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue({
+      ...(qrType === 'TABLE' ? TABLE_QR_ROW : GENERIC_QR_ROW),
+      restaurant: { ...GENERIC_QR_ROW.restaurant, ...row },
+    });
+    const svc = new PublicMenuService(
+      mock.prisma as never,
+      limitedEntitlements as never,
+    );
+    return svc.getPublicMenu({
+      publicCode: qrType === 'TABLE' ? 'table-qr' : 'generic-qr',
+      explicitLang: null,
+      acceptLanguageHeader: null,
+    });
+  }
+
+  it('activates a stock BLOOM base only for the QR-resolved assigned Restaurant, even with Classic-only package', async () => {
+    const exclusive = await menuFor({
+      exclusiveDesign: { baseTemplate: 'BLOOM', status: 'ACTIVE_BASE' },
+    });
+    expect(exclusive.outcome).toBe('found');
+    if (exclusive.outcome !== 'found') return;
+    expect(exclusive.data.context.restaurant.menuTemplate).toBe('BLOOM');
+    expect(exclusive.data.context.allowedTemplates).toEqual(['CLASSIC', 'BLOOM']);
+    expect(exclusive.data.context.restaurant.bloomSettings).toEqual(DEFAULT_BLOOM_SETTINGS);
+
+    const otherTenant = await menuFor({ exclusiveDesign: null });
+    expect(otherTenant.outcome).toBe('found');
+    if (otherTenant.outcome !== 'found') return;
+    expect(otherTenant.data.context.restaurant.menuTemplate).toBe('CLASSIC');
+    expect(otherTenant.data.context.allowedTemplates).toEqual(['CLASSIC']);
+    expect(otherTenant.data.context.restaurant.bloomSettings).toBeUndefined();
+  });
+
+  it.each(['RESERVED', 'DISABLED'])(
+    '%s reservation does not change the public Menu or unlock stock templates',
+    async (status) => {
+      const result = await menuFor({
+        exclusiveDesign: { baseTemplate: 'EMBER', status },
+      });
+      expect(result.outcome).toBe('found');
+      if (result.outcome !== 'found') return;
+      expect(result.data.context.restaurant.menuTemplate).toBe('CLASSIC');
+      expect(result.data.context.allowedTemplates).toEqual(['CLASSIC']);
+      expect(result.data.context.restaurant.emberSettings).toBeUndefined();
+    },
+  );
+
+  it('supports an exclusive base on the same Table QR path without exposing assignment metadata', async () => {
+    const result = await menuFor(
+      { exclusiveDesign: { baseTemplate: 'BREW', status: 'ACTIVE_BASE' } },
+      'TABLE',
+    );
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    expect(result.data.context.restaurant.menuTemplate).toBe('BREW');
+    expect(result.data.context.qrType).toBe('TABLE');
+    expect(JSON.stringify(result.data)).not.toContain('exclusiveDesign');
+  });
+});
+
 describe('PublicMenuService Table QR ordering availability (Table Sessions)', () => {
   const lockedTable = { ...TABLE_QR_ROW, table: { ...TABLE_QR_ROW.table, staffOpenRequired: true } };
 
