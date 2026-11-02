@@ -100,6 +100,24 @@ export async function setPrimaryMenu(
   return body.data;
 }
 
+/** Archive the active primary Menu and replace it with an empty one atomically. */
+export async function startFreshMenu(
+  restaurantId: string,
+  expectedPrimaryMenuId: string,
+): Promise<{ menuId: string; changed: boolean }> {
+  const body = await apiFetch<{ data: { menuId: string; changed: boolean } }>(
+    `${restaurantPath(restaurantId)}/menus/start-fresh`,
+    {
+      method: 'POST',
+      body: {
+        expectedPrimaryMenuId,
+        confirmation: 'ARCHIVE_AND_START_FRESH',
+      },
+    },
+  );
+  return body.data;
+}
+
 /** `menuId` omitted lists every Category across the whole Restaurant (Backend `ListCategoriesQueryDto`) -- used by the Product Editor route to build one Menu-grouped Category picker. */
 export async function listCategories(
   restaurantId: string,
