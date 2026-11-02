@@ -22,6 +22,7 @@ import { PageHeader } from '../../../../../components/ui/PageHeader';
 import { MenuContextBar } from './MenuContextBar';
 import { CategoryNavigation } from './CategoryNavigation';
 import { ProductList } from './ProductList';
+import { StartFreshMenuAction } from './StartFreshMenuAction';
 
 export interface MenuWorkspaceProps {
   restaurantId: string;
@@ -482,6 +483,18 @@ export function MenuWorkspace({
         onPrimaryChanged={() => void loadMenus()}
         onMenuNotFound={() => void loadMenus()}
       />
+
+      {canManage &&
+      selectedMenu?.isPrimary &&
+      selectedMenu.status === 'ACTIVE' &&
+      (categories?.length ?? 0) > 0 ? (
+        <StartFreshMenuAction
+          restaurantId={restaurantId}
+          primaryMenuId={selectedMenu.id}
+          primaryMenuName={selectedMenu.translation.name}
+          onCompleted={(menuId) => void loadMenus(menuId)}
+        />
+      ) : null}
 
       {orderError ? <Alert variant="error">{orderError}</Alert> : null}
 
