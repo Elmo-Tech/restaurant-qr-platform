@@ -41,7 +41,8 @@ One row per menu item:
 Rules:
 1. Include every item on every page, in the order they appear. Do not skip, merge or reorder items, and do not repeat an item.
 2. Do not invent or guess anything. If a price or a word is unreadable, leave that cell empty.
-3. Leave out add-ons and extras (for example "extra cheese +10"). If an item has more than 3 sizes, keep the first 3. Mention everything you left out in a short note after the file, so I can add it by hand.
-4. Keep the original spelling of every name. Do not add emoji, quotes or extra spaces.
+3. Never leave out a section, an item or a price, even when it looks like an extra. A section of add-ons or extras (for example "Extras", "Sauces", "Toppings") is a normal category: one row per add-on, with its name and its price (or its sizes). Only a note inside an item's own description (for example "extra cheese +10") is not a row. If an item has more than 3 sizes, keep the first 3 and mention the rest in a short note after the file.
+4. Keep the original spelling of every name. Do not add emoji, quotes or extra spaces. A size printed as S / M / L stays S / M / L.
+5. Before you answer, count the items on the menu and the rows in your table. The numbers must match. If you skipped anything, add it.
 
 Give me the file to download. If you cannot create a file, give the same table as CSV in one code block, with the same first row, and nothing else inside the block. After that, write a short note with anything you were unsure about.`;

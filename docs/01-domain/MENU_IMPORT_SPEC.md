@@ -91,8 +91,10 @@ instructions (with a copy button) for any AI chat: the restaurant attaches its m
 template, and the restaurant uploads the result here. It is a manual fallback that costs no model request on our
 side. The text is English on purpose, lives in `apps/web/src/lib/menu-import/ai-prompt.ts`, tells the chat to keep
 the menu's own languages and never to invent a price or a description, and must list exactly the template's columns.
-Add-ons and more than 3 sizes are not part of the template, so the instructions ask the chat to leave them out and
-name them in a note.
+The template has no add-ons (Modifiers) and holds at most 3 sizes, but the instructions never let the chat drop
+anything: a section of add-ons is a normal category with one row per add-on (it becomes ordinary products the
+restaurant can tidy up later), only an item with more than 3 sizes keeps the first 3 and the chat names the rest in a
+note, and the chat is asked to count items against rows before it answers.
 
 ---
 

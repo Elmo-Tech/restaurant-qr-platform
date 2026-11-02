@@ -27,6 +27,7 @@ import {
   MenuImportExtractor,
 } from './menu-import-extractor';
 import type { ExtractionInput } from './menu-import-extractor';
+import { defaultText, keepActiveText } from './menu-import-locales';
 import { readMenuTemplate } from './menu-import-sheet';
 import type { SheetExtraction } from './menu-import-sheet';
 
@@ -171,22 +172,6 @@ function textMap(
 
 function money(value: string): Prisma.Decimal {
   return new Prisma.Decimal(value);
-}
-
-/**
- * A menu written in only one language (say Arabic) still has to give the Restaurant's
- * default language a name. When that language is missing, the name read from the file
- * is used as-is (never translated); the item is flagged so Staff can add a translation.
- */
-function defaultText(
-  names: Record<string, string>,
-  defaultLocale: string,
-): string | undefined {
-  if (names[defaultLocale]) return names[defaultLocale];
-  const first = Object.keys(names)
-    .sort()
-    .find((locale) => names[locale]);
-  return first === undefined ? undefined : names[first];
 }
 
 /** Translation rows for creation, with the default locale always present. */
@@ -437,12 +422,7 @@ export class MenuImportService {
 
     const keepActive = (
       map: Record<string, string>,
-    ): Record<string, string> => {
-      const out: Record<string, string> = {};
-      for (const [locale, text] of Object.entries(map))
-        if (active.has(locale)) out[locale] = text;
-      return out;
-    };
+    ): Record<string, string> => keepActiveText(map, active, defaultLocale);
 
     await this.prisma.$transaction(async (tx) => {
       const claimed = await tx.menuImportJob.updateMany({
