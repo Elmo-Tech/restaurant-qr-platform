@@ -69,6 +69,8 @@ import {
 import { GuestHeroEmber } from './GuestHeroEmber';
 import { GuestHeroBloom } from './GuestHeroBloom';
 import { GuestHeroBrew } from './GuestHeroBrew';
+import { VerdeShowcase, VerdeThemeToggle } from './VerdeShowcase';
+import './verde-experience.css';
 import {DEFAULT_BREW_SETTINGS,BREW_DESIGN_PREVIEW_READY,isBrewPreviewUpdate,normalizeBrewTemplateSettings,type BrewTemplateSettings} from '../../../lib/public-menu/brew-settings';
 import {DEFAULT_EDITORIAL_SETTINGS, EDITORIAL_DESIGN_PREVIEW_READY, isEditorialPreviewUpdate, normalizeEditorialTemplateSettings,type EditorialTemplateSettings} from '../../../lib/public-menu/editorial-settings';
 import {
@@ -105,6 +107,7 @@ export function PublicMenuView({
   publicCode,
   template = DEFAULT_MENU_TEMPLATE,
   designPreview = false,
+  exclusiveRendererKey,
 }: {
   data: PublicMenuData;
   publicCode: string;
@@ -112,6 +115,8 @@ export function PublicMenuView({
   template?: MenuTemplate;
   /** Explicit staff-frame preview flag; the server never returns draft settings. */
   designPreview?: boolean;
+  /** Backend-resolved private renderer; must never be selected by public URL. */
+  exclusiveRendererKey?: 'VERDE_NAPOLI_V1';
 }) {
   const router = useRouter();
   const locale = data.locale.resolved;
@@ -179,6 +184,7 @@ export function PublicMenuView({
   },[designPreview,template]);
   const editorialSettings=designPreview&&template==='editorial'&&editorialLiveDraft
     ? editorialLiveDraft : data.context.restaurant.editorialSettings??DEFAULT_EDITORIAL_SETTINGS;
+  const isVerde = exclusiveRendererKey === 'VERDE_NAPOLI_V1';
   const hasCategories = data.menu.categories.length > 0;
   // Both premium demo references show one category at a time.
   // Search results still span all categories so no matching products disappear.
@@ -233,7 +239,7 @@ export function PublicMenuView({
   // The template decides the header, the cards, the headings and the category strip (DEC-044).
   // Photo-free templates show no photos anywhere (cards, cart, product page, featured banners).
   const layout = layoutOf(template);
-  const showPhotos = layout.photos;
+  const showPhotos = isVerde || layout.photos;
 
   // "Our picks": featured, still available, with a photo (the banner needs one). Photo banners do
   // not exist in the photo-free template; a featured dish still carries its "Featured" tag there.
@@ -274,7 +280,7 @@ export function PublicMenuView({
       }))
       .filter((category) => category.products.length > 0);
   }, [data.menu.categories, isSearching, normalizedQuery, searchIndex]);
-  const isPremiumSingleCategory = template === 'ember' || template === 'bloom' || template === 'brew';
+  const isPremiumSingleCategory = isVerde || template === 'ember' || template === 'bloom' || template === 'brew';
   const premiumVisibleCategories = isPremiumSingleCategory && !isSearching
     ? visibleCategories.filter((category) => category.id === premiumCategoryId)
     : visibleCategories;
@@ -1156,7 +1162,7 @@ export function PublicMenuView({
       <div
           dir={dir}
           lang={locale}
-          className={`g-body relative ${template === 'ember' ? 'ember-experience' : template === 'bloom' ? 'bloom-experience' : template === 'brew' ? 'brew-experience' : ''}`}
+          className={`g-body relative ${isVerde ? 'verde-experience' : ''} ${template === 'ember' ? 'ember-experience' : template === 'bloom' ? 'bloom-experience' : template === 'brew' ? 'brew-experience' : ''}`}
           data-ember-palette={template === 'ember' ? emberSettings.palette : undefined}
           data-ember-motion={template === 'ember' ? emberSettings.motion : undefined}
           data-brew-palette={template==='brew'?brewSettings.palette:undefined}
@@ -1164,7 +1170,8 @@ export function PublicMenuView({
           data-bloom-palette={template === 'bloom' ? bloomSettings.palette : undefined}
           data-bloom-motion={template === 'bloom' ? bloomSettings.motion : undefined}
         >
-        <Hero {...heroProps} />
+        {isVerde ? <VerdeShowcase name={data.context.restaurant.name} logoUrl={logoUrl} coverUrl={coverUrl} locale={locale} categoryCount={data.menu.categories.length} /> : null}
+        <div className={isVerde ? 'verde-utility-shell' : ''}><Hero {...heroProps} />{isVerde ? <VerdeThemeToggle locale={locale} /> : null}</div>
 
         <div className="relative z-20 px-4 lg:px-8">
           <div className="mx-auto max-w-[1280px]">
@@ -1294,6 +1301,9 @@ export function PublicMenuView({
               onIncrement={handleCardIncrement}
               onDecrement={handleCardDecrement}
               onClearSearch={handleClearSearch}
+              verdeCategoryTabs={isVerde ? data.menu.categories.map((c) => ({ id: c.id, name: c.name })) : undefined}
+              verdeActiveCategoryId={isVerde ? premiumCategoryId : undefined}
+              onVerdeCategorySelect={isVerde ? selectPremiumCategory : undefined}
               brewSettings={template==='brew'?brewSettings:undefined}
               brewLocale={locale}
               bloomSectionEyebrow={locale === 'ar' ? bloomSettings.sectionEyebrowAr : bloomSettings.sectionEyebrowEn}
