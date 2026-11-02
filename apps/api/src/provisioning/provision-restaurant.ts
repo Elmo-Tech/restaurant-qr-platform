@@ -1,5 +1,6 @@
 import { randomUUID } from 'node:crypto';
 import type { NormalizedAcquisition } from '../platform/restaurant-acquisition';
+import type { NormalizedOwnerContact } from '../platform/restaurant-owner-contact';
 import { STARTER_ROLE_KINDS } from '../auth/permission/role-permissions';
 import { starterRoleData } from '../auth/permission/starter-roles';
 import { createBranchPublicId } from '../branches/branch-public-id';
@@ -40,6 +41,7 @@ export interface ProvisionRestaurantInput {
   timezone: string;
   /** Optional, validated Platform-only attribution; absent for Operations CLI. */
   acquisition?: NormalizedAcquisition | null;
+  ownerContact?: NormalizedOwnerContact | null;
   recordedByAdminId?: string | null;
 }
 
@@ -79,6 +81,7 @@ export interface ProvisioningTx {
     create(args: unknown): Promise<{ id: string; publicId: string }>;
   };
   restaurantAcquisition: { create(args: unknown): Promise<unknown> };
+  restaurantOwnerContact: { create(args: unknown): Promise<unknown> };
   restaurantSetup: { create(args: unknown): Promise<unknown> };
   restaurantLocale: { createMany(args: unknown): Promise<unknown> };
   branch: { create(args: unknown): Promise<{ id: string; name: string }> };
@@ -157,6 +160,7 @@ export function validateProvisionInput(input: ProvisionRestaurantInput):
       timezone,
       defaultLocale,
       acquisition: input.acquisition ?? null,
+      ownerContact: input.ownerContact ?? null,
       recordedByAdminId: input.recordedByAdminId ?? null,
     },
   };
@@ -264,6 +268,19 @@ export async function provisionRestaurant(
             sourceDetail: input.acquisition.sourceDetail,
             campaign: input.acquisition.campaign,
             recordedByAdminId: input.recordedByAdminId,
+          },
+        });
+      }
+
+      if (input.ownerContact) {
+        // Stored as Platform-only business contact, not on the public Guest Menu
+        // and not in the Owner's login identity.
+        await tx.restaurantOwnerContact.create({
+          data: {
+            restaurantId: restaurant.id,
+            fullName: input.ownerContact.fullName,
+            phone: input.ownerContact.phone,
+            facebookUrl: input.ownerContact.facebookUrl,
           },
         });
       }
