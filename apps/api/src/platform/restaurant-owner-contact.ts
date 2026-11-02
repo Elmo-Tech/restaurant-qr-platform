@@ -46,7 +46,9 @@ export function validateOwnerContact(raw: unknown): OwnerContactValidation {
     try {
       phone = normalizePhone('phone', input.phone);
       if (!phone || phone.replace(/\D/g, '').length < 8) {
-        problems.push('ownerContact.phone must be a reachable telephone number');
+        problems.push(
+          'ownerContact.phone must be a reachable telephone number',
+        );
       }
     } catch (error) {
       if (error instanceof ContactValidationError) {
@@ -69,7 +71,9 @@ export function validateOwnerContact(raw: unknown): OwnerContactValidation {
       facebookUrl = normalizeUrl('facebookUrl', input.facebookUrl);
     } catch (error) {
       if (error instanceof ContactValidationError) {
-        problems.push('ownerContact.facebookUrl must be a valid Facebook HTTPS URL');
+        problems.push(
+          'ownerContact.facebookUrl must be a valid Facebook HTTPS URL',
+        );
       } else {
         throw error;
       }

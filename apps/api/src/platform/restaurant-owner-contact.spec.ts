@@ -41,8 +41,16 @@ describe('Private Platform owner contact normalization', () => {
     { fullName: 'A', phone: '01012345678' },
     { fullName: 'Ahmed', phone: '123' },
     { fullName: 'Ahmed', phone: 1000111 },
-    { fullName: 'Ahmed', phone: '01012345678', facebookUrl: 'javascript:alert(1)' },
-    { fullName: 'Ahmed', phone: '01012345678', facebookUrl: 'https://evil.example/' },
+    {
+      fullName: 'Ahmed',
+      phone: '01012345678',
+      facebookUrl: 'javascript:alert(1)',
+    },
+    {
+      fullName: 'Ahmed',
+      phone: '01012345678',
+      facebookUrl: 'https://evil.example/',
+    },
     { fullName: 'A'.repeat(130), phone: '01012345678' },
   ])('rejects invalid customer contact %j', (raw) => {
     expect(validateOwnerContact(raw).ok).toBe(false);
