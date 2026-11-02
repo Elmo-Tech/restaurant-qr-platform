@@ -1141,7 +1141,7 @@ export function PublicMenuView({
     hasActiveOrder,
   };
   const Hero =
-    layout.hero === 'brew' ? GuestHeroBrew : layout.hero === 'bloom'
+    isVerde ? GuestHeroCompact : layout.hero === 'brew' ? GuestHeroBrew : layout.hero === 'bloom'
       ? GuestHeroBloom
       : layout.hero === 'ember'
       ? GuestHeroEmber
@@ -1239,7 +1239,7 @@ export function PublicMenuView({
 
         {/* A sticky element only sticks inside its parent: the chips must be a direct child of
             this page-height root (no short wrapper), or the bar scrolls away with its own box. */}
-        {hasCategories ? (
+        {hasCategories && !isVerde ? (
           <CategoryChips
             items={chipItems}
             activeId={isPremiumSingleCategory ? premiumCategoryId : navigation.activeId}
