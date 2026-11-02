@@ -24,6 +24,9 @@ interface FormState {
   countryCode: string;
   ownerEmail: string;
   ownerPassword: string;
+  ownerFullName: string;
+  ownerPhone: string;
+  ownerFacebookUrl: string;
   packageId: string;
   acquisition: RestaurantAcquisitionInput | null;
 }
@@ -37,6 +40,9 @@ const INITIAL: FormState = {
   countryCode: "EG",
   ownerEmail: "",
   ownerPassword: "",
+  ownerFullName: "",
+  ownerPhone: "",
+  ownerFacebookUrl: "",
   packageId: "",
   acquisition: null,
 };
@@ -70,6 +76,8 @@ export function NewRestaurantForm() {
     const name = form.restaurantName.trim();
     if (name.length < 2 || name.length > 100) return "restaurantNew.err.name";
     if (form.branchName.trim() === "") return "restaurantNew.err.branch";
+    if (form.ownerFullName.trim().length < 2 || form.ownerFullName.trim().length > 120) return "ownerContact.err.name";
+    if (form.ownerPhone.replace(/\D/g, "").length < 8) return "ownerContact.err.phone";
     if (!EMAIL.test(form.ownerEmail.trim())) return "restaurantNew.err.email";
     if (form.ownerPassword.length < 8) return "restaurantNew.err.password";
     if (!/^[A-Za-z]{3}$/.test(form.currencyCode.trim())) return "restaurantNew.err.currency";
@@ -108,6 +116,11 @@ export function NewRestaurantForm() {
         countryCode: form.countryCode.trim().toUpperCase(),
         packageId: form.packageId === "" ? null : form.packageId,
         acquisition: form.acquisition,
+        ownerContact: {
+          fullName: form.ownerFullName.trim(),
+          phone: form.ownerPhone.trim(),
+          facebookUrl: form.ownerFacebookUrl.trim() || null,
+        },
       });
       router.push(`/restaurants/${created.id}`);
     } catch (caught) {
@@ -222,6 +235,53 @@ export function NewRestaurantForm() {
             value={form.acquisition}
             onChange={(acquisition) => set("acquisition", acquisition)}
           />
+        </Card>
+
+        <Card>
+          <CardHeader title={t("ownerContact.section")} description={t("ownerContact.description")} />
+          <div className="grid gap-4 p-5 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="o-name">{t("ownerContact.name")}</Label>
+              <Input
+                id="o-name"
+                value={form.ownerFullName}
+                onChange={(e) => set("ownerFullName", e.target.value)}
+                maxLength={120}
+                autoComplete="name"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="o-phone">{t("ownerContact.phone")}</Label>
+              <Input
+                id="o-phone"
+                type="tel"
+                dir="ltr"
+                value={form.ownerPhone}
+                onChange={(e) => set("ownerPhone", e.target.value)}
+                maxLength={32}
+                placeholder="+201012345678"
+                autoComplete="tel"
+                className="text-start"
+                required
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="o-facebook">{t("ownerContact.facebook")}</Label>
+              <Input
+                id="o-facebook"
+                type="text"
+                dir="ltr"
+                value={form.ownerFacebookUrl}
+                onChange={(e) => set("ownerFacebookUrl", e.target.value)}
+                maxLength={300}
+                placeholder="https://facebook.com/..."
+                className="text-start"
+                autoComplete="off"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">{t("ownerContact.facebookHint")}</p>
+            </div>
+          </div>
         </Card>
 
         <Card>
