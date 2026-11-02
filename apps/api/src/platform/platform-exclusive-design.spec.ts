@@ -101,4 +101,35 @@ describe('Platform Admin: tenant-owned exclusive design assignment', () => {
       }),
     );
   });
+  it('rejects a bespoke renderer already assigned to another restaurant', async () => {
+    const t = setup();
+    t.prisma.restaurantExclusiveDesign.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ restaurantId: '22222222-2222-4222-8222-222222222222' });
+    await expect(t.service.setExclusiveDesign(ADMIN, RESTAURANT_ID, {
+      baseTemplate: 'CLASSIC',
+      status: 'ACTIVE_CUSTOM',
+      rendererKey: 'VERDE_NAPOLI_V1',
+    })).rejects.toThrow('already belongs');
+    expect(t.prisma.restaurantExclusiveDesign.upsert).not.toHaveBeenCalled();
+  });
+
+  it('accepts a compiled VERDE renderer with platform audit and no package upgrade', async () => {
+    const t = setup();
+    const custom = {
+      baseTemplate: 'CLASSIC' as const,
+      status: 'ACTIVE_CUSTOM' as const,
+      rendererKey: 'VERDE_NAPOLI_V1' as const,
+    };
+    expect(await t.service.setExclusiveDesign(ADMIN, RESTAURANT_ID, custom))
+      .toEqual({ outcome: 'ok', data: custom });
+    expect(t.prisma.restaurantExclusiveDesign.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { restaurantId: RESTAURANT_ID },
+        create: expect.objectContaining({ rendererKey: 'VERDE_NAPOLI_V1' }),
+      }),
+    );
+    expect(t.audit.record).toHaveBeenCalled();
+  });
+
 });
