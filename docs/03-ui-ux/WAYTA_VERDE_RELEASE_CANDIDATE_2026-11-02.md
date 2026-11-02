@@ -7,10 +7,10 @@
 
 ## Exact Git provenance
 
-- `feat/temporary-demo-restaurants` remotely points to `04d80eefa1a2b53d1da4e7aac993fde5d4335c3f`, **exactly the same commit** as `integration/wayta-pre-release-2026-11-02` (no extra remote commits or changed files).
+- `feat/temporary-demo-restaurants` originally started at `04d80eefa1a2b53d1da4e7aac993fde5d4335c3f` but **was later pushed to `7b07fa74cb90b0f26e9781e791cd80df7107576e`**, with 5 additional commits implementing DEC-060 Temporary Demo Restaurants. These commits are included via merge PR #22, merged to this release-candidate branch as `3b4e4c7436ab1531873e691bc8a44683673ba97d`.
 - `feat/verde-exclusive-napoli-menu` at `625aa7e2dbb8db1629338eefc6e8f9daf0260804` is a fast-forward extension of that exact commit (18 additional commits).
-- This candidate was created at the VERDE head, already containing the entire remote history of both requested branches. **No content merge/cherry-pick or conflict resolution was needed or performed.** Original feature/integration refs were not changed.
-- This document and an extra combined QA workflow are the only candidate-specific additions.
+- The initial candidate was created at the VERDE head. After the demo feature was pushed, GitHub confirmed PR #22 was mergeable without conflicts; it was merged **into this candidate only**, preserving both branch histories. `main`, both source feature branches and PR #19 were not changed by the integration.
+- Candidate-specific additions include this release-gate document, combined CI, and dedicated VERDE tenant/QR regression tests. Demo feature implementation remains in the original five commits, not a rewritten source branch.
 - Any local/unpushed modifications on the owner's Windows machine or any changes pushed after these recorded SHAs are **not** represented. Verify them before calling this the final bundle.
 
 ## Features currently included (from pre-release integration history)
@@ -21,8 +21,9 @@
 4. Start Fresh (safe archival of active menus; not hard delete).
 5. Menu import inactive-language text retention and prompt completeness.
 6. Compiled VERDE Napoletana bespoke renderer `VERDE_NAPOLI_V1`, two color themes, tenant-scoped activation, shared Guest ordering flows.
+7. **Temporary Demo Restaurants (DEC-060):** short-lived private demo restaurants, bilingual sample content and licensed photos, package selection, Platform Demos console, one-time-displayed secret links, Backend demo restrictions and scheduled expiry/purge.
 
-**Important:** A branch name `temporary-demo-restaurants` is **not evidence** of an independently committed temporary-demo feature. Its remote tree is identical to the pre-release integration tree. Check local commits or uncommitted work before claiming that feature was included.
+**Verified:** The remote demo branch's five commits are now ancestors of this candidate. This confirms remote source integration, **not** that any further unpushed Windows local work exists or is included.
 
 ## What the combined branch is NOT
 
@@ -38,6 +39,8 @@
 - `npm ci`, Prisma schema validation without DB changes;
 - API / Web / Platform typechecks;
 - focused Backend Jest: tenant-specific exclusive design and public menu, menu archive/restore boundary, provisioning, acquisition/contact and import;
+- demo-specific Jest unit suites covering purge restrictions, security restrictions and curated template integrity;
+- **full HTTP/DB E2E for Demo is NOT run by this workflow**; it needs a disposable, explicitly approved database;
 - focused Backend semantic lint; commit whitespace check.
 
 **A successful code workflow is necessary but not sufficient for production.**
@@ -50,14 +53,16 @@
    - `20261114090000_restaurant_acquisition_source`;
    - `20261115090000_exclusive_menu_design_reservations`;
    - `20261116090000_verde_exclusive_renderer`;
-   - `20261116100000_restaurant_owner_contacts`.
+   - `20261116100000_restaurant_owner_contacts`;
+   - `20261117090000_demo_restaurants` (adds demo-only fields and secret entry link table).
    Inspect all other pending migrations in the actual local history. Do not blindly deploy migrations or reset real/shared data. Git switching does not revert database schema.
 4. Verify Platform Admin creation, owner contact, acquisition source, correct tenant-exclusive VERDE activation, another Restaurant unaffected; role/permission isolation; disable/fallback.
 5. Verify real Guest Menu data (not sample HTML): TABLE and GENERIC QR, AR/EN, photos/no photos, categories, product variants/modifiers, discounts, sold out, search, cart, pickup/delivery/WhatsApp, tracking, announcements, custom logo & cover.
 6. Review Light + Signature Dark on 320/360/390/430/768/desktop: category text contrast, keyboard/focus, overflow, all dialogs, reduced motion.
 7. Run menu import inactive-language and extras extraction, Start Fresh with stale carts and order history retained, acquisition/contact updates. Check old migrations and DB security/RLS.
-8. Review combined changes vs `main`: **134 commits** in the feature head before this candidate's own docs/workflow, not just the new two feature labels. Review broad scope and release sequencing explicitly.
-9. Before main merge: owner acceptance and a migration/deployment plan must be recorded. Production deployment is a separate authorized action.
+8. Demo QA: Platform create with/without active Package, secret-link entry/expiration/rotation, session and role restrictions, excluded Platform totals, asset credits, extension and lock, **purge of disposable demo data only**, and untouched normal tenants. Verify scheduled sweep boundaries and migrations against disposable DB before enabling.
+9. Review the full combined diff vs `main` (Wayta pre-release features + VERDE + all five demo commits), and release sequencing explicitly.
+10. Before main merge: owner acceptance and a migration/deployment plan must be recorded. Production deployment is a separate authorized action.
 
 ## Merge strategy
 
