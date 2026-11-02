@@ -35,6 +35,8 @@ export interface PublicMenuContext {
     coverAssetPath: string | null;
     /** How the menu is laid out (DEC-044); presentation only. */
     menuTemplate?: string;
+    /** Explicit trusted, tenant-scoped Backend assignment. Not a stock template. */
+    exclusiveRendererKey?: 'VERDE_NAPOLI_V1';
     /** Only published values; available to a package-authorized EMBER preview. */
     emberSettings?: EmberTemplateSettings;
     /** Real restaurant's published BLOOM appearance; preview overrides never stored here. */
