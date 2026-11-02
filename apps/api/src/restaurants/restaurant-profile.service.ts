@@ -203,7 +203,7 @@ export class RestaurantProfileService {
   async getExclusiveDesign(restaurantId: string) {
     return this.prisma.restaurantExclusiveDesign.findUnique({
       where: { restaurantId },
-      select: { baseTemplate: true, status: true },
+      select: { baseTemplate: true, status: true, rendererKey: true },
     });
   }
 

@@ -606,7 +606,8 @@ export class PlatformController {
     const result = await this.restaurants.setExclusiveDesign(
       request.platformAdmin,
       restaurantId,
-      { baseTemplate: dto.baseTemplate, status: dto.status },
+      { baseTemplate: dto.baseTemplate, status: dto.status,
+        ...(dto.status === 'ACTIVE_CUSTOM' ? { rendererKey: dto.rendererKey } : {}) },
     );
     if (result.outcome !== 'ok') {
       throw new NotFoundException(RESTAURANT_NOT_FOUND);

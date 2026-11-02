@@ -72,6 +72,8 @@ export interface PublicMenuContext {
     coverAssetPath: string | null;
     /** How the menu is laid out (DEC-044); presentation only. Classic when the saved one is not allowed (DEC-051). */
     menuTemplate: MenuTemplate;
+    /** Tenant-private compiled renderer; never part of the shared package template catalog. */
+    exclusiveRendererKey?: 'VERDE_NAPOLI_V1';
     /** Only published EMBER settings are visible to guests; drafts remain private. */
     emberSettings?: EmberTemplateSettings;
     /** Only published BLOOM settings are returned, never the draft. */
@@ -359,7 +361,7 @@ export class PublicMenuService {
             whatsappOrderingEnabled: true,
             menuTemplate: true,
             suggestionsMode: true,
-            exclusiveDesign: { select: { baseTemplate: true, status: true } },
+            exclusiveDesign: { select: { baseTemplate: true, status: true, rendererKey: true } },
             ...CONTACT_COLUMNS,
           },
         },
@@ -395,6 +397,13 @@ export class PublicMenuService {
       exclusiveBase && !packageTemplates.includes(exclusiveBase)
         ? [...packageTemplates, exclusiveBase]
         : packageTemplates;
+    // A custom renderer is activated by Platform Admin only, derived from THIS QR's
+    // Restaurant. Do not trust a public query or expose draft/foreign assignments.
+    const exclusiveRendererKey =
+      qr.restaurant.exclusiveDesign?.status === 'ACTIVE_CUSTOM' &&
+      qr.restaurant.exclusiveDesign.rendererKey === 'VERDE_NAPOLI_V1'
+        ? 'VERDE_NAPOLI_V1' as const
+        : null;
     const effective = effectiveOrdering(qr.restaurant, features);
 
     const tableOrdering: GuestTableOrderingState | null =
@@ -882,6 +891,7 @@ export class PublicMenuService {
             currencyCode: qr.restaurant.currencyCode,
             logoAssetPath: qr.restaurant.logoAssetPath,
             coverAssetPath: qr.restaurant.coverAssetPath,
+            ...(exclusiveRendererKey ? { exclusiveRendererKey } : {}),
             // the saved choice is kept; the Guest sees Classic until the package allows it again (DEC-051)
             menuTemplate:
               exclusiveBase ??

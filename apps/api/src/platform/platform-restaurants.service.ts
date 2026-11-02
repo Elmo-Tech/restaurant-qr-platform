@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { BadRequestException, ConflictException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { EnvConfig } from '../config/env.schema';
 import { PrismaService } from '../database/prisma.service';
@@ -18,7 +19,7 @@ import type { Prisma, RestaurantStatus } from '../generated/prisma/client';
 import { PlatformAuditService } from './platform-audit.service';
 import type { PlatformAdminPrincipal } from './platform-auth.service';
 import type { MenuTemplateKey } from '../entitlements/templates';
-import type { ExclusiveDesignMode } from './dto/exclusive-design.dto';
+import type { ExclusiveDesignMode, VerifiedExclusiveRenderer } from './dto/exclusive-design.dto';
 import type { NormalizedOwnerContact } from './restaurant-owner-contact';
 import type { AcquisitionSourceType } from './restaurant-acquisition';
 
@@ -76,6 +77,7 @@ export interface FeatureState {
 export interface ExclusiveDesignView {
   baseTemplate: MenuTemplateKey;
   status: ExclusiveDesignMode;
+  rendererKey?: VerifiedExclusiveRenderer;
 }
 
 export interface RestaurantAcquisitionView {
@@ -270,7 +272,7 @@ export class PlatformRestaurantsService {
         whatsappOrderingEnabled: true,
         menuTemplate: true,
         suggestionsMode: true,
-        exclusiveDesign: { select: { baseTemplate: true, status: true } },
+        exclusiveDesign: { select: { baseTemplate: true, status: true, rendererKey: true } },
         ownerContact: {
           select: { fullName: true, phone: true, facebookUrl: true },
         },
@@ -354,6 +356,9 @@ export class PlatformRestaurantsService {
           ? {
               baseTemplate: row.exclusiveDesign.baseTemplate,
               status: row.exclusiveDesign.status,
+              ...(row.exclusiveDesign.rendererKey === 'VERDE_NAPOLI_V1'
+                ? { rendererKey: row.exclusiveDesign.rendererKey }
+                : {}),
             }
           : null,
         ownerContact: row.ownerContact,
@@ -410,21 +415,39 @@ export class PlatformRestaurantsService {
     });
     if (!restaurant) return { outcome: 'notFound' };
 
+    // Never accept a client-provided arbitrary renderer. The compiled registry is
+    // intentionally small: this exact key is only present in Wayta's trusted build.
+    if (input.status === 'ACTIVE_CUSTOM' && input.rendererKey !== 'VERDE_NAPOLI_V1') {
+      throw new BadRequestException('A verified custom renderer is required.');
+    }
     const before = await this.prisma.restaurantExclusiveDesign.findUnique({
       where: { restaurantId },
-      select: { baseTemplate: true, status: true },
+      select: { baseTemplate: true, status: true, rendererKey: true },
     });
-    if (!before || before.baseTemplate !== input.baseTemplate || before.status !== input.status) {
+    const rendererKey = input.status === 'ACTIVE_CUSTOM' ? input.rendererKey : undefined;
+    if (rendererKey && rendererKey !== before?.rendererKey) {
+      const assigned = await this.prisma.restaurantExclusiveDesign.findUnique({
+        where: { rendererKey },
+        select: { restaurantId: true },
+      });
+      if (assigned && assigned.restaurantId !== restaurantId) {
+        throw new ConflictException('This bespoke design already belongs to another Restaurant.');
+      }
+    }
+    if (!before || before.baseTemplate !== input.baseTemplate || before.status !== input.status ||
+        (rendererKey && rendererKey !== before.rendererKey)) {
       await this.prisma.restaurantExclusiveDesign.upsert({
         where: { restaurantId },
         create: {
           restaurantId,
           baseTemplate: input.baseTemplate,
           status: input.status,
+          ...(rendererKey ? { rendererKey } : {}),
         },
         update: {
           baseTemplate: input.baseTemplate,
           status: input.status,
+          ...(rendererKey ? { rendererKey } : {}),
         },
       });
       await this.audit.record({
@@ -432,8 +455,10 @@ export class PlatformRestaurantsService {
         action: 'restaurant.exclusive_design_updated',
         restaurant: { id: restaurant.id, name: restaurant.name },
         details: {
-          from: before ? { template: before.baseTemplate, status: before.status } : null,
-          to: { template: input.baseTemplate, status: input.status },
+          from: before ? { template: before.baseTemplate, status: before.status,
+            ...(before.rendererKey ? { rendererKey: before.rendererKey } : {}) } : null,
+          to: { template: input.baseTemplate, status: input.status,
+            ...(rendererKey ? { rendererKey } : {}) },
         },
       });
     }

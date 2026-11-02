@@ -204,6 +204,7 @@ enum SuggestionsMode {
 enum ExclusiveDesignStatus {
   RESERVED
   ACTIVE_BASE
+  ACTIVE_CUSTOM
   DISABLED
 
   @@map("exclusive_design_status")
@@ -414,6 +415,8 @@ model RestaurantExclusiveDesign {
   restaurantId String               @id @map("restaurant_id") @db.Uuid
   baseTemplate MenuTemplate         @map("base_template")
   status       ExclusiveDesignStatus @default(RESERVED)
+  // A vetted, compiled renderer key, UNIQUE across Restaurants, never a package template.
+  rendererKey  String?              @unique @map("renderer_key") @db.VarChar(80)
   createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime             @updatedAt @map("updated_at") @db.Timestamptz
 
