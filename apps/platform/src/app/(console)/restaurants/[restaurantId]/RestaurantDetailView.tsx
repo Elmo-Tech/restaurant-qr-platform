@@ -17,17 +17,32 @@ import {
   setRestaurantFeature,
   setRestaurantStatus,
   type AuditEntry,
+  type AcquisitionSourceType,
   type FeatureKey,
   type FeatureState,
   type PackageSummary,
   type RestaurantDetail,
 } from "@/lib/api/platform";
 import { useI18n } from "@/lib/i18n/client";
+import type { MessageKey } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils";
 import { BillingSection } from "./billing/BillingSection";
 import { ExclusiveDesignAdminCard } from "./ExclusiveDesignAdminCard";
+import { OwnerContactCard } from "./OwnerContactCard";
 
 type FeatureChoice = "default" | "allowed" | "notAllowed";
+
+const ACQUISITION_LABELS: Record<AcquisitionSourceType, MessageKey> = {
+  CUSTOMER_REFERRAL: "acquisition.type.customer",
+  EMPLOYEE_REFERRAL: "acquisition.type.employee",
+  SALES: "acquisition.type.sales",
+  SOCIAL_MEDIA: "acquisition.type.social",
+  PAID_AD: "acquisition.type.ad",
+  WEBSITE: "acquisition.type.website",
+  DIRECT: "acquisition.type.direct",
+  OTHER: "acquisition.type.other",
+  UNKNOWN: "acquisition.notRecorded",
+};
 
 const choiceOf = (feature: FeatureState): FeatureChoice =>
   !feature.overridden ? "default" : feature.enabled ? "allowed" : "notAllowed";
@@ -396,6 +411,44 @@ export function RestaurantDetailView({ restaurantId }: { restaurantId: string })
               <Fact label={t("detail.ordersTotal")}><span className="tabular">{fmt.number(restaurant.totals.orders)}</span></Fact>
             </dl>
           </Card>
+
+          <Card>
+            <CardHeader title={t("acquisition.section")} description={t("acquisition.privateHint")} />
+            <dl className="divide-y divide-border px-5">
+              <Fact label={t("acquisition.sourceLabel")}>
+                {restaurant.acquisition
+                  ? t(ACQUISITION_LABELS[restaurant.acquisition.sourceType])
+                  : t("acquisition.notRecorded")}
+              </Fact>
+              {restaurant.acquisition?.referringRestaurantName ? (
+                <Fact label={t("acquisition.referrerLabel")}>{restaurant.acquisition.referringRestaurantName}</Fact>
+              ) : null}
+              {restaurant.acquisition?.sourceName ? (
+                <Fact label={t("acquisition.personLabel")}>{restaurant.acquisition.sourceName}</Fact>
+              ) : null}
+              {restaurant.acquisition?.sourcePlatform ? (
+                <Fact label={t("acquisition.platform")}>{restaurant.acquisition.sourcePlatform}</Fact>
+              ) : null}
+              {restaurant.acquisition?.sourceDetail ? (
+                <Fact label={t("acquisition.specificSource")}>{restaurant.acquisition.sourceDetail}</Fact>
+              ) : null}
+              {restaurant.acquisition?.campaign ? (
+                <Fact label={t("acquisition.campaign")}>{restaurant.acquisition.campaign}</Fact>
+              ) : null}
+              {restaurant.acquisition ? (
+                <Fact label={t("acquisition.recorded")}>{fmt.date(restaurant.acquisition.recordedAt)}</Fact>
+              ) : null}
+            </dl>
+          </Card>
+
+          <OwnerContactCard
+            restaurantId={restaurantId}
+            contact={restaurant.ownerContact}
+            onSaved={(ownerContact) => {
+              setRestaurant((current) => current ? { ...current, ownerContact } : current);
+              reloadAudit();
+            }}
+          />
 
           <Card>
             <CardHeader title={t("detail.owners")} />
