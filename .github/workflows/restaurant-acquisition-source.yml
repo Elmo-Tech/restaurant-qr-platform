@@ -36,7 +36,6 @@ jobs:
           src/platform/platform-restaurant-creation.service.ts
           src/platform/platform-restaurants.service.ts
           src/provisioning/provision-restaurant.ts
-          src/provisioning/provision-restaurant.spec.ts
       - name: Lint Platform Console changes
         run: >-
           npm exec --workspace=apps/platform -- eslint
