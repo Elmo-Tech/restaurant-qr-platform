@@ -126,6 +126,19 @@ export type SetPrimaryMenuResult =
   | { outcome: 'updated'; data: MenuWithTranslation }
   | { outcome: 'menuNotFound' };
 
+/** Archive existing primary and create a blank replacement without destroying order history. */
+export interface StartFreshMenuInput {
+  restaurantId: string;
+  expectedPrimaryMenuId: string;
+}
+
+export type StartFreshMenuResult =
+  | { outcome: 'started'; menuId: string }
+  | { outcome: 'alreadyEmpty'; menuId: string }
+  | { outcome: 'menuNotFound' }
+  | { outcome: 'menuChanged' }
+  | { outcome: 'activeImport' };
+
 export interface AuthorizedMenuEntityScope {
   restaurantId: string;
   menuId: string;
@@ -282,6 +295,94 @@ export class MenusService {
     // Unreachable in practice (the loop always returns or throws), but
     // keeps the function's control flow explicit for TypeScript.
     throw lastRaceError;
+  }
+
+  /**
+   * Non-destructive "start fresh": archive the current primary Menu and make a
+   * completely empty new primary Menu in ONE transaction. Historical Orders,
+   * Product/Variant/Modifier references, category media and Menu Import records
+   * are untouched and remain on the archived Menu. The public QR continues
+   * to resolve the same Restaurant, but sees the new empty primary Menu.
+   *
+   * The client supplies the primary Menu ID it saw. An outdated/foreign ID
+   * never causes us to replace a different Menu. Running/unapproved import
+   * jobs block the operation, so imports are not accidentally approved into
+   * an archived Menu. Empty menus are an idempotent no-op.
+   */
+  async startFreshMenu(input: StartFreshMenuInput): Promise<StartFreshMenuResult> {
+    if (!isWellFormedUuid(input.expectedPrimaryMenuId)) {
+      return { outcome: 'menuNotFound' };
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      const current = await tx.menu.findFirst({
+        where: {
+          id: input.expectedPrimaryMenuId,
+          restaurantId: input.restaurantId,
+        },
+        select: {
+          id: true,
+          isPrimary: true,
+          status: true,
+          displayOrder: true,
+        },
+      });
+      if (!current) return { outcome: 'menuNotFound' };
+      if (!current.isPrimary || current.status !== 'ACTIVE') {
+        return { outcome: 'menuChanged' };
+      }
+
+      const pendingImports = await tx.menuImportJob.count({
+        where: {
+          restaurantId: input.restaurantId,
+          targetMenuId: current.id,
+          status: { in: ['PROCESSING', 'READY_FOR_REVIEW'] },
+        },
+      });
+      if (pendingImports > 0) return { outcome: 'activeImport' };
+
+      const categoryCount = await tx.category.count({
+        where: { restaurantId: input.restaurantId, menuId: current.id },
+      });
+      if (categoryCount === 0) return { outcome: 'alreadyEmpty', menuId: current.id };
+
+      const restaurant = await tx.restaurant.findUniqueOrThrow({
+        where: { id: input.restaurantId },
+        select: { defaultLocale: true },
+      });
+
+      // A changed primary invalidates the entire attempt; no partial archive.
+      const archived = await tx.menu.updateMany({
+        where: {
+          id: current.id,
+          restaurantId: input.restaurantId,
+          isPrimary: true,
+          status: 'ACTIVE',
+        },
+        data: { isPrimary: false, status: 'INACTIVE' },
+      });
+      if (archived.count !== 1) return { outcome: 'menuChanged' };
+
+      const created = await tx.menu.create({
+        data: {
+          restaurantId: input.restaurantId,
+          nameInternal: 'New Menu',
+          status: 'ACTIVE',
+          isPrimary: true,
+          displayOrder: current.displayOrder,
+        },
+        select: { id: true },
+      });
+      await tx.menuTranslation.create({
+        data: {
+          menuId: created.id,
+          locale: restaurant.defaultLocale,
+          name: restaurant.defaultLocale === 'ar' ? 'منيو جديدة' : 'New Menu',
+          description: null,
+        },
+      });
+      return { outcome: 'started', menuId: created.id };
+    });
   }
 
   async updateMenu(input: UpdateMenuInput): Promise<UpdateMenuResult> {
