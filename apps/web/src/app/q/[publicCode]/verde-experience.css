@@ -1,0 +1,79 @@
+/*
+ * VERDE Napoletana bespoke skin. All selectors are scoped to the
+ * Backend-selected `.verde-experience`; stock Wayta templates are untouched.
+ */
+.verde-experience{
+  --g-bg:#f6f3e9; --g-surface:#fffdf7; --g-surface-2:#ecefe3;
+  --g-text:#132b20;--g-text-2:#485e50;--g-text-3:#627568;
+  --g-line:#d8e0d3;--g-accent:#098f4a;--g-accent-text:#087d42;
+  --g-on-accent:#fff;--g-accent-soft:#e0f1e3;
+  --g-shadow:0 16px 45px rgba(8,50,29,.085);
+  background:var(--g-bg);color:var(--g-text);min-height:100dvh;
+}
+html[data-verde-theme="signature"] .verde-experience {
+  --g-bg:#11271e;--g-surface:#18372a;--g-surface-2:#1d4131;
+  --g-text:#f4f8f2;--g-text-2:#d0e3d4;--g-text-3:#bdd0c1;
+  --g-line:#325744;--g-accent:#18b462;--g-accent-text:#83e6ac;
+  --g-on-accent:#091e13;--g-accent-soft:#234937;
+  --g-shadow:0 16px 52px rgba(0,0,0,.27);
+  background:radial-gradient(ellipse at top right,#183d2a 0%,#10261d 57%,#0b2019 100%);
+}
+.verde-showcase{position:relative;isolation:isolate;overflow:hidden;background:#0d9650;color:#fff;margin:0;box-shadow:0 16px 42px rgba(0,0,0,.12)}
+.verde-showcase:before{content:"";position:absolute;inset:0;z-index:-2;background:linear-gradient(133deg,#0b8b48 0 23%,#079e51 23% 44%,#0c753e 44% 56%,#07a251 56% 78%,#075e36 78%);opacity:.85}
+.verde-showcase:after{content:"VERDE";position:absolute;inset-inline-end:-.05em;bottom:.06em;z-index:-1;font:900 clamp(8rem,26vw,26rem)/.75 Impact,'Arial Narrow',sans-serif;-webkit-text-stroke:1px #ffffff22;color:transparent;pointer-events:none}
+html[data-verde-theme="signature"] .verde-showcase{background:#101f19}
+html[data-verde-theme="signature"] .verde-showcase:before{background:linear-gradient(133deg,#0a2018 0 20%,#0b803f 20% 37%,#11281e 37% 62%,#0f8146 62% 79%,#0c1f18 79%)}
+.verde-showcase-inner{max-width:1280px;min-height:485px;margin:auto;display:grid;grid-template-columns:minmax(0,1fr) minmax(0,.95fr);gap:24px;align-items:center;padding:54px 30px 56px}
+.verde-showcase-copy{position:relative;z-index:3}
+.verde-eyebrow{font-size:11px;font-weight:900;letter-spacing:.18em;direction:ltr;text-align:start;display:flex;gap:12px;align-items:center}.verde-eyebrow span{color:#e34740}
+.verde-brand-logo{width:98px;height:98px;object-fit:contain;margin-top:18px;filter:drop-shadow(0 6px 13px #02271666)}
+.verde-brand-name{display:block;font:900 clamp(72px,10vw,150px)/.85 Impact,'Arial Narrow',sans-serif;letter-spacing:-.06em;margin-top:20px;direction:ltr;text-align:start}.verde-brand-name span{color:#f3c5b6}
+.verde-showcase-kicker{font-size:12px;font-weight:900;letter-spacing:.14em;direction:ltr;text-align:start;margin:17px 0 10px}
+.verde-showcase h1{font-size:clamp(38px,4vw,62px);font-weight:900;line-height:1.18;margin:8px 0 14px;max-width:620px}
+.verde-showcase-description{font-size:15px;font-weight:600;line-height:1.7;max-width:430px;color:#e4f2e6}
+.verde-discover{display:inline-flex;align-items:center;gap:30px;background:#f9f8f0;color:#0b3020;border-radius:12px;min-height:52px;margin-top:22px;padding:8px 12px 8px 24px;font-weight:900}
+.verde-discover span{display:grid;place-items:center;border-radius:9px;width:36px;height:36px;background:#0a462b;color:white;font-size:23px}
+.verde-edition{font-size:11px;letter-spacing:.18em;font-weight:800;margin-top:24px;color:#daf5e0}
+.verde-showcase-art{min-height:360px;height:100%;position:relative;display:grid;place-items:center}
+.verde-art-ring{width:min(40vw,440px);aspect-ratio:1;border:2px dashed #ffffff7a;border-radius:50%;position:absolute;box-shadow:0 0 0 24px #ffffff12}
+.verde-showcase-art>img{width:min(96%,470px);height:390px;object-fit:contain;filter:drop-shadow(0 22px 24px #012a1888);animation:verde-float 8s ease-in-out infinite}
+.verde-art-illustration{font-size:250px;color:#ffffff2b}
+.verde-art-stamp{position:absolute;top:7%;inset-inline-end:2%;background:#df4b43;border:5px solid #0e8c4c;border-radius:50%;width:108px;height:108px;display:grid;place-content:center;text-align:center;transform:rotate(-12deg);font-size:13px;font-weight:900;line-height:1.3}
+.verde-marquee{overflow:hidden;white-space:nowrap;background:#102a1f;height:43px;display:flex;align-items:center;color:#f1f5e9;font:900 20px Impact,'Arial Narrow',sans-serif;letter-spacing:.15em}
+.verde-marquee span{display:block;animation:verde-marquee 32s linear infinite}
+.verde-utility-shell{max-width:1280px;margin:16px auto 0;position:relative;padding:0 16px}
+.verde-utility-shell>header{border-radius:18px;overflow:hidden}
+.verde-theme-switch{position:relative;z-index:4;display:flex;align-items:center;gap:9px;padding:10px 16px;border:1px solid var(--g-line);border-radius:30px;background:var(--g-surface);color:var(--g-text);font-size:12px;font-weight:800;min-height:42px;margin:10px 0 0 auto}
+.verde-theme-dot{width:11px;height:11px;border-radius:50%;background:#158f4c;box-shadow:0 0 0 3px #158f4c25}
+html[data-verde-theme="signature"] .verde-theme-dot{background:#e44b44;box-shadow:0 0 0 3px #e44b4428}
+.verde-experience .g-body{color:var(--g-text)}
+.verde-experience .g-shadow{box-shadow:var(--g-shadow)}
+.verde-experience .verde-menu-index{border:1px solid var(--g-line);border-radius:20px;background:var(--g-surface);overflow:hidden}
+.verde-experience .verde-index-title{font-size:12px;font-weight:900;letter-spacing:.14em;color:var(--g-text);padding:15px 16px;border-bottom:1px solid var(--g-line)}
+.verde-experience .verde-index-nav{display:flex;gap:8px;overflow-x:auto;padding:10px 12px;scrollbar-width:thin}
+.verde-experience .verde-index-nav button{border-radius:9px;min-height:42px;white-space:nowrap;padding:10px 15px;background:var(--g-surface-2);color:var(--g-text);font-weight:800;border:1px solid var(--g-line)}
+.verde-experience .verde-index-nav button[aria-pressed="true"]{background:var(--g-accent);color:var(--g-on-accent);border-color:var(--g-accent)}
+.verde-experience .verde-index-nav button:focus-visible{outline:3px solid #e45547;outline-offset:2px}
+.verde-experience .verde-menu-heading{font-size:clamp(30px,5vw,60px);font-weight:900;line-height:1.1;color:var(--g-text);padding:8px 0 12px}
+.verde-experience .verde-product-wrap{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px}
+.verde-experience .verde-product-wrap>article{background:var(--g-surface);color:var(--g-text);border:1px solid var(--g-line);border-radius:16px;overflow:hidden}
+.verde-experience .verde-product-wrap>article h3,.verde-experience .verde-product-wrap>article p{color:var(--g-text)}
+.verde-experience .verde-product-wrap .text-g-text-2{color:var(--g-text-2)}
+.verde-experience .verde-product-wrap .text-g-text-3{color:var(--g-text-3)}
+.verde-experience .verde-product-wrap .text-g-on-accent{color:var(--g-on-accent)}
+.verde-experience .verde-product-wrap img{object-fit:cover}
+.verde-experience .verde-category-head{border-bottom:1px solid var(--g-line);margin-bottom:18px}
+.verde-experience #verde-menu-anchor{scroll-margin-top:95px}
+@keyframes verde-float{50%{transform:translateY(-12px) rotate(2deg)}}
+@keyframes verde-marquee{to{transform:translateX(-50%)}}
+@media(max-width:760px){
+ .verde-showcase-inner{grid-template-columns:1fr;padding:33px 22px 26px;gap:0;min-height:auto}
+ .verde-showcase h1{font-size:38px}.verde-brand-name{font-size:92px}
+ .verde-showcase-art{min-height:230px;height:260px}
+ .verde-showcase-art>img{height:270px;width:100%}
+ .verde-art-ring{width:220px}
+ .verde-art-stamp{width:86px;height:86px;font-size:11px;top:0}
+ .verde-experience .verde-product-wrap{grid-template-columns:1fr}
+ .verde-experience .verde-utility-shell{padding:0 12px}
+}
+@media(prefers-reduced-motion:reduce){.verde-showcase-art>img,.verde-marquee span{animation:none}}
