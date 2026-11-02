@@ -10,6 +10,10 @@ import {
   validateAcquisitionInput,
   type RestaurantAcquisitionInput,
 } from './restaurant-acquisition';
+import {
+  validateOwnerContact,
+  type OwnerContactInput,
+} from './restaurant-owner-contact';
 import type { PlatformAdminPrincipal } from './platform-auth.service';
 
 export interface CreateRestaurantInput {
@@ -25,6 +29,7 @@ export interface CreateRestaurantInput {
   /** Optional package to put the new Restaurant on. */
   packageId: string | null;
   acquisition?: RestaurantAcquisitionInput | null;
+  ownerContact?: OwnerContactInput | null;
 }
 
 export type CreateRestaurantOutcome =
@@ -62,6 +67,11 @@ export class PlatformRestaurantCreationService {
     admin: PlatformAdminPrincipal,
     input: CreateRestaurantInput,
   ): Promise<CreateRestaurantOutcome> {
+    const contact = validateOwnerContact(input.ownerContact);
+    if (!contact.ok) {
+      return { outcome: 'invalidInput', problems: contact.problems };
+    }
+
     // Reject impossible/contradictory attribution BEFORE creating any user or tenant.
     const acquisition = validateAcquisitionInput(input.acquisition);
     if (!acquisition.ok) {
@@ -93,6 +103,7 @@ export class PlatformRestaurantCreationService {
         currencyCode: input.currencyCode,
         timezone: input.timezone,
         acquisition: acquisition.value,
+        ownerContact: contact.value,
         recordedByAdminId: acquisition.value ? admin.adminId : null,
       },
     );
