@@ -2,7 +2,9 @@ import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
 import { AiSettingsModule } from '../ai-settings/ai-settings.module';
+import { DemoModule } from '../demo/demo.module';
 import { PlatformAiController } from './platform-ai.controller';
+import { PlatformDemoController } from './platform-demo.controller';
 import { PlatformAiService } from './platform-ai.service';
 import { PlatformBillingController } from './billing/platform-billing.controller';
 import { PlatformBillingService } from './billing/platform-billing.service';
@@ -29,10 +31,11 @@ import { PlatformController } from './platform.controller';
  * opaque-token primitive; Restaurant Staff authentication is never used here.
  */
 @Module({
-  imports: [DatabaseModule, AuthModule, AiSettingsModule],
+  imports: [DatabaseModule, AuthModule, AiSettingsModule, DemoModule],
   controllers: [
     PlatformController,
     PlatformAiController,
+    PlatformDemoController,
     PlatformBillingController,
     PlatformRequestsController,
     PlatformLeadsController,

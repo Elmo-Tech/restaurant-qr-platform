@@ -368,6 +368,10 @@ model Restaurant {
   subscriptionSuspendedAt DateTime?        @map("subscription_suspended_at") @db.Timestamptz
   // Set when the team reactivated this Restaurant by hand: no automatic suspension for a lapse that ended before it.
   subscriptionOverrideAt  DateTime?        @map("subscription_override_at") @db.Timestamptz
+  // Temporary demo restaurant (DEC-060): `isDemo` rows always carry an expiry and are purged after it.
+  isDemo                  Boolean          @default(false) @map("is_demo")
+  demoExpiresAt           DateTime?        @map("demo_expires_at") @db.Timestamptz
+  demoLabel               String?          @map("demo_label") @db.VarChar(120)
   createdAt               DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt               DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 
@@ -402,6 +406,7 @@ model Restaurant {
   exclusiveDesign       RestaurantExclusiveDesign?
   acquisition           RestaurantAcquisition?   @relation("RestaurantAcquisitionOwner")
   ownerContact          RestaurantOwnerContact?
+  demoAccessLinks       DemoAccessLink[]
   referredAcquisitions  RestaurantAcquisition[]  @relation("RestaurantAcquisitionReferrer")
 
   @@index([packageId])
@@ -2343,4 +2348,20 @@ model RestaurantSetupVisibility {
   @@id([restaurantId, userId])
   @@index([userId])
   @@map("restaurant_setup_visibility")
+}
+
+// Temporary demo restaurants (DEC-060): the secret link a prospect opens to enter a demo. Only the SHA-256 hash of the
+// token is stored; the link is shown once, when the Platform team creates or regenerates it.
+model DemoAccessLink {
+  id           String    @id @default(uuid()) @db.Uuid
+  restaurantId String    @map("restaurant_id") @db.Uuid
+  tokenHash    String    @unique @map("token_hash") @db.VarChar(64)
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  lastUsedAt   DateTime? @map("last_used_at") @db.Timestamptz
+  useCount     Int       @default(0) @map("use_count")
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@map("demo_access_links")
 }

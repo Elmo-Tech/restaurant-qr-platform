@@ -240,6 +240,12 @@ export const envSchema = z
       .min(10)
       .max(540)
       .default(300),
+    // DEC-060: temporary demo restaurants. All optional: the defaults suit one API instance.
+    DEMO_MAX_ACTIVE: z.coerce.number().int().min(1).max(200).default(20),
+    // After a demo expires it is locked at once and removed this many minutes later (time to extend it).
+    DEMO_PURGE_GRACE_MINUTES: z.coerce.number().int().min(0).max(1440).default(60),
+    // How often the expiry job looks for demos to lock or remove.
+    DEMO_SWEEP_SECONDS: z.coerce.number().int().min(10).max(3600).default(60),
     // DEC-059: the chat endpoint the Backend calls when the direct engine is chosen. Optional: the default is
     // Gemini's OpenAI-compatible endpoint. Another value points the Backend at a test server or another provider.
     AI_CHAT_COMPLETIONS_URL: z.preprocess(
