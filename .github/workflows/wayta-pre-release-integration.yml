@@ -40,6 +40,9 @@ jobs:
           menus.controller.spec.ts
           public-menu.service.spec.ts
           public-menu.controller.spec.ts
+          menu-import-locales.spec.ts
+          menu-import-sheet.spec.ts
+          menu-import-extraction.spec.ts
       - name: Typecheck Staff Web
         run: npm run typecheck:web
       - name: Typecheck Platform Console
@@ -54,5 +57,7 @@ jobs:
           src/platform/restaurant-acquisition.spec.ts
           src/platform/dto/create-restaurant.dto.ts
           src/platform/dto/exclusive-design.dto.ts
+          src/menu-import/menu-import-locales.ts
+          src/menu-import/menu-import-locales.spec.ts
       - name: Verify migration file and merge whitespace
         run: git diff --check HEAD~1 HEAD
