@@ -1,4 +1,5 @@
 import { randomUUID } from 'node:crypto';
+import type { NormalizedAcquisition } from '../platform/restaurant-acquisition';
 import { STARTER_ROLE_KINDS } from '../auth/permission/role-permissions';
 import { starterRoleData } from '../auth/permission/starter-roles';
 import { createBranchPublicId } from '../branches/branch-public-id';
@@ -37,6 +38,9 @@ export interface ProvisionRestaurantInput {
   defaultLocale: string;
   currencyCode: string;
   timezone: string;
+  /** Optional, validated Platform-only attribution; absent for Operations CLI. */
+  acquisition?: NormalizedAcquisition | null;
+  recordedByAdminId?: string | null;
 }
 
 export type ProvisionRestaurantResult =
@@ -71,8 +75,10 @@ export interface ProvisioningTx {
     create(args: unknown): Promise<unknown>;
   };
   restaurant: {
+    findUnique(args: unknown): Promise<{ name: string } | null>;
     create(args: unknown): Promise<{ id: string; publicId: string }>;
   };
+  restaurantAcquisition: { create(args: unknown): Promise<unknown> };
   restaurantSetup: { create(args: unknown): Promise<unknown> };
   restaurantLocale: { createMany(args: unknown): Promise<unknown> };
   branch: { create(args: unknown): Promise<{ id: string; name: string }> };
@@ -150,6 +156,8 @@ export function validateProvisionInput(input: ProvisionRestaurantInput):
       currencyCode,
       timezone,
       defaultLocale,
+      acquisition: input.acquisition ?? null,
+      recordedByAdminId: input.recordedByAdminId ?? null,
     },
   };
 }
@@ -208,6 +216,23 @@ export async function provisionRestaurant(
         };
       }
 
+      // Resolve referrals inside the SAME transaction, from Backend data only.
+      // Bad IDs never leave a partially created OWNER, branch or restaurant.
+      let referringRestaurantName: string | null = null;
+      if (input.acquisition?.referringRestaurantId) {
+        const referrer = await tx.restaurant.findUnique({
+          where: { id: input.acquisition.referringRestaurantId },
+          select: { name: true },
+        });
+        if (!referrer) {
+          return {
+            outcome: 'invalidInput' as const,
+            problems: ['referring restaurant does not exist'],
+          };
+        }
+        referringRestaurantName = referrer.name;
+      }
+
       const restaurant = await tx.restaurant.create({
         data: {
           // No Restaurant publicId convention exists yet (the `branch-` form is
@@ -226,6 +251,22 @@ export async function provisionRestaurant(
       await tx.restaurantSetup.create({
         data: { restaurantId: restaurant.id },
       });
+
+      if (input.acquisition) {
+        await tx.restaurantAcquisition.create({
+          data: {
+            restaurantId: restaurant.id,
+            sourceType: input.acquisition.sourceType,
+            referringRestaurantId: input.acquisition.referringRestaurantId,
+            referringRestaurantName,
+            sourceName: input.acquisition.sourceName,
+            sourcePlatform: input.acquisition.sourcePlatform,
+            sourceDetail: input.acquisition.sourceDetail,
+            campaign: input.acquisition.campaign,
+            recordedByAdminId: input.recordedByAdminId,
+          },
+        });
+      }
 
       // Every Platform-supported locale is active from day one; the default is one of them.
       await tx.restaurantLocale.createMany({
