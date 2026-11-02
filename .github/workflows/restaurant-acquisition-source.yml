@@ -1,0 +1,56 @@
+name: Restaurant Acquisition Source Checks
+
+on:
+  push:
+    branches: [feat/restaurant-acquisition-source]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate Prisma schema without database access
+        run: npm run db:validate
+      - name: Typecheck API and generate Prisma client (no migrations)
+        run: npm run typecheck:api
+      - name: Test acquisition validation and transactional provisioning
+        run: npm exec --workspace=apps/api -- jest --runInBand restaurant-acquisition.spec.ts provision-restaurant.spec.ts
+      - name: Typecheck Platform Console
+        run: npm run typecheck:platform
+      - name: Lint Backend changes
+        run: >-
+          npm exec --workspace=apps/api -- eslint
+          src/platform/restaurant-acquisition.ts
+          src/platform/restaurant-acquisition.spec.ts
+          src/platform/dto/create-restaurant.dto.ts
+          src/platform/platform-restaurant-creation.service.ts
+          src/platform/platform-restaurants.service.ts
+          src/provisioning/provision-restaurant.ts
+      - name: Lint Platform Console changes
+        run: >-
+          npm exec --workspace=apps/platform -- eslint
+          src/lib/api/platform.ts
+          src/lib/i18n/messages.ts
+          'src/app/(console)/restaurants/new/AcquisitionSourceFields.tsx'
+          'src/app/(console)/restaurants/new/NewRestaurantForm.tsx'
+          'src/app/(console)/restaurants/[restaurantId]/RestaurantDetailView.tsx'
+      - name: Check Prettier on changed Backend files
+        run: >-
+          npm exec --workspace=apps/api -- prettier --check
+          src/platform/restaurant-acquisition.ts
+          src/platform/restaurant-acquisition.spec.ts
+          src/platform/dto/create-restaurant.dto.ts
+          src/platform/platform-restaurant-creation.service.ts
+          src/platform/platform-restaurants.service.ts
+          src/provisioning/provision-restaurant.ts
+          src/provisioning/provision-restaurant.spec.ts

@@ -1,10 +1,63 @@
+import { Type } from 'class-transformer';
 import {
+  IsIn,
+  IsUUID,
+  ValidateNested,
   IsOptional,
   IsString,
   Matches,
   MaxLength,
   ValidateIf,
 } from 'class-validator';
+
+import {
+  ACQUISITION_SOURCE_TYPES,
+  type AcquisitionSourceType,
+} from '../restaurant-acquisition';
+
+export class RestaurantOwnerContactDto {
+  @IsString()
+  @MaxLength(120)
+  fullName!: string;
+
+  @IsString()
+  @MaxLength(32)
+  phone!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  facebookUrl?: string | null;
+}
+
+export class RestaurantAcquisitionDto {
+  @IsIn(ACQUISITION_SOURCE_TYPES)
+  sourceType!: AcquisitionSourceType;
+
+  @IsOptional()
+  @IsUUID()
+  referringRestaurantId?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(200)
+  sourceName?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(40)
+  sourcePlatform?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(300)
+  sourceDetail?: string | null;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(160)
+  campaign?: string | null;
+}
 
 /**
  * Creating a Restaurant and its owner from the platform console. The shape and the business rules
@@ -51,4 +104,16 @@ export class CreateRestaurantDto {
   @IsString()
   @MaxLength(64)
   packageId?: string | null;
+
+  /** ElmoTech-only attribution. Optional for backwards-compatible API/CLI clients. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RestaurantAcquisitionDto)
+  acquisition?: RestaurantAcquisitionDto | null;
+
+  /** Internal ElmoTech customer contact, separate from Owner login/public phone. */
+  @IsOptional()
+  @ValidateNested()
+  @Type(() => RestaurantOwnerContactDto)
+  ownerContact?: RestaurantOwnerContactDto | null;
 }

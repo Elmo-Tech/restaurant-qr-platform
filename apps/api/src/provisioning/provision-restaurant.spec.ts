@@ -15,7 +15,9 @@ const INPUT: ProvisionRestaurantInput = {
   timezone: 'Africa/Cairo',
 };
 
-function build(options: { existingUser?: { id: string } | null; owned?: unknown } = {}) {
+function build(
+  options: { existingUser?: { id: string } | null; owned?: unknown } = {},
+) {
   const calls: string[] = [];
   const tx = {
     user: {
@@ -26,10 +28,14 @@ function build(options: { existingUser?: { id: string } | null; owned?: unknown 
       }),
     },
     restaurantRole: {
-      create: jest.fn().mockImplementation((args: { data: { kind: string } }) => {
-        calls.push('role');
-        return Promise.resolve({ id: `role-${args.data.kind.toLowerCase()}` });
-      }),
+      create: jest
+        .fn()
+        .mockImplementation((args: { data: { kind: string } }) => {
+          calls.push('role');
+          return Promise.resolve({
+            id: `role-${args.data.kind.toLowerCase()}`,
+          });
+        }),
     },
     restaurantMembership: {
       findFirst: jest.fn().mockResolvedValue(options.owned ?? null),
@@ -39,14 +45,30 @@ function build(options: { existingUser?: { id: string } | null; owned?: unknown 
       }),
     },
     restaurant: {
+      findUnique: jest.fn().mockResolvedValue({ name: 'Referring Restaurant' }),
       create: jest.fn().mockImplementation(() => {
         calls.push('restaurant');
-        return Promise.resolve({ id: 'restaurant-1', publicId: 'restaurant-public-1' });
+        return Promise.resolve({
+          id: 'restaurant-1',
+          publicId: 'restaurant-public-1',
+        });
       }),
     },
     restaurantSetup: {
       create: jest.fn().mockImplementation(() => {
         calls.push('setup');
+        return Promise.resolve({});
+      }),
+    },
+    restaurantAcquisition: {
+      create: jest.fn().mockImplementation(() => {
+        calls.push('acquisition');
+        return Promise.resolve({});
+      }),
+    },
+    restaurantOwnerContact: {
+      create: jest.fn().mockImplementation(() => {
+        calls.push('ownerContact');
         return Promise.resolve({});
       }),
     },
@@ -70,7 +92,9 @@ function build(options: { existingUser?: { id: string } | null; owned?: unknown 
     },
   };
   const prisma = {
-    $transaction: jest.fn((callback: (t: typeof tx) => Promise<unknown>) => callback(tx)),
+    $transaction: jest.fn((callback: (t: typeof tx) => Promise<unknown>) =>
+      callback(tx),
+    ),
   };
   const hasher = { hashPassword: jest.fn().mockResolvedValue('HASHED') };
   return { prisma, tx, hasher, calls };
@@ -106,7 +130,11 @@ describe('validateProvisionInput', () => {
   });
 
   it('never echoes the password in problems', () => {
-    const result = validateProvisionInput({ ...INPUT, ownerEmail: 'bad', ownerPassword: 'TOPSECRET-pw' });
+    const result = validateProvisionInput({
+      ...INPUT,
+      ownerEmail: 'bad',
+      ownerPassword: 'TOPSECRET-pw',
+    });
 
     expect(JSON.stringify(result)).not.toContain('TOPSECRET');
   });
@@ -116,7 +144,11 @@ describe('provisionRestaurant', () => {
   it('creates Restaurant, locales, OWNER user + membership, ACTIVE Branch and Generic QR in one transaction', async () => {
     const m = build();
 
-    const result = await provisionRestaurant(m.prisma as never, m.hasher, INPUT);
+    const result = await provisionRestaurant(
+      m.prisma as never,
+      m.hasher,
+      INPUT,
+    );
 
     expect(result).toEqual({
       outcome: 'provisioned',
@@ -172,13 +204,45 @@ describe('provisionRestaurant', () => {
     });
   });
 
+  it('stores a Platform-only primary contact atomically, never exposing it as Guest phone or login data', async () => {
+    const m = build();
+    const ownerContact = {
+      fullName: 'Ahmed Hassan',
+      phone: '+201012345678',
+      facebookUrl: 'https://facebook.com/owner',
+    };
+    await provisionRestaurant(m.prisma as never, m.hasher, {
+      ...INPUT,
+      ownerContact,
+    });
+
+    expect(m.prisma.$transaction).toHaveBeenCalledTimes(1);
+    expect(m.tx.restaurantOwnerContact.create).toHaveBeenCalledWith({
+      data: { restaurantId: 'restaurant-1', ...ownerContact },
+    });
+    expect(m.calls.indexOf('ownerContact')).toBeGreaterThan(m.calls.indexOf('restaurant'));
+    expect(m.tx.user.create.mock.calls[0][0].data).not.toHaveProperty('phone');
+    expect(m.tx.restaurant.create.mock.calls[0][0].data).not.toHaveProperty('contactPhone');
+  });
+
   it('seeds the five starter Roles for the new Restaurant (Owner first), and the Owner holds the Owner Role', async () => {
     const m = build();
 
     await provisionRestaurant(m.prisma as never, m.hasher, INPUT);
 
     const created = m.tx.restaurantRole.create.mock.calls.map(
-      (call: [{ data: { restaurantId: string; kind: string; name: string; permissions: string[] } }]) => call[0].data,
+      (
+        call: [
+          {
+            data: {
+              restaurantId: string;
+              kind: string;
+              name: string;
+              permissions: string[];
+            };
+          },
+        ],
+      ) => call[0].data,
     );
     expect(created.map((role: { kind: string }) => role.kind)).toEqual([
       'OWNER',
@@ -187,8 +251,16 @@ describe('provisionRestaurant', () => {
       'KITCHEN',
       'WAITER',
     ]);
-    expect(created.every((role: { restaurantId: string }) => role.restaurantId === 'restaurant-1')).toBe(true);
-    expect(created[0]).toMatchObject({ name: 'Owner', permissions: expect.arrayContaining(['roles.manage', 'users.manage']) });
+    expect(
+      created.every(
+        (role: { restaurantId: string }) =>
+          role.restaurantId === 'restaurant-1',
+      ),
+    ).toBe(true);
+    expect(created[0]).toMatchObject({
+      name: 'Owner',
+      permissions: expect.arrayContaining(['roles.manage', 'users.manage']),
+    });
     expect(created[1].permissions).not.toContain('roles.manage');
   });
 
@@ -200,7 +272,9 @@ describe('provisionRestaurant', () => {
     expect(m.hasher.hashPassword).toHaveBeenCalledWith('a-strong-password-1');
     const userData = m.tx.user.create.mock.calls[0][0].data;
     expect(userData.passwordHash).toBe('HASHED');
-    expect(JSON.stringify(m.tx.user.create.mock.calls)).not.toContain('a-strong-password-1');
+    expect(JSON.stringify(m.tx.user.create.mock.calls)).not.toContain(
+      'a-strong-password-1',
+    );
   });
 
   it('creates no Menu, Product or other demo data', async () => {
@@ -213,6 +287,8 @@ describe('provisionRestaurant', () => {
         'branch',
         'qrCode',
         'restaurant',
+        'restaurantAcquisition',
+        'restaurantOwnerContact',
         'restaurantLocale',
         'restaurantSetup',
         'restaurantMembership',
@@ -222,10 +298,63 @@ describe('provisionRestaurant', () => {
     );
   });
 
+  it('records a validated referral within the same provisioning transaction, using the real referred name', async () => {
+    const m = build();
+    const acquisition = {
+      sourceType: 'CUSTOMER_REFERRAL' as const,
+      referringRestaurantId: 'b2b3f509-8b36-4e16-a024-429ef71b1c9d',
+      sourceName: null,
+      sourcePlatform: null,
+      sourceDetail: null,
+      campaign: null,
+    };
+    await provisionRestaurant(m.prisma as never, m.hasher, {
+      ...INPUT,
+      acquisition,
+      recordedByAdminId: 'f92c34c9-55ef-4e04-af96-e87e4a68cbb4',
+    });
+    expect(m.tx.restaurant.findUnique).toHaveBeenCalledTimes(1);
+    expect(m.tx.restaurantAcquisition.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        restaurantId: 'restaurant-1',
+        sourceType: 'CUSTOMER_REFERRAL',
+        referringRestaurantId: acquisition.referringRestaurantId,
+        referringRestaurantName: 'Referring Restaurant',
+        recordedByAdminId: 'f92c34c9-55ef-4e04-af96-e87e4a68cbb4',
+      }),
+    });
+    expect(m.calls.indexOf('acquisition')).toBeGreaterThan(
+      m.calls.indexOf('restaurant'),
+    );
+    expect(m.prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a nonexistent referred restaurant before creating the new restaurant', async () => {
+    const m = build();
+    m.tx.restaurant.findUnique.mockResolvedValue(null);
+    const result = await provisionRestaurant(m.prisma as never, m.hasher, {
+      ...INPUT,
+      acquisition: {
+        sourceType: 'CUSTOMER_REFERRAL',
+        referringRestaurantId: 'b2b3f509-8b36-4e16-a024-429ef71b1c9d',
+        sourceName: null,
+        sourcePlatform: null,
+        sourceDetail: null,
+        campaign: null,
+      },
+    });
+    expect(result.outcome).toBe('invalidInput');
+    expect(m.calls).toEqual([]);
+  });
+
   it('CONFLICT: an existing user that does not own this Restaurant is never touched', async () => {
     const m = build({ existingUser: { id: 'someone-else' }, owned: null });
 
-    const result = await provisionRestaurant(m.prisma as never, m.hasher, INPUT);
+    const result = await provisionRestaurant(
+      m.prisma as never,
+      m.hasher,
+      INPUT,
+    );
 
     expect(result).toEqual({ outcome: 'conflict', reason: 'ownerEmailInUse' });
     expect(m.calls).toEqual([]);
@@ -237,7 +366,11 @@ describe('provisionRestaurant', () => {
       owned: { restaurant: { publicId: 'restaurant-public-1' } },
     });
 
-    const result = await provisionRestaurant(m.prisma as never, m.hasher, INPUT);
+    const result = await provisionRestaurant(
+      m.prisma as never,
+      m.hasher,
+      INPUT,
+    );
 
     expect(result).toEqual({
       outcome: 'alreadyProvisioned',
@@ -248,11 +381,17 @@ describe('provisionRestaurant', () => {
 
   it('a concurrent duplicate that loses the unique race is reported as a conflict', async () => {
     const m = build();
-    const race = Object.create(Prisma.PrismaClientKnownRequestError.prototype) as Error & { code: string };
+    const race = Object.create(
+      Prisma.PrismaClientKnownRequestError.prototype,
+    ) as Error & { code: string };
     race.code = 'P2002';
     m.prisma.$transaction.mockRejectedValue(race);
 
-    const result = await provisionRestaurant(m.prisma as never, m.hasher, INPUT);
+    const result = await provisionRestaurant(
+      m.prisma as never,
+      m.hasher,
+      INPUT,
+    );
 
     expect(result).toEqual({ outcome: 'conflict', reason: 'ownerEmailInUse' });
   });
@@ -260,7 +399,10 @@ describe('provisionRestaurant', () => {
   it('invalid input writes nothing and never opens a transaction', async () => {
     const m = build();
 
-    const result = await provisionRestaurant(m.prisma as never, m.hasher, { ...INPUT, ownerEmail: 'nope' });
+    const result = await provisionRestaurant(m.prisma as never, m.hasher, {
+      ...INPUT,
+      ownerEmail: 'nope',
+    });
 
     expect(result.outcome).toBe('invalidInput');
     expect(m.prisma.$transaction).not.toHaveBeenCalled();
@@ -269,9 +411,14 @@ describe('provisionRestaurant', () => {
 
   it('a too-short password is rejected by the hasher policy without echoing it', async () => {
     const m = build();
-    m.hasher.hashPassword.mockRejectedValue(new Error('Password must be between 8 and 128 characters'));
+    m.hasher.hashPassword.mockRejectedValue(
+      new Error('Password must be between 8 and 128 characters'),
+    );
 
-    const result = await provisionRestaurant(m.prisma as never, m.hasher, { ...INPUT, ownerPassword: 'short' });
+    const result = await provisionRestaurant(m.prisma as never, m.hasher, {
+      ...INPUT,
+      ownerPassword: 'short',
+    });
 
     expect(result.outcome).toBe('invalidInput');
     expect(JSON.stringify(result)).not.toContain('short');
@@ -283,6 +430,8 @@ describe('provisionRestaurant', () => {
     const boom = new Error('db down');
     m.prisma.$transaction.mockRejectedValue(boom);
 
-    await expect(provisionRestaurant(m.prisma as never, m.hasher, INPUT)).rejects.toBe(boom);
+    await expect(
+      provisionRestaurant(m.prisma as never, m.hasher, INPUT),
+    ).rejects.toBe(boom);
   });
 });

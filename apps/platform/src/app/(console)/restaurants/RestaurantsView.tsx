@@ -160,6 +160,20 @@ export function RestaurantsView() {
                           {restaurant.publicId}
                         </span>
                       </Link>
+                      {restaurant.ownerContact ? (
+                        <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                          <span className="max-w-[220px] truncate text-muted-foreground">
+                            {restaurant.ownerContact.fullName}
+                          </span>
+                          <a
+                            href={`tel:${restaurant.ownerContact.phone.replace(/[^\d+]/g, "")}`}
+                            dir="ltr"
+                            className="font-medium text-primary-text hover:underline"
+                          >
+                            {restaurant.ownerContact.phone}
+                          </a>
+                        </div>
+                      ) : null}
                     </td>
                     <td className="px-4 py-3">
                       <StatusBadge status={restaurant.status} t={t} />

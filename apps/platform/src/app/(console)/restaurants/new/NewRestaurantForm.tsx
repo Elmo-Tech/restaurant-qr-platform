@@ -8,7 +8,8 @@ import { IconArrowLeft } from "@/components/icons";
 import { Alert, Button, Card, CardHeader, Input, Label, PageHeader, Select } from "@/components/ui";
 import { ApiError, isNetworkFailure } from "@/lib/api/errors";
 import { packageErrorKey } from "@/lib/api/package-errors";
-import { createRestaurant, listPackages, type PackageSummary } from "@/lib/api/platform";
+import { createRestaurant, listPackages, type PackageSummary, type RestaurantAcquisitionInput } from "@/lib/api/platform";
+import { AcquisitionSourceFields } from "./AcquisitionSourceFields";
 import { useI18n } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 
@@ -23,7 +24,11 @@ interface FormState {
   countryCode: string;
   ownerEmail: string;
   ownerPassword: string;
+  ownerFullName: string;
+  ownerPhone: string;
+  ownerFacebookUrl: string;
   packageId: string;
+  acquisition: RestaurantAcquisitionInput | null;
 }
 
 const INITIAL: FormState = {
@@ -35,7 +40,11 @@ const INITIAL: FormState = {
   countryCode: "EG",
   ownerEmail: "",
   ownerPassword: "",
+  ownerFullName: "",
+  ownerPhone: "",
+  ownerFacebookUrl: "",
   packageId: "",
+  acquisition: null,
 };
 
 export function NewRestaurantForm() {
@@ -67,10 +76,20 @@ export function NewRestaurantForm() {
     const name = form.restaurantName.trim();
     if (name.length < 2 || name.length > 100) return "restaurantNew.err.name";
     if (form.branchName.trim() === "") return "restaurantNew.err.branch";
+    if (form.ownerFullName.trim().length < 2 || form.ownerFullName.trim().length > 120) return "ownerContact.err.name";
+    if (form.ownerPhone.replace(/\D/g, "").length < 8) return "ownerContact.err.phone";
     if (!EMAIL.test(form.ownerEmail.trim())) return "restaurantNew.err.email";
     if (form.ownerPassword.length < 8) return "restaurantNew.err.password";
     if (!/^[A-Za-z]{3}$/.test(form.currencyCode.trim())) return "restaurantNew.err.currency";
     if (!/^[A-Za-z]{2}$/.test(form.countryCode.trim())) return "restaurantNew.err.country";
+    const source = form.acquisition;
+    if (!source) return "restaurantNew.err.source";
+    const kind = source.sourceType;
+    if (kind === "CUSTOMER_REFERRAL" && !source.referringRestaurantId && !source.sourceName?.trim()) return "restaurantNew.err.sourceDetail";
+    if ((kind === "EMPLOYEE_REFERRAL" || kind === "SALES") && !source.sourceName?.trim()) return "restaurantNew.err.sourceDetail";
+    if ((kind === "SOCIAL_MEDIA" || kind === "PAID_AD") && !source.sourcePlatform) return "restaurantNew.err.sourceDetail";
+    if (source.sourcePlatform === "OTHER" && !source.sourceDetail?.trim()) return "restaurantNew.err.sourceDetail";
+    if ((kind === "WEBSITE" || kind === "DIRECT" || kind === "OTHER") && !source.sourceDetail?.trim()) return "restaurantNew.err.sourceDetail";
     return null;
   }
 
@@ -96,6 +115,12 @@ export function NewRestaurantForm() {
         timezone: form.timezone.trim(),
         countryCode: form.countryCode.trim().toUpperCase(),
         packageId: form.packageId === "" ? null : form.packageId,
+        acquisition: form.acquisition,
+        ownerContact: {
+          fullName: form.ownerFullName.trim(),
+          phone: form.ownerPhone.trim(),
+          facebookUrl: form.ownerFacebookUrl.trim() || null,
+        },
       });
       router.push(`/restaurants/${created.id}`);
     } catch (caught) {
@@ -200,6 +225,61 @@ export function NewRestaurantForm() {
                 <Label htmlFor="r-timezone">{t("restaurantNew.timezone")}</Label>
                 <Input id="r-timezone" dir="ltr" value={form.timezone} onChange={(e) => set("timezone", e.target.value)} className="text-start" />
               </div>
+            </div>
+          </div>
+        </Card>
+
+        <Card>
+          <CardHeader title={t("acquisition.section")} description={t("acquisition.description")} />
+          <AcquisitionSourceFields
+            value={form.acquisition}
+            onChange={(acquisition) => set("acquisition", acquisition)}
+          />
+        </Card>
+
+        <Card>
+          <CardHeader title={t("ownerContact.section")} description={t("ownerContact.description")} />
+          <div className="grid gap-4 p-5 sm:grid-cols-2">
+            <div>
+              <Label htmlFor="o-name">{t("ownerContact.name")}</Label>
+              <Input
+                id="o-name"
+                value={form.ownerFullName}
+                onChange={(e) => set("ownerFullName", e.target.value)}
+                maxLength={120}
+                autoComplete="name"
+                required
+              />
+            </div>
+            <div>
+              <Label htmlFor="o-phone">{t("ownerContact.phone")}</Label>
+              <Input
+                id="o-phone"
+                type="tel"
+                dir="ltr"
+                value={form.ownerPhone}
+                onChange={(e) => set("ownerPhone", e.target.value)}
+                maxLength={32}
+                placeholder="+201012345678"
+                autoComplete="tel"
+                className="text-start"
+                required
+              />
+            </div>
+            <div className="sm:col-span-2">
+              <Label htmlFor="o-facebook">{t("ownerContact.facebook")}</Label>
+              <Input
+                id="o-facebook"
+                type="text"
+                dir="ltr"
+                value={form.ownerFacebookUrl}
+                onChange={(e) => set("ownerFacebookUrl", e.target.value)}
+                maxLength={300}
+                placeholder="https://facebook.com/..."
+                className="text-start"
+                autoComplete="off"
+              />
+              <p className="mt-1.5 text-xs text-muted-foreground">{t("ownerContact.facebookHint")}</p>
             </div>
           </div>
         </Card>
