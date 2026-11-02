@@ -1,0 +1,22 @@
+name: VERDE Exclusive Menu Checks
+on:
+  push:
+    branches:
+      - feat/verde-exclusive-napoli-menu
+  workflow_dispatch:
+jobs:
+  contract:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci --ignore-scripts
+      - run: npm run db:validate
+      - run: npm run typecheck:api
+      - run: npm run typecheck:web
+      - run: npm run typecheck:platform
+      - name: API exclusive tenant tests
+        run: npm exec --workspace apps/api -- jest --runInBand --runTestsByPath src/platform/platform-exclusive-design.spec.ts src/public/public-menu.service.spec.ts
