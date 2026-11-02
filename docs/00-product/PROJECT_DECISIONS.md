@@ -1465,7 +1465,9 @@ restaurant row flagged `is_demo` with an expiry, so every dashboard feature work
 Backend refuses what a demo must not do (password, staff, subscription requests, uploads, Menu Import) and the purge
 refuses anything that is not a demo; it is built from the database's foreign keys and an end-to-end test checks that
 no row is left in any table with a `restaurant_id` and that no other restaurant changes. Demos are excluded from the
-Platform totals.
+Platform totals. When it is created the team may put the demo on a **package**, so the visitor sees only what
+that plan includes (features hidden, menu designs locked) with the same entitlement rules as a real restaurant;
+without one it shows every feature.
 
 The reason is sales: a prospect sees the real product at once, with no setup by us and no shared account, and what
 they do never affects anyone else.

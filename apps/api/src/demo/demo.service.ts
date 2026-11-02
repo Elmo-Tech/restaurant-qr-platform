@@ -6,6 +6,11 @@ import { AuthSessionService } from '../auth/session/auth-session.service';
 import { createBranchPublicId } from '../branches/branch-public-id';
 import type { EnvConfig } from '../config/env.schema';
 import { PrismaService } from '../database/prisma.service';
+import { resolveFeatures } from '../entitlements/features';
+import {
+  allowedTemplates,
+  type MenuTemplateKey,
+} from '../entitlements/templates';
 import { Prisma } from '../generated/prisma/client';
 import type { MenuTemplate } from '../generated/prisma/client';
 import { createProductPublicId } from '../menu/product-public-id';
@@ -39,6 +44,8 @@ export interface DemoView {
   opened: boolean;
   lastOpenedAt: string | null;
   openCount: number;
+  /** The Package the demo shows the features of; null = every feature. */
+  package: { id: string; name: string; nameEn: string } | null;
 }
 
 export type CreateDemoResult =
@@ -63,6 +70,7 @@ export type EnterDemoResult =
 const sha256 = (value: string): string =>
   createHash('sha256').update(value).digest('hex');
 const HOUR_MS = 60 * 60 * 1000;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 @Injectable()
 export class DemoService {
@@ -89,6 +97,7 @@ export class DemoService {
     createdAt: Date;
     demoExpiresAt: Date | null;
     demoAccessLinks: { lastUsedAt: Date | null; useCount: number }[];
+    package: { id: string; name: string; nameEn: string } | null;
   }): DemoView {
     const expires = row.demoExpiresAt as Date;
     const opens = row.demoAccessLinks.reduce((n, l) => n + l.useCount, 0);
@@ -107,6 +116,7 @@ export class DemoService {
       opened: opens > 0,
       lastOpenedAt: last ? last.toISOString() : null,
       openCount: opens,
+      package: row.package,
     };
   }
 
@@ -118,6 +128,7 @@ export class DemoService {
     createdAt: true,
     demoExpiresAt: true,
     demoAccessLinks: { select: { lastUsedAt: true, useCount: true } },
+    package: { select: { id: true, name: true, nameEn: true } },
   } as const;
 
   async list(): Promise<DemoView[]> {
@@ -144,9 +155,55 @@ export class DemoService {
     return `${base}/demo/${token}`;
   }
 
+  /**
+   * The Package a demo shows, with the menu designs it allows. The demo follows the platform's own rules
+   * (DEC-043, DEC-046, DEC-051): a feature the Package does not include is hidden, a design it does not allow is locked.
+   */
+  private async loadPackage(
+    packageId: string,
+  ): Promise<
+    | { ok: true; id: string; templates: MenuTemplateKey[] }
+    | { ok: false; problem: string }
+  > {
+    if (!UUID.test(packageId))
+      return { ok: false, problem: 'the package was not found' };
+    const pkg = await this.prisma.package.findUnique({
+      where: { id: packageId },
+      select: {
+        id: true,
+        status: true,
+        allTemplates: true,
+        allStandardTemplates: true,
+        features: { select: { feature: true } },
+        templates: { select: { template: true } },
+      },
+    });
+    if (!pkg) return { ok: false, problem: 'the package was not found' };
+    if (pkg.status === 'ARCHIVED')
+      return { ok: false, problem: 'the package is archived' };
+    const features = resolveFeatures(
+      [],
+      pkg.features.map((f) => f.feature),
+    );
+    return {
+      ok: true,
+      id: pkg.id,
+      templates: allowedTemplates({
+        featureEnabled: features.MENU_TEMPLATES,
+        rule: {
+          includesFeature: features.MENU_TEMPLATES,
+          all: pkg.allTemplates,
+          allStandard: pkg.allStandardTemplates,
+          selected: pkg.templates.map((t) => t.template),
+        },
+      }),
+    };
+  }
+
   async create(input: {
     label: string;
     hours: number;
+    packageId?: string | null;
   }): Promise<CreateDemoResult> {
     const label = input.label.replace(/\s+/g, ' ').trim();
     const problems: string[] = [];
@@ -160,6 +217,12 @@ export class DemoService {
       problems.push(
         `hours must be a whole number from ${DEMO_MIN_HOURS} to ${DEMO_MAX_HOURS}`,
       );
+    let pkg: { id: string; templates: MenuTemplateKey[] } | null = null;
+    if (input.packageId) {
+      const loaded = await this.loadPackage(input.packageId);
+      if (loaded.ok) pkg = loaded;
+      else problems.push(loaded.problem);
+    }
     if (problems.length > 0) return { outcome: 'invalidInput', problems };
 
     const max = this.config.get('DEMO_MAX_ACTIVE', { infer: true });
@@ -207,6 +270,15 @@ export class DemoService {
           this.fillFromTemplate(tx, restaurant.id, template, assets, {
             label,
             expiresAt,
+            packageId: pkg?.id ?? null,
+            // The template's design when the Package allows it, otherwise the one design every Package has.
+            menuTemplate:
+              !pkg ||
+              pkg.templates.includes(
+                template.restaurant.menuTemplate as MenuTemplateKey,
+              )
+                ? (template.restaurant.menuTemplate as MenuTemplate)
+                : 'CLASSIC',
           }),
         { timeout: 60_000, maxWait: 10_000 },
       );
@@ -235,7 +307,12 @@ export class DemoService {
     restaurantId: string,
     template: DemoTemplate,
     assets: Map<string, string>,
-    demo: { label: string; expiresAt: Date },
+    demo: {
+      label: string;
+      expiresAt: Date;
+      packageId: string | null;
+      menuTemplate: MenuTemplate;
+    },
   ): Promise<void> {
     const r = template.restaurant;
     await tx.restaurant.update({
@@ -244,10 +321,11 @@ export class DemoService {
         isDemo: true,
         demoExpiresAt: demo.expiresAt,
         demoLabel: demo.label,
+        packageId: demo.packageId,
         logoAssetPath: assets.get(r.logo) ?? null,
         coverAssetPath: assets.get(r.cover) ?? null,
         countryCode: r.countryCode,
-        menuTemplate: r.menuTemplate as MenuTemplate,
+        menuTemplate: demo.menuTemplate,
         suggestionsMode: r.suggestionsMode,
         pickupEnabled: r.pickupEnabled,
         deliveryEnabled: r.deliveryEnabled,

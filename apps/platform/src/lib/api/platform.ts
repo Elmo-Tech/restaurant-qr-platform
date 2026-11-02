@@ -453,9 +453,11 @@ export interface DemoSummary {
   opened: boolean;
   lastOpenedAt: string | null;
   openCount: number;
+  /** The package whose features the demo shows; null = every feature. */
+  package: { id: string; name: string; nameEn: string } | null;
 }
 export const listDemos = () => data(platformFetch<{ data: DemoSummary[] }>("/demos"));
-export const createDemo = (input: { label: string; hours: number }) =>
+export const createDemo = (input: { label: string; hours: number; packageId?: string }) =>
   data(platformFetch<{ data: { demo: DemoSummary; link: string } }>("/demos", { method: "POST", body: input }));
 export const extendDemo = (id: string, hours: number) =>
   data(platformFetch<{ data: DemoSummary }>(`/demos/${encodeURIComponent(id)}/extend`, { method: "POST", body: { hours } }));

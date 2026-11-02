@@ -40,6 +40,11 @@ Credits (`apps/api/demo-template/CREDITS.md`, also shown at `/demo-credits`) fol
 1. **Create** (Platform console, Demos): a label (who it is for) and a duration (1 hour to 14 days; presets 1 h, 4 h, 1
    day, 3 days, 7 days). At most `DEMO_MAX_ACTIVE` (default 20) demos exist at once. The result is the **secret link**,
    shown once. Only the SHA-256 hash of the token is stored (`demo_access_links`).
+   The team may also pick an active **Package**: the demo is put on it (`restaurants.package_id`), so the visitor sees
+   exactly what that package includes, hidden or locked like a real restaurant on it (DEC-043, DEC-046, DEC-051). The
+   demo menu design is the template's when the package allows it, otherwise Classic. No package = every feature. Only
+   the dashboard follows the package: the sample content stays complete. No subscription is created, so the
+   subscription sweep never touches a demo.
 2. **Enter**: `POST /demo/enter { token }` (rate limited like a sign-in) creates an Auth Session for the demo owner
    and sets the usual HttpOnly cookie; the web page `/demo/<token>` then goes to the restaurant's dashboard. The link
    works repeatedly until the demo ends. The session never outlives the demo. A wrong, expired or locked link always

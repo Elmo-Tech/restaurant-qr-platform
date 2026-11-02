@@ -75,6 +75,7 @@ export class PlatformDemoController {
     const result = await this.demos.create({
       label: body.label,
       hours: body.hours,
+      packageId: body.packageId ?? null,
     });
     if (result.outcome === 'invalidInput') throw invalid(result.problems);
     if (result.outcome === 'limitReached') {
@@ -92,7 +93,11 @@ export class PlatformDemoController {
       admin: request.platformAdmin,
       action: 'platform.demo_created',
       restaurant: { id: result.demo.id, name: result.demo.label },
-      details: { label: result.demo.label, expiresAt: result.demo.expiresAt },
+      details: {
+        label: result.demo.label,
+        expiresAt: result.demo.expiresAt,
+        package: result.demo.package?.nameEn ?? null,
+      },
     });
     return { data: { demo: result.demo, link: result.link } };
   }

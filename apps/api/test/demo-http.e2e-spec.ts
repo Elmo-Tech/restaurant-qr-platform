@@ -14,6 +14,7 @@ import type { EnvConfig } from './../src/config/env.schema';
 import { PrismaService } from './../src/database/prisma.service';
 import { DemoService } from './../src/demo/demo.service';
 import { NotADemoError, purgeDemoRestaurant } from './../src/demo/demo-purge';
+import { EntitlementsService } from './../src/entitlements/entitlements.service';
 import { resolveUploadDir } from './../src/storage/upload-dir';
 
 /**
@@ -381,6 +382,119 @@ describe('Temporary demo restaurants (e2e)', () => {
       .get(`/api/v1/public/qr/${qr.publicCode}/menu`)
       .expect(404);
     await demos.purge(id);
+  });
+
+  describe('a demo tied to a package', () => {
+    const packageIds: string[] = [];
+    afterAll(async () => {
+      await prisma.package.deleteMany({ where: { id: { in: packageIds } } });
+    });
+    async function makePackage(options: {
+      features: ('KITCHEN' | 'MENU_TEMPLATES' | 'WHATSAPP_ORDERING')[];
+      templates?: 'GALLERY'[];
+      status?: 'ACTIVE' | 'ARCHIVED';
+    }): Promise<string> {
+      const tag = randomUUID();
+      const pkg = await prisma.package.create({
+        data: {
+          name: `باقة ${tag}`,
+          nameNormalized: `باقة ${tag}`,
+          nameEn: `Plan ${tag}`,
+          nameEnNormalized: `plan ${tag}`,
+          status: options.status ?? 'ACTIVE',
+          features: {
+            create: options.features.map((feature) => ({ feature })),
+          },
+          templates: {
+            create: (options.templates ?? []).map((template) => ({ template })),
+          },
+        },
+      });
+      packageIds.push(pkg.id);
+      return pkg.id;
+    }
+    const demoWith = async (packageId: string) => {
+      const res = await platform('post', '/demos', {
+        label: 'with a package',
+        hours: 2,
+        packageId,
+      }).expect(201);
+      const { demo } = body(res).data as { demo: Obj };
+      created.push(demo.id as string);
+      return demo;
+    };
+
+    it('shows only what the package includes, and falls back to the Classic design the package does not allow', async () => {
+      const entitlements = app.get(EntitlementsService);
+      const small = await makePackage({ features: ['KITCHEN'] });
+      const demo = await demoWith(small);
+      expect(demo.package).toMatchObject({ id: small });
+      const restaurant = await prisma.restaurant.findUniqueOrThrow({
+        where: { id: demo.id as string },
+      });
+      expect(restaurant.packageId).toBe(small);
+      expect(restaurant.menuTemplate).toBe('CLASSIC');
+      const features = await entitlements.forRestaurant(demo.id as string);
+      expect(features.KITCHEN).toBe(true);
+      expect(features.WHATSAPP_ORDERING).toBe(false);
+      expect(features.MENU_TEMPLATES).toBe(false);
+      // it is listed with its package, and its content is still the whole demo menu
+      const listed = await platform('get', '/demos').expect(200);
+      expect(
+        (body(listed).data as Obj[]).find((d) => d.id === demo.id)?.package,
+      ).toMatchObject({ id: small });
+      expect(
+        await prisma.product.count({
+          where: { restaurantId: demo.id as string },
+        }),
+      ).toBeGreaterThanOrEqual(20);
+      await demos.purge(demo.id as string);
+      // removing the demo leaves the package alone
+      expect(await prisma.package.count({ where: { id: small } })).toBe(1);
+    });
+
+    it('keeps the demo design when the package allows it', async () => {
+      const rich = await makePackage({
+        features: ['MENU_TEMPLATES', 'KITCHEN'],
+        templates: ['GALLERY'],
+      });
+      const demo = await demoWith(rich);
+      const restaurant = await prisma.restaurant.findUniqueOrThrow({
+        where: { id: demo.id as string },
+      });
+      expect(restaurant.menuTemplate).toBe('GALLERY');
+      await demos.purge(demo.id as string);
+    });
+
+    it('gives every feature when no package is chosen, and refuses an unknown or archived package', async () => {
+      const { id } = await createDemo();
+      const restaurant = await prisma.restaurant.findUniqueOrThrow({
+        where: { id },
+      });
+      expect(restaurant.packageId).toBeNull();
+      expect(restaurant.menuTemplate).toBe('GALLERY');
+      await demos.purge(id);
+
+      await platform('post', '/demos', {
+        label: 'x',
+        hours: 2,
+        packageId: randomUUID(),
+      }).expect(422);
+      const archived = await makePackage({
+        features: ['KITCHEN'],
+        status: 'ARCHIVED',
+      });
+      await platform('post', '/demos', {
+        label: 'x',
+        hours: 2,
+        packageId: archived,
+      }).expect(422);
+      await platform('post', '/demos', {
+        label: 'x',
+        hours: 2,
+        packageId: 'not-a-uuid',
+      }).expect(400);
+    });
   });
 
   it('extends a demo, issues a new link that replaces the old one, and refuses bad input', async () => {

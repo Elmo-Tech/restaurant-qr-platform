@@ -3,7 +3,16 @@
 import { useCallback, useEffect, useRef, useState, type FormEvent } from "react";
 import { Alert, Badge, Button, Card, CardHeader, Input, Label, PageHeader, Select, Skeleton, TableWrap, Th } from "@/components/ui";
 import { ApiError, isNetworkFailure } from "@/lib/api/errors";
-import { createDemo, extendDemo, listDemos, newDemoLink, removeDemo, type DemoSummary } from "@/lib/api/platform";
+import {
+  createDemo,
+  extendDemo,
+  listDemos,
+  listPackages,
+  newDemoLink,
+  removeDemo,
+  type DemoSummary,
+  type PackageSummary,
+} from "@/lib/api/platform";
 import { useI18n } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 import type { Translate } from "@/lib/i18n/translate";
@@ -44,8 +53,10 @@ function timeLeft(expiresAt: string, now: number, t: Translate): string {
 }
 
 export function DemosView() {
-  const { t, fmt } = useI18n();
+  const { t, fmt, locale } = useI18n();
   const [demos, setDemos] = useState<DemoSummary[] | null>(null);
+  const [packages, setPackages] = useState<PackageSummary[]>([]);
+  const [packageId, setPackageId] = useState("");
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [busy, setBusy] = useState(false);
   const [now, setNow] = useState(() => Date.now());
@@ -73,6 +84,12 @@ export function DemosView() {
       .catch((caught: unknown) => {
         if (!cancelled) setFeedback(feedbackFor(caught));
       });
+    // the packages a demo can show: only the ones that can still be sold
+    listPackages()
+      .then((loaded) => {
+        if (!cancelled) setPackages(loaded.filter((pkg) => pkg.status === "ACTIVE"));
+      })
+      .catch(() => undefined);
     // the countdown and the list follow the clock: a demo that ended shows as ended without a reload
     const tick = setInterval(() => {
       setNow(Date.now());
@@ -114,7 +131,7 @@ export function DemosView() {
       return;
     }
     await run(async () => {
-      const result = await createDemo({ label: label.trim(), hours });
+      const result = await createDemo({ label: label.trim(), hours, ...(packageId ? { packageId } : {}) });
       setFresh({ label: result.demo.label, link: result.link, expiresAt: result.demo.expiresAt });
       setLabel("");
       return "demos.created";
@@ -148,6 +165,18 @@ export function DemosView() {
         <Card>
           <CardHeader title={t("demos.new.title")} description={t("demos.new.description")} />
           <form onSubmit={(event) => void create(event)} className="grid gap-4 p-5 sm:grid-cols-[1fr_200px_auto] sm:items-start" noValidate autoComplete="off">
+            <div className="sm:col-span-3">
+              <Label htmlFor="demo-package">{t("demos.package")}</Label>
+              <Select id="demo-package" value={packageId} onChange={(event) => setPackageId(event.target.value)}>
+                <option value="">{t("demos.package.all")}</option>
+                {packages.map((pkg) => (
+                  <option key={pkg.id} value={pkg.id}>
+                    {locale === "ar" ? pkg.nameAr : pkg.nameEn}
+                  </option>
+                ))}
+              </Select>
+              <p className="mt-1.5 text-xs text-muted-foreground">{t("demos.packageHint")}</p>
+            </div>
             <div>
               <Label htmlFor="demo-label">{t("demos.label")}</Label>
               <Input id="demo-label" value={label} onChange={(event) => setLabel(event.target.value)} maxLength={80} />
@@ -212,6 +241,7 @@ export function DemosView() {
                 <thead>
                   <tr>
                     <Th>{t("demos.col.label")}</Th>
+                    <Th>{t("demos.col.package")}</Th>
                     <Th>{t("demos.col.status")}</Th>
                     <Th>{t("demos.col.ends")}</Th>
                     <Th>{t("demos.col.opened")}</Th>
@@ -226,6 +256,9 @@ export function DemosView() {
                       <tr key={demo.id} className="align-top">
                         <td className="px-4 py-3 font-medium">
                           <bdi>{demo.label}</bdi>
+                        </td>
+                        <td className="px-4 py-3 text-muted-foreground">
+                          {demo.package ? <bdi>{locale === "ar" ? demo.package.name : demo.package.nameEn}</bdi> : t("demos.package.all")}
                         </td>
                         <td className="px-4 py-3">
                           <Badge tone={ended ? "warning" : "success"} dot>
