@@ -1,7 +1,12 @@
 import { PlatformRestaurantsService } from './platform-restaurants.service';
 
 const RESTAURANT_ID = '11111111-1111-4111-8111-111111111111';
-const ADMIN = { adminId: 'platform-admin-1', email: 'admin@example.org', displayName: 'Platform Admin' };
+const ADMIN = {
+  adminId: 'platform-admin-1',
+  email: 'admin@example.org',
+  displayName: 'Platform Admin',
+  sessionId: 'platform-session-1',
+};
 
 function setup() {
   const prisma = {
