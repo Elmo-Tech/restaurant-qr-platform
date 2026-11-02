@@ -6,6 +6,10 @@ import {
   type ProvisioningPrisma,
 } from '../provisioning/provision-restaurant';
 import { PlatformAuditService } from './platform-audit.service';
+import {
+  validateAcquisitionInput,
+  type RestaurantAcquisitionInput,
+} from './restaurant-acquisition';
 import type { PlatformAdminPrincipal } from './platform-auth.service';
 
 export interface CreateRestaurantInput {
@@ -20,6 +24,7 @@ export interface CreateRestaurantInput {
   countryCode?: string;
   /** Optional package to put the new Restaurant on. */
   packageId: string | null;
+  acquisition?: RestaurantAcquisitionInput | null;
 }
 
 export type CreateRestaurantOutcome =
@@ -57,6 +62,12 @@ export class PlatformRestaurantCreationService {
     admin: PlatformAdminPrincipal,
     input: CreateRestaurantInput,
   ): Promise<CreateRestaurantOutcome> {
+    // Reject impossible/contradictory attribution BEFORE creating any user or tenant.
+    const acquisition = validateAcquisitionInput(input.acquisition);
+    if (!acquisition.ok) {
+      return { outcome: 'invalidInput', problems: acquisition.problems };
+    }
+
     // Check the package first so a bad choice cannot leave a Restaurant half set up.
     let packageName: string | null = null;
     if (input.packageId !== null) {
@@ -81,6 +92,8 @@ export class PlatformRestaurantCreationService {
         defaultLocale: input.defaultLocale,
         currencyCode: input.currencyCode,
         timezone: input.timezone,
+        acquisition: acquisition.value,
+        recordedByAdminId: acquisition.value ? admin.adminId : null,
       },
     );
     if (result.outcome === 'invalidInput') {
@@ -104,7 +117,11 @@ export class PlatformRestaurantCreationService {
       admin,
       action: 'restaurant.created',
       restaurant: { id: restaurant.id, name: restaurant.name },
-      details: { ownerEmail: result.ownerEmail, package: packageName },
+      details: {
+        ownerEmail: result.ownerEmail,
+        package: packageName,
+        acquisitionSource: acquisition.value?.sourceType ?? 'UNKNOWN',
+      },
     });
     return {
       outcome: 'created',
