@@ -1,0 +1,1257 @@
+{
+  "version": 1,
+  "restaurant": {
+    "name": "Wayta Café",
+    "defaultLocale": "ar",
+    "currencyCode": "EGP",
+    "countryCode": "EG",
+    "menuTemplate": "BREW",
+    "suggestionsMode": "MANUAL",
+    "pickupEnabled": true,
+    "deliveryEnabled": true,
+    "tableOrderingEnabled": true,
+    "whatsappOrderingEnabled": false,
+    "logo": "logo.png",
+    "cover": "cover.jpg"
+  },
+  "branches": [
+    {
+      "key": "zamalek",
+      "names": {
+        "ar": "فرع الزمالك",
+        "en": "Zamalek Branch"
+      },
+      "timezone": "Africa/Cairo",
+      "phone": "+20 100 000 0003",
+      "address": {
+        "ar": "شارع 26 يوليو، الزمالك، القاهرة",
+        "en": "26th of July Street, Zamalek, Cairo"
+      },
+      "tables": 10,
+      "zones": [
+        {
+          "names": {
+            "ar": "الزمالك",
+            "en": "Zamalek"
+          },
+          "fee": "25",
+          "minimum": "120"
+        },
+        {
+          "names": {
+            "ar": "المهندسين",
+            "en": "Mohandessin"
+          },
+          "fee": "35",
+          "minimum": "150"
+        }
+      ]
+    },
+    {
+      "key": "new-cairo",
+      "names": {
+        "ar": "فرع التجمع الخامس",
+        "en": "New Cairo Branch"
+      },
+      "timezone": "Africa/Cairo",
+      "phone": "+20 100 000 0004",
+      "address": {
+        "ar": "التجمع الخامس، القاهرة الجديدة",
+        "en": "Fifth Settlement, New Cairo"
+      },
+      "tables": 6,
+      "zones": [
+        {
+          "names": {
+            "ar": "التجمع الخامس",
+            "en": "Fifth Settlement"
+          },
+          "fee": "30",
+          "minimum": "130"
+        },
+        {
+          "names": {
+            "ar": "الرحاب",
+            "en": "Rehab City"
+          },
+          "fee": "40",
+          "minimum": "150"
+        }
+      ]
+    }
+  ],
+  "menu": {
+    "nameInternal": "Main menu",
+    "names": {
+      "ar": "القائمة الرئيسية",
+      "en": "Main menu"
+    },
+    "categories": [
+      {
+        "key": "hot-coffee",
+        "image": "cappuccino.jpg",
+        "names": {
+          "ar": "قهوة ساخنة",
+          "en": "Hot Coffee"
+        },
+        "products": [
+          {
+            "key": "espresso",
+            "image": "espresso.jpg",
+            "names": {
+              "ar": "إسبريسو",
+              "en": "Espresso"
+            },
+            "descriptions": {
+              "ar": "شوت إسبريسو مركّز من حبوب محمصة طازجة، بكريمة ذهبية وطعم عميق.",
+              "en": "A concentrated shot from freshly roasted beans, with a golden crema and a deep finish."
+            },
+            "price": "55",
+            "variants": [
+              {
+                "names": {
+                  "ar": "سينجل",
+                  "en": "Single"
+                },
+                "price": "55",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "دبل",
+                  "en": "Double"
+                },
+                "price": "70",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "cappuccino",
+            "image": "cappuccino.jpg",
+            "names": {
+              "ar": "كابتشينو",
+              "en": "Cappuccino"
+            },
+            "descriptions": {
+              "ar": "إسبريسو مع حليب مبخّر ورغوة كثيفة وتزيين لاتيه آرت.",
+              "en": "Espresso with steamed milk, a thick velvety foam and latte art."
+            },
+            "price": "85",
+            "variants": [
+              {
+                "names": {
+                  "ar": "ريجولار",
+                  "en": "Regular"
+                },
+                "price": "85",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "لارج",
+                  "en": "Large"
+                },
+                "price": "100",
+                "default": false
+              }
+            ],
+            "featured": true,
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "نوع اللبن",
+                  "en": "Milk"
+                },
+                "helper": {
+                  "ar": "اختياري",
+                  "en": "Optional"
+                },
+                "min": 0,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "لبن شوفان",
+                      "en": "Oat milk"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "لبن لوز",
+                      "en": "Almond milk"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "لبن خالي اللاكتوز",
+                      "en": "Lactose-free milk"
+                    },
+                    "price": "10"
+                  }
+                ]
+              },
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختر حتى 2 إضافة",
+                  "en": "Choose up to 2 extras"
+                },
+                "min": 0,
+                "max": 2,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "شوت إسبريسو إضافي",
+                      "en": "Extra espresso shot"
+                    },
+                    "price": "20"
+                  },
+                  {
+                    "names": {
+                      "ar": "سيرب فانيليا",
+                      "en": "Vanilla syrup"
+                    },
+                    "price": "10"
+                  },
+                  {
+                    "names": {
+                      "ar": "سيرب كراميل",
+                      "en": "Caramel syrup"
+                    },
+                    "price": "10"
+                  },
+                  {
+                    "names": {
+                      "ar": "سيرب بندق",
+                      "en": "Hazelnut syrup"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "flat-white",
+            "image": "flat-white.jpg",
+            "names": {
+              "ar": "فلات وايت",
+              "en": "Flat White"
+            },
+            "descriptions": {
+              "ar": "شوتين ريستريتو مع حليب مخملي ناعم، أقوى وأنعم من الكابتشينو.",
+              "en": "A double ristretto with silky microfoam, bolder and smoother than a cappuccino."
+            },
+            "price": "90",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "نوع اللبن",
+                  "en": "Milk"
+                },
+                "helper": {
+                  "ar": "اختياري",
+                  "en": "Optional"
+                },
+                "min": 0,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "لبن شوفان",
+                      "en": "Oat milk"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "لبن لوز",
+                      "en": "Almond milk"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "لبن خالي اللاكتوز",
+                      "en": "Lactose-free milk"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "turkish-coffee",
+            "image": "turkish-coffee.jpg",
+            "names": {
+              "ar": "قهوة تركي",
+              "en": "Turkish Coffee"
+            },
+            "descriptions": {
+              "ar": "تتحضّر على الرمل في ركوة نحاس، وبتتقدّم مع كوب ماية.",
+              "en": "Brewed slowly over hot sand in a copper pot, served with a glass of water."
+            },
+            "price": "50",
+            "variants": [
+              {
+                "names": {
+                  "ar": "سينجل",
+                  "en": "Single"
+                },
+                "price": "50",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "دبل",
+                  "en": "Double"
+                },
+                "price": "75",
+                "default": false
+              }
+            ],
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "درجة السكر",
+                  "en": "Sugar level"
+                },
+                "helper": {
+                  "ar": "اختر درجة السكر",
+                  "en": "Choose how sweet"
+                },
+                "min": 1,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "سادة",
+                      "en": "Plain"
+                    },
+                    "price": "0"
+                  },
+                  {
+                    "names": {
+                      "ar": "مظبوط",
+                      "en": "Medium"
+                    },
+                    "price": "0"
+                  },
+                  {
+                    "names": {
+                      "ar": "سكر زيادة",
+                      "en": "Extra sweet"
+                    },
+                    "price": "0"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "hot-chocolate",
+            "image": "hot-chocolate.jpg",
+            "names": {
+              "ar": "هوت شوكولاتة",
+              "en": "Hot Chocolate"
+            },
+            "descriptions": {
+              "ar": "شوكولاتة بلجيكية ذايبة في حليب ساخن مع كريمة مخفوقة وبودرة كاكاو.",
+              "en": "Melted Belgian chocolate in hot milk, topped with whipped cream and cocoa."
+            },
+            "price": "85",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختيار واحد",
+                  "en": "Choose one"
+                },
+                "min": 0,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "مارشميلو",
+                      "en": "Marshmallows"
+                    },
+                    "price": "10"
+                  },
+                  {
+                    "names": {
+                      "ar": "كريمة زيادة",
+                      "en": "Extra whipped cream"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "cold-drinks",
+        "image": "iced-latte.jpg",
+        "names": {
+          "ar": "مشروبات باردة",
+          "en": "Cold Drinks"
+        },
+        "products": [
+          {
+            "key": "iced-latte",
+            "image": "iced-latte.jpg",
+            "names": {
+              "ar": "آيس لاتيه",
+              "en": "Iced Latte"
+            },
+            "descriptions": {
+              "ar": "إسبريسو مع حليب بارد وتلج، منعش وسلس.",
+              "en": "Espresso over cold milk and ice, smooth and refreshing."
+            },
+            "price": "90",
+            "variants": [
+              {
+                "names": {
+                  "ar": "ريجولار",
+                  "en": "Regular"
+                },
+                "price": "90",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "لارج",
+                  "en": "Large"
+                },
+                "price": "105",
+                "default": false
+              }
+            ],
+            "featured": true,
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "نوع اللبن",
+                  "en": "Milk"
+                },
+                "helper": {
+                  "ar": "اختياري",
+                  "en": "Optional"
+                },
+                "min": 0,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "لبن شوفان",
+                      "en": "Oat milk"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "لبن لوز",
+                      "en": "Almond milk"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "لبن خالي اللاكتوز",
+                      "en": "Lactose-free milk"
+                    },
+                    "price": "10"
+                  }
+                ]
+              },
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختر حتى 2 إضافة",
+                  "en": "Choose up to 2 extras"
+                },
+                "min": 0,
+                "max": 2,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "شوت إسبريسو إضافي",
+                      "en": "Extra espresso shot"
+                    },
+                    "price": "20"
+                  },
+                  {
+                    "names": {
+                      "ar": "سيرب فانيليا",
+                      "en": "Vanilla syrup"
+                    },
+                    "price": "10"
+                  },
+                  {
+                    "names": {
+                      "ar": "سيرب كراميل",
+                      "en": "Caramel syrup"
+                    },
+                    "price": "10"
+                  },
+                  {
+                    "names": {
+                      "ar": "سيرب بندق",
+                      "en": "Hazelnut syrup"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "cold-brew",
+            "image": "cold-brew.jpg",
+            "names": {
+              "ar": "كولد برو",
+              "en": "Cold Brew"
+            },
+            "descriptions": {
+              "ar": "قهوة منقوعة على البارد ١٦ ساعة، ناعمة وقليلة الحموضة.",
+              "en": "Coffee steeped cold for 16 hours: smooth and low in acidity."
+            },
+            "price": "95",
+            "discount": {
+              "type": "PERCENTAGE",
+              "value": "10"
+            }
+          },
+          {
+            "key": "iced-americano",
+            "image": "iced-americano.jpg",
+            "names": {
+              "ar": "آيس أمريكانو",
+              "en": "Iced Americano"
+            },
+            "descriptions": {
+              "ar": "شوت إسبريسو مضاعف على تلج وماية باردة، خفيف ومنعش.",
+              "en": "A double espresso shot over ice and cold water: light and crisp."
+            },
+            "price": "75"
+          },
+          {
+            "key": "iced-tea",
+            "image": "iced-tea.jpg",
+            "names": {
+              "ar": "آيس تي خوخ",
+              "en": "Peach Iced Tea"
+            },
+            "descriptions": {
+              "ar": "شاي أسود مثلج بنكهة الخوخ مع شرائح ليمون.",
+              "en": "Chilled black tea with peach and lemon slices."
+            },
+            "price": "70",
+            "variants": [
+              {
+                "names": {
+                  "ar": "ريجولار",
+                  "en": "Regular"
+                },
+                "price": "70",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "لارج",
+                  "en": "Large"
+                },
+                "price": "85",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "smoothie",
+            "image": "smoothie.jpg",
+            "names": {
+              "ar": "سموذي فواكه طازجة",
+              "en": "Fresh Fruit Smoothie"
+            },
+            "descriptions": {
+              "ar": "فواكه طازجة متخفوقة مع زبادي وعسل، من غير سكر مضاف.",
+              "en": "Fresh fruit blended with yogurt and honey, no added sugar."
+            },
+            "price": "95",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "نوع الفاكهة",
+                  "en": "Fruit"
+                },
+                "helper": {
+                  "ar": "اختر نوعًا واحدًا",
+                  "en": "Choose one"
+                },
+                "min": 1,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "فراولة وموز",
+                      "en": "Strawberry banana"
+                    },
+                    "price": "0"
+                  },
+                  {
+                    "names": {
+                      "ar": "مانجو",
+                      "en": "Mango"
+                    },
+                    "price": "0"
+                  },
+                  {
+                    "names": {
+                      "ar": "توت مشكل",
+                      "en": "Mixed berries"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "tea-juice",
+        "image": "matcha-latte.jpg",
+        "names": {
+          "ar": "شاي وعصائر",
+          "en": "Tea & Juices"
+        },
+        "products": [
+          {
+            "key": "mint-tea",
+            "image": "mint-tea.jpg",
+            "names": {
+              "ar": "شاي بالنعناع",
+              "en": "Fresh Mint Tea"
+            },
+            "descriptions": {
+              "ar": "شاي أخضر مع أوراق نعناع طازجة، ساخن ومنعش.",
+              "en": "Green tea with fresh mint leaves, hot and fragrant."
+            },
+            "price": "45",
+            "variants": [
+              {
+                "names": {
+                  "ar": "كوب",
+                  "en": "Glass"
+                },
+                "price": "45",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "إبريق",
+                  "en": "Pot"
+                },
+                "price": "85",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "matcha-latte",
+            "image": "matcha-latte.jpg",
+            "names": {
+              "ar": "ماتشا لاتيه",
+              "en": "Matcha Latte"
+            },
+            "descriptions": {
+              "ar": "ماتشا يابانية فاخرة مع حليب مخفوق وتزيين لاتيه آرت.",
+              "en": "Ceremonial-grade Japanese matcha with frothed milk and latte art."
+            },
+            "price": "110",
+            "featured": true,
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "التقديم",
+                  "en": "Served"
+                },
+                "helper": {
+                  "ar": "ساخن أو مثلج",
+                  "en": "Hot or iced"
+                },
+                "min": 1,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "ساخن",
+                      "en": "Hot"
+                    },
+                    "price": "0"
+                  },
+                  {
+                    "names": {
+                      "ar": "مثلج",
+                      "en": "Iced"
+                    },
+                    "price": "5"
+                  }
+                ]
+              },
+              {
+                "names": {
+                  "ar": "نوع اللبن",
+                  "en": "Milk"
+                },
+                "helper": {
+                  "ar": "اختياري",
+                  "en": "Optional"
+                },
+                "min": 0,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "لبن شوفان",
+                      "en": "Oat milk"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "لبن لوز",
+                      "en": "Almond milk"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "لبن خالي اللاكتوز",
+                      "en": "Lactose-free milk"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "orange-juice",
+            "image": "orange-juice.jpg",
+            "names": {
+              "ar": "عصير برتقال طازج",
+              "en": "Fresh Orange Juice"
+            },
+            "descriptions": {
+              "ar": "برتقال بلدي معصور في لحظتها، من غير سكر.",
+              "en": "Local oranges squeezed to order, no sugar added."
+            },
+            "price": "65",
+            "variants": [
+              {
+                "names": {
+                  "ar": "ريجولار",
+                  "en": "Regular"
+                },
+                "price": "65",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "لارج",
+                  "en": "Large"
+                },
+                "price": "85",
+                "default": false
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "bakery",
+        "image": "croissant.jpg",
+        "names": {
+          "ar": "مخبوزات وساندويتشات",
+          "en": "Bakery & Bites"
+        },
+        "products": [
+          {
+            "key": "croissant",
+            "image": "croissant.jpg",
+            "names": {
+              "ar": "كرواسون بالزبدة",
+              "en": "Butter Croissant"
+            },
+            "descriptions": {
+              "ar": "كرواسون هش بطبقات الزبدة، بيتخبز كل صباح.",
+              "en": "A flaky croissant of buttery layers, baked fresh every morning."
+            },
+            "price": "55",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "احشيه",
+                  "en": "Fill it"
+                },
+                "helper": {
+                  "ar": "اختيار واحد",
+                  "en": "Choose one"
+                },
+                "min": 0,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "جبنة شيدر",
+                      "en": "Cheddar"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "ديك رومي مدخن",
+                      "en": "Smoked turkey"
+                    },
+                    "price": "25"
+                  },
+                  {
+                    "names": {
+                      "ar": "مربى",
+                      "en": "Jam"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "pain-au-chocolat",
+            "image": "pain-au-chocolat.jpg",
+            "names": {
+              "ar": "بان أو شوكولا",
+              "en": "Pain au Chocolat"
+            },
+            "descriptions": {
+              "ar": "عجينة الكرواسون محشية بقطع شوكولاتة داكنة.",
+              "en": "Croissant dough wrapped around dark chocolate batons."
+            },
+            "price": "65"
+          },
+          {
+            "key": "club-sandwich",
+            "image": "club-sandwich.jpg",
+            "names": {
+              "ar": "كلوب ساندويتش",
+              "en": "Club Sandwich"
+            },
+            "descriptions": {
+              "ar": "ديك رومي مدخن وجبنة شيدر وبيض وخس وطماطم على توست محمص.",
+              "en": "Smoked turkey, cheddar, egg, lettuce and tomato on toasted bread."
+            },
+            "price": "165",
+            "featured": true,
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "الجنب",
+                  "en": "Side"
+                },
+                "helper": {
+                  "ar": "اختر طبقًا جانبيًا",
+                  "en": "Choose a side"
+                },
+                "min": 1,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "بطاطس مقلية",
+                      "en": "Fries"
+                    },
+                    "price": "0"
+                  },
+                  {
+                    "names": {
+                      "ar": "سلطة خضراء",
+                      "en": "Green salad"
+                    },
+                    "price": "0"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "grilled-cheese",
+            "image": "grilled-cheese.jpg",
+            "names": {
+              "ar": "ساندويتش ديك رومي وجبنة",
+              "en": "Grilled Turkey & Cheese"
+            },
+            "descriptions": {
+              "ar": "ديك رومي وجبنة ذايبة في خبز مشوي مع سلطة جانبية.",
+              "en": "Turkey and melted cheese in grilled bread, with a side salad."
+            },
+            "price": "135"
+          },
+          {
+            "key": "avocado-toast",
+            "image": "avocado-toast.jpg",
+            "names": {
+              "ar": "أفوكادو توست",
+              "en": "Avocado Toast"
+            },
+            "descriptions": {
+              "ar": "أفوكادو مهروس على خبز محمص مع سمسم وليمون وفلفل حار خفيف.",
+              "en": "Smashed avocado on toasted bread with sesame, lemon and a little chili."
+            },
+            "price": "145",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختيار واحد",
+                  "en": "Choose one"
+                },
+                "min": 0,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "بيض مسلوق",
+                      "en": "Poached egg"
+                    },
+                    "price": "25"
+                  },
+                  {
+                    "names": {
+                      "ar": "جبنة فيتا",
+                      "en": "Feta"
+                    },
+                    "price": "20"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "panini",
+            "image": "panini.jpg",
+            "names": {
+              "ar": "بانيني دجاج بيستو",
+              "en": "Chicken Pesto Panini"
+            },
+            "descriptions": {
+              "ar": "صدر دجاج مشوي وصوص بيستو وجبنة موزاريلا في خبز بانيني مضغوط.",
+              "en": "Grilled chicken, pesto and mozzarella pressed in panini bread."
+            },
+            "price": "150"
+          }
+        ]
+      },
+      {
+        "key": "sweets",
+        "image": "brownie.jpg",
+        "names": {
+          "ar": "حلويات",
+          "en": "Sweets"
+        },
+        "products": [
+          {
+            "key": "cheesecake",
+            "image": "cheesecake.jpg",
+            "names": {
+              "ar": "تشيز كيك فراولة",
+              "en": "Strawberry Cheesecake"
+            },
+            "descriptions": {
+              "ar": "تشيز كيك كريمي على قاعدة بسكويت مع صوص فراولة طازجة.",
+              "en": "Creamy cheesecake on a biscuit base with fresh strawberry sauce."
+            },
+            "price": "120"
+          },
+          {
+            "key": "tiramisu",
+            "image": "tiramisu.jpg",
+            "names": {
+              "ar": "تيراميسو",
+              "en": "Tiramisu"
+            },
+            "descriptions": {
+              "ar": "طبقات من الماسكاربوني وبسكويت مبلول بالقهوة وبودرة كاكاو.",
+              "en": "Layers of mascarpone and coffee-soaked biscuit dusted with cocoa."
+            },
+            "price": "125"
+          },
+          {
+            "key": "brownie",
+            "image": "brownie.jpg",
+            "names": {
+              "ar": "براوني بالجوز",
+              "en": "Walnut Brownie"
+            },
+            "descriptions": {
+              "ar": "براوني شوكولاتة غنية مع قطع جوز مقرمشة.",
+              "en": "Rich chocolate brownie with crunchy walnut pieces."
+            },
+            "price": "80",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختيار واحد",
+                  "en": "Choose one"
+                },
+                "min": 0,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "سكوب آيس كريم فانيليا",
+                      "en": "Scoop of vanilla ice cream"
+                    },
+                    "price": "30"
+                  },
+                  {
+                    "names": {
+                      "ar": "صوص شوكولاتة",
+                      "en": "Chocolate sauce"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "carrot-cake",
+            "image": "carrot-cake.jpg",
+            "names": {
+              "ar": "كيكة الجزر",
+              "en": "Carrot Cake"
+            },
+            "descriptions": {
+              "ar": "كيكة جزر رطبة بالقرفة والجوز مع كريمة الجبنة.",
+              "en": "Moist carrot cake with cinnamon and walnuts, topped with cream cheese frosting."
+            },
+            "price": "95"
+          },
+          {
+            "key": "waffle",
+            "image": "waffle.jpg",
+            "names": {
+              "ar": "وافل بالفراولة",
+              "en": "Strawberry Waffle"
+            },
+            "descriptions": {
+              "ar": "وافل بلجيكي دافي مع فراولة طازجة وسكر بودرة.",
+              "en": "A warm Belgian waffle with fresh strawberries and powdered sugar."
+            },
+            "price": "125",
+            "featured": true,
+            "discount": {
+              "type": "PERCENTAGE",
+              "value": "15"
+            },
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Toppings"
+                },
+                "helper": {
+                  "ar": "اختر حتى 2",
+                  "en": "Choose up to 2"
+                },
+                "min": 0,
+                "max": 2,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "نوتيلا",
+                      "en": "Nutella"
+                    },
+                    "price": "20"
+                  },
+                  {
+                    "names": {
+                      "ar": "فراولة زيادة",
+                      "en": "Extra strawberries"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "سكوب آيس كريم",
+                      "en": "Ice cream scoop"
+                    },
+                    "price": "30"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "cookie",
+            "image": "cookie.jpg",
+            "names": {
+              "ar": "كوكيز بالشوكولاتة",
+              "en": "Chocolate Chip Cookie"
+            },
+            "descriptions": {
+              "ar": "كوكيز طري من جوه ومقرمش من برّه بقطع شوكولاتة كبيرة.",
+              "en": "Soft in the middle, crisp at the edge, with big chocolate chunks."
+            },
+            "price": "45",
+            "variants": [
+              {
+                "names": {
+                  "ar": "قطعة",
+                  "en": "Single"
+                },
+                "price": "45",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "علبة ٤ قطع",
+                  "en": "Box of 4"
+                },
+                "price": "160",
+                "default": false
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "announcements": [
+    {
+      "style": "INFO",
+      "texts": {
+        "ar": "أهلًا بك! هذا كافيه تجريبي لعرض إمكانيات ويتا.",
+        "en": "Welcome! This is a demo café that shows what Wayta can do."
+      }
+    },
+    {
+      "style": "PROMO",
+      "texts": {
+        "ar": "خصم 15% على الوافل بالفراولة هذا الأسبوع.",
+        "en": "15% off the Strawberry Waffle this week."
+      }
+    }
+  ],
+  "suggestions": [
+    {
+      "product": "cappuccino",
+      "suggested": [
+        "croissant",
+        "brownie"
+      ]
+    },
+    {
+      "product": "flat-white",
+      "suggested": [
+        "pain-au-chocolat",
+        "carrot-cake"
+      ]
+    },
+    {
+      "product": "espresso",
+      "suggested": [
+        "cookie",
+        "tiramisu"
+      ]
+    },
+    {
+      "product": "iced-latte",
+      "suggested": [
+        "waffle",
+        "cookie"
+      ]
+    },
+    {
+      "product": "club-sandwich",
+      "suggested": [
+        "iced-tea",
+        "smoothie"
+      ]
+    },
+    {
+      "product": "avocado-toast",
+      "suggested": [
+        "flat-white",
+        "orange-juice"
+      ]
+    },
+    {
+      "product": "cheesecake",
+      "suggested": [
+        "cappuccino",
+        "espresso"
+      ]
+    },
+    {
+      "product": "brownie",
+      "suggested": [
+        "iced-latte",
+        "hot-chocolate"
+      ]
+    }
+  ],
+  "design": {
+    "BREW": {
+      "palette": "FOREST",
+      "motion": "SUBTLE",
+      "navTaglineAr": "طقس قهوتك اليومي",
+      "navTaglineEn": "YOUR DAILY COFFEE RITUAL",
+      "eyebrowAr": "خُد نَفَس.. واستمتع بكل رشفة",
+      "eyebrowEn": "SLOW DOWN. SIP BETTER.",
+      "headlineTopAr": "قهوة",
+      "headlineTopEn": "Coffee,",
+      "headlineBottomAr": "على مهلها.",
+      "headlineBottomEn": "slowly.",
+      "subtitleAr": "قهوة مختصة بتتحضّر على إيد باريستا شاطر، وركن هادي مخصوص ليك.",
+      "subtitleEn": "Specialty coffee made by hand, and a quiet corner made just for you.",
+      "storyAr": "محمصة بحب · بتتقدّم بعناية",
+      "storyEn": "ROASTED WITH LOVE · SERVED WITH CARE",
+      "menuHeadingAr": "المنيو",
+      "menuHeadingEn": "On the menu.",
+      "menuSubtitleAr": "حبوب مختارة، وصفات متقنة، ودفء في كل كوباية.",
+      "menuSubtitleEn": "Chosen beans, crafted recipes, and warmth in every cup.",
+      "promoEnabled": true,
+      "promoMode": "STATIC",
+      "promoImageMode": "ART",
+      "promoLabelAr": "اختيار البيت",
+      "promoLabelEn": "THE HOUSE SPECIAL",
+      "promoHeadlineAr": "خُد استراحة صغيرة.",
+      "promoHeadlineEn": "Take a little break.",
+      "promoDescriptionAr": "كوب قهوة مظبوط وحاجة حلوة جنبه.",
+      "promoDescriptionEn": "A well-made cup and something sweet beside it."
+    }
+  }
+}

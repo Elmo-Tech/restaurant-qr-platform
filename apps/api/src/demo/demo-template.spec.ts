@@ -1,18 +1,24 @@
-import { existsSync, readFileSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, readFileSync, statSync } from 'node:fs';
 import { join } from 'node:path';
+import { DEMO_KINDS, type DemoKind } from './demo-constants';
 import {
   assertValidTemplate,
   templateImages,
+  templateImageTarget,
   type DemoTemplate,
 } from './demo-template';
 
-const DIR = join(__dirname, '..', '..', 'demo-template');
-const template = JSON.parse(
-  readFileSync(join(DIR, 'template.json'), 'utf8'),
-) as DemoTemplate;
+const ROOT = join(__dirname, '..', '..', 'demo-template');
+const readTemplate = (kind: DemoKind): DemoTemplate =>
+  JSON.parse(
+    readFileSync(join(ROOT, kind, 'template.json'), 'utf8'),
+  ) as DemoTemplate;
 
-/** The shipped demo content is checked like code: a broken template would break every demo. */
-describe('the shipped demo template', () => {
+/** The shipped demo content is checked like code: a broken template would break every demo of its kind. */
+describe.each(DEMO_KINDS)('the shipped %s demo template', (kind) => {
+  const DIR = join(ROOT, kind);
+  const template = readTemplate(kind);
+
   it('is valid', () => {
     expect(() => assertValidTemplate(template)).not.toThrow();
   });
@@ -56,7 +62,7 @@ describe('the shipped demo template', () => {
 
   it('shows what the dashboard sells: sizes, extras, discounts, suggestions and photos on every product', () => {
     const products = template.menu.categories.flatMap((c) => c.products);
-    expect(template.menu.categories.length).toBeGreaterThanOrEqual(6);
+    expect(template.menu.categories.length).toBeGreaterThanOrEqual(5);
     expect(products.length).toBeGreaterThanOrEqual(20);
     expect(products.every((p) => p.image)).toBe(true);
     expect(products.some((p) => (p.variants?.length ?? 0) > 1)).toBe(true);
@@ -71,8 +77,46 @@ describe('the shipped demo template', () => {
     ).toBe(true);
   });
 
+  it('names every product photo after its product, and ships no photo that nothing uses', () => {
+    const used = new Set(templateImages(template));
+    const onDisk = readdirSync(join(DIR, 'images'));
+    expect(onDisk.sort()).toEqual([...used].sort());
+  });
+
   it('leaves the WhatsApp number to the visitor and keeps the WhatsApp channel off', () => {
     expect(template.restaurant.whatsappOrderingEnabled).toBe(false);
     expect(JSON.stringify(template)).not.toMatch(/whatsappNumber|wa\.me/);
+  });
+});
+
+describe('the demo kinds together', () => {
+  it('give the café the BREW design and the sweets shop the BLOOM design, with their own copy', () => {
+    const cafe = readTemplate('cafe');
+    const sweets = readTemplate('sweets');
+    expect(cafe.restaurant.menuTemplate).toBe('BREW');
+    expect(sweets.restaurant.menuTemplate).toBe('BLOOM');
+    expect(cafe.design?.BREW?.palette).toBe('FOREST');
+    expect(sweets.design?.BLOOM?.palette).toBe('ROSE');
+  });
+
+  it('never store two photos under one name in the upload directory', () => {
+    const targets = new Set<string>();
+    let total = 0;
+    for (const kind of DEMO_KINDS) {
+      for (const image of templateImages(readTemplate(kind))) {
+        targets.add(templateImageTarget(kind, image));
+        total += 1;
+      }
+    }
+    expect(targets.size).toBe(total);
+  });
+
+  it('keep the restaurant photo names that demos made before kinds already point at', () => {
+    expect(templateImageTarget('restaurant', 'cover.jpg')).toBe(
+      'demo-template-cover.jpg',
+    );
+    expect(templateImageTarget('cafe', 'cover.jpg')).toBe(
+      'demo-template-cafe-cover.jpg',
+    );
   });
 });

@@ -5,11 +5,13 @@ import { Alert, Badge, Button, Card, CardHeader, Input, Label, PageHeader, Selec
 import { ApiError, isNetworkFailure } from "@/lib/api/errors";
 import {
   createDemo,
+  DEMO_KINDS,
   extendDemo,
   listDemos,
   listPackages,
   newDemoLink,
   removeDemo,
+  type DemoKind,
   type DemoSummary,
   type PackageSummary,
 } from "@/lib/api/platform";
@@ -56,6 +58,7 @@ export function DemosView() {
   const { t, fmt, locale } = useI18n();
   const [demos, setDemos] = useState<DemoSummary[] | null>(null);
   const [packages, setPackages] = useState<PackageSummary[]>([]);
+  const [kind, setKind] = useState<DemoKind>("restaurant");
   const [packageId, setPackageId] = useState("");
   const [feedback, setFeedback] = useState<Feedback>(null);
   const [busy, setBusy] = useState(false);
@@ -131,7 +134,7 @@ export function DemosView() {
       return;
     }
     await run(async () => {
-      const result = await createDemo({ label: label.trim(), hours, ...(packageId ? { packageId } : {}) });
+      const result = await createDemo({ label: label.trim(), hours, kind, ...(packageId ? { packageId } : {}) });
       setFresh({ label: result.demo.label, link: result.link, expiresAt: result.demo.expiresAt });
       setLabel("");
       return "demos.created";
@@ -165,7 +168,19 @@ export function DemosView() {
         <Card>
           <CardHeader title={t("demos.new.title")} description={t("demos.new.description")} />
           <form onSubmit={(event) => void create(event)} className="grid gap-4 p-5 sm:grid-cols-[1fr_200px_auto] sm:items-start" noValidate autoComplete="off">
-            <div className="sm:col-span-3">
+            <div className="grid gap-4 sm:col-span-3 sm:grid-cols-2">
+              <div>
+                <Label htmlFor="demo-kind">{t("demos.kind")}</Label>
+                <Select id="demo-kind" value={kind} onChange={(event) => setKind(event.target.value as DemoKind)}>
+                  {DEMO_KINDS.map((value) => (
+                    <option key={value} value={value}>
+                      {t(`demos.kind.${value}` as MessageKey)}
+                    </option>
+                  ))}
+                </Select>
+                <p className="mt-1.5 text-xs text-muted-foreground">{t("demos.kindHint")}</p>
+              </div>
+              <div>
               <Label htmlFor="demo-package">{t("demos.package")}</Label>
               <Select id="demo-package" value={packageId} onChange={(event) => setPackageId(event.target.value)}>
                 <option value="">{t("demos.package.all")}</option>
@@ -176,6 +191,7 @@ export function DemosView() {
                 ))}
               </Select>
               <p className="mt-1.5 text-xs text-muted-foreground">{t("demos.packageHint")}</p>
+              </div>
             </div>
             <div>
               <Label htmlFor="demo-label">{t("demos.label")}</Label>
@@ -241,6 +257,7 @@ export function DemosView() {
                 <thead>
                   <tr>
                     <Th>{t("demos.col.label")}</Th>
+                    <Th>{t("demos.col.kind")}</Th>
                     <Th>{t("demos.col.package")}</Th>
                     <Th>{t("demos.col.status")}</Th>
                     <Th>{t("demos.col.ends")}</Th>
@@ -257,6 +274,7 @@ export function DemosView() {
                         <td className="px-4 py-3 font-medium">
                           <bdi>{demo.label}</bdi>
                         </td>
+                        <td className="px-4 py-3 text-muted-foreground">{t(`demos.kind.${demo.kind}` as MessageKey)}</td>
                         <td className="px-4 py-3 text-muted-foreground">
                           {demo.package ? <bdi>{locale === "ar" ? demo.package.name : demo.package.nameEn}</bdi> : t("demos.package.all")}
                         </td>

@@ -1820,6 +1820,17 @@ Rollback (before any demo exists): drop the table, the constraint, the index and
 
 ---
 
+# 68M. Demo kinds (DEC-061, 2026-11-02)
+
+Migration `20261118090000_demo_kinds` (additive). `restaurants` gains the nullable `demo_kind` (VARCHAR 20): the kind of
+business the demo was built from. The CHECK `restaurants_demo_kind_consistent` allows it only on a demo and only with one of
+`restaurant`, `cafe`, `sweets`. Existing rows are untouched; a demo made before this has a null kind and is treated as a
+restaurant. Demos of the `cafe` and `sweets` kinds also own one `restaurant_template_configs` row (BREW or BLOOM, draft
+and published settings), which the purge removes with the rest because it follows the foreign keys.
+Rollback (before any non-restaurant demo exists): drop the constraint, then the column.
+
+---
+
 # 69. Variant Price
 
 V1 uses:

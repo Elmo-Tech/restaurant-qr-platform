@@ -1,6 +1,6 @@
-# Temporary Demo Restaurants (DEC-060)
+# Temporary Demo Restaurants (DEC-060, DEC-061)
 
-Status: implemented (branch `feat/temporary-demo-restaurants`). Decision: `PROJECT_DECISIONS.md` DEC-060.
+Status: implemented. Decisions: `PROJECT_DECISIONS.md` DEC-060 (the demo) and DEC-061 (the kinds of business).
 
 A **demo restaurant** is a complete, private, short-lived restaurant that the Platform team creates for one prospect.
 The prospect opens a secret link, lands in the real dashboard with a ready bilingual menu, and uses it. When the time
@@ -12,9 +12,11 @@ ends the demo is locked and then removed **completely**. Nothing the prospect do
 
 - A normal `restaurants` row with `is_demo = true`, a hard `demo_expires_at` and a team-only `demo_label`. A database
   CHECK keeps the three fields consistent: a demo always has an expiry, a normal restaurant never has demo fields.
-- Created from a **template**, never from a live restaurant: `apps/api/demo-template/template.json` and its photos.
-  The template is plain data shipped with the API image (`Dockerfile.api` copies it), reviewed in git and checked by a
-  unit test, so nobody can change it by accident on a server.
+- Created from a **template**, never from a live restaurant: `apps/api/demo-template/<kind>/template.json` and its
+  photos, one folder per **kind of business** (section 2b). The templates are plain data shipped with the API image
+  (`Dockerfile.api` copies the whole folder), reviewed in git and checked by a unit test, so nobody can change them by
+  accident on a server. `restaurants.demo_kind` records the kind (`restaurant`, `cafe`, `sweets`); a demo made before
+  kinds existed has a null kind and is shown as a restaurant.
 - Default language Arabic, Arabic and English both active, currency EGP. **No package** (every feature the Platform
   gives by default) and **Menu Import is off** (it is opt-in, and a demo already has a full menu).
 - The owner is a throw-away `User` (`demo-<uuid>@demo.wayta.invalid`, an address that can never receive mail, and a
@@ -35,9 +37,33 @@ The photos are copied once into the upload directory (`demo-template-<name>`) an
 no disk. A demo cannot upload or delete images and the purge never deletes files, so the shared files are never removed.
 Credits (`apps/api/demo-template/CREDITS.md`, also shown at `/demo-credits`) follow the licences.
 
+# 2b. Kinds of business (DEC-061)
+
+The team picks the kind when it creates the demo, so a prospect sees a menu that looks like their own business. Each
+kind is a complete template of its own (two branches with tables and delivery zones, a bilingual menu with a photo on
+every product, sizes, extras, discounts, featured products, suggestions, announcements, no WhatsApp number) and ends
+on its own **signature menu design**:
+
+| Kind | Business name | Menu design | What the menu is |
+|---|---|---|---|
+| `restaurant` | Wayta Bistro | `GALLERY` | the template above: starters, burgers, pizza, pasta, grills, desserts, drinks (24 products) |
+| `cafe` | Wayta Café | `BREW` (forest palette) | hot coffee, cold drinks, tea and juices, bakery and sandwiches, sweets (25 products) |
+| `sweets` | Wayta Sweets | `BLOOM` (rose palette) | oriental sweets, cakes, pastries, ice cream and crepes, gift boxes, drinks (26 products; sizes by weight, box or cake size) |
+
+- **Design copy.** BREW and BLOOM have their own copy and palette (`restaurant_template_configs`). A kind's template
+  carries it in a `design` block, and the demo stores it as both the draft and the published settings, normalized by
+  the same rules the dashboard uses. It is stored **only when the demo ends up on that design**: a Package that does
+  not allow the design puts the demo on Classic and no design settings are stored.
+- **Photos.** The restaurant keeps the file names it always had (`demo-template-<name>`); the other kinds are prefixed
+  (`demo-template-<kind>-<name>`) so two kinds can never overwrite each other. A photo reused by two kinds is a copy in
+  each folder. Credits for all kinds are in `CREDITS.md` and `/demo-credits`. The kind's logo is Wayta artwork made for
+  the demo (shapes only, no third-party licence).
+- **Adding a kind** is a new folder, a value in `DEMO_KINDS` (API) and the console, a `demo_kind` CHECK update and a
+  line in the unit test that walks every kind. Nothing else changes.
+
 # 3. Life of a demo
 
-1. **Create** (Platform console, Demos): a label (who it is for) and a duration (1 hour to 14 days; presets 1 h, 4 h, 1
+1. **Create** (Platform console, Demos): the kind of business (default restaurant), a label (who it is for) and a duration (1 hour to 14 days; presets 1 h, 4 h, 1
    day, 3 days, 7 days). At most `DEMO_MAX_ACTIVE` (default 20) demos exist at once. The result is the **secret link**,
    shown once. Only the SHA-256 hash of the token is stored (`demo_access_links`).
    The team may also pick an active **Package**: the demo is put on it (`restaurants.package_id`), so the visitor sees

@@ -1,4 +1,4 @@
-# Demo restaurant photo credits
+# Demo photo credits
 
 These photos ship ONLY inside the temporary demo restaurants (DEC-060, `apps/api/demo-template/`). Each one comes from Wikimedia Commons under the licence listed beside it; the licences require that the author is credited, so the demo shows a **Photo credits** link (`/demo-credits` on the restaurant web app) that lists this table. The photos are shown as they are, never altered. `cover.jpg` and `logo.png` are the Wayta showcase artwork from `apps/web/public/showcase/premium-menu/`.
 
@@ -28,3 +28,60 @@ These photos ship ONLY inside the temporary demo restaurants (DEC-060, `apps/api
 | Iced Latte | `iced-latte.jpg` | [Iced Latte.jpg](https://commons.wikimedia.org/wiki/File:Iced_Latte.jpg) | Dredre Lovee | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
 | Mojito | `mojito.jpg` | [MelissA Mojito.jpg](https://commons.wikimedia.org/wiki/File:MelissA_Mojito.jpg) | Alkemieug | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
 | Soft Drink | `soft-drink.jpg` | [Glass cola.jpg](https://commons.wikimedia.org/wiki/File:Glass_cola.jpg) | pic_p_ter | [Public domain](https://commons.wikimedia.org/wiki/File:Glass_cola.jpg) |
+
+## Café demo (`cafe/`)
+
+Same rules as above. The iced latte, fresh orange juice, cheesecake and tiramisu photos are the restaurant demo's, credited in the table above. The logo is Wayta artwork made for the demo.
+
+| Demo product | File | Wikimedia Commons file | Author | License |
+|---|---|---|---|---|
+| Espresso | `espresso.jpg` | [Cup of espresso 02.jpg](https://commons.wikimedia.org/wiki/File:Cup_of_espresso_02.jpg) | Kritzolina | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Cappuccino | `cappuccino.jpg` | [A cup of cappuccino at Indooroopilly Shopping Centre.JPG](https://commons.wikimedia.org/wiki/File:A_cup_of_cappuccino_at_Indooroopilly_Shopping_Centre.JPG) | Kgbo | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Flat White | `flat-white.jpg` | [Flat white coffee with pretty feather pattern.jpg](https://commons.wikimedia.org/wiki/File:Flat_white_coffee_with_pretty_feather_pattern.jpg) | GeorgeMichaelFarewell | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Turkish Coffee | `turkish-coffee.jpg` | [Turkish Coffee with Crema.jpg](https://commons.wikimedia.org/wiki/File:Turkish_Coffee_with_Crema.jpg) | Garrett Ziegler | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Hot Chocolate | `hot-chocolate.jpg` | [Hot cocoa in a mug with a hand sprinkling chili pepper flakes onto the whipped cream (15852162626).jpg](https://commons.wikimedia.org/wiki/File:Hot_cocoa_in_a_mug_with_a_hand_sprinkling_chili_pepper_flakes_onto_the_whipped_cream_(15852162626).jpg) | Personal Creations | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) |
+| Cold Brew | `cold-brew.jpg` | [Two cups of iced coffee at Coast Cafe, Worthing 2026-05-25.jpg](https://commons.wikimedia.org/wiki/File:Two_cups_of_iced_coffee_at_Coast_Cafe,_Worthing_2026-05-25.jpg) | Andy Li | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) |
+| Iced Americano | `iced-americano.jpg` | [Iced Americano 1.jpg](https://commons.wikimedia.org/wiki/File:Iced_Americano_1.jpg) | Challapramod | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Peach Iced Tea | `iced-tea.jpg` | [Ice Tea (2571858493).jpg](https://commons.wikimedia.org/wiki/File:Ice_Tea_(2571858493).jpg) | MzScarlett / A.K.A. Michelle from Missouri | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) |
+| Fresh Fruit Smoothie | `smoothie.jpg` | [Fresh fruit smoothie being poured into a glass.jpg](https://commons.wikimedia.org/wiki/File:Fresh_fruit_smoothie_being_poured_into_a_glass.jpg) | Shixart1985 | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) |
+| Fresh Mint Tea | `mint-tea.jpg` | [Fresh mint tea in a glass.jpg](https://commons.wikimedia.org/wiki/File:Fresh_mint_tea_in_a_glass.jpg) | Mark Jason Dominus | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) |
+| Matcha Latte | `matcha-latte.jpg` | [Matcha tea latte with rosetta latte art.jpg](https://commons.wikimedia.org/wiki/File:Matcha_tea_latte_with_rosetta_latte_art.jpg) | Irvan Ary Maulana | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Butter Croissant | `croissant.jpg` | [Croissants au beurre (18953292873).jpg](https://commons.wikimedia.org/wiki/File:Croissants_au_beurre_(18953292873).jpg) | Herry Wibisono (herryway) | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) |
+| Pain au Chocolat | `pain-au-chocolat.jpg` | [Pain au chocolat Luc Viatour.jpg](https://commons.wikimedia.org/wiki/File:Pain_au_chocolat_Luc_Viatour.jpg) | Luc Viatour | [CC BY-SA 3.0](http://creativecommons.org/licenses/by-sa/3.0/) |
+| Club Sandwich | `club-sandwich.jpg` | [Club sandwich at Café Picnic.jpg](https://commons.wikimedia.org/wiki/File:Club_sandwich_at_Caf%C3%A9_Picnic.jpg) | JIP | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Grilled Turkey and Cheese Sandwich | `grilled-cheese.jpg` | [Ham & cheese toasted sandwich - Potatoast 2026-05-02.jpg](https://commons.wikimedia.org/wiki/File:Ham_%26_cheese_toasted_sandwich_-_Potatoast_2026-05-02.jpg) | Andy Li | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) |
+| Avocado Toast | `avocado-toast.jpg` | [Avocado toast with sesame seeds.jpg](https://commons.wikimedia.org/wiki/File:Avocado_toast_with_sesame_seeds.jpg) | Jami430 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Chicken Pesto Panini | `panini.jpg` | [Panini sandwich near Mirpur 10 (2).jpg](https://commons.wikimedia.org/wiki/File:Panini_sandwich_near_Mirpur_10_(2).jpg) | MdsShakil | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Walnut Brownie | `brownie.jpg` | [Brownie IMG 001.jpg](https://commons.wikimedia.org/wiki/File:Brownie_IMG_001.jpg) | Phadke09 | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Carrot Cake | `carrot-cake.jpg` | [Carrot cake - Milfey Patisserie 2026-09-07.jpg](https://commons.wikimedia.org/wiki/File:Carrot_cake_-_Milfey_Patisserie_2026-09-07.jpg) | Andy Li | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) |
+| Strawberry Waffle | `waffle.jpg` | [Waffles with Strawberries.jpg](https://commons.wikimedia.org/wiki/File:Waffles_with_Strawberries.jpg) | Parkerman &amp; Christie from San Diego, USA | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) |
+| Chocolate Chip Cookie | `cookie.jpg` | [Choc-Chip-Cookie.jpg](https://commons.wikimedia.org/wiki/File:Choc-Chip-Cookie.jpg) | Evan-Amos | Public domain |
+| Café cover | `cover.jpg` | [Newark-on-Trent, Interior of 'Cherizena Coffee Shop', 23-24 Stodman Street - geograph.org.uk - 7846323.jpg](https://commons.wikimedia.org/wiki/File:Newark-on-Trent,_Interior_of_%27Cherizena_Coffee_Shop%27,_23-24_Stodman_Street_-_geograph.org.uk_-_7846323.jpg) | Michael Garlick | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0) |
+
+## Sweets shop demo (`sweets/`)
+
+Same rules as above. The cheesecake, tiramisu, molten cake and orange juice photos are the restaurant demo's (credited above); the Turkish coffee and hot chocolate photos are the café's (credited in the table above). The logo is Wayta artwork made for the demo.
+
+| Demo product | File | Wikimedia Commons file | Author | License |
+|---|---|---|---|---|
+| Kunafa | `kunafa.jpg` | [Kunafa, Bangalore (2025) 06.jpg](https://commons.wikimedia.org/wiki/File:Kunafa,_Bangalore_(2025)_06.jpg) | Gpkp | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Basbousa | `basbousa.jpg` | [Basboosa.jpg](https://commons.wikimedia.org/wiki/File:Basboosa.jpg) | stu_spivack | [CC BY-SA 2.0](https://creativecommons.org/licenses/by-sa/2.0) |
+| Baklava | `baklava.jpg` | [Baklava - Turkish special, 80-ply.JPEG](https://commons.wikimedia.org/wiki/File:Baklava_-_Turkish_special,_80-ply.JPEG) | Kultigin | Public domain |
+| Umm Ali | `umm-ali.jpg` | [Om Ali in Khal el Khalili.jpg](https://commons.wikimedia.org/wiki/File:Om_Ali_in_Khal_el_Khalili.jpg) | Fred Cherrygarden | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Qatayef | `qatayef.jpg` | [Kataef 12.jpg](https://commons.wikimedia.org/wiki/File:Kataef_12.jpg) | Aseel zm | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Rice Pudding | `roz-bel-laban.jpg` | [Rizbihaleeb.JPG](https://commons.wikimedia.org/wiki/File:Rizbihaleeb.JPG) | Deed89 at English Wikipedia | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) |
+| Chocolate Cake | `chocolate-cake.jpg` | [Piece of chocolate cake on a white plate decorated with chocolate sauce.jpg](https://commons.wikimedia.org/wiki/File:Piece_of_chocolate_cake_on_a_white_plate_decorated_with_chocolate_sauce.jpg) | Daria YakovlevaMinor edits made by Subsidiary account | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) |
+| Red Velvet Cake | `red-velvet.jpg` | [Red velvet cake slice.jpg](https://commons.wikimedia.org/wiki/File:Red_velvet_cake_slice.jpg) | Flickr user ~Twon~ : https://www.flickr.com/photos/twon/ | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) |
+| Strawberry Cream Cake | `strawberry-cake.jpg` | [Strawberry cream cake - Rawlab 2025-08-31.jpg](https://commons.wikimedia.org/wiki/File:Strawberry_cream_cake_-_Rawlab_2025-08-31.jpg) | Andy Li | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) |
+| Black Forest Cake | `black-forest.jpg` | [Black forest Cake.jpg](https://commons.wikimedia.org/wiki/File:Black_forest_Cake.jpg) | Maffeth.opiana | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Chocolate Eclair | `eclair.jpg` | [Éclair au chocolat à Tokyo.jpg](https://commons.wikimedia.org/wiki/File:%C3%89clair_au_chocolat_%C3%A0_Tokyo.jpg) | Syced | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) |
+| Macarons | `macarons.jpg` | [Macarons, French made mini cakes.JPG](https://commons.wikimedia.org/wiki/File:Macarons,_French_made_mini_cakes.JPG) | Nicolas Halftermeyer | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) |
+| Blueberry Cupcakes | `cupcakes.jpg` | [Blueberry cupcakes w maple frosting (5757044402).jpg](https://commons.wikimedia.org/wiki/File:Blueberry_cupcakes_w_maple_frosting_(5757044402).jpg) | Jessica Fiess-Hill | [CC BY 2.0](https://creativecommons.org/licenses/by/2.0) |
+| Mille-feuille | `mille-feuille.jpg` | [Millefoglie from the Cossetta patisserie.jpg](https://commons.wikimedia.org/wiki/File:Millefoglie_from_the_Cossetta_patisserie.jpg) | Gobonobo | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Chocolate Donut | `donut.jpg` | [Dunkin-Donuts-Chocolate-Glazed.jpg](https://commons.wikimedia.org/wiki/File:Dunkin-Donuts-Chocolate-Glazed.jpg) | Evan-Amos | Public domain |
+| Chocolate Ice Cream Cone | `ice-cream.jpg` | [Sweet Scoops Ice Cream - July 2023 - Sarah Stierch.jpg](https://commons.wikimedia.org/wiki/File:Sweet_Scoops_Ice_Cream_-_July_2023_-_Sarah_Stierch.jpg) | Missvain | [CC BY 4.0](https://creativecommons.org/licenses/by/4.0) |
+| Nutella Crepe | `crepe.jpg` | [Crepe with nutella and fruits.jpg](https://commons.wikimedia.org/wiki/File:Crepe_with_nutella_and_fruits.jpg) | Leen Karajeh | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Assorted Oriental Sweets Tray | `oriental-box.jpg` | [Baklava 2.jpg](https://commons.wikimedia.org/wiki/File:Baklava_2.jpg) | Challiyan | [CC BY-SA 4.0](https://creativecommons.org/licenses/by-sa/4.0) |
+| Chocolate Truffles Box | `chocolate-box.jpg` | [Lulas9PcTruffle.jpg](https://commons.wikimedia.org/wiki/File:Lulas9PcTruffle.jpg) | Gearshock | [CC BY-SA 3.0](https://creativecommons.org/licenses/by-sa/3.0) |
+| Macaron Gift Box | `macaron-box.jpg` | [Des macarons de chez Bouillet (mars 2023).jpg](https://commons.wikimedia.org/wiki/File:Des_macarons_de_chez_Bouillet_(mars_2023).jpg) | Benoît Prieur | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) |
+| Sweets cover | `cover.jpg` | [Pastries on display in Naples.jpg](https://commons.wikimedia.org/wiki/File:Pastries_on_display_in_Naples.jpg) | Enzo Abramo | [CC0](http://creativecommons.org/publicdomain/zero/1.0/deed.en) |

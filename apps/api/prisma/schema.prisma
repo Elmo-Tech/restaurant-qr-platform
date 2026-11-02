@@ -373,6 +373,8 @@ model Restaurant {
   isDemo                  Boolean          @default(false) @map("is_demo")
   demoExpiresAt           DateTime?        @map("demo_expires_at") @db.Timestamptz
   demoLabel               String?          @map("demo_label") @db.VarChar(120)
+  // Which template the demo was built from (DEC-061): restaurant, cafe or sweets. Null on demos made before kinds existed.
+  demoKind                String?          @map("demo_kind") @db.VarChar(20)
   createdAt               DateTime         @default(now()) @map("created_at") @db.Timestamptz
   updatedAt               DateTime         @updatedAt @map("updated_at") @db.Timestamptz
 

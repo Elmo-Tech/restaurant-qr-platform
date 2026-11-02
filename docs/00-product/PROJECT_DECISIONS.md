@@ -1473,7 +1473,27 @@ The reason is sales: a prospect sees the real product at once, with no setup by 
 they do never affects anyone else.
 
 **Not in scope:** a public self-service "Try the demo", seeded order history, a test-order button, converting a demo
-into a trial, several templates.
+into a trial. (Several templates were out of scope here and were added by DEC-061.)
+
+---
+
+### DEC-061 — Demo kinds: restaurant, café, sweets shop
+
+**Status:** Accepted (owner, 2026-11-02). Specification: `docs/01-domain/DEMO_RESTAURANTS_SPEC.md` section 2b.
+
+A demo is built for a **kind of business**, chosen in the console when it is created: a restaurant, a café or a
+sweets shop. Each kind is a complete, realistic bilingual template (menu with photos, sizes, extras, discounts,
+branches, delivery zones, announcements, suggestions) on its own signature menu design: `GALLERY` for the restaurant,
+`BREW` for the café and `BLOOM` for the sweets shop, with the copy and palette of that design published in the
+template. The kind is stored on the demo (`restaurants.demo_kind`, nullable: a demo made before this is a restaurant).
+Everything else about a demo is unchanged: the Package picker, restrictions, expiry and the complete purge work the
+same for every kind, and a Package that does not allow the kind's design puts the demo on Classic.
+
+The reason is sales: a café owner or a sweets-shop owner who opens a restaurant menu has to imagine their own
+business; a demo that looks like it removes that step.
+
+**Not in scope:** more kinds (each is a template folder and an enum value, added when sales asks), letting the team
+edit a template from the console, per-prospect branding.
 
 ---
 

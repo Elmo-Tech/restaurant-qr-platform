@@ -121,8 +121,13 @@ describe('Temporary demo restaurants (e2e)', () => {
   async function createDemo(
     label = 'e2e prospect',
     hours = 2,
+    kind?: string,
   ): Promise<{ id: string; token: string; link: string }> {
-    const res = await platform('post', '/demos', { label, hours }).expect(201);
+    const res = await platform('post', '/demos', {
+      label,
+      hours,
+      ...(kind ? { kind } : {}),
+    }).expect(201);
     const { demo, link } = body(res).data as { demo: Obj; link: string };
     created.push(demo.id as string);
     return { id: demo.id as string, link, token: link.split('/demo/')[1] };
@@ -494,6 +499,166 @@ describe('Temporary demo restaurants (e2e)', () => {
         hours: 2,
         packageId: 'not-a-uuid',
       }).expect(400);
+    });
+  });
+
+  describe('a demo of each kind of business', () => {
+    const kinds = [
+      { kind: 'cafe', design: 'BREW', name: 'Wayta Café', palette: 'FOREST' },
+      {
+        kind: 'sweets',
+        design: 'BLOOM',
+        name: 'Wayta Sweets',
+        palette: 'ROSE',
+      },
+    ] as const;
+
+    it.each(kinds)(
+      'builds a complete $kind demo on its own design, with the copy of that design published, and removes it whole',
+      async ({ kind, design, name, palette }) => {
+        const { id } = await createDemo(`a ${kind}`, 2, kind);
+        const restaurant = await prisma.restaurant.findUniqueOrThrow({
+          where: { id },
+        });
+        expect(restaurant).toMatchObject({
+          isDemo: true,
+          demoKind: kind,
+          menuTemplate: design,
+          name,
+          defaultLocale: 'ar',
+          whatsappOrderingEnabled: false,
+        });
+        expect(restaurant.logoAssetPath).toBe(
+          `/media/demo-template-${kind}-logo.png`,
+        );
+        expect(restaurant.coverAssetPath).toBe(
+          `/media/demo-template-${kind}-cover.jpg`,
+        );
+        const [categories, products, withVariants, withGroups, withPhoto] =
+          await Promise.all([
+            prisma.category.count({ where: { restaurantId: id } }),
+            prisma.product.count({ where: { restaurantId: id } }),
+            prisma.product.count({
+              where: { restaurantId: id, variants: { some: {} } },
+            }),
+            prisma.product.count({
+              where: { restaurantId: id, modifierGroups: { some: {} } },
+            }),
+            prisma.product.count({
+              where: { restaurantId: id, primaryImageAssetPath: { not: null } },
+            }),
+          ]);
+        expect(categories).toBeGreaterThanOrEqual(5);
+        expect(products).toBeGreaterThanOrEqual(20);
+        expect(withVariants).toBeGreaterThan(0);
+        expect(withGroups).toBeGreaterThan(0);
+        expect(withPhoto).toBe(products);
+        // the design's copy is what the dashboard would have saved and published, in Arabic and in English
+        const config = await prisma.restaurantTemplateConfig.findUniqueOrThrow({
+          where: {
+            restaurantId_template: { restaurantId: id, template: design },
+          },
+        });
+        const published = config.publishedSettings as Obj;
+        expect(published.palette).toBe(palette);
+        expect(config.draftSettings).toEqual(config.publishedSettings);
+        expect(published.navTaglineAr).toMatch(/[؀-ۿ]/);
+        expect(published.navTaglineEn).toMatch(/[A-Z]/);
+        // every photo the demo points at is on disk
+        const uploadDir = resolveUploadDir(
+          app
+            .get<ConfigService<EnvConfig, true>>(ConfigService)
+            .get('UPLOAD_LOCAL_DIR', { infer: true }),
+        );
+        const paths = await prisma.product.findMany({
+          where: { restaurantId: id },
+          select: { primaryImageAssetPath: true },
+        });
+        for (const { primaryImageAssetPath } of paths)
+          expect(
+            existsSync(
+              join(
+                uploadDir,
+                (primaryImageAssetPath as string).replace('/media/', ''),
+              ),
+            ),
+          ).toBe(true);
+        // listed with its kind, and the guest menu serves it
+        const listed = await platform('get', '/demos').expect(200);
+        expect(
+          (body(listed).data as Obj[]).find((d) => d.id === id)?.kind,
+        ).toBe(kind);
+        const qr = await prisma.qrCode.findFirstOrThrow({
+          where: { restaurantId: id, type: 'GENERIC' },
+        });
+        const menu = await request(app.getHttpServer())
+          .get(`/api/v1/public/qr/${qr.publicCode}/menu`)
+          .expect(200);
+        expect(JSON.stringify(body(menu).data)).toContain(name);
+        await platform('delete', `/demos/${id}`).expect(204);
+        expect(await rowsLeftFor(id)).toEqual({});
+      },
+    );
+
+    it('is a restaurant when no kind is given, and refuses a kind that does not exist', async () => {
+      const { id } = await createDemo();
+      const listed = await platform('get', '/demos').expect(200);
+      expect((body(listed).data as Obj[]).find((d) => d.id === id)?.kind).toBe(
+        'restaurant',
+      );
+      // a demo made before kinds existed has no stored kind and is shown as a restaurant
+      await prisma.restaurant.update({
+        where: { id },
+        data: { demoKind: null },
+      });
+      const again = await platform('get', '/demos').expect(200);
+      expect((body(again).data as Obj[]).find((d) => d.id === id)?.kind).toBe(
+        'restaurant',
+      );
+      await demos.purge(id);
+      await platform('post', '/demos', {
+        label: 'x',
+        hours: 2,
+        kind: 'bakery',
+      }).expect(400);
+    });
+
+    it('keeps the design of the kind off a package that does not allow it', async () => {
+      const tag = randomUUID();
+      const small = await prisma.package.create({
+        data: {
+          name: `باقة ${tag}`,
+          nameNormalized: `باقة ${tag}`,
+          nameEn: `Plan ${tag}`,
+          nameEnNormalized: `plan ${tag}`,
+          status: 'ACTIVE',
+          features: { create: [{ feature: 'KITCHEN' }] },
+        },
+      });
+      try {
+        const res = await platform('post', '/demos', {
+          label: 'a small cafe',
+          hours: 2,
+          kind: 'cafe',
+          packageId: small.id,
+        }).expect(201);
+        const { demo } = body(res).data as { demo: Obj };
+        created.push(demo.id as string);
+        const restaurant = await prisma.restaurant.findUniqueOrThrow({
+          where: { id: demo.id as string },
+        });
+        expect(restaurant.menuTemplate).toBe('CLASSIC');
+        expect(
+          await prisma.restaurantTemplateConfig.count({
+            where: { restaurantId: demo.id as string },
+          }),
+        ).toBe(0);
+        // the content is still the café's
+        expect(restaurant.name).toBe('Wayta Café');
+        await demos.purge(demo.id as string);
+      } finally {
+        await prisma.package.delete({ where: { id: small.id } });
+      }
     });
   });
 

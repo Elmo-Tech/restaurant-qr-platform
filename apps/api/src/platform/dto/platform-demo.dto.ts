@@ -1,4 +1,5 @@
 import {
+  IsIn,
   IsInt,
   IsOptional,
   IsString,
@@ -7,7 +8,12 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-import { DEMO_MAX_HOURS, DEMO_MIN_HOURS } from '../../demo/demo-constants';
+import {
+  DEMO_KINDS,
+  DEMO_MAX_HOURS,
+  DEMO_MIN_HOURS,
+  type DemoKind,
+} from '../../demo/demo-constants';
 
 /** A new temporary demo restaurant: who it is for (a label for the team) and how long it lives. */
 export class CreatePlatformDemoDto {
@@ -24,6 +30,11 @@ export class CreatePlatformDemoDto {
   @IsOptional()
   @IsUUID()
   packageId?: string;
+
+  /** The kind of business the demo shows. Left out = a restaurant. */
+  @IsOptional()
+  @IsIn(DEMO_KINDS)
+  kind?: DemoKind;
 }
 
 export class ExtendPlatformDemoDto {

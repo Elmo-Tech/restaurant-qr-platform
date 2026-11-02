@@ -11,6 +11,7 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import { DEFAULT_DEMO_KIND } from '../demo/demo-constants';
 import { DemoService, type DemoView } from '../demo/demo.service';
 import {
   CreatePlatformDemoDto,
@@ -76,6 +77,7 @@ export class PlatformDemoController {
       label: body.label,
       hours: body.hours,
       packageId: body.packageId ?? null,
+      kind: body.kind ?? DEFAULT_DEMO_KIND,
     });
     if (result.outcome === 'invalidInput') throw invalid(result.problems);
     if (result.outcome === 'limitReached') {
@@ -95,6 +97,7 @@ export class PlatformDemoController {
       restaurant: { id: result.demo.id, name: result.demo.label },
       details: {
         label: result.demo.label,
+        kind: result.demo.kind,
         expiresAt: result.demo.expiresAt,
         package: result.demo.package?.nameEn ?? null,
       },

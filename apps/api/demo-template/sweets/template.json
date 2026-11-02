@@ -1,0 +1,1328 @@
+{
+  "version": 1,
+  "restaurant": {
+    "name": "Wayta Sweets",
+    "defaultLocale": "ar",
+    "currencyCode": "EGP",
+    "countryCode": "EG",
+    "menuTemplate": "BLOOM",
+    "suggestionsMode": "MANUAL",
+    "pickupEnabled": true,
+    "deliveryEnabled": true,
+    "tableOrderingEnabled": true,
+    "whatsappOrderingEnabled": false,
+    "logo": "logo.png",
+    "cover": "cover.jpg"
+  },
+  "branches": [
+    {
+      "key": "heliopolis",
+      "names": {
+        "ar": "فرع مصر الجديدة",
+        "en": "Heliopolis Branch"
+      },
+      "timezone": "Africa/Cairo",
+      "phone": "+20 100 000 0005",
+      "address": {
+        "ar": "شارع الأهرام، مصر الجديدة، القاهرة",
+        "en": "El Ahram Street, Heliopolis, Cairo"
+      },
+      "tables": 6,
+      "zones": [
+        {
+          "names": {
+            "ar": "مصر الجديدة",
+            "en": "Heliopolis"
+          },
+          "fee": "25",
+          "minimum": "100"
+        },
+        {
+          "names": {
+            "ar": "مدينة نصر",
+            "en": "Nasr City"
+          },
+          "fee": "35",
+          "minimum": "150"
+        }
+      ]
+    },
+    {
+      "key": "maadi",
+      "names": {
+        "ar": "فرع المعادي",
+        "en": "Maadi Branch"
+      },
+      "timezone": "Africa/Cairo",
+      "phone": "+20 100 000 0006",
+      "address": {
+        "ar": "شارع 9، المعادي، القاهرة",
+        "en": "Road 9, Maadi, Cairo"
+      },
+      "tables": 4,
+      "zones": [
+        {
+          "names": {
+            "ar": "المعادي",
+            "en": "Maadi"
+          },
+          "fee": "30",
+          "minimum": "100"
+        },
+        {
+          "names": {
+            "ar": "دجلة",
+            "en": "Degla"
+          },
+          "fee": "40",
+          "minimum": "150"
+        }
+      ]
+    }
+  ],
+  "menu": {
+    "nameInternal": "Main menu",
+    "names": {
+      "ar": "القائمة الرئيسية",
+      "en": "Main menu"
+    },
+    "categories": [
+      {
+        "key": "oriental",
+        "image": "kunafa.jpg",
+        "names": {
+          "ar": "حلويات شرقية",
+          "en": "Oriental Sweets"
+        },
+        "products": [
+          {
+            "key": "kunafa",
+            "image": "kunafa.jpg",
+            "names": {
+              "ar": "كنافة بالقشطة",
+              "en": "Kunafa with Cream"
+            },
+            "descriptions": {
+              "ar": "كنافة مقرمشة محشية بالقشطة ومسقّية بالشربات، بتتقدّم سخنة.",
+              "en": "Crispy kunafa filled with cream and soaked in syrup, served warm."
+            },
+            "price": "95",
+            "variants": [
+              {
+                "names": {
+                  "ar": "حصة فردية",
+                  "en": "Single portion"
+                },
+                "price": "95",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "صينية عائلية",
+                  "en": "Family tray"
+                },
+                "price": "340",
+                "default": false
+              }
+            ],
+            "featured": true,
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختر حتى 2",
+                  "en": "Choose up to 2"
+                },
+                "min": 0,
+                "max": 2,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "فستق مفروم",
+                      "en": "Crushed pistachio"
+                    },
+                    "price": "25"
+                  },
+                  {
+                    "names": {
+                      "ar": "سكوب آيس كريم",
+                      "en": "Ice cream scoop"
+                    },
+                    "price": "30"
+                  },
+                  {
+                    "names": {
+                      "ar": "قشطة زيادة",
+                      "en": "Extra cream"
+                    },
+                    "price": "15"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "basbousa",
+            "image": "basbousa.jpg",
+            "names": {
+              "ar": "بسبوسة بالجوز",
+              "en": "Basbousa with Walnuts"
+            },
+            "descriptions": {
+              "ar": "بسبوسة بالسميد والزبادي مسقّية بالقطر ومزينة بالجوز.",
+              "en": "Semolina and yogurt cake soaked in syrup and topped with a walnut."
+            },
+            "price": "45",
+            "variants": [
+              {
+                "names": {
+                  "ar": "قطعة",
+                  "en": "Piece"
+                },
+                "price": "45",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "نصف كيلو",
+                  "en": "Half kilo"
+                },
+                "price": "190",
+                "default": false
+              },
+              {
+                "names": {
+                  "ar": "كيلو",
+                  "en": "One kilo"
+                },
+                "price": "360",
+                "default": false
+              }
+            ],
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختيار واحد",
+                  "en": "Choose one"
+                },
+                "min": 0,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "قشطة",
+                      "en": "Cream"
+                    },
+                    "price": "15"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "baklava",
+            "image": "baklava.jpg",
+            "names": {
+              "ar": "بقلاوة",
+              "en": "Baklava"
+            },
+            "descriptions": {
+              "ar": "طبقات رقيقة من العجين المقرمش بالسمن البلدي والمكسرات.",
+              "en": "Thin crisp layers brushed with ghee and filled with nuts."
+            },
+            "price": "280",
+            "variants": [
+              {
+                "names": {
+                  "ar": "نصف كيلو",
+                  "en": "Half kilo"
+                },
+                "price": "280",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "كيلو",
+                  "en": "One kilo"
+                },
+                "price": "540",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "umm-ali",
+            "image": "umm-ali.jpg",
+            "names": {
+              "ar": "أم علي",
+              "en": "Umm Ali"
+            },
+            "descriptions": {
+              "ar": "طبق أم علي بالمكسرات وجوز الهند والقشطة، بيتخبز في الفرن لحد ما يحمّر.",
+              "en": "Umm Ali with nuts, coconut and cream, baked until golden."
+            },
+            "price": "90",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختيار واحد",
+                  "en": "Choose one"
+                },
+                "min": 0,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "مكسرات زيادة",
+                      "en": "Extra nuts"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "سكوب آيس كريم",
+                      "en": "Ice cream scoop"
+                    },
+                    "price": "30"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "qatayef",
+            "image": "qatayef.jpg",
+            "names": {
+              "ar": "قطايف بالمكسرات",
+              "en": "Qatayef with Nuts"
+            },
+            "descriptions": {
+              "ar": "قطايف عصافيري محشية بالمكسرات والقشطة ومقلية أو مخبوزة.",
+              "en": "Qatayef filled with nuts and cream, fried or baked, dressed in syrup."
+            },
+            "price": "80",
+            "variants": [
+              {
+                "names": {
+                  "ar": "٦ قطع",
+                  "en": "6 pieces"
+                },
+                "price": "80",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "١٢ قطعة",
+                  "en": "12 pieces"
+                },
+                "price": "150",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "roz-bel-laban",
+            "image": "roz-bel-laban.jpg",
+            "names": {
+              "ar": "رز بلبن",
+              "en": "Rice Pudding"
+            },
+            "descriptions": {
+              "ar": "رز بلبن كريمي في طاسة فخار مع وش محمّر.",
+              "en": "Creamy rice pudding baked in a clay pot with a golden top."
+            },
+            "price": "55"
+          }
+        ]
+      },
+      {
+        "key": "cakes",
+        "image": "red-velvet.jpg",
+        "names": {
+          "ar": "تورتات وكيك",
+          "en": "Cakes"
+        },
+        "products": [
+          {
+            "key": "chocolate-cake",
+            "image": "chocolate-cake.jpg",
+            "names": {
+              "ar": "تورتة الشوكولاتة",
+              "en": "Chocolate Layer Cake"
+            },
+            "descriptions": {
+              "ar": "طبقات كيك كاكاو رطبة وكريمة شوكولاتة غنية.",
+              "en": "Moist cocoa sponge layered with rich chocolate cream."
+            },
+            "price": "95",
+            "variants": [
+              {
+                "names": {
+                  "ar": "قطعة",
+                  "en": "Slice"
+                },
+                "price": "95",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "تورتة ٨ بوصة",
+                  "en": "8-inch cake"
+                },
+                "price": "520",
+                "default": false
+              },
+              {
+                "names": {
+                  "ar": "تورتة ١٠ بوصة",
+                  "en": "10-inch cake"
+                },
+                "price": "680",
+                "default": false
+              }
+            ],
+            "featured": true,
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "للمناسبة",
+                  "en": "For the occasion"
+                },
+                "helper": {
+                  "ar": "اختر حتى 2",
+                  "en": "Choose up to 2"
+                },
+                "min": 0,
+                "max": 2,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "شمع عيد ميلاد",
+                      "en": "Birthday candles"
+                    },
+                    "price": "10"
+                  },
+                  {
+                    "names": {
+                      "ar": "كارت إهداء",
+                      "en": "Gift card"
+                    },
+                    "price": "15"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "red-velvet",
+            "image": "red-velvet.jpg",
+            "names": {
+              "ar": "ريد فلفت",
+              "en": "Red Velvet Cake"
+            },
+            "descriptions": {
+              "ar": "كيك أحمر مخملي مع كريمة الجبنة البيضاء.",
+              "en": "Velvety red sponge with white cream cheese frosting."
+            },
+            "price": "105",
+            "variants": [
+              {
+                "names": {
+                  "ar": "قطعة",
+                  "en": "Slice"
+                },
+                "price": "105",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "تورتة ٨ بوصة",
+                  "en": "8-inch cake"
+                },
+                "price": "560",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "strawberry-cake",
+            "image": "strawberry-cake.jpg",
+            "names": {
+              "ar": "تورتة الفراولة بالكريمة",
+              "en": "Strawberry Cream Cake"
+            },
+            "descriptions": {
+              "ar": "كيك إسفنجي خفيف مع كريمة طازجة وفراولة.",
+              "en": "Light sponge with fresh cream and strawberries."
+            },
+            "price": "100",
+            "variants": [
+              {
+                "names": {
+                  "ar": "قطعة",
+                  "en": "Slice"
+                },
+                "price": "100",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "تورتة ٨ بوصة",
+                  "en": "8-inch cake"
+                },
+                "price": "540",
+                "default": false
+              }
+            ],
+            "discount": {
+              "type": "PERCENTAGE",
+              "value": "10"
+            }
+          },
+          {
+            "key": "black-forest",
+            "image": "black-forest.jpg",
+            "names": {
+              "ar": "بلاك فورست",
+              "en": "Black Forest Cake"
+            },
+            "descriptions": {
+              "ar": "كيك شوكولاتة بالكريز والكريمة المخفوقة ورقائق الشوكولاتة.",
+              "en": "Chocolate sponge with cherries, whipped cream and chocolate shavings."
+            },
+            "price": "95",
+            "variants": [
+              {
+                "names": {
+                  "ar": "قطعة",
+                  "en": "Slice"
+                },
+                "price": "95",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "تورتة ٨ بوصة",
+                  "en": "8-inch cake"
+                },
+                "price": "500",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "cheesecake",
+            "image": "cheesecake.jpg",
+            "names": {
+              "ar": "تشيز كيك فراولة",
+              "en": "Strawberry Cheesecake"
+            },
+            "descriptions": {
+              "ar": "تشيز كيك كريمي على قاعدة بسكويت مع صوص فراولة.",
+              "en": "Creamy cheesecake on a biscuit base with strawberry sauce."
+            },
+            "price": "115"
+          }
+        ]
+      },
+      {
+        "key": "western",
+        "image": "macarons.jpg",
+        "names": {
+          "ar": "حلويات غربية",
+          "en": "Pastries"
+        },
+        "products": [
+          {
+            "key": "eclair",
+            "image": "eclair.jpg",
+            "names": {
+              "ar": "إكلير شوكولاتة",
+              "en": "Chocolate Eclair"
+            },
+            "descriptions": {
+              "ar": "عجينة شو هشة محشية بكريمة الباتيسيير ومغطاة بالشوكولاتة.",
+              "en": "Light choux filled with pastry cream and glazed with chocolate."
+            },
+            "price": "70",
+            "variants": [
+              {
+                "names": {
+                  "ar": "قطعة",
+                  "en": "Piece"
+                },
+                "price": "70",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "علبة ٤ قطع",
+                  "en": "Box of 4"
+                },
+                "price": "250",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "macarons",
+            "image": "macarons.jpg",
+            "names": {
+              "ar": "ماكرون مشكل",
+              "en": "Assorted Macarons"
+            },
+            "descriptions": {
+              "ar": "ماكرون فرنسي بنكهات الفانيليا والفستق والتوت والشوكولاتة.",
+              "en": "French macarons in vanilla, pistachio, raspberry and chocolate."
+            },
+            "price": "220",
+            "variants": [
+              {
+                "names": {
+                  "ar": "علبة ٦ قطع",
+                  "en": "Box of 6"
+                },
+                "price": "220",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "علبة ١٢ قطعة",
+                  "en": "Box of 12"
+                },
+                "price": "400",
+                "default": false
+              }
+            ],
+            "featured": true
+          },
+          {
+            "key": "cupcakes",
+            "image": "cupcakes.jpg",
+            "names": {
+              "ar": "كب كيك التوت",
+              "en": "Blueberry Cupcakes"
+            },
+            "descriptions": {
+              "ar": "كب كيك بالفانيليا مع كريمة الجبنة وحبات التوت الأزرق.",
+              "en": "Vanilla cupcakes with cream cheese frosting and fresh blueberries."
+            },
+            "price": "45",
+            "variants": [
+              {
+                "names": {
+                  "ar": "قطعة",
+                  "en": "Piece"
+                },
+                "price": "45",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "علبة ٦ قطع",
+                  "en": "Box of 6"
+                },
+                "price": "240",
+                "default": false
+              },
+              {
+                "names": {
+                  "ar": "علبة ١٢ قطعة",
+                  "en": "Box of 12"
+                },
+                "price": "450",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "mille-feuille",
+            "image": "mille-feuille.jpg",
+            "names": {
+              "ar": "ميل فاي",
+              "en": "Mille-feuille"
+            },
+            "descriptions": {
+              "ar": "طبقات رقيقة مقرمشة وكريمة الفانيليا مع فراولة.",
+              "en": "Crisp puff pastry layers with vanilla cream and strawberry."
+            },
+            "price": "95"
+          },
+          {
+            "key": "donut",
+            "image": "donut.jpg",
+            "names": {
+              "ar": "دونات شوكولاتة",
+              "en": "Chocolate Donut"
+            },
+            "descriptions": {
+              "ar": "دونات طرية مغطاة بالشوكولاتة الداكنة.",
+              "en": "Soft donut glazed with dark chocolate."
+            },
+            "price": "40",
+            "variants": [
+              {
+                "names": {
+                  "ar": "قطعة",
+                  "en": "Piece"
+                },
+                "price": "40",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "علبة ٦ قطع",
+                  "en": "Box of 6"
+                },
+                "price": "220",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "tiramisu",
+            "image": "tiramisu.jpg",
+            "names": {
+              "ar": "تيراميسو",
+              "en": "Tiramisu"
+            },
+            "descriptions": {
+              "ar": "طبقات من الماسكاربوني وبسكويت مبلول بالقهوة وبودرة كاكاو.",
+              "en": "Layers of mascarpone and coffee-soaked biscuit dusted with cocoa."
+            },
+            "price": "110"
+          }
+        ]
+      },
+      {
+        "key": "cold",
+        "image": "ice-cream.jpg",
+        "names": {
+          "ar": "آيس كريم وكريب",
+          "en": "Ice Cream & Crepes"
+        },
+        "products": [
+          {
+            "key": "ice-cream",
+            "image": "ice-cream.jpg",
+            "names": {
+              "ar": "آيس كريم شوكولاتة",
+              "en": "Chocolate Ice Cream"
+            },
+            "descriptions": {
+              "ar": "آيس كريم شوكولاتة كريمي، بسكوب في كون أو كوب.",
+              "en": "Creamy chocolate ice cream by the scoop, in a cone or a cup."
+            },
+            "price": "40",
+            "variants": [
+              {
+                "names": {
+                  "ar": "سكوب واحد",
+                  "en": "1 scoop"
+                },
+                "price": "40",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "سكوبين",
+                  "en": "2 scoops"
+                },
+                "price": "70",
+                "default": false
+              },
+              {
+                "names": {
+                  "ar": "٣ سكوبات",
+                  "en": "3 scoops"
+                },
+                "price": "95",
+                "default": false
+              }
+            ],
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "التقديم",
+                  "en": "Served in"
+                },
+                "helper": {
+                  "ar": "اختر واحدًا",
+                  "en": "Choose one"
+                },
+                "min": 1,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "كون",
+                      "en": "Cone"
+                    },
+                    "price": "0"
+                  },
+                  {
+                    "names": {
+                      "ar": "كوب",
+                      "en": "Cup"
+                    },
+                    "price": "0"
+                  }
+                ]
+              },
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Toppings"
+                },
+                "helper": {
+                  "ar": "اختر حتى 2",
+                  "en": "Choose up to 2"
+                },
+                "min": 0,
+                "max": 2,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "صوص شوكولاتة",
+                      "en": "Chocolate sauce"
+                    },
+                    "price": "10"
+                  },
+                  {
+                    "names": {
+                      "ar": "مكسرات",
+                      "en": "Nuts"
+                    },
+                    "price": "10"
+                  },
+                  {
+                    "names": {
+                      "ar": "سبرينكلز",
+                      "en": "Sprinkles"
+                    },
+                    "price": "5"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "crepe",
+            "image": "crepe.jpg",
+            "names": {
+              "ar": "كريب نوتيلا",
+              "en": "Nutella Crepe"
+            },
+            "descriptions": {
+              "ar": "كريب رفيع محشي بالنوتيلا ومزين بصوص الشوكولاتة.",
+              "en": "A thin crepe filled with Nutella and drizzled with chocolate sauce."
+            },
+            "price": "110",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "فاكهة",
+                  "en": "Fruit"
+                },
+                "helper": {
+                  "ar": "اختر حتى 2",
+                  "en": "Choose up to 2"
+                },
+                "min": 0,
+                "max": 2,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "موز",
+                      "en": "Banana"
+                    },
+                    "price": "10"
+                  },
+                  {
+                    "names": {
+                      "ar": "فراولة",
+                      "en": "Strawberry"
+                    },
+                    "price": "15"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "molten-cake",
+            "image": "molten-cake.jpg",
+            "names": {
+              "ar": "مولتن كيك",
+              "en": "Molten Chocolate Cake"
+            },
+            "descriptions": {
+              "ar": "كيكة شوكولاتة دافية بقلب سايح.",
+              "en": "A warm chocolate cake with a molten centre."
+            },
+            "price": "105",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختيار واحد",
+                  "en": "Choose one"
+                },
+                "min": 0,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "سكوب آيس كريم فانيليا",
+                      "en": "Scoop of vanilla ice cream"
+                    },
+                    "price": "30"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "gifts",
+        "image": "oriental-box.jpg",
+        "names": {
+          "ar": "علب الهدايا",
+          "en": "Gift Boxes"
+        },
+        "products": [
+          {
+            "key": "oriental-box",
+            "image": "oriental-box.jpg",
+            "names": {
+              "ar": "علبة حلويات شرقية مشكلة",
+              "en": "Assorted Oriental Sweets Box"
+            },
+            "descriptions": {
+              "ar": "تشكيلة من البقلاوة والبرمة والكنافة الجافة في علبة هدايا أنيقة.",
+              "en": "An assortment of baklava, burma and dry kunafa in an elegant gift box."
+            },
+            "price": "330",
+            "variants": [
+              {
+                "names": {
+                  "ar": "٥٠٠ جم",
+                  "en": "500 g"
+                },
+                "price": "330",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "١ كيلو",
+                  "en": "1 kg"
+                },
+                "price": "620",
+                "default": false
+              },
+              {
+                "names": {
+                  "ar": "١.٥ كيلو",
+                  "en": "1.5 kg"
+                },
+                "price": "900",
+                "default": false
+              }
+            ],
+            "featured": true,
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "الهدية",
+                  "en": "Gift options"
+                },
+                "helper": {
+                  "ar": "اختر حتى 2",
+                  "en": "Choose up to 2"
+                },
+                "min": 0,
+                "max": 2,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "كارت إهداء برسالة",
+                      "en": "Gift card with a message"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "تغليف فاخر",
+                      "en": "Premium wrapping"
+                    },
+                    "price": "30"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "chocolate-box",
+            "image": "chocolate-box.jpg",
+            "names": {
+              "ar": "علبة شوكولاتة ترافل",
+              "en": "Chocolate Truffles Box"
+            },
+            "descriptions": {
+              "ar": "ترافل شوكولاتة بنكهات متنوعة في علبة هدايا مبطّنة.",
+              "en": "Chocolate truffles in assorted flavours in a lined gift box."
+            },
+            "price": "240",
+            "variants": [
+              {
+                "names": {
+                  "ar": "٩ قطع",
+                  "en": "9 pieces"
+                },
+                "price": "240",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "١٦ قطعة",
+                  "en": "16 pieces"
+                },
+                "price": "410",
+                "default": false
+              }
+            ],
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "الهدية",
+                  "en": "Gift options"
+                },
+                "helper": {
+                  "ar": "اختر حتى 2",
+                  "en": "Choose up to 2"
+                },
+                "min": 0,
+                "max": 2,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "كارت إهداء برسالة",
+                      "en": "Gift card with a message"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "تغليف فاخر",
+                      "en": "Premium wrapping"
+                    },
+                    "price": "30"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "macaron-box",
+            "image": "macaron-box.jpg",
+            "names": {
+              "ar": "علبة ماكرون هدية",
+              "en": "Macaron Gift Box"
+            },
+            "descriptions": {
+              "ar": "ماكرون مشكل في علبة هدية بشريط ساتان.",
+              "en": "Assorted macarons in a gift box tied with a satin ribbon."
+            },
+            "price": "420",
+            "variants": [
+              {
+                "names": {
+                  "ar": "١٢ قطعة",
+                  "en": "12 pieces"
+                },
+                "price": "420",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "٢٤ قطعة",
+                  "en": "24 pieces"
+                },
+                "price": "790",
+                "default": false
+              }
+            ],
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "الهدية",
+                  "en": "Gift options"
+                },
+                "helper": {
+                  "ar": "اختر حتى 2",
+                  "en": "Choose up to 2"
+                },
+                "min": 0,
+                "max": 2,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "كارت إهداء برسالة",
+                      "en": "Gift card with a message"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "تغليف فاخر",
+                      "en": "Premium wrapping"
+                    },
+                    "price": "30"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "drinks",
+        "image": "turkish-coffee.jpg",
+        "names": {
+          "ar": "مشروبات",
+          "en": "Drinks"
+        },
+        "products": [
+          {
+            "key": "turkish-coffee",
+            "image": "turkish-coffee.jpg",
+            "names": {
+              "ar": "قهوة تركي",
+              "en": "Turkish Coffee"
+            },
+            "descriptions": {
+              "ar": "قهوة تركي متظبطة على الرمل، بتتقدّم مع كوب ماية.",
+              "en": "Turkish coffee brewed over sand, served with a glass of water."
+            },
+            "price": "50",
+            "variants": [
+              {
+                "names": {
+                  "ar": "سينجل",
+                  "en": "Single"
+                },
+                "price": "50",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "دبل",
+                  "en": "Double"
+                },
+                "price": "75",
+                "default": false
+              }
+            ],
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "درجة السكر",
+                  "en": "Sugar level"
+                },
+                "helper": {
+                  "ar": "اختر درجة السكر",
+                  "en": "Choose how sweet"
+                },
+                "min": 1,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "سادة",
+                      "en": "Plain"
+                    },
+                    "price": "0"
+                  },
+                  {
+                    "names": {
+                      "ar": "مظبوط",
+                      "en": "Medium"
+                    },
+                    "price": "0"
+                  },
+                  {
+                    "names": {
+                      "ar": "سكر زيادة",
+                      "en": "Extra sweet"
+                    },
+                    "price": "0"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "hot-chocolate",
+            "image": "hot-chocolate.jpg",
+            "names": {
+              "ar": "هوت شوكولاتة",
+              "en": "Hot Chocolate"
+            },
+            "descriptions": {
+              "ar": "شوكولاتة ذايبة في حليب ساخن مع كريمة مخفوقة.",
+              "en": "Melted chocolate in hot milk with whipped cream."
+            },
+            "price": "85"
+          },
+          {
+            "key": "orange-juice",
+            "image": "orange-juice.jpg",
+            "names": {
+              "ar": "عصير برتقال طازج",
+              "en": "Fresh Orange Juice"
+            },
+            "descriptions": {
+              "ar": "برتقال بلدي معصور في لحظتها.",
+              "en": "Local oranges squeezed to order."
+            },
+            "price": "65",
+            "variants": [
+              {
+                "names": {
+                  "ar": "ريجولار",
+                  "en": "Regular"
+                },
+                "price": "65",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "لارج",
+                  "en": "Large"
+                },
+                "price": "85",
+                "default": false
+              }
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "announcements": [
+    {
+      "style": "INFO",
+      "texts": {
+        "ar": "أهلًا بك! هذا محل حلويات تجريبي لعرض إمكانيات ويتا.",
+        "en": "Welcome! This is a demo sweets shop that shows what Wayta can do."
+      }
+    },
+    {
+      "style": "PROMO",
+      "texts": {
+        "ar": "خصم 10% على تورتة الفراولة بالكريمة هذا الأسبوع.",
+        "en": "10% off the Strawberry Cream Cake this week."
+      }
+    }
+  ],
+  "suggestions": [
+    {
+      "product": "kunafa",
+      "suggested": [
+        "turkish-coffee",
+        "umm-ali"
+      ]
+    },
+    {
+      "product": "baklava",
+      "suggested": [
+        "turkish-coffee",
+        "qatayef"
+      ]
+    },
+    {
+      "product": "chocolate-cake",
+      "suggested": [
+        "hot-chocolate",
+        "macarons"
+      ]
+    },
+    {
+      "product": "red-velvet",
+      "suggested": [
+        "turkish-coffee",
+        "cupcakes"
+      ]
+    },
+    {
+      "product": "macarons",
+      "suggested": [
+        "hot-chocolate",
+        "eclair"
+      ]
+    },
+    {
+      "product": "ice-cream",
+      "suggested": [
+        "crepe",
+        "molten-cake"
+      ]
+    },
+    {
+      "product": "oriental-box",
+      "suggested": [
+        "chocolate-box",
+        "macaron-box"
+      ]
+    },
+    {
+      "product": "tiramisu",
+      "suggested": [
+        "turkish-coffee",
+        "cheesecake"
+      ]
+    }
+  ],
+  "design": {
+    "BLOOM": {
+      "palette": "ROSE",
+      "motion": "SUBTLE",
+      "ribbonAr": "✳ بنخبز بحب، ونقدّم بفرحة ✳",
+      "ribbonEn": "✳ BAKED WITH LOVE, SERVED WITH JOY ✳",
+      "navTaglineAr": "حلويات صغيرة بتفرّق",
+      "navTaglineEn": "THE LITTLE SWEET THINGS",
+      "eyebrowAr": "✳ سعادة صغيرة في كل قضمة",
+      "eyebrowEn": "✳ A LITTLE HAPPINESS IN EVERY BITE",
+      "headlineTopAr": "حلويات",
+      "headlineTopEn": "sweet",
+      "headlineMiddleAr": "صغيرة",
+      "headlineMiddleEn": "little",
+      "headlineBottomAr": "بتفرحك.",
+      "headlineBottomEn": "things.",
+      "subtitleAr": "من الكنافة والبسبوسة لحد التورتات والماكرون، كل قطعة حكاية صغيرة وكل لحظة تستاهل حاجة حلوة.",
+      "subtitleEn": "From kunafa and basbousa to cakes and macarons, every piece is a little story and every moment deserves something sweet.",
+      "ctaAr": "استكشف الحلويات",
+      "ctaEn": "Explore the sweets",
+      "sectionEyebrowAr": "متعتنا الصغيرة",
+      "sectionEyebrowEn": "OUR LITTLE PLEASURES",
+      "sectionHeadlineAr": "تشكيلة الحلويات.",
+      "sectionHeadlineEn": "The sweet selection.",
+      "heroImageMode": "ART"
+    }
+  }
+}

@@ -54,13 +54,14 @@
    - `20261115090000_exclusive_menu_design_reservations`;
    - `20261116090000_verde_exclusive_renderer`;
    - `20261116100000_restaurant_owner_contacts`;
-   - `20261117090000_demo_restaurants` (adds demo-only fields and secret entry link table).
+   - `20261117090000_demo_restaurants` (adds demo-only fields and secret entry link table);
+   - `20261118090000_demo_kinds` (adds the nullable `demo_kind` column: restaurant, café or sweets shop demos).
    Inspect all other pending migrations in the actual local history. Do not blindly deploy migrations or reset real/shared data. Git switching does not revert database schema.
 4. Verify Platform Admin creation, owner contact, acquisition source, correct tenant-exclusive VERDE activation, another Restaurant unaffected; role/permission isolation; disable/fallback.
 5. Verify real Guest Menu data (not sample HTML): TABLE and GENERIC QR, AR/EN, photos/no photos, categories, product variants/modifiers, discounts, sold out, search, cart, pickup/delivery/WhatsApp, tracking, announcements, custom logo & cover.
 6. Review Light + Signature Dark on 320/360/390/430/768/desktop: category text contrast, keyboard/focus, overflow, all dialogs, reduced motion.
 7. Run menu import inactive-language and extras extraction, Start Fresh with stale carts and order history retained, acquisition/contact updates. Check old migrations and DB security/RLS.
-8. Demo QA: Platform create with/without active Package, secret-link entry/expiration/rotation, session and role restrictions, excluded Platform totals, asset credits, extension and lock, **purge of disposable demo data only**, and untouched normal tenants. Verify scheduled sweep boundaries and migrations against disposable DB before enabling.
+8. Demo QA: Platform create for each kind (restaurant, café on BREW, sweets shop on BLOOM) with/without active Package, secret-link entry/expiration/rotation, session and role restrictions, excluded Platform totals, asset credits, extension and lock, **purge of disposable demo data only**, and untouched normal tenants. Verify scheduled sweep boundaries and migrations against disposable DB before enabling.
 9. Review the full combined diff vs `main` (Wayta pre-release features + VERDE + all five demo commits), and release sequencing explicitly.
 10. Before main merge: owner acceptance and a migration/deployment plan must be recorded. Production deployment is a separate authorized action.
 

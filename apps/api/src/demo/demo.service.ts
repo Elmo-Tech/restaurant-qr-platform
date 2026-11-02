@@ -19,11 +19,16 @@ import {
   type ProvisioningPrisma,
 } from '../provisioning/provision-restaurant';
 import { createQrPublicCode } from '../qr/qr-public-code';
+import { normalizeBloomSettings } from '../restaurants/bloom-template-config';
+import { normalizeBrewSettings } from '../restaurants/brew-template-config';
 import { resolveUploadDir } from '../storage/upload-dir';
 import {
+  DEFAULT_DEMO_KIND,
   DEMO_EMAIL_DOMAIN,
   DEMO_MAX_HOURS,
   DEMO_MIN_HOURS,
+  isDemoKind,
+  type DemoKind,
 } from './demo-constants';
 import { NotADemoError, purgeDemoRestaurant } from './demo-purge';
 import {
@@ -36,6 +41,8 @@ export interface DemoView {
   id: string;
   publicId: string;
   label: string;
+  /** The kind of business the demo shows (a demo made before kinds existed is a restaurant). */
+  kind: DemoKind;
   status: 'ACTIVE' | 'LOCKED';
   createdAt: string;
   expiresAt: string;
@@ -93,6 +100,7 @@ export class DemoService {
     id: string;
     publicId: string;
     demoLabel: string | null;
+    demoKind: string | null;
     status: string;
     createdAt: Date;
     demoExpiresAt: Date | null;
@@ -109,6 +117,7 @@ export class DemoService {
       id: row.id,
       publicId: row.publicId,
       label: row.demoLabel ?? '',
+      kind: isDemoKind(row.demoKind) ? row.demoKind : DEFAULT_DEMO_KIND,
       status: row.status === 'ACTIVE' ? 'ACTIVE' : 'LOCKED',
       createdAt: row.createdAt.toISOString(),
       expiresAt: expires.toISOString(),
@@ -124,6 +133,7 @@ export class DemoService {
     id: true,
     publicId: true,
     demoLabel: true,
+    demoKind: true,
     status: true,
     createdAt: true,
     demoExpiresAt: true,
@@ -204,7 +214,9 @@ export class DemoService {
     label: string;
     hours: number;
     packageId?: string | null;
+    kind?: string;
   }): Promise<CreateDemoResult> {
+    const kind = input.kind ?? DEFAULT_DEMO_KIND;
     const label = input.label.replace(/\s+/g, ' ').trim();
     const problems: string[] = [];
     if (label.length < 1 || label.length > 80)
@@ -217,6 +229,7 @@ export class DemoService {
       problems.push(
         `hours must be a whole number from ${DEMO_MIN_HOURS} to ${DEMO_MAX_HOURS}`,
       );
+    if (!isDemoKind(kind)) problems.push('the kind of demo is not known');
     let pkg: { id: string; templates: MenuTemplateKey[] } | null = null;
     if (input.packageId) {
       const loaded = await this.loadPackage(input.packageId);
@@ -232,11 +245,13 @@ export class DemoService {
       return { outcome: 'limitReached', max };
     }
 
-    const template = await loadDemoTemplate();
+    // The kind was checked with the other input above; this narrows it for the compiler.
+    const demoKind = kind as DemoKind;
+    const template = await loadDemoTemplate(demoKind);
     const uploadDir = resolveUploadDir(
       this.config.get('UPLOAD_LOCAL_DIR', { infer: true }),
     );
-    const assets = await installTemplateImages(template, uploadDir);
+    const assets = await installTemplateImages(demoKind, template, uploadDir);
 
     // The owner of a demo is a throw-away identity: an address that can never receive mail and a password nobody knows.
     const provisioned = await provisionRestaurant(
@@ -269,6 +284,7 @@ export class DemoService {
         (tx) =>
           this.fillFromTemplate(tx, restaurant.id, template, assets, {
             label,
+            kind: demoKind,
             expiresAt,
             packageId: pkg?.id ?? null,
             // The template's design when the Package allows it, otherwise the one design every Package has.
@@ -301,6 +317,22 @@ export class DemoService {
     return { outcome: 'created', demo: this.view(row), link };
   }
 
+  /** The template's settings for the design the demo ended up on, normalized by the dashboard's own rules. */
+  private designSettings(
+    template: DemoTemplate,
+    menuTemplate: MenuTemplate,
+  ): Prisma.InputJsonValue | null {
+    const normalized =
+      menuTemplate === 'BREW' && template.design?.BREW
+        ? normalizeBrewSettings(template.design.BREW)
+        : menuTemplate === 'BLOOM' && template.design?.BLOOM
+          ? normalizeBloomSettings(template.design.BLOOM)
+          : null;
+    return normalized
+      ? (JSON.parse(JSON.stringify(normalized)) as Prisma.InputJsonValue)
+      : null;
+  }
+
   /** Everything a demo shows: settings, two branches with tables and delivery zones, the bilingual menu, extras. */
   private async fillFromTemplate(
     tx: Prisma.TransactionClient,
@@ -309,6 +341,7 @@ export class DemoService {
     assets: Map<string, string>,
     demo: {
       label: string;
+      kind: DemoKind;
       expiresAt: Date;
       packageId: string | null;
       menuTemplate: MenuTemplate;
@@ -321,6 +354,7 @@ export class DemoService {
         isDemo: true,
         demoExpiresAt: demo.expiresAt,
         demoLabel: demo.label,
+        demoKind: demo.kind,
         packageId: demo.packageId,
         logoAssetPath: assets.get(r.logo) ?? null,
         coverAssetPath: assets.get(r.cover) ?? null,
@@ -333,6 +367,19 @@ export class DemoService {
         whatsappOrderingEnabled: r.whatsappOrderingEnabled,
       },
     });
+    // The copy and palette of a premium design (BREW, BLOOM), exactly as the dashboard would have saved and published it.
+    const design = this.designSettings(template, demo.menuTemplate);
+    if (design) {
+      await tx.restaurantTemplateConfig.create({
+        data: {
+          restaurantId,
+          template: demo.menuTemplate,
+          schemaVersion: 1,
+          draftSettings: design,
+          publishedSettings: design,
+        },
+      });
+    }
     // A demo starts fully set up: the optional setup guide is for real new accounts.
     await tx.restaurantSetup.deleteMany({ where: { restaurantId } });
 
