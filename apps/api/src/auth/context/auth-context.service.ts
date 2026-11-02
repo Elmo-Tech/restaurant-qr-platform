@@ -42,6 +42,8 @@ export interface AuthContextRestaurant {
   logoAssetPath: string | null;
   /** Guest Menu cover image (Restaurant Settings -> Profile). Null when none has been uploaded. */
   coverAssetPath: string | null;
+  /** Set only for a temporary demo restaurant (DEC-060): when it ends. The dashboard shows a countdown. */
+  demoExpiresAt: string | null;
   /** Restaurant QR order types (Restaurant Settings -> Restaurant QR). False stops that type of order. */
   pickupEnabled: boolean;
   deliveryEnabled: boolean;
@@ -165,6 +167,7 @@ export class AuthContextService {
             defaultLocale: true,
             logoAssetPath: true,
             coverAssetPath: true,
+            demoExpiresAt: true,
             pickupEnabled: true,
             deliveryEnabled: true,
             tableOrderingEnabled: true,
@@ -300,6 +303,7 @@ export class AuthContextService {
           defaultLocale: membership.restaurant.defaultLocale,
           logoAssetPath: membership.restaurant.logoAssetPath,
           coverAssetPath: membership.restaurant.coverAssetPath,
+          demoExpiresAt: membership.restaurant.demoExpiresAt?.toISOString() ?? null,
           pickupEnabled: membership.restaurant.pickupEnabled,
           deliveryEnabled: membership.restaurant.deliveryEnabled,
           tableOrderingEnabled: membership.restaurant.tableOrderingEnabled,

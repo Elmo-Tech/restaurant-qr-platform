@@ -152,6 +152,8 @@ export class PlatformRestaurantsService {
       endsAt: { gt: today },
     };
     const where: Prisma.RestaurantWhereInput = {
+      // Temporary demo restaurants (DEC-060) have their own Demos section.
+      isDemo: false,
       ...(input.status ? { status: input.status } : {}),
       ...(input.subscription === 'TRIAL'
         ? { subscriptions: { some: { ...covering, kind: 'TRIAL' } } }

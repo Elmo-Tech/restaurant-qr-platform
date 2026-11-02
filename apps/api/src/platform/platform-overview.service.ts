@@ -106,15 +106,21 @@ export class PlatformOverviewService {
       billing,
       activity,
     ] = await Promise.all([
+      // Demo restaurants (DEC-060) never count in the platform's numbers.
       this.prisma.restaurant.groupBy({
         by: ['status'],
+        where: { isDemo: false },
         _count: { _all: true },
       }),
-      this.prisma.restaurant.count({ where: { createdAt: { gte: since } } }),
-      this.prisma.order.count({ where: { createdAt: { gte: since } } }),
-      this.prisma.branch.count(),
-      this.prisma.product.count(),
-      this.prisma.order.count(),
+      this.prisma.restaurant.count({
+        where: { isDemo: false, createdAt: { gte: since } },
+      }),
+      this.prisma.order.count({
+        where: { createdAt: { gte: since }, restaurant: { isDemo: false } },
+      }),
+      this.prisma.branch.count({ where: { restaurant: { isDemo: false } } }),
+      this.prisma.product.count({ where: { restaurant: { isDemo: false } } }),
+      this.prisma.order.count({ where: { restaurant: { isDemo: false } } }),
       this.restrictedRestaurantCount(),
       this.prisma.subscriptionRequest.count({
         where: { status: { in: ['NEW', 'CONTACTED'] } },
@@ -123,6 +129,7 @@ export class PlatformOverviewService {
         where: { status: { in: ['NEW', 'CONTACTED'] } },
       }),
       this.prisma.restaurant.findMany({
+        where: { isDemo: false },
         orderBy: { createdAt: 'desc' },
         take: 5,
         select: { id: true, name: true, status: true, createdAt: true },
@@ -267,6 +274,7 @@ export class PlatformOverviewService {
   /** Restaurants that effectively lack at least one feature (their package and overrides applied). */
   private async restrictedRestaurantCount(): Promise<number> {
     const rows = await this.prisma.restaurant.findMany({
+      where: { isDemo: false },
       select: {
         features: { select: { feature: true, enabled: true } },
         package: { select: { features: { select: { feature: true } } } },

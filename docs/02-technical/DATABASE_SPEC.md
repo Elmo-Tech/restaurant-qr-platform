@@ -1807,6 +1807,19 @@ Rollback (before the engine is switched): drop both tables and both types.
 
 ---
 
+# 68L. Temporary Demo Restaurants (DEC-060, 2026-11-02)
+
+Migration `20261117090000_demo_restaurants` (additive). `restaurants` gains `is_demo` (default `false`), `demo_expires_at`
+and `demo_label` (1 to 120 characters, team-only); the CHECK `restaurants_demo_fields_consistent` requires an expiry for a
+demo and no demo fields otherwise; a partial index on `demo_expires_at WHERE is_demo` serves the expiry job. The new table
+`demo_access_links` (`id`, `restaurant_id` with ON DELETE CASCADE, `token_hash` UNIQUE = SHA-256 of the secret link,
+`created_at`, `last_used_at`, `use_count`) holds only a hash, never a usable secret; row level security is enabled and
+revoked like the other platform tables. Existing restaurants are untouched. Demo data is removed by the application's
+purge (`apps/api/src/demo/demo-purge.ts`), which follows the foreign keys; it never runs for a restaurant that is not a demo.
+Rollback (before any demo exists): drop the table, the constraint, the index and the three columns.
+
+---
+
 # 69. Variant Price
 
 V1 uses:

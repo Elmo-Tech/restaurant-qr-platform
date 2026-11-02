@@ -5,6 +5,7 @@ import { usePathname } from 'next/navigation';
 import type { RestaurantStatus } from '../../lib/auth/types';
 import { RestaurantSidebar, type PackageHides, type StaffSection } from './RestaurantSidebar';
 import { StaffTopbar } from './StaffTopbar';
+import { DemoBanner } from './DemoBanner';
 import { MobileNavigation } from './MobileNavigation';
 import { Breadcrumbs } from './Breadcrumbs';
 import { useStaffI18n } from '../../lib/i18n/client';
@@ -23,6 +24,8 @@ interface StaffShellProps {
   canViewStaff: boolean;
   canViewRestaurantSettings: boolean;
   canViewSubscription?: boolean;
+  /** Set only for a temporary demo restaurant (DEC-060): when it ends. */
+  demoExpiresAt?: string | null;
   children: ReactNode;
 }
 
@@ -98,6 +101,7 @@ export function StaffShell({
   canViewStaff,
   canViewRestaurantSettings,
   canViewSubscription = false,
+  demoExpiresAt = null,
   children,
 }: StaffShellProps) {
   const pathname = usePathname();
@@ -190,6 +194,7 @@ export function StaffShell({
       />
 
       <div className="flex min-w-0 max-w-full flex-1 flex-col">
+        {demoExpiresAt ? <DemoBanner expiresAt={demoExpiresAt} /> : null}
         <StaffTopbar
           restaurantName={restaurantName}
           restaurantLogoUrl={restaurantLogoUrl}

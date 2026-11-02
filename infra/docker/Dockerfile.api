@@ -63,6 +63,8 @@ ENV NODE_ENV=production \
 WORKDIR /repo/apps/api
 COPY --from=prod-deps /repo /repo
 COPY --from=build /repo/apps/api/dist ./dist
+# The content of the temporary demo restaurants (DEC-060): plain data and photos the API reads from its working directory.
+COPY --from=build --chown=node:node /repo/apps/api/demo-template ./demo-template
 # Uploaded product and category images live here and MUST be a persistent volume (compose mounts one). The
 # directory is created and handed to the unprivileged user so a fresh named volume inherits that ownership.
 RUN mkdir -p "$UPLOAD_LOCAL_DIR" && chown -R node:node "$UPLOAD_LOCAL_DIR"

@@ -115,6 +115,10 @@ services:
       MENU_IMPORT_TIMEOUT_SECONDS: ${MENU_IMPORT_TIMEOUT_SECONDS:-300}
       # encrypts the model API keys saved from the Platform console (DEC-059); empty = keys cannot be saved
       AI_KEYS_ENCRYPTION_KEY: ${AI_KEYS_ENCRYPTION_KEY:-}
+      # temporary demo restaurants (DEC-060); the defaults suit one API instance
+      DEMO_MAX_ACTIVE: ${DEMO_MAX_ACTIVE:-20}
+      DEMO_PURGE_GRACE_MINUTES: ${DEMO_PURGE_GRACE_MINUTES:-60}
+      DEMO_SWEEP_SECONDS: ${DEMO_SWEEP_SECONDS:-60}
     volumes:
       - uploads:/var/lib/restaurant-qr/uploads
     depends_on:

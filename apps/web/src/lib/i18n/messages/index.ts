@@ -3,6 +3,7 @@ import { announcementsMessages } from './announcements';
 import { branchesMessages } from './branches';
 import { commonMessages } from './common';
 import { contactMessages } from './contact';
+import { demoMessages } from './demo';
 import { dashboardMessages } from './dashboard';
 import { designMessages } from './design';
 import { entitlementsMessages } from './entitlements';
@@ -62,6 +63,7 @@ const en = {
   ...settingsMessages.en,
   ...settingsHubMessages.en,
   ...restaurantSetupMessages.en,
+  ...demoMessages.en,
   ...staffMessages.en,
   ...subscriptionMessages.en,
   ...tablesMessages.en,
@@ -95,6 +97,7 @@ const ar = {
   ...settingsMessages.ar,
   ...settingsHubMessages.ar,
   ...restaurantSetupMessages.ar,
+  ...demoMessages.ar,
   ...staffMessages.ar,
   ...subscriptionMessages.ar,
   ...tablesMessages.ar,

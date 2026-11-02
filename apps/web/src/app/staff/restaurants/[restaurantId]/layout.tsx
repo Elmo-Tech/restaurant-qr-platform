@@ -71,7 +71,8 @@ export default async function RestaurantWorkspaceLayout({
       restaurantName={membership.restaurant.name}
       restaurantStatus={membership.restaurant.status}
       restaurantLogoUrl={resolveAssetUrl(membership.restaurant.logoAssetPath)}
-      userEmail={sessionState.context.user.email}
+      // A demo owner's address is a throw-away one: the visitor sees a plain label instead.
+      userEmail={membership.restaurant.demoExpiresAt ? t('demo.visitor') : sessionState.context.user.email}
       canViewMenu={canViewMenu(membership)}
       canViewTables={canViewTables(membership)}
       canViewOrders={canViewOrders(membership)}
@@ -83,6 +84,7 @@ export default async function RestaurantWorkspaceLayout({
       canViewStaff={canViewStaff(membership)}
       canViewRestaurantSettings={canViewRestaurantSettings(membership)}
       canViewSubscription={hasRestaurantManagePermission(membership)}
+      demoExpiresAt={membership.restaurant.demoExpiresAt ?? null}
     >
       {children}
     </StaffShell>

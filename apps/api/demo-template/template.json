@@ -1,0 +1,1085 @@
+{
+  "version": 1,
+  "restaurant": {
+    "name": "Wayta Bistro",
+    "defaultLocale": "ar",
+    "currencyCode": "EGP",
+    "countryCode": "EG",
+    "menuTemplate": "GALLERY",
+    "suggestionsMode": "MANUAL",
+    "pickupEnabled": true,
+    "deliveryEnabled": true,
+    "tableOrderingEnabled": true,
+    "whatsappOrderingEnabled": false,
+    "logo": "logo.png",
+    "cover": "cover.jpg"
+  },
+  "branches": [
+    {
+      "key": "downtown",
+      "names": {
+        "ar": "فرع وسط البلد",
+        "en": "Downtown Branch"
+      },
+      "timezone": "Africa/Cairo",
+      "phone": "+20 100 000 0001",
+      "address": {
+        "ar": "شارع التحرير، وسط البلد، القاهرة",
+        "en": "Tahrir Street, Downtown, Cairo"
+      },
+      "tables": 8,
+      "zones": [
+        {
+          "names": {
+            "ar": "وسط البلد",
+            "en": "Downtown"
+          },
+          "fee": "20",
+          "minimum": "100"
+        },
+        {
+          "names": {
+            "ar": "الزمالك",
+            "en": "Zamalek"
+          },
+          "fee": "30",
+          "minimum": "150"
+        }
+      ]
+    },
+    {
+      "key": "maadi",
+      "names": {
+        "ar": "فرع المعادي",
+        "en": "Maadi Branch"
+      },
+      "timezone": "Africa/Cairo",
+      "phone": "+20 100 000 0002",
+      "address": {
+        "ar": "شارع 9، المعادي، القاهرة",
+        "en": "Street 9, Maadi, Cairo"
+      },
+      "tables": 4,
+      "zones": [
+        {
+          "names": {
+            "ar": "المعادي",
+            "en": "Maadi"
+          },
+          "fee": "25",
+          "minimum": "120"
+        },
+        {
+          "names": {
+            "ar": "دجلة",
+            "en": "Degla"
+          },
+          "fee": "35",
+          "minimum": "150"
+        }
+      ]
+    }
+  ],
+  "menu": {
+    "nameInternal": "Main menu",
+    "names": {
+      "ar": "القائمة الرئيسية",
+      "en": "Main menu"
+    },
+    "categories": [
+      {
+        "key": "starters",
+        "image": "loaded-fries.jpg",
+        "names": {
+          "ar": "مقبلات",
+          "en": "Starters"
+        },
+        "products": [
+          {
+            "key": "loaded-fries",
+            "image": "loaded-fries.jpg",
+            "names": {
+              "ar": "بطاطس بالجبنة",
+              "en": "Loaded Cheese Fries"
+            },
+            "descriptions": {
+              "ar": "بطاطس مقرمشة بصوص الشيدر الذائب وقطع البيكون والبصل الأخضر.",
+              "en": "Crispy fries with melted cheddar sauce, bacon bits and spring onion."
+            },
+            "price": "85",
+            "featured": true
+          },
+          {
+            "key": "mozzarella-sticks",
+            "image": "mozzarella-sticks.jpg",
+            "names": {
+              "ar": "أصابع الموزاريلا",
+              "en": "Mozzarella Sticks"
+            },
+            "descriptions": {
+              "ar": "أصابع موزاريلا مقرمشة تُقدَّم مع صوص مارينارا.",
+              "en": "Golden crispy mozzarella sticks served with marinara sauce."
+            },
+            "price": "80"
+          },
+          {
+            "key": "chicken-wings",
+            "image": "chicken-wings.jpg",
+            "names": {
+              "ar": "أجنحة دجاج بافلو",
+              "en": "Buffalo Chicken Wings"
+            },
+            "descriptions": {
+              "ar": "أجنحة دجاج مقلية بصوص بافلو الحار مع الكرفس وصوص الرانش.",
+              "en": "Fried chicken wings tossed in spicy buffalo sauce with celery and ranch."
+            },
+            "price": "95"
+          },
+          {
+            "key": "caesar-salad",
+            "image": "caesar-salad.jpg",
+            "names": {
+              "ar": "سلطة سيزر",
+              "en": "Caesar Salad"
+            },
+            "descriptions": {
+              "ar": "خس روماني وجبن بارميزان وخبز محمص مع صوص سيزر الكلاسيكي.",
+              "en": "Romaine lettuce, parmesan and croutons with classic Caesar dressing."
+            },
+            "price": "90"
+          }
+        ]
+      },
+      {
+        "key": "burgers",
+        "image": "classic-burger.jpg",
+        "names": {
+          "ar": "برجر",
+          "en": "Burgers"
+        },
+        "products": [
+          {
+            "key": "classic-burger",
+            "image": "classic-burger.jpg",
+            "names": {
+              "ar": "برجر لحم كلاسيك",
+              "en": "Classic Beef Burger"
+            },
+            "descriptions": {
+              "ar": "قطعة لحم بقري 180 جم مشوية مع جبنة شيدر وخس وطماطم وصوص المطعم.",
+              "en": "180 g grilled beef patty with cheddar, lettuce, tomato and house sauce."
+            },
+            "price": "145",
+            "featured": true,
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختر حتى 3 إضافات",
+                  "en": "Choose up to 3 extras"
+                },
+                "min": 0,
+                "max": 3,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "جبنة شيدر إضافية",
+                      "en": "Extra cheddar"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "بيكون",
+                      "en": "Bacon"
+                    },
+                    "price": "20"
+                  },
+                  {
+                    "names": {
+                      "ar": "بصل مكرمل",
+                      "en": "Caramelized onions"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "bbq-burger",
+            "image": "bbq-burger.jpg",
+            "names": {
+              "ar": "برجر باربكيو مدخّن",
+              "en": "Smoky BBQ Burger"
+            },
+            "descriptions": {
+              "ar": "لحم بقري مع بيكون مقرمش وحلقات بصل وصوص باربكيو مدخّن.",
+              "en": "Beef patty with crispy bacon, onion rings and smoky BBQ sauce."
+            },
+            "price": "165",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختر حتى 3 إضافات",
+                  "en": "Choose up to 3 extras"
+                },
+                "min": 0,
+                "max": 3,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "جبنة شيدر إضافية",
+                      "en": "Extra cheddar"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "بيكون",
+                      "en": "Bacon"
+                    },
+                    "price": "20"
+                  },
+                  {
+                    "names": {
+                      "ar": "بصل مكرمل",
+                      "en": "Caramelized onions"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "chicken-burger",
+            "image": "chicken-burger.jpg",
+            "names": {
+              "ar": "برجر دجاج مقرمش",
+              "en": "Crispy Chicken Burger"
+            },
+            "descriptions": {
+              "ar": "صدر دجاج مقرمش مع خس ومخلل وصوص المايونيز الحار.",
+              "en": "Crispy chicken breast with lettuce, pickles and spicy mayo."
+            },
+            "price": "135",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختر حتى 3 إضافات",
+                  "en": "Choose up to 3 extras"
+                },
+                "min": 0,
+                "max": 3,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "جبنة شيدر إضافية",
+                      "en": "Extra cheddar"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "بيكون",
+                      "en": "Bacon"
+                    },
+                    "price": "20"
+                  },
+                  {
+                    "names": {
+                      "ar": "بصل مكرمل",
+                      "en": "Caramelized onions"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "mushroom-burger",
+            "image": "mushroom-burger.jpg",
+            "names": {
+              "ar": "برجر مشروم سويس",
+              "en": "Mushroom Swiss Burger"
+            },
+            "descriptions": {
+              "ar": "لحم بقري مع جبنة سويسرية وصوص المشروم الكريمي.",
+              "en": "Beef patty with Swiss cheese and creamy mushroom sauce."
+            },
+            "price": "160",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extras"
+                },
+                "helper": {
+                  "ar": "اختر حتى 3 إضافات",
+                  "en": "Choose up to 3 extras"
+                },
+                "min": 0,
+                "max": 3,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "جبنة شيدر إضافية",
+                      "en": "Extra cheddar"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "بيكون",
+                      "en": "Bacon"
+                    },
+                    "price": "20"
+                  },
+                  {
+                    "names": {
+                      "ar": "بصل مكرمل",
+                      "en": "Caramelized onions"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "pizza",
+        "image": "margherita.jpg",
+        "names": {
+          "ar": "بيتزا",
+          "en": "Pizza"
+        },
+        "products": [
+          {
+            "key": "margherita",
+            "image": "margherita.jpg",
+            "names": {
+              "ar": "مارجريتا",
+              "en": "Margherita"
+            },
+            "descriptions": {
+              "ar": "صلصة طماطم وموزاريلا طازجة وريحان على عجينة رقيقة.",
+              "en": "Tomato sauce, fresh mozzarella and basil on a thin crust."
+            },
+            "price": "110",
+            "featured": true,
+            "variants": [
+              {
+                "names": {
+                  "ar": "صغير",
+                  "en": "Small"
+                },
+                "price": "110",
+                "default": false
+              },
+              {
+                "names": {
+                  "ar": "وسط",
+                  "en": "Medium"
+                },
+                "price": "150",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "كبير",
+                  "en": "Large"
+                },
+                "price": "190",
+                "default": false
+              }
+            ],
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extra toppings"
+                },
+                "helper": {
+                  "ar": "اختر حتى 3 إضافات",
+                  "en": "Choose up to 3 toppings"
+                },
+                "min": 0,
+                "max": 3,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "موزاريلا إضافية",
+                      "en": "Extra mozzarella"
+                    },
+                    "price": "25"
+                  },
+                  {
+                    "names": {
+                      "ar": "مشروم",
+                      "en": "Mushrooms"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "زيتون",
+                      "en": "Olives"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "pepperoni",
+            "image": "pepperoni.jpg",
+            "names": {
+              "ar": "بيبروني",
+              "en": "Pepperoni"
+            },
+            "descriptions": {
+              "ar": "شرائح بيبروني حارة مع موزاريلا وصلصة الطماطم.",
+              "en": "Spicy pepperoni slices with mozzarella and tomato sauce."
+            },
+            "price": "135",
+            "variants": [
+              {
+                "names": {
+                  "ar": "صغير",
+                  "en": "Small"
+                },
+                "price": "135",
+                "default": false
+              },
+              {
+                "names": {
+                  "ar": "وسط",
+                  "en": "Medium"
+                },
+                "price": "175",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "كبير",
+                  "en": "Large"
+                },
+                "price": "215",
+                "default": false
+              }
+            ],
+            "discount": {
+              "type": "PERCENTAGE",
+              "value": "15"
+            },
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extra toppings"
+                },
+                "helper": {
+                  "ar": "اختر حتى 3 إضافات",
+                  "en": "Choose up to 3 toppings"
+                },
+                "min": 0,
+                "max": 3,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "موزاريلا إضافية",
+                      "en": "Extra mozzarella"
+                    },
+                    "price": "25"
+                  },
+                  {
+                    "names": {
+                      "ar": "مشروم",
+                      "en": "Mushrooms"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "زيتون",
+                      "en": "Olives"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "chicken-ranch",
+            "image": "chicken-ranch.jpg",
+            "names": {
+              "ar": "تشيكن رانش",
+              "en": "Chicken Ranch"
+            },
+            "descriptions": {
+              "ar": "دجاج مشوي وبصل وفلفل ملون مع صوص الرانش.",
+              "en": "Grilled chicken, onions and bell peppers with ranch sauce."
+            },
+            "price": "140",
+            "variants": [
+              {
+                "names": {
+                  "ar": "صغير",
+                  "en": "Small"
+                },
+                "price": "140",
+                "default": false
+              },
+              {
+                "names": {
+                  "ar": "وسط",
+                  "en": "Medium"
+                },
+                "price": "180",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "كبير",
+                  "en": "Large"
+                },
+                "price": "220",
+                "default": false
+              }
+            ],
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extra toppings"
+                },
+                "helper": {
+                  "ar": "اختر حتى 3 إضافات",
+                  "en": "Choose up to 3 toppings"
+                },
+                "min": 0,
+                "max": 3,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "موزاريلا إضافية",
+                      "en": "Extra mozzarella"
+                    },
+                    "price": "25"
+                  },
+                  {
+                    "names": {
+                      "ar": "مشروم",
+                      "en": "Mushrooms"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "زيتون",
+                      "en": "Olives"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "four-cheese",
+            "image": "four-cheese.jpg",
+            "names": {
+              "ar": "أربع أجبان",
+              "en": "Four Cheese"
+            },
+            "descriptions": {
+              "ar": "موزاريلا وشيدر وبارميزان وجبن أزرق على صلصة بيضاء.",
+              "en": "Mozzarella, cheddar, parmesan and blue cheese on a white sauce."
+            },
+            "price": "145",
+            "variants": [
+              {
+                "names": {
+                  "ar": "صغير",
+                  "en": "Small"
+                },
+                "price": "145",
+                "default": false
+              },
+              {
+                "names": {
+                  "ar": "وسط",
+                  "en": "Medium"
+                },
+                "price": "185",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "كبير",
+                  "en": "Large"
+                },
+                "price": "225",
+                "default": false
+              }
+            ],
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Extra toppings"
+                },
+                "helper": {
+                  "ar": "اختر حتى 3 إضافات",
+                  "en": "Choose up to 3 toppings"
+                },
+                "min": 0,
+                "max": 3,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "موزاريلا إضافية",
+                      "en": "Extra mozzarella"
+                    },
+                    "price": "25"
+                  },
+                  {
+                    "names": {
+                      "ar": "مشروم",
+                      "en": "Mushrooms"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "زيتون",
+                      "en": "Olives"
+                    },
+                    "price": "10"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "pasta",
+        "image": "alfredo.jpg",
+        "names": {
+          "ar": "باستا",
+          "en": "Pasta"
+        },
+        "products": [
+          {
+            "key": "arrabbiata",
+            "image": "arrabbiata.jpg",
+            "names": {
+              "ar": "بيني أرابياتا",
+              "en": "Penne Arrabbiata"
+            },
+            "descriptions": {
+              "ar": "بيني بصلصة الطماطم الحارة والثوم والبقدونس.",
+              "en": "Penne in a spicy tomato sauce with garlic and parsley."
+            },
+            "price": "120",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Add-ons"
+                },
+                "helper": {
+                  "ar": "اختياري",
+                  "en": "Optional"
+                },
+                "min": 0,
+                "max": 2,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "جبن بارميزان",
+                      "en": "Parmesan"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "دجاج مشوي",
+                      "en": "Grilled chicken"
+                    },
+                    "price": "30"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "alfredo",
+            "image": "alfredo.jpg",
+            "names": {
+              "ar": "فيتوتشيني ألفريدو بالدجاج",
+              "en": "Chicken Fettuccine Alfredo"
+            },
+            "descriptions": {
+              "ar": "فيتوتشيني بصوص الكريمة والبارميزان مع شرائح الدجاج المشوي.",
+              "en": "Fettuccine in a creamy parmesan sauce with grilled chicken strips."
+            },
+            "price": "135",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "إضافات",
+                  "en": "Add-ons"
+                },
+                "helper": {
+                  "ar": "اختياري",
+                  "en": "Optional"
+                },
+                "min": 0,
+                "max": 2,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "جبن بارميزان",
+                      "en": "Parmesan"
+                    },
+                    "price": "15"
+                  },
+                  {
+                    "names": {
+                      "ar": "مشروم",
+                      "en": "Mushrooms"
+                    },
+                    "price": "15"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      {
+        "key": "grills",
+        "image": "beef-steak.jpg",
+        "names": {
+          "ar": "مشويات",
+          "en": "Grills"
+        },
+        "products": [
+          {
+            "key": "grilled-chicken",
+            "image": "grilled-chicken.jpg",
+            "names": {
+              "ar": "دجاج مشوي",
+              "en": "Grilled Chicken"
+            },
+            "descriptions": {
+              "ar": "نصف دجاجة متبّلة ومشوية على الفحم مع بطاطس وخضار سوتيه.",
+              "en": "Half a charcoal-grilled marinated chicken with fries and sautéed vegetables."
+            },
+            "price": "190"
+          },
+          {
+            "key": "beef-steak",
+            "image": "beef-steak.jpg",
+            "names": {
+              "ar": "ستيك ريب آي",
+              "en": "Ribeye Steak"
+            },
+            "descriptions": {
+              "ar": "ستيك ريب آي 300 جم مع هليون وبطاطس مهروسة.",
+              "en": "300 g ribeye steak with asparagus and mashed potatoes."
+            },
+            "price": "340",
+            "modifierGroups": [
+              {
+                "names": {
+                  "ar": "درجة الاستواء",
+                  "en": "Doneness"
+                },
+                "helper": {
+                  "ar": "اختر درجة الاستواء",
+                  "en": "Choose how you like it cooked"
+                },
+                "min": 1,
+                "max": 1,
+                "options": [
+                  {
+                    "names": {
+                      "ar": "ميديم رير",
+                      "en": "Medium rare"
+                    },
+                    "price": "0"
+                  },
+                  {
+                    "names": {
+                      "ar": "ميديم",
+                      "en": "Medium"
+                    },
+                    "price": "0"
+                  },
+                  {
+                    "names": {
+                      "ar": "ويل دون",
+                      "en": "Well done"
+                    },
+                    "price": "0"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "key": "mixed-grill",
+            "image": "mixed-grill.jpg",
+            "names": {
+              "ar": "مشاوي مشكلة",
+              "en": "Mixed Grill Platter"
+            },
+            "descriptions": {
+              "ar": "كفتة وكباب وريش وشيش طاووق مع أرز وسلطة وعيش.",
+              "en": "Kofta, kebab, lamb chops and shish tawook with rice, salad and bread."
+            },
+            "price": "420"
+          }
+        ]
+      },
+      {
+        "key": "desserts",
+        "image": "molten-cake.jpg",
+        "names": {
+          "ar": "حلويات",
+          "en": "Desserts"
+        },
+        "products": [
+          {
+            "key": "molten-cake",
+            "image": "molten-cake.jpg",
+            "names": {
+              "ar": "كيكة الشوكولاتة الذائبة",
+              "en": "Molten Chocolate Cake"
+            },
+            "descriptions": {
+              "ar": "كيكة دافئة بقلب شوكولاتة ذائب تُقدَّم مع آيس كريم الفانيليا.",
+              "en": "Warm chocolate cake with a molten center, served with vanilla ice cream."
+            },
+            "price": "85",
+            "featured": true,
+            "discount": {
+              "type": "FIXED_AMOUNT",
+              "value": "10"
+            }
+          },
+          {
+            "key": "cheesecake",
+            "image": "cheesecake.jpg",
+            "names": {
+              "ar": "تشيز كيك بالفراولة",
+              "en": "Strawberry Cheesecake"
+            },
+            "descriptions": {
+              "ar": "تشيز كيك كريمي بصوص الفراولة الطازجة.",
+              "en": "Creamy cheesecake topped with fresh strawberry sauce."
+            },
+            "price": "80"
+          },
+          {
+            "key": "tiramisu",
+            "image": "tiramisu.jpg",
+            "names": {
+              "ar": "تيراميسو",
+              "en": "Tiramisu"
+            },
+            "descriptions": {
+              "ar": "طبقات من الماسكاربوني والقهوة وبسكويت السافويارد.",
+              "en": "Layers of mascarpone, coffee and ladyfinger biscuits."
+            },
+            "price": "90"
+          }
+        ]
+      },
+      {
+        "key": "drinks",
+        "image": "orange-juice.jpg",
+        "names": {
+          "ar": "مشروبات",
+          "en": "Drinks"
+        },
+        "products": [
+          {
+            "key": "orange-juice",
+            "image": "orange-juice.jpg",
+            "names": {
+              "ar": "عصير برتقال طازج",
+              "en": "Fresh Orange Juice"
+            },
+            "descriptions": {
+              "ar": "عصير برتقال طبيعي معصور عند الطلب.",
+              "en": "Natural orange juice squeezed to order."
+            },
+            "price": "45",
+            "variants": [
+              {
+                "names": {
+                  "ar": "عادي",
+                  "en": "Regular"
+                },
+                "price": "45",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "كبير",
+                  "en": "Large"
+                },
+                "price": "60",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "iced-latte",
+            "image": "iced-latte.jpg",
+            "names": {
+              "ar": "آيس لاتيه",
+              "en": "Iced Latte"
+            },
+            "descriptions": {
+              "ar": "إسبريسو مع حليب بارد وثلج.",
+              "en": "Espresso with cold milk over ice."
+            },
+            "price": "55",
+            "variants": [
+              {
+                "names": {
+                  "ar": "عادي",
+                  "en": "Regular"
+                },
+                "price": "55",
+                "default": true
+              },
+              {
+                "names": {
+                  "ar": "كبير",
+                  "en": "Large"
+                },
+                "price": "70",
+                "default": false
+              }
+            ]
+          },
+          {
+            "key": "mojito",
+            "image": "mojito.jpg",
+            "names": {
+              "ar": "موهيتو",
+              "en": "Mojito"
+            },
+            "descriptions": {
+              "ar": "ليمون ونعناع طازج مع صودا منعشة.",
+              "en": "Fresh lime and mint with sparkling soda."
+            },
+            "price": "60"
+          },
+          {
+            "key": "soft-drink",
+            "image": "soft-drink.jpg",
+            "names": {
+              "ar": "مشروب غازي",
+              "en": "Soft Drink"
+            },
+            "descriptions": {
+              "ar": "مشروب غازي بارد.",
+              "en": "Chilled soft drink."
+            },
+            "price": "30"
+          }
+        ]
+      }
+    ]
+  },
+  "announcements": [
+    {
+      "style": "INFO",
+      "texts": {
+        "ar": "أهلًا بك! هذا مطعم تجريبي لعرض إمكانيات ويتا.",
+        "en": "Welcome! This is a demo restaurant that shows what Wayta can do."
+      }
+    },
+    {
+      "style": "PROMO",
+      "texts": {
+        "ar": "خصم 15% على بيتزا بيبروني هذا الأسبوع.",
+        "en": "15% off Pepperoni pizza this week."
+      }
+    }
+  ],
+  "suggestions": [
+    {
+      "product": "classic-burger",
+      "suggested": [
+        "loaded-fries",
+        "soft-drink"
+      ]
+    },
+    {
+      "product": "bbq-burger",
+      "suggested": [
+        "loaded-fries",
+        "soft-drink"
+      ]
+    },
+    {
+      "product": "margherita",
+      "suggested": [
+        "caesar-salad",
+        "mojito"
+      ]
+    },
+    {
+      "product": "pepperoni",
+      "suggested": [
+        "mozzarella-sticks",
+        "soft-drink"
+      ]
+    },
+    {
+      "product": "alfredo",
+      "suggested": [
+        "caesar-salad",
+        "tiramisu"
+      ]
+    },
+    {
+      "product": "beef-steak",
+      "suggested": [
+        "caesar-salad",
+        "cheesecake"
+      ]
+    },
+    {
+      "product": "molten-cake",
+      "suggested": [
+        "iced-latte"
+      ]
+    }
+  ]
+}
