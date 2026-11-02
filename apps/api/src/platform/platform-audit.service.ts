@@ -13,6 +13,7 @@ export type PlatformAction =
   | 'restaurant.created'
   | 'restaurant.status_changed'
   | 'restaurant.feature_changed'
+  | 'restaurant.exclusive_design_updated'
   | 'restaurant.package_changed'
   | 'package.created'
   | 'package.updated'

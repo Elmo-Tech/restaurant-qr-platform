@@ -359,6 +359,7 @@ export class PublicMenuService {
             whatsappOrderingEnabled: true,
             menuTemplate: true,
             suggestionsMode: true,
+            exclusiveDesign: { select: { baseTemplate: true, status: true } },
             ...CONTACT_COLUMNS,
           },
         },
@@ -382,7 +383,18 @@ export class PublicMenuService {
     }
 
     // What the platform allows this Restaurant (DEC-043); every feature unless an override says otherwise.
-    const { features, templates } = await this.entitlements.detailsFor(qr.restaurantId);
+    const { features, templates: packageTemplates } =
+      await this.entitlements.detailsFor(qr.restaurantId);
+    // The template assignment is private to the QR-resolved Restaurant. It
+    // never enters the global stock/package catalog or a different tenant.
+    const exclusiveBase =
+      qr.restaurant.exclusiveDesign?.status === 'ACTIVE_BASE'
+        ? qr.restaurant.exclusiveDesign.baseTemplate
+        : null;
+    const templates =
+      exclusiveBase && !packageTemplates.includes(exclusiveBase)
+        ? [...packageTemplates, exclusiveBase]
+        : packageTemplates;
     const effective = effectiveOrdering(qr.restaurant, features);
 
     const tableOrdering: GuestTableOrderingState | null =
@@ -871,7 +883,11 @@ export class PublicMenuService {
             logoAssetPath: qr.restaurant.logoAssetPath,
             coverAssetPath: qr.restaurant.coverAssetPath,
             // the saved choice is kept; the Guest sees Classic until the package allows it again (DEC-051)
-            menuTemplate: templates.includes(qr.restaurant.menuTemplate) ? qr.restaurant.menuTemplate : 'CLASSIC',
+            menuTemplate:
+              exclusiveBase ??
+              (packageTemplates.includes(qr.restaurant.menuTemplate)
+                ? qr.restaurant.menuTemplate
+                : 'CLASSIC'),
             ...(emberSettings ? { emberSettings } : {}),
             ...(bloomSettings ? { bloomSettings } : {}),
             ...(brewSettings ? { brewSettings } : {}),

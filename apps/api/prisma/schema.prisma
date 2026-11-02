@@ -201,6 +201,14 @@ enum SuggestionsMode {
 }
 
 // How the Guest menu is laid out (DEC-044). Presentation only.
+enum ExclusiveDesignStatus {
+  RESERVED
+  ACTIVE_BASE
+  DISABLED
+
+  @@map("exclusive_design_status")
+}
+
 enum MenuTemplate {
   CLASSIC
   LIST
@@ -377,9 +385,25 @@ model Restaurant {
   deliveryZones         DeliveryZone[]
   setup                 RestaurantSetup?
   setupVisibilities     RestaurantSetupVisibility[]
+  exclusiveDesign       RestaurantExclusiveDesign?
 
   @@index([packageId])
   @@map("restaurants")
+}
+
+// A private Restaurant-bound design slot. Stock base is a temporary fallback.
+// This is separate from package templates and can later hold a bespoke renderer.
+model RestaurantExclusiveDesign {
+  restaurantId String               @id @map("restaurant_id") @db.Uuid
+  baseTemplate MenuTemplate         @map("base_template")
+  status       ExclusiveDesignStatus @default(RESERVED)
+  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([status])
+  @@map("restaurant_exclusive_designs")
 }
 
 // Template-specific appearance and copy: draft edits never affect public menus until published.

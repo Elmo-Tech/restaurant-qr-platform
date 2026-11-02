@@ -82,6 +82,7 @@ import {
   type AdminView,
 } from './platform-admins.service';
 import { CreateRestaurantDto } from './dto/create-restaurant.dto';
+import { ExclusiveDesignDto } from './dto/exclusive-design.dto';
 import { UpdatePlatformPublicSettingsDto } from './dto/platform-public-settings.dto';
 import {
   AdjustActiveTrialsDto,
@@ -588,6 +589,24 @@ export class PlatformController {
     const result = await this.restaurants.detail(restaurantId);
     if (result.outcome !== 'ok')
       throw new NotFoundException(RESTAURANT_NOT_FOUND);
+    return { data: result.data };
+  }
+
+  @Put('restaurants/:restaurantId/exclusive-design')
+  @UseGuards(PlatformAuthGuard)
+  async setExclusiveDesign(
+    @Param('restaurantId') restaurantId: string,
+    @Body() dto: ExclusiveDesignDto,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: { baseTemplate: string; status: string } }> {
+    const result = await this.restaurants.setExclusiveDesign(
+      request.platformAdmin,
+      restaurantId,
+      { baseTemplate: dto.baseTemplate, status: dto.status },
+    );
+    if (result.outcome !== 'ok') {
+      throw new NotFoundException(RESTAURANT_NOT_FOUND);
+    }
     return { data: result.data };
   }
 

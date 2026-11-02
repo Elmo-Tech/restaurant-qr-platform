@@ -213,7 +213,15 @@ export interface PackageInput {
   status?: PackageStatus;
 }
 
+export type ExclusiveDesignStatus = "RESERVED" | "ACTIVE_BASE" | "DISABLED";
+export type ExclusiveBaseTemplate = "CLASSIC" | PackageTemplate;
+export interface ExclusiveDesignView {
+  baseTemplate: ExclusiveBaseTemplate;
+  status: ExclusiveDesignStatus;
+}
+
 export interface RestaurantDetail extends RestaurantSummary {
+  exclusiveDesign: ExclusiveDesignView | null;
   settings: {
     pickupEnabled: boolean;
     deliveryEnabled: boolean;
@@ -328,6 +336,18 @@ export function listRestaurants(input: { search: string; status: RestaurantStatu
 }
 export const getRestaurant = (id: string) =>
   data(platformFetch<{ data: RestaurantDetail }>(`/restaurants/${encodeURIComponent(id)}`));
+/** Only Platform Admins can assign/activate a tenant's private design slot. */
+export const setExclusiveDesign = (
+  restaurantId: string,
+  input: ExclusiveDesignView,
+) =>
+  data(
+    platformFetch<{ data: ExclusiveDesignView }>(
+      `/restaurants/${encodeURIComponent(restaurantId)}/exclusive-design`,
+      { method: "PUT", body: input },
+    ),
+  );
+
 export const setRestaurantStatus = (id: string, status: "ACTIVE" | "SUSPENDED") =>
   data(
     platformFetch<{ data: { status: RestaurantStatus } }>(`/restaurants/${encodeURIComponent(id)}/status`, {

@@ -3,6 +3,7 @@ import {
   Body,
   Controller,
   Delete,
+  Get,
   HttpCode,
   HttpStatus,
   Patch,
@@ -164,6 +165,26 @@ export class RestaurantProfileController {
       }
       throw error;
     }
+  }
+
+  /**
+   * Restaurant-private exclusive design status. This is not a public catalog:
+   * only users with restaurant.manage AND all-branch scope can view it.
+   */
+  @Get('exclusive-design')
+  @UseGuards(
+    AuthGuard,
+    RestaurantAccessGuard,
+    PermissionGuard,
+    AllBranchesRequiredGuard,
+  )
+  @RequirePermission(PERMISSIONS.RESTAURANT_MANAGE)
+  async getExclusiveDesign(@Req() request: RestaurantAuthorizedRequest) {
+    return {
+      data: await this.restaurantProfileService.getExclusiveDesign(
+        request.restaurantAccess.restaurantId,
+      ),
+    };
   }
 
   /**

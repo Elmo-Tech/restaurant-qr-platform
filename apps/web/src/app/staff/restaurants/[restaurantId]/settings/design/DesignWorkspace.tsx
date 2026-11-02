@@ -273,6 +273,8 @@ export function DesignWorkspace({
   const [brewPreviewDraft,setBrewPreviewDraft]=useState<BrewTemplateSettings|null>(null);
   const [brewPreviewLanguage,setBrewPreviewLanguage]=useState<'ar'|'en'|null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exclusiveDesign, setExclusiveDesign] = useState<settingsApi.ExclusiveDesignStatusView | null>(null);
+  const exclusiveActive = exclusiveDesign?.status === 'ACTIVE_BASE';
 
   useEffect(() => {
     let cancelled = false;
@@ -289,9 +291,24 @@ export function DesignWorkspace({
     };
   }, [restaurantId]);
 
-  const dirty = selected !== saved;
+  useEffect(() => {
+    if (!canManage) return;
+    let cancelled = false;
+    settingsApi.getExclusiveDesign(restaurantId)
+      .then((result) => { if (!cancelled) setExclusiveDesign(result); })
+      .catch(() => { /* private status is optional; do not leak errors into stock selection */ });
+    return () => { cancelled = true; };
+  }, [canManage, restaurantId]);
+
+  // A Platform-assigned temporary design owns the public Guest layout, while
+  // the stock picker remains the fallback once Platform disables it.
+  const activePreview = exclusiveActive && exclusiveDesign
+    ? exclusiveDesign.baseTemplate
+    : selected;
+  const dirty = !exclusiveActive && selected !== saved;
 
   async function save() {
+    if (exclusiveActive) return;
     setIsSaving(true);
     setError(null);
     setJustSaved(false);
@@ -311,11 +328,11 @@ export function DesignWorkspace({
     }
   }
 
-  const previewLocale = selected === 'EMBER' ? emberPreviewLanguage
-    : selected === 'BLOOM' ? bloomPreviewLanguage : selected==='BREW'?brewPreviewLanguage:null;
-  const designPreview = selected === 'EMBER' || selected === 'BLOOM' || selected==='BREW' || selected==='EDITORIAL';
+  const previewLocale = activePreview === 'EMBER' ? emberPreviewLanguage
+    : activePreview === 'BLOOM' ? bloomPreviewLanguage : activePreview==='BREW'?brewPreviewLanguage:null;
+  const designPreview = activePreview === 'EMBER' || activePreview === 'BLOOM' || activePreview==='BREW' || activePreview==='EDITORIAL';
   const previewSrc = qrCode
-    ? `/q/${qrCode}?template=${selected.toLowerCase()}${designPreview
+    ? `/q/${qrCode}?template=${activePreview.toLowerCase()}${designPreview
         ? `&designPreview=1${previewLocale ? `&lang=${previewLocale}` : ''}`
         : ''}`
     : null;
@@ -334,6 +351,25 @@ export function DesignWorkspace({
             </p>
           </div>
 
+          {exclusiveDesign ? (
+            <div className="rounded-xl border border-primary/30 bg-primary/5 p-4">
+              <p className="text-sm font-semibold text-foreground">
+                {t('design.exclusive.heading')}
+              </p>
+              <p className="mt-1 text-xs leading-6 text-muted-foreground">
+                {t(
+                  exclusiveDesign.status === 'RESERVED'
+                    ? 'design.exclusive.reserved'
+                    : exclusiveDesign.status === 'ACTIVE_BASE'
+                      ? 'design.exclusive.active'
+                      : 'design.exclusive.disabled',
+                )}
+              </p>
+              <p className="mt-2 text-sm font-semibold text-primary">
+                {exclusiveDesign.baseTemplate}
+              </p>
+            </div>
+          ) : null}
           {error ? <Alert variant="error">{error}</Alert> : null}
           {justSaved && !dirty ? <Alert variant="success">{t('design.saved')}</Alert> : null}
           {!canManage ? <Alert variant="info">{t('design.needsFullScope')}</Alert> : null}
@@ -377,7 +413,7 @@ export function DesignWorkspace({
                         type="button"
                         role="radio"
                         aria-checked={isSelected}
-                        disabled={!canManage || locked}
+                        disabled={!canManage || locked || exclusiveActive}
                         onClick={() => {
                           setSelected(template.key);
                           setCustomizeOpen(true);
@@ -445,7 +481,7 @@ export function DesignWorkspace({
                             </div>
                           ) : null}
                           <div className="flex flex-wrap items-center gap-2">
-                            <Button onClick={() => void save()} disabled={!dirty || isSaving}>
+                            <Button onClick={() => void save()} disabled={!dirty || isSaving || exclusiveActive}>
                               {t('design.save')}
                             </Button>
                             {dirty ? <span className="text-xs text-muted-foreground">{t('design.unsaved')}</span> : null}
@@ -464,12 +500,12 @@ export function DesignWorkspace({
           src={previewSrc}
           isLoading={qrCode === undefined}
           premiumDraft={
-            selected === 'EMBER' && emberPreviewDraft
+            activePreview === 'EMBER' && emberPreviewDraft
               ? { kind: 'ember', settings: emberPreviewDraft }
-              : selected === 'BLOOM' && bloomPreviewDraft
+              : activePreview === 'BLOOM' && bloomPreviewDraft
                 ? { kind: 'bloom', settings: bloomPreviewDraft }
-                : selected==='BREW'&&brewPreviewDraft?{kind:'brew',settings:brewPreviewDraft}
-                : selected==='EDITORIAL'&&editorialPreview?{kind:'editorial',settings:editorialPreview}:null
+                : activePreview==='BREW'&&brewPreviewDraft?{kind:'brew',settings:brewPreviewDraft}
+                : activePreview==='EDITORIAL'&&editorialPreview?{kind:'editorial',settings:editorialPreview}:null
           }
         />
       </div>

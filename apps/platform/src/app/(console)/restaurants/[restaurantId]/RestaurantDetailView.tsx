@@ -25,6 +25,7 @@ import {
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 import { BillingSection } from "./billing/BillingSection";
+import { ExclusiveDesignAdminCard } from "./ExclusiveDesignAdminCard";
 
 type FeatureChoice = "default" | "allowed" | "notAllowed";
 
@@ -220,6 +221,17 @@ export function RestaurantDetailView({ restaurantId }: { restaurantId: string })
             packages={packages}
             onSynced={refreshAfterBilling}
             onCoverageChange={setCoveredBySubscription}
+          />
+
+          <ExclusiveDesignAdminCard
+            key={restaurant.exclusiveDesign
+              ? `${restaurant.exclusiveDesign.baseTemplate}:${restaurant.exclusiveDesign.status}`
+              : "unassigned"}
+            restaurantId={restaurantId}
+            current={restaurant.exclusiveDesign}
+            onSaved={(exclusiveDesign) => {
+              setRestaurant((current) => current ? { ...current, exclusiveDesign } : current);
+            }}
           />
 
           <Card>

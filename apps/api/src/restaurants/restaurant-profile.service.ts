@@ -199,6 +199,14 @@ export class RestaurantProfileService {
     });
   }
 
+  /** Private design assignment, visible only to authorized full-scope Staff. */
+  async getExclusiveDesign(restaurantId: string) {
+    return this.prisma.restaurantExclusiveDesign.findUnique({
+      where: { restaurantId },
+      select: { baseTemplate: true, status: true },
+    });
+  }
+
   /** The Guest menu template (DEC-044). */
   async updateMenuTemplate(
     restaurantId: string,
