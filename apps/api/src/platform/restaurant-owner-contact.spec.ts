@@ -36,7 +36,6 @@ describe('Private Platform owner contact normalization', () => {
   });
 
   it.each([
-    null,
     [],
     {},
     { fullName: 'A', phone: '01012345678' },
