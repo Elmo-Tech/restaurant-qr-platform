@@ -17,6 +17,7 @@ import {
 import type { Prisma, RestaurantStatus } from '../generated/prisma/client';
 import { PlatformAuditService } from './platform-audit.service';
 import type { PlatformAdminPrincipal } from './platform-auth.service';
+import type { AcquisitionSourceType } from './restaurant-acquisition';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -61,7 +62,20 @@ export interface FeatureState {
   baseEnabled: boolean;
 }
 
+export interface RestaurantAcquisitionView {
+  sourceType: AcquisitionSourceType;
+  referringRestaurantId: string | null;
+  referringRestaurantName: string | null;
+  sourceName: string | null;
+  sourcePlatform: string | null;
+  sourceDetail: string | null;
+  campaign: string | null;
+  recordedAt: string;
+}
+
 export interface RestaurantDetail extends RestaurantSummary {
+  /** Private ElmoTech attribution, never exposed through restaurant or public APIs. */
+  acquisition: RestaurantAcquisitionView | null;
   /** The Restaurant's own settings (read only here). */
   settings: {
     pickupEnabled: boolean;
@@ -225,6 +239,18 @@ export class PlatformRestaurantsService {
         whatsappOrderingEnabled: true,
         menuTemplate: true,
         suggestionsMode: true,
+        acquisition: {
+          select: {
+            sourceType: true,
+            referringRestaurantId: true,
+            referringRestaurantName: true,
+            sourceName: true,
+            sourcePlatform: true,
+            sourceDetail: true,
+            campaign: true,
+            createdAt: true,
+          },
+        },
         _count: {
           select: {
             branches: true,
@@ -289,6 +315,18 @@ export class PlatformRestaurantsService {
         package: row.package && { id: row.package.id, name: row.package.name },
         disabledFeatures: disabledFeatures(row.features, row.package),
         subscription: this.briefOf(row.subscriptions),
+        acquisition: row.acquisition
+          ? {
+              sourceType: row.acquisition.sourceType,
+              referringRestaurantId: row.acquisition.referringRestaurantId,
+              referringRestaurantName: row.acquisition.referringRestaurantName,
+              sourceName: row.acquisition.sourceName,
+              sourcePlatform: row.acquisition.sourcePlatform,
+              sourceDetail: row.acquisition.sourceDetail,
+              campaign: row.acquisition.campaign,
+              recordedAt: row.acquisition.createdAt.toISOString(),
+            }
+          : null,
         settings: {
           pickupEnabled: row.pickupEnabled,
           deliveryEnabled: row.deliveryEnabled,
