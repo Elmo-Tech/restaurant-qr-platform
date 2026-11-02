@@ -39,6 +39,7 @@ function build(options: { existingUser?: { id: string } | null; owned?: unknown 
       }),
     },
     restaurant: {
+      findUnique: jest.fn().mockResolvedValue({ name: 'Referring Restaurant' }),
       create: jest.fn().mockImplementation(() => {
         calls.push('restaurant');
         return Promise.resolve({ id: 'restaurant-1', publicId: 'restaurant-public-1' });
@@ -47,6 +48,12 @@ function build(options: { existingUser?: { id: string } | null; owned?: unknown 
     restaurantSetup: {
       create: jest.fn().mockImplementation(() => {
         calls.push('setup');
+        return Promise.resolve({});
+      }),
+    },
+    restaurantAcquisition: {
+      create: jest.fn().mockImplementation(() => {
+        calls.push('acquisition');
         return Promise.resolve({});
       }),
     },
@@ -213,6 +220,7 @@ describe('provisionRestaurant', () => {
         'branch',
         'qrCode',
         'restaurant',
+        'restaurantAcquisition',
         'restaurantLocale',
         'restaurantSetup',
         'restaurantMembership',
@@ -220,6 +228,53 @@ describe('provisionRestaurant', () => {
         'user',
       ].sort(),
     );
+  });
+
+  it('records a validated referral within the same provisioning transaction, using the real referred name', async () => {
+    const m = build();
+    const acquisition = {
+      sourceType: 'CUSTOMER_REFERRAL' as const,
+      referringRestaurantId: 'b2b3f509-8b36-4e16-a024-429ef71b1c9d',
+      sourceName: null,
+      sourcePlatform: null,
+      sourceDetail: null,
+      campaign: null,
+    };
+    await provisionRestaurant(m.prisma as never, m.hasher, {
+      ...INPUT,
+      acquisition,
+      recordedByAdminId: 'f92c34c9-55ef-4e04-af96-e87e4a68cbb4',
+    });
+    expect(m.tx.restaurant.findUnique).toHaveBeenCalledTimes(1);
+    expect(m.tx.restaurantAcquisition.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        restaurantId: 'restaurant-1',
+        sourceType: 'CUSTOMER_REFERRAL',
+        referringRestaurantId: acquisition.referringRestaurantId,
+        referringRestaurantName: 'Referring Restaurant',
+        recordedByAdminId: 'f92c34c9-55ef-4e04-af96-e87e4a68cbb4',
+      }),
+    });
+    expect(m.calls.indexOf('acquisition')).toBeGreaterThan(m.calls.indexOf('restaurant'));
+    expect(m.prisma.$transaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('rejects a nonexistent referred restaurant before creating the new restaurant', async () => {
+    const m = build();
+    m.tx.restaurant.findUnique.mockResolvedValue(null);
+    const result = await provisionRestaurant(m.prisma as never, m.hasher, {
+      ...INPUT,
+      acquisition: {
+        sourceType: 'CUSTOMER_REFERRAL',
+        referringRestaurantId: 'b2b3f509-8b36-4e16-a024-429ef71b1c9d',
+        sourceName: null,
+        sourcePlatform: null,
+        sourceDetail: null,
+        campaign: null,
+      },
+    });
+    expect(result.outcome).toBe('invalidInput');
+    expect(m.calls).toEqual([]);
   });
 
   it('CONFLICT: an existing user that does not own this Restaurant is never touched', async () => {
