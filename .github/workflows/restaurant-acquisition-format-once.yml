@@ -1,0 +1,49 @@
+name: Format Acquisition Changes (One Time)
+
+on:
+  push:
+    branches: [feat/restaurant-acquisition-source]
+
+permissions:
+  contents: write
+
+jobs:
+  format:
+    if: github.event.head_commit.message == 'ci(platform): run one-time acquisition formatter'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Format acquisition Backend and focused test files
+        run: >-
+          npm exec --workspace=apps/api -- prettier --write
+          src/platform/restaurant-acquisition.ts
+          src/platform/restaurant-acquisition.spec.ts
+          src/platform/dto/create-restaurant.dto.ts
+          src/platform/platform-restaurant-creation.service.ts
+          src/platform/platform-restaurants.service.ts
+          src/provisioning/provision-restaurant.ts
+          src/provisioning/provision-restaurant.spec.ts
+      - name: Verify clean formatting patch
+        run: git diff --check
+      - name: Commit formatting to this feature branch only
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add apps/api/src/platform/restaurant-acquisition.ts
+          git add apps/api/src/platform/restaurant-acquisition.spec.ts
+          git add apps/api/src/platform/dto/create-restaurant.dto.ts
+          git add apps/api/src/platform/platform-restaurant-creation.service.ts
+          git add apps/api/src/platform/platform-restaurants.service.ts
+          git add apps/api/src/provisioning/provision-restaurant.ts
+          git add apps/api/src/provisioning/provision-restaurant.spec.ts
+          if git diff --cached --quiet; then
+            echo "Files already formatted"
+          else
+            git commit -m "style(platform): format acquisition source implementation"
+            git push origin "HEAD:refs/heads/feat/restaurant-acquisition-source"
+          fi
