@@ -209,6 +209,20 @@ enum ExclusiveDesignStatus {
   @@map("exclusive_design_status")
 }
 
+enum RestaurantAcquisitionSourceType {
+  CUSTOMER_REFERRAL
+  EMPLOYEE_REFERRAL
+  SALES
+  SOCIAL_MEDIA
+  PAID_AD
+  WEBSITE
+  DIRECT
+  OTHER
+  UNKNOWN
+
+  @@map("restaurant_acquisition_source_type")
+}
+
 enum MenuTemplate {
   CLASSIC
   LIST
@@ -386,6 +400,9 @@ model Restaurant {
   setup                 RestaurantSetup?
   setupVisibilities     RestaurantSetupVisibility[]
   exclusiveDesign       RestaurantExclusiveDesign?
+  acquisition           RestaurantAcquisition?   @relation("RestaurantAcquisitionOwner")
+  ownerContact          RestaurantOwnerContact?
+  referredAcquisitions  RestaurantAcquisition[]  @relation("RestaurantAcquisitionReferrer")
 
   @@index([packageId])
   @@map("restaurants")
@@ -404,6 +421,46 @@ model RestaurantExclusiveDesign {
 
   @@index([status])
   @@map("restaurant_exclusive_designs")
+}
+
+// Private Platform-only customer-attribution data; never part of Guest/Staff responses.
+// No backfill: historic restaurants have no record and display "Not recorded".
+model RestaurantAcquisition {
+  restaurantId                  String                           @id @map("restaurant_id") @db.Uuid
+  sourceType                    RestaurantAcquisitionSourceType  @map("source_type")
+  referringRestaurantId         String?                          @map("referring_restaurant_id") @db.Uuid
+  referringRestaurantName       String?                          @map("referring_restaurant_name") @db.VarChar(200)
+  sourceName                    String?                          @map("source_name") @db.VarChar(200)
+  sourcePlatform                String?                          @map("source_platform") @db.VarChar(40)
+  sourceDetail                  String?                          @map("source_detail") @db.VarChar(300)
+  campaign                      String?                          @db.VarChar(160)
+  recordedByAdminId             String?                          @map("recorded_by_admin_id") @db.Uuid
+  createdAt                     DateTime                         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt                     DateTime                         @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant                    Restaurant                       @relation("RestaurantAcquisitionOwner", fields: [restaurantId], references: [id], onDelete: Cascade)
+  referringRestaurant           Restaurant?                      @relation("RestaurantAcquisitionReferrer", fields: [referringRestaurantId], references: [id], onDelete: SetNull)
+
+  @@index([sourceType, sourcePlatform])
+  @@index([referringRestaurantId])
+  @@map("restaurant_acquisitions")
+}
+
+// Private ElmoTech primary contact, distinct from the Owner login and public
+// Restaurant guest-facing phone. Older Restaurants may have no contact record.
+model RestaurantOwnerContact {
+  restaurantId String   @id @map("restaurant_id") @db.Uuid
+  fullName     String   @map("full_name") @db.VarChar(120)
+  phone        String   @db.VarChar(20)
+  facebookUrl  String?  @map("facebook_url") @db.VarChar(300)
+  createdAt    DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([fullName])
+  @@index([phone])
+  @@map("restaurant_owner_contacts")
 }
 
 // Template-specific appearance and copy: draft edits never affect public menus until published.
