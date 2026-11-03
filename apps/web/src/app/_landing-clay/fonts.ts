@@ -14,7 +14,8 @@ export const heading = Nunito({
 
 export const headingArabic = Baloo_Bhaijaan_2({
   subsets: ['arabic'],
-  weight: ['600', '700', '800'],
+  // A variable font: next/font takes weight arrays for static fonts only, and Turbopack fails the build on one.
+  weight: 'variable',
   variable: '--clay-font-heading-arabic',
   display: 'swap',
 });
