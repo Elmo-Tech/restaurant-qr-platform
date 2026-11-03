@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
-import { IBM_Plex_Sans, IBM_Plex_Sans_Arabic } from "next/font/google";
 import "./globals.css";
+import fonts from "../fonts/root.module.css";
 
 // DESIGN_SYSTEM.md #24: IBM Plex Sans is the approved V1 Latin typeface.
 // FT-10A: its Arabic companion (IBM Plex Sans Arabic) is loaded as the
@@ -8,17 +8,7 @@ import "./globals.css";
 // matching professional face instead of whatever system font happens to be
 // installed. Both are exposed as CSS variables and combined on <body> in
 // globals.css (Latin glyphs still render in Plex Sans exactly as before).
-const ibmPlexSans = IBM_Plex_Sans({
-  subsets: ["latin"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-sans",
-});
-
-const ibmPlexSansArabic = IBM_Plex_Sans_Arabic({
-  subsets: ["arabic"],
-  weight: ["400", "500", "600"],
-  variable: "--font-plex-sans-arabic",
-});
+// The files are self-hosted (src/fonts, see its README), not fetched from Google at build time.
 
 export const metadata: Metadata = {
   title: "Wayta",
@@ -28,7 +18,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: LayoutProps<"/">) {
   return (
     <html lang="en">
-      <body className={`${ibmPlexSans.variable} ${ibmPlexSansArabic.variable}`}>
+      <body className={`${fonts.plexSans} ${fonts.plexSansArabic}`}>
         {children}
       </body>
     </html>

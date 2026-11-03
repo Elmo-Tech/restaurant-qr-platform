@@ -1,50 +1,20 @@
 import type { Viewport } from 'next';
 import { cookies } from 'next/headers';
-import { Archivo, Lalezar, Cormorant_Garamond, Tajawal } from 'next/font/google';
 import { GuestThemeProvider } from '../../components/guest/GuestTheme';
 import {
   GUEST_THEME_COLORS,
   GUEST_THEME_COOKIE,
   resolveGuestTheme,
 } from '../../lib/public-menu/theme';
+import fonts from '../../fonts/guest.module.css';
 
 // FT-13B "Ember & Saffron" type: Lalezar is the display voice (section titles, product
 // titles, "طلبك"); Archivo -- with its width axis -- carries the Latin brand name and every
 // number. Body copy keeps the root layout's IBM Plex pair. Scoped to `/q/*`, so Staff never
 // loads them.
-const archivo = Archivo({
-  subsets: ['latin'],
-  variable: '--font-archivo',
-  axes: ['wdth'],
-  weight: 'variable',
-  display: 'swap',
-});
-
-const lalezar = Lalezar({
-  subsets: ['arabic', 'latin'],
-  variable: '--font-lalezar',
-  weight: '400',
-  display: 'swap',
-});
-
-/**
- * The approved BLOOM reference uses Cormorant Garamond (including real italic)
- * for Latin display type and Tajawal for Arabic. Load those exact faces once,
- * exclusively for public guest menus. Other templates keep their own fonts.
- */
-const bloomDisplay = Cormorant_Garamond({
-  subsets: ['latin'],
-  style: ['normal', 'italic'],
-  weight: ['400', '500', '600', '700'],
-  variable: '--font-bloom-display',
-  display: 'swap',
-});
-const bloomArabic = Tajawal({
-  subsets: ['arabic', 'latin'],
-  weight: ['400', '500', '700', '800'],
-  variable: '--font-bloom-arabic',
-  display: 'swap',
-});
+// The files are self-hosted (src/fonts, see its README). BLOOM's reference uses Cormorant Garamond
+// (including real italic) for Latin display type and Tajawal for Arabic; they load exclusively for
+// public guest menus. Other templates keep their own fonts.
 
 // `viewportFit: cover` lets the cart bar respect the home-indicator inset; the browser
 // chrome colour follows the Guest's theme cookie.
@@ -63,7 +33,7 @@ export default async function GuestLayout({ children }: { children: React.ReactN
   const cookieStore = await cookies();
   const theme = resolveGuestTheme(cookieStore.get(GUEST_THEME_COOKIE)?.value);
   return (
-    <div className={`${archivo.variable} ${lalezar.variable} ${bloomDisplay.variable} ${bloomArabic.variable}`}>
+    <div className={`${fonts.archivo} ${fonts.lalezar} ${fonts.bloomDisplay} ${fonts.bloomArabic}`}>
       <GuestThemeProvider initialTheme={theme}>{children}</GuestThemeProvider>
     </div>
   );
