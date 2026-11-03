@@ -1,0 +1,3173 @@
+{
+  "version": 1,
+  "restaurant": {
+    "name": "VERDE Napoletana",
+    "defaultLocale": "ar",
+    "currencyCode": "EGP",
+    "countryCode": "EG",
+    "timezone": "Africa/Cairo",
+    "menuTemplate": "CLASSIC",
+    "exclusiveDesign": {
+      "rendererKey": "VERDE_NAPOLI_V1",
+      "brandWord": "VERDE",
+      "chapter1Category": "pizza",
+      "chapter2Category": "dessert"
+    }
+  },
+  "branch": {
+    "names": {
+      "ar": "الفرع الرئيسي",
+      "en": "Main Branch"
+    }
+  },
+  "menu": {
+    "nameInternal": "Main menu",
+    "names": {
+      "ar": "المنيو",
+      "en": "Menu"
+    }
+  },
+  "sharedModifierGroups": {
+    "pizzaPastaAdditions": {
+      "names": {
+        "ar": "إضافات",
+        "en": "Add-ons"
+      },
+      "helper": {
+        "ar": "اختار اللي تحب تضيفه",
+        "en": "Pick anything you would like to add"
+      },
+      "min": 0,
+      "max": 12,
+      "options": [
+        {
+          "names": {
+            "ar": "تشيز 100 جرام",
+            "en": "Cheese (100 g)"
+          },
+          "price": "30"
+        },
+        {
+          "names": {
+            "ar": "مشروم وزيتون 50 جرام",
+            "en": "Mushrooms & olives (50 g)"
+          },
+          "price": "25"
+        },
+        {
+          "names": {
+            "ar": "إضافة صوصات",
+            "en": "Extra sauces"
+          },
+          "price": "30"
+        },
+        {
+          "names": {
+            "ar": "جبنة شيدر شرائح (قطعة)",
+            "en": "Sliced cheddar (1 slice)"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "جمبري وثمار البحر 50 جرام",
+            "en": "Shrimp & seafood (50 g)"
+          },
+          "price": "40"
+        },
+        {
+          "names": {
+            "ar": "بسطرمة 100 جرام",
+            "en": "Pastrami (100 g)"
+          },
+          "price": "40"
+        },
+        {
+          "names": {
+            "ar": "سوسيس وسجق 100 جرام",
+            "en": "Sausage & sujuk (100 g)"
+          },
+          "price": "25"
+        },
+        {
+          "names": {
+            "ar": "بيف بيكون 100 جرام",
+            "en": "Beef bacon (100 g)"
+          },
+          "price": "35"
+        },
+        {
+          "names": {
+            "ar": "سموكد بيف 100 جرام",
+            "en": "Smoked beef (100 g)"
+          },
+          "price": "35"
+        },
+        {
+          "names": {
+            "ar": "تشيكن جريل 100 جرام",
+            "en": "Grilled chicken (100 g)"
+          },
+          "price": "35"
+        },
+        {
+          "names": {
+            "ar": "تركي مدخن 100 جرام",
+            "en": "Smoked turkey (100 g)"
+          },
+          "price": "30"
+        },
+        {
+          "names": {
+            "ar": "استربس (قطعة)",
+            "en": "Chicken strip (1 piece)"
+          },
+          "price": "30"
+        }
+      ]
+    },
+    "burgerAdditions": {
+      "names": {
+        "ar": "إضافات",
+        "en": "Add-ons"
+      },
+      "helper": {
+        "ar": "اختار اللي تحب تضيفه",
+        "en": "Pick anything you would like to add"
+      },
+      "min": 0,
+      "max": 7,
+      "options": [
+        {
+          "names": {
+            "ar": "موزاريلا استكس",
+            "en": "Mozzarella sticks"
+          },
+          "price": "25"
+        },
+        {
+          "names": {
+            "ar": "أونيون رينجز",
+            "en": "Onion rings"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "بيف بيكون",
+            "en": "Beef bacon"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "سموكد بيف",
+            "en": "Smoked beef"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "تركي مدخن",
+            "en": "Smoked turkey"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "جبنة شيدر شرائح",
+            "en": "Sliced cheddar"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "جبنة موزاريلا سايحة",
+            "en": "Melted mozzarella"
+          },
+          "price": "15"
+        }
+      ]
+    },
+    "burgerSauces": {
+      "names": {
+        "ar": "صوصات إضافية",
+        "en": "Extra sauces"
+      },
+      "helper": {
+        "ar": "أي صوص بـ 20 جنيه",
+        "en": "Any sauce for EGP 20"
+      },
+      "min": 0,
+      "max": 8,
+      "options": [
+        {
+          "names": {
+            "ar": "باربيكيو",
+            "en": "BBQ"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "رانش",
+            "en": "Ranch"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "تكساس",
+            "en": "Texas"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "سويت شيلي",
+            "en": "Sweet chili"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "شيدر",
+            "en": "Cheddar"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "ألف جزيرة",
+            "en": "Thousand island"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "تايجر",
+            "en": "Tiger"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "هالبينو",
+            "en": "Jalapeño"
+          },
+          "price": "20"
+        }
+      ]
+    }
+  },
+  "categories": [
+    {
+      "key": "pizza",
+      "names": {
+        "ar": "بيتزا",
+        "en": "Pizza"
+      },
+      "sharedModifierGroups": [
+        "pizzaPastaAdditions"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "سوبريم تشكن",
+            "en": "Supreme Chicken"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - تشكن جريل - هوت دوج - فراخ - تركي مدخن - فلفل ألوان - زيتون - بصل - جبنة",
+            "en": "Pizza sauce, grilled chicken, hot dog, chicken, smoked turkey, bell peppers, olives, onion, cheese"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "110",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "160",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "195",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بيبروني",
+            "en": "Pepperoni"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - بيبروني - جبنة",
+            "en": "Pizza sauce, pepperoni, cheese"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "105",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "190",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "سوبريم لحوم",
+            "en": "Supreme Meat"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - بيبروني - هوت دوج - بيف سموكد - خضروات - جبنة",
+            "en": "Pizza sauce, pepperoni, hot dog, smoked beef, vegetables, cheese"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "110",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "160",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "195",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "ميكس بيف",
+            "en": "Mix Beef"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - هوت دوج - بيف بيكون - سجق - خضروات - جبنة",
+            "en": "Pizza sauce, hot dog, beef bacon, sujuk, vegetables, cheese"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "110",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "160",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "195",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "استيك",
+            "en": "Steak"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - شرائح استيك فيليه - بصل - مشروم - جبنة",
+            "en": "Pizza sauce, sliced steak fillet, onion, mushrooms, cheese"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "115",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "170",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "205",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "جمبري كرانشي رانش",
+            "en": "Crunchy Ranch Shrimp"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - جمبري كرانشي - هالبينو - جبنة - صوص رانش",
+            "en": "Pizza sauce, crunchy shrimp, jalapeño, cheese, ranch sauce"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "120",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "170",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "205",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "سي فود",
+            "en": "Seafood"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - كالماري - كابوريا - جمبري - فليه هامور - هالبينو - مشروم - جبنة",
+            "en": "Pizza sauce, calamari, crab, shrimp, grouper fillet, jalapeño, mushrooms, cheese"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "120",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "175",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "210",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "جمبري مشوي",
+            "en": "Grilled Shrimp"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - جمبري مشوي - مشروم - فلفل ألوان - جبنة",
+            "en": "Pizza sauce, grilled shrimp, mushrooms, bell peppers, cheese"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "120",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "175",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "210",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "تونه",
+            "en": "Tuna"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - تونا قطع - بصل - فلفل ألوان - زيتون - جبنة",
+            "en": "Pizza sauce, tuna chunks, onion, bell peppers, olives, cheese"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "100",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "145",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "185",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "مرغريتا بيتزا",
+            "en": "Margherita Pizza"
+          },
+          "descriptions": {
+            "ar": "موزاريلا - صوص بيتزا",
+            "en": "Mozzarella, pizza sauce"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "85",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "125",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "165",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فيجتريا بيتزا",
+            "en": "Vegetaria Pizza"
+          },
+          "descriptions": {
+            "ar": "فلفل ألوان - بصل - طماطم - مشروم - زيتون - صوص بيتزا - موزاريلا",
+            "en": "Bell peppers, onion, tomato, mushrooms, olives, pizza sauce, mozzarella"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "95",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "135",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "175",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كواتر فرماج عشاق الجبنة",
+            "en": "Quattro Formaggi (Cheese Lovers)"
+          },
+          "descriptions": {
+            "ar": "موزاريلا - شيدر - رومي - ريكفورد - صوص بيتزا",
+            "en": "Mozzarella, cheddar, Romi cheese, Roquefort, pizza sauce"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "95",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "135",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "175",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "هيلثي فيجتريا",
+            "en": "Healthy Vegetaria"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - جبنة - كوسة - باذنجان - جزر - فلفل ألوان - بصل - طماطم - زيتون - سويت كورن",
+            "en": "Pizza sauce, cheese, zucchini, eggplant, carrot, bell peppers, onion, tomato, olives, sweet corn"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "105",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "145",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "175",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "تشكن رانش",
+            "en": "Chicken Ranch"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - تشكن جريل - مشروم - هالبينو - سويت كورن - جبنة - صوص رانش",
+            "en": "Pizza sauce, grilled chicken, mushrooms, jalapeño, sweet corn, cheese, ranch sauce"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "105",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "190",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "تشكن بربكيو",
+            "en": "Chicken BBQ"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - تشكن جريل - فلفل ألوان - مشروم - سويت كورن - جبنة - صوص بربكيو",
+            "en": "Pizza sauce, grilled chicken, bell peppers, mushrooms, sweet corn, cheese, BBQ sauce"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "105",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "190",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "ميكس تشكن",
+            "en": "Mix Chicken"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - بانيه - استربس - شيش - خضروات - جبنة",
+            "en": "Pizza sauce, breaded chicken, chicken strips, shish chicken, vegetables, cheese"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "110",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "160",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "195",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "تشكن تكساس",
+            "en": "Chicken Texas"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - استربس - فلفل ألوان - زيتون - جبنة - صوص تكساس",
+            "en": "Pizza sauce, chicken strips, bell peppers, olives, cheese, Texas sauce"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "105",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "190",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "سوبر كرانشي",
+            "en": "Super Crunchy"
+          },
+          "descriptions": {
+            "ar": "صوص بيتزا - استربس - تركي مدخن - هالبينو - زيتون - جبنة",
+            "en": "Pizza sauce, chicken strips, smoked turkey, jalapeño, olives, cheese"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "شخص واحد",
+                "en": "1 person"
+              },
+              "price": "105",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "شخصين",
+                "en": "2 people"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "3 أشخاص",
+                "en": "3 people"
+              },
+              "price": "190",
+              "default": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "pasta",
+      "names": {
+        "ar": "باستا",
+        "en": "Pasta"
+      },
+      "descriptions": {
+        "ar": "تقدم مع جارلك بريد",
+        "en": "Served with garlic bread"
+      },
+      "sharedModifierGroups": [
+        "pizzaPastaAdditions"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "الفريدو تشكين باستا",
+            "en": "Chicken Alfredo Pasta"
+          },
+          "descriptions": {
+            "ar": "صدر مشوي - مشروم - باستا - وايت صوص",
+            "en": "Grilled chicken breast, mushrooms, pasta, white sauce"
+          },
+          "price": "105"
+        },
+        {
+          "names": {
+            "ar": "تشيكن بيستو باستا",
+            "en": "Chicken Pesto Pasta"
+          },
+          "descriptions": {
+            "ar": "صدر مشوي - مشروم - باستا - بصوص الريحان",
+            "en": "Grilled chicken breast, mushrooms, pasta, basil pesto sauce"
+          },
+          "price": "110"
+        },
+        {
+          "names": {
+            "ar": "تشيكن نجرسكو",
+            "en": "Chicken Negresco"
+          },
+          "descriptions": {
+            "ar": "فلفل - زيتون - باستا وايت صوص - وش جبنة فرن",
+            "en": "Peppers, olives, pasta in white sauce, baked cheese on top"
+          },
+          "price": "120"
+        },
+        {
+          "names": {
+            "ar": "جمبري باستا",
+            "en": "Shrimp Pasta"
+          },
+          "descriptions": {
+            "ar": "فلفل - مشروم - جمبري - باستا وايت صوص",
+            "en": "Peppers, mushrooms, shrimp, pasta in white sauce"
+          },
+          "price": "135"
+        },
+        {
+          "names": {
+            "ar": "سي فود باستا",
+            "en": "Seafood Pasta"
+          },
+          "descriptions": {
+            "ar": "كابوريا - جمبري - كالماري - فلفل - بقدونس - باستا وايت صوص",
+            "en": "Crab, shrimp, calamari, peppers, parsley, pasta in white sauce"
+          },
+          "price": "135"
+        },
+        {
+          "names": {
+            "ar": "بيف رد باستا",
+            "en": "Beef Red Pasta"
+          },
+          "descriptions": {
+            "ar": "كفتة - سجق - هوت دوج - بسطرمة - فلفل - بقدونس - باستا رد صوص",
+            "en": "Kofta, sujuk, hot dog, pastrami, peppers, parsley, pasta in red sauce"
+          },
+          "price": "135"
+        },
+        {
+          "names": {
+            "ar": "تركي باستا",
+            "en": "Turkey Pasta"
+          },
+          "descriptions": {
+            "ar": "شرائح التركي المدخن - مشروم - باستا - وايت صوص",
+            "en": "Smoked turkey slices, mushrooms, pasta, white sauce"
+          },
+          "price": "105"
+        }
+      ]
+    },
+    {
+      "key": "rizo",
+      "names": {
+        "ar": "ريزو",
+        "en": "Rizo"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "ريزو شيش طاووق",
+            "en": "Shish Tawook Rizo"
+          },
+          "price": "85"
+        },
+        {
+          "names": {
+            "ar": "ريزو كفتة",
+            "en": "Kofta Rizo"
+          },
+          "price": "80"
+        },
+        {
+          "names": {
+            "ar": "ريزو جمبري (مشوي & مقلي)",
+            "en": "Shrimp Rizo (grilled or fried)"
+          },
+          "price": "115"
+        },
+        {
+          "names": {
+            "ar": "ريزو كرسبي",
+            "en": "Crispy Rizo"
+          },
+          "price": "75"
+        },
+        {
+          "names": {
+            "ar": "ريزو مكس تشيكن",
+            "en": "Mix Chicken Rizo"
+          },
+          "price": "95"
+        }
+      ]
+    },
+    {
+      "key": "beef-burger",
+      "names": {
+        "ar": "بيف برجر",
+        "en": "Beef Burger"
+      },
+      "sharedModifierGroups": [
+        "burgerAdditions",
+        "burgerSauces"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "تشيز برجر",
+            "en": "Cheese Burger"
+          },
+          "descriptions": {
+            "ar": "مايونيز - خس - طماطم - خيار مخلل - بصل مشوي - جبنة شيدر شرائح - الف جزيرة",
+            "en": "Mayonnaise, lettuce, tomato, pickles, grilled onion, sliced cheddar, thousand island"
+          },
+          "price": "80"
+        },
+        {
+          "names": {
+            "ar": "مانجم برجر (البرجر محشي جبنة)",
+            "en": "Manjam Burger (cheese-stuffed patty)"
+          },
+          "descriptions": {
+            "ar": "مايونيز - خس - طماطم - خيار مخلل - صوص بربكيو",
+            "en": "Mayonnaise, lettuce, tomato, pickles, BBQ sauce"
+          },
+          "price": "105"
+        },
+        {
+          "names": {
+            "ar": "تكساس برجر",
+            "en": "Texas Burger"
+          },
+          "descriptions": {
+            "ar": "مايونيز - خس - طماطم - خيار مخلل - بصل مشوي - صوص تكساس",
+            "en": "Mayonnaise, lettuce, tomato, pickles, grilled onion, Texas sauce"
+          },
+          "price": "95"
+        },
+        {
+          "names": {
+            "ar": "رانش برجر",
+            "en": "Ranch Burger"
+          },
+          "descriptions": {
+            "ar": "مايونيز - خس - طماطم - مشروم - هالبينو - صوص رانش",
+            "en": "Mayonnaise, lettuce, tomato, mushrooms, jalapeño, ranch sauce"
+          },
+          "price": "90"
+        }
+      ]
+    },
+    {
+      "key": "giants",
+      "names": {
+        "ar": "العمالقة",
+        "en": "The Giants"
+      },
+      "sharedModifierGroups": [
+        "burgerAdditions",
+        "burgerSauces"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "بيج برجر",
+            "en": "Big Burger"
+          },
+          "descriptions": {
+            "ar": "2 قطعتين برجر بيف - مايونيز - خس - طماطم - بصل مشوي - خيار مخلل - جبنة شيدر شرائح",
+            "en": "2 beef patties, mayonnaise, lettuce, tomato, grilled onion, pickles, sliced cheddar"
+          },
+          "price": "155"
+        },
+        {
+          "names": {
+            "ar": "برجر هالوين",
+            "en": "Halloween Burger"
+          },
+          "descriptions": {
+            "ar": "قطعة برجر - صدر كرانشي - مايونيز - خس - طماطم - بصل - هالبينو - باربيكيو",
+            "en": "Beef patty, crunchy chicken breast, mayonnaise, lettuce, tomato, onion, jalapeño, BBQ"
+          },
+          "price": "150"
+        },
+        {
+          "names": {
+            "ar": "برجر التربل بيف",
+            "en": "Triple Beef Burger"
+          },
+          "descriptions": {
+            "ar": "3 قطع بيف برجر - مايونيز - خيار مخلل - طماطم - بصل مشوي - شرائح شيدر - صوص باربيكيو",
+            "en": "3 beef patties, mayonnaise, pickles, tomato, grilled onion, cheddar slices, BBQ sauce"
+          },
+          "price": "200"
+        }
+      ]
+    },
+    {
+      "key": "chicken-burger",
+      "names": {
+        "ar": "تشيكن برجر",
+        "en": "Chicken Burger"
+      },
+      "sharedModifierGroups": [
+        "burgerAdditions",
+        "burgerSauces"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "ديجلر برجر",
+            "en": "Digler Burger"
+          },
+          "descriptions": {
+            "ar": "الف جزيرة - خس - طماطم - خيار مخلل - صوص شيدر",
+            "en": "Thousand island, lettuce, tomato, pickles, صوص شيدر"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سنجل",
+                "en": "Single"
+              },
+              "price": "85",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "دبل",
+                "en": "Double"
+              },
+              "price": "115",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "تربل",
+                "en": "Triple"
+              },
+              "price": "145",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "تركي تشكين برجر",
+            "en": "Turkey Chicken Burger"
+          },
+          "descriptions": {
+            "ar": "الف جزيرة - خس - طماطم - خيار مخلل - تركي مدخن - صوص شيدر",
+            "en": "Thousand island, lettuce, tomato, pickles, smoked turkey, صوص شيدر"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سنجل",
+                "en": "Single"
+              },
+              "price": "90",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "دبل",
+                "en": "Double"
+              },
+              "price": "135",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "تربل",
+                "en": "Triple"
+              },
+              "price": "165",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فيردي برجر",
+            "en": "Verde Burger"
+          },
+          "descriptions": {
+            "ar": "صوص فيردي الخاص - خس - طماطم - خيار مخلل - بيف سموكد - موتزريلا استكس - صوص شيدر",
+            "en": "Special Verde sauce, lettuce, tomato, pickles, smoked beef, mozzarella sticks, cheddar sauce"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سنجل",
+                "en": "Single"
+              },
+              "price": "100",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "دبل",
+                "en": "Double"
+              },
+              "price": "145",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "تربل",
+                "en": "Triple"
+              },
+              "price": "175",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "سويت شيلي برجر",
+            "en": "Sweet Chili Burger"
+          },
+          "descriptions": {
+            "ar": "صوص سويت شيلي - خس - جبنة شيدر شرائح - هالبينو",
+            "en": "Sweet chili sauce, lettuce, sliced cheddar, jalapeño"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سنجل",
+                "en": "Single"
+              },
+              "price": "95",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "دبل",
+                "en": "Double"
+              },
+              "price": "135",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "تربل",
+                "en": "Triple"
+              },
+              "price": "170",
+              "default": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "quesadilla",
+      "names": {
+        "ar": "كساديا",
+        "en": "Quesadilla"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "كساديا تشكين (8 قطع)",
+            "en": "Chicken Quesadilla (8 pieces)"
+          },
+          "descriptions": {
+            "ar": "تشكن جريل - بصل - فلفل - تشيز - ألف جزيرة - صوص باربيكيو",
+            "en": "Grilled chicken, onion, peppers, cheese, thousand island, BBQ sauce"
+          },
+          "price": "155"
+        },
+        {
+          "names": {
+            "ar": "كساديا بيف (8 قطع)",
+            "en": "Beef Quesadilla (8 pieces)"
+          },
+          "descriptions": {
+            "ar": "بيف فيليه - بصل - فلفل - تشيز - ألف جزيرة - صوص باربيكيو",
+            "en": "Beef fillet, onion, peppers, cheese, thousand island, BBQ sauce"
+          },
+          "price": "155"
+        },
+        {
+          "names": {
+            "ar": "كساديا جمبري (8 قطع)",
+            "en": "Shrimp Quesadilla (8 pieces)"
+          },
+          "descriptions": {
+            "ar": "جمبري - فلفل - بصل - تشيز - ألف جزيرة - صوص باربيكيو",
+            "en": "Shrimp, peppers, onion, cheese, thousand island, BBQ sauce"
+          },
+          "price": "195"
+        }
+      ]
+    },
+    {
+      "key": "salad",
+      "names": {
+        "ar": "سلاط",
+        "en": "Salad"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "رانش تشكين سلاط",
+            "en": "Ranch Chicken Salad"
+          },
+          "descriptions": {
+            "ar": "خس - فلفل - زيتون - خيار - مشروم - تركي مدخن - تشكن جريل - صوص رانش",
+            "en": "Lettuce, peppers, olives, cucumber, mushrooms, smoked turkey, grilled chicken, ranch sauce"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "جريك سلاط",
+            "en": "Greek Salad"
+          },
+          "descriptions": {
+            "ar": "خس - طماطم - خيار - زيتون - بصل - فيتا تشيز - صوص ليمون مسترد - أوريجانو",
+            "en": "Lettuce, tomato, cucumber, olives, onion, feta cheese, lemon-mustard dressing, oregano"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "سيزر سلاط",
+            "en": "Caesar Salad"
+          },
+          "descriptions": {
+            "ar": "خس - عيش كيرتون - تشكن جريل - صوص سيزر - بارميزان",
+            "en": "Lettuce, croutons, grilled chicken, Caesar dressing, Parmesan"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "سيزون سلاط",
+            "en": "Season Salad"
+          },
+          "descriptions": {
+            "ar": "خس - طماطم - ذرة - زيتون - فلفل - مشروم - صوص ليمون مسترد",
+            "en": "Lettuce, tomato, corn, olives, peppers, mushrooms, lemon-mustard dressing"
+          },
+          "price": "50"
+        }
+      ]
+    },
+    {
+      "key": "plates",
+      "names": {
+        "ar": "أطباق فيردي",
+        "en": "Verde Plates"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "شيش طاووق",
+            "en": "Shish Tawook"
+          },
+          "descriptions": {
+            "ar": "300 جرام قطع شيش مع الخضار المشوي - الأرز - بطاطس - صوص تايجر أو طحينة",
+            "en": "300 g chicken shish with grilled vegetables, rice, potatoes, tiger or tahini sauce"
+          },
+          "price": "150"
+        },
+        {
+          "names": {
+            "ar": "تشكين بريست جريل",
+            "en": "Grilled Chicken Breast"
+          },
+          "descriptions": {
+            "ar": "300 جرام صدور مشوية مع الخضار المشوي - الأرز - بطاطس - صوص تايجر أو طحينة",
+            "en": "300 g grilled chicken breast with grilled vegetables, rice, potatoes, tiger or tahini sauce"
+          },
+          "price": "165"
+        },
+        {
+          "names": {
+            "ar": "كفتة",
+            "en": "Kofta"
+          },
+          "descriptions": {
+            "ar": "250 جرام كفتة مع الخضار المشوي - الأرز - بطاطس - صوص تايجر أو طحينة",
+            "en": "250 g kofta with grilled vegetables, rice, potatoes, tiger or tahini sauce"
+          },
+          "price": "155"
+        },
+        {
+          "names": {
+            "ar": "مكس جريل",
+            "en": "Mix Grill"
+          },
+          "descriptions": {
+            "ar": "100 جرام شيش - 100 جرام صدور مشوية - 100 جرام كفتة مع الخضار المشوي - الأرز - بطاطس - صوص التايجر أو الطحينة",
+            "en": "100 g shish, 100 g grilled breast, 100 g kofta with grilled vegetables, rice, potatoes, tiger or tahini sauce"
+          },
+          "price": "195"
+        },
+        {
+          "names": {
+            "ar": "فيليه تشكين كرسبي",
+            "en": "Crispy Chicken Fillet"
+          },
+          "descriptions": {
+            "ar": "5 قطع استربس - الأرز - بطاطس - تايجر",
+            "en": "5 chicken strips, rice, potatoes, tiger sauce"
+          },
+          "price": "160"
+        },
+        {
+          "names": {
+            "ar": "كوردن بلو",
+            "en": "Cordon Bleu"
+          },
+          "descriptions": {
+            "ar": "250 جرام صدور محشية جبنة مع التركي المدخن - الأرز - بطاطس - صوص تايجر",
+            "en": "250 g chicken breast stuffed with cheese and smoked turkey, rice, potatoes, tiger sauce"
+          },
+          "price": "160"
+        },
+        {
+          "names": {
+            "ar": "جمبري مقلي",
+            "en": "Fried Shrimp"
+          },
+          "descriptions": {
+            "ar": "10 قطع جمبري مقلي - أرز - بطاطس - صوص تايجر",
+            "en": "10 pieces fried shrimp, rice, potatoes, tiger sauce"
+          },
+          "price": "195"
+        },
+        {
+          "names": {
+            "ar": "جمبري مشوي",
+            "en": "Grilled Shrimp"
+          },
+          "descriptions": {
+            "ar": "300 جرام جمبري مشوي على الفحم - أرز - بطاطس - خضار سوتيه - صوص تايجر أو طحينة",
+            "en": "300 g charcoal-grilled shrimp, rice, potatoes, sautéed vegetables, tiger or tahini sauce"
+          },
+          "price": "205"
+        },
+        {
+          "names": {
+            "ar": "فيليه هامور سمك",
+            "en": "Grouper Fish Fillet"
+          },
+          "descriptions": {
+            "ar": "300 جرام فيليه هامور مشوي مع صوص ليمون مسترد - أرز - بطاطس - خضار سوتيه - صوص تايجر أو طحينة",
+            "en": "300 g grilled grouper fillet with lemon-mustard sauce, rice, potatoes, sautéed vegetables, tiger or tahini sauce"
+          },
+          "price": "195"
+        },
+        {
+          "names": {
+            "ar": "بيف ستروجانوف",
+            "en": "Beef Stroganoff"
+          },
+          "descriptions": {
+            "ar": "300 جرام قطع الفيليه الشرائح مع الفلفل والبصل مع الصوص الخاص - الأرز - بطاطس",
+            "en": "300 g sliced beef fillet with peppers and onion in our special sauce, rice, potatoes"
+          },
+          "price": "185"
+        }
+      ]
+    },
+    {
+      "key": "appetizers",
+      "names": {
+        "ar": "مقبلات",
+        "en": "Appetizers"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "بطاطس فارم فريست",
+            "en": "Farm Fries"
+          },
+          "price": "25"
+        },
+        {
+          "names": {
+            "ar": "بطاطس فرسكس",
+            "en": "Fersks Fries"
+          },
+          "price": "40"
+        },
+        {
+          "names": {
+            "ar": "بطاطس صحن",
+            "en": "Plate of Fries"
+          },
+          "price": "45"
+        },
+        {
+          "names": {
+            "ar": "بطاطس كاتشب ومايونيز",
+            "en": "Fries with Ketchup & Mayo"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "بطاطس جبنة",
+            "en": "Cheese Fries"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "بطاطس جبنة هالبينو",
+            "en": "Jalapeño Cheese Fries"
+          },
+          "price": "70"
+        },
+        {
+          "names": {
+            "ar": "بطاطس كرانشي",
+            "en": "Crunchy Fries"
+          },
+          "price": "85"
+        },
+        {
+          "names": {
+            "ar": "تكساس فرايز كرانشي هالبينو",
+            "en": "Texas Crunchy Jalapeño Fries"
+          },
+          "price": "105"
+        },
+        {
+          "names": {
+            "ar": "موزاريلا استكس",
+            "en": "Mozzarella Sticks"
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "أونيون رينجز",
+            "en": "Onion Rings"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "صوص شيدر",
+            "en": "Cheddar Sauce"
+          },
+          "price": "25"
+        },
+        {
+          "names": {
+            "ar": "صوصات",
+            "en": "Sauces"
+          },
+          "descriptions": {
+            "ar": "رانش - بربكيو - تكساس - ألف جزيرة - تايجر - طحينة - سويت شيلي",
+            "en": "Ranch, BBQ, Texas, thousand island, tiger, tahini, sweet chili"
+          },
+          "price": "20",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "اختار الصوص",
+                "en": "Choose your sauce"
+              },
+              "helper": {
+                "ar": "صوص واحد",
+                "en": "One sauce"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "رانش",
+                    "en": "Ranch"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "بربكيو",
+                    "en": "BBQ"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "تكساس",
+                    "en": "Texas"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "ألف جزيرة",
+                    "en": "Thousand island"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "تايجر",
+                    "en": "Tiger"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "طحينة",
+                    "en": "Tahini"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "سويت شيلي",
+                    "en": "Sweet chili"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "crepe",
+      "names": {
+        "ar": "كريب",
+        "en": "Crepe"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "مكس تشكين",
+            "en": "Mix Chicken Crepe"
+          },
+          "descriptions": {
+            "ar": "جبنة - شيش - بانيه - استربس - خضروات - كاتشب - مايونيز",
+            "en": "Cheese, shish, breaded chicken, strips, vegetables, ketchup, mayonnaise"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سوري",
+                "en": "Syrian"
+              },
+              "price": "70",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "اسبيشل",
+                "en": "Special"
+              },
+              "price": "75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كونو",
+                "en": "Cone"
+              },
+              "price": "85",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "مكس بيف",
+            "en": "Mix Beef Crepe"
+          },
+          "descriptions": {
+            "ar": "جبنة - سوسيس - سجق - كفتة - خضروات - كاتشب - مايونيز",
+            "en": "Cheese, sausage, sujuk, kofta, vegetables, ketchup, mayonnaise"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سوري",
+                "en": "Syrian"
+              },
+              "price": "70",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "اسبيشل",
+                "en": "Special"
+              },
+              "price": "75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كونو",
+                "en": "Cone"
+              },
+              "price": "85",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بطاطس تشيز",
+            "en": "Cheese Fries Crepe"
+          },
+          "descriptions": {
+            "ar": "جبنة - فلفل - بطاطس - كاتشب - مايونيز",
+            "en": "Cheese, peppers, fries, ketchup, mayonnaise"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سوري",
+                "en": "Syrian"
+              },
+              "price": "35",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "اسبيشل",
+                "en": "Special"
+              },
+              "price": "40",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كونو",
+                "en": "Cone"
+              },
+              "price": "50",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "سوبر كرانشي",
+            "en": "Super Crunchy Crepe"
+          },
+          "descriptions": {
+            "ar": "جبنة - فلفل - استربس - تركي - هالبينو - كاتشب - مايونيز",
+            "en": "Cheese, peppers, strips, turkey, jalapeño, ketchup, mayonnaise"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سوري",
+                "en": "Syrian"
+              },
+              "price": "70",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "اسبيشل",
+                "en": "Special"
+              },
+              "price": "75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كونو",
+                "en": "Cone"
+              },
+              "price": "85",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "زنجر",
+            "en": "Zinger Crepe"
+          },
+          "descriptions": {
+            "ar": "جبنة - استربس حار - خضروات - كاتشب - مايونيز",
+            "en": "Cheese, spicy strips, vegetables, ketchup, mayonnaise"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سوري",
+                "en": "Syrian"
+              },
+              "price": "65",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "اسبيشل",
+                "en": "Special"
+              },
+              "price": "70",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كونو",
+                "en": "Cone"
+              },
+              "price": "80",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بانيه",
+            "en": "Breaded Chicken Crepe"
+          },
+          "descriptions": {
+            "ar": "جبنة - خضروات - بانيه - كاتشب - مايونيز",
+            "en": "Cheese, vegetables, breaded chicken, ketchup, mayonnaise"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سوري",
+                "en": "Syrian"
+              },
+              "price": "50",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "اسبيشل",
+                "en": "Special"
+              },
+              "price": "55",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كونو",
+                "en": "Cone"
+              },
+              "price": "65",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كرسبي",
+            "en": "Crispy Crepe"
+          },
+          "descriptions": {
+            "ar": "جبنة - فلفل - كرسبي - كاتشب - مايونيز",
+            "en": "Cheese, peppers, crispy chicken, ketchup, mayonnaise"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سوري",
+                "en": "Syrian"
+              },
+              "price": "55",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "اسبيشل",
+                "en": "Special"
+              },
+              "price": "60",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كونو",
+                "en": "Cone"
+              },
+              "price": "70",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "شيش طاووق",
+            "en": "Shish Tawook Crepe"
+          },
+          "descriptions": {
+            "ar": "جبنة - شيش - بصل - فلفل - كاتشب - مايونيز",
+            "en": "Cheese, shish, onion, peppers, ketchup, mayonnaise"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سوري",
+                "en": "Syrian"
+              },
+              "price": "70",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "اسبيشل",
+                "en": "Special"
+              },
+              "price": "75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كونو",
+                "en": "Cone"
+              },
+              "price": "85",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "سوسيس",
+            "en": "Sausage Crepe"
+          },
+          "descriptions": {
+            "ar": "جبنة - سوسيس - فلفل - بصل - كاتشب - مايونيز",
+            "en": "Cheese, sausage, peppers, onion, ketchup, mayonnaise"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سوري",
+                "en": "Syrian"
+              },
+              "price": "60",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "اسبيشل",
+                "en": "Special"
+              },
+              "price": "70",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كونو",
+                "en": "Cone"
+              },
+              "price": "80",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "سجق",
+            "en": "Sujuk Crepe"
+          },
+          "descriptions": {
+            "ar": "جبنة - سجق - فلفل - بصل - كاتشب - مايونيز",
+            "en": "Cheese, sujuk, peppers, onion, ketchup, mayonnaise"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سوري",
+                "en": "Syrian"
+              },
+              "price": "55",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "اسبيشل",
+                "en": "Special"
+              },
+              "price": "60",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كونو",
+                "en": "Cone"
+              },
+              "price": "70",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كفتة",
+            "en": "Kofta Crepe"
+          },
+          "descriptions": {
+            "ar": "جبنة - كفتة - فلفل - بصل - كاتشب - مايونيز",
+            "en": "Cheese, kofta, peppers, onion, ketchup, mayonnaise"
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "سوري",
+                "en": "Syrian"
+              },
+              "price": "60",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "اسبيشل",
+                "en": "Special"
+              },
+              "price": "70",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كونو",
+                "en": "Cone"
+              },
+              "price": "80",
+              "default": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "milkshakes",
+      "names": {
+        "ar": "ميلك شيك",
+        "en": "Milkshakes"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "ميلك شيك فانيليا",
+            "en": "Vanilla Milkshake"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك تشوكلت",
+            "en": "Chocolate Milkshake"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك فراولة",
+            "en": "Strawberry Milkshake"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك مانجو",
+            "en": "Mango Milkshake"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك بلوبيري",
+            "en": "Blueberry Milkshake"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك أوريو",
+            "en": "Oreo Milkshake"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك ميكس بيري",
+            "en": "Mixed Berry Milkshake"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك جلاكسي",
+            "en": "Galaxy Milkshake"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك سنيكرز",
+            "en": "Snickers Milkshake"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك كيت كات",
+            "en": "KitKat Milkshake"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك لبان",
+            "en": "Bubble Gum Milkshake"
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك كولا",
+            "en": "Cola Milkshake"
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك كيوي فريش",
+            "en": "Fresh Kiwi Milkshake"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك أناناس",
+            "en": "Pineapple Milkshake"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "ميلك شيك تفاح أخضر",
+            "en": "Green Apple Milkshake"
+          },
+          "price": "65"
+        }
+      ]
+    },
+    {
+      "key": "juice",
+      "names": {
+        "ar": "عصائر فريش",
+        "en": "Fresh Juice"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "مانجو",
+            "en": "Mango"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "فراولة",
+            "en": "Strawberry"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "فراولة باللبن",
+            "en": "Strawberry with Milk"
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "جوافة",
+            "en": "Guava"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "جوافة باللبن",
+            "en": "Guava with Milk"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "موز حليب",
+            "en": "Banana Milk"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "برتقال موسمي",
+            "en": "Seasonal Orange"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "رمان موسمي",
+            "en": "Seasonal Pomegranate"
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "كيوي موسمي",
+            "en": "Seasonal Kiwi"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "أفوكادو",
+            "en": "Avocado"
+          },
+          "price": "70"
+        },
+        {
+          "names": {
+            "ar": "أفوكادو بالعسل والمكسرات",
+            "en": "Avocado with Honey & Nuts"
+          },
+          "price": "80"
+        },
+        {
+          "names": {
+            "ar": "ليمون",
+            "en": "Lemon"
+          },
+          "price": "45"
+        },
+        {
+          "names": {
+            "ar": "ليمون نعناع",
+            "en": "Lemon Mint"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "بطيخ موسمي",
+            "en": "Seasonal Watermelon"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "بطيخ مينت موسمي",
+            "en": "Seasonal Watermelon Mint"
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "بلح موسمي",
+            "en": "Seasonal Fresh Dates"
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "أناناس موسمي",
+            "en": "Seasonal Pineapple"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "خوخ موسمي",
+            "en": "Seasonal Peach"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "تين شوكي موسمي",
+            "en": "Seasonal Prickly Pear"
+          },
+          "price": "55"
+        }
+      ]
+    },
+    {
+      "key": "waffle",
+      "names": {
+        "ar": "وافل",
+        "en": "Waffle"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "وافل نوتيلا",
+            "en": "Nutella Waffle"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "وافل وايت تشوكليت",
+            "en": "White Chocolate Waffle"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "وافل لوتس",
+            "en": "Lotus Waffle"
+          },
+          "price": "70"
+        },
+        {
+          "names": {
+            "ar": "وافل فستق",
+            "en": "Pistachio Waffle"
+          },
+          "price": "80"
+        },
+        {
+          "names": {
+            "ar": "وافل عسل",
+            "en": "Honey Waffle"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "وافل فواكه",
+            "en": "Fruit Waffle"
+          },
+          "price": "65"
+        },
+        {
+          "names": {
+            "ar": "وافل جلاكسي",
+            "en": "Galaxy Waffle"
+          },
+          "price": "80"
+        },
+        {
+          "names": {
+            "ar": "وافل مكسرات",
+            "en": "Nuts Waffle"
+          },
+          "price": "75"
+        },
+        {
+          "names": {
+            "ar": "وافل أوريو",
+            "en": "Oreo Waffle"
+          },
+          "price": "70"
+        }
+      ]
+    },
+    {
+      "key": "ice-cream",
+      "names": {
+        "ar": "آيس كريم",
+        "en": "Ice Cream"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "آيس كريم فراولة",
+            "en": "Strawberry Ice Cream"
+          },
+          "price": "35"
+        },
+        {
+          "names": {
+            "ar": "آيس كريم مانجو",
+            "en": "Mango Ice Cream"
+          },
+          "price": "35"
+        },
+        {
+          "names": {
+            "ar": "آيس كريم تشوكلت",
+            "en": "Chocolate Ice Cream"
+          },
+          "price": "35"
+        },
+        {
+          "names": {
+            "ar": "آيس كريم توت",
+            "en": "Berry Ice Cream"
+          },
+          "price": "35"
+        },
+        {
+          "names": {
+            "ar": "آيس كريم فانيليا",
+            "en": "Vanilla Ice Cream"
+          },
+          "price": "35"
+        },
+        {
+          "names": {
+            "ar": "آيس كريم كاساتا",
+            "en": "Cassata Ice Cream"
+          },
+          "price": "45"
+        },
+        {
+          "names": {
+            "ar": "آيس كريم فيردي",
+            "en": "Verde Ice Cream"
+          },
+          "price": "55"
+        }
+      ]
+    },
+    {
+      "key": "dessert",
+      "names": {
+        "ar": "حلويات",
+        "en": "Dessert"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "تشوكلت كيك",
+            "en": "Chocolate Cake"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "ريد فيلفت",
+            "en": "Red Velvet"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "تشيز كيك",
+            "en": "Cheesecake"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "مولتن كيك",
+            "en": "Molten Cake"
+          },
+          "price": "65"
+        }
+      ]
+    },
+    {
+      "key": "smoothies",
+      "names": {
+        "ar": "سموزي",
+        "en": "Smoothies"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "سموزي بلو بيري",
+            "en": "Blueberry Smoothie"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "سموزي روز بيري",
+            "en": "Rose Berry Smoothie"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "سموزي مانجو",
+            "en": "Mango Smoothie"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "سموزي كيوي",
+            "en": "Kiwi Smoothie"
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "سموزي فراولة",
+            "en": "Strawberry Smoothie"
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "سموزي تفاح أخضر",
+            "en": "Green Apple Smoothie"
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "سموزي ميكس",
+            "en": "Mix Smoothie"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "سموزي ليمون",
+            "en": "Lemon Smoothie"
+          },
+          "price": "45"
+        },
+        {
+          "names": {
+            "ar": "سموزي ليمون نعناع",
+            "en": "Lemon Mint Smoothie"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "سموزي بطيخ",
+            "en": "Watermelon Smoothie"
+          },
+          "price": "55"
+        }
+      ]
+    },
+    {
+      "key": "hot-drinks",
+      "names": {
+        "ar": "مشروبات ساخنة",
+        "en": "Hot Drinks"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "قهوة تركي",
+            "en": "Turkish Coffee"
+          },
+          "price": "25",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "درجة التحميص",
+                "en": "Roast"
+              },
+              "helper": {
+                "ar": "اختار درجة البن",
+                "en": "Choose the roast"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "بن فاتح",
+                    "en": "Light"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "وسط",
+                    "en": "Medium"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "غامق",
+                    "en": "Dark"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "قهوة تركي محوج",
+            "en": "Spiced Turkish Coffee (Mahouj)"
+          },
+          "price": "30",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "درجة التحميص",
+                "en": "Roast"
+              },
+              "helper": {
+                "ar": "اختار درجة البن",
+                "en": "Choose the roast"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "بن فاتح",
+                    "en": "Light"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "وسط",
+                    "en": "Medium"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "قهوة فرنساوي",
+            "en": "French Coffee"
+          },
+          "price": "40"
+        },
+        {
+          "names": {
+            "ar": "قهوة بندق",
+            "en": "Hazelnut Coffee"
+          },
+          "price": "45"
+        },
+        {
+          "names": {
+            "ar": "شاي",
+            "en": "Tea"
+          },
+          "price": "15"
+        },
+        {
+          "names": {
+            "ar": "شاي أخضر",
+            "en": "Green Tea"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "شاي نكهات",
+            "en": "Flavored Tea"
+          },
+          "price": "25",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "اختار النكهة",
+                "en": "Choose a flavor"
+              },
+              "helper": {
+                "ar": "نكهة واحدة",
+                "en": "One flavor"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "فراولة",
+                    "en": "Strawberry"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "خوخ",
+                    "en": "Peach"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "تفاح",
+                    "en": "Apple"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مانجو",
+                    "en": "Mango"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "شاي إنجليزي",
+            "en": "English Tea"
+          },
+          "price": "25"
+        },
+        {
+          "names": {
+            "ar": "أعشاب",
+            "en": "Herbal Tea"
+          },
+          "price": "15",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "اختار العشب",
+                "en": "Choose the herb"
+              },
+              "helper": {
+                "ar": "عشب واحد",
+                "en": "One herb"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "نعناع",
+                    "en": "Mint"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "كركديه",
+                    "en": "Hibiscus"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "ينسون",
+                    "en": "Anise"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "نسكافيه",
+            "en": "Nescafé"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "نسكافيه نكهات",
+            "en": "Flavored Nescafé"
+          },
+          "price": "55",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "اختار النكهة",
+                "en": "Choose a flavor"
+              },
+              "helper": {
+                "ar": "نكهة واحدة",
+                "en": "One flavor"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "بندق",
+                    "en": "Hazelnut"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "كراميل",
+                    "en": "Caramel"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "فانيليا",
+                    "en": "Vanilla"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "إسبريسو سنجل",
+            "en": "Single Espresso"
+          },
+          "price": "35"
+        },
+        {
+          "names": {
+            "ar": "إسبريسو دبل",
+            "en": "Double Espresso"
+          },
+          "price": "40"
+        },
+        {
+          "names": {
+            "ar": "أمريكان كوفي",
+            "en": "Americano"
+          },
+          "price": "45"
+        },
+        {
+          "names": {
+            "ar": "كابتشينو",
+            "en": "Cappuccino"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "كابتشينو نكهات",
+            "en": "Flavored Cappuccino"
+          },
+          "price": "55",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "اختار النكهة",
+                "en": "Choose a flavor"
+              },
+              "helper": {
+                "ar": "نكهة واحدة",
+                "en": "One flavor"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "بندق",
+                    "en": "Hazelnut"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "كراميل",
+                    "en": "Caramel"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "فانيليا",
+                    "en": "Vanilla"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "soda",
+      "names": {
+        "ar": "صودا",
+        "en": "Soda Drinks"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "صودا بلوبيري",
+            "en": "Blueberry Soda"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "صودا موخيتو",
+            "en": "Mojito Soda"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "صودا ميكس بيري",
+            "en": "Mixed Berry Soda"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "صودا مينت",
+            "en": "Mint Soda"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "صودا كولا",
+            "en": "Cola Soda"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "صودا بلو أوشن",
+            "en": "Blue Ocean Soda"
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "صودا أناناس",
+            "en": "Pineapple Soda"
+          },
+          "price": "50"
+        }
+      ]
+    },
+    {
+      "key": "iced-coffee",
+      "names": {
+        "ar": "آيس كوفي",
+        "en": "Iced Coffee"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "آيس كوفي",
+            "en": "Iced Coffee"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "آيس كابتشينو",
+            "en": "Iced Cappuccino"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "آيس موكا تشوكلت",
+            "en": "Iced Chocolate Mocha"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "آيس موكا كراميل",
+            "en": "Iced Caramel Mocha"
+          },
+          "price": "55"
+        },
+        {
+          "names": {
+            "ar": "آيس تشوكلت",
+            "en": "Iced Chocolate"
+          },
+          "price": "50"
+        }
+      ]
+    },
+    {
+      "key": "soft-drinks",
+      "names": {
+        "ar": "مشروبات باردة",
+        "en": "Soft Drinks"
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "بيبسي / سفن أب / ميرندا",
+            "en": "Pepsi / 7Up / Mirinda"
+          },
+          "descriptions": {
+            "ar": "بنكهات",
+            "en": "In assorted flavors"
+          },
+          "price": "25",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "اختار المشروب",
+                "en": "Choose your drink"
+              },
+              "helper": {
+                "ar": "مشروب واحد",
+                "en": "One drink"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "بيبسي",
+                    "en": "Pepsi"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "سفن أب",
+                    "en": "7Up"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "ميرندا",
+                    "en": "Mirinda"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "مياه صغيرة",
+            "en": "Small Water"
+          },
+          "price": "10"
+        },
+        {
+          "names": {
+            "ar": "سبيرو سباتس",
+            "en": "Spiro Spathis"
+          },
+          "descriptions": {
+            "ar": "100% نكهات صناعة مصرية",
+            "en": "100% Egyptian-made flavors"
+          },
+          "price": "25"
+        },
+        {
+          "names": {
+            "ar": "فيروز / شويبس / راني",
+            "en": "Fayrouz / Schweppes / Rani"
+          },
+          "descriptions": {
+            "ar": "نكهات",
+            "en": "In assorted flavors"
+          },
+          "price": "35",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "اختار المشروب",
+                "en": "Choose your drink"
+              },
+              "helper": {
+                "ar": "مشروب واحد",
+                "en": "One drink"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "فيروز",
+                    "en": "Fayrouz"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "شويبس",
+                    "en": "Schweppes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "راني",
+                    "en": "Rani"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

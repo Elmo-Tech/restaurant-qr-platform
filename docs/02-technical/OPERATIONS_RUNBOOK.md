@@ -63,6 +63,38 @@ After provisioning: the Owner signs in, creates the Menu in **Menu Management**,
 and prints the **Restaurant QR** from **Tables & QR**. (Password reset does not
 exist yet; a locked-out Owner is handled by Operations.)
 
+### 2.1 Provision a Restaurant with its menu already typed in (Operations only)
+
+When a real restaurant's printed menu has been typed into a reviewed seed file, one command provisions the Restaurant
+**and** fills its bilingual (Arabic + English) menu, so the Owner does not retype it. Seed files live in
+`apps/api/seed-data/<name>/menu.json`: Menu, Categories, Products, sizes (Product Variants), add-ons (Modifier Groups)
+and, when the file asks for it, the Restaurant's exclusive VERDE design. The first one is `verde-napoletana`
+(VERDE Napoletana: 21 categories, 177 products). This is onboarding content for a real Restaurant, not QA data.
+
+It uses the same safety rules as section 2 (dry run by default, password only from `PROVISION_OWNER_PASSWORD`) and is safe
+to re-run: a Restaurant that already has a menu is left untouched, so the command never overwrites the Owner's edits.
+
+```powershell
+cd apps/api
+$env:PROVISION_OWNER_PASSWORD = '<a strong password>'
+
+# Dry run (default): validates the seed file and prints what it would create. Writes NOTHING.
+npm run seed:restaurant-menu -- --seed verde-napoletana --owner-email owner@example.com
+
+# Apply.
+npm run seed:restaurant-menu -- --seed verde-napoletana --owner-email owner@example.com --apply
+
+Remove-Item Env:PROVISION_OWNER_PASSWORD
+```
+
+On the server it runs in the tools image, like `provision:restaurant` (see `COOLIFY_DEPLOYMENT.md`): replace
+`npm run provision:restaurant -- ...` with `npm run seed:restaurant-menu -- --seed verde-napoletana --owner-email ... --apply`.
+
+The exclusive VERDE design belongs to exactly one Restaurant (its renderer key is unique). If another Restaurant already
+holds it, the menu is still seeded, the command warns, and the Restaurant keeps a stock template until the Platform
+console moves the design. The seed assigns no Package, photos or contact details: those are set in the Platform console
+and in Staff afterwards. Exit codes are the same as section 2.
+
 ## 3. Clean development bootstrap (deterministic, no fake datasets)
 
 To get a fresh, empty development environment without hand-editing the database:
