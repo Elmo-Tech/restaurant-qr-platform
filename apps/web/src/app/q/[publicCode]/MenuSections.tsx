@@ -154,9 +154,6 @@ interface MenuSectionsProps {
   onIncrement: (productId: string) => void;
   onDecrement: (productId: string) => void;
   onClearSearch: () => void;
-  verdeCategoryTabs?: { id: string; name: string }[];
-  verdeActiveCategoryId?: string;
-  onVerdeCategorySelect?: (id: string) => void;
   /** Active category tabs for EMBER's one-category-at-a-time composition. */
   emberCategoryTabs?: { id: string; name: string }[];
   emberActiveCategoryId?: string;
@@ -217,7 +214,6 @@ function MenuSectionsImpl({
   onIncrement,
   onDecrement,
   onClearSearch,
-  verdeCategoryTabs,verdeActiveCategoryId,onVerdeCategorySelect,
   emberCategoryTabs,
   emberActiveCategoryId,
   onEmberCategorySelect,
@@ -260,37 +256,6 @@ function MenuSectionsImpl({
   }
 
   const renderCategory = (category: PublicMenuCategory) => {
-    if (verdeCategoryTabs && onVerdeCategorySelect) return (
-      <section id="verde-menu-anchor" key={category.id} className="scroll-mt-24">
-        <div className="verde-menu-index">
-          <div className="verde-index-title">✳ &nbsp; MENU / THE INDEX</div>
-          <nav className="verde-index-nav" aria-label={copy.categories}>
-            {verdeCategoryTabs.map((tab, index) => (
-              <button key={tab.id} type="button"
-                aria-pressed={tab.id === verdeActiveCategoryId}
-                onClick={() => onVerdeCategorySelect(tab.id)}>
-                <span className="me-2 text-xs opacity-70">{String(index + 1).padStart(2, '0')}</span><bdi>{tab.name}</bdi>
-              </button>
-            ))}
-          </nav>
-        </div>
-        <div className="verde-category-head mt-7"><h2 className="verde-menu-heading" dir="auto"><bdi>{category.name}</bdi></h2>
-          {category.description ? <p className="pb-3 text-sm text-g-text-2" dir="auto">{category.description}</p> : null}
-        </div>
-        {category.products.length ? (
-          <div className="verde-product-wrap">
-            {category.products.map((product) => (
-              <ProductCard key={product.id} product={product} currency={currency}
-                copy={copy} canOrder={canOrder}
-                simpleQuantity={simpleQuantityByProductId.get(product.id) ?? 0}
-                totalQuantity={totalQuantityByProductId.get(product.id) ?? 0}
-                onOpen={onOpen} onQuickAdd={onQuickAdd}
-                onIncrement={onIncrement} onDecrement={onDecrement} />
-            ))}
-          </div>
-        ) : <p className="py-8 text-g-text-2">{copy.noItemsInCategory}</p>}
-      </section>
-    );
     if(layout.cards==='brew'&&brewSettings){
       const promo=brewPromoForCategory(brewSettings,category.id);
       const en=brewLocale!=='ar';

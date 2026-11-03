@@ -204,6 +204,23 @@ export interface PublicMenuCopy {
   itemsSubtotal: string;
   lightMode: string;
   darkMode: string;
+  // Exclusive VERDE menu chrome
+  verdeNavDiscover: string;
+  verdeNavMenu: string;
+  verdeMenuSections: string;
+  verdeViewMode: string;
+  verdeViewPhotos: string;
+  verdeViewQuick: string;
+  verdeThemeSwitch: string;
+  verdeSearchResults: string;
+  verdeSearchEyebrow: string;
+  verdeAcrossMenu: string;
+  verdeItemsCount: (count: number) => string;
+  verdeNoMatchTitle: string;
+  verdeNoMatchText: string;
+  verdeOpenCategory: (name: string) => string;
+  verdeBrandHome: string;
+  verdeHeroPlate: string;
   slideOf: (index: number, count: number) => string;
   orderingMode: string;
   // Final polish: two-step checkout + editing a line
@@ -451,6 +468,22 @@ const EN_COPY: PublicMenuCopy = {
   itemsSubtotal: 'Items subtotal',
   lightMode: 'Light mode',
   darkMode: 'Dark mode',
+  verdeNavDiscover: 'Our picks',
+  verdeNavMenu: 'Explore menu',
+  verdeMenuSections: 'Menu sections',
+  verdeViewMode: 'Menu view',
+  verdeViewPhotos: 'Photos',
+  verdeViewQuick: 'Quick list',
+  verdeThemeSwitch: 'Switch colour theme',
+  verdeSearchResults: 'Search results',
+  verdeSearchEyebrow: 'FIND YOUR FAVORITE',
+  verdeAcrossMenu: 'Across the whole menu',
+  verdeItemsCount: (count) => (count === 1 ? '1 dish' : `${count} dishes`),
+  verdeNoMatchTitle: 'No matching dishes',
+  verdeNoMatchText: 'Try a different search or explore the categories.',
+  verdeOpenCategory: (name) => `Open ${name}`,
+  verdeBrandHome: 'Back to the top',
+  verdeHeroPlate: 'Featured dish',
   slideOf: (index, count) => `Pick ${index} of ${count}`,
   orderingMode: 'How would you like your order?',
   stepOf: (step, total) => `Step ${step} of ${total}`,
@@ -695,6 +728,22 @@ const AR_COPY: PublicMenuCopy = {
   itemsSubtotal: 'إجمالي الأصناف',
   lightMode: 'الوضع الفاتح',
   darkMode: 'الوضع الداكن',
+  verdeNavDiscover: 'اختياراتنا',
+  verdeNavMenu: 'اكتشف المنيو',
+  verdeMenuSections: 'أقسام المنيو',
+  verdeViewMode: 'طريقة العرض',
+  verdeViewPhotos: 'صور',
+  verdeViewQuick: 'سريع',
+  verdeThemeSwitch: 'تغيير ألوان التصميم',
+  verdeSearchResults: 'نتائج البحث',
+  verdeSearchEyebrow: 'ابحث عن المفضل عندك',
+  verdeAcrossMenu: 'في كل أقسام المنيو',
+  verdeItemsCount: (count) => (count === 1 ? 'صنف واحد' : count === 2 ? 'صنفان' : count <= 10 ? `${count} أصناف` : `${count} صنفًا`),
+  verdeNoMatchTitle: 'مفيش أصناف مطابقة',
+  verdeNoMatchText: 'جرب اسم تاني أو امسح البحث وشوف الأقسام.',
+  verdeOpenCategory: (name) => `افتح ${name}`,
+  verdeBrandHome: 'العودة لأعلى الصفحة',
+  verdeHeroPlate: 'طبق مميز',
   slideOf: (index, count) => `اختيار ${index} من ${count}`,
   orderingMode: 'كيف تريد استلام طلبك؟',
   stepOf: (step, total) => `الخطوة ${step} من ${total}`,

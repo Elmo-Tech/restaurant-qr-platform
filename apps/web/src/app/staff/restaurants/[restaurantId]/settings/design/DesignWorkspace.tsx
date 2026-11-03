@@ -19,6 +19,9 @@ import type { MenuTemplateApi } from '../../../../../../lib/public-menu/template
 import { EmberTemplateEditor } from './EmberTemplateEditor';
 import { BloomTemplateEditor } from './BloomTemplateEditor';
 import { BrewTemplateEditor } from './BrewTemplateEditor';
+import { VerdeMenuEditor } from './VerdeMenuEditor';
+import { VERDE_DESIGN_PREVIEW_READY, VERDE_DESIGN_PREVIEW_UPDATE } from '../../../../../../lib/public-menu/verde-preview';
+import type { VerdeMenuSettings } from '../../../../../../lib/public-menu/verde-settings';
 import { EditorialPriceDisplayEditor } from './EditorialPriceDisplayEditor';
 import {BREW_DESIGN_PREVIEW_READY,BREW_DESIGN_PREVIEW_UPDATE,type BrewTemplateSettings} from '../../../../../../lib/public-menu/brew-settings';
 import { EDITORIAL_DESIGN_PREVIEW_READY, EDITORIAL_DESIGN_PREVIEW_UPDATE, type EditorialTemplateSettings } from '../../../../../../lib/public-menu/editorial-settings';
@@ -272,9 +275,17 @@ export function DesignWorkspace({
   const [editorialPreview,setEditorialPreview]=useState<EditorialTemplateSettings|null>(null);
   const [brewPreviewDraft,setBrewPreviewDraft]=useState<BrewTemplateSettings|null>(null);
   const [brewPreviewLanguage,setBrewPreviewLanguage]=useState<'ar'|'en'|null>(null);
+  const [verdePreviewDraft, setVerdePreviewDraft] = useState<VerdeMenuSettings | null>(null);
+  const [verdePreviewLanguage, setVerdePreviewLanguage] = useState<'ar' | 'en' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [exclusiveDesign, setExclusiveDesign] = useState<settingsApi.ExclusiveDesignStatusView | null>(null);
-  const exclusiveActive = exclusiveDesign?.status === 'ACTIVE_BASE' || exclusiveDesign?.status === 'ACTIVE_CUSTOM';
+  // A Platform-activated temporary base design locks the picker; a bespoke design never does (DEC-062).
+  const exclusiveActive = exclusiveDesign?.status === 'ACTIVE_BASE';
+  // The Restaurant owns a bespoke VERDE design: it is one more choice beside the stock templates.
+  const verdeGranted = exclusiveDesign?.status === 'ACTIVE_CUSTOM' && exclusiveDesign.rendererKey === 'VERDE_NAPOLI_V1';
+  const [exclusiveChosen, setExclusiveChosen] = useState(false);
+  const [exclusiveSaved, setExclusiveSaved] = useState(false);
+  const verdeActive = verdeGranted && exclusiveChosen;
 
   useEffect(() => {
     let cancelled = false;
@@ -295,7 +306,13 @@ export function DesignWorkspace({
     if (!canManage) return;
     let cancelled = false;
     settingsApi.getExclusiveDesign(restaurantId)
-      .then((result) => { if (!cancelled) setExclusiveDesign(result); })
+      .then((result) => {
+        if (cancelled) return;
+        setExclusiveDesign(result);
+        const live = result?.status === 'ACTIVE_CUSTOM' && result.rendererKey === 'VERDE_NAPOLI_V1' && result.useExclusive !== false;
+        setExclusiveChosen(live);
+        setExclusiveSaved(live);
+      })
       .catch(() => { /* private status is optional; do not leak errors into stock selection */ });
     return () => { cancelled = true; };
   }, [canManage, restaurantId]);
@@ -305,7 +322,13 @@ export function DesignWorkspace({
   const activePreview = exclusiveActive && exclusiveDesign
     ? exclusiveDesign.baseTemplate
     : selected;
-  const dirty = !exclusiveActive && selected !== saved;
+  const dirty = exclusiveActive
+    ? false
+    : verdeGranted
+      ? exclusiveChosen
+        ? !exclusiveSaved
+        : exclusiveSaved || selected !== saved
+      : selected !== saved;
 
   async function save() {
     if (exclusiveActive) return;
@@ -313,9 +336,16 @@ export function DesignWorkspace({
     setError(null);
     setJustSaved(false);
     try {
-      const result = await settingsApi.updateMenuTemplate(restaurantId, selected);
-      setSaved(result.menuTemplate);
-      setSelected(result.menuTemplate);
+      if (verdeGranted && exclusiveChosen) {
+        await settingsApi.setExclusiveDesignSelection(restaurantId, true);
+        setExclusiveSaved(true);
+      } else {
+        // Saving a stock template also switches guests away from the exclusive design (it stays available).
+        const result = await settingsApi.updateMenuTemplate(restaurantId, selected);
+        setSaved(result.menuTemplate);
+        setSelected(result.menuTemplate);
+        setExclusiveSaved(false);
+      }
       setJustSaved(true);
     } catch (caught) {
       if (isUnauthenticatedError(caught)) {
@@ -328,11 +358,11 @@ export function DesignWorkspace({
     }
   }
 
-  const previewLocale = activePreview === 'EMBER' ? emberPreviewLanguage
+  const previewLocale = verdeActive ? verdePreviewLanguage : activePreview === 'EMBER' ? emberPreviewLanguage
     : activePreview === 'BLOOM' ? bloomPreviewLanguage : activePreview==='BREW'?brewPreviewLanguage:null;
-  const designPreview = activePreview === 'EMBER' || activePreview === 'BLOOM' || activePreview==='BREW' || activePreview==='EDITORIAL';
+  const designPreview = verdeActive || activePreview === 'EMBER' || activePreview === 'BLOOM' || activePreview==='BREW' || activePreview==='EDITORIAL';
   const previewSrc = qrCode
-    ? `/q/${qrCode}?template=${activePreview.toLowerCase()}${designPreview
+    ? `/q/${qrCode}?${verdeActive ? 'template=exclusive' : `template=${activePreview.toLowerCase()}`}${designPreview
         ? `&designPreview=1${previewLocale ? `&lang=${previewLocale}` : ''}`
         : ''}`
     : null;
@@ -362,12 +392,16 @@ export function DesignWorkspace({
                     ? 'design.exclusive.reserved'
                     : exclusiveDesign.status === 'ACTIVE_BASE'
                       ? 'design.exclusive.active'
-                      : 'design.exclusive.disabled',
+                      : exclusiveDesign.status === 'ACTIVE_CUSTOM'
+                        ? 'design.exclusive.custom'
+                        : 'design.exclusive.disabled',
                 )}
               </p>
-              <p className="mt-2 text-sm font-semibold text-primary">
-                {exclusiveDesign.baseTemplate}
-              </p>
+              {exclusiveDesign.status === 'ACTIVE_CUSTOM' ? null : (
+                <p className="mt-2 text-sm font-semibold text-primary">
+                  {exclusiveDesign.baseTemplate}
+                </p>
+              )}
             </div>
           ) : null}
           {error ? <Alert variant="error">{error}</Alert> : null}
@@ -383,6 +417,51 @@ export function DesignWorkspace({
                 {t('design.seePlans')}
               </Link>
             </Alert>
+          ) : null}
+
+          {verdeGranted ? (
+            <div className="space-y-3">
+              <div>
+                <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <span aria-hidden="true" className="text-warning">★</span>
+                  {t('design.exclusive.sectionHeading')}
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">{t('design.exclusive.sectionHint')}</p>
+              </div>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={exclusiveChosen}
+                disabled={!canManage}
+                onClick={() => {
+                  setExclusiveChosen(true);
+                  setJustSaved(false);
+                }}
+                className={`flex w-full min-w-0 flex-col gap-2 rounded-xl border p-3 text-start transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-70 ${
+                  exclusiveChosen ? 'border-primary bg-accent ring-2 ring-primary/40' : 'border-border bg-card hover:border-primary/50'
+                }`}
+              >
+                <span className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2">
+                  <span className="min-w-0 text-sm font-semibold text-foreground">{t('design.exclusive.verdeTitle')}</span>
+                  {exclusiveSaved ? (
+                    <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">{t('design.current')}</span>
+                  ) : exclusiveChosen ? (
+                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">{t('design.previewing')}</span>
+                  ) : null}
+                </span>
+                <span className="text-xs leading-relaxed text-muted-foreground">{t('design.exclusive.verdeHint')}</span>
+              </button>
+              {exclusiveChosen && canManage ? (
+                <div className="flex min-w-0 flex-col gap-3">
+                  <VerdeMenuEditor restaurantId={restaurantId} canManage={canManage}
+                    onDraftChange={setVerdePreviewDraft} onCopyLanguageChange={setVerdePreviewLanguage} />
+                  <div className="flex flex-wrap items-center gap-2">
+                    <Button onClick={() => void save()} disabled={!dirty || isSaving}>{t('design.save')}</Button>
+                    {dirty ? <span className="text-xs text-muted-foreground">{t('design.unsaved')}</span> : null}
+                  </div>
+                </div>
+              ) : null}
+            </div>
           ) : null}
 
           {TIERS.map((tier) => (
@@ -402,7 +481,7 @@ export function DesignWorkspace({
                 className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2"
               >
                 {TEMPLATES.filter((item) => PREMIUM.includes(item.key) === (tier === 'PREMIUM')).map((template) => {
-                  const isSelected = selected === template.key;
+                  const isSelected = !verdeActive && selected === template.key;
                   const locked = !allowedTemplates.includes(template.key);
                   const customizable = template.key === 'EMBER' || template.key === 'BLOOM' ||
                     template.key === 'BREW' || template.key === 'EDITORIAL';
@@ -416,6 +495,7 @@ export function DesignWorkspace({
                         disabled={!canManage || locked || exclusiveActive}
                         onClick={() => {
                           setSelected(template.key);
+                          setExclusiveChosen(false);
                           setCustomizeOpen(true);
                           setJustSaved(false);
                         }}
@@ -430,7 +510,7 @@ export function DesignWorkspace({
                         </span>
                         <span className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2">
                           <span className="min-w-0 text-sm font-semibold text-foreground">{t(template.title)}</span>
-                          {saved === template.key ? (
+                          {saved === template.key && !(verdeGranted && exclusiveSaved) ? (
                             <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">
                               {t('design.current')}
                             </span>
@@ -500,7 +580,9 @@ export function DesignWorkspace({
           src={previewSrc}
           isLoading={qrCode === undefined}
           premiumDraft={
-            activePreview === 'EMBER' && emberPreviewDraft
+            verdeActive && verdePreviewDraft
+              ? { kind: 'verde', settings: verdePreviewDraft }
+              : activePreview === 'EMBER' && emberPreviewDraft
               ? { kind: 'ember', settings: emberPreviewDraft }
               : activePreview === 'BLOOM' && bloomPreviewDraft
                 ? { kind: 'bloom', settings: bloomPreviewDraft }
@@ -522,6 +604,7 @@ const DESKTOP_HEIGHT = 1000;
  * desktop layout is visible without scrolling sideways.
  */
 type PremiumPreviewDraft =
+  | { kind: 'verde'; settings: VerdeMenuSettings }
   | { kind: 'ember'; settings: EmberTemplateSettings }
   | { kind: 'bloom'; settings: BloomTemplateSettings }
   | { kind:'brew';settings:BrewTemplateSettings }
@@ -548,7 +631,7 @@ function PreviewPane({
     if (!src?.includes('designPreview=1') || !premiumDraft) return;
     frameRef.current?.contentWindow?.postMessage(
       {
-        type: premiumDraft.kind === 'ember' ? EMBER_DESIGN_PREVIEW_UPDATE : premiumDraft.kind==='brew'?BREW_DESIGN_PREVIEW_UPDATE:premiumDraft.kind==='editorial'?EDITORIAL_DESIGN_PREVIEW_UPDATE:BLOOM_DESIGN_PREVIEW_UPDATE,
+        type: premiumDraft.kind === 'verde' ? VERDE_DESIGN_PREVIEW_UPDATE : premiumDraft.kind === 'ember' ? EMBER_DESIGN_PREVIEW_UPDATE : premiumDraft.kind==='brew'?BREW_DESIGN_PREVIEW_UPDATE:premiumDraft.kind==='editorial'?EDITORIAL_DESIGN_PREVIEW_UPDATE:BLOOM_DESIGN_PREVIEW_UPDATE,
         settings: premiumDraft.settings,
       },
       window.location.origin,
@@ -566,7 +649,7 @@ function PreviewPane({
           event.source !== frameRef.current?.contentWindow ||
           !event.data || typeof event.data !== 'object' ||
           (event.data as { type?: unknown }).type !== (
-            premiumDraft?.kind === 'bloom' ? BLOOM_DESIGN_PREVIEW_READY : premiumDraft?.kind==='brew'?BREW_DESIGN_PREVIEW_READY:premiumDraft?.kind==='editorial'?EDITORIAL_DESIGN_PREVIEW_READY:EMBER_DESIGN_PREVIEW_READY
+            premiumDraft?.kind === 'verde' ? VERDE_DESIGN_PREVIEW_READY : premiumDraft?.kind === 'bloom' ? BLOOM_DESIGN_PREVIEW_READY : premiumDraft?.kind==='brew'?BREW_DESIGN_PREVIEW_READY:premiumDraft?.kind==='editorial'?EDITORIAL_DESIGN_PREVIEW_READY:EMBER_DESIGN_PREVIEW_READY
           )) return;
       sendPremiumDraft();
     };
@@ -658,7 +741,7 @@ function PreviewPane({
         )}
       </div>
       <p className="text-center text-xs text-muted-foreground">{t(premiumDraft && src?.includes('designPreview=1')
-        ? premiumDraft.kind === 'bloom' ? 'design.bloomPreviewLiveHint' : premiumDraft.kind==='brew'?'design.brewPreviewLiveHint':premiumDraft.kind==='editorial'?'design.editorialPricePreviewHint':'design.emberPreviewLiveHint'
+        ? premiumDraft.kind === 'verde' ? 'design.verdePreviewLiveHint' : premiumDraft.kind === 'bloom' ? 'design.bloomPreviewLiveHint' : premiumDraft.kind==='brew'?'design.brewPreviewLiveHint':premiumDraft.kind==='editorial'?'design.editorialPricePreviewHint':'design.emberPreviewLiveHint'
         : 'design.previewHint')}</p>
     </aside>
   );

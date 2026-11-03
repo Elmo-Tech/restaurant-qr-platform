@@ -89,6 +89,7 @@ If the renderer is unknown, the published schema version is unsupported, or load
 - Staff's full-scope Menu Design view displays a private status card, previews the temporary renderer, and cannot replace the Platform-active selection with an ordinary stock choice. This private card is never shown to other Restaurants.
 - Unit coverage includes `PublicMenuService` tenant-limited base, inactive reservation fallback and generic/table QR, and Platform Admin assignment/audit. Code-level CI does not prove database migration, production readiness or browser UX.
 - **Not implemented:** final unique renderer, versioned config drafts/publish/rollback, direct Staff customization of bespoke configuration, or browser-verified first client design. These remain subsequent owner-approved phases.
+- **Update (DEC-062):** the VERDE renderer, its draft/publish settings (columns on the exclusive design row) and the Staff editor now exist; see `VERDE_EXCLUSIVE_RENDERER_IMPLEMENTATION.md`. Version history/rollback is still not implemented.
 
 ## 7. Safety and review gate
 

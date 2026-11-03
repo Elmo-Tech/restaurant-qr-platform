@@ -822,6 +822,49 @@ describe('Exclusive Menu Design tenant-only base reservation', () => {
     expect(otherRestaurant.data.context.allowedTemplates).toEqual(['CLASSIC']);
   });
 
+  it('returns only the PUBLISHED VERDE appearance, never the draft, and nothing for other tenants', async () => {
+    const heroPath = '/media/1a63c31c-830c-4e40-a501-a82f427cc419.webp';
+    const assigned = await menuFor({
+      exclusiveDesign: {
+        baseTemplate: 'CLASSIC',
+        status: 'ACTIVE_CUSTOM',
+        rendererKey: 'VERDE_NAPOLI_V1',
+        draftSettings: { headlineLineEn: 'DRAFT ONLY COPY' },
+        publishedSettings: { headlineLineEn: 'Published copy', heroImageAssetPath: heroPath },
+      },
+    });
+    expect(assigned.outcome).toBe('found');
+    if (assigned.outcome !== 'found') return;
+    expect(assigned.data.context.restaurant.verdeSettings?.headlineLineEn).toBe('Published copy');
+    expect(assigned.data.context.restaurant.verdeSettings?.heroImageAssetPath).toBe(heroPath);
+    expect(JSON.stringify(assigned.data)).not.toContain('DRAFT ONLY COPY');
+
+    expect(assigned.data.context.restaurant.exclusiveInUse).toBe(true);
+    const chosenStock = await menuFor({
+      exclusiveDesign: { baseTemplate: 'CLASSIC', status: 'ACTIVE_CUSTOM', rendererKey: 'VERDE_NAPOLI_V1', useExclusive: false },
+    });
+    expect(chosenStock.outcome).toBe('found');
+    if (chosenStock.outcome !== 'found') return;
+    expect(chosenStock.data.context.restaurant.exclusiveInUse).toBe(false);
+
+    const other = await menuFor({ exclusiveDesign: null });
+    expect(other.outcome).toBe('found');
+    if (other.outcome !== 'found') return;
+    expect(other.data.context.restaurant.verdeSettings).toBeUndefined();
+
+    const inactive = await menuFor({
+      exclusiveDesign: {
+        baseTemplate: 'CLASSIC',
+        status: 'DISABLED',
+        rendererKey: 'VERDE_NAPOLI_V1',
+        publishedSettings: { headlineLineEn: 'Should stay private' },
+      },
+    });
+    expect(inactive.outcome).toBe('found');
+    if (inactive.outcome !== 'found') return;
+    expect(inactive.data.context.restaurant.verdeSettings).toBeUndefined();
+  });
+
   it.each(['RESERVED', 'ACTIVE_BASE', 'DISABLED'])(
     'does not expose a stored bespoke renderer while its status is %s',
     async (status) => {

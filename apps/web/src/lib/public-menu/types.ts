@@ -1,4 +1,5 @@
 import type { RestaurantContact } from '../contact/types';
+import type { VerdeMenuSettings } from './verde-settings';
 import type { EmberTemplateSettings } from './ember-settings';
 import type { BloomTemplateSettings } from './bloom-settings';
 import type { BrewTemplateSettings } from './brew-settings';
@@ -37,6 +38,10 @@ export interface PublicMenuContext {
     menuTemplate?: string;
     /** Explicit trusted, tenant-scoped Backend assignment. Not a stock template. */
     exclusiveRendererKey?: 'VERDE_NAPOLI_V1';
+    /** Published VERDE appearance (DEC-062); present only with `exclusiveRendererKey`. */
+    verdeSettings?: VerdeMenuSettings;
+    /** The Restaurant shows its exclusive design to guests; false = a stock template (staff choice). */
+    exclusiveInUse?: boolean;
     /** Only published values; available to a package-authorized EMBER preview. */
     emberSettings?: EmberTemplateSettings;
     /** Real restaurant's published BLOOM appearance; preview overrides never stored here. */

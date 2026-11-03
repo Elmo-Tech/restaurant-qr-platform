@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
 import { EntitlementsService } from '../entitlements/entitlements.service';
 import { FeatureNotAvailableError } from '../entitlements/features';
@@ -203,8 +203,26 @@ export class RestaurantProfileService {
   async getExclusiveDesign(restaurantId: string) {
     return this.prisma.restaurantExclusiveDesign.findUnique({
       where: { restaurantId },
-      select: { baseTemplate: true, status: true, rendererKey: true },
+      select: { baseTemplate: true, status: true, rendererKey: true, useExclusive: true },
     });
+  }
+
+  /**
+   * The Restaurant's own choice between its exclusive design and the stock templates. Only an
+   * ACTIVE_CUSTOM assignment (granted by Platform Admin) can be switched; the row is keyed by the
+   * authorized Restaurant, so no other tenant's assignment can be touched.
+   */
+  async setExclusiveDesignSelection(restaurantId: string, useExclusive: boolean): Promise<{ useExclusive: boolean }> {
+    const result = await this.prisma.restaurantExclusiveDesign.updateMany({
+      where: { restaurantId, status: 'ACTIVE_CUSTOM' },
+      data: { useExclusive },
+    });
+    if (result.count === 0) {
+      throw new NotFoundException({
+        error: { code: 'EXCLUSIVE_DESIGN_NOT_AVAILABLE', message: 'This Restaurant has no active exclusive design.' },
+      });
+    }
+    return { useExclusive };
   }
 
   /** The Guest menu template (DEC-044). */
@@ -216,11 +234,19 @@ export class RestaurantProfileService {
     if (menuTemplate !== 'CLASSIC' && !(await this.entitlements.templatesFor(restaurantId)).includes(menuTemplate)) {
       throw new FeatureNotAvailableError('MENU_TEMPLATES');
     }
-    return this.prisma.restaurant.update({
-      where: { id: restaurantId },
-      data: { menuTemplate },
-      select: { menuTemplate: true },
-    });
+    // Choosing a stock template switches guests away from the exclusive design (the Restaurant can switch back).
+    const [updated] = await this.prisma.$transaction([
+      this.prisma.restaurant.update({
+        where: { id: restaurantId },
+        data: { menuTemplate },
+        select: { menuTemplate: true },
+      }),
+      this.prisma.restaurantExclusiveDesign.updateMany({
+        where: { restaurantId, status: 'ACTIVE_CUSTOM' },
+        data: { useExclusive: false },
+      }),
+    ]);
+    return updated;
   }
 
   /**

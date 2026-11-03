@@ -1497,6 +1497,40 @@ edit a template from the console, per-prospect branding.
 
 ---
 
+### DEC-062 — VERDE exclusive menu: rebuilt renderer with draft / publish appearance settings
+
+**Status:** Proposed (implemented on branch `feat/verde-menu-rebuild`; owner browser approval pending).
+Specification: `docs/03-ui-ux/VERDE_EXCLUSIVE_RENDERER_IMPLEMENTATION.md`.
+
+The first VERDE renderer (a skin over the stock menu) did not look like the approved Napoli Club concept. It is replaced by a
+dedicated renderer that reproduces the concept in two themes (light "paper" and dark "signature" green), Arabic RTL and English
+LTR, mobile first. Presentation only: cart, sizes, modifiers, discounts, availability, search, checkout, tracking and tenant
+selection are the shared Guest menu logic, unchanged.
+
+Everything that should change per restaurant is controlled from the dashboard like BREW and BLOOM: private draft, explicit
+publish, live preview, allow-listed copy in both languages, theme default and guest switch, motion, and the photos of the
+sections (top banner, two discover cards, closing banner, and a band photo per category), each with built-in default artwork
+when nothing is uploaded. **Decision:** the settings live in `draft_settings` / `published_settings` /
+`settings_version` columns of the existing `restaurant_exclusive_designs` row, **not** in `restaurant_template_configs`,
+because that table is keyed by the `MenuTemplate` enum and a private renderer must never become a package template
+(DEC exclusive-design contract, section 2 of `EXCLUSIVE_RESTAURANT_MENU_DESIGN_IMPLEMENTATION.md`). Tenant isolation: every
+read and write is keyed by the authorized Restaurant and requires that Restaurant's own VERDE assignment; category ids in a
+payload are filtered to the Restaurant's own categories; the public API returns only the published settings, and only while the
+assignment is `ACTIVE_CUSTOM`.
+
+**The Restaurant keeps its choice of design.** An exclusive design is one more option beside the stock templates, never the
+only one: in Menu design the exclusive design is the first card, and the Restaurant can pick any template its package allows
+and switch back at any time. The choice is the column `restaurant_exclusive_designs.use_exclusive` (default true, so existing
+assignments keep showing); saving a stock template sets it to false, choosing the exclusive design sets it to true
+(`POST /restaurants/:id/exclusive-design/selection`, ACTIVE_CUSTOM only). The public menu returns `exclusiveInUse`; the Web shows
+the exclusive design only when it is in use, or in the staff preview (`?template=exclusive&designPreview=1`), and an allowed
+`?template=` preview of a stock design wins over it. Platform Admin still alone assigns, activates and disables the design.
+
+**Not in scope:** a second bespoke renderer, runtime HTML/CSS upload, version history / rollback beyond draft vs published,
+a Platform-console editor for these settings.
+
+---
+
 ---
 
 ---

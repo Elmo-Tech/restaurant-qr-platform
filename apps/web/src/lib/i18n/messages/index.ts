@@ -6,6 +6,7 @@ import { contactMessages } from './contact';
 import { demoMessages } from './demo';
 import { dashboardMessages } from './dashboard';
 import { designMessages } from './design';
+import { verdeDesignMessages } from './verde-design';
 import { entitlementsMessages } from './entitlements';
 import { hoursMessages } from './hours';
 import { suggestionsMessages } from './suggestions';
@@ -44,6 +45,7 @@ const en = {
   ...contactMessages.en,
   ...dashboardMessages.en,
   ...designMessages.en,
+  ...verdeDesignMessages.en,
   ...entitlementsMessages.en,
   ...hoursMessages.en,
   ...suggestionsMessages.en,
@@ -78,6 +80,7 @@ const ar = {
   ...contactMessages.ar,
   ...dashboardMessages.ar,
   ...designMessages.ar,
+  ...verdeDesignMessages.ar,
   ...entitlementsMessages.ar,
   ...hoursMessages.ar,
   ...suggestionsMessages.ar,

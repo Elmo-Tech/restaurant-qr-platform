@@ -2,6 +2,7 @@ import { Injectable } from '@nestjs/common';
 import { normalizeEmberSettings, type EmberTemplateSettings } from '../restaurants/ember-template-config';
 import { normalizeBloomSettings, type BloomTemplateSettings } from '../restaurants/bloom-template-config';
 import { normalizeBrewSettings, type BrewTemplateSettings } from '../restaurants/brew-template-config';
+import { normalizeVerdeSettings, type VerdeMenuSettings } from '../restaurants/verde-menu-config';
 import { normalizeEditorialSettings, type EditorialTemplateSettings } from '../restaurants/editorial-template-config';
 import {
   DEFAULT_POWERED_BY_URL,
@@ -74,6 +75,10 @@ export interface PublicMenuContext {
     menuTemplate: MenuTemplate;
     /** Tenant-private compiled renderer; never part of the shared package template catalog. */
     exclusiveRendererKey?: 'VERDE_NAPOLI_V1';
+    /** Published VERDE appearance only (DEC-062); the draft is never returned to guests. */
+    verdeSettings?: VerdeMenuSettings;
+    /** The Restaurant shows its exclusive design to guests (staff choice); false = a stock template is shown. */
+    exclusiveInUse?: boolean;
     /** Only published EMBER settings are visible to guests; drafts remain private. */
     emberSettings?: EmberTemplateSettings;
     /** Only published BLOOM settings are returned, never the draft. */
@@ -361,7 +366,15 @@ export class PublicMenuService {
             whatsappOrderingEnabled: true,
             menuTemplate: true,
             suggestionsMode: true,
-            exclusiveDesign: { select: { baseTemplate: true, status: true, rendererKey: true } },
+            exclusiveDesign: {
+              select: {
+                baseTemplate: true,
+                status: true,
+                rendererKey: true,
+                publishedSettings: true,
+                useExclusive: true,
+              },
+            },
             ...CONTACT_COLUMNS,
           },
         },
@@ -891,7 +904,13 @@ export class PublicMenuService {
             currencyCode: qr.restaurant.currencyCode,
             logoAssetPath: qr.restaurant.logoAssetPath,
             coverAssetPath: qr.restaurant.coverAssetPath,
-            ...(exclusiveRendererKey ? { exclusiveRendererKey } : {}),
+            ...(exclusiveRendererKey
+              ? {
+                  exclusiveRendererKey,
+                  verdeSettings: normalizeVerdeSettings(qr.restaurant.exclusiveDesign?.publishedSettings),
+                  exclusiveInUse: qr.restaurant.exclusiveDesign?.useExclusive !== false,
+                }
+              : {}),
             // the saved choice is kept; the Guest sees Classic until the package allows it again (DEC-051)
             menuTemplate:
               exclusiveBase ??

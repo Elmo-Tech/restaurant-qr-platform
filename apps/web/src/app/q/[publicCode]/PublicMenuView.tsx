@@ -69,8 +69,12 @@ import {
 import { GuestHeroEmber } from './GuestHeroEmber';
 import { GuestHeroBloom } from './GuestHeroBloom';
 import { GuestHeroBrew } from './GuestHeroBrew';
-import { VerdeShowcase, VerdeThemeToggle } from './VerdeShowcase';
-import './verde-experience.css';
+import dynamic from 'next/dynamic';
+import { DEFAULT_VERDE_SETTINGS, normalizeVerdeSettings, type VerdeMenuSettings } from '../../../lib/public-menu/verde-settings';
+import { VERDE_DESIGN_PREVIEW_READY, isVerdePreviewUpdate } from '../../../lib/public-menu/verde-preview';
+
+// Loaded on demand: other Restaurants' menus never download the VERDE renderer, its CSS or its fonts.
+const VerdeMenu = dynamic(() => import('./verde/VerdeMenu').then((module) => module.VerdeMenu));
 import {DEFAULT_BREW_SETTINGS,BREW_DESIGN_PREVIEW_READY,isBrewPreviewUpdate,normalizeBrewTemplateSettings,type BrewTemplateSettings} from '../../../lib/public-menu/brew-settings';
 import {DEFAULT_EDITORIAL_SETTINGS, EDITORIAL_DESIGN_PREVIEW_READY, isEditorialPreviewUpdate, normalizeEditorialTemplateSettings,type EditorialTemplateSettings} from '../../../lib/public-menu/editorial-settings';
 import {
@@ -185,6 +189,22 @@ export function PublicMenuView({
   const editorialSettings=designPreview&&template==='editorial'&&editorialLiveDraft
     ? editorialLiveDraft : data.context.restaurant.editorialSettings??DEFAULT_EDITORIAL_SETTINGS;
   const isVerde = exclusiveRendererKey === 'VERDE_NAPOLI_V1';
+  const [verdeLiveDraft, setVerdeLiveDraft] = useState<VerdeMenuSettings | null>(null);
+  useEffect(() => {
+    if (!designPreview || !isVerde || window.parent === window) return;
+    const listen = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== window.parent || !isVerdePreviewUpdate(event.data)) return;
+      setVerdeLiveDraft(normalizeVerdeSettings(event.data.settings));
+    };
+    window.addEventListener('message', listen);
+    window.parent.postMessage({ type: VERDE_DESIGN_PREVIEW_READY }, window.location.origin);
+    return () => window.removeEventListener('message', listen);
+  }, [designPreview, isVerde]);
+  const verdeSettings: VerdeMenuSettings | null = isVerde
+    ? designPreview && verdeLiveDraft
+      ? verdeLiveDraft
+      : (data.context.restaurant.verdeSettings ?? DEFAULT_VERDE_SETTINGS)
+    : null;
   const hasCategories = data.menu.categories.length > 0;
   // Both premium demo references show one category at a time.
   // Search results still span all categories so no matching products disappear.
@@ -1157,179 +1177,8 @@ export function PublicMenuView({
   // Only the classic hero is tall enough for the announcement and order bars to overlap its edge.
   const overlapsHero = layout.hero === 'classic';
 
-  return (
-    <GuestLocaleProvider locale={locale}>
-      <div
-          dir={dir}
-          lang={locale}
-          className={`g-body relative ${isVerde ? 'verde-experience' : ''} ${template === 'ember' ? 'ember-experience' : template === 'bloom' ? 'bloom-experience' : template === 'brew' ? 'brew-experience' : ''}`}
-          data-ember-palette={template === 'ember' ? emberSettings.palette : undefined}
-          data-ember-motion={template === 'ember' ? emberSettings.motion : undefined}
-          data-brew-palette={template==='brew'?brewSettings.palette:undefined}
-          data-brew-motion={template==='brew'?brewSettings.motion:undefined}
-          data-bloom-palette={template === 'bloom' ? bloomSettings.palette : undefined}
-          data-bloom-motion={template === 'bloom' ? bloomSettings.motion : undefined}
-        >
-        {isVerde ? <VerdeShowcase name={data.context.restaurant.name} logoUrl={logoUrl} coverUrl={coverUrl} locale={locale} categoryCount={data.menu.categories.length} /> : null}
-        <div className={isVerde ? 'verde-utility-shell' : ''}><Hero {...heroProps} />{isVerde ? <VerdeThemeToggle locale={locale} /> : null}</div>
-
-        <div className="relative z-20 px-4 lg:px-8">
-          <div className="mx-auto max-w-[1280px]">
-            <div className={`announce-slot ${overlapsHero ? '-mt-7' : 'mt-4'} mb-3 empty:hidden`}>
-              <AnnouncementBar
-                announcements={data.context.announcements ?? []}
-                publicCode={publicCode}
-                copy={copy}
-              />
-            </div>
-            <div
-              className={`${showModeSwitch ? 'flex' : 'hidden lg:flex'} g-shadow ${template === 'ember' ? 'ember-v2-toolbar' : ''} ${overlapsHero ? '-mt-7' : 'mt-4'} [.announce-slot:not(:empty)+&]:mt-0 items-center justify-between gap-4 rounded-[30px] border border-g-line bg-g-surface p-[5px] lg:rounded-[32px] lg:p-2`}
-            >
-              {showModeSwitch ? (
-                <div className="flex min-w-0 flex-1 gap-1 lg:flex-none lg:rounded-[26px] lg:bg-g-surface-2 lg:p-0.5">
-                  <ModeSwitch
-                    variant="hero"
-                    value={fulfillment}
-                    pickupAvailable={pickupAvailable}
-                    deliveryAvailable={deliveryAvailable}
-                    onChange={handleFulfillmentChange}
-                    copy={copy}
-                  />
-                </div>
-              ) : null}
-              <SearchField
-                id="guest-search-desktop"
-                variant="desktop"
-                value={query}
-                onChange={setQuery}
-                placeholder={copy.searchPlaceholder}
-                label={copy.searchMenu}
-                clearLabel={copy.clearSearch}
-                className="hidden max-w-[460px] flex-1 lg:flex"
-              />
-            </div>
-            <SearchField
-              id="guest-search-phone"
-              variant="phone"
-              value={query}
-              onChange={setQuery}
-              placeholder={copy.searchPlaceholder}
-              label={copy.searchMenu}
-              clearLabel={copy.clearSearch}
-              className="mt-5 lg:hidden"
-            />
-            {tableLocked ? (
-              <TableClosedNotice
-                className="mt-4"
-                copy={copy}
-                isChecking={isRecheckingOrdering}
-                status={orderingRecheck}
-                onCheckAgain={() => void checkOrderingAgain()}
-              />
-            ) : orderingRecheck === 'reopened' ? (
-              <p
-                role="status"
-                className="mt-4 rounded-2xl border border-g-line bg-g-surface-2 px-4 py-3 text-[14px] font-semibold text-g-text"
-              >
-                {copy.tableOrderingReopened}
-              </p>
-            ) : null}
-          </div>
-        </div>
-
-        {/* A sticky element only sticks inside its parent: the chips must be a direct child of
-            this page-height root (no short wrapper), or the bar scrolls away with its own box. */}
-        {hasCategories && !isVerde ? (
-          <CategoryChips
-            items={chipItems}
-            activeId={isPremiumSingleCategory ? premiumCategoryId : navigation.activeId}
-            onSelect={isPremiumSingleCategory ? selectPremiumCategory : navigation.select}
-            compact={navigation.compact}
-            onJumpToSearch={handleJumpToSearch}
-            copy={copy}
-            template={template}
-          />
-        ) : null}
-
-        <main
-          id={isPremiumSingleCategory ? 'premium-menu-start' : undefined}
-          className={`scroll-mt-[76px] px-4 pt-5 lg:px-8 lg:pt-7 ${showCartBar ? 'pb-[150px]' : 'pb-16'}`}
-        >
-          <div className="mx-auto flex max-w-[1280px] flex-col gap-[34px] lg:gap-[52px]">
-            {!canOrder ? (
-              <p className="flex items-start gap-3 rounded-[22px] border border-g-line bg-g-surface px-4 py-3.5 text-[14px] leading-[1.7] text-g-text-2">
-                <GuestIconInfo className="mt-0.5 size-5 shrink-0 text-g-accent-text" />
-                {copy.pickupUnavailable}
-              </p>
-            ) : null}
-
-            {isGenericQr && canOrder && data.context.restaurant.hours?.open === false ? (
-              <p className="flex items-start gap-3 rounded-[22px] border border-g-line bg-g-surface px-4 py-3.5 text-[14px] leading-[1.7] text-g-text-2">
-                <GuestIconInfo className="mt-0.5 size-5 shrink-0 text-g-accent-text" />
-                {copy.branchClosedNotice}
-              </p>
-            ) : null}
-
-            {showFeatured ? (
-              <FeaturedBanners
-                products={featuredProducts}
-                currency={currency}
-                copy={copy}
-                canOrder={canOrder}
-                onOpen={handleOpenProduct}
-                onQuickAdd={handleQuickAdd}
-              />
-            ) : null}
-
-            {isSearching && searchResultCount > 0 ? (
-              <p role="status" className="-mb-4 text-sm font-semibold text-g-text-2">
-                {copy.searchResultsCount(searchResultCount)}
-              </p>
-            ) : null}
-
-            <MenuSections
-              categories={premiumVisibleCategories}
-              menuCategoryCount={data.menu.categories.length}
-              currency={currency}
-              copy={copy}
-              canOrder={canOrder}
-              searchQuery={isSearching ? query : ''}
-              simpleQuantityByProductId={simpleQuantityByProductId}
-              totalQuantityByProductId={totalQuantityByProductId}
-              onOpen={handleOpenProduct}
-              onQuickAdd={handleQuickAdd}
-              onIncrement={handleCardIncrement}
-              onDecrement={handleCardDecrement}
-              onClearSearch={handleClearSearch}
-              verdeCategoryTabs={isVerde ? data.menu.categories.map((c) => ({ id: c.id, name: c.name })) : undefined}
-              verdeActiveCategoryId={isVerde ? premiumCategoryId : undefined}
-              onVerdeCategorySelect={isVerde ? selectPremiumCategory : undefined}
-              brewSettings={template==='brew'?brewSettings:undefined}
-              brewLocale={locale}
-              bloomSectionEyebrow={locale === 'ar' ? bloomSettings.sectionEyebrowAr : bloomSettings.sectionEyebrowEn}
-              bloomSectionHeadline={locale === 'ar' ? bloomSettings.sectionHeadlineAr : bloomSettings.sectionHeadlineEn}
-              editorialPriceDisplay={template==='editorial'?editorialSettings.priceDisplay:undefined}
-              template={template}
-            />
-          </div>
-        </main>
-
-        <GuestContact contact={data.context.restaurant.contact} copy={copy} />
-
-        <footer className="flex items-center justify-center gap-2 px-4 pb-28 pt-6 text-[11px] text-muted-foreground">
-          <span>{copy.poweredBy}</span>
-          <a
-            href={
-              data.context.platform?.poweredByUrl ??
-              'https://menu.elmotechsoft.online/'
-            }
-            aria-label="Wayta ويتا"
-            className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-g-accent"
-          >
-            <WaytaLockup tone="auto" size={16} className="[--wayta-ink:currentColor]" />
-          </a>
-        </footer>
-
+  const overlays = (
+    <>
         {isTrackOpen ? (
           <TrackOrderSheet
             publicCode={publicCode}
@@ -1436,6 +1285,260 @@ export function PublicMenuView({
             onConfirm={handleConfirmOptions}
           />
         ) : null}
+    </>
+  );
+  const poweredByLink = data.context.platform?.poweredByUrl ?? 'https://menu.elmotechsoft.online/';
+  const verdePoweredBy = (
+    <>
+      <span>{copy.poweredBy}</span>
+      <a href={poweredByLink} aria-label="Wayta ويتا" className="rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-g-accent">
+        <WaytaLockup tone="auto" size={16} className="[--wayta-ink:currentColor]" />
+      </a>
+    </>
+  );
+  const verdeNotices = (
+    <div className="empty:hidden">
+      <AnnouncementBar announcements={data.context.announcements ?? []} publicCode={publicCode} copy={copy} />
+    </div>
+  );
+  // Pickup / delivery switch and the ordering notices sit under the hero and the ticker, right before the menu.
+  const verdeOrdering = (
+    <>
+      {showModeSwitch ? (
+        <div className="flex min-w-0 gap-1 rounded-[26px] border border-g-line bg-g-surface p-1">
+          <ModeSwitch variant="hero" value={fulfillment} pickupAvailable={pickupAvailable} deliveryAvailable={deliveryAvailable} onChange={handleFulfillmentChange} copy={copy} />
+        </div>
+      ) : null}
+      {tableLocked ? (
+        <TableClosedNotice copy={copy} isChecking={isRecheckingOrdering} status={orderingRecheck} onCheckAgain={() => void checkOrderingAgain()} />
+      ) : orderingRecheck === 'reopened' ? (
+        <p role="status" className="rounded-2xl border border-g-line bg-g-surface-2 px-4 py-3 text-[14px] font-semibold text-g-text">{copy.tableOrderingReopened}</p>
+      ) : null}
+      {!canOrder ? (
+        <p className="flex items-start gap-3 rounded-[22px] border border-g-line bg-g-surface px-4 py-3.5 text-[14px] leading-[1.7] text-g-text-2">
+          <GuestIconInfo className="mt-0.5 size-5 shrink-0 text-g-accent-text" />
+          {copy.pickupUnavailable}
+        </p>
+      ) : null}
+      {isGenericQr && canOrder && data.context.restaurant.hours?.open === false ? (
+        <p className="flex items-start gap-3 rounded-[22px] border border-g-line bg-g-surface px-4 py-3.5 text-[14px] leading-[1.7] text-g-text-2">
+          <GuestIconInfo className="mt-0.5 size-5 shrink-0 text-g-accent-text" />
+          {copy.branchClosedNotice}
+        </p>
+      ) : null}
+    </>
+  );
+
+  return (
+    <GuestLocaleProvider locale={locale}>
+      <div
+          dir={dir}
+          lang={locale}
+          className={`g-body relative ${template === 'ember' ? 'ember-experience' : template === 'bloom' ? 'bloom-experience' : template === 'brew' ? 'brew-experience' : ''}`}
+          data-ember-palette={template === 'ember' ? emberSettings.palette : undefined}
+          data-ember-motion={template === 'ember' ? emberSettings.motion : undefined}
+          data-brew-palette={template==='brew'?brewSettings.palette:undefined}
+          data-brew-motion={template==='brew'?brewSettings.motion:undefined}
+          data-bloom-palette={template === 'bloom' ? bloomSettings.palette : undefined}
+          data-bloom-motion={template === 'bloom' ? bloomSettings.motion : undefined}
+        >
+        {verdeSettings ? (
+          <VerdeMenu
+            settings={verdeSettings}
+            restaurantName={data.context.restaurant.name}
+            logoUrl={logoUrl}
+            locale={locale}
+            availableLocales={data.locale.available}
+            publicCode={publicCode}
+            designPreview={designPreview}
+            copy={copy}
+            currency={currency}
+            categories={data.menu.categories}
+            visibleCategories={visibleCategories}
+            query={query}
+            onQueryChange={setQuery}
+            activeCategoryId={premiumCategoryId}
+            onSelectCategory={selectPremiumCategory}
+            canOrder={canOrder}
+            simpleQuantityByProductId={simpleQuantityByProductId}
+            totalQuantityByProductId={totalQuantityByProductId}
+            onOpenProduct={handleOpenProduct}
+            onQuickAdd={handleQuickAdd}
+            onIncrement={handleCardIncrement}
+            onDecrement={handleCardDecrement}
+            cartCount={cartCount}
+            onOpenCart={canOrder ? () => setIsCartOpen(true) : null}
+            onTrack={trackingAvailable ? openTracking : null}
+            hasActiveOrder={hasActiveOrder}
+            shareCode={data.context.restaurant.shareCode}
+            notices={verdeNotices}
+            orderingBar={verdeOrdering}
+            contact={<GuestContact contact={data.context.restaurant.contact} copy={copy} />}
+            poweredBy={verdePoweredBy}
+          >
+            {overlays}
+          </VerdeMenu>
+        ) : (
+          <>
+        <Hero {...heroProps} />
+
+        <div className="relative z-20 px-4 lg:px-8">
+          <div className="mx-auto max-w-[1280px]">
+            <div className={`announce-slot ${overlapsHero ? '-mt-7' : 'mt-4'} mb-3 empty:hidden`}>
+              <AnnouncementBar
+                announcements={data.context.announcements ?? []}
+                publicCode={publicCode}
+                copy={copy}
+              />
+            </div>
+            <div
+              className={`${showModeSwitch ? 'flex' : 'hidden lg:flex'} g-shadow ${template === 'ember' ? 'ember-v2-toolbar' : ''} ${overlapsHero ? '-mt-7' : 'mt-4'} [.announce-slot:not(:empty)+&]:mt-0 items-center justify-between gap-4 rounded-[30px] border border-g-line bg-g-surface p-[5px] lg:rounded-[32px] lg:p-2`}
+            >
+              {showModeSwitch ? (
+                <div className="flex min-w-0 flex-1 gap-1 lg:flex-none lg:rounded-[26px] lg:bg-g-surface-2 lg:p-0.5">
+                  <ModeSwitch
+                    variant="hero"
+                    value={fulfillment}
+                    pickupAvailable={pickupAvailable}
+                    deliveryAvailable={deliveryAvailable}
+                    onChange={handleFulfillmentChange}
+                    copy={copy}
+                  />
+                </div>
+              ) : null}
+              <SearchField
+                id="guest-search-desktop"
+                variant="desktop"
+                value={query}
+                onChange={setQuery}
+                placeholder={copy.searchPlaceholder}
+                label={copy.searchMenu}
+                clearLabel={copy.clearSearch}
+                className="hidden max-w-[460px] flex-1 lg:flex"
+              />
+            </div>
+            <SearchField
+              id="guest-search-phone"
+              variant="phone"
+              value={query}
+              onChange={setQuery}
+              placeholder={copy.searchPlaceholder}
+              label={copy.searchMenu}
+              clearLabel={copy.clearSearch}
+              className="mt-5 lg:hidden"
+            />
+            {tableLocked ? (
+              <TableClosedNotice
+                className="mt-4"
+                copy={copy}
+                isChecking={isRecheckingOrdering}
+                status={orderingRecheck}
+                onCheckAgain={() => void checkOrderingAgain()}
+              />
+            ) : orderingRecheck === 'reopened' ? (
+              <p
+                role="status"
+                className="mt-4 rounded-2xl border border-g-line bg-g-surface-2 px-4 py-3 text-[14px] font-semibold text-g-text"
+              >
+                {copy.tableOrderingReopened}
+              </p>
+            ) : null}
+          </div>
+        </div>
+
+        {/* A sticky element only sticks inside its parent: the chips must be a direct child of
+            this page-height root (no short wrapper), or the bar scrolls away with its own box. */}
+        {hasCategories ? (
+          <CategoryChips
+            items={chipItems}
+            activeId={isPremiumSingleCategory ? premiumCategoryId : navigation.activeId}
+            onSelect={isPremiumSingleCategory ? selectPremiumCategory : navigation.select}
+            compact={navigation.compact}
+            onJumpToSearch={handleJumpToSearch}
+            copy={copy}
+            template={template}
+          />
+        ) : null}
+
+        <main
+          id={isPremiumSingleCategory ? 'premium-menu-start' : undefined}
+          className={`scroll-mt-[76px] px-4 pt-5 lg:px-8 lg:pt-7 ${showCartBar ? 'pb-[150px]' : 'pb-16'}`}
+        >
+          <div className="mx-auto flex max-w-[1280px] flex-col gap-[34px] lg:gap-[52px]">
+            {!canOrder ? (
+              <p className="flex items-start gap-3 rounded-[22px] border border-g-line bg-g-surface px-4 py-3.5 text-[14px] leading-[1.7] text-g-text-2">
+                <GuestIconInfo className="mt-0.5 size-5 shrink-0 text-g-accent-text" />
+                {copy.pickupUnavailable}
+              </p>
+            ) : null}
+
+            {isGenericQr && canOrder && data.context.restaurant.hours?.open === false ? (
+              <p className="flex items-start gap-3 rounded-[22px] border border-g-line bg-g-surface px-4 py-3.5 text-[14px] leading-[1.7] text-g-text-2">
+                <GuestIconInfo className="mt-0.5 size-5 shrink-0 text-g-accent-text" />
+                {copy.branchClosedNotice}
+              </p>
+            ) : null}
+
+            {showFeatured ? (
+              <FeaturedBanners
+                products={featuredProducts}
+                currency={currency}
+                copy={copy}
+                canOrder={canOrder}
+                onOpen={handleOpenProduct}
+                onQuickAdd={handleQuickAdd}
+              />
+            ) : null}
+
+            {isSearching && searchResultCount > 0 ? (
+              <p role="status" className="-mb-4 text-sm font-semibold text-g-text-2">
+                {copy.searchResultsCount(searchResultCount)}
+              </p>
+            ) : null}
+
+            <MenuSections
+              categories={premiumVisibleCategories}
+              menuCategoryCount={data.menu.categories.length}
+              currency={currency}
+              copy={copy}
+              canOrder={canOrder}
+              searchQuery={isSearching ? query : ''}
+              simpleQuantityByProductId={simpleQuantityByProductId}
+              totalQuantityByProductId={totalQuantityByProductId}
+              onOpen={handleOpenProduct}
+              onQuickAdd={handleQuickAdd}
+              onIncrement={handleCardIncrement}
+              onDecrement={handleCardDecrement}
+              onClearSearch={handleClearSearch}
+              brewSettings={template==='brew'?brewSettings:undefined}
+              brewLocale={locale}
+              bloomSectionEyebrow={locale === 'ar' ? bloomSettings.sectionEyebrowAr : bloomSettings.sectionEyebrowEn}
+              bloomSectionHeadline={locale === 'ar' ? bloomSettings.sectionHeadlineAr : bloomSettings.sectionHeadlineEn}
+              editorialPriceDisplay={template==='editorial'?editorialSettings.priceDisplay:undefined}
+              template={template}
+            />
+          </div>
+        </main>
+
+        <GuestContact contact={data.context.restaurant.contact} copy={copy} />
+
+        <footer className="flex items-center justify-center gap-2 px-4 pb-28 pt-6 text-[11px] text-muted-foreground">
+          <span>{copy.poweredBy}</span>
+          <a
+            href={
+              data.context.platform?.poweredByUrl ??
+              'https://menu.elmotechsoft.online/'
+            }
+            aria-label="Wayta ويتا"
+            className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-g-accent"
+          >
+            <WaytaLockup tone="auto" size={16} className="[--wayta-ink:currentColor]" />
+          </a>
+        </footer>
+
+{overlays}
+          </>
+        )}
       </div>
     </GuestLocaleProvider>
   );

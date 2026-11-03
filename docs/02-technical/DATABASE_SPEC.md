@@ -1831,6 +1831,19 @@ Rollback (before any non-restaurant demo exists): drop the constraint, then the 
 
 ---
 
+# 68N. VERDE menu settings (DEC-062, 2026-11-03)
+
+Migration `20261119090000_verde_menu_settings` (additive). `restaurant_exclusive_designs` gains `draft_settings` and
+`published_settings` (JSONB NOT NULL DEFAULT `'{}'`) and `settings_version` (INTEGER NOT NULL DEFAULT 1). The JSON holds
+only allow-listed copy, enums, category UUID references and server-owned `/media/<uuid>.(jpg|png|webp)` paths; it is normalized
+on every read and write (`apps/api/src/restaurants/verde-menu-config.ts`), so an unknown or invalid value falls back to the
+default. Existing reservations and every other table are untouched; an assignment that was never edited reads as the defaults.
+Migration `20261120090000_exclusive_design_staff_choice` adds `use_exclusive` (BOOLEAN NOT NULL DEFAULT true): the Restaurant's choice
+between its exclusive design and its saved stock template.
+Rollback (before any VERDE restaurant has been edited): drop the four columns.
+
+---
+
 # 69. Variant Price
 
 V1 uses:

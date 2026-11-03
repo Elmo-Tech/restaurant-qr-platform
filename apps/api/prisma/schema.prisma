@@ -424,6 +424,12 @@ model RestaurantExclusiveDesign {
   status       ExclusiveDesignStatus @default(RESERVED)
   // A vetted, compiled renderer key, UNIQUE across Restaurants, never a package template.
   rendererKey  String?              @unique @map("renderer_key") @db.VarChar(80)
+  // Bespoke renderer appearance: draft edits never reach the public menu until published (DEC-062).
+  draftSettings     Json @default("{}") @map("draft_settings")
+  publishedSettings Json @default("{}") @map("published_settings")
+  settingsVersion   Int  @default(1) @map("settings_version")
+  // Staff choice: guests see the exclusive design (true) or the stock template saved on the Restaurant (false).
+  useExclusive      Boolean @default(true) @map("use_exclusive")
   createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz
   updatedAt    DateTime             @updatedAt @map("updated_at") @db.Timestamptz
 

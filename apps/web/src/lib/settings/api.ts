@@ -15,6 +15,7 @@ import {
 import type { MenuTemplateApi } from '../public-menu/templates';
 import {BREW_COPY_KEYS,normalizeBrewTemplateSettings,normalizeBrewTemplateConfigView,type BrewTemplateSettings,type BrewTemplateConfigView} from '../public-menu/brew-settings';
 import {normalizeEditorialTemplateSettings,type EditorialTemplateSettings} from '../public-menu/editorial-settings';
+import {normalizeVerdeSettings,type VerdeMenuSettings,type VerdeImageSlot} from '../public-menu/verde-settings';
 import type { ContactField, RestaurantContact } from '../contact/types';
 import { apiFetch, apiFetchFormData } from '../api/client';
 import type { QrStyle } from '../qr/style';
@@ -96,6 +97,8 @@ export interface ExclusiveDesignStatusView {
   baseTemplate: MenuTemplateApi;
   status: 'RESERVED' | 'ACTIVE_BASE' | 'ACTIVE_CUSTOM' | 'DISABLED';
   rendererKey?: 'VERDE_NAPOLI_V1';
+  /** The Restaurant shows its exclusive design (true) or a stock template (false). */
+  useExclusive?: boolean;
 }
 export async function getExclusiveDesign(
   restaurantId: string,
@@ -103,6 +106,15 @@ export async function getExclusiveDesign(
   const body = await apiFetch<{ data: ExclusiveDesignStatusView | null }>(
     `${restaurantPath(restaurantId)}/exclusive-design`,
   );
+  return body.data;
+}
+
+/** Choose between the Restaurant's exclusive design and the stock templates (guests see the choice at once). */
+export async function setExclusiveDesignSelection(restaurantId: string, useExclusive: boolean): Promise<{ useExclusive: boolean }> {
+  const body = await apiFetch<{ data: { useExclusive: boolean } }>(`${restaurantPath(restaurantId)}/exclusive-design/selection`, {
+    method: 'POST',
+    body: { useExclusive },
+  });
   return body.data;
 }
 
@@ -355,4 +367,55 @@ export async function uploadRestaurantCover(
 
 export async function removeRestaurantCover(restaurantId: string): Promise<void> {
   await apiFetch<undefined>(`${restaurantPath(restaurantId)}/cover`, { method: 'DELETE' });
+}
+
+/** Exclusive VERDE menu (DEC-062): private draft / published appearance, available only to the assigned Restaurant. */
+export interface VerdeMenuConfigView { draft: VerdeMenuSettings; published: VerdeMenuSettings }
+const verdeView = (raw: unknown): VerdeMenuConfigView => {
+  const row = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  return { draft: normalizeVerdeSettings(row.draft), published: normalizeVerdeSettings(row.published) };
+};
+export async function getVerdeMenuConfig(restaurantId: string): Promise<VerdeMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/verde-menu`);
+  return verdeView(x.data);
+}
+/** Image paths are server-owned: they are never sent with the text settings. */
+export async function saveVerdeMenuDraft(restaurantId: string, settings: VerdeMenuSettings): Promise<VerdeMenuConfigView> {
+  const {
+    heroImageAssetPath: _hero, chapter1ImageAssetPath: _c1, chapter2ImageAssetPath: _c2, bannerImageAssetPath: _banner,
+    categoryExtras, ...rest
+  } = normalizeVerdeSettings(settings);
+  void [_hero, _c1, _c2, _banner];
+  const body = {
+    ...rest,
+    categoryExtras: Object.fromEntries(
+      Object.entries(categoryExtras).map(([id, { introAr, introEn, descAr, descEn }]) => [id, { introAr, introEn, descAr, descEn }]),
+    ),
+  };
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/verde-menu/draft`, { method: 'PATCH', body });
+  return verdeView(x.data);
+}
+export async function uploadVerdeImage(restaurantId: string, slot: VerdeImageSlot, file: File): Promise<VerdeMenuConfigView> {
+  const form = new FormData();
+  form.set('image', file);
+  const x = await apiFetchFormData<{ data: unknown }>(`${restaurantPath(restaurantId)}/verde-menu/images/${slot}`, form);
+  return verdeView(x.data);
+}
+export async function resetVerdeImage(restaurantId: string, slot: VerdeImageSlot): Promise<VerdeMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/verde-menu/images/${slot}`, { method: 'DELETE' });
+  return verdeView(x.data);
+}
+export async function uploadVerdeCategoryImage(restaurantId: string, categoryId: string, file: File): Promise<VerdeMenuConfigView> {
+  const form = new FormData();
+  form.set('image', file);
+  const x = await apiFetchFormData<{ data: unknown }>(`${restaurantPath(restaurantId)}/verde-menu/category-images/${categoryId}`, form);
+  return verdeView(x.data);
+}
+export async function resetVerdeCategoryImage(restaurantId: string, categoryId: string): Promise<VerdeMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/verde-menu/category-images/${categoryId}`, { method: 'DELETE' });
+  return verdeView(x.data);
+}
+export async function publishVerdeMenu(restaurantId: string): Promise<VerdeMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/verde-menu/publish`, { method: 'POST' });
+  return verdeView(x.data);
 }

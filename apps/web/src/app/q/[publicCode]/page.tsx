@@ -46,21 +46,31 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
   // The Restaurant's saved template; `?template=` previews another layout (the Staff design picker uses it),
   // but only one the package allows (DEC-043, DEC-051).
   const { allowedTemplates, templatesAllowed } = result.data.context;
+  // The exclusive design is shown when the Restaurant chose it; the staff editor can still preview it
+  // (`?template=exclusive&designPreview=1`) before choosing. A stock template is shown otherwise.
+  const exclusiveKey = result.data.context.restaurant.exclusiveRendererKey;
+  const previewExclusive = Boolean(exclusiveKey) && designPreview === '1' && template?.toLowerCase() === 'exclusive';
+  const stockTemplate = previewExclusive ? undefined : template;
   const previewAllowed =
-    template !== undefined &&
-    (allowedTemplates ? allowedTemplates.includes(template.toUpperCase()) : templatesAllowed !== false);
+    stockTemplate !== undefined &&
+    (allowedTemplates ? allowedTemplates.includes(stockTemplate.toUpperCase()) : templatesAllowed !== false);
+  // An allowed `?template=` (the staff picker previewing a stock design) wins over the exclusive design.
+  const showExclusive =
+    Boolean(exclusiveKey) &&
+    (previewExclusive || (result.data.context.restaurant.exclusiveInUse !== false && !previewAllowed));
   return (
     <PublicMenuView
       data={result.data}
       publicCode={publicCode}
-      exclusiveRendererKey={result.data.context.restaurant.exclusiveRendererKey}
+      exclusiveRendererKey={showExclusive ? exclusiveKey : undefined}
       template={parseMenuTemplate(
-        (previewAllowed ? template : undefined) ?? result.data.context.restaurant.menuTemplate,
+        (previewAllowed ? stockTemplate : undefined) ?? result.data.context.restaurant.menuTemplate,
       )}
       designPreview={Boolean(
         designPreview === '1' &&
-        previewAllowed &&
-        (template?.toUpperCase() === 'EMBER' || template?.toUpperCase() === 'BLOOM' || template?.toUpperCase() === 'BREW' || template?.toUpperCase() === 'EDITORIAL')
+        (showExclusive ||
+          (previewAllowed &&
+            (template?.toUpperCase() === 'EMBER' || template?.toUpperCase() === 'BLOOM' || template?.toUpperCase() === 'BREW' || template?.toUpperCase() === 'EDITORIAL')))
       )}
     />
   );

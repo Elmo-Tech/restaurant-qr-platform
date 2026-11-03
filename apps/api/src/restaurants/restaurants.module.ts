@@ -15,6 +15,8 @@ import { BloomTemplateConfigController } from './bloom-template-config.controlle
 import { BloomTemplateConfigService } from './bloom-template-config.service';
 import { BrewTemplateConfigController } from './brew-template-config.controller';
 import { BrewTemplateConfigService } from './brew-template-config.service';
+import { VerdeMenuConfigController } from './verde-menu-config.controller';
+import { VerdeMenuConfigService } from './verde-menu-config.service';
 import { EditorialTemplateConfigController } from './editorial-template-config.controller';
 import { EditorialTemplateConfigService } from './editorial-template-config.service';
 
@@ -32,7 +34,7 @@ import { EditorialTemplateConfigService } from './editorial-template-config.serv
  */
 @Module({
   imports: [DatabaseModule, AuthModule, StorageModule, EntitlementsModule],
-  controllers: [RestaurantsController, RestaurantProfileController, RestaurantSetupController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController, EditorialTemplateConfigController],
-  providers: [RestaurantLocalesService, RestaurantProfileService, RestaurantSetupService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, EditorialTemplateConfigService],
+  controllers: [RestaurantsController, RestaurantProfileController, RestaurantSetupController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController, EditorialTemplateConfigController, VerdeMenuConfigController],
+  providers: [RestaurantLocalesService, RestaurantProfileService, RestaurantSetupService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, EditorialTemplateConfigService, VerdeMenuConfigService],
 })
 export class RestaurantsModule {}

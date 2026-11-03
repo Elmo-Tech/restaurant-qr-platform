@@ -16,7 +16,7 @@ test('selected design owns its inline settings, no bottom-of-catalogue editor',(
  assert.match(studio,/const expanded = isSelected && customizable && customizeOpen/);
  assert.ok(studio.includes("aria-expanded={customizeOpen}"));
  assert.ok(studio.includes("sm:col-span-2"));
- const catalogue=studio.slice(studio.indexOf('{TIERS.map'),studio.indexOf('const DESKTOP_WIDTH'));
+ const catalogue=studio.slice(studio.indexOf('TIERS.map'),studio.indexOf('const DESKTOP_WIDTH'));
  for(const name of ['EmberTemplateEditor','BloomTemplateEditor','BrewTemplateEditor','EditorialPriceDisplayEditor']){
   assert.ok(catalogue.includes('<'+name));
  }

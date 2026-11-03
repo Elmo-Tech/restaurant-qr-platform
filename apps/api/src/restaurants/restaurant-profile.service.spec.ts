@@ -14,11 +14,14 @@ function buildMocks() {
     .fn()
     .mockResolvedValue({ name: 'Cairo Bites', logoAssetPath: null, coverAssetPath: null });
 
+  const updateMany = jest.fn().mockResolvedValue({ count: 1 });
   const prisma = {
     restaurant: { findUniqueOrThrow, update },
+    restaurantExclusiveDesign: { updateMany },
+    $transaction: (operations: Promise<unknown>[]) => Promise.all(operations),
   };
 
-  return { prisma, findUniqueOrThrow, update };
+  return { prisma, findUniqueOrThrow, update, updateMany };
 }
 
 function buildService(mocks: ReturnType<typeof buildMocks>): RestaurantProfileService {
@@ -329,9 +332,41 @@ describe('RestaurantProfileService.updateMenuTemplate (DEC-051)', () => {
     await expect(service.updateMenuTemplate(RESTAURANT_ID, 'CLASSIC')).resolves.toEqual({ menuTemplate: 'CLASSIC' });
   });
 
+  it('switches guests away from an active exclusive design, for this Restaurant only', async () => {
+    const mocks = buildMocks();
+    mocks.update.mockResolvedValue({ menuTemplate: 'LIST' });
+    await build(mocks).updateMenuTemplate(RESTAURANT_ID, 'LIST');
+    expect(mocks.updateMany).toHaveBeenCalledWith({
+      where: { restaurantId: RESTAURANT_ID, status: 'ACTIVE_CUSTOM' },
+      data: { useExclusive: false },
+    });
+  });
+
   it('refuses a template the package does not allow, and writes nothing', async () => {
     const mocks = buildMocks();
     await expect(build(mocks).updateMenuTemplate(RESTAURANT_ID, 'GALLERY')).rejects.toThrow('FEATURE_NOT_AVAILABLE:MENU_TEMPLATES');
     expect(mocks.update).not.toHaveBeenCalled();
+  });
+});
+
+describe('RestaurantProfileService.setExclusiveDesignSelection', () => {
+  const build = (mocks: ReturnType<typeof buildMocks>) =>
+    new RestaurantProfileService(mocks.prisma as never, ENTITLEMENTS as never);
+
+  it('switches only the authorized Restaurant\'s ACTIVE_CUSTOM assignment', async () => {
+    const mocks = buildMocks();
+    await expect(build(mocks).setExclusiveDesignSelection(RESTAURANT_ID, true)).resolves.toEqual({ useExclusive: true });
+    expect(mocks.updateMany).toHaveBeenCalledWith({
+      where: { restaurantId: RESTAURANT_ID, status: 'ACTIVE_CUSTOM' },
+      data: { useExclusive: true },
+    });
+  });
+
+  it('refuses when the Restaurant has no active exclusive design (nothing to switch)', async () => {
+    const mocks = buildMocks();
+    mocks.updateMany.mockResolvedValue({ count: 0 });
+    await expect(build(mocks).setExclusiveDesignSelection(RESTAURANT_ID, false)).rejects.toMatchObject({
+      response: { error: { code: 'EXCLUSIVE_DESIGN_NOT_AVAILABLE' } },
+    });
   });
 });

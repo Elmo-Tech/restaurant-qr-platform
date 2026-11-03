@@ -33,6 +33,7 @@ import { UpdateContactDto } from './dto/update-contact.dto';
 import { featureNotAvailableException } from '../entitlements/feature-not-available';
 import { FeatureNotAvailableError } from '../entitlements/features';
 import { UpdateMenuTemplateDto } from './dto/update-menu-template.dto';
+import { ExclusiveDesignSelectionDto } from './dto/exclusive-design-selection.dto';
 import { UpdateOrderingOptionsDto } from './dto/update-ordering-options.dto';
 import { UpdateQrStyleDto } from './dto/update-qr-style.dto';
 import type { QrStyle, QrStyleErrorCode } from './qr-style';
@@ -183,6 +184,23 @@ export class RestaurantProfileController {
     return {
       data: await this.restaurantProfileService.getExclusiveDesign(
         request.restaurantAccess.restaurantId,
+      ),
+    };
+  }
+
+  /** The Restaurant chooses whether guests see its exclusive design or a stock template. */
+  @Post('exclusive-design/selection')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.RESTAURANT_MANAGE)
+  async setExclusiveDesignSelection(
+    @Body() dto: ExclusiveDesignSelectionDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ) {
+    return {
+      data: await this.restaurantProfileService.setExclusiveDesignSelection(
+        request.restaurantAccess.restaurantId,
+        dto.useExclusive,
       ),
     };
   }
