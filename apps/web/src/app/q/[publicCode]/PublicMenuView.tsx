@@ -75,6 +75,13 @@ import { VERDE_DESIGN_PREVIEW_READY, isVerdePreviewUpdate } from '../../../lib/p
 
 // Loaded on demand: other Restaurants' menus never download the VERDE renderer, its CSS or its fonts.
 const VerdeMenu = dynamic(() => import('./verde/VerdeMenu').then((module) => module.VerdeMenu));
+import { DEFAULT_SHERBINY_SETTINGS, normalizeSherbinySettings, type SherbinyMenuSettings } from '../../../lib/public-menu/sherbiny-settings';
+import { SHERBINY_DESIGN_PREVIEW_READY, isSherbinyPreviewUpdate } from '../../../lib/public-menu/sherbiny-preview';
+// Same on-demand rule for the El Sherbiny renderer (its CSS and Arabic font stay out of every other menu).
+const SherbinyMenu = dynamic(() => import('./sherbiny/SherbinyMenu').then((module) => module.SherbinyMenu));
+import { DEFAULT_MAKKBOZ_SETTINGS, normalizeMakkbozSettings, type MakkbozMenuSettings } from '../../../lib/public-menu/makkboz-settings';
+import { MAKKBOZ_DESIGN_PREVIEW_READY, isMakkbozPreviewUpdate } from '../../../lib/public-menu/makkboz-preview';
+const MakkbozMenu = dynamic(() => import('./makkboz/MakkbozMenu').then((module) => module.MakkbozMenu));
 import {DEFAULT_BREW_SETTINGS,BREW_DESIGN_PREVIEW_READY,isBrewPreviewUpdate,normalizeBrewTemplateSettings,type BrewTemplateSettings} from '../../../lib/public-menu/brew-settings';
 import {DEFAULT_EDITORIAL_SETTINGS, EDITORIAL_DESIGN_PREVIEW_READY, isEditorialPreviewUpdate, normalizeEditorialTemplateSettings,type EditorialTemplateSettings} from '../../../lib/public-menu/editorial-settings';
 import {
@@ -120,7 +127,7 @@ export function PublicMenuView({
   /** Explicit staff-frame preview flag; the server never returns draft settings. */
   designPreview?: boolean;
   /** Backend-resolved private renderer; must never be selected by public URL. */
-  exclusiveRendererKey?: 'VERDE_NAPOLI_V1';
+  exclusiveRendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
 }) {
   const router = useRouter();
   const locale = data.locale.resolved;
@@ -205,6 +212,40 @@ export function PublicMenuView({
       ? verdeLiveDraft
       : (data.context.restaurant.verdeSettings ?? DEFAULT_VERDE_SETTINGS)
     : null;
+  const isSherbiny = exclusiveRendererKey === 'SHERBINY_FIRE_DOUGH_V1';
+  const [sherbinyLiveDraft, setSherbinyLiveDraft] = useState<SherbinyMenuSettings | null>(null);
+  useEffect(() => {
+    if (!designPreview || !isSherbiny || window.parent === window) return;
+    const listen = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== window.parent || !isSherbinyPreviewUpdate(event.data)) return;
+      setSherbinyLiveDraft(normalizeSherbinySettings(event.data.settings));
+    };
+    window.addEventListener('message', listen);
+    window.parent.postMessage({ type: SHERBINY_DESIGN_PREVIEW_READY }, window.location.origin);
+    return () => window.removeEventListener('message', listen);
+  }, [designPreview, isSherbiny]);
+  const sherbinySettings: SherbinyMenuSettings | null = isSherbiny
+    ? designPreview && sherbinyLiveDraft
+      ? sherbinyLiveDraft
+      : (data.context.restaurant.sherbinySettings ?? DEFAULT_SHERBINY_SETTINGS)
+    : null;
+  const isMakkboz = exclusiveRendererKey === 'MAKKBOZ_HERITAGE_V1';
+  const [makkbozLiveDraft, setMakkbozLiveDraft] = useState<MakkbozMenuSettings | null>(null);
+  useEffect(() => {
+    if (!designPreview || !isMakkboz || window.parent === window) return;
+    const listen = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== window.parent || !isMakkbozPreviewUpdate(event.data)) return;
+      setMakkbozLiveDraft(normalizeMakkbozSettings(event.data.settings));
+    };
+    window.addEventListener('message', listen);
+    window.parent.postMessage({ type: MAKKBOZ_DESIGN_PREVIEW_READY }, window.location.origin);
+    return () => window.removeEventListener('message', listen);
+  }, [designPreview, isMakkboz]);
+  const makkbozSettings: MakkbozMenuSettings | null = isMakkboz
+    ? designPreview && makkbozLiveDraft
+      ? makkbozLiveDraft
+      : (data.context.restaurant.makkbozSettings ?? DEFAULT_MAKKBOZ_SETTINGS)
+    : null;
   const hasCategories = data.menu.categories.length > 0;
   // Both premium demo references show one category at a time.
   // Search results still span all categories so no matching products disappear.
@@ -259,7 +300,7 @@ export function PublicMenuView({
   // The template decides the header, the cards, the headings and the category strip (DEC-044).
   // Photo-free templates show no photos anywhere (cards, cart, product page, featured banners).
   const layout = layoutOf(template);
-  const showPhotos = isVerde || layout.photos;
+  const showPhotos = isVerde || isSherbiny || isMakkboz || layout.photos;
 
   // "Our picks": featured, still available, with a photo (the banner needs one). Photo banners do
   // not exist in the photo-free template; a featured dish still carries its "Featured" tag there.
@@ -300,7 +341,7 @@ export function PublicMenuView({
       }))
       .filter((category) => category.products.length > 0);
   }, [data.menu.categories, isSearching, normalizedQuery, searchIndex]);
-  const isPremiumSingleCategory = isVerde || template === 'ember' || template === 'bloom' || template === 'brew';
+  const isPremiumSingleCategory = isVerde || isSherbiny || isMakkboz || template === 'ember' || template === 'bloom' || template === 'brew';
   const premiumVisibleCategories = isPremiumSingleCategory && !isSearching
     ? visibleCategories.filter((category) => category.id === premiumCategoryId)
     : visibleCategories;
@@ -1161,7 +1202,7 @@ export function PublicMenuView({
     hasActiveOrder,
   };
   const Hero =
-    isVerde ? GuestHeroCompact : layout.hero === 'brew' ? GuestHeroBrew : layout.hero === 'bloom'
+    isVerde || isSherbiny || isMakkboz ? GuestHeroCompact : layout.hero === 'brew' ? GuestHeroBrew : layout.hero === 'bloom'
       ? GuestHeroBloom
       : layout.hero === 'ember'
       ? GuestHeroEmber
@@ -1342,7 +1383,82 @@ export function PublicMenuView({
           data-bloom-palette={template === 'bloom' ? bloomSettings.palette : undefined}
           data-bloom-motion={template === 'bloom' ? bloomSettings.motion : undefined}
         >
-        {verdeSettings ? (
+        {makkbozSettings ? (
+          <MakkbozMenu
+            settings={makkbozSettings}
+            restaurantName={data.context.restaurant.name}
+            logoUrl={logoUrl}
+            locale={locale}
+            availableLocales={data.locale.available}
+            publicCode={publicCode}
+            designPreview={designPreview}
+            copy={copy}
+            currency={currency}
+            categories={data.menu.categories}
+            visibleCategories={visibleCategories}
+            query={query}
+            onQueryChange={setQuery}
+            canOrder={canOrder}
+            simpleQuantityByProductId={simpleQuantityByProductId}
+            totalQuantityByProductId={totalQuantityByProductId}
+            onOpenProduct={handleOpenProduct}
+            onQuickAdd={handleQuickAdd}
+            onIncrement={handleCardIncrement}
+            onDecrement={handleCardDecrement}
+            cartCount={cartCount}
+            onOpenCart={canOrder ? () => setIsCartOpen(true) : null}
+            onTrack={trackingAvailable ? openTracking : null}
+            hasActiveOrder={hasActiveOrder}
+            shareCode={data.context.restaurant.shareCode}
+            contact={data.context.restaurant.contact}
+            locations={data.context.locations ?? []}
+            hours={data.context.restaurant.hours}
+            notices={verdeNotices}
+            orderingBar={verdeOrdering}
+            poweredBy={verdePoweredBy}
+          >
+            {overlays}
+          </MakkbozMenu>
+        ) : sherbinySettings ? (
+          <SherbinyMenu
+            settings={sherbinySettings}
+            restaurantName={data.context.restaurant.name}
+            logoUrl={logoUrl}
+            coverUrl={resolveAssetUrl(data.context.restaurant.coverAssetPath)}
+            locale={locale}
+            availableLocales={data.locale.available}
+            publicCode={publicCode}
+            designPreview={designPreview}
+            copy={copy}
+            currency={currency}
+            categories={data.menu.categories}
+            visibleCategories={visibleCategories}
+            query={query}
+            onQueryChange={setQuery}
+            activeCategoryId={premiumCategoryId}
+            onSelectCategory={selectPremiumCategory}
+            canOrder={canOrder}
+            simpleQuantityByProductId={simpleQuantityByProductId}
+            totalQuantityByProductId={totalQuantityByProductId}
+            onOpenProduct={handleOpenProduct}
+            onQuickAdd={handleQuickAdd}
+            onIncrement={handleCardIncrement}
+            onDecrement={handleCardDecrement}
+            cartCount={cartCount}
+            onOpenCart={canOrder ? () => setIsCartOpen(true) : null}
+            onTrack={trackingAvailable ? openTracking : null}
+            hasActiveOrder={hasActiveOrder}
+            shareCode={data.context.restaurant.shareCode}
+            contact={data.context.restaurant.contact}
+            locations={data.context.locations ?? []}
+            hours={data.context.restaurant.hours}
+            notices={verdeNotices}
+            orderingBar={verdeOrdering}
+            poweredBy={verdePoweredBy}
+          >
+            {overlays}
+          </SherbinyMenu>
+        ) : verdeSettings ? (
           <VerdeMenu
             settings={verdeSettings}
             restaurantName={data.context.restaurant.name}

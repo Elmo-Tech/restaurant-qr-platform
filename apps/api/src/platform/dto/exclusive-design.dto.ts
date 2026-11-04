@@ -11,7 +11,7 @@ export const EXCLUSIVE_DESIGN_STATUSES = [
 export type ExclusiveDesignMode =
   (typeof EXCLUSIVE_DESIGN_STATUSES)[number];
 
-export const VERIFIED_EXCLUSIVE_RENDERERS = ['VERDE_NAPOLI_V1'] as const;
+export const VERIFIED_EXCLUSIVE_RENDERERS = ['VERDE_NAPOLI_V1', 'SHERBINY_FIRE_DOUGH_V1', 'MAKKBOZ_HERITAGE_V1'] as const;
 export type VerifiedExclusiveRenderer = (typeof VERIFIED_EXCLUSIVE_RENDERERS)[number];
 
 export class ExclusiveDesignDto {

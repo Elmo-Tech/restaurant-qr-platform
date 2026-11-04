@@ -1,8 +1,10 @@
 /**
  * Operations CLI: provisions ONE Restaurant (like provision-restaurant.ts) and fills its bilingual menu from a reviewed
  * seed file in `apps/api/seed-data/<seed>/menu.json`: Menu, Categories, Products with their Arabic and English names,
- * sizes (Product Variants), add-ons (Modifier Groups) and, when the file asks for it, the Restaurant's exclusive VERDE
- * design. Onboarding content for a real restaurant, not QA data.
+ * sizes (Product Variants), add-ons and required choices (Modifier Groups), the Branch address and phone, contact numbers,
+ * the logo and the photos in `<seed>/images/` (stored through the same validator and storage the dashboard upload uses)
+ * and, when the file asks for it, the Restaurant's exclusive design (VERDE or El Sherbiny). Onboarding content for a real
+ * restaurant, not QA data.
  *
  * SAFE BY DEFAULT: with no --apply it only validates the seed and prints the plan (zero writes). The owner password is
  * read ONLY from PROVISION_OWNER_PASSWORD (never a command-line argument) and is never printed. Safe to re-run: an
@@ -12,10 +14,15 @@
  *   PowerShell:  $env:PROVISION_OWNER_PASSWORD = '<a strong password>'
  *   npm run seed:restaurant-menu -- --seed verde-napoletana --owner-email owner@example.com
  *   npm run seed:restaurant-menu -- --seed verde-napoletana --owner-email owner@example.com --apply
+ *   npm run seed:restaurant-menu -- --seed el-sherbiny --owner-email owner@example.com --apply
+ *
+ * Photos are written under UPLOAD_LOCAL_DIR (the folder the API serves at /media), so on a server run it with the
+ * API's own UPLOAD_LOCAL_DIR; without --apply nothing is read into storage, only checked.
  *
  * Exit codes: 0 ok / dry-run / nothing to do; 1 invalid input or an identity conflict (nothing written); 2 unexpected error.
  */
 import { readFile } from 'node:fs/promises';
+import { ConfigService } from '@nestjs/config';
 import path from 'node:path';
 import dotenv from 'dotenv';
 import { PrismaPg } from '@prisma/adapter-pg';
@@ -26,11 +33,14 @@ import {
   validateProvisionInput,
   type ProvisioningPrisma,
 } from '../src/provisioning/provision-restaurant';
+import { assertValidImageUpload } from '../src/storage/image-file-validator';
+import { ImageStorageService } from '../src/storage/image-storage.service';
 import {
   menuSeedCounts,
   menuSeedProblems,
   seedMenu,
   type MenuSeed,
+  type SeedAssets,
 } from '../src/provisioning/seed-menu';
 
 dotenv.config({ path: path.resolve(__dirname, '..', '..', '..', '.env') });
@@ -95,6 +105,34 @@ async function main(): Promise<void> {
     return;
   }
 
+  // Every photo the seed names must exist and pass the same checks as a dashboard upload, before anything is written.
+  const imagesDir = path.resolve(__dirname, '..', 'seed-data', seedName, 'images');
+  const named = new Set<string>();
+  if (seed.restaurant.logo) named.add(seed.restaurant.logo);
+  for (const category of seed.categories) {
+    if (category.image) named.add(category.image);
+    for (const product of category.products) if (product.image) named.add(product.image);
+  }
+  const design = seed.restaurant.exclusiveDesign;
+  if (design?.rendererKey === 'SHERBINY_FIRE_DOUGH_V1' || design?.rendererKey === 'MAKKBOZ_HERITAGE_V1')
+    for (const image of Object.values(design.images ?? {})) if (image) named.add(image);
+  const mimeByExtension: Record<string, string> = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
+  const readImage = async (name: string) => {
+    const buffer = await readFile(path.join(imagesDir, name));
+    const file = { originalname: name, mimetype: mimeByExtension[path.extname(name).toLowerCase()] ?? '', size: buffer.length, buffer };
+    assertValidImageUpload(file);
+    return file;
+  };
+  for (const name of named) {
+    try {
+      await readImage(name);
+    } catch {
+      console.error(`The photo "${name}" is missing or is not a valid JPEG / PNG / WebP of at most 5 MB (nothing written).`);
+      process.exitCode = 1;
+      return;
+    }
+  }
+
   const counts = menuSeedCounts(seed);
   console.log(
     `Menu seed "${seedName}" -- mode: ${isApply ? 'APPLY' : 'DRY RUN'}`,
@@ -109,6 +147,7 @@ async function main(): Promise<void> {
   console.log(
     `  Design:      ${seed.restaurant.exclusiveDesign ? `exclusive ${seed.restaurant.exclusiveDesign.rendererKey}` : 'stock template'}`,
   );
+  console.log(`  Photos:      ${named.size} files from seed-data/${seedName}/images`);
   if (!isApply) {
     console.log(
       'DRY RUN complete. Nothing was written. Re-run with --apply to provision and seed.',
@@ -151,8 +190,17 @@ async function main(): Promise<void> {
         : `Already provisioned: ${provisioned.restaurantPublicId}.`,
     );
 
+    const storage = new ImageStorageService(
+      new ConfigService({ UPLOAD_LOCAL_DIR: process.env.UPLOAD_LOCAL_DIR ?? '' }) as never,
+    );
+    const assets: SeedAssets = {
+      store: async (name) => {
+        const file = await readImage(name);
+        return (await storage.saveImage(file.buffer, file.mimetype)).assetPath;
+      },
+    };
     const seeded = await prisma.$transaction(
-      (tx) => seedMenu(tx, restaurant.id, seed),
+      (tx) => seedMenu(tx, restaurant.id, seed, assets),
       {
         timeout: 120_000,
         maxWait: 10_000,
@@ -162,13 +210,15 @@ async function main(): Promise<void> {
       console.log('The Restaurant already has a menu. Nothing was changed.');
     } else {
       console.log(
-        `SEEDED ${seeded.counts.categories} categories, ${seeded.counts.products} products.`,
+        `SEEDED ${seeded.counts.categories} categories, ${seeded.counts.products} products, ${seeded.photos} photos.`,
       );
       if (seeded.exclusiveDesign === 'assigned')
-        console.log('  Exclusive design VERDE assigned and published.');
+        console.log(
+          `  Exclusive design ${seed.restaurant.exclusiveDesign?.rendererKey} assigned and published.`,
+        );
       if (seeded.exclusiveDesign === 'rendererTaken') {
         console.warn(
-          '  WARNING: another Restaurant already holds the VERDE design, so this one keeps a stock template.',
+          '  WARNING: another Restaurant already holds this exclusive design, so this one keeps a stock template.',
         );
         console.warn(
           '  Move it from the Platform console (Restaurants > Exclusive design) if this Restaurant should have it.',

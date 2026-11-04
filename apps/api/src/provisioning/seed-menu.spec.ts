@@ -90,8 +90,9 @@ describe('menuSeedProblems', () => {
 
   it('rejects a design that points at an unknown category', () => {
     const seed = load();
-    if (seed.restaurant.exclusiveDesign)
-      seed.restaurant.exclusiveDesign.chapter2Category = 'nope';
+    const design = seed.restaurant.exclusiveDesign;
+    if (design?.rendererKey === 'VERDE_NAPOLI_V1')
+      design.chapter2Category = 'nope';
     expect(menuSeedProblems(seed)).toEqual([
       'design points at unknown category nope',
     ]);

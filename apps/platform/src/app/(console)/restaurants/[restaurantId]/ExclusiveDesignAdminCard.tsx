@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { Alert, Button, Card, CardHeader, Label, Select } from "@/components/ui";
 import {
+  EXCLUSIVE_RENDERERS,
   PACKAGE_TEMPLATES,
+  type ExclusiveRendererKey,
   setExclusiveDesign,
   type ExclusiveBaseTemplate,
   type ExclusiveDesignStatus,
@@ -27,13 +29,17 @@ export function ExclusiveDesignAdminCard({
   const [status, setStatus] = useState<ExclusiveDesignStatus>(
     current?.status ?? "RESERVED",
   );
+  const [rendererKey, setRendererKey] = useState<ExclusiveRendererKey>(
+    current?.rendererKey ?? "VERDE_NAPOLI_V1",
+  );
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [problem, setProblem] = useState(false);
   const [saved, setSaved] = useState(false);
-  const changed = !current || baseTemplate !== current.baseTemplate || status !== current.status;
+  const changed = !current || baseTemplate !== current.baseTemplate || status !== current.status ||
+    (status === "ACTIVE_CUSTOM" && rendererKey !== current.rendererKey);
   const needsConfirmation = (status === "ACTIVE_BASE" || status === "ACTIVE_CUSTOM") &&
-    (current?.status !== status || current?.baseTemplate !== baseTemplate);
+    (current?.status !== status || current?.baseTemplate !== baseTemplate || current?.rendererKey !== rendererKey);
 
   async function save() {
     if (busy || !changed || (needsConfirmation && !confirmed)) return;
@@ -42,7 +48,7 @@ export function ExclusiveDesignAdminCard({
     setProblem(false);
     try {
       const next = await setExclusiveDesign(restaurantId, { baseTemplate, status,
-      ...(status === "ACTIVE_CUSTOM" ? { rendererKey: "VERDE_NAPOLI_V1" as const } : {}) });
+      ...(status === "ACTIVE_CUSTOM" ? { rendererKey } : {}) });
       onSaved(next);
       setSaved(true);
       setConfirmed(false);
@@ -108,14 +114,33 @@ export function ExclusiveDesignAdminCard({
             >
               <option value="RESERVED">{t("exclusive.reserved")}</option>
               <option value="ACTIVE_BASE">{t("exclusive.active")}</option>
-              <option value="ACTIVE_CUSTOM">VERDE — Napoli Club (exclusive)</option>
+              <option value="ACTIVE_CUSTOM">Bespoke design (exclusive)</option>
               <option value="DISABLED">{t("exclusive.disabled")}</option>
             </Select>
           </div>
         </div>
         {status === "ACTIVE_CUSTOM" ? (
+          <div>
+            <Label htmlFor="exclusive-renderer">Bespoke renderer</Label>
+            <Select
+              id="exclusive-renderer"
+              value={rendererKey}
+              disabled={busy}
+              onChange={(e) => {
+                setRendererKey(e.target.value as ExclusiveRendererKey);
+                setConfirmed(false);
+                setSaved(false);
+              }}
+            >
+              {EXCLUSIVE_RENDERERS.map((renderer) => (
+                <option key={renderer.key} value={renderer.key}>{renderer.label}</option>
+              ))}
+            </Select>
+          </div>
+        ) : null}
+        {status === "ACTIVE_CUSTOM" ? (
           <p className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs leading-6 text-foreground">
-            The bespoke VERDE renderer will be shown only for this Restaurant’s QR. Before activating, verify this is the contracted VERDE tenant and review its live menu. This is not a stock template.
+            The selected bespoke renderer will be shown only for this Restaurant’s QR. Before activating, verify this is the contracted tenant for that design and review its live menu. This is not a stock template.
           </p>
         ) : null}
         {status === "RESERVED" ? (

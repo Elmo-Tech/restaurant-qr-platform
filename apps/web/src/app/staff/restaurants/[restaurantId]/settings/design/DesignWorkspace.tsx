@@ -20,6 +20,12 @@ import { EmberTemplateEditor } from './EmberTemplateEditor';
 import { BloomTemplateEditor } from './BloomTemplateEditor';
 import { BrewTemplateEditor } from './BrewTemplateEditor';
 import { VerdeMenuEditor } from './VerdeMenuEditor';
+import { SherbinyMenuEditor } from './SherbinyMenuEditor';
+import { MakkbozMenuEditor } from './MakkbozMenuEditor';
+import { MAKKBOZ_DESIGN_PREVIEW_READY, MAKKBOZ_DESIGN_PREVIEW_UPDATE } from '../../../../../../lib/public-menu/makkboz-preview';
+import type { MakkbozMenuSettings } from '../../../../../../lib/public-menu/makkboz-settings';
+import { SHERBINY_DESIGN_PREVIEW_READY, SHERBINY_DESIGN_PREVIEW_UPDATE } from '../../../../../../lib/public-menu/sherbiny-preview';
+import type { SherbinyMenuSettings } from '../../../../../../lib/public-menu/sherbiny-settings';
 import { VERDE_DESIGN_PREVIEW_READY, VERDE_DESIGN_PREVIEW_UPDATE } from '../../../../../../lib/public-menu/verde-preview';
 import type { VerdeMenuSettings } from '../../../../../../lib/public-menu/verde-settings';
 import { EditorialPriceDisplayEditor } from './EditorialPriceDisplayEditor';
@@ -277,15 +283,25 @@ export function DesignWorkspace({
   const [brewPreviewLanguage,setBrewPreviewLanguage]=useState<'ar'|'en'|null>(null);
   const [verdePreviewDraft, setVerdePreviewDraft] = useState<VerdeMenuSettings | null>(null);
   const [verdePreviewLanguage, setVerdePreviewLanguage] = useState<'ar' | 'en' | null>(null);
+  const [sherbinyPreviewDraft, setSherbinyPreviewDraft] = useState<SherbinyMenuSettings | null>(null);
+  const [sherbinyPreviewLanguage, setSherbinyPreviewLanguage] = useState<'ar' | 'en' | null>(null);
+  const [makkbozPreviewDraft, setMakkbozPreviewDraft] = useState<MakkbozMenuSettings | null>(null);
+  const [makkbozPreviewLanguage, setMakkbozPreviewLanguage] = useState<'ar' | 'en' | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [exclusiveDesign, setExclusiveDesign] = useState<settingsApi.ExclusiveDesignStatusView | null>(null);
   // A Platform-activated temporary base design locks the picker; a bespoke design never does (DEC-062).
   const exclusiveActive = exclusiveDesign?.status === 'ACTIVE_BASE';
   // The Restaurant owns a bespoke VERDE design: it is one more choice beside the stock templates.
   const verdeGranted = exclusiveDesign?.status === 'ACTIVE_CUSTOM' && exclusiveDesign.rendererKey === 'VERDE_NAPOLI_V1';
+  const sherbinyGranted = exclusiveDesign?.status === 'ACTIVE_CUSTOM' && exclusiveDesign.rendererKey === 'SHERBINY_FIRE_DOUGH_V1';
+  // Whichever bespoke renderer this Restaurant owns, it is one more choice beside the stock templates.
+  const makkbozGranted = exclusiveDesign?.status === 'ACTIVE_CUSTOM' && exclusiveDesign.rendererKey === 'MAKKBOZ_HERITAGE_V1';
+  const exclusiveGranted = verdeGranted || sherbinyGranted || makkbozGranted;
   const [exclusiveChosen, setExclusiveChosen] = useState(false);
   const [exclusiveSaved, setExclusiveSaved] = useState(false);
   const verdeActive = verdeGranted && exclusiveChosen;
+  const sherbinyActive = sherbinyGranted && exclusiveChosen;
+  const makkbozActive = makkbozGranted && exclusiveChosen;
 
   useEffect(() => {
     let cancelled = false;
@@ -309,7 +325,7 @@ export function DesignWorkspace({
       .then((result) => {
         if (cancelled) return;
         setExclusiveDesign(result);
-        const live = result?.status === 'ACTIVE_CUSTOM' && result.rendererKey === 'VERDE_NAPOLI_V1' && result.useExclusive !== false;
+        const live = result?.status === 'ACTIVE_CUSTOM' && (result.rendererKey === 'VERDE_NAPOLI_V1' || result.rendererKey === 'SHERBINY_FIRE_DOUGH_V1' || result.rendererKey === 'MAKKBOZ_HERITAGE_V1') && result.useExclusive !== false;
         setExclusiveChosen(live);
         setExclusiveSaved(live);
       })
@@ -324,7 +340,7 @@ export function DesignWorkspace({
     : selected;
   const dirty = exclusiveActive
     ? false
-    : verdeGranted
+    : exclusiveGranted
       ? exclusiveChosen
         ? !exclusiveSaved
         : exclusiveSaved || selected !== saved
@@ -336,7 +352,7 @@ export function DesignWorkspace({
     setError(null);
     setJustSaved(false);
     try {
-      if (verdeGranted && exclusiveChosen) {
+      if (exclusiveGranted && exclusiveChosen) {
         await settingsApi.setExclusiveDesignSelection(restaurantId, true);
         setExclusiveSaved(true);
       } else {
@@ -358,11 +374,11 @@ export function DesignWorkspace({
     }
   }
 
-  const previewLocale = verdeActive ? verdePreviewLanguage : activePreview === 'EMBER' ? emberPreviewLanguage
+  const previewLocale = verdeActive ? verdePreviewLanguage : sherbinyActive ? sherbinyPreviewLanguage : makkbozActive ? makkbozPreviewLanguage : activePreview === 'EMBER' ? emberPreviewLanguage
     : activePreview === 'BLOOM' ? bloomPreviewLanguage : activePreview==='BREW'?brewPreviewLanguage:null;
-  const designPreview = verdeActive || activePreview === 'EMBER' || activePreview === 'BLOOM' || activePreview==='BREW' || activePreview==='EDITORIAL';
+  const designPreview = verdeActive || sherbinyActive || makkbozActive || activePreview === 'EMBER' || activePreview === 'BLOOM' || activePreview==='BREW' || activePreview==='EDITORIAL';
   const previewSrc = qrCode
-    ? `/q/${qrCode}?${verdeActive ? 'template=exclusive' : `template=${activePreview.toLowerCase()}`}${designPreview
+    ? `/q/${qrCode}?${verdeActive || sherbinyActive || makkbozActive ? 'template=exclusive' : `template=${activePreview.toLowerCase()}`}${designPreview
         ? `&designPreview=1${previewLocale ? `&lang=${previewLocale}` : ''}`
         : ''}`
     : null;
@@ -419,7 +435,7 @@ export function DesignWorkspace({
             </Alert>
           ) : null}
 
-          {verdeGranted ? (
+          {exclusiveGranted ? (
             <div className="space-y-3">
               <div>
                 <h3 className="flex items-center gap-2 text-sm font-semibold text-foreground">
@@ -442,19 +458,27 @@ export function DesignWorkspace({
                 }`}
               >
                 <span className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2">
-                  <span className="min-w-0 text-sm font-semibold text-foreground">{t('design.exclusive.verdeTitle')}</span>
+                  <span className="min-w-0 text-sm font-semibold text-foreground">{t(makkbozGranted ? 'design.exclusive.makkbozTitle' : sherbinyGranted ? 'design.exclusive.sherbinyTitle' : 'design.exclusive.verdeTitle')}</span>
                   {exclusiveSaved ? (
                     <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">{t('design.current')}</span>
                   ) : exclusiveChosen ? (
                     <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[11px] font-semibold text-primary">{t('design.previewing')}</span>
                   ) : null}
                 </span>
-                <span className="text-xs leading-relaxed text-muted-foreground">{t('design.exclusive.verdeHint')}</span>
+                <span className="text-xs leading-relaxed text-muted-foreground">{t(makkbozGranted ? 'design.exclusive.makkbozHint' : sherbinyGranted ? 'design.exclusive.sherbinyHint' : 'design.exclusive.verdeHint')}</span>
               </button>
               {exclusiveChosen && canManage ? (
                 <div className="flex min-w-0 flex-col gap-3">
-                  <VerdeMenuEditor restaurantId={restaurantId} canManage={canManage}
-                    onDraftChange={setVerdePreviewDraft} onCopyLanguageChange={setVerdePreviewLanguage} />
+                  {makkbozGranted ? (
+                    <MakkbozMenuEditor restaurantId={restaurantId} canManage={canManage}
+                      onDraftChange={setMakkbozPreviewDraft} onCopyLanguageChange={setMakkbozPreviewLanguage} />
+                  ) : sherbinyGranted ? (
+                    <SherbinyMenuEditor restaurantId={restaurantId} canManage={canManage}
+                      onDraftChange={setSherbinyPreviewDraft} onCopyLanguageChange={setSherbinyPreviewLanguage} />
+                  ) : (
+                    <VerdeMenuEditor restaurantId={restaurantId} canManage={canManage}
+                      onDraftChange={setVerdePreviewDraft} onCopyLanguageChange={setVerdePreviewLanguage} />
+                  )}
                   <div className="flex flex-wrap items-center gap-2">
                     <Button onClick={() => void save()} disabled={!dirty || isSaving}>{t('design.save')}</Button>
                     {dirty ? <span className="text-xs text-muted-foreground">{t('design.unsaved')}</span> : null}
@@ -481,7 +505,7 @@ export function DesignWorkspace({
                 className="grid grid-cols-1 items-start gap-3 sm:grid-cols-2"
               >
                 {TEMPLATES.filter((item) => PREMIUM.includes(item.key) === (tier === 'PREMIUM')).map((template) => {
-                  const isSelected = !verdeActive && selected === template.key;
+                  const isSelected = !(verdeActive || sherbinyActive || makkbozActive) && selected === template.key;
                   const locked = !allowedTemplates.includes(template.key);
                   const customizable = template.key === 'EMBER' || template.key === 'BLOOM' ||
                     template.key === 'BREW' || template.key === 'EDITORIAL';
@@ -510,7 +534,7 @@ export function DesignWorkspace({
                         </span>
                         <span className="flex w-full min-w-0 flex-wrap items-center justify-between gap-2">
                           <span className="min-w-0 text-sm font-semibold text-foreground">{t(template.title)}</span>
-                          {saved === template.key && !(verdeGranted && exclusiveSaved) ? (
+                          {saved === template.key && !(exclusiveGranted && exclusiveSaved) ? (
                             <span className="rounded-full bg-success/15 px-2 py-0.5 text-[11px] font-semibold text-success">
                               {t('design.current')}
                             </span>
@@ -580,7 +604,11 @@ export function DesignWorkspace({
           src={previewSrc}
           isLoading={qrCode === undefined}
           premiumDraft={
-            verdeActive && verdePreviewDraft
+            makkbozActive && makkbozPreviewDraft
+              ? { kind: 'makkboz', settings: makkbozPreviewDraft }
+              : sherbinyActive && sherbinyPreviewDraft
+              ? { kind: 'sherbiny', settings: sherbinyPreviewDraft }
+              : verdeActive && verdePreviewDraft
               ? { kind: 'verde', settings: verdePreviewDraft }
               : activePreview === 'EMBER' && emberPreviewDraft
               ? { kind: 'ember', settings: emberPreviewDraft }
@@ -605,6 +633,8 @@ const DESKTOP_HEIGHT = 1000;
  */
 type PremiumPreviewDraft =
   | { kind: 'verde'; settings: VerdeMenuSettings }
+  | { kind: 'sherbiny'; settings: SherbinyMenuSettings }
+  | { kind: 'makkboz'; settings: MakkbozMenuSettings }
   | { kind: 'ember'; settings: EmberTemplateSettings }
   | { kind: 'bloom'; settings: BloomTemplateSettings }
   | { kind:'brew';settings:BrewTemplateSettings }
@@ -631,7 +661,7 @@ function PreviewPane({
     if (!src?.includes('designPreview=1') || !premiumDraft) return;
     frameRef.current?.contentWindow?.postMessage(
       {
-        type: premiumDraft.kind === 'verde' ? VERDE_DESIGN_PREVIEW_UPDATE : premiumDraft.kind === 'ember' ? EMBER_DESIGN_PREVIEW_UPDATE : premiumDraft.kind==='brew'?BREW_DESIGN_PREVIEW_UPDATE:premiumDraft.kind==='editorial'?EDITORIAL_DESIGN_PREVIEW_UPDATE:BLOOM_DESIGN_PREVIEW_UPDATE,
+        type: premiumDraft.kind === 'makkboz' ? MAKKBOZ_DESIGN_PREVIEW_UPDATE : premiumDraft.kind === 'sherbiny' ? SHERBINY_DESIGN_PREVIEW_UPDATE : premiumDraft.kind === 'verde' ? VERDE_DESIGN_PREVIEW_UPDATE : premiumDraft.kind === 'ember' ? EMBER_DESIGN_PREVIEW_UPDATE : premiumDraft.kind==='brew'?BREW_DESIGN_PREVIEW_UPDATE:premiumDraft.kind==='editorial'?EDITORIAL_DESIGN_PREVIEW_UPDATE:BLOOM_DESIGN_PREVIEW_UPDATE,
         settings: premiumDraft.settings,
       },
       window.location.origin,
@@ -649,7 +679,7 @@ function PreviewPane({
           event.source !== frameRef.current?.contentWindow ||
           !event.data || typeof event.data !== 'object' ||
           (event.data as { type?: unknown }).type !== (
-            premiumDraft?.kind === 'verde' ? VERDE_DESIGN_PREVIEW_READY : premiumDraft?.kind === 'bloom' ? BLOOM_DESIGN_PREVIEW_READY : premiumDraft?.kind==='brew'?BREW_DESIGN_PREVIEW_READY:premiumDraft?.kind==='editorial'?EDITORIAL_DESIGN_PREVIEW_READY:EMBER_DESIGN_PREVIEW_READY
+            premiumDraft?.kind === 'makkboz' ? MAKKBOZ_DESIGN_PREVIEW_READY : premiumDraft?.kind === 'sherbiny' ? SHERBINY_DESIGN_PREVIEW_READY : premiumDraft?.kind === 'verde' ? VERDE_DESIGN_PREVIEW_READY : premiumDraft?.kind === 'bloom' ? BLOOM_DESIGN_PREVIEW_READY : premiumDraft?.kind==='brew'?BREW_DESIGN_PREVIEW_READY:premiumDraft?.kind==='editorial'?EDITORIAL_DESIGN_PREVIEW_READY:EMBER_DESIGN_PREVIEW_READY
           )) return;
       sendPremiumDraft();
     };
@@ -741,7 +771,7 @@ function PreviewPane({
         )}
       </div>
       <p className="text-center text-xs text-muted-foreground">{t(premiumDraft && src?.includes('designPreview=1')
-        ? premiumDraft.kind === 'verde' ? 'design.verdePreviewLiveHint' : premiumDraft.kind === 'bloom' ? 'design.bloomPreviewLiveHint' : premiumDraft.kind==='brew'?'design.brewPreviewLiveHint':premiumDraft.kind==='editorial'?'design.editorialPricePreviewHint':'design.emberPreviewLiveHint'
+        ? premiumDraft.kind === 'makkboz' || premiumDraft.kind === 'sherbiny' || premiumDraft.kind === 'verde' ? 'design.verdePreviewLiveHint' : premiumDraft.kind === 'bloom' ? 'design.bloomPreviewLiveHint' : premiumDraft.kind==='brew'?'design.brewPreviewLiveHint':premiumDraft.kind==='editorial'?'design.editorialPricePreviewHint':'design.emberPreviewLiveHint'
         : 'design.previewHint')}</p>
     </aside>
   );

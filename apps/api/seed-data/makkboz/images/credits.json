@@ -1,0 +1,16 @@
+{
+  "note": "These photos and the logo come from the restaurant's own printed menu and from the design concept file Makkboz_Menu_Demo_v2.html supplied by the restaurant's designer. They are the client's own material, not stock photos; the owner should confirm the rights and can replace any of them from the dashboard.",
+  "files": {
+    "logo.png": "Restaurant logo (MAKXBOZ), from the concept file",
+    "hero-feteer.webp": "Feteer with butter, from the concept file",
+    "hero-small.webp": "Two wraps, from the concept file",
+    "cat-iskandarani.webp": "Sliced Alexandrian-style feteer, from the concept file",
+    "cat-sharqi.webp": "Oriental feteer pie, from the concept file",
+    "cat-mashaltet.webp": "Meshaltet feteer with butter, from the concept file",
+    "cat-pizza.webp": "Pizza with salami, from the concept file",
+    "cat-malfouf.webp": "Wraps, from the concept file",
+    "cat-crepe-savory.webp": "Box of wraps / crepes, from the concept file",
+    "cat-sweet-feteer.webp": "Sweet feteer with powdered sugar, from the concept file",
+    "cat-calzone.webp": "Calzone-style baked bread, from the concept file"
+  }
+}

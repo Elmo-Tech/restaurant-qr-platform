@@ -479,6 +479,7 @@ describe('PublicMenuService.getPublicMenu', () => {
       ordering: null,
       pickupBranches: null,
       deliveryBranches: null,
+      locations: [],
     });
   });
 
@@ -535,6 +536,7 @@ describe('PublicMenuService.getPublicMenu', () => {
           ],
         },
       ],
+      locations: [],
     });
     // FT-7: only the Restaurant's ACTIVE Branches, only id + display name.
     expect(mock.branchFindMany.mock.calls[0][0]).toMatchObject({
@@ -863,6 +865,87 @@ describe('Exclusive Menu Design tenant-only base reservation', () => {
     expect(inactive.outcome).toBe('found');
     if (inactive.outcome !== 'found') return;
     expect(inactive.data.context.restaurant.verdeSettings).toBeUndefined();
+  });
+
+  it('returns only the PUBLISHED El Sherbiny appearance under its own key, never the draft nor the VERDE settings', async () => {
+    const heroPath = '/media/1a63c31c-830c-4e40-a501-a82f427cc419.webp';
+    const assigned = await menuFor({
+      exclusiveDesign: {
+        baseTemplate: 'CLASSIC',
+        status: 'ACTIVE_CUSTOM',
+        rendererKey: 'SHERBINY_FIRE_DOUGH_V1',
+        draftSettings: { heroTitleEn: 'DRAFT ONLY COPY' },
+        publishedSettings: { heroTitleEn: 'Published copy', heroImageAssetPath: heroPath },
+      },
+    });
+    expect(assigned.outcome).toBe('found');
+    if (assigned.outcome !== 'found') return;
+    const restaurant = assigned.data.context.restaurant;
+    expect(restaurant.exclusiveRendererKey).toBe('SHERBINY_FIRE_DOUGH_V1');
+    expect(restaurant.sherbinySettings?.heroTitleEn).toBe('Published copy');
+    expect(restaurant.sherbinySettings?.heroImageAssetPath).toBe(heroPath);
+    expect(restaurant.verdeSettings).toBeUndefined();
+    expect(JSON.stringify(assigned.data)).not.toContain('DRAFT ONLY COPY');
+    expect(assigned.data.context.allowedTemplates).toEqual(['CLASSIC']);
+
+    const other = await menuFor({ exclusiveDesign: null });
+    expect(other.outcome).toBe('found');
+    if (other.outcome !== 'found') return;
+    expect(other.data.context.restaurant.exclusiveRendererKey).toBeUndefined();
+    expect(other.data.context.restaurant.sherbinySettings).toBeUndefined();
+
+    const unknownKey = await menuFor({
+      exclusiveDesign: { baseTemplate: 'CLASSIC', status: 'ACTIVE_CUSTOM', rendererKey: 'SOMEONE_ELSE_V1' },
+    });
+    expect(unknownKey.outcome).toBe('found');
+    if (unknownKey.outcome !== 'found') return;
+    expect(unknownKey.data.context.restaurant.exclusiveRendererKey).toBeUndefined();
+  });
+
+  it('returns only the PUBLISHED Makkboz appearance under its own key, never the draft nor other designs', async () => {
+    const assigned = await menuFor({
+      exclusiveDesign: {
+        baseTemplate: 'CLASSIC',
+        status: 'ACTIVE_CUSTOM',
+        rendererKey: 'MAKKBOZ_HERITAGE_V1',
+        draftSettings: { heroTitleEn: 'DRAFT ONLY COPY' },
+        publishedSettings: { heroTitleEn: 'Published copy', defaultView: 'LIST' },
+      },
+    });
+    expect(assigned.outcome).toBe('found');
+    if (assigned.outcome !== 'found') return;
+    const restaurant = assigned.data.context.restaurant;
+    expect(restaurant.exclusiveRendererKey).toBe('MAKKBOZ_HERITAGE_V1');
+    expect(restaurant.makkbozSettings?.heroTitleEn).toBe('Published copy');
+    expect(restaurant.makkbozSettings?.defaultView).toBe('LIST');
+    expect(restaurant.sherbinySettings).toBeUndefined();
+    expect(restaurant.verdeSettings).toBeUndefined();
+    expect(JSON.stringify(assigned.data)).not.toContain('DRAFT ONLY COPY');
+
+    const other = await menuFor({ exclusiveDesign: null });
+    expect(other.outcome).toBe('found');
+    if (other.outcome !== 'found') return;
+    expect(other.data.context.restaurant.makkbozSettings).toBeUndefined();
+  });
+
+  it('lists the Branch address and phone only for display, leaving out Branches with neither', async () => {
+    const result = await menuFor({}, 'TABLE');
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    expect(result.data.context.locations).toEqual([]);
+
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue({
+      ...TABLE_QR_ROW,
+      branch: { ...TABLE_QR_ROW.branch, address: ' Aswan ', phone: null },
+    });
+    const svc = new PublicMenuService(mock.prisma as never, limitedEntitlements as never);
+    const withAddress = await svc.getPublicMenu({ publicCode: 'table-qr', explicitLang: null, acceptLanguageHeader: null });
+    expect(withAddress.outcome).toBe('found');
+    if (withAddress.outcome !== 'found') return;
+    expect(withAddress.data.context.locations).toEqual([
+      { name: 'Downtown Branch', address: 'Aswan', phone: null },
+    ]);
   });
 
   it.each(['RESERVED', 'ACTIVE_BASE', 'DISABLED'])(

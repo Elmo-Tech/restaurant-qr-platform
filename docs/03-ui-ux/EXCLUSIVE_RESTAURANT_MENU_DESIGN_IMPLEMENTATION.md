@@ -90,6 +90,7 @@ If the renderer is unknown, the published schema version is unsupported, or load
 - Unit coverage includes `PublicMenuService` tenant-limited base, inactive reservation fallback and generic/table QR, and Platform Admin assignment/audit. Code-level CI does not prove database migration, production readiness or browser UX.
 - **Not implemented:** final unique renderer, versioned config drafts/publish/rollback, direct Staff customization of bespoke configuration, or browser-verified first client design. These remain subsequent owner-approved phases.
 - **Update (DEC-062):** the VERDE renderer, its draft/publish settings (columns on the exclusive design row) and the Staff editor now exist; see `VERDE_EXCLUSIVE_RENDERER_IMPLEMENTATION.md`. Version history/rollback is still not implemented.
+- **Update (DEC-063):** a second compiled renderer, `SHERBINY_FIRE_DOUGH_V1` (El Sherbiny), exists beside VERDE with the same draft / publish model; see `SHERBINY_EXCLUSIVE_RENDERER_IMPLEMENTATION.md`. A third one, `MAKKBOZ_HERITAGE_V1` (DEC-064), follows the same model: `MAKKBOZ_EXCLUSIVE_RENDERER_IMPLEMENTATION.md`.
 
 ## 7. Safety and review gate
 

@@ -1,0 +1,1848 @@
+{
+  "version": 1,
+  "restaurant": {
+    "name": "مطعم الشربيني",
+    "defaultLocale": "ar",
+    "currencyCode": "EGP",
+    "countryCode": "EG",
+    "timezone": "Africa/Cairo",
+    "menuTemplate": "CLASSIC",
+    "logo": "logo.png",
+    "contact": {
+      "phone": "+201278568755",
+      "whatsapp": "+201278568755"
+    },
+    "exclusiveDesign": {
+      "rendererKey": "SHERBINY_FIRE_DOUGH_V1",
+      "brandAr": "الشربيني",
+      "brandEn": "EL SHERBINY",
+      "copy": {
+        "favoriteTag1Ar": "THE CLASSIC",
+        "favoriteTag1En": "THE CLASSIC",
+        "favoriteTag2Ar": "THE HOUSE PICK",
+        "favoriteTag2En": "THE HOUSE PICK"
+      },
+      "images": {
+        "hero": "hero-pizza.webp",
+        "heroPlate": "hero-plate.webp",
+        "favorite2": "hero-plate.webp",
+        "favorite3": "fav-sweet.webp",
+        "story": "story-oven.webp"
+      },
+      "categoryTags": {
+        "pizza": {
+          "ar": "THE PIZZA CHAPTER",
+          "en": "THE PIZZA CHAPTER"
+        },
+        "sharqi": {
+          "ar": "THE ORIENTAL CHAPTER",
+          "en": "THE ORIENTAL CHAPTER"
+        },
+        "savory-crepe": {
+          "ar": "THE SAVORY CHAPTER",
+          "en": "THE SAVORY CHAPTER"
+        },
+        "sweet-crepe": {
+          "ar": "THE SWEET CREPE CHAPTER",
+          "en": "THE SWEET CREPE CHAPTER"
+        },
+        "syrian": {
+          "ar": "THE WRAPS CHAPTER",
+          "en": "THE WRAPS CHAPTER"
+        },
+        "pasta": {
+          "ar": "THE PASTA CHAPTER",
+          "en": "THE PASTA CHAPTER"
+        },
+        "sweet-fiteer": {
+          "ar": "THE GOLDEN SWEETS CHAPTER",
+          "en": "THE GOLDEN SWEETS CHAPTER"
+        },
+        "extras": {
+          "ar": "MAKE IT YOURS",
+          "en": "MAKE IT YOURS"
+        }
+      }
+    }
+  },
+  "branch": {
+    "names": {
+      "ar": "فرع أسوان",
+      "en": "Aswan Branch"
+    },
+    "address": "أسوان، بجوار مبنى المحافظة",
+    "phone": "+201278568755"
+  },
+  "menu": {
+    "nameInternal": "Main menu",
+    "names": {
+      "ar": "المنيو",
+      "en": "Menu"
+    }
+  },
+  "sharedModifierGroups": {
+    "savoryExtras": {
+      "names": {
+        "ar": "إضافات",
+        "en": "Extras"
+      },
+      "helper": {
+        "ar": "اختار اللي تحب تضيفه",
+        "en": "Pick anything you would like to add"
+      },
+      "min": 0,
+      "max": 4,
+      "options": [
+        {
+          "names": {
+            "ar": "لحوم",
+            "en": "Meat"
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "جبنة",
+            "en": "Cheese"
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "خضروات",
+            "en": "Vegetables"
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "صوصات",
+            "en": "Sauces"
+          },
+          "price": "30"
+        }
+      ]
+    }
+  },
+  "categories": [
+    {
+      "key": "pizza",
+      "names": {
+        "ar": "البيتزا الإيطالي",
+        "en": "Italian Pizza"
+      },
+      "descriptions": {
+        "ar": "عجينة وشّها محمّر، واختيارات على مزاجك.",
+        "en": "A golden-baked crust and toppings for every mood."
+      },
+      "image": "cat-pizza.webp",
+      "sharedModifierGroups": [
+        "savoryExtras"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "بيتزا مارجريتا",
+            "en": "Margherita Pizza"
+          },
+          "descriptions": {
+            "ar": "الكلاسيكية الإيطالية: صلصة طماطم وجبنة على عجينة بيتزا محمّرة.",
+            "en": "The Italian classic: tomato sauce and cheese on a golden pizza crust."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "105",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "165",
+              "default": false
+            }
+          ],
+          "image": "cat-pizza.webp"
+        },
+        {
+          "names": {
+            "ar": "بيتزا مكس جبن",
+            "en": "Cheese Mix Pizza"
+          },
+          "descriptions": {
+            "ar": "مزيج من الجبن على عجينة بيتزا محمّرة، لعشاق الجبنة.",
+            "en": "A mix of cheeses on a golden pizza crust, for cheese lovers."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "145",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "210",
+              "default": false
+            }
+          ],
+          "featured": true
+        },
+        {
+          "names": {
+            "ar": "بيتزا فونجي",
+            "en": "Funghi (Mushroom) Pizza"
+          },
+          "descriptions": {
+            "ar": "بيتزا بالمشروم على طريقة الفونجي الإيطالية.",
+            "en": "Mushroom pizza, Italian funghi style."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "130",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "190",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بيتزا تونة قطع",
+            "en": "Chunk Tuna Pizza"
+          },
+          "descriptions": {
+            "ar": "بيتزا بقطع التونة.",
+            "en": "Pizza topped with chunks of tuna."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "145",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "210",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بيتزا سوسيس",
+            "en": "Sausage Pizza"
+          },
+          "descriptions": {
+            "ar": "بيتزا بالسوسيس.",
+            "en": "Pizza topped with sausage."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "130",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "190",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بيتزا سجق بلدي",
+            "en": "Baladi Sujuk Pizza"
+          },
+          "descriptions": {
+            "ar": "بيتزا بالسجق البلدي.",
+            "en": "Pizza topped with baladi sujuk sausage."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "145",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "210",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بيتزا سجق بلدي كيري",
+            "en": "Baladi Sujuk & Kiri Pizza"
+          },
+          "descriptions": {
+            "ar": "السجق البلدي مع جبنة كيري الكريمية.",
+            "en": "Baladi sujuk with creamy Kiri cheese."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "170",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "255",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بيتزا فراخ",
+            "en": "Chicken Pizza"
+          },
+          "descriptions": {
+            "ar": "بيتزا بالفراخ، واختار رانش أو باربيكيو.",
+            "en": "Chicken pizza. Choose ranch or BBQ."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "160",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "240",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "النوع",
+                "en": "Flavor"
+              },
+              "helper": {
+                "ar": "اختار طعم الفراخ",
+                "en": "Pick the chicken flavor"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "رانش",
+                    "en": "Ranch"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "باربيكيو",
+                    "en": "BBQ"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بيتزا لحمة مفروم",
+            "en": "Minced Beef Pizza"
+          },
+          "descriptions": {
+            "ar": "بيتزا باللحمة المفرومة.",
+            "en": "Pizza topped with minced beef."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "145",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "210",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بيتزا بسطرمة كيري",
+            "en": "Pastrami & Kiri Pizza"
+          },
+          "descriptions": {
+            "ar": "البسطرمة مع جبنة كيري الكريمية.",
+            "en": "Pastrami with creamy Kiri cheese."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "170",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "255",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بيتزا لحوم باردة",
+            "en": "Cold Cuts Pizza"
+          },
+          "descriptions": {
+            "ar": "بيتزا بالسلامي أو السموك التركي، اختار اللي تحبه.",
+            "en": "Pizza with salami or smoked turkey, your pick."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "145",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "210",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "النوع",
+                "en": "Type"
+              },
+              "helper": {
+                "ar": "اختار سلامي أو سموك تركي",
+                "en": "Pick salami or smoked turkey"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "سلامي",
+                    "en": "Salami"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "سموك تركي",
+                    "en": "Smoked turkey"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بيتزا سوبريم",
+            "en": "Supreme Pizza"
+          },
+          "descriptions": {
+            "ar": "بيتزا سوبريم: مزيج غني من الإضافات على عجينة محمّرة.",
+            "en": "Supreme pizza: a rich mix of toppings on a golden crust."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "160",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "240",
+              "default": false
+            }
+          ],
+          "image": "hero-pizza.webp"
+        },
+        {
+          "names": {
+            "ar": "بيتزا مكس الشربيني",
+            "en": "El Sherbiny Mix Pizza"
+          },
+          "descriptions": {
+            "ar": "مكس الشربيني الخاص، اختار فراخ أو لحمة.",
+            "en": "The house El Sherbiny mix. Choose chicken or beef."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "170",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "255",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "النوع",
+                "en": "Type"
+              },
+              "helper": {
+                "ar": "اختار فراخ أو لحمة",
+                "en": "Pick chicken or beef"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "فراخ",
+                    "en": "Chicken"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "لحمة",
+                    "en": "Beef"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sharqi",
+      "names": {
+        "ar": "فطير أو بيتزا شرقي",
+        "en": "Oriental Fiteer & Pizza"
+      },
+      "descriptions": {
+        "ar": "طعم شرقي تقيل… والحشوة هي اللي تحكي.",
+        "en": "A rich oriental bake — the filling tells the story."
+      },
+      "image": "cat-sharqi.webp",
+      "sharedModifierGroups": [
+        "savoryExtras"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "فطير مكس جبن",
+            "en": "Oriental Cheese Mix"
+          },
+          "descriptions": {
+            "ar": "فطير شرقي محشو بمزيج من الجبن.",
+            "en": "Oriental fiteer filled with a mix of cheeses."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "رول",
+                "en": "Roll"
+              },
+              "price": "110",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "145",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "216",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فطير هوت دوج",
+            "en": "Oriental Hot Dog"
+          },
+          "descriptions": {
+            "ar": "فطير شرقي بالهوت دوج.",
+            "en": "Oriental fiteer with hot dog."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "رول",
+                "en": "Roll"
+              },
+              "price": "95",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "130",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "190",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فطير سجق بلدي",
+            "en": "Oriental Baladi Sujuk"
+          },
+          "descriptions": {
+            "ar": "فطير شرقي بالسجق البلدي.",
+            "en": "Oriental fiteer with baladi sujuk sausage."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "رول",
+                "en": "Roll"
+              },
+              "price": "110",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "145",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "210",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فطير سجق بلدي كيري",
+            "en": "Oriental Baladi Sujuk & Kiri"
+          },
+          "descriptions": {
+            "ar": "السجق البلدي مع جبنة كيري الكريمية.",
+            "en": "Baladi sujuk with creamy Kiri cheese."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "رول",
+                "en": "Roll"
+              },
+              "price": "130",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "170",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "255",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فطير بسطرمة",
+            "en": "Oriental Pastrami"
+          },
+          "descriptions": {
+            "ar": "فطير شرقي بالبسطرمة.",
+            "en": "Oriental fiteer with pastrami."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "رول",
+                "en": "Roll"
+              },
+              "price": "110",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "145",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "210",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فطير بسطرمة كيري",
+            "en": "Oriental Pastrami & Kiri"
+          },
+          "descriptions": {
+            "ar": "البسطرمة مع جبنة كيري الكريمية.",
+            "en": "Pastrami with creamy Kiri cheese."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "رول",
+                "en": "Roll"
+              },
+              "price": "130",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "170",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "255",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فطير فراخ",
+            "en": "Oriental Chicken"
+          },
+          "descriptions": {
+            "ar": "فطير شرقي بالفراخ، واختار رانش أو باربيكيو.",
+            "en": "Oriental fiteer with chicken. Choose ranch or BBQ."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "رول",
+                "en": "Roll"
+              },
+              "price": "120",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "160",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "240",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "النوع",
+                "en": "Flavor"
+              },
+              "helper": {
+                "ar": "اختار طعم الفراخ",
+                "en": "Pick the chicken flavor"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "رانش",
+                    "en": "Ranch"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "باربيكيو",
+                    "en": "BBQ"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فطير لحمة مفروم",
+            "en": "Oriental Minced Beef"
+          },
+          "descriptions": {
+            "ar": "فطير شرقي باللحمة المفرومة.",
+            "en": "Oriental fiteer with minced beef."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "رول",
+                "en": "Roll"
+              },
+              "price": "110",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "145",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "210",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فطير تونة",
+            "en": "Oriental Tuna"
+          },
+          "descriptions": {
+            "ar": "فطير شرقي بالتونة (متاح وسط وكبير).",
+            "en": "Oriental fiteer with tuna (medium and large only)."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "145",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "210",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فطير مكس الشربيني",
+            "en": "Oriental El Sherbiny Mix"
+          },
+          "descriptions": {
+            "ar": "مكس الشربيني الخاص، اختار فراخ أو لحمة.",
+            "en": "The house El Sherbiny mix. Choose chicken or beef."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "رول",
+                "en": "Roll"
+              },
+              "price": "130",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "وسط (M)",
+                "en": "Medium (M)"
+              },
+              "price": "170",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كبير (L)",
+                "en": "Large (L)"
+              },
+              "price": "255",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "النوع",
+                "en": "Type"
+              },
+              "helper": {
+                "ar": "اختار فراخ أو لحمة",
+                "en": "Pick chicken or beef"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "فراخ",
+                    "en": "Chicken"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "لحمة",
+                    "en": "Beef"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "savory-crepe",
+      "names": {
+        "ar": "كريب حادق",
+        "en": "Savory Crêpes"
+      },
+      "descriptions": {
+        "ar": "حشو سخن وقرمشة تفتح النفس.",
+        "en": "A hot filling and a crisp bite."
+      },
+      "image": "cat-crepe-savory.webp",
+      "sharedModifierGroups": [
+        "savoryExtras"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "كريب بطاطس",
+            "en": "Fries Crêpe"
+          },
+          "descriptions": {
+            "ar": "كريب سخن محشو بالبطاطس.",
+            "en": "A hot crêpe filled with fries."
+          },
+          "price": "70"
+        },
+        {
+          "names": {
+            "ar": "كريب بانية ناجتس",
+            "en": "Breaded Nuggets Crêpe"
+          },
+          "descriptions": {
+            "ar": "كريب محشو بقطع الناجتس المقرمشة.",
+            "en": "A crêpe filled with crispy breaded nuggets."
+          },
+          "price": "90"
+        },
+        {
+          "names": {
+            "ar": "كريب أستربس",
+            "en": "Strips Crêpe"
+          },
+          "descriptions": {
+            "ar": "كريب محشو بأصابع الفراخ (أستربس).",
+            "en": "A crêpe filled with chicken strips."
+          },
+          "price": "120"
+        },
+        {
+          "names": {
+            "ar": "كريب شاورما",
+            "en": "Shawarma Crêpe"
+          },
+          "descriptions": {
+            "ar": "كريب محشو بالشاورما.",
+            "en": "A crêpe filled with shawarma."
+          },
+          "price": "110"
+        },
+        {
+          "names": {
+            "ar": "كريب بطاطس بالجبنة",
+            "en": "Cheesy Fries Crêpe"
+          },
+          "descriptions": {
+            "ar": "بطاطس بالجبنة داخل كريب سخن. اختار شيدر أو موزاريلا.",
+            "en": "Cheesy fries in a hot crêpe. Choose cheddar or mozzarella."
+          },
+          "price": "125",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "نوع الجبنة",
+                "en": "Cheese"
+              },
+              "helper": {
+                "ar": "اختار نوع الجبنة",
+                "en": "Pick the cheese"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "شيدر",
+                    "en": "Cheddar"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "موزاريلا",
+                    "en": "Mozzarella"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كريب سجق",
+            "en": "Sujuk Crêpe"
+          },
+          "descriptions": {
+            "ar": "كريب محشو بالسجق.",
+            "en": "A crêpe filled with sujuk sausage."
+          },
+          "price": "125"
+        },
+        {
+          "names": {
+            "ar": "كريب شيش",
+            "en": "Shish Crêpe"
+          },
+          "descriptions": {
+            "ar": "كريب محشو بالشيش.",
+            "en": "A crêpe filled with shish chicken."
+          },
+          "price": "95"
+        },
+        {
+          "names": {
+            "ar": "كريب برجر",
+            "en": "Burger Crêpe"
+          },
+          "descriptions": {
+            "ar": "كريب محشو بالبرجر.",
+            "en": "A crêpe filled with burger."
+          },
+          "price": "140"
+        },
+        {
+          "names": {
+            "ar": "كريب سوسيس",
+            "en": "Sausage Crêpe"
+          },
+          "descriptions": {
+            "ar": "كريب محشو بالسوسيس.",
+            "en": "A crêpe filled with sausage."
+          },
+          "price": "150"
+        },
+        {
+          "names": {
+            "ar": "كريب فاهيتا",
+            "en": "Fajita Crêpe"
+          },
+          "descriptions": {
+            "ar": "كريب محشو بالفاهيتا.",
+            "en": "A crêpe filled with fajita."
+          },
+          "price": "150"
+        },
+        {
+          "names": {
+            "ar": "كريب مكس الشربيني",
+            "en": "El Sherbiny Mix Crêpe"
+          },
+          "descriptions": {
+            "ar": "مكس الشربيني الخاص داخل كريب سخن، اختار فراخ أو لحمة.",
+            "en": "The house El Sherbiny mix in a hot crêpe. Choose chicken or beef."
+          },
+          "price": "150",
+          "featured": true,
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "النوع",
+                "en": "Type"
+              },
+              "helper": {
+                "ar": "اختار فراخ أو لحمة",
+                "en": "Pick chicken or beef"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "فراخ",
+                    "en": "Chicken"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "لحمة",
+                    "en": "Beef"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "sweet-crepe",
+      "names": {
+        "ar": "كريب حلو",
+        "en": "Sweet Crêpes"
+      },
+      "descriptions": {
+        "ar": "لما يبقى المزاج محتاج حاجة حلوة.",
+        "en": "For when your mood needs something sweet."
+      },
+      "image": "cat-crepe-sweet.webp",
+      "products": [
+        {
+          "names": {
+            "ar": "كريب شوكولاتة",
+            "en": "Chocolate Crêpe"
+          },
+          "descriptions": {
+            "ar": "كريب بالشوكولاتة، اختار نوتيلا أو وايت شوكليت.",
+            "en": "A chocolate crêpe. Choose Nutella or white chocolate."
+          },
+          "price": "90",
+          "featured": true,
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "الصوص",
+                "en": "Spread"
+              },
+              "helper": {
+                "ar": "اختار نوتيلا أو وايت شوكليت",
+                "en": "Pick Nutella or white chocolate"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "نوتيلا",
+                    "en": "Nutella"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "وايت شوكليت",
+                    "en": "White chocolate"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كريب بالبسكويت",
+            "en": "Biscuit Crêpe"
+          },
+          "descriptions": {
+            "ar": "كريب بالبسكويت، اختار لوتس أو أوريو.",
+            "en": "A biscuit crêpe. Choose Lotus or Oreo."
+          },
+          "price": "90",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "النوع",
+                "en": "Biscuit"
+              },
+              "helper": {
+                "ar": "اختار لوتس أو أوريو",
+                "en": "Pick Lotus or Oreo"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "لوتس",
+                    "en": "Lotus"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "أوريو",
+                    "en": "Oreo"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كريب مكس نوتيلا وموز",
+            "en": "Nutella & Banana Mix Crêpe"
+          },
+          "descriptions": {
+            "ar": "نوتيلا مع شرائح الموز داخل كريب سخن.",
+            "en": "Nutella with sliced banana in a hot crêpe."
+          },
+          "price": "110"
+        },
+        {
+          "names": {
+            "ar": "كريب بستاشيو",
+            "en": "Pistachio Crêpe"
+          },
+          "descriptions": {
+            "ar": "كريب بالبستاشيو.",
+            "en": "A pistachio crêpe."
+          },
+          "price": "150"
+        }
+      ]
+    },
+    {
+      "key": "syrian",
+      "names": {
+        "ar": "سوري",
+        "en": "Syrian Wraps"
+      },
+      "descriptions": {
+        "ar": "ساندوتشات على السريع وطعمها يعيش.",
+        "en": "Quick wraps with a taste that stays."
+      },
+      "image": "cat-syrian.webp",
+      "sharedModifierGroups": [
+        "savoryExtras"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "سوري بطاطس",
+            "en": "Fries Wrap"
+          },
+          "descriptions": {
+            "ar": "ساندوتش سوري بالبطاطس.",
+            "en": "A Syrian-style wrap with fries."
+          },
+          "price": "30"
+        },
+        {
+          "names": {
+            "ar": "سوري بانية ناجتس",
+            "en": "Breaded Nuggets Wrap"
+          },
+          "descriptions": {
+            "ar": "ساندوتش سوري بقطع الناجتس المقرمشة.",
+            "en": "A Syrian-style wrap with crispy breaded nuggets."
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "سوري أستربس",
+            "en": "Strips Wrap"
+          },
+          "descriptions": {
+            "ar": "ساندوتش سوري بأصابع الفراخ (أستربس).",
+            "en": "A Syrian-style wrap with chicken strips."
+          },
+          "price": "90"
+        },
+        {
+          "names": {
+            "ar": "سوري شاورما",
+            "en": "Shawarma Wrap"
+          },
+          "descriptions": {
+            "ar": "ساندوتش سوري بالشاورما.",
+            "en": "A Syrian-style shawarma wrap."
+          },
+          "price": "90",
+          "image": "hero-plate.webp"
+        },
+        {
+          "names": {
+            "ar": "سوري بطاطس بالجبنة",
+            "en": "Cheesy Fries Wrap"
+          },
+          "descriptions": {
+            "ar": "ساندوتش سوري ببطاطس بالجبنة. اختار شيدر أو موزاريلا.",
+            "en": "A Syrian-style wrap with cheesy fries. Choose cheddar or mozzarella."
+          },
+          "price": "50",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "نوع الجبنة",
+                "en": "Cheese"
+              },
+              "helper": {
+                "ar": "اختار نوع الجبنة",
+                "en": "Pick the cheese"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "شيدر",
+                    "en": "Cheddar"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "موزاريلا",
+                    "en": "Mozzarella"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "pasta",
+      "names": {
+        "ar": "مكرونات",
+        "en": "Pasta"
+      },
+      "descriptions": {
+        "ar": "صوص وجبنة ودلع في كل شوكة.",
+        "en": "Sauce, cheese and comfort in every forkful."
+      },
+      "image": "cat-pasta.webp",
+      "sharedModifierGroups": [
+        "savoryExtras"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "مكرونة نجرسكو فراخ ماشروم",
+            "en": "Chicken & Mushroom Negresco Pasta"
+          },
+          "descriptions": {
+            "ar": "مكرونة نجرسكو بالفراخ والماشروم.",
+            "en": "Negresco pasta with chicken and mushrooms."
+          },
+          "price": "140"
+        },
+        {
+          "names": {
+            "ar": "مكرونة سجق",
+            "en": "Sujuk Pasta"
+          },
+          "descriptions": {
+            "ar": "مكرونة بالسجق.",
+            "en": "Pasta with sujuk sausage."
+          },
+          "price": "130"
+        },
+        {
+          "names": {
+            "ar": "مكرونة لحمة",
+            "en": "Beef Pasta"
+          },
+          "descriptions": {
+            "ar": "مكرونة باللحمة.",
+            "en": "Pasta with beef."
+          },
+          "price": "130"
+        },
+        {
+          "names": {
+            "ar": "مكرونة مكس الشربيني",
+            "en": "El Sherbiny Mix Pasta"
+          },
+          "descriptions": {
+            "ar": "مكس الشربيني الخاص على المكرونة، اختار فراخ أو لحمة.",
+            "en": "The house El Sherbiny mix on pasta. Choose chicken or beef."
+          },
+          "price": "150",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "النوع",
+                "en": "Type"
+              },
+              "helper": {
+                "ar": "اختار فراخ أو لحمة",
+                "en": "Pick chicken or beef"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "فراخ",
+                    "en": "Chicken"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "لحمة",
+                    "en": "Beef"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "مكرونة مكس جبن",
+            "en": "Cheese Mix Pasta"
+          },
+          "descriptions": {
+            "ar": "مكرونة بمزيج من الجبن.",
+            "en": "Pasta with a mix of cheeses."
+          },
+          "price": "140"
+        }
+      ]
+    },
+    {
+      "key": "sweet-fiteer",
+      "names": {
+        "ar": "الفطير الحلو",
+        "en": "Sweet Fiteer"
+      },
+      "descriptions": {
+        "ar": "عجينة ذهبية وحلاوة تكمل المزاج.",
+        "en": "Golden layered dough and a sweet finish."
+      },
+      "image": "cat-feteer-sweet.webp",
+      "products": [
+        {
+          "names": {
+            "ar": "فطير سكر ولبن",
+            "en": "Sugar & Milk Fiteer"
+          },
+          "descriptions": {
+            "ar": "فطير حلو بالسكر واللبن.",
+            "en": "Sweet fiteer with sugar and milk."
+          },
+          "price": "80"
+        },
+        {
+          "names": {
+            "ar": "فطير كاستر",
+            "en": "Custard Fiteer"
+          },
+          "descriptions": {
+            "ar": "فطير حلو بالكاستر.",
+            "en": "Sweet fiteer with custard."
+          },
+          "price": "80"
+        },
+        {
+          "names": {
+            "ar": "فطير قشطة وعسل",
+            "en": "Cream & Honey Fiteer"
+          },
+          "descriptions": {
+            "ar": "فطير حلو بالقشطة والعسل.",
+            "en": "Sweet fiteer with cream and honey."
+          },
+          "price": "120"
+        },
+        {
+          "names": {
+            "ar": "فطير حلاوة بالقشطة",
+            "en": "Halawa & Cream Fiteer"
+          },
+          "descriptions": {
+            "ar": "فطير حلو بالحلاوة والقشطة.",
+            "en": "Sweet fiteer with halawa and cream."
+          },
+          "price": "120"
+        },
+        {
+          "names": {
+            "ar": "فطير بسبوسة وكنافة",
+            "en": "Basbousa & Kunafa Fiteer"
+          },
+          "descriptions": {
+            "ar": "فطير حلو بالبسبوسة والكنافة.",
+            "en": "Sweet fiteer with basbousa and kunafa."
+          },
+          "price": "150"
+        },
+        {
+          "names": {
+            "ar": "فطير شوكولاتة",
+            "en": "Chocolate Fiteer"
+          },
+          "descriptions": {
+            "ar": "فطير حلو بالشوكولاتة، اختار نوتيلا أو وايت شوكليت.",
+            "en": "Sweet fiteer with chocolate. Choose Nutella or white chocolate."
+          },
+          "price": "120",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "الصوص",
+                "en": "Spread"
+              },
+              "helper": {
+                "ar": "اختار نوتيلا أو وايت شوكليت",
+                "en": "Pick Nutella or white chocolate"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "نوتيلا",
+                    "en": "Nutella"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "وايت شوكليت",
+                    "en": "White chocolate"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فطير لوتس",
+            "en": "Lotus Fiteer"
+          },
+          "descriptions": {
+            "ar": "فطير حلو ببسكويت اللوتس.",
+            "en": "Sweet fiteer with Lotus biscuit."
+          },
+          "price": "120"
+        },
+        {
+          "names": {
+            "ar": "فطير مكس شوكليت",
+            "en": "Chocolate Mix Fiteer"
+          },
+          "descriptions": {
+            "ar": "فطير حلو بمزيج من الشوكولاتة.",
+            "en": "Sweet fiteer with a mix of chocolates."
+          },
+          "price": "150"
+        },
+        {
+          "names": {
+            "ar": "فطير نوتيلا",
+            "en": "Nutella Fiteer"
+          },
+          "descriptions": {
+            "ar": "فطير حلو بالنوتيلا، اختار موز أو أوريو.",
+            "en": "Sweet fiteer with Nutella. Choose banana or Oreo."
+          },
+          "price": "150",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "الإضافة",
+                "en": "Topping"
+              },
+              "helper": {
+                "ar": "اختار موز أو أوريو",
+                "en": "Pick banana or Oreo"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "موز",
+                    "en": "Banana"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "أوريو",
+                    "en": "Oreo"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فطير بلح",
+            "en": "Dates Fiteer"
+          },
+          "descriptions": {
+            "ar": "فطير حلو بالبلح، اختار بالقشطة واللبن أو كراميل.",
+            "en": "Sweet fiteer with dates. Choose with cream and milk, or caramel."
+          },
+          "price": "150",
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "النوع",
+                "en": "Style"
+              },
+              "helper": {
+                "ar": "اختار بالقشطة واللبن أو كراميل",
+                "en": "Pick with cream and milk, or caramel"
+              },
+              "min": 1,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "بالقشطة واللبن",
+                    "en": "With cream and milk"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "كراميل",
+                    "en": "Caramel"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "مشلتت",
+            "en": "Meshaltet"
+          },
+          "descriptions": {
+            "ar": "الفطير المشلتت الذهبي، طبقات رقيقة مقرمشة.",
+            "en": "The golden layered meshaltet fiteer."
+          },
+          "price": "210"
+        },
+        {
+          "names": {
+            "ar": "صينية مشلتت",
+            "en": "Meshaltet Tray"
+          },
+          "descriptions": {
+            "ar": "صينية فطير مشلتت.",
+            "en": "A full tray of meshaltet fiteer."
+          },
+          "price": "270"
+        }
+      ]
+    },
+    {
+      "key": "extras",
+      "names": {
+        "ar": "الإضافات",
+        "en": "Extras"
+      },
+      "descriptions": {
+        "ar": "كمّل طلبك باللي بتحبه.",
+        "en": "Complete your order your way."
+      },
+      "products": [
+        {
+          "names": {
+            "ar": "إضافة لحوم",
+            "en": "Extra Meat"
+          },
+          "descriptions": {
+            "ar": "تُضاف إلى أي صنف.",
+            "en": "Add to any dish."
+          },
+          "price": "60"
+        },
+        {
+          "names": {
+            "ar": "إضافة جبنة",
+            "en": "Extra Cheese"
+          },
+          "descriptions": {
+            "ar": "تُضاف إلى أي صنف.",
+            "en": "Add to any dish."
+          },
+          "price": "50"
+        },
+        {
+          "names": {
+            "ar": "إضافة خضروات",
+            "en": "Extra Vegetables"
+          },
+          "descriptions": {
+            "ar": "تُضاف إلى أي صنف.",
+            "en": "Add to any dish."
+          },
+          "price": "20"
+        },
+        {
+          "names": {
+            "ar": "إضافة صوصات",
+            "en": "Extra Sauces"
+          },
+          "descriptions": {
+            "ar": "تُضاف إلى أي صنف.",
+            "en": "Add to any dish."
+          },
+          "price": "30"
+        }
+      ]
+    }
+  ]
+}

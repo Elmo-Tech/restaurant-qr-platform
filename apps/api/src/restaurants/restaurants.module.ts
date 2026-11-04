@@ -17,6 +17,10 @@ import { BrewTemplateConfigController } from './brew-template-config.controller'
 import { BrewTemplateConfigService } from './brew-template-config.service';
 import { VerdeMenuConfigController } from './verde-menu-config.controller';
 import { VerdeMenuConfigService } from './verde-menu-config.service';
+import { SherbinyMenuConfigController } from './sherbiny-menu-config.controller';
+import { SherbinyMenuConfigService } from './sherbiny-menu-config.service';
+import { MakkbozMenuConfigController } from './makkboz-menu-config.controller';
+import { MakkbozMenuConfigService } from './makkboz-menu-config.service';
 import { EditorialTemplateConfigController } from './editorial-template-config.controller';
 import { EditorialTemplateConfigService } from './editorial-template-config.service';
 
@@ -34,7 +38,7 @@ import { EditorialTemplateConfigService } from './editorial-template-config.serv
  */
 @Module({
   imports: [DatabaseModule, AuthModule, StorageModule, EntitlementsModule],
-  controllers: [RestaurantsController, RestaurantProfileController, RestaurantSetupController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController, EditorialTemplateConfigController, VerdeMenuConfigController],
-  providers: [RestaurantLocalesService, RestaurantProfileService, RestaurantSetupService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, EditorialTemplateConfigService, VerdeMenuConfigService],
+  controllers: [RestaurantsController, RestaurantProfileController, RestaurantSetupController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController, EditorialTemplateConfigController, VerdeMenuConfigController, SherbinyMenuConfigController, MakkbozMenuConfigController],
+  providers: [RestaurantLocalesService, RestaurantProfileService, RestaurantSetupService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, EditorialTemplateConfigService, VerdeMenuConfigService, SherbinyMenuConfigService, MakkbozMenuConfigService],
 })
 export class RestaurantsModule {}

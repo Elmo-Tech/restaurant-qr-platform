@@ -132,4 +132,48 @@ describe('Platform Admin: tenant-owned exclusive design assignment', () => {
     expect(t.audit.record).toHaveBeenCalled();
   });
 
+  it('accepts the Makkboz renderer and refuses it for a second Restaurant', async () => {
+    const t = setup();
+    const custom = {
+      baseTemplate: 'CLASSIC' as const,
+      status: 'ACTIVE_CUSTOM' as const,
+      rendererKey: 'MAKKBOZ_HERITAGE_V1' as const,
+    };
+    expect(await t.service.setExclusiveDesign(ADMIN, RESTAURANT_ID, custom)).toEqual({ outcome: 'ok', data: custom });
+    const taken = setup();
+    taken.prisma.restaurantExclusiveDesign.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ restaurantId: '22222222-2222-4222-8222-222222222222' });
+    await expect(taken.service.setExclusiveDesign(ADMIN, RESTAURANT_ID, custom)).rejects.toThrow('already belongs');
+    expect(taken.prisma.restaurantExclusiveDesign.upsert).not.toHaveBeenCalled();
+  });
+
+  it('accepts the El Sherbiny renderer, refuses it for a second Restaurant and rejects unknown keys', async () => {
+    const t = setup();
+    const custom = {
+      baseTemplate: 'CLASSIC' as const,
+      status: 'ACTIVE_CUSTOM' as const,
+      rendererKey: 'SHERBINY_FIRE_DOUGH_V1' as const,
+    };
+    expect(await t.service.setExclusiveDesign(ADMIN, RESTAURANT_ID, custom))
+      .toEqual({ outcome: 'ok', data: custom });
+    expect(t.prisma.restaurantExclusiveDesign.upsert).toHaveBeenCalledWith(
+      expect.objectContaining({ create: expect.objectContaining({ rendererKey: 'SHERBINY_FIRE_DOUGH_V1' }) }),
+    );
+
+    const taken = setup();
+    taken.prisma.restaurantExclusiveDesign.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ restaurantId: '22222222-2222-4222-8222-222222222222' });
+    await expect(taken.service.setExclusiveDesign(ADMIN, RESTAURANT_ID, custom)).rejects.toThrow('already belongs');
+    expect(taken.prisma.restaurantExclusiveDesign.upsert).not.toHaveBeenCalled();
+
+    const unknown = setup();
+    await expect(unknown.service.setExclusiveDesign(ADMIN, RESTAURANT_ID, {
+      baseTemplate: 'CLASSIC',
+      status: 'ACTIVE_CUSTOM',
+      rendererKey: 'NOPE' as never,
+    })).rejects.toThrow('verified custom renderer');
+  });
+
 });

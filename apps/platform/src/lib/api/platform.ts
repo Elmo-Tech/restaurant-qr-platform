@@ -221,10 +221,17 @@ export interface PackageInput {
   status?: PackageStatus;
 }
 
+/** Compiled bespoke renderers of this build; each belongs to exactly one Restaurant. */
+export type ExclusiveRendererKey = "VERDE_NAPOLI_V1" | "SHERBINY_FIRE_DOUGH_V1" | "MAKKBOZ_HERITAGE_V1";
+export const EXCLUSIVE_RENDERERS: { key: ExclusiveRendererKey; label: string }[] = [
+  { key: "VERDE_NAPOLI_V1", label: "VERDE — Napoli Club" },
+  { key: "SHERBINY_FIRE_DOUGH_V1", label: "El Sherbiny — Fire & Dough" },
+  { key: "MAKKBOZ_HERITAGE_V1", label: "Makkboz — Heritage" },
+];
 export type ExclusiveDesignStatus = "RESERVED" | "ACTIVE_BASE" | "ACTIVE_CUSTOM" | "DISABLED";
 export type ExclusiveBaseTemplate = "CLASSIC" | PackageTemplate;
 export interface ExclusiveDesignView {
-  rendererKey?: "VERDE_NAPOLI_V1";
+  rendererKey?: ExclusiveRendererKey;
   baseTemplate: ExclusiveBaseTemplate;
   status: ExclusiveDesignStatus;
 }

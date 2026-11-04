@@ -3,6 +3,11 @@ import { normalizeEmberSettings, type EmberTemplateSettings } from '../restauran
 import { normalizeBloomSettings, type BloomTemplateSettings } from '../restaurants/bloom-template-config';
 import { normalizeBrewSettings, type BrewTemplateSettings } from '../restaurants/brew-template-config';
 import { normalizeVerdeSettings, type VerdeMenuSettings } from '../restaurants/verde-menu-config';
+import {
+  normalizeSherbinySettings,
+  type SherbinyMenuSettings,
+} from '../restaurants/sherbiny-menu-config';
+import { normalizeMakkbozSettings, type MakkbozMenuSettings } from '../restaurants/makkboz-menu-config';
 import { normalizeEditorialSettings, type EditorialTemplateSettings } from '../restaurants/editorial-template-config';
 import {
   DEFAULT_POWERED_BY_URL,
@@ -74,9 +79,13 @@ export interface PublicMenuContext {
     /** How the menu is laid out (DEC-044); presentation only. Classic when the saved one is not allowed (DEC-051). */
     menuTemplate: MenuTemplate;
     /** Tenant-private compiled renderer; never part of the shared package template catalog. */
-    exclusiveRendererKey?: 'VERDE_NAPOLI_V1';
+    exclusiveRendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
     /** Published VERDE appearance only (DEC-062); the draft is never returned to guests. */
     verdeSettings?: VerdeMenuSettings;
+    /** Published El Sherbiny appearance only; the draft is never returned to guests. */
+    sherbinySettings?: SherbinyMenuSettings;
+    /** Published Makkboz appearance only; the draft is never returned to guests. */
+    makkbozSettings?: MakkbozMenuSettings;
     /** The Restaurant shows its exclusive design to guests (staff choice); false = a stock template is shown. */
     exclusiveInUse?: boolean;
     /** Only published EMBER settings are visible to guests; drafts remain private. */
@@ -122,6 +131,11 @@ export interface PublicMenuContext {
    * unavailable. Order creation re-validates whatever id the Guest picks.
    */
   pickupBranches: { id: string; name: string; hours: PublicHours | null }[] | null;
+  /**
+   * Where the Restaurant can be found: the Branch's own name, address and phone, for display only (a TABLE QR
+   * lists its one Branch, a GENERIC QR every ACTIVE Branch). Branches with neither an address nor a phone are left out.
+   */
+  locations: { name: string; address: string | null; phone: string | null }[];
   /**
    * FT-8: GENERIC QR only (null for TABLE) -- the ACTIVE Branches that have
    * at least one ACTIVE Delivery zone, each with only its ACTIVE zones
@@ -382,6 +396,8 @@ export class PublicMenuService {
         branch: {
           select: {
             name: true,
+            address: true,
+            phone: true,
             timezone: true,
             hoursMode: true,
             temporarilyClosed: true,
@@ -412,10 +428,13 @@ export class PublicMenuService {
         : packageTemplates;
     // A custom renderer is activated by Platform Admin only, derived from THIS QR's
     // Restaurant. Do not trust a public query or expose draft/foreign assignments.
+    const customKey = qr.restaurant.exclusiveDesign?.rendererKey;
     const exclusiveRendererKey =
       qr.restaurant.exclusiveDesign?.status === 'ACTIVE_CUSTOM' &&
-      qr.restaurant.exclusiveDesign.rendererKey === 'VERDE_NAPOLI_V1'
-        ? 'VERDE_NAPOLI_V1' as const
+      (customKey === 'VERDE_NAPOLI_V1' ||
+        customKey === 'SHERBINY_FIRE_DOUGH_V1' ||
+        customKey === 'MAKKBOZ_HERITAGE_V1')
+        ? customKey
         : null;
     const effective = effectiveOrdering(qr.restaurant, features);
 
@@ -490,6 +509,8 @@ export class PublicMenuService {
             select: {
               id: true,
               name: true,
+              address: true,
+              phone: true,
               timezone: true,
               hoursMode: true,
               temporarilyClosed: true,
@@ -907,7 +928,23 @@ export class PublicMenuService {
             ...(exclusiveRendererKey
               ? {
                   exclusiveRendererKey,
-                  verdeSettings: normalizeVerdeSettings(qr.restaurant.exclusiveDesign?.publishedSettings),
+                  ...(exclusiveRendererKey === 'MAKKBOZ_HERITAGE_V1'
+                    ? {
+                        makkbozSettings: normalizeMakkbozSettings(
+                          qr.restaurant.exclusiveDesign?.publishedSettings,
+                        ),
+                      }
+                    : exclusiveRendererKey === 'SHERBINY_FIRE_DOUGH_V1'
+                    ? {
+                        sherbinySettings: normalizeSherbinySettings(
+                          qr.restaurant.exclusiveDesign?.publishedSettings,
+                        ),
+                      }
+                    : {
+                        verdeSettings: normalizeVerdeSettings(
+                          qr.restaurant.exclusiveDesign?.publishedSettings,
+                        ),
+                      }),
                   exclusiveInUse: qr.restaurant.exclusiveDesign?.useExclusive !== false,
                 }
               : {}),
@@ -940,6 +977,18 @@ export class PublicMenuService {
               : null,
           pickupBranches,
           deliveryBranches,
+          locations: (qr.type === 'TABLE'
+            ? qr.branch
+              ? [qr.branch]
+              : []
+            : (activeBranches ?? [])
+          )
+            .map((branch) => ({
+              name: displayName(branch.name, branch.translations),
+              address: branch.address?.trim() || null,
+              phone: branch.phone?.trim() || null,
+            }))
+            .filter((location) => location.address !== null || location.phone !== null),
         },
         locale: {
           requested,

@@ -7,6 +7,8 @@ import { demoMessages } from './demo';
 import { dashboardMessages } from './dashboard';
 import { designMessages } from './design';
 import { verdeDesignMessages } from './verde-design';
+import { sherbinyDesignMessages } from './sherbiny-design';
+import { makkbozDesignMessages } from './makkboz-design';
 import { entitlementsMessages } from './entitlements';
 import { hoursMessages } from './hours';
 import { suggestionsMessages } from './suggestions';
@@ -46,6 +48,8 @@ const en = {
   ...dashboardMessages.en,
   ...designMessages.en,
   ...verdeDesignMessages.en,
+  ...sherbinyDesignMessages.en,
+  ...makkbozDesignMessages.en,
   ...entitlementsMessages.en,
   ...hoursMessages.en,
   ...suggestionsMessages.en,
@@ -81,6 +85,8 @@ const ar = {
   ...dashboardMessages.ar,
   ...designMessages.ar,
   ...verdeDesignMessages.ar,
+  ...sherbinyDesignMessages.ar,
+  ...makkbozDesignMessages.ar,
   ...entitlementsMessages.ar,
   ...hoursMessages.ar,
   ...suggestionsMessages.ar,

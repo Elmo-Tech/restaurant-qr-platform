@@ -90,10 +90,31 @@ Remove-Item Env:PROVISION_OWNER_PASSWORD
 On the server it runs in the tools image, like `provision:restaurant` (see `COOLIFY_DEPLOYMENT.md`): replace
 `npm run provision:restaurant -- ...` with `npm run seed:restaurant-menu -- --seed verde-napoletana --owner-email ... --apply`.
 
-The exclusive VERDE design belongs to exactly one Restaurant (its renderer key is unique). If another Restaurant already
+An exclusive design belongs to exactly one Restaurant (its renderer key is unique). If another Restaurant already
 holds it, the menu is still seeded, the command warns, and the Restaurant keeps a stock template until the Platform
-console moves the design. The seed assigns no Package, photos or contact details: those are set in the Platform console
-and in Staff afterwards. Exit codes are the same as section 2.
+console moves the design. The seed assigns no Package: that is set in the Platform console. Exit codes are the same as
+section 2.
+
+**El Sherbiny (Aswan)** is a second seed, `--seed el-sherbiny` (`apps/api/seed-data/el-sherbiny/`, design
+`SHERBINY_FIRE_DOUGH_V1`, see `docs/03-ui-ux/SHERBINY_EXCLUSIVE_RENDERER_IMPLEMENTATION.md`). It also stores the logo and the
+photos in `seed-data/el-sherbiny/images/`, the Branch address and phone and the Restaurant contact numbers. Photos are written
+through the dashboard's own validator and storage into `UPLOAD_LOCAL_DIR`, so run it with the API's `UPLOAD_LOCAL_DIR` (the
+folder the API serves at `/media`); the dry run checks every photo file without writing. It needs no new migration (the
+settings live in the existing `restaurant_exclusive_designs` JSON columns), only the VERDE ones (`20261119090000`,
+`20261120090000`) that are already part of this branch's base.
+
+```powershell
+npm run seed:restaurant-menu -- --seed el-sherbiny --owner-email owner@example.com
+npm run seed:restaurant-menu -- --seed el-sherbiny --owner-email owner@example.com --apply
+```
+
+**Makkboz (مخبوز, Cairo)** is a third seed, `--seed makkboz` (`apps/api/seed-data/makkboz/`, design `MAKKBOZ_HERITAGE_V1`, see
+`docs/03-ui-ux/MAKKBOZ_EXCLUSIVE_RENDERER_IMPLEMENTATION.md`); same rules, a different owner e-mail, and the same `UPLOAD_LOCAL_DIR`.
+
+```powershell
+npm run seed:restaurant-menu -- --seed makkboz --owner-email owner2@example.com
+npm run seed:restaurant-menu -- --seed makkboz --owner-email owner2@example.com --apply
+```
 
 ## 3. Clean development bootstrap (deterministic, no fake datasets)
 

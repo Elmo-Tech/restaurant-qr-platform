@@ -1,13 +1,33 @@
 import { Prisma } from '../generated/prisma/client';
 import { createProductPublicId } from '../menu/product-public-id';
 import { normalizeVerdeSettings } from '../restaurants/verde-menu-config';
+import { normalizePhone } from '../restaurants/restaurant-contact';
+import {
+  SHERBINY_COPY_LIMITS,
+  SHERBINY_IMAGE_FIELD,
+  SHERBINY_IMAGE_SLOTS,
+  SHERBINY_BRAND_MAX,
+  normalizeSherbinySettings,
+  type SherbinyCopyField,
+  type SherbinyImageSlot,
+} from '../restaurants/sherbiny-menu-config';
+import {
+  MAKKBOZ_BRAND_MAX,
+  MAKKBOZ_COPY_LIMITS,
+  MAKKBOZ_IMAGE_FIELD,
+  MAKKBOZ_IMAGE_SLOTS,
+  normalizeMakkbozSettings,
+  type MakkbozCopyField,
+  type MakkbozImageSlot,
+} from '../restaurants/makkboz-menu-config';
 
 /**
  * Operations-only seeding of ONE Restaurant's bilingual menu from a reviewed JSON file
  * (`apps/api/seed-data/<name>/menu.json`), for onboarding a real restaurant whose printed
  * menu has already been typed in. It is plain data shipped with the API: Menu, Categories,
- * Products (sizes as Product Variants, add-ons as Modifier Groups), the Branch's names and,
- * optionally, the Restaurant's exclusive VERDE design.
+ * Products (sizes as Product Variants, add-ons and required choices as Modifier Groups), the Branch's
+ * names, address and phone, the Restaurant's contact numbers and logo, product / category photos and,
+ * optionally, the Restaurant's exclusive design (VERDE or El Sherbiny).
  *
  * It only ever fills a Restaurant that has NO menu yet, so a re-run changes nothing.
  */
@@ -30,9 +50,21 @@ export interface SeedVariant {
   price: string;
   default: boolean;
 }
+/** A photo shipped with the seed: a plain file name inside `apps/api/seed-data/<name>/images/`. */
+export type SeedImage = string;
+const SEED_IMAGE = /^[a-z0-9][a-z0-9._-]*.(?:jpe?g|png|webp)$/i;
+
+/** Stores one seed photo and returns its public `/media/...` path (the CLI validates and writes the file). */
+export interface SeedAssets {
+  store(image: SeedImage): Promise<string>;
+}
+
 export interface SeedProduct {
   names: Localized;
   descriptions?: Localized;
+  /** Shown as a favorite in designs that have a favorites section. */
+  featured?: boolean;
+  image?: SeedImage;
   /** The price of a product without sizes; with sizes the cheapest size is the base price. */
   price?: string;
   variants?: SeedVariant[];
@@ -42,10 +74,42 @@ export interface SeedCategory {
   key: string;
   names: Localized;
   descriptions?: Localized;
-  /** Keys of `sharedModifierGroups`: every product of the category gets its own copy. */
+  image?: SeedImage;
+  /** Keys of `sharedModifierGroups`: every product of the category gets its own copy, after the product's own groups. */
   sharedModifierGroups?: string[];
   products: SeedProduct[];
 }
+export interface VerdeSeedDesign {
+  rendererKey: 'VERDE_NAPOLI_V1';
+  brandWord: string;
+  /** Category keys the two "discover" cards of the design open. */
+  chapter1Category: string;
+  chapter2Category: string;
+}
+export interface SherbinySeedDesign {
+  rendererKey: 'SHERBINY_FIRE_DOUGH_V1';
+  brandAr: string;
+  brandEn: string;
+  /** Overrides of any `<key>Ar` / `<key>En` copy field; everything else keeps the design's defaults. */
+  copy?: Partial<Record<SherbinyCopyField, string>>;
+  /** Design photo slots (hero, heroPlate, favorite1..3, story). */
+  images?: Partial<Record<SherbinyImageSlot, SeedImage>>;
+  /** The small label above each category (category key -> label), e.g. "THE PIZZA CHAPTER". */
+  categoryTags?: Record<string, Localized>;
+}
+
+export interface MakkbozSeedDesign {
+  rendererKey: 'MAKKBOZ_HERITAGE_V1';
+  /** Brand text shown when the Restaurant has no logo (both languages; empty = the Restaurant name). */
+  brandAr: string;
+  brandEn: string;
+  copy?: Partial<Record<MakkbozCopyField, string>>;
+  /** Design photo slots (hero, heroSmall). */
+  images?: Partial<Record<MakkbozImageSlot, SeedImage>>;
+  /** Per category key: the small chapter label and the one-line intro, in both languages. */
+  categoryChapters?: Record<string, { tag: Localized; intro: Localized }>;
+}
+
 export interface MenuSeed {
   version: 1;
   restaurant: {
@@ -54,15 +118,12 @@ export interface MenuSeed {
     currencyCode: string;
     countryCode: string;
     timezone: string;
-    exclusiveDesign?: {
-      rendererKey: 'VERDE_NAPOLI_V1';
-      brandWord: string;
-      /** Category keys the two "discover" cards of the design open. */
-      chapter1Category: string;
-      chapter2Category: string;
-    };
+    logo?: SeedImage;
+    /** Restaurant-wide contact numbers shown to guests (international format). */
+    contact?: { phone?: string; whatsapp?: string };
+    exclusiveDesign?: VerdeSeedDesign | SherbinySeedDesign | MakkbozSeedDesign;
   };
-  branch: { names: Localized };
+  branch: { names: Localized; address?: string; phone?: string };
   menu: { nameInternal: string; names: Localized };
   sharedModifierGroups: Record<string, SeedModifierGroup>;
   categories: SeedCategory[];
@@ -148,15 +209,72 @@ export function menuSeedProblems(seed: MenuSeed): string[] {
     }
   }
 
+  const checkImage = (where: string, image: unknown) => {
+    if (image !== undefined && !(typeof image === 'string' && SEED_IMAGE.test(image)))
+      problems.push(`${where} has a bad image file name`);
+  };
+  checkImage('restaurant logo', seed.restaurant?.logo);
+  for (const category of seed.categories ?? []) {
+    checkImage(`category ${category.key}`, category.image);
+    for (const product of category.products)
+      checkImage(`product ${category.key}/${product.names?.en ?? '?'}`, product.image);
+  }
+  for (const [field, value] of Object.entries(seed.restaurant?.contact ?? {})) {
+    try {
+      if (value) normalizePhone(field === 'whatsapp' ? 'whatsapp' : 'phone', value);
+    } catch {
+      problems.push(`contact ${field} is not a valid phone number`);
+    }
+  }
+
   const design = seed.restaurant?.exclusiveDesign;
-  if (design) {
-    if (design.rendererKey !== 'VERDE_NAPOLI_V1')
-      problems.push('unknown exclusive design');
+  if (design?.rendererKey === 'VERDE_NAPOLI_V1') {
     if (!hasText(design.brandWord) || design.brandWord.length > 24)
       problems.push('design brand word must be 1-24 characters');
     for (const key of [design.chapter1Category, design.chapter2Category])
       if (!categoryKeys.has(key))
         problems.push(`design points at unknown category ${key}`);
+  } else if (design?.rendererKey === 'SHERBINY_FIRE_DOUGH_V1') {
+    for (const brand of [design.brandAr, design.brandEn])
+      if (!hasText(brand) || brand.length > SHERBINY_BRAND_MAX)
+        problems.push(`design brand names must be 1-${SHERBINY_BRAND_MAX} characters`);
+    for (const [field, value] of Object.entries(design.copy ?? {})) {
+      const max = (SHERBINY_COPY_LIMITS as Record<string, number>)[field];
+      if (max === undefined) problems.push(`design copy field ${field} does not exist`);
+      else if (typeof value !== 'string' || value.length > max)
+        problems.push(`design copy field ${field} is longer than ${max} characters`);
+    }
+    for (const [slot, image] of Object.entries(design.images ?? {})) {
+      if (!(SHERBINY_IMAGE_SLOTS as readonly string[]).includes(slot))
+        problems.push(`design photo slot ${slot} does not exist`);
+      checkImage(`design photo ${slot}`, image);
+    }
+    for (const [key, tag] of Object.entries(design.categoryTags ?? {})) {
+      if (!categoryKeys.has(key)) problems.push(`design tag points at unknown category ${key}`);
+      if (!localized(tag)) problems.push(`design tag of ${key} lacks a language`);
+    }
+  } else if (design?.rendererKey === 'MAKKBOZ_HERITAGE_V1') {
+    for (const brand of [design.brandAr, design.brandEn])
+      if (!hasText(brand) || brand.length > MAKKBOZ_BRAND_MAX)
+        problems.push(`design brand names must be 1-${MAKKBOZ_BRAND_MAX} characters`);
+    for (const [field, value] of Object.entries(design.copy ?? {})) {
+      const max = (MAKKBOZ_COPY_LIMITS as Record<string, number>)[field];
+      if (max === undefined) problems.push(`design copy field ${field} does not exist`);
+      else if (typeof value !== 'string' || value.length > max)
+        problems.push(`design copy field ${field} is longer than ${max} characters`);
+    }
+    for (const [slot, image] of Object.entries(design.images ?? {})) {
+      if (!(MAKKBOZ_IMAGE_SLOTS as readonly string[]).includes(slot))
+        problems.push(`design photo slot ${slot} does not exist`);
+      checkImage(`design photo ${slot}`, image);
+    }
+    for (const [key, chapter] of Object.entries(design.categoryChapters ?? {})) {
+      if (!categoryKeys.has(key)) problems.push(`design chapter points at unknown category ${key}`);
+      if (!localized(chapter.tag) || !localized(chapter.intro))
+        problems.push(`design chapter of ${key} lacks a language`);
+    }
+  } else if (design) {
+    problems.push('unknown exclusive design');
   }
   return problems;
 }
@@ -193,6 +311,7 @@ export type MenuSeedResult =
   | {
       outcome: 'seeded';
       counts: ReturnType<typeof menuSeedCounts>;
+      photos: number;
       exclusiveDesign: 'assigned' | 'rendererTaken' | 'none';
     }
   | { outcome: 'alreadySeeded' };
@@ -206,14 +325,29 @@ export async function seedMenu(
   tx: Prisma.TransactionClient,
   restaurantId: string,
   seed: MenuSeed,
+  assets?: SeedAssets,
 ): Promise<MenuSeedResult> {
   assertValidMenuSeed(seed);
   if ((await tx.menu.count({ where: { restaurantId } })) > 0)
     return { outcome: 'alreadySeeded' };
 
+  let photos = 0;
+  const photo = async (image: SeedImage | undefined): Promise<string | null> => {
+    if (!image) return null;
+    if (!assets) throw new Error('The seed has photos but no photo store was provided.');
+    photos += 1;
+    return assets.store(image);
+  };
+
+  const contact = seed.restaurant.contact;
   await tx.restaurant.update({
     where: { id: restaurantId },
-    data: { countryCode: seed.restaurant.countryCode },
+    data: {
+      countryCode: seed.restaurant.countryCode,
+      ...(contact?.phone ? { contactPhone: normalizePhone('phone', contact.phone) } : {}),
+      ...(contact?.whatsapp ? { whatsappNumber: normalizePhone('whatsapp', contact.whatsapp) } : {}),
+      ...(seed.restaurant.logo ? { logoAssetPath: await photo(seed.restaurant.logo) } : {}),
+    },
   });
 
   // The Branch provisioning created gets its Arabic and English names.
@@ -224,7 +358,11 @@ export async function seedMenu(
   });
   await tx.branch.update({
     where: { id: branch.id },
-    data: { name: seed.branch.names.ar },
+    data: {
+      name: seed.branch.names.ar,
+      ...(seed.branch.address ? { address: seed.branch.address } : {}),
+      ...(seed.branch.phone ? { phone: seed.branch.phone } : {}),
+    },
   });
   await tx.branchTranslation.createMany({
     data: LOCALES.map((locale) => ({
@@ -259,6 +397,7 @@ export async function seedMenu(
         menuId: menu.id,
         status: 'ACTIVE',
         displayOrder: categoryOrder,
+        imageAssetPath: await photo(category.image),
         translations: {
           create: LOCALES.map((locale) => ({
             locale,
@@ -290,7 +429,8 @@ export async function seedMenu(
           basePrice,
           displayOrder: productOrder,
           allowCustomerNotes: true,
-          featured: false,
+          featured: p.featured === true,
+          primaryImageAssetPath: await photo(p.image),
           translations: {
             create: LOCALES.map((locale) => ({
               locale,
@@ -319,9 +459,10 @@ export async function seedMenu(
           },
         });
       }
+      // The product's own choices come first (a required size / flavor), then the category-wide add-ons.
       for (const [groupOrder, g] of [
-        ...sharedGroups,
         ...(p.modifierGroups ?? []),
+        ...sharedGroups,
       ].entries()) {
         const group = await tx.modifierGroup.create({
           data: {
@@ -371,7 +512,9 @@ export async function seedMenu(
       restaurantId,
       seed,
       categoryIds,
+      photo,
     ),
+    photos,
   };
 }
 
@@ -380,6 +523,7 @@ async function assignExclusiveDesign(
   restaurantId: string,
   seed: MenuSeed,
   categoryIds: Map<string, string>,
+  photo: (image: SeedImage | undefined) => Promise<string | null>,
 ): Promise<'assigned' | 'rendererTaken' | 'none'> {
   const design = seed.restaurant.exclusiveDesign;
   if (!design) return 'none';
@@ -389,16 +533,54 @@ async function assignExclusiveDesign(
   });
   if (holder && holder.restaurantId !== restaurantId) return 'rendererTaken';
 
-  // The same normalizer the dashboard uses, so the settings are exactly what an editor save would store.
-  const settings = JSON.parse(
-    JSON.stringify(
-      normalizeVerdeSettings({
-        brandWord: design.brandWord,
-        chapter1CategoryId: categoryIds.get(design.chapter1Category),
-        chapter2CategoryId: categoryIds.get(design.chapter2Category),
-      }),
-    ),
-  ) as Prisma.InputJsonValue;
+  // The same normalizers the dashboard uses, so the settings are exactly what an editor save would store.
+  let raw: unknown;
+  if (design.rendererKey === 'VERDE_NAPOLI_V1') {
+    raw = normalizeVerdeSettings({
+      brandWord: design.brandWord,
+      chapter1CategoryId: categoryIds.get(design.chapter1Category),
+      chapter2CategoryId: categoryIds.get(design.chapter2Category),
+    });
+  } else if (design.rendererKey === 'MAKKBOZ_HERITAGE_V1') {
+    const images: Record<string, string | null> = {};
+    for (const slot of MAKKBOZ_IMAGE_SLOTS)
+      images[MAKKBOZ_IMAGE_FIELD[slot]] = await photo(design.images?.[slot]);
+    const categoryExtras: Record<string, unknown> = {};
+    for (const [key, chapter] of Object.entries(design.categoryChapters ?? {})) {
+      const id = categoryIds.get(key);
+      if (id)
+        categoryExtras[id] = {
+          tagAr: chapter.tag.ar,
+          tagEn: chapter.tag.en,
+          introAr: chapter.intro.ar,
+          introEn: chapter.intro.en,
+        };
+    }
+    raw = normalizeMakkbozSettings({
+      ...design.copy,
+      brandAr: design.brandAr,
+      brandEn: design.brandEn,
+      ...images,
+      categoryExtras,
+    });
+  } else {
+    const images: Record<string, string | null> = {};
+    for (const slot of SHERBINY_IMAGE_SLOTS)
+      images[SHERBINY_IMAGE_FIELD[slot]] = await photo(design.images?.[slot]);
+    const categoryExtras: Record<string, unknown> = {};
+    for (const [key, tag] of Object.entries(design.categoryTags ?? {})) {
+      const id = categoryIds.get(key);
+      if (id) categoryExtras[id] = { tagAr: tag.ar, tagEn: tag.en };
+    }
+    raw = normalizeSherbinySettings({
+      ...design.copy,
+      brandAr: design.brandAr,
+      brandEn: design.brandEn,
+      ...images,
+      categoryExtras,
+    });
+  }
+  const settings = JSON.parse(JSON.stringify(raw)) as Prisma.InputJsonValue;
   await tx.restaurantExclusiveDesign.upsert({
     where: { restaurantId },
     create: {

@@ -1844,6 +1844,18 @@ Rollback (before any VERDE restaurant has been edited): drop the four columns.
 
 ---
 
+# 68O. El Sherbiny and Makkboz menu settings (DEC-063, DEC-064, 2026-11-04)
+
+No migration. The exclusive El Sherbiny renderer (`renderer_key = SHERBINY_FIRE_DOUGH_V1`) reuses the
+`draft_settings` / `published_settings` / `settings_version` / `use_exclusive` columns of `restaurant_exclusive_designs`
+(section 68N); `renderer_key` stays UNIQUE, so the design belongs to exactly one Restaurant. The JSON is normalized by
+`apps/api/src/restaurants/sherbiny-menu-config.ts` (allow-listed copy in both languages, enums, booleans, per-category band
+text and server-owned `/media/<uuid>.(jpg|png|webp)` paths; a byte-identical copy lives in the Web app and a spec keeps them
+equal). The public menu context additionally returns `locations` (Branch name, address, phone; display only).
+The Makkboz renderer (`MAKKBOZ_HERITAGE_V1`, `apps/api/src/restaurants/makkboz-menu-config.ts`) uses the same columns the same way.
+
+---
+
 # 69. Variant Price
 
 V1 uses:

@@ -1531,6 +1531,43 @@ a Platform-console editor for these settings.
 
 ---
 
+### DEC-063 — El Sherbiny exclusive menu (SHERBINY_FIRE_DOUGH_V1) and repeatable real-restaurant seed
+
+**Status:** Accepted for implementation (2026-11-04); not deployed, not owner-approved. **Context:** El Sherbiny (Aswan) is a real
+restaurant that wants a bespoke guest menu from an owner-approved HTML concept ("Fire & Dough"), as VERDE has (DEC-062).
+**Decision:** a second compiled renderer, `SHERBINY_FIRE_DOUGH_V1`, reserved to one Restaurant through the existing
+`restaurant_exclusive_designs` row (unique `renderer_key`, Platform-only assignment, `ACTIVE_CUSTOM`; the Restaurant can switch
+to a stock template and back). Its draft / published settings reuse the same JSON columns, so **no migration** is needed. It
+renders the concept (night and paper themes, hero poster, ticker, favorites from the Restaurant's own featured dishes, sticky
+section index, search, size chips, story, find-us) on the shared cart / product sheet / checkout; its Arabic face (Noto Sans
+Arabic) is self-hosted and loaded only with this renderer. Everything editable (copy in both languages, theme, motion, section
+toggles, six photo slots, per-section label / title / description / photo) goes through
+`/restaurants/:id/sherbiny-menu` with draft / publish, tenant-scoped like VERDE. Contact, address, hours, logo and social links
+are shown only when present: the public menu context gained `locations` (Branch name, address, phone). The seed tool
+(`seed:restaurant-menu`) now also stores photos (through the dashboard's validator and storage), contact numbers, Branch address
+and phone and featured dishes, and assigns either renderer; `apps/api/seed-data/el-sherbiny/` holds the whole bilingual menu,
+with every printed "A or B" modelled as a required single-choice modifier group at no extra price. **Not in scope:** a
+Platform-console editor, version history, discounts invented for the restaurant, a mobile bottom dock (the shared cart bar owns
+that edge).
+
+---
+
+### DEC-064 — Makkboz exclusive menu (MAKKBOZ_HERITAGE_V1)
+
+**Status:** Accepted for implementation (2026-11-04); not deployed, not owner-approved. **Context:** a second real restaurant (Makkboz /
+مخبوز, a fiteer, pizza and crêpe bakery) supplied a different approved concept (forest green and gold heritage look, arch hero, green
+category rail, photo cards or compact list, favorites) and a printed menu with about 150 dishes. **Decision:** a third compiled
+renderer, `MAKKBOZ_HERITAGE_V1`, reserved to one Restaurant exactly like DEC-062 / DEC-063 (unique `renderer_key`, Platform-only
+assignment, same draft / publish JSON columns, **no migration**, route `/restaurants/:id/makkboz-menu`, tenant-scoped, byte-identical Web
+copy of the settings model). It adapts the concept to real data: a dish without a photo is a text card (no borrowed photos), sizes
+show as chips, required choices and discounts come from the shared product sheet, logo / address / phone / hours / social links appear
+only when present, favorites are per browser. Fonts Aref Ruqaa, Reem Kufi and Tajawal are self-hosted and loaded only with this
+renderer ("Aref Ruqaa Ink" is a colour font and is not used). The seed (`seed-data/makkboz`) loads the whole bilingual menu: sizes as
+variants; printed choices as required single-choice groups at no extra price; per-size extras as their own dishes because a modifier
+cannot depend on the chosen size; no invented offers. **Not in scope:** a dark theme, Platform-console editing, version history.
+
+---
+
 ---
 
 ---

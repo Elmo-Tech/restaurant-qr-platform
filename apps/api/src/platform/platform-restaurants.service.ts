@@ -19,7 +19,11 @@ import type { Prisma, RestaurantStatus } from '../generated/prisma/client';
 import { PlatformAuditService } from './platform-audit.service';
 import type { PlatformAdminPrincipal } from './platform-auth.service';
 import type { MenuTemplateKey } from '../entitlements/templates';
-import type { ExclusiveDesignMode, VerifiedExclusiveRenderer } from './dto/exclusive-design.dto';
+import {
+  VERIFIED_EXCLUSIVE_RENDERERS,
+  type ExclusiveDesignMode,
+  type VerifiedExclusiveRenderer,
+} from './dto/exclusive-design.dto';
 import type { NormalizedOwnerContact } from './restaurant-owner-contact';
 import type { AcquisitionSourceType } from './restaurant-acquisition';
 
@@ -358,8 +362,8 @@ export class PlatformRestaurantsService {
           ? {
               baseTemplate: row.exclusiveDesign.baseTemplate,
               status: row.exclusiveDesign.status,
-              ...(row.exclusiveDesign.rendererKey === 'VERDE_NAPOLI_V1'
-                ? { rendererKey: row.exclusiveDesign.rendererKey }
+              ...(VERIFIED_EXCLUSIVE_RENDERERS.find((key) => key === row.exclusiveDesign?.rendererKey)
+                ? { rendererKey: row.exclusiveDesign.rendererKey as VerifiedExclusiveRenderer }
                 : {}),
             }
           : null,
@@ -419,7 +423,10 @@ export class PlatformRestaurantsService {
 
     // Never accept a client-provided arbitrary renderer. The compiled registry is
     // intentionally small: this exact key is only present in Wayta's trusted build.
-    if (input.status === 'ACTIVE_CUSTOM' && input.rendererKey !== 'VERDE_NAPOLI_V1') {
+    if (
+      input.status === 'ACTIVE_CUSTOM' &&
+      !VERIFIED_EXCLUSIVE_RENDERERS.some((key) => key === input.rendererKey)
+    ) {
       throw new BadRequestException('A verified custom renderer is required.');
     }
     const before = await this.prisma.restaurantExclusiveDesign.findUnique({

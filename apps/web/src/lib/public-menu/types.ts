@@ -1,5 +1,7 @@
 import type { RestaurantContact } from '../contact/types';
 import type { VerdeMenuSettings } from './verde-settings';
+import type { SherbinyMenuSettings } from './sherbiny-settings';
+import type { MakkbozMenuSettings } from './makkboz-settings';
 import type { EmberTemplateSettings } from './ember-settings';
 import type { BloomTemplateSettings } from './bloom-settings';
 import type { BrewTemplateSettings } from './brew-settings';
@@ -37,9 +39,13 @@ export interface PublicMenuContext {
     /** How the menu is laid out (DEC-044); presentation only. */
     menuTemplate?: string;
     /** Explicit trusted, tenant-scoped Backend assignment. Not a stock template. */
-    exclusiveRendererKey?: 'VERDE_NAPOLI_V1';
+    exclusiveRendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
     /** Published VERDE appearance (DEC-062); present only with `exclusiveRendererKey`. */
     verdeSettings?: VerdeMenuSettings;
+    /** Published El Sherbiny appearance; present only with its `exclusiveRendererKey`. */
+    sherbinySettings?: SherbinyMenuSettings;
+    /** Published Makkboz appearance; present only with its `exclusiveRendererKey`. */
+    makkbozSettings?: MakkbozMenuSettings;
     /** The Restaurant shows its exclusive design to guests; false = a stock template (staff choice). */
     exclusiveInUse?: boolean;
     /** Only published values; available to a package-authorized EMBER preview. */
@@ -71,6 +77,8 @@ export interface PublicMenuContext {
   /** How a GENERIC QR order is taken (DEC-042); null for a TABLE QR. Absent on an older Backend = the app takes both, no WhatsApp. */
   ordering?: { pickup: boolean; delivery: boolean; whatsapp: boolean } | null;
   /** FT-7: GENERIC QR only (null for TABLE) -- the ACTIVE Branches eligible for Pickup. Empty = Pickup unavailable. */
+  /** Branch name, address and phone for the "find us" section; branches with neither are left out. */
+  locations?: { name: string; address: string | null; phone: string | null }[];
   pickupBranches: { id: string; name: string; hours: PublicHours | null }[] | null;
   /** FT-8: GENERIC QR only -- ACTIVE Branches with at least one ACTIVE Delivery zone. Empty = Delivery unavailable. Display data only: the Backend re-resolves fee/minimum on submit. */
   deliveryBranches: PublicDeliveryBranch[] | null;

@@ -10,7 +10,7 @@ import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
  * One contact channel as the Guest sees it: where it goes, its (brand) label, and how
  * its app-style badge looks. Brand names are shown as they are in every language.
  */
-interface Channel {
+export interface Channel {
   key: string;
   href: string;
   label: string;
@@ -42,7 +42,7 @@ const BRANDS: ReadonlyArray<{
 ];
 
 /** Every channel that has a value, in display order: call, hotline, WhatsApp, then the social links. */
-function buildChannels(contact: RestaurantContact, copy: PublicMenuCopy): Channel[] {
+export function buildChannels(contact: RestaurantContact, copy: PublicMenuCopy): Channel[] {
   const channels: Channel[] = [];
   if (contact.phone) {
     channels.push({ key: 'phone', href: telHref(contact.phone), label: copy.callUs, brand: null, background: 'var(--g-accent)', color: 'var(--g-on-accent)', ring: false, external: false });
@@ -71,7 +71,7 @@ function buildChannels(contact: RestaurantContact, copy: PublicMenuCopy): Channe
 }
 
 /** The round app-style badge: the brand glyph on the brand colour (a phone or link glyph for the rest). */
-function Badge({ channel, size }: { channel: Channel; size: number | 'hero' }) {
+export function Badge({ channel, size }: { channel: Channel; size: number | 'hero' }) {
   // `hero`: the compact hero row -- 32px on a phone (six badges fit beside the logo on one line), 40px from `lg`.
   const style: CSSProperties =
     size === 'hero'
@@ -97,7 +97,7 @@ function Badge({ channel, size }: { channel: Channel; size: number | 'hero' }) {
   );
 }
 
-const LINK_PROPS = { target: '_blank', rel: 'noopener noreferrer' } as const;
+export const LINK_PROPS = { target: '_blank', rel: 'noopener noreferrer' } as const;
 
 /**
  * The compact row under the restaurant name in the hero: app-icon style round badges

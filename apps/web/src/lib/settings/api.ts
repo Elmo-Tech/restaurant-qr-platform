@@ -16,6 +16,8 @@ import type { MenuTemplateApi } from '../public-menu/templates';
 import {BREW_COPY_KEYS,normalizeBrewTemplateSettings,normalizeBrewTemplateConfigView,type BrewTemplateSettings,type BrewTemplateConfigView} from '../public-menu/brew-settings';
 import {normalizeEditorialTemplateSettings,type EditorialTemplateSettings} from '../public-menu/editorial-settings';
 import {normalizeVerdeSettings,type VerdeMenuSettings,type VerdeImageSlot} from '../public-menu/verde-settings';
+import {normalizeSherbinySettings,type SherbinyMenuSettings,type SherbinyImageSlot} from '../public-menu/sherbiny-settings';
+import {normalizeMakkbozSettings,type MakkbozMenuSettings,type MakkbozImageSlot} from '../public-menu/makkboz-settings';
 import type { ContactField, RestaurantContact } from '../contact/types';
 import { apiFetch, apiFetchFormData } from '../api/client';
 import type { QrStyle } from '../qr/style';
@@ -96,7 +98,7 @@ export async function updateRestaurantProfile(
 export interface ExclusiveDesignStatusView {
   baseTemplate: MenuTemplateApi;
   status: 'RESERVED' | 'ACTIVE_BASE' | 'ACTIVE_CUSTOM' | 'DISABLED';
-  rendererKey?: 'VERDE_NAPOLI_V1';
+  rendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
   /** The Restaurant shows its exclusive design (true) or a stock template (false). */
   useExclusive?: boolean;
 }
@@ -418,4 +420,103 @@ export async function resetVerdeCategoryImage(restaurantId: string, categoryId: 
 export async function publishVerdeMenu(restaurantId: string): Promise<VerdeMenuConfigView> {
   const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/verde-menu/publish`, { method: 'POST' });
   return verdeView(x.data);
+}
+
+/** Exclusive El Sherbiny menu: private draft / published appearance, available only to the assigned Restaurant. */
+export interface SherbinyMenuConfigView { draft: SherbinyMenuSettings; published: SherbinyMenuSettings }
+const sherbinyView = (raw: unknown): SherbinyMenuConfigView => {
+  const row = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  return { draft: normalizeSherbinySettings(row.draft), published: normalizeSherbinySettings(row.published) };
+};
+export async function getSherbinyMenuConfig(restaurantId: string): Promise<SherbinyMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/sherbiny-menu`);
+  return sherbinyView(x.data);
+}
+/** Image paths are server-owned: they are never sent with the text settings. */
+export async function saveSherbinyMenuDraft(restaurantId: string, settings: SherbinyMenuSettings): Promise<SherbinyMenuConfigView> {
+  const {
+    heroImageAssetPath: _hero, heroPlateImageAssetPath: _plate, favorite1ImageAssetPath: _f1, favorite2ImageAssetPath: _f2,
+    favorite3ImageAssetPath: _f3, storyImageAssetPath: _story, categoryExtras, ...rest
+  } = normalizeSherbinySettings(settings);
+  void [_hero, _plate, _f1, _f2, _f3, _story];
+  const body = {
+    ...rest,
+    categoryExtras: Object.fromEntries(
+      Object.entries(categoryExtras).map(([id, { tagAr, tagEn, titleAr, titleEn, descAr, descEn }]) => [id, { tagAr, tagEn, titleAr, titleEn, descAr, descEn }]),
+    ),
+  };
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/sherbiny-menu/draft`, { method: 'PATCH', body });
+  return sherbinyView(x.data);
+}
+export async function uploadSherbinyImage(restaurantId: string, slot: SherbinyImageSlot, file: File): Promise<SherbinyMenuConfigView> {
+  const form = new FormData();
+  form.set('image', file);
+  const x = await apiFetchFormData<{ data: unknown }>(`${restaurantPath(restaurantId)}/sherbiny-menu/images/${slot}`, form);
+  return sherbinyView(x.data);
+}
+export async function resetSherbinyImage(restaurantId: string, slot: SherbinyImageSlot): Promise<SherbinyMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/sherbiny-menu/images/${slot}`, { method: 'DELETE' });
+  return sherbinyView(x.data);
+}
+export async function uploadSherbinyCategoryImage(restaurantId: string, categoryId: string, file: File): Promise<SherbinyMenuConfigView> {
+  const form = new FormData();
+  form.set('image', file);
+  const x = await apiFetchFormData<{ data: unknown }>(`${restaurantPath(restaurantId)}/sherbiny-menu/category-images/${categoryId}`, form);
+  return sherbinyView(x.data);
+}
+export async function resetSherbinyCategoryImage(restaurantId: string, categoryId: string): Promise<SherbinyMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/sherbiny-menu/category-images/${categoryId}`, { method: 'DELETE' });
+  return sherbinyView(x.data);
+}
+export async function publishSherbinyMenu(restaurantId: string): Promise<SherbinyMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/sherbiny-menu/publish`, { method: 'POST' });
+  return sherbinyView(x.data);
+}
+
+/** Exclusive Makkboz menu: private draft / published appearance, available only to the assigned Restaurant. */
+export interface MakkbozMenuConfigView { draft: MakkbozMenuSettings; published: MakkbozMenuSettings }
+const makkbozView = (raw: unknown): MakkbozMenuConfigView => {
+  const row = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  return { draft: normalizeMakkbozSettings(row.draft), published: normalizeMakkbozSettings(row.published) };
+};
+export async function getMakkbozMenuConfig(restaurantId: string): Promise<MakkbozMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/makkboz-menu`);
+  return makkbozView(x.data);
+}
+/** Image paths are server-owned: they are never sent with the text settings. */
+export async function saveMakkbozMenuDraft(restaurantId: string, settings: MakkbozMenuSettings): Promise<MakkbozMenuConfigView> {
+  const { heroImageAssetPath: _hero, heroSmallImageAssetPath: _small, categoryExtras, ...rest } = normalizeMakkbozSettings(settings);
+  void [_hero, _small];
+  const body = {
+    ...rest,
+    categoryExtras: Object.fromEntries(
+      Object.entries(categoryExtras).map(([id, { tagAr, tagEn, introAr, introEn }]) => [id, { tagAr, tagEn, introAr, introEn }]),
+    ),
+  };
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/makkboz-menu/draft`, { method: 'PATCH', body });
+  return makkbozView(x.data);
+}
+export async function uploadMakkbozImage(restaurantId: string, slot: MakkbozImageSlot, file: File): Promise<MakkbozMenuConfigView> {
+  const form = new FormData();
+  form.set('image', file);
+  const x = await apiFetchFormData<{ data: unknown }>(`${restaurantPath(restaurantId)}/makkboz-menu/images/${slot}`, form);
+  return makkbozView(x.data);
+}
+export async function resetMakkbozImage(restaurantId: string, slot: MakkbozImageSlot): Promise<MakkbozMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/makkboz-menu/images/${slot}`, { method: 'DELETE' });
+  return makkbozView(x.data);
+}
+export async function uploadMakkbozCategoryImage(restaurantId: string, categoryId: string, file: File): Promise<MakkbozMenuConfigView> {
+  const form = new FormData();
+  form.set('image', file);
+  const x = await apiFetchFormData<{ data: unknown }>(`${restaurantPath(restaurantId)}/makkboz-menu/category-images/${categoryId}`, form);
+  return makkbozView(x.data);
+}
+export async function resetMakkbozCategoryImage(restaurantId: string, categoryId: string): Promise<MakkbozMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/makkboz-menu/category-images/${categoryId}`, { method: 'DELETE' });
+  return makkbozView(x.data);
+}
+export async function publishMakkbozMenu(restaurantId: string): Promise<MakkbozMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/makkboz-menu/publish`, { method: 'POST' });
+  return makkbozView(x.data);
 }

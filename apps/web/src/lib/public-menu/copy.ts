@@ -221,6 +221,41 @@ export interface PublicMenuCopy {
   verdeOpenCategory: (name: string) => string;
   verdeBrandHome: string;
   verdeHeroPlate: string;
+  /** Navigation, list hints and contact labels of the exclusive El Sherbiny menu. */
+  sherbinyNavHome: string;
+  sherbinyNavFavorites: string;
+  sherbinyNavMenu: string;
+  sherbinyNavContact: string;
+  sherbinyPageLinks: string;
+  sherbinyOpenLinks: string;
+  sherbinyAllSections: string;
+  sherbinyListHint: (count: number) => string;
+  sherbinyDetails: (name: string) => string;
+  sherbinyAddressLabel: string;
+  sherbinyPhoneLabel: string;
+  sherbinySectionsStat: string;
+  /** Navigation, favorites and view labels of the exclusive Makkboz menu. */
+  makkbozNavMenu: string;
+  makkbozNavStory: string;
+  makkbozNavContact: string;
+  makkbozFavoritesShow: string;
+  makkbozFavoritesHide: string;
+  makkbozFavoriteAdd: (name: string) => string;
+  makkbozFavoriteRemove: (name: string) => string;
+  makkbozFavoriteAdded: string;
+  makkbozFavoriteRemoved: string;
+  makkbozNoFavoritesTitle: string;
+  makkbozNoFavoritesText: string;
+  makkbozViewCards: string;
+  makkbozViewList: string;
+  makkbozViewMode: string;
+  makkbozAll: string;
+  makkbozSummaryAll: (count: number) => string;
+  makkbozSummaryFavorites: (count: number) => string;
+  makkbozSummarySearch: (count: number) => string;
+  makkbozShowAll: string;
+  makkbozChooseOptions: string;
+  makkbozLinkCopied: string;
   slideOf: (index: number, count: number) => string;
   orderingMode: string;
   // Final polish: two-step checkout + editing a line
@@ -484,6 +519,39 @@ const EN_COPY: PublicMenuCopy = {
   verdeOpenCategory: (name) => `Open ${name}`,
   verdeBrandHome: 'Back to the top',
   verdeHeroPlate: 'Featured dish',
+  sherbinyNavHome: 'Home',
+  sherbinyNavFavorites: 'Favorites',
+  sherbinyNavMenu: 'Menu',
+  sherbinyNavContact: 'Find us',
+  sherbinyPageLinks: 'Page links',
+  sherbinyOpenLinks: 'Open page links',
+  sherbinyAllSections: 'All sections',
+  sherbinyListHint: (count) => `${count === 1 ? '1 dish' : `${count} dishes`} · tap a dish for sizes and extras`,
+  sherbinyDetails: (name) => `Details of ${name}`,
+  sherbinyAddressLabel: 'Address',
+  sherbinyPhoneLabel: 'Phone',
+  sherbinySectionsStat: 'Sections',
+  makkbozNavMenu: 'Menu',
+  makkbozNavStory: 'Our story',
+  makkbozNavContact: 'Visit us',
+  makkbozFavoritesShow: 'Show my favorites',
+  makkbozFavoritesHide: 'Show the whole menu',
+  makkbozFavoriteAdd: (name) => `Add ${name} to favorites`,
+  makkbozFavoriteRemove: (name) => `Remove ${name} from favorites`,
+  makkbozFavoriteAdded: 'Added to your favorites',
+  makkbozFavoriteRemoved: 'Removed from favorites',
+  makkbozNoFavoritesTitle: 'No favorites yet',
+  makkbozNoFavoritesText: 'Tap the heart on any dish you like.',
+  makkbozViewCards: 'Cards',
+  makkbozViewList: 'List',
+  makkbozViewMode: 'How dishes are shown',
+  makkbozAll: 'All',
+  makkbozSummaryAll: (count) => `${count} dishes made with love`,
+  makkbozSummaryFavorites: (count) => `${count} of your favorites`,
+  makkbozSummarySearch: (count) => `${count} search results`,
+  makkbozShowAll: 'Show all dishes',
+  makkbozChooseOptions: 'Choose',
+  makkbozLinkCopied: 'Menu link copied',
   slideOf: (index, count) => `Pick ${index} of ${count}`,
   orderingMode: 'How would you like your order?',
   stepOf: (step, total) => `Step ${step} of ${total}`,
@@ -744,6 +812,39 @@ const AR_COPY: PublicMenuCopy = {
   verdeOpenCategory: (name) => `افتح ${name}`,
   verdeBrandHome: 'العودة لأعلى الصفحة',
   verdeHeroPlate: 'طبق مميز',
+  sherbinyNavHome: 'الرئيسية',
+  sherbinyNavFavorites: 'المختارات',
+  sherbinyNavMenu: 'المنيو',
+  sherbinyNavContact: 'مكاننا',
+  sherbinyPageLinks: 'روابط الصفحة',
+  sherbinyOpenLinks: 'افتح روابط الصفحة',
+  sherbinyAllSections: 'كل الأقسام',
+  sherbinyListHint: (count) => `${count === 1 ? 'صنف واحد' : count === 2 ? 'صنفان' : count <= 10 ? `${count} أصناف` : `${count} صنفًا`} · اضغط على الصنف لعرض الأحجام والإضافات`,
+  sherbinyDetails: (name) => `تفاصيل ${name}`,
+  sherbinyAddressLabel: 'العنوان',
+  sherbinyPhoneLabel: 'رقم التواصل',
+  sherbinySectionsStat: 'الأقسام',
+  makkbozNavMenu: 'المنيو',
+  makkbozNavStory: 'حكايتنا',
+  makkbozNavContact: 'زورنا',
+  makkbozFavoritesShow: 'عرض أصنافي المفضلة',
+  makkbozFavoritesHide: 'عرض كل المنيو',
+  makkbozFavoriteAdd: (name) => `إضافة ${name} إلى المفضلة`,
+  makkbozFavoriteRemove: (name) => `إزالة ${name} من المفضلة`,
+  makkbozFavoriteAdded: 'اتضاف لمفضلاتك',
+  makkbozFavoriteRemoved: 'اتشال من المفضلة',
+  makkbozNoFavoritesTitle: 'لسه مفيش أصناف مفضلة',
+  makkbozNoFavoritesText: 'دوس على القلب عند أي صنف عجبك.',
+  makkbozViewCards: 'بالصور',
+  makkbozViewList: 'قائمة',
+  makkbozViewMode: 'طريقة عرض الأصناف',
+  makkbozAll: 'الكل',
+  makkbozSummaryAll: (count) => `${count} صنف معمولين بحب`,
+  makkbozSummaryFavorites: (count) => `${count} صنف من مفضلاتك`,
+  makkbozSummarySearch: (count) => `${count} نتيجة للبحث`,
+  makkbozShowAll: 'عرض كل الأصناف',
+  makkbozChooseOptions: 'اختار',
+  makkbozLinkCopied: 'تم نسخ رابط المنيو',
   slideOf: (index, count) => `اختيار ${index} من ${count}`,
   orderingMode: 'كيف تريد استلام طلبك؟',
   stepOf: (step, total) => `الخطوة ${step} من ${total}`,
