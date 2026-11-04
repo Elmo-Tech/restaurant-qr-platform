@@ -146,7 +146,7 @@ const firstPhoto = (category: PublicMenuCategory | undefined): string | null =>
 
 export function SherbinyMenu(props: SherbinyMenuProps) {
   const {
-    settings, restaurantName, logoUrl, coverUrl, locale, availableLocales, publicCode, designPreview, copy, currency,
+    settings, restaurantName, logoUrl, coverUrl, locale, availableLocales, designPreview, copy, currency,
     categories, visibleCategories, query, onQueryChange, activeCategoryId, onSelectCategory, canOrder,
     simpleQuantityByProductId, totalQuantityByProductId, onOpenProduct, onQuickAdd, onIncrement, onDecrement,
     cartCount, onOpenCart, onTrack, hasActiveOrder, shareCode, contact, locations, hours, notices, orderingBar,
@@ -230,7 +230,7 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
   const heroAccent = heroLines[heroLines.length - 1] ?? '';
 
   const otherLocales = availableLocales.filter((code) => code !== locale);
-  const localeHref = (code: string) => `/q/${publicCode}?lang=${code}${designPreview ? '&designPreview=1' : ''}`;
+  const localeHref = (code: string) => `?lang=${code}${designPreview ? '&designPreview=1' : ''}`;
   const localeLabel = (code: string) => (code === 'ar' ? 'عربي' : code.toUpperCase());
   const themeLabel = theme === 'NIGHT' ? copy.lightMode : copy.darkMode;
 

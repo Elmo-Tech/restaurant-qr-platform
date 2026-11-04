@@ -43,6 +43,7 @@ import {
   toPublicHours,
   type PublicHours,
 } from '../branches/branch-hours';
+import { redirectTarget, resolveEntry } from './public-entry';
 import { resolvePublicLocale } from './public-locale';
 import { resolvePublicField } from './public-translation-fallback';
 import type { PublicTranslatableRow } from './public-translation-fallback';
@@ -61,6 +62,13 @@ export interface GetPublicMenuInput {
 }
 
 export interface PublicMenuContext {
+  /**
+   * DEC-066: how this page was reached. `publicCode` is the opaque QR code the Guest app uses for
+   * orders, tracking and its own browser storage (public information, like the printed QR). `redirectToSlug`
+   * is set when the Guest arrived by an old `/q/{code}` link or a renamed slug: the web app sends them to
+   * `/q/{redirectToSlug}`. Always null for a Table QR, which keeps its opaque URL.
+   */
+  entry: { publicCode: string; redirectToSlug: string | null };
   /** Platform-owned destination behind the Guest footer's Wayta brand link. */
   platform: { poweredByUrl: string };
   qrType: QrType;
@@ -98,7 +106,7 @@ export interface PublicMenuContext {
     editorialSettings?: EditorialTemplateSettings;
     /** Contact details for the Guest Menu (DEC-042); a field is null when not set. */
     contact: RestaurantContact;
-    /** Public code of the Restaurant's own (generic) QR: the link the Guest may share. Never a Table QR code. Null when the Restaurant has no active generic QR. */
+    /** The URL segment of the Restaurant's own menu link, `/q/{shareCode}`: its readable slug (DEC-066), else the generic QR's public code. Never a Table QR code. Null when the Restaurant has no active generic QR. */
     shareCode: string | null;
     /** Opening-hours summary for the badge; null = always open, show nothing. */
     hours: PublicHours | null;
@@ -359,8 +367,9 @@ export class PublicMenuService {
     // suspended/inactive Restaurant all converge on the identical
     // `qrNotFound` outcome (QR_SPEC.md #47/#48): never a distinguishable
     // "QR exists but Restaurant is suspended" leak.
+    const entry = await resolveEntry(this.prisma, input.publicCode);
     const qr = await this.prisma.qrCode.findUnique({
-      where: { publicCode: input.publicCode },
+      where: { publicCode: entry.publicCode },
       select: {
         type: true,
         status: true,
@@ -853,15 +862,23 @@ export class PublicMenuService {
       if (live && text !== null) announcements.push({ id: row.id, style: row.style, text });
     }
 
-    const shareCode =
+    // The readable link (DEC-066) only works while the Restaurant's generic QR is ACTIVE, so a Table QR page
+    // looks that up too. Without a slug yet (not backfilled) the generic QR's code is the link.
+    const currentSlug =
+      (
+        await this.prisma.restaurantSlug.findFirst({
+          where: { restaurantId: qr.restaurantId, isCurrent: true },
+          select: { slug: true },
+        })
+      )?.slug ?? null;
+    const genericEntry =
       qr.type === 'GENERIC'
-        ? input.publicCode
-        : ((
-            await this.prisma.qrCode.findFirst({
-              where: { restaurantId: qr.restaurantId, type: 'GENERIC', status: 'ACTIVE' },
-              select: { publicCode: true },
-            })
-          )?.publicCode ?? null);
+        ? { publicCode: entry.publicCode }
+        : await this.prisma.qrCode.findFirst({
+            where: { restaurantId: qr.restaurantId, type: 'GENERIC', status: 'ACTIVE' },
+            select: { publicCode: true },
+          });
+    const shareCode = genericEntry ? (currentSlug ?? genericEntry.publicCode) : null;
 
     // The same published settings are used for an active EMBER template and its
     // package-authorized ?template=ember staff preview. Drafts are NEVER public.
@@ -917,6 +934,10 @@ export class PublicMenuService {
           platform: {
             poweredByUrl:
               platformSettings?.poweredByUrl ?? DEFAULT_POWERED_BY_URL,
+          },
+          entry: {
+            publicCode: entry.publicCode,
+            redirectToSlug: redirectTarget(entry, qr.type, currentSlug),
           },
           qrType: qr.type,
           tableOrdering,

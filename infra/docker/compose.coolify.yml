@@ -150,7 +150,7 @@ services:
       NODE_ENV: production
       # server-side calls stay on the private network
       API_INTERNAL_URL: http://api:4000
-      # the origin printed QR codes point to: ${WEB_URL}/q/{publicCode}
+      # the origin printed QR codes point to: ${WEB_URL}/q/{restaurant-slug} (Table QRs: /q/{publicCode})
       WEB_URL: https://${WEB_HOST}
     depends_on:
       api:

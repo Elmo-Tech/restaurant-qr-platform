@@ -87,6 +87,7 @@ import {
 } from './dto/create-restaurant.dto';
 import { validateOwnerContact } from './restaurant-owner-contact';
 import { ExclusiveDesignDto } from './dto/exclusive-design.dto';
+import { MenuSlugDto } from './dto/menu-slug.dto';
 import { UpdatePlatformPublicSettingsDto } from './dto/platform-public-settings.dto';
 import {
   AdjustActiveTrialsDto,
@@ -642,6 +643,49 @@ export class PlatformController {
     if (result.outcome !== 'ok')
       throw new NotFoundException(RESTAURANT_NOT_FOUND);
     return { data: result.data };
+  }
+
+  /** DEC-066: the Platform team edits a Restaurant's readable menu link. The old link keeps redirecting. */
+  @Put('restaurants/:restaurantId/menu-slug')
+  @UseGuards(PlatformAuthGuard)
+  async setMenuSlug(
+    @Param('restaurantId') restaurantId: string,
+    @Body() dto: MenuSlugDto,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: { slug: string } }> {
+    const result = await this.restaurants.setMenuSlug(
+      request.platformAdmin,
+      restaurantId,
+      dto.slug,
+    );
+    if (result.outcome === 'notFound')
+      throw new NotFoundException(RESTAURANT_NOT_FOUND);
+    if (result.outcome === 'invalid') {
+      throw new HttpException(
+        {
+          error: {
+            code: result.problem === 'reserved' ? 'SLUG_RESERVED' : 'SLUG_INVALID',
+            message:
+              result.problem === 'reserved'
+                ? 'This word is reserved and cannot be a menu link.'
+                : 'Use 3 to 40 lowercase English letters, digits and single hyphens.',
+          },
+        },
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
+    }
+    if (result.outcome === 'taken') {
+      throw new HttpException(
+        {
+          error: {
+            code: 'SLUG_TAKEN',
+            message: 'Another restaurant already uses this menu link.',
+          },
+        },
+        HttpStatus.CONFLICT,
+      );
+    }
+    return { data: { slug: result.slug } };
   }
 
   @Patch('restaurants/:restaurantId/status')

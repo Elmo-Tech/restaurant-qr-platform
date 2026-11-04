@@ -28,6 +28,7 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { cn } from "@/lib/utils";
 import { BillingSection } from "./billing/BillingSection";
 import { ExclusiveDesignAdminCard } from "./ExclusiveDesignAdminCard";
+import { MenuLinkCard } from "./MenuLinkCard";
 import { OwnerContactCard } from "./OwnerContactCard";
 
 type FeatureChoice = "default" | "allowed" | "notAllowed";
@@ -440,6 +441,15 @@ export function RestaurantDetailView({ restaurantId }: { restaurantId: string })
               ) : null}
             </dl>
           </Card>
+
+          <MenuLinkCard
+            restaurantId={restaurantId}
+            link={restaurant.menuLink}
+            onSaved={(menuLink) => {
+              setRestaurant((current) => current ? { ...current, menuLink } : current);
+              reloadAudit();
+            }}
+          />
 
           <OwnerContactCard
             restaurantId={restaurantId}

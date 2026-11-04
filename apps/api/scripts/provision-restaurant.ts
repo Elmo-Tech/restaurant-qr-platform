@@ -119,7 +119,7 @@ async function main(): Promise<void> {
     console.log(`  Owner login e-mail:   ${result.ownerEmail}`);
     console.log(`  Initial Branch:       ${result.branchName}`);
     console.log(
-      `  Guest menu URL:       ${webUrl ? `${webUrl}/q/${result.genericQrPublicCode}` : `<WEB_URL>/q/${result.genericQrPublicCode}`}`,
+      `  Guest menu URL:       ${webUrl || '<WEB_URL>'}/q/${result.menuSlug}`,
     );
     console.log('Next: the Owner signs in and builds the menu; print the Restaurant QR from Tables & QR.');
   } finally {

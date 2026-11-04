@@ -3975,6 +3975,25 @@ API architecture is acceptable when:
 
 ---
 
+# Amendment — Readable menu link (DEC-066, 2026-11-04)
+
+**Public.** In `GET|POST /api/v1/public/qr/{publicCode}/menu` the first path segment accepts either an opaque QR public code **or the
+Restaurant's slug** (a slug resolves to that Restaurant's GENERIC QR only; it is never accepted for a Table QR). `GET .../menu` adds
+`context.entry = { publicCode, redirectToSlug }`: `publicCode` is the resolved QR code the client then uses for `/orders`, `/orders/*/tracking`,
+`/orders/lookup`, `/suggestions`, `/table-ordering` (those routes still take a code, unchanged), and `redirectToSlug` is set when the request used an
+old generic code or a former slug (the Web app redirects to `/q/{redirectToSlug}`); it is always null for a Table QR. `context.restaurant.shareCode`
+is now the readable slug (else the generic QR code). Unknown, inactive and suspended all return the same `QR_NOT_FOUND`.
+
+**Staff.** `GET /restaurants/{id}/guest-menu-link` returns `{ publicCode, slug }`; the Generic QR views (`/restaurants/{id}/generic-qr`) add `slug`.
+The Web builds `{web}/q/{slug ?? publicCode}`.
+
+**Platform** (platform admin session only). `GET /platform/restaurants/{id}` adds `menuLink: { slug, formerSlugs, url }`.
+`PUT /platform/restaurants/{id}/menu-slug` with `{ slug }`: `200 { data: { slug } }`; `422 SLUG_INVALID` (format), `422 SLUG_RESERVED`,
+`409 SLUG_TAKEN` (another Restaurant's current or former slug), `404 RESTAURANT_NOT_FOUND`. Audit action `restaurant.menu_link_changed`
+(`from`, `to`). The previous slug keeps redirecting.
+
+---
+
 # API Principle
 
 > URLs identify the resource context, HTTP communicates intent, the Backend enforces the business rules, and every response should be predictable enough that clients never need to guess.

@@ -1413,6 +1413,28 @@ QR resolution must be efficient.
 
 ---
 
+# 54A. Restaurant Slug (DEC-066, 2026-11-04)
+
+Migration `20261121090000_restaurant_slugs` (additive: one new table, no existing row changed). Table `restaurant_slugs`:
+
+| Column | Type | Notes |
+|---|---|---|
+| `id` | uuid PK | |
+| `slug` | text, **UNIQUE** | the readable link segment; unique across current **and former** slugs of every Restaurant |
+| `restaurant_id` | uuid FK → `restaurants` | `ON DELETE CASCADE` (so a purged demo takes its slugs with it) |
+| `is_current` | boolean | the slug shown, copied and printed; the others only redirect |
+| `created_at` | timestamptz | |
+
+Constraints (custom SQL, Prisma cannot express them): partial unique index `restaurant_slugs_one_current_per_restaurant`
+(`restaurant_id` WHERE `is_current`) and CHECK `restaurant_slugs_format_check` (`^[a-z0-9]+(-[a-z0-9]+)*$`, 3 to 40 characters; below the 43 of a QR
+public code). A rename demotes the current row and inserts or promotes the new one in one transaction; rows are never deleted by the
+application. Provisioning (operator, Platform console, demos) creates the slug in the same transaction as the Restaurant; a Restaurant created
+before this migration is backfilled by `scripts/backfill-restaurant-slugs.ts` and by the API at start-up (idempotent; the oldest of two
+same-named Restaurants keeps the plain name). `qr_codes.public_code` is unchanged. Rollback: drop the table; every menu link falls back to
+`/q/{publicCode}`, which never stopped working.
+
+---
+
 # 55. Table QR Relationship
 
 TABLE QR requires:

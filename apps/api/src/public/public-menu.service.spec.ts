@@ -96,6 +96,10 @@ function buildCategoryRow(overrides: Partial<Record<string, unknown>> = {}) {
 
 function buildPrismaMock() {
   const qrCodeFindUnique = jest.fn().mockResolvedValue(GENERIC_QR_ROW);
+  // Readable links (DEC-066): by default the Restaurant has no slug yet and the URL segment is a QR code.
+  const slugFindUnique = jest.fn().mockResolvedValue(null);
+  const slugFindFirst = jest.fn().mockResolvedValue(null);
+  const qrCodeFindFirst = jest.fn().mockResolvedValue({ publicCode: 'generic-qr' });
   const restaurantLocaleFindMany = jest
     .fn()
     .mockResolvedValue([{ locale: 'en' }, { locale: 'ar' }]);
@@ -144,8 +148,9 @@ function buildPrismaMock() {
       restaurantAnnouncement: { findMany: jest.fn().mockResolvedValue([]) },
       qrCode: {
         findUnique: qrCodeFindUnique,
-        findFirst: jest.fn().mockResolvedValue({ publicCode: 'generic-qr' }),
+        findFirst: qrCodeFindFirst,
       },
+      restaurantSlug: { findUnique: slugFindUnique, findFirst: slugFindFirst },
       restaurantLocale: { findMany: restaurantLocaleFindMany },
       menu: { findFirst: menuFindFirst },
       category: { findMany: categoryFindMany },
@@ -156,6 +161,9 @@ function buildPrismaMock() {
     },
     tableSessionFindFirst,
     qrCodeFindUnique,
+    qrCodeFindFirst,
+    slugFindUnique,
+    slugFindFirst,
     restaurantLocaleFindMany,
     menuFindFirst,
     categoryFindMany,
@@ -452,6 +460,7 @@ describe('PublicMenuService.getPublicMenu', () => {
     expect(result.outcome).toBe('found');
     if (result.outcome !== 'found') return;
     expect(result.data.context).toEqual({
+      entry: { publicCode: 'table-qr', redirectToSlug: null },
       platform: { poweredByUrl: 'https://menu.elmotechsoft.online/' },
       qrType: 'TABLE',
       restaurant: {
@@ -496,6 +505,7 @@ describe('PublicMenuService.getPublicMenu', () => {
     expect(result.outcome).toBe('found');
     if (result.outcome !== 'found') return;
     expect(result.data.context).toEqual({
+      entry: { publicCode: 'generic-qr', redirectToSlug: null },
       platform: { poweredByUrl: 'https://menu.elmotechsoft.online/' },
       qrType: 'GENERIC',
       tableOrdering: null,
@@ -1173,5 +1183,137 @@ describe('PublicMenuService -- Table channel view-only (DEC-038)', () => {
     const result = await buildService(mock).getTableOrdering('table-qr');
 
     expect(result).toEqual({ outcome: 'found', tableOrdering: 'DISABLED' });
+  });
+});
+
+describe('PublicMenuService readable menu links (DEC-066)', () => {
+  const input = (publicCode: string) => ({
+    publicCode,
+    explicitLang: null,
+    acceptLanguageHeader: null,
+  });
+
+  it("opens the restaurant menu from its slug through the restaurant's own generic QR", async () => {
+    const mock = buildPrismaMock();
+    mock.slugFindUnique.mockResolvedValue({ restaurantId: 'restaurant-1', isCurrent: true });
+    mock.qrCodeFindFirst.mockResolvedValue({ publicCode: 'GENERIC-CODE-OF-RESTAURANT-1' });
+    mock.slugFindFirst.mockResolvedValue({ slug: 'elmo-bistro' });
+
+    const result = await buildService(mock).getPublicMenu(input('elmo-bistro'));
+
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    // The generic QR code the Guest app uses for orders and storage; no redirect (already the readable URL).
+    expect(result.data.context.entry).toEqual({
+      publicCode: 'GENERIC-CODE-OF-RESTAURANT-1',
+      redirectToSlug: null,
+    });
+    expect(result.data.context.restaurant.shareCode).toBe('elmo-bistro');
+    expect(mock.qrCodeFindUnique).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { publicCode: 'GENERIC-CODE-OF-RESTAURANT-1' } }),
+    );
+    // The generic QR is looked up by the slug's own restaurant only.
+    expect(mock.qrCodeFindFirst).toHaveBeenCalledWith(
+      expect.objectContaining({ where: { restaurantId: 'restaurant-1', type: 'GENERIC' } }),
+    );
+  });
+
+  it('redirects a renamed (former) slug to the current one', async () => {
+    const mock = buildPrismaMock();
+    mock.slugFindUnique.mockResolvedValue({ restaurantId: 'restaurant-1', isCurrent: false });
+    mock.slugFindFirst.mockResolvedValue({ slug: 'new-name' });
+
+    const result = await buildService(mock).getPublicMenu(input('old-name'));
+
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    expect(result.data.context.entry.redirectToSlug).toBe('new-name');
+  });
+
+  it('redirects a legacy /q/{opaque generic code} link to the readable slug', async () => {
+    const mock = buildPrismaMock();
+    mock.slugFindFirst.mockResolvedValue({ slug: 'elmo-bistro' });
+    const legacy = 'L'.repeat(43);
+
+    const result = await buildService(mock).getPublicMenu(input(legacy));
+
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    expect(result.data.context.entry).toEqual({ publicCode: legacy, redirectToSlug: 'elmo-bistro' });
+    // A 43-character code can never be a slug, so no slug lookup is made for it.
+    expect(mock.slugFindUnique).not.toHaveBeenCalled();
+  });
+
+  it('keeps serving a legacy generic code without a redirect while the restaurant has no slug yet', async () => {
+    const mock = buildPrismaMock();
+
+    const result = await buildService(mock).getPublicMenu(input('short-legacy-code'));
+
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    expect(result.data.context.entry.redirectToSlug).toBeNull();
+    expect(result.data.context.restaurant.shareCode).toBe('short-legacy-code');
+  });
+
+  it('never redirects a Table QR: its opaque URL stays, and its page shares the readable restaurant link', async () => {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue(TABLE_QR_ROW);
+    mock.slugFindFirst.mockResolvedValue({ slug: 'elmo-bistro' });
+    const tableCode = 'T'.repeat(43);
+
+    const result = await buildService(mock).getPublicMenu(input(tableCode));
+
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    expect(result.data.context.qrType).toBe('TABLE');
+    expect(result.data.context.entry).toEqual({ publicCode: tableCode, redirectToSlug: null });
+    expect(result.data.context.restaurant.shareCode).toBe('elmo-bistro');
+  });
+
+  it('a slug can never reach a Table QR: it resolves to the generic QR of its restaurant only', async () => {
+    const mock = buildPrismaMock();
+    mock.slugFindUnique.mockResolvedValue({ restaurantId: 'restaurant-1', isCurrent: true });
+    mock.qrCodeFindFirst.mockResolvedValue({ publicCode: 'G'.repeat(43) });
+
+    await buildService(mock).getPublicMenu(input('elmo-bistro'));
+
+    const lookups = mock.qrCodeFindFirst.mock.calls.map((call) => call[0].where);
+    expect(lookups[0]).toEqual({ restaurantId: 'restaurant-1', type: 'GENERIC' });
+  });
+
+  it('an unknown slug converges on qrNotFound', async () => {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue(null);
+
+    expect(await buildService(mock).getPublicMenu(input('no-such-place'))).toEqual({
+      outcome: 'qrNotFound',
+    });
+  });
+
+  it('a slug whose restaurant is suspended or whose generic QR is INACTIVE converges on qrNotFound', async () => {
+    for (const row of [
+      { ...GENERIC_QR_ROW, status: 'INACTIVE' },
+      { ...GENERIC_QR_ROW, restaurant: { ...GENERIC_QR_ROW.restaurant, status: 'SUSPENDED' } },
+    ]) {
+      const mock = buildPrismaMock();
+      mock.slugFindUnique.mockResolvedValue({ restaurantId: 'restaurant-1', isCurrent: true });
+      mock.qrCodeFindUnique.mockResolvedValue(row);
+      expect(await buildService(mock).getPublicMenu(input('elmo-bistro'))).toEqual({
+        outcome: 'qrNotFound',
+      });
+    }
+  });
+
+  it('does not share the readable link when the generic QR is not active', async () => {
+    const mock = buildPrismaMock();
+    mock.qrCodeFindUnique.mockResolvedValue(TABLE_QR_ROW);
+    mock.slugFindFirst.mockResolvedValue({ slug: 'elmo-bistro' });
+    mock.qrCodeFindFirst.mockResolvedValue(null);
+
+    const result = await buildService(mock).getPublicMenu(input('T'.repeat(43)));
+
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    expect(result.data.context.restaurant.shareCode).toBeNull();
   });
 });

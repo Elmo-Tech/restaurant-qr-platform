@@ -145,7 +145,7 @@ const firstPhoto = (category: PublicMenuCategory | undefined): string | null =>
 
 export function MakkbozMenu(props: MakkbozMenuProps) {
   const {
-    settings, restaurantName, logoUrl, locale, availableLocales, publicCode, designPreview, copy, currency,
+    settings, restaurantName, logoUrl, locale, availableLocales, designPreview, copy, currency,
     categories, visibleCategories, query, onQueryChange, canOrder, simpleQuantityByProductId, totalQuantityByProductId,
     onOpenProduct, onQuickAdd, onIncrement, onDecrement, cartCount, onOpenCart, onTrack, hasActiveOrder, shareCode,
     contact, locations, hours, notices, orderingBar, poweredBy, children,
@@ -270,7 +270,7 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
   const hasContact = addresses.length > 0 || phoneNumbers.length > 0 || channels.length > 0 || hours !== null;
 
   const otherLocales = availableLocales.filter((code) => code !== locale);
-  const localeHref = (code: string) => `/q/${publicCode}?lang=${code}${designPreview ? '&designPreview=1' : ''}`;
+  const localeHref = (code: string) => `?lang=${code}${designPreview ? '&designPreview=1' : ''}`;
   const localeLabel = (code: string) => (code === 'ar' ? 'عربي' : code.toUpperCase());
 
   const summary = favoritesOnly

@@ -1,6 +1,6 @@
 /**
  * FT-4: the Platform's own public Web origin -- used to build the exact
- * Guest Menu URL a Table QR encodes (`${webOrigin}/q/{publicCode}`).
+ * Guest Menu URL a QR encodes: `${webOrigin}/q/{slug}` for the Restaurant QR (DEC-066), `${webOrigin}/q/{publicCode}` for a Table QR.
  * Server-only, deliberately NOT a `NEXT_PUBLIC_*` variable (unlike
  * `lib/api/config.ts`'s `NEXT_PUBLIC_API_URL`): nothing here needs to run
  * in browser JS, only to be read once, server-side, in a Server Component

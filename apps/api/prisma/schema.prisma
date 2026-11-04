@@ -410,6 +410,7 @@ model Restaurant {
   acquisition           RestaurantAcquisition?   @relation("RestaurantAcquisitionOwner")
   ownerContact          RestaurantOwnerContact?
   demoAccessLinks       DemoAccessLink[]
+  slugs                 RestaurantSlug[]
   referredAcquisitions  RestaurantAcquisition[]  @relation("RestaurantAcquisitionReferrer")
 
   @@index([packageId])
@@ -1543,6 +1544,24 @@ model Table {
   @@unique([id, restaurantId, branchId])
   @@index([restaurantId])
   @@map("tables")
+}
+
+// Readable Guest Menu link (DEC-066): `/q/{slug}` opens the Restaurant's menu (its
+// GENERIC QR). Every slug a Restaurant ever had stays here so a renamed link keeps
+// redirecting; `isCurrent` marks the one shown everywhere. Globally unique across
+// current AND former slugs. A slug is a public lookup, never an authorization.
+// The "one current slug per Restaurant" partial unique index and the slug format
+// CHECK live in committed custom migration SQL (Prisma cannot express them).
+model RestaurantSlug {
+  id           String     @id @default(uuid()) @db.Uuid
+  slug         String     @unique
+  restaurantId String     @map("restaurant_id") @db.Uuid
+  isCurrent    Boolean    @map("is_current")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+
+  @@index([restaurantId])
+  @@map("restaurant_slugs")
 }
 
 model QrCode {

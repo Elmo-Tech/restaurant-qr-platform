@@ -308,7 +308,7 @@ export function DesignWorkspace({
     qrApi
       .getGenericQr(restaurantId)
       .then((qr) => {
-        if (!cancelled) setQrCode(qr && qr.status === 'ACTIVE' ? qr.publicCode : null);
+        if (!cancelled) setQrCode(qr && qr.status === 'ACTIVE' ? (qr.slug ?? qr.publicCode) : null);
       })
       .catch(() => {
         if (!cancelled) setQrCode(null);

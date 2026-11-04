@@ -6,6 +6,7 @@ import { starterRoleData } from '../auth/permission/starter-roles';
 import { createBranchPublicId } from '../branches/branch-public-id';
 import { Prisma } from '../generated/prisma/client';
 import { createQrPublicCode } from '../qr/qr-public-code';
+import { allocateRestaurantSlug } from '../restaurants/restaurant-slug';
 import {
   PLATFORM_SUPPORTED_LOCALES,
   normalizePlatformLocale,
@@ -52,6 +53,8 @@ export type ProvisionRestaurantResult =
       branchName: string;
       ownerEmail: string;
       genericQrPublicCode: string;
+      /** The readable menu link: the Guest Menu is `/q/{menuSlug}` (DEC-066). */
+      menuSlug: string;
     }
   | { outcome: 'alreadyProvisioned'; restaurantPublicId: string }
   | { outcome: 'conflict'; reason: 'ownerEmailInUse' }
@@ -86,6 +89,13 @@ export interface ProvisioningTx {
   restaurantLocale: { createMany(args: unknown): Promise<unknown> };
   branch: { create(args: unknown): Promise<{ id: string; name: string }> };
   qrCode: { create(args: unknown): Promise<{ publicCode: string }> };
+  restaurantSlug: {
+    findMany(args: {
+      where: { slug: { in: string[] } };
+      select: { slug: true };
+    }): Promise<Array<{ slug: string }>>;
+    create(args: unknown): Promise<unknown>;
+  };
 }
 
 export interface PasswordHasher {
@@ -250,6 +260,12 @@ export async function provisionRestaurant(
         select: { id: true, publicId: true },
       });
 
+      // The readable menu link (DEC-066): the name, or name-2, name-3 ... when it is taken.
+      const menuSlug = await allocateRestaurantSlug(tx, input.restaurantName);
+      await tx.restaurantSlug.create({
+        data: { slug: menuSlug, restaurantId: restaurant.id, isCurrent: true },
+      });
+
       // Only NEW restaurants enter optional setup. Existing tenants never get a
       // row from migration or from a provisioning no-op.
       await tx.restaurantSetup.create({
@@ -358,13 +374,16 @@ export async function provisionRestaurant(
         branchName: branch.name,
         ownerEmail: input.ownerEmail,
         genericQrPublicCode: qr.publicCode,
+        menuSlug,
       };
     });
   } catch (error) {
     // A concurrent provisioning of the same owner e-mail lost the unique race.
+    // (A lost race for the same readable menu link is NOT an owner-email conflict: it is thrown for a retry.)
     if (
       error instanceof Prisma.PrismaClientKnownRequestError &&
-      error.code === 'P2002'
+      error.code === 'P2002' &&
+      !JSON.stringify(error.meta ?? {}).includes('restaurant_slugs')
     ) {
       return { outcome: 'conflict', reason: 'ownerEmailInUse' };
     }

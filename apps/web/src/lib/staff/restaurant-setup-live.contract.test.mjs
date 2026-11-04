@@ -76,8 +76,8 @@ test('operations auto-completes from active branch and required delivery zone, w
 test('preview opens the real public Guest Menu and requires a separate one-click confirmation', () => {
   assert.match(card, /OpenGuestMenuButton/);
   assert.match(card, /expanded \|\| step\.key === 'PREVIEW'/);
-  assert.match(guestMenuButton, /getGuestMenuPublicCode\(restaurantId\)/);
-  assert.match(guestMenuButton, /`\/q\/\$\{encodeURIComponent\(state\.publicCode\)\}`/);
+  assert.match(guestMenuButton, /getGuestMenuSegment\(restaurantId\)/);
+  assert.match(guestMenuButton, /`\/q\/\$\{encodeURIComponent\(state\.segment\)\}`/);
   assert.doesNotMatch(guestMenuButton, /reviewSetupStep|confirmPreview/);
   assert.match(translations, /'setup\.action\.confirmPreview': 'I previewed the menu'/);
   assert.match(translations, /'setup\.action\.confirmPreview': 'عاينت المنيو'/);

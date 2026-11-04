@@ -25,6 +25,7 @@ import {
   type VerifiedExclusiveRenderer,
 } from './dto/exclusive-design.dto';
 import type { NormalizedOwnerContact } from './restaurant-owner-contact';
+import { changeRestaurantSlug, type ChangeSlugResult } from '../restaurants/restaurant-slug-store';
 import type { AcquisitionSourceType } from './restaurant-acquisition';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -96,6 +97,8 @@ export interface RestaurantAcquisitionView {
 }
 
 export interface RestaurantDetail extends RestaurantSummary {
+  /** The readable Guest Menu link (DEC-066): `/q/{slug}`; null only before the backfill ran. Former slugs keep redirecting. */
+  menuLink: { slug: string | null; formerSlugs: string[]; url: string | null };
   exclusiveDesign: ExclusiveDesignView | null;
   /** Private ElmoTech attribution, never exposed through restaurant or public APIs. */
   acquisition: RestaurantAcquisitionView | null;
@@ -130,6 +133,19 @@ export class PlatformRestaurantsService {
     private readonly audit: PlatformAuditService,
     private readonly config: ConfigService<EnvConfig, true>,
   ) {}
+
+  /** The Guest Menu link the Platform team shares: `{web origin}/q/{slug}` (the web origin is the API's CORS origin, as for demo links). */
+  private menuLinkOf(
+    slugs: { slug: string; isCurrent: boolean }[],
+  ): RestaurantDetail['menuLink'] {
+    const current = slugs.find((s) => s.isCurrent)?.slug ?? null;
+    const origin = String(this.config.get('CORS_ORIGIN', { infer: true }) ?? '').replace(/\/+$/, '');
+    return {
+      slug: current,
+      formerSlugs: slugs.filter((s) => !s.isCurrent).map((s) => s.slug),
+      url: current && origin ? `${origin}/q/${current}` : null,
+    };
+  }
 
   private briefOf(
     rows: Parameters<typeof subscriptionBrief>[0],
@@ -279,6 +295,7 @@ export class PlatformRestaurantsService {
         menuTemplate: true,
         suggestionsMode: true,
         exclusiveDesign: { select: { baseTemplate: true, status: true, rendererKey: true } },
+        slugs: { select: { slug: true, isCurrent: true }, orderBy: { createdAt: 'asc' } },
         ownerContact: {
           select: { fullName: true, phone: true, facebookUrl: true },
         },
@@ -368,6 +385,7 @@ export class PlatformRestaurantsService {
             }
           : null,
         ownerContact: row.ownerContact,
+        menuLink: this.menuLinkOf(row.slugs),
         acquisition: row.acquisition
           ? {
               sourceType: row.acquisition.sourceType,
@@ -472,6 +490,32 @@ export class PlatformRestaurantsService {
       });
     }
     return { outcome: 'ok', data: input };
+  }
+
+  /**
+   * Edits the Restaurant's readable menu link (DEC-066). The previous link keeps redirecting. Validation,
+   * uniqueness (current AND former slugs of every Restaurant) and the swap live in `changeRestaurantSlug`.
+   */
+  async setMenuSlug(
+    admin: PlatformAdminPrincipal,
+    restaurantId: string,
+    requested: string,
+  ): Promise<ChangeSlugResult> {
+    if (!UUID.test(restaurantId)) return { outcome: 'notFound' };
+    const result = await changeRestaurantSlug(this.prisma, restaurantId, requested);
+    if (result.outcome === 'updated') {
+      const restaurant = await this.prisma.restaurant.findUnique({
+        where: { id: restaurantId },
+        select: { id: true, name: true },
+      });
+      await this.audit.record({
+        admin,
+        action: 'restaurant.menu_link_changed',
+        restaurant: restaurant ?? undefined,
+        details: { from: result.previousSlug, to: result.slug },
+      });
+    }
+    return result;
   }
 
   /** Platform-only primary contact correction; never changes a login User. */

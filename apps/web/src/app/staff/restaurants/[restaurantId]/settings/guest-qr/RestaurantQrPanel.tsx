@@ -115,7 +115,7 @@ export function RestaurantQrPanel({
     }
   }
 
-  const guestUrl = qr ? `${webOrigin}/q/${qr.publicCode}` : null;
+  const guestUrl = qr ? `${webOrigin}/q/${qr.slug ?? qr.publicCode}` : null;
   const isActive = qr?.status === 'ACTIVE';
   const logoUrl = resolveAssetUrl(logoAssetPath);
   const issue = colorIssue(draft.foregroundColor, draft.backgroundColor);

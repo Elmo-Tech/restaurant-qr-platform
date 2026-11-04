@@ -4,6 +4,8 @@ import { apiFetch } from '../api/client';
 export interface GenericQr {
   publicCode: string;
   status: 'ACTIVE' | 'INACTIVE';
+  /** The readable menu link segment (DEC-066); null until the Restaurant has one. */
+  slug: string | null;
 }
 
 function path(restaurantId: string): string {

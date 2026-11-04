@@ -8,6 +8,8 @@ import { createQrPublicCode } from './qr-public-code';
 export interface GenericQrView {
   publicCode: string;
   status: QrStatus;
+  /** The Restaurant's readable menu link segment (DEC-066); null until it has one. */
+  slug: string | null;
 }
 
 export type CreateGenericQrResult =
@@ -47,10 +49,19 @@ export class GenericQrService {
   constructor(private readonly prisma: PrismaService) {}
 
   async getGenericQr(restaurantId: string): Promise<GenericQrView | null> {
-    return this.prisma.qrCode.findFirst({
+    const qr = await this.prisma.qrCode.findFirst({
       where: { restaurantId, type: 'GENERIC' },
       select: GENERIC_QR_SELECT,
     });
+    return qr ? { ...qr, slug: await this.currentSlug(restaurantId) } : null;
+  }
+
+  private async currentSlug(restaurantId: string): Promise<string | null> {
+    const row = await this.prisma.restaurantSlug.findFirst({
+      where: { restaurantId, isCurrent: true },
+      select: { slug: true },
+    });
+    return row?.slug ?? null;
   }
 
   async createGenericQr(restaurantId: string): Promise<CreateGenericQrResult> {
@@ -70,7 +81,7 @@ export class GenericQrService {
         },
         select: GENERIC_QR_SELECT,
       });
-      return { outcome: 'created', data: created };
+      return { outcome: 'created', data: { ...created, slug: await this.currentSlug(restaurantId) } };
     } catch (error) {
       // A concurrent double-create lost to the one-per-Restaurant index.
       if (isOneGenericQrConflict(error)) {
@@ -93,6 +104,6 @@ export class GenericQrService {
       data: { status },
       select: GENERIC_QR_SELECT,
     });
-    return { outcome: 'updated', data: updated };
+    return { outcome: 'updated', data: { ...updated, slug: await this.currentSlug(restaurantId) } };
   }
 }
