@@ -6,6 +6,21 @@ import {
   plain,
 } from './whatsapp-order-message';
 
+type Item = OrderQuote['items'][number];
+
+const item = (overrides: Partial<Item> = {}): Item => ({
+  name: 'Burger',
+  categoryName: 'Burgers',
+  categoryOrder: 1,
+  variantName: null,
+  quantity: 1,
+  modifiers: [],
+  unitPrice: '60.00',
+  discountAmount: '0.00',
+  lineTotal: '60.00',
+  ...overrides,
+});
+
 const quote = (overrides: Partial<OrderQuote> = {}): OrderQuote => ({
   restaurantName: 'Elmo Cafe',
   whatsappNumber: '+201012345678',
@@ -15,29 +30,28 @@ const quote = (overrides: Partial<OrderQuote> = {}): OrderQuote => ({
   branchName: 'Zamalek',
   deliveryZoneName: 'Zone A',
   items: [
-    {
-      name: 'Burger',
+    item({
       variantName: 'Large',
       quantity: 2,
-      modifiers: ['Cheese', 'Bacon'],
+      modifiers: [
+        { groupName: 'Extras', optionName: 'Cheese', priceAdjustment: '10.00' },
+        { groupName: 'Extras', optionName: 'Bacon', priceAdjustment: '15.00' },
+      ],
       unitPrice: '60.00',
-      discountAmount: '0.00',
-      lineTotal: '140.00',
-    },
-    {
+      lineTotal: '170.00',
+    }),
+    item({
       name: 'Cola',
-      variantName: null,
-      quantity: 1,
-      modifiers: [],
+      categoryName: 'Drinks',
+      categoryOrder: 2,
       unitPrice: '20.00',
-      discountAmount: '0.00',
       lineTotal: '20.00',
-    },
+    }),
   ],
-  subtotal: '160.00',
+  subtotal: '190.00',
   discountTotal: '0.00',
   deliveryFee: '25.00',
-  total: '185.00',
+  total: '215.00',
   customerName: 'Mona Hassan',
   customerPhone: '01012345678',
   customerNotes: 'No onions',
@@ -50,15 +64,20 @@ const quote = (overrides: Partial<OrderQuote> = {}): OrderQuote => ({
 });
 
 describe('WhatsApp order message', () => {
-  it('lists the order, the money from the quote, and the customer details', () => {
+  it('says it comes from the digital menu and lists the order, the money from the quote, and the customer', () => {
     const message = buildWhatsappMessage(quote());
-    expect(message).toContain('*New order* — Elmo Cafe');
-    expect(message).toContain('🛵 Delivery');
-    expect(message).toContain('1. 2× Burger — 140 EGP');
-    expect(message).toContain('(Large + Cheese + Bacon)');
-    expect(message).toContain('2. 1× Cola — 20 EGP');
+    expect(message.split('\n')[0]).toBe('🧾 *New order from the digital menu*');
+    expect(message).toContain('🏪 Elmo Cafe');
+    expect(message).toContain('🛵 Delivery — Delivery area: Zone A');
+    expect(message).toContain('📍 Branch: Zamalek');
+    expect(message).toContain('*1) Burger* × 2');
+    expect(message).toContain('📏 Size: Large');
+    expect(message).toContain('➕ Extras: Cheese (+10) · Bacon (+15)');
+    expect(message).toContain('💰 Price: 170 EGP');
+    expect(message).toContain('*2) Cola* × 1');
+    expect(message).toContain('Items: 190 EGP');
     expect(message).toContain('Delivery fee: 25 EGP');
-    expect(message).toContain('*Total: 185 EGP*');
+    expect(message).toContain('💰 *Total: 215 EGP*');
     expect(message).toContain('👤 Name: Mona Hassan');
     expect(message).toContain('📞 Phone: 01012345678');
     expect(message).toContain('🏠 Address: 1 Nile St');
@@ -66,6 +85,91 @@ describe('WhatsApp order message', () => {
       'Building: 12 · Floor: 3 · Apartment: 8 · Landmark: Next to the pharmacy',
     );
     expect(message).toContain('📝 Notes: No onions');
+    expect(message.endsWith('📲 Sent from the digital menu')).toBe(true);
+  });
+
+  it('groups the products by Category in menu order, with a divider between groups, so equal names stay apart', () => {
+    // the same name in two Categories, added in the "wrong" order, plus a third Category
+    const message = buildWhatsappMessage(
+      quote({
+        items: [
+          item({
+            name: 'Sausage',
+            categoryName: 'Oriental pizza',
+            categoryOrder: 5,
+            variantName: 'M',
+            lineTotal: '145.00',
+          }),
+          item({
+            name: 'Sausage',
+            categoryName: 'Italian pizza',
+            categoryOrder: 2,
+            variantName: 'L',
+            lineTotal: '210.00',
+          }),
+          item({
+            name: 'Marguerita',
+            categoryName: 'Italian pizza',
+            categoryOrder: 2,
+            variantName: 'M',
+            lineTotal: '105.00',
+          }),
+        ],
+      }),
+    );
+    const italian = message.indexOf('🗂️ *Category: Italian pizza*');
+    const oriental = message.indexOf('🗂️ *Category: Oriental pizza*');
+    expect(italian).toBeGreaterThan(-1);
+    expect(oriental).toBeGreaterThan(italian);
+    // numbering runs across the groups, in the printed order
+    expect(message).toContain('*1) Sausage* × 1\n📏 Size: L');
+    expect(message).toContain('*2) Marguerita* × 1');
+    expect(message).toContain('*3) Sausage* × 1\n📏 Size: M');
+    // one divider before each Category group
+    const between = message.slice(italian, oriental);
+    expect(between).toContain('━━━━━━━━━━');
+    expect(message.slice(0, italian).trimEnd().endsWith('━━━━━━━━━━')).toBe(
+      true,
+    );
+  });
+
+  it('writes a clear extras line per extras group, with the price of each extra and none for a free one', () => {
+    const message = buildWhatsappMessage(
+      quote({
+        items: [
+          item({
+            variantName: 'L',
+            modifiers: [
+              {
+                groupName: 'Sauce',
+                optionName: 'Ranch',
+                priceAdjustment: '0.00',
+              },
+              {
+                groupName: 'Add-ons',
+                optionName: 'Cheese',
+                priceAdjustment: '50.00',
+              },
+              {
+                groupName: 'Add-ons',
+                optionName: 'Sauces',
+                priceAdjustment: '30.50',
+              },
+              {
+                groupName: 'Add-ons',
+                optionName: 'Skip bun',
+                priceAdjustment: '-5.00',
+              },
+            ],
+            lineTotal: '300.50',
+          }),
+        ],
+      }),
+    );
+    expect(message).toContain('➕ Sauce: Ranch\n');
+    expect(message).toContain(
+      '➕ Add-ons: Cheese (+50) · Sauces (+30.50) · Skip bun (-5)',
+    );
   });
 
   it('keeps cents and shows a discount; pickup has no address or fee lines', () => {
@@ -85,21 +189,106 @@ describe('WhatsApp order message', () => {
       }),
     );
     expect(message).toContain('🛍️ Pickup');
+    expect(message).not.toContain('Delivery area');
     expect(message).toContain('Discount: -12.50 EGP');
-    expect(message).toContain('*Total: 147.50 EGP*');
+    expect(message).toContain('💰 *Total: 147.50 EGP*');
     expect(message).not.toContain('Delivery fee');
     expect(message).not.toContain('Address');
   });
 
-  it('writes the labels in Arabic for an Arabic Restaurant', () => {
+  it('writes the whole message in Arabic, with the Arabic currency, for an Arabic Restaurant', () => {
     const message = buildWhatsappMessage(
-      quote({ defaultLocale: 'ar', restaurantName: 'مطعمنا' }),
+      quote({
+        defaultLocale: 'ar',
+        restaurantName: 'مطعم الشربيني',
+        deliveryZoneName: 'وسط البلد',
+        items: [
+          item({
+            name: 'سجق بلدي',
+            categoryName: 'البيتزا الإيطالي',
+            categoryOrder: 2,
+            variantName: 'L',
+            quantity: 2,
+            modifiers: [
+              {
+                groupName: 'الإضافات',
+                optionName: 'جبنة',
+                priceAdjustment: '50.00',
+              },
+              {
+                groupName: 'الإضافات',
+                optionName: 'صوصات',
+                priceAdjustment: '30.00',
+              },
+            ],
+            lineTotal: '580.00',
+          }),
+          item({
+            name: 'سجق بلدي',
+            categoryName: 'فطير أو بيتزا شرقي',
+            categoryOrder: 3,
+            variantName: 'M',
+            lineTotal: '145.00',
+          }),
+          item({
+            name: 'مشلتت',
+            categoryName: 'الفطير الحلو',
+            categoryOrder: 1,
+            lineTotal: '210.00',
+          }),
+        ],
+        subtotal: '935.00',
+        deliveryFee: '20.00',
+        total: '955.00',
+      }),
     );
-    expect(message).toContain('*طلب جديد* — مطعمنا');
-    expect(message).toContain('توصيل');
-    expect(message).toContain('*الإجمالي: 185 EGP*');
+    expect(message).toContain('🧾 *طلب جديد من المنيو الإلكتروني*');
+    expect(message).toContain('🏪 مطعم الشربيني');
+    expect(message).toContain('🛵 توصيل — منطقة التوصيل: وسط البلد');
+    expect(message).toContain('🗂️ *القسم: البيتزا الإيطالي*');
+    expect(message).toContain('*2) سجق بلدي* × 2');
+    expect(message).toContain('📏 المقاس: L');
+    expect(message).toContain('➕ الإضافات: جبنة (+50) · صوصات (+30)');
+    expect(message).toContain('💰 السعر: 580 ج.م');
+    expect(message).toContain('رسوم التوصيل: 20 ج.م');
+    expect(message).toContain('💰 *الإجمالي: 955 ج.م*');
+    expect(message.endsWith('📲 تم إرسال الطلب من المنيو الإلكتروني')).toBe(
+      true,
+    );
+    // the sweet category was first in the menu, so it comes first
+    expect(message.indexOf('الفطير الحلو')).toBeLessThan(
+      message.indexOf('البيتزا الإيطالي'),
+    );
     expect(messageLanguage('ar-EG')).toBe('ar');
     expect(messageLanguage('fr')).toBe('en');
+  });
+
+  it('leaves out what is not there: no Category heading, size, extras, customer block or fee', () => {
+    const message = buildWhatsappMessage(
+      quote({
+        orderType: 'PICKUP',
+        deliveryZoneName: null,
+        deliveryFee: '0.00',
+        items: [item({ categoryName: '' })],
+        subtotal: '60.00',
+        total: '60.00',
+        customerName: null,
+        customerPhone: null,
+        customerNotes: null,
+        deliveryAddress: null,
+        deliveryBuilding: null,
+        deliveryFloor: null,
+        deliveryApartment: null,
+        deliveryLandmark: null,
+      }),
+    );
+    expect(message).not.toContain('🗂️');
+    expect(message).not.toContain('📏');
+    expect(message).not.toContain('➕');
+    expect(message).not.toContain('👤');
+    expect(message).not.toContain('Items:');
+    expect(message).toContain('*1) Burger* × 1');
+    expect(message).toContain('💰 *Total: 60 EGP*');
   });
 
   it('cannot be restyled by what the Guest typed', () => {

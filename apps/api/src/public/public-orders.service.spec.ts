@@ -44,6 +44,7 @@ const PRODUCT_ROW = {
   id: 'product-1',
   basePrice: decimal('100.00'),
   translations: [{ name: 'Burger' }],
+  category: { displayOrder: 0, translations: [{ name: 'Mains' }] },
   variants: [] as unknown[],
   modifierGroups: [] as {
     id: string;
@@ -542,6 +543,7 @@ describe('PublicOrdersService.createOrder -- Modifiers (FT-6A)', () => {
     id: 'product-1',
     basePrice: decimal('100.00'),
     translations: [{ name: 'Burger' }],
+    category: { displayOrder: 0, translations: [{ name: 'Mains' }] },
     variants: [] as unknown[],
     modifierGroups: [
       {
@@ -694,6 +696,7 @@ describe('PublicOrdersService.createOrder -- Modifiers (FT-6A)', () => {
     mock.productFindMany.mockResolvedValue([
       {
         ...PRODUCT_WITH_MODIFIERS_ROW,
+        category: { displayOrder: 0, translations: [{ name: 'Mains' }] },
         variants: [] as unknown[],
         modifierGroups: [
           PRODUCT_WITH_MODIFIERS_ROW.modifierGroups[0],
@@ -870,6 +873,7 @@ describe('PublicOrdersService.createOrder -- Modifiers (FT-6A)', () => {
       id: 'product-1',
       basePrice: decimal('100.00'),
       translations: [{ name: 'Burger' }],
+      category: { displayOrder: 0, translations: [{ name: 'Mains' }] },
       variants: [] as unknown[],
       modifierGroups: [
         {
@@ -1097,6 +1101,7 @@ describe('PublicOrdersService.createOrder -- product discounts', () => {
       basePrice: decimal('180.00'),
       discountType: 'FIXED_AMOUNT',
       discountValue: decimal('30'),
+      category: { displayOrder: 0, translations: [{ name: 'Mains' }] },
       variants: [] as unknown[],
       modifierGroups: [
         {
