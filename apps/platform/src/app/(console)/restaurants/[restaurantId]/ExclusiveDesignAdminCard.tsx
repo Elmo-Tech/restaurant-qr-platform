@@ -11,6 +11,7 @@ import {
   type ExclusiveDesignStatus,
   type ExclusiveDesignView,
 } from "@/lib/api/platform";
+import { ApiError } from "@/lib/api/errors";
 import { useI18n } from "@/lib/i18n/client";
 
 export function ExclusiveDesignAdminCard({
@@ -29,31 +30,31 @@ export function ExclusiveDesignAdminCard({
   const [status, setStatus] = useState<ExclusiveDesignStatus>(
     current?.status ?? "RESERVED",
   );
-  const [rendererKey, setRendererKey] = useState<ExclusiveRendererKey>(
-    current?.rendererKey ?? "VERDE_NAPOLI_V1",
-  );
+  // No silent default: assigning a bespoke design is a deliberate choice of exactly one of them.
+  const [rendererKey, setRendererKey] = useState<ExclusiveRendererKey | "">(current?.rendererKey ?? "");
   const [confirmed, setConfirmed] = useState(false);
   const [busy, setBusy] = useState(false);
-  const [problem, setProblem] = useState(false);
+  const [problem, setProblem] = useState<"conflict" | "generic" | null>(null);
   const [saved, setSaved] = useState(false);
+  const rendererMissing = status === "ACTIVE_CUSTOM" && rendererKey === "";
   const changed = !current || baseTemplate !== current.baseTemplate || status !== current.status ||
     (status === "ACTIVE_CUSTOM" && rendererKey !== current.rendererKey);
   const needsConfirmation = (status === "ACTIVE_BASE" || status === "ACTIVE_CUSTOM") &&
     (current?.status !== status || current?.baseTemplate !== baseTemplate || current?.rendererKey !== rendererKey);
 
   async function save() {
-    if (busy || !changed || (needsConfirmation && !confirmed)) return;
+    if (busy || !changed || rendererMissing || (needsConfirmation && !confirmed)) return;
     setBusy(true);
     setSaved(false);
-    setProblem(false);
+    setProblem(null);
     try {
       const next = await setExclusiveDesign(restaurantId, { baseTemplate, status,
-      ...(status === "ACTIVE_CUSTOM" ? { rendererKey } : {}) });
+      ...(status === "ACTIVE_CUSTOM" && rendererKey !== "" ? { rendererKey } : {}) });
       onSaved(next);
       setSaved(true);
       setConfirmed(false);
-    } catch {
-      setProblem(true);
+    } catch (error) {
+      setProblem(error instanceof ApiError && error.status === 409 ? "conflict" : "generic");
     } finally {
       setBusy(false);
     }
@@ -127,11 +128,13 @@ export function ExclusiveDesignAdminCard({
               value={rendererKey}
               disabled={busy}
               onChange={(e) => {
-                setRendererKey(e.target.value as ExclusiveRendererKey);
+                setRendererKey(e.target.value as ExclusiveRendererKey | "");
+                setProblem(null);
                 setConfirmed(false);
                 setSaved(false);
               }}
             >
+              <option value="">{t("exclusive.rendererChoose")}</option>
               {EXCLUSIVE_RENDERERS.map((renderer) => (
                 <option key={renderer.key} value={renderer.key}>{renderer.label}</option>
               ))}
@@ -160,7 +163,10 @@ export function ExclusiveDesignAdminCard({
             {t("exclusive.publishConfirm")}
           </label>
         ) : null}
-        {problem ? <Alert tone="danger">{t("common.error")}</Alert> : null}
+        {problem ? (
+          <Alert tone="danger">{problem === "conflict" ? t("exclusive.rendererConflict") : t("common.error")}</Alert>
+        ) : null}
+        {rendererMissing ? <Alert tone="warning">{t("exclusive.rendererRequired")}</Alert> : null}
         {saved ? <Alert tone="success">{t("exclusive.saved")}</Alert> : null}
         <Button
           type="button"
