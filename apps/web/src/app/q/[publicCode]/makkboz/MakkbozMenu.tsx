@@ -148,7 +148,7 @@ const firstPhoto = (category: PublicMenuCategory | undefined): string | null =>
 
 export function MakkbozMenu(props: MakkbozMenuProps) {
   const {
-    settings, guestTheme, restaurantName, logoUrl, locale, availableLocales, publicCode, designPreview, copy, currency,
+    settings, guestTheme, restaurantName, logoUrl, locale, availableLocales, designPreview, copy, currency,
     categories, visibleCategories, query, onQueryChange, canOrder, simpleQuantityByProductId, totalQuantityByProductId,
     onOpenProduct, onQuickAdd, onIncrement, onDecrement, cartCount, onOpenCart, onTrack, hasActiveOrder, shareCode,
     contact, locations, hours, notices, orderingBar, poweredBy, children,

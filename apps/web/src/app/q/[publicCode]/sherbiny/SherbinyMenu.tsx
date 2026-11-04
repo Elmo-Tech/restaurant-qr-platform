@@ -116,7 +116,7 @@ const firstPhoto = (category: PublicMenuCategory | undefined): string | null =>
 
 export function SherbinyMenu(props: SherbinyMenuProps) {
   const {
-    settings, guestTheme, restaurantName, logoUrl, coverUrl, locale, availableLocales, publicCode, designPreview, copy, currency,
+    settings, guestTheme, restaurantName, logoUrl, coverUrl, locale, availableLocales, designPreview, copy, currency,
     categories, visibleCategories, query, onQueryChange, activeCategoryId, onSelectCategory, canOrder,
     simpleQuantityByProductId, totalQuantityByProductId, onOpenProduct, onQuickAdd, onIncrement, onDecrement,
     cartCount, onOpenCart, onTrack, hasActiveOrder, shareCode, contact, locations, hours, notices, orderingBar,
