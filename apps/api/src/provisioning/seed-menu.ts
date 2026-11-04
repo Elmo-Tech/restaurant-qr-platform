@@ -29,7 +29,9 @@ import {
  * names, address and phone, the Restaurant's contact numbers and logo, product / category photos and,
  * optionally, the Restaurant's exclusive design (VERDE or El Sherbiny).
  *
- * It only ever fills a Restaurant that has NO menu yet, so a re-run changes nothing.
+ * It only ever fills a Restaurant that has NO menu yet, so a re-run changes nothing -- unless the caller asks to
+ * REPLACE the menu, which never deletes anything: the old Menus are switched off (inactive, not primary) and a
+ * new primary Menu is created, so Orders and history keep pointing at what they always pointed at.
  */
 
 export type Localized = { ar: string; en: string };
@@ -110,6 +112,18 @@ export interface MakkbozSeedDesign {
   categoryChapters?: Record<string, { tag: Localized; intro: Localized }>;
 }
 
+/** A short banner at the top of the Guest Menu (DEC-042). Only added when the Restaurant has no announcement yet. */
+export interface SeedAnnouncement {
+  texts: Localized;
+  style?: 'INFO' | 'PROMO' | 'WARNING';
+}
+/** A delivery area of the first Branch. Only added when that Branch has no delivery zone yet. */
+export interface SeedDeliveryZone {
+  names: Localized;
+  fee: string;
+  minimumOrder: string;
+}
+
 export interface MenuSeed {
   version: 1;
   restaurant: {
@@ -127,6 +141,8 @@ export interface MenuSeed {
   menu: { nameInternal: string; names: Localized };
   sharedModifierGroups: Record<string, SeedModifierGroup>;
   categories: SeedCategory[];
+  announcements?: SeedAnnouncement[];
+  deliveryZones?: SeedDeliveryZone[];
 }
 
 const MONEY = /^\d+(\.\d{1,2})?$/;
@@ -227,6 +243,20 @@ export function menuSeedProblems(seed: MenuSeed): string[] {
     }
   }
 
+  if ((seed.announcements ?? []).length > 3)
+    problems.push('at most 3 announcements');
+  for (const announcement of seed.announcements ?? []) {
+    if (!localized(announcement.texts) || announcement.texts.ar.length > 200 || announcement.texts.en.length > 200)
+      problems.push('an announcement needs Arabic and English text of at most 200 characters');
+    if (announcement.style !== undefined && !['INFO', 'PROMO', 'WARNING'].includes(announcement.style))
+      problems.push('an announcement has an unknown style');
+  }
+  for (const zone of seed.deliveryZones ?? []) {
+    if (!localized(zone.names)) problems.push('a delivery zone lacks a name');
+    if (!MONEY.test(zone.fee ?? '') || !MONEY.test(zone.minimumOrder ?? ''))
+      problems.push('a delivery zone has a bad fee or minimum order');
+  }
+
   const design = seed.restaurant?.exclusiveDesign;
   if (design?.rendererKey === 'VERDE_NAPOLI_V1') {
     if (!hasText(design.brandWord) || design.brandWord.length > 24)
@@ -313,6 +343,10 @@ export type MenuSeedResult =
       counts: ReturnType<typeof menuSeedCounts>;
       photos: number;
       exclusiveDesign: 'assigned' | 'rendererTaken' | 'none';
+      /** Menus switched off because the caller asked to replace the menu. */
+      archivedMenus: number;
+      announcements: number;
+      deliveryZones: number;
     }
   | { outcome: 'alreadySeeded' };
 
@@ -326,10 +360,20 @@ export async function seedMenu(
   restaurantId: string,
   seed: MenuSeed,
   assets?: SeedAssets,
+  options: { replaceMenu?: boolean } = {},
 ): Promise<MenuSeedResult> {
   assertValidMenuSeed(seed);
-  if ((await tx.menu.count({ where: { restaurantId } })) > 0)
-    return { outcome: 'alreadySeeded' };
+  let archivedMenus = 0;
+  if ((await tx.menu.count({ where: { restaurantId } })) > 0) {
+    if (!options.replaceMenu) return { outcome: 'alreadySeeded' };
+    // Never deleted: Orders, Carts and history keep pointing at the old Menu. It simply stops being shown.
+    archivedMenus = (
+      await tx.menu.updateMany({
+        where: { restaurantId },
+        data: { status: 'INACTIVE', isPrimary: false },
+      })
+    ).count;
+  }
 
   let photos = 0;
   const photo = async (image: SeedImage | undefined): Promise<string | null> => {
@@ -364,6 +408,7 @@ export async function seedMenu(
       ...(seed.branch.phone ? { phone: seed.branch.phone } : {}),
     },
   });
+  await tx.branchTranslation.deleteMany({ where: { branchId: branch.id } });
   await tx.branchTranslation.createMany({
     data: LOCALES.map((locale) => ({
       branchId: branch.id,
@@ -371,6 +416,15 @@ export async function seedMenu(
       name: seed.branch.names[locale],
     })),
   });
+
+  // The two V1 languages must be active, or the translations written below would never be shown.
+  for (const locale of LOCALES) {
+    await tx.restaurantLocale.upsert({
+      where: { restaurantId_locale: { restaurantId, locale } },
+      create: { restaurantId, locale, isActive: true },
+      update: { isActive: true },
+    });
+  }
 
   const menu = await tx.menu.create({
     data: {
@@ -504,6 +558,50 @@ export async function seedMenu(
     }
   }
 
+  // Banners and delivery areas are extras: added only where the Restaurant has none, never duplicated on a re-run.
+  let announcements = 0;
+  if (
+    (seed.announcements ?? []).length > 0 &&
+    (await tx.restaurantAnnouncement.count({ where: { restaurantId } })) === 0
+  ) {
+    for (const announcement of seed.announcements ?? []) {
+      await tx.restaurantAnnouncement.create({
+        data: {
+          restaurantId,
+          status: 'ACTIVE',
+          style: announcement.style ?? 'INFO',
+          translations: {
+            create: LOCALES.map((locale) => ({ locale, text: announcement.texts[locale] })),
+          },
+        },
+      });
+      announcements += 1;
+    }
+  }
+  let deliveryZones = 0;
+  if (
+    (seed.deliveryZones ?? []).length > 0 &&
+    (await tx.deliveryZone.count({ where: { restaurantId, branchId: branch.id } })) === 0
+  ) {
+    for (const [order, zone] of (seed.deliveryZones ?? []).entries()) {
+      await tx.deliveryZone.create({
+        data: {
+          restaurantId,
+          branchId: branch.id,
+          name: zone.names[seed.restaurant.defaultLocale],
+          deliveryFee: zone.fee,
+          minimumOrder: zone.minimumOrder,
+          status: 'ACTIVE',
+          displayOrder: order,
+          translations: {
+            create: LOCALES.map((locale) => ({ locale, name: zone.names[locale] })),
+          },
+        },
+      });
+      deliveryZones += 1;
+    }
+  }
+
   return {
     outcome: 'seeded',
     counts: menuSeedCounts(seed),
@@ -515,6 +613,9 @@ export async function seedMenu(
       photo,
     ),
     photos,
+    archivedMenus,
+    announcements,
+    deliveryZones,
   };
 }
 

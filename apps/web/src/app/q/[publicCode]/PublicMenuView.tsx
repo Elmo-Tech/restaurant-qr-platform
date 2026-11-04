@@ -119,6 +119,7 @@ export function PublicMenuView({
   template = DEFAULT_MENU_TEMPLATE,
   designPreview = false,
   exclusiveRendererKey,
+  guestTheme = null,
 }: {
   data: PublicMenuData;
   publicCode: string;
@@ -128,6 +129,8 @@ export function PublicMenuView({
   designPreview?: boolean;
   /** Backend-resolved private renderer; must never be selected by public URL. */
   exclusiveRendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
+  /** The guest's saved light / dark pick (cookie), read on the server; null = never chose. */
+  guestTheme?: 'light' | 'dark' | null;
 }) {
   const router = useRouter();
   const locale = data.locale.resolved;
@@ -1386,6 +1389,7 @@ export function PublicMenuView({
         {makkbozSettings ? (
           <MakkbozMenu
             settings={makkbozSettings}
+            guestTheme={guestTheme}
             restaurantName={data.context.restaurant.name}
             logoUrl={logoUrl}
             locale={locale}
@@ -1422,6 +1426,7 @@ export function PublicMenuView({
         ) : sherbinySettings ? (
           <SherbinyMenu
             settings={sherbinySettings}
+            guestTheme={guestTheme}
             restaurantName={data.context.restaurant.name}
             logoUrl={logoUrl}
             coverUrl={resolveAssetUrl(data.context.restaurant.coverAssetPath)}

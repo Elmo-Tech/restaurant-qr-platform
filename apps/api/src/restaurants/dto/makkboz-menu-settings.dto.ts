@@ -2,9 +2,11 @@ import { IsBoolean, IsIn, IsObject, IsOptional, IsString, MaxLength } from 'clas
 import {
   MAKKBOZ_COPY_LIMITS,
   MAKKBOZ_MOTIONS,
+  MAKKBOZ_THEMES,
   MAKKBOZ_VIEWS,
   type MakkbozCopyField,
   type MakkbozMotion,
+  type MakkbozTheme,
   type MakkbozView,
 } from '../makkboz-menu-config';
 
@@ -15,6 +17,8 @@ type MakkbozCopyDtoFields = { [K in MakkbozCopyField]?: string };
  * uploads go through the dedicated routes and the Backend keeps the stored paths.
  */
 export class MakkbozMenuSettingsDto {
+  @IsIn(MAKKBOZ_THEMES) theme!: MakkbozTheme;
+  @IsBoolean() allowThemeSwitch!: boolean;
   @IsIn(MAKKBOZ_MOTIONS) motion!: MakkbozMotion;
   @IsIn(MAKKBOZ_VIEWS) defaultView!: MakkbozView;
   @IsBoolean() showAnnouncement!: boolean;

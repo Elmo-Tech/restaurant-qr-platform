@@ -127,3 +127,11 @@ credits; the logo is own artwork (chef hat on the brand tile), replaceable in St
 4. Decide the 216 / 210 price, the extras scope, and the renamed dish names; review the descriptions.
 5. Photo credits or replacement (section 5).
 6. English address (the Branch holds one address string; the Arabic one is shown in both languages).
+
+## Light / dark mode (DEC-065)
+
+- The dashboard default is `theme` (NIGHT / PAPER / SYSTEM) and `allowThemeSwitch` in the draft / publish settings; the guest's own choice (header sun / moon button, shown when switching is allowed) is stored in the shared `guest_theme` cookie and wins over the default.
+- The server reads the cookie (`/q/[publicCode]/page.tsx`) and renders the first paint with it; SYSTEM is resolved by CSS (`prefers-color-scheme`) alone, so nothing flashes.
+- Both palettes are token sets that also remap the shared `--g-*` tokens, so the cart, order bar, product sheet and tracking follow the mode.
+- Never add unlayered colour / font resets to the skin stylesheet: they beat the Tailwind utilities of the shared components and make their text invisible (guarded by the contract test).
+- A restaurant with this design and no published menu shows the branded "menu on its way" page (`BrandedMenuPending`), not the generic error.

@@ -71,7 +71,17 @@ export class PublicMenuController {
       throw new NotFoundException(QR_NOT_FOUND_RESPONSE);
     }
     if (result.outcome === 'menuNotAvailable') {
-      throw new NotFoundException(MENU_NOT_AVAILABLE_RESPONSE);
+      // A Restaurant with an exclusive design also tells the page whom it is for, so the page can be branded.
+      throw new NotFoundException(
+        result.branding
+          ? {
+              error: {
+                ...MENU_NOT_AVAILABLE_RESPONSE.error,
+                branding: result.branding,
+              },
+            }
+          : MENU_NOT_AVAILABLE_RESPONSE,
+      );
     }
 
     return { data: result.data };

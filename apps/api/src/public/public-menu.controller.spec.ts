@@ -99,4 +99,15 @@ describe('PublicMenuController', () => {
       },
     });
   });
+
+  it('adds the branding to the 404 only when the service provides it (exclusive design in use)', async () => {
+    const branding = { restaurantName: 'Shop', logoAssetPath: null, exclusiveRendererKey: 'MAKKBOZ_HERITAGE_V1', locale: 'ar' };
+    publicMenuService.getPublicMenu.mockResolvedValue({ outcome: 'menuNotAvailable', branding });
+
+    await expect(
+      controller.getPublicMenu('code-1', undefined, undefined),
+    ).rejects.toMatchObject({
+      response: { error: { code: 'MENU_NOT_AVAILABLE', branding } },
+    });
+  });
 });

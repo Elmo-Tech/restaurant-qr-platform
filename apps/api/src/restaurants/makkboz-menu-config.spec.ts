@@ -18,6 +18,8 @@ describe('Makkboz menu settings normalization', () => {
       expect(normalizeMakkbozSettings(input)).toEqual(DEFAULT_MAKKBOZ_SETTINGS);
     }
     expect(DEFAULT_MAKKBOZ_SETTINGS.defaultView).toBe('CARDS');
+    expect(DEFAULT_MAKKBOZ_SETTINGS.theme).toBe('LIGHT');
+    expect(DEFAULT_MAKKBOZ_SETTINGS.allowThemeSwitch).toBe(true);
     // Both languages exist for every copy key, so neither locale can render an empty headline.
     for (const key of MAKKBOZ_COPY_KEYS) {
       expect(`${key}Ar` in MAKKBOZ_COPY_LIMITS && `${key}En` in MAKKBOZ_COPY_LIMITS).toBe(true);
@@ -30,6 +32,7 @@ describe('Makkboz menu settings normalization', () => {
       heroTitleAr: 'x'.repeat(500),
       ctaPrimaryEn: '   ',
       defaultView: 'GRID',
+      theme: 'SEPIA',
       motion: 'WILD',
       showStory: 'yes',
     });
@@ -37,6 +40,9 @@ describe('Makkboz menu settings normalization', () => {
     expect(result.heroTitleAr).toHaveLength(MAKKBOZ_COPY_LIMITS.heroTitleAr);
     expect(result.ctaPrimaryEn).toBe(DEFAULT_MAKKBOZ_SETTINGS.ctaPrimaryEn);
     expect(result.defaultView).toBe('CARDS');
+    expect(result.theme).toBe('LIGHT');
+    expect(normalizeMakkbozSettings({ theme: 'SYSTEM' }).theme).toBe('SYSTEM');
+    expect(normalizeMakkbozSettings({ theme: 'DARK', allowThemeSwitch: false })).toMatchObject({ theme: 'DARK', allowThemeSwitch: false });
     expect(result.motion).toBe('SUBTLE');
     expect(result.showStory).toBe(true);
     expect(normalizeMakkbozSettings({ defaultView: 'LIST', showStory: false })).toMatchObject({

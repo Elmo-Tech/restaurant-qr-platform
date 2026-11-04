@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { Fragment, useCallback, useEffect, useMemo, useState, useSyncExternalStore, type ReactNode } from 'react';
+import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { GuestIconBag, GuestIconClose, GuestIconMoon, GuestIconPhone, GuestIconReceipt, GuestIconSearch, GuestIconSun } from '../../../../components/guest/icons';
 import { Price } from '../../../../components/guest/Price';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
@@ -11,7 +11,6 @@ import {
   sherbinyCopy,
   type SherbinyCopyKey,
   type SherbinyMenuSettings,
-  type SherbinyTheme,
 } from '../../../../lib/public-menu/sherbiny-settings';
 import type { PublicHours, PublicMenuCategory, PublicMenuProduct } from '../../../../lib/public-menu/types';
 import type { RestaurantContact } from '../../../../lib/contact/types';
@@ -22,41 +21,10 @@ import { VerdeImage as SherbinyImage } from '../verde/VerdeImage';
 import { SherbinyDishArt, SherbinyFlame, SherbinyHat, SherbinyPizzaArt, SherbinyWrapArt } from './SherbinyArt';
 import { SherbinyDishRow } from './SherbinyDishRow';
 import { SHERBINY_FONT_CLASSES } from './sherbiny-fonts';
+import { useExclusiveTheme } from '../useExclusiveTheme';
 import './sherbiny.css';
 
-const THEME_STORAGE_KEY = 'sherbiny-menu-theme';
 const pad = (n: number): string => String(n).padStart(2, '0');
-
-// A guest's own night / paper pick lives in this browser only (never on the server); `useSyncExternalStore`
-// keeps server and first client render on the Restaurant's default theme, then adopts the stored pick.
-let memoryTheme: SherbinyTheme | null = null;
-const themeListeners = new Set<() => void>();
-const subscribeTheme = (listener: () => void) => {
-  themeListeners.add(listener);
-  window.addEventListener('storage', listener);
-  return () => {
-    themeListeners.delete(listener);
-    window.removeEventListener('storage', listener);
-  };
-};
-function readStoredTheme(): SherbinyTheme | null {
-  try {
-    const saved = window.localStorage.getItem(THEME_STORAGE_KEY);
-    if (saved === 'NIGHT' || saved === 'PAPER') return saved;
-  } catch {
-    /* storage unavailable: fall back to the in-memory pick */
-  }
-  return memoryTheme;
-}
-function storeTheme(next: SherbinyTheme) {
-  memoryTheme = next;
-  try {
-    window.localStorage.setItem(THEME_STORAGE_KEY, next);
-  } catch {
-    /* private mode: the pick lasts for this visit only */
-  }
-  themeListeners.forEach((listener) => listener());
-}
 
 export interface SherbinyLocation {
   name: string;
@@ -66,6 +34,8 @@ export interface SherbinyLocation {
 
 export interface SherbinyMenuProps {
   settings: SherbinyMenuSettings;
+  /** The guest's saved light / dark pick from the cookie (null = never chose). */
+  guestTheme: 'light' | 'dark' | null;
   restaurantName: string;
   logoUrl: string | null;
   coverUrl: string | null;
@@ -146,7 +116,7 @@ const firstPhoto = (category: PublicMenuCategory | undefined): string | null =>
 
 export function SherbinyMenu(props: SherbinyMenuProps) {
   const {
-    settings, restaurantName, logoUrl, coverUrl, locale, availableLocales, publicCode, designPreview, copy, currency,
+    settings, guestTheme, restaurantName, logoUrl, coverUrl, locale, availableLocales, publicCode, designPreview, copy, currency,
     categories, visibleCategories, query, onQueryChange, activeCategoryId, onSelectCategory, canOrder,
     simpleQuantityByProductId, totalQuantityByProductId, onOpenProduct, onQuickAdd, onIncrement, onDecrement,
     cartCount, onOpenCart, onTrack, hasActiveOrder, shareCode, contact, locations, hours, notices, orderingBar,
@@ -157,10 +127,13 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
   const brand = (isArabic ? settings.brandAr : settings.brandEn).trim() || restaurantName;
   const text = useCallback((key: SherbinyCopyKey) => sherbinyCopy(settings, key, locale, brand), [settings, locale, brand]);
 
-  // Theme: the Restaurant's choice first; a guest's own pick (when allowed) wins, except in the staff preview.
-  const guestTheme = useSyncExternalStore(subscribeTheme, readStoredTheme, () => null);
-  const theme: SherbinyTheme = !designPreview && settings.allowThemeSwitch && guestTheme ? guestTheme : settings.theme;
-  const toggleTheme = () => storeTheme(theme === 'NIGHT' ? 'PAPER' : 'NIGHT');
+  // Light / dark: the guest's pick (cookie, rendered on the server) wins over the Restaurant's default.
+  const theme = useExclusiveTheme({
+    guestTheme,
+    defaultMode: settings.theme === 'PAPER' ? 'light' : settings.theme === 'SYSTEM' ? 'system' : 'dark',
+    designPreview,
+  });
+  const themeAttr = theme.attr === 'dark' ? 'night' : theme.attr === 'light' ? 'paper' : 'system';
 
   const [showAll, setShowAll] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
@@ -194,7 +167,7 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
     const chip = rail?.querySelector<HTMLElement>('[aria-pressed="true"]');
     if (!rail || !chip) return;
     rail.scrollLeft += chip.getBoundingClientRect().left - rail.getBoundingClientRect().left - (rail.clientWidth - chip.clientWidth) / 2;
-  }, [activeCategoryId, showAll, theme]);
+  }, [activeCategoryId, showAll, theme.effective]);
 
   // ---- favorites: the Restaurant's featured, still available dishes (padded from the menu when fewer than 3) ----
   const favorites = useMemo(() => {
@@ -232,7 +205,7 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
   const otherLocales = availableLocales.filter((code) => code !== locale);
   const localeHref = (code: string) => `/q/${publicCode}?lang=${code}${designPreview ? '&designPreview=1' : ''}`;
   const localeLabel = (code: string) => (code === 'ar' ? 'عربي' : code.toUpperCase());
-  const themeLabel = theme === 'NIGHT' ? copy.lightMode : copy.darkMode;
+  const themeLabel = theme.effective === 'dark' ? copy.lightMode : copy.darkMode;
 
   // ---- which sections / dishes the board shows ----
   const board: PublicMenuCategory[] = isSearching
@@ -277,7 +250,7 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
       className={`sherbiny-experience ${SHERBINY_FONT_CLASSES}`}
       dir={isArabic ? 'rtl' : 'ltr'}
       lang={locale}
-      data-s-theme={theme.toLowerCase()}
+      data-s-theme={themeAttr}
       data-s-motion={settings.motion === 'OFF' ? 'off' : 'on'}
       data-s-lang={locale}
     >
@@ -307,8 +280,8 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
               </Link>
             ))}
             {settings.allowThemeSwitch ? (
-              <button type="button" className="s-round" onClick={toggleTheme} aria-label={themeLabel} title={themeLabel}>
-                {theme === 'NIGHT' ? <GuestIconSun className="size-[19px]" /> : <GuestIconMoon className="size-[18px]" />}
+              <button type="button" className="s-round" onClick={theme.toggle} aria-label={themeLabel} title={themeLabel}>
+                {theme.effective === 'dark' ? <GuestIconSun className="size-[19px]" /> : <GuestIconMoon className="size-[18px]" />}
               </button>
             ) : null}
             {shareCode ? <ShareButton shareCode={shareCode} restaurantName={restaurantName} copy={copy} className="s-round s-share" /> : null}

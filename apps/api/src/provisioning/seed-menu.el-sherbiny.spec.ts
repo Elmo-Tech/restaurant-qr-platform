@@ -127,7 +127,10 @@ function buildTx(options: { rendererHolder?: string | null } = {}) {
     menu: { count: jest.fn().mockResolvedValue(0), create: create() },
     restaurant: { update: jest.fn().mockResolvedValue({}) },
     branch: { findFirstOrThrow: jest.fn().mockResolvedValue({ id: 'branch-1' }), update: jest.fn().mockResolvedValue({}) },
-    branchTranslation: { createMany: jest.fn().mockResolvedValue({}) },
+    branchTranslation: { createMany: jest.fn().mockResolvedValue({}), deleteMany: jest.fn().mockResolvedValue({}) },
+    restaurantLocale: { upsert: jest.fn().mockResolvedValue({}) },
+    restaurantAnnouncement: { count: jest.fn().mockResolvedValue(0), create: jest.fn().mockResolvedValue({}) },
+    deliveryZone: { count: jest.fn().mockResolvedValue(0), create: jest.fn().mockResolvedValue({}) },
     category: { create: create() },
     product: { create: create() },
     productVariant: { create: create() },
@@ -183,6 +186,53 @@ describe('seedMenu with the El Sherbiny seed', () => {
     const result = await seedMenu(asTx(tx), 'restaurant-9', load(), assets());
     expect(result).toMatchObject({ exclusiveDesign: 'rendererTaken' });
     expect(tx.restaurantExclusiveDesign.upsert).not.toHaveBeenCalled();
+  });
+
+  it('adds the announcement and ensures both languages, but never duplicates the extras of a Restaurant that has them', async () => {
+    const fresh = buildTx();
+    const result = await seedMenu(asTx(fresh), 'restaurant-9', load(), assets());
+    expect(result).toMatchObject({ outcome: 'seeded', announcements: 1, deliveryZones: 0, archivedMenus: 0 });
+    expect(fresh.restaurantLocale.upsert).toHaveBeenCalledTimes(2);
+    expect(fresh.branchTranslation.deleteMany).toHaveBeenCalledWith({ where: { branchId: 'branch-1' } });
+    expect(fresh.restaurantAnnouncement.create).toHaveBeenCalledTimes(1);
+
+    const withBanner = buildTx();
+    withBanner.restaurantAnnouncement.count.mockResolvedValue(1);
+    const again = await seedMenu(asTx(withBanner), 'restaurant-9', load(), assets());
+    expect(again).toMatchObject({ announcements: 0 });
+    expect(withBanner.restaurantAnnouncement.create).not.toHaveBeenCalled();
+  });
+
+  it('creates delivery zones of the first Branch only when it has none', async () => {
+    const seed = load();
+    seed.deliveryZones = [{ names: { ar: 'أسوان', en: 'Aswan' }, fee: '15', minimumOrder: '100' }];
+    const tx = buildTx();
+    expect(await seedMenu(asTx(tx), 'restaurant-9', seed, assets())).toMatchObject({ deliveryZones: 1 });
+    expect(tx.deliveryZone.create).toHaveBeenCalledWith({
+      data: expect.objectContaining({ restaurantId: 'restaurant-9', branchId: 'branch-1', deliveryFee: '15', minimumOrder: '100' }) as unknown,
+    });
+    const taken = buildTx();
+    taken.deliveryZone.count.mockResolvedValue(1);
+    expect(await seedMenu(asTx(taken), 'restaurant-9', seed, assets())).toMatchObject({ deliveryZones: 0 });
+    seed.deliveryZones = [{ names: { ar: 'أسوان', en: '' }, fee: '-1', minimumOrder: 'x' }];
+    expect(menuSeedProblems(seed)).toEqual(
+      expect.arrayContaining([expect.stringContaining('delivery zone')]),
+    );
+  });
+
+  it('refuses an existing menu, and with replace only switches it off (never deletes) before creating the new primary menu', async () => {
+    const tx = buildTx();
+    tx.menu.count.mockResolvedValue(1);
+    expect(await seedMenu(asTx(tx), 'restaurant-9', load(), assets())).toEqual({ outcome: 'alreadySeeded' });
+    expect(tx.menu.create).not.toHaveBeenCalled();
+
+    const replacing = Object.assign(buildTx(), { menu: { count: jest.fn().mockResolvedValue(2), create: jest.fn().mockResolvedValue({ id: 'menu-new' }), updateMany: jest.fn().mockResolvedValue({ count: 2 }) } });
+    const result = await seedMenu(asTx(replacing), 'restaurant-9', load(), assets(), { replaceMenu: true });
+    expect(result).toMatchObject({ outcome: 'seeded', archivedMenus: 2 });
+    expect(replacing.menu.updateMany).toHaveBeenCalledWith({
+      where: { restaurantId: 'restaurant-9' },
+      data: { status: 'INACTIVE', isPrimary: false },
+    });
   });
 
   it('rejects an unsafe photo name, an unknown copy field and a bad phone', () => {

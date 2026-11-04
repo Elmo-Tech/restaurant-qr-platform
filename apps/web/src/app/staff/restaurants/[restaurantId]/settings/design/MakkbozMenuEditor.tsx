@@ -201,6 +201,18 @@ export function MakkbozMenuEditor({
           </select>
         </label>
         <label className="block text-sm">
+          {t('makkboz.theme')}
+          <select className={FIELD_CLASS} value={draft.theme} onChange={(e) => update('theme', e.target.value === 'DARK' ? 'DARK' : e.target.value === 'SYSTEM' ? 'SYSTEM' : 'LIGHT')}>
+            <option value="LIGHT">{t('makkboz.theme.light')}</option>
+            <option value="DARK">{t('makkboz.theme.dark')}</option>
+            <option value="SYSTEM">{t('makkboz.theme.system')}</option>
+          </select>
+        </label>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={draft.allowThemeSwitch} onChange={(e) => update('allowThemeSwitch', e.target.checked)} />
+          {t('verde.allowThemeSwitch')}
+        </label>
+        <label className="block text-sm">
           {t('makkboz.motion')}
           <select className={FIELD_CLASS} value={draft.motion} onChange={(e) => update('motion', e.target.value === 'OFF' ? 'OFF' : 'SUBTLE')}>
             <option value="SUBTLE">{t('makkboz.motion.subtle')}</option>

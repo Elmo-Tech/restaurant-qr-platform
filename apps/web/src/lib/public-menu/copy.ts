@@ -15,6 +15,9 @@ export interface PublicMenuCopy {
   noItemsInMenu: string;
   menuUnavailableTitle: string;
   menuUnavailableMessage: string;
+  /** Branded page of a Restaurant whose menu is not published yet. */
+  menuPreparingTitle: string;
+  menuPreparingMessage: string;
   qrNotFoundTitle: string;
   qrNotFoundMessage: string;
   add: string;
@@ -281,6 +284,8 @@ const EN_COPY: PublicMenuCopy = {
   menuUnavailableTitle: 'Menu unavailable',
   menuUnavailableMessage:
     'This restaurant menu is temporarily unavailable. Please check back soon.',
+  menuPreparingTitle: 'Our menu is on its way',
+  menuPreparingMessage: "We're putting the final touches on it. Please check back in a little while.",
   qrNotFoundTitle: 'This QR code is no longer active.',
   qrNotFoundMessage: 'Please ask a member of staff for help.',
   add: 'Add',
@@ -575,6 +580,8 @@ const AR_COPY: PublicMenuCopy = {
   noItemsInMenu: 'لا توجد أصناف متاحة في القائمة حاليًا.',
   menuUnavailableTitle: 'القائمة غير متاحة',
   menuUnavailableMessage: 'قائمة المطعم غير متاحة حاليًا. يرجى المحاولة مرة أخرى لاحقًا.',
+  menuPreparingTitle: 'المنيو قيد التجهيز',
+  menuPreparingMessage: 'بنجهّز القائمة بكل عناية. عُد إلينا بعد قليل، يسعدنا استقبالك.',
   qrNotFoundTitle: 'رمز QR هذا غير متاح حاليًا.',
   qrNotFoundMessage: 'يرجى التواصل مع أحد أفراد طاقم المطعم للمساعدة.',
   add: 'إضافة',

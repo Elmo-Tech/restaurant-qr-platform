@@ -199,9 +199,10 @@ export function SherbinyMenuEditor({
         <legend className="mb-1 text-sm font-semibold">{t('sherbiny.section.look')}</legend>
         <label className="block text-sm">
           {t('sherbiny.theme')}
-          <select className={FIELD_CLASS} value={draft.theme} onChange={(e) => update('theme', e.target.value === 'PAPER' ? 'PAPER' : 'NIGHT')}>
+          <select className={FIELD_CLASS} value={draft.theme} onChange={(e) => update('theme', e.target.value === 'PAPER' ? 'PAPER' : e.target.value === 'SYSTEM' ? 'SYSTEM' : 'NIGHT')}>
             <option value="NIGHT">{t('sherbiny.theme.night')}</option>
             <option value="PAPER">{t('sherbiny.theme.paper')}</option>
+            <option value="SYSTEM">{t('sherbiny.theme.system')}</option>
           </select>
         </label>
         <label className="flex items-center gap-2 text-sm">

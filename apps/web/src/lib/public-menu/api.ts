@@ -3,10 +3,35 @@ import { SERVER_API_BASE_URL } from '../api/config';
 import { forwardedForHeader } from '../api/server-fetch';
 import type { PublicMenuData } from './types';
 
+/** What the "no menu yet" outcome carries for a Restaurant with an exclusive design (a branded page instead of an error). */
+export interface PublicMenuBranding {
+  restaurantName: string;
+  logoAssetPath: string | null;
+  exclusiveRendererKey: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
+  locale: 'ar' | 'en';
+}
+
 export type GetPublicMenuResult =
   | { outcome: 'found'; data: PublicMenuData }
   | { outcome: 'notFound' }
-  | { outcome: 'unavailable' };
+  | { outcome: 'unavailable'; branding?: PublicMenuBranding };
+
+const RENDERER_KEYS = ['VERDE_NAPOLI_V1', 'SHERBINY_FIRE_DOUGH_V1', 'MAKKBOZ_HERITAGE_V1'] as const;
+
+/** The branding block of a MENU_NOT_AVAILABLE answer, or undefined when it is missing or not exactly what is expected. */
+function parseBranding(value: unknown): PublicMenuBranding | undefined {
+  if (typeof value !== 'object' || value === null) return undefined;
+  const raw = value as Record<string, unknown>;
+  const key = RENDERER_KEYS.find((candidate) => candidate === raw.exclusiveRendererKey);
+  if (!key || typeof raw.restaurantName !== 'string' || !raw.restaurantName.trim()) return undefined;
+  if (raw.logoAssetPath !== null && typeof raw.logoAssetPath !== 'string') return undefined;
+  return {
+    restaurantName: raw.restaurantName.slice(0, 120),
+    logoAssetPath: raw.logoAssetPath as string | null,
+    exclusiveRendererKey: key,
+    locale: raw.locale === 'ar' ? 'ar' : 'en',
+  };
+}
 
 /**
  * FT-3: the one public Guest QR Menu request, deliberately separate from
@@ -50,10 +75,11 @@ export async function getPublicMenu(
 
   if (!response.ok) {
     const errorBody = (await response.json().catch(() => null)) as {
-      error?: { code?: string };
+      error?: { code?: string; branding?: unknown };
     } | null;
     if (errorBody?.error?.code === 'MENU_NOT_AVAILABLE') {
-      return { outcome: 'unavailable' };
+      const branding = parseBranding(errorBody.error.branding);
+      return branding ? { outcome: 'unavailable', branding } : { outcome: 'unavailable' };
     }
     return { outcome: 'notFound' };
   }

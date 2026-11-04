@@ -1564,7 +1564,32 @@ show as chips, required choices and discounts come from the shared product sheet
 only when present, favorites are per browser. Fonts Aref Ruqaa, Reem Kufi and Tajawal are self-hosted and loaded only with this
 renderer ("Aref Ruqaa Ink" is a colour font and is not used). The seed (`seed-data/makkboz`) loads the whole bilingual menu: sizes as
 variants; printed choices as required single-choice groups at no extra price; per-size extras as their own dishes because a modifier
-cannot depend on the chosen size; no invented offers. **Not in scope:** a dark theme, Platform-console editing, version history.
+cannot depend on the chosen size; no invented offers. **Not in scope:** Platform-console editing, version history. (The dark theme of the original scope note was added by DEC-065.)
+
+### DEC-065 — Light / dark mode for exclusive menus, applying a menu to an existing restaurant, branded "menu on its way" page
+
+**Status:** Accepted for implementation (2026-11-04); not deployed, not owner-approved. **Context:** the Makkboz and El Sherbiny owners asked
+for a light / dark switch; the first real accounts were created in the Platform console before their menu was ready (so the QR showed a
+generic "Menu unavailable"); a seed that only provisions NEW restaurants cannot fill an account that already exists; and the Makkboz skin
+hid the text of the shared cart / order bar because its unlayered `color: inherit` resets beat the Tailwind utilities of those shared
+components. **Decisions:** (1) *Theme.* Each of the two designs has a dashboard default (Makkboz `theme`: LIGHT / DARK / SYSTEM, El Sherbiny
+`theme`: NIGHT / PAPER / SYSTEM) and `allowThemeSwitch` (default true) in the existing draft / publish settings JSON (no migration). The
+guest's own pick is the SAME `guest_theme` cookie the base guest menu already uses; the server reads it in `/q/[publicCode]/page.tsx` and
+renders the first paint with it, and SYSTEM is resolved by CSS (`prefers-color-scheme`) alone, so there is no flash and no script is
+needed. The guest's pick beats the Restaurant default; the staff preview only ever shows the default. Both palettes are token sets
+(`--m-*` / `--s-*` plus the shared `--g-*` the cart, product sheet and tracking read). The header gets one accessible sun / moon button (name
+and state follow the current mode; reduced-motion safe, RTL / LTR safe). The renderers' own resets are removed: Tailwind preflight already
+resets buttons, inputs and links, and an unlayered reset must never be added again (a contract test guards it). (2) *Apply to an existing
+restaurant.* `npm run apply:restaurant-menu` finds the Restaurant from its OWNER's e-mail, refuses an unknown owner, an owner without a
+Restaurant, several Restaurants (pick with `--restaurant`) and a Restaurant that already has a menu; `--replace-menu` never deletes (the old
+Menus become inactive and non-primary, a new primary Menu is created). One transaction; photos written first are removed if it fails;
+announcements and delivery zones in the seed are added only where the Restaurant has none. The production `migrate` (tools) service now
+mounts the uploads volume so the photos land where the API serves `/media`. (3) *Branded empty state.* When the QR resolves but there is
+no active primary Menu, the API still answers `404 MENU_NOT_AVAILABLE`; for a Restaurant whose exclusive design is in use the error also
+carries `branding` (name, logo path, renderer key, resolved locale: nothing the guest menu does not already publish) and the web renders a
+page in that design's palette and fonts instead of the generic error. Other Restaurants are unchanged. **Not in scope:** theme editing in
+the Platform console; applying the same switch to VERDE (it has its own theme model, DEC-062); delivery fees for El Sherbiny (the owner has
+not given them: the seed format supports `deliveryZones`, the data is not invented).
 
 ---
 

@@ -1,0 +1,14 @@
+/*
+ * "Menu is on its way" page of a Restaurant with an exclusive design. Self-contained: it does not load the design's own
+ * stylesheet (nothing of the menu is shown), only its fonts (set by the design's font class) and a matching palette.
+ */
+.bp-page{--bp-bg:#fff8ed;--bp-card:#fffdf7;--bp-line:#e6d5b9;--bp-text:#233b2d;--bp-soft:#6f5d46;--bp-accent:#bd8c39;--bp-title:#174433;--bp-display:var(--m-font-display),'Aref Ruqaa','Noto Naskh Arabic',serif;--bp-body:var(--m-font-body),'Tajawal','Noto Sans Arabic',Tahoma,sans-serif;
+  min-height:100dvh;display:grid;place-items:center;padding:28px 20px;background:var(--bp-bg);color:var(--bp-text);font-family:var(--bp-body);-webkit-font-smoothing:antialiased}
+.bp-page[data-bp-skin="sherbiny"]{--bp-bg:#151615;--bp-card:#1d1e1b;--bp-line:rgba(255,255,255,.14);--bp-text:#fff6e8;--bp-soft:#cfc6b6;--bp-accent:#ff8a2c;--bp-title:#fff6e8;--bp-display:var(--s-font-arabic),'Noto Sans Arabic','Segoe UI',Tahoma,sans-serif;--bp-body:var(--s-font-arabic),'Noto Sans Arabic','Segoe UI',Tahoma,sans-serif}
+.bp-page[data-bp-skin="verde"]{--bp-bg:#0f2a1f;--bp-card:#143526;--bp-line:rgba(211,242,140,.22);--bp-text:#f3f6ea;--bp-soft:#c5d3bd;--bp-accent:#d3f28c;--bp-title:#f3f6ea;--bp-display:var(--v-font-display),var(--v-font-arabic),'Barlow Condensed','Arial Narrow',sans-serif;--bp-body:var(--v-font-arabic),var(--v-font-latin),'Tajawal','DM Sans',Tahoma,sans-serif}
+.bp-card{width:min(440px,100%);display:grid;justify-items:center;gap:14px;text-align:center;padding:38px 26px 34px;background:var(--bp-card);border:1px solid var(--bp-line);border-radius:26px;box-shadow:0 24px 70px rgba(0,0,0,.14)}
+.bp-logo{width:auto;max-width:min(240px,70%);max-height:112px;object-fit:contain;border-radius:18px}
+.bp-brand{margin:0;font:700 34px/1.2 var(--bp-display);color:var(--bp-title)}
+.bp-rule{color:var(--bp-accent);font-size:18px;line-height:1}
+.bp-title{margin:0;font:700 30px/1.3 var(--bp-display);color:var(--bp-title)}
+.bp-message{margin:0;max-width:34ch;font-size:15px;line-height:1.8;color:var(--bp-soft)}

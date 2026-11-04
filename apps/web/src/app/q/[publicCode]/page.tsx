@@ -1,6 +1,9 @@
+import { cookies } from 'next/headers';
 import { getPublicMenu } from '../../../lib/public-menu/api';
 import { getPublicMenuCopy } from '../../../lib/public-menu/copy';
 import { parseMenuTemplate } from '../../../lib/public-menu/templates';
+import { GUEST_THEME_COOKIE } from '../../../lib/public-menu/theme';
+import { BrandedMenuPending } from './BrandedMenuPending';
 import { GuestStatusPage } from './GuestStatusPage';
 import { PublicMenuView } from './PublicMenuView';
 
@@ -23,6 +26,11 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
   const { lang, template, designPreview } = await searchParams;
 
   const result = await getPublicMenu(publicCode, lang);
+
+  // A Restaurant with an exclusive design whose menu is not published yet: a branded page, not a generic error.
+  if (result.outcome === 'unavailable' && result.branding) {
+    return <BrandedMenuPending branding={result.branding} copy={getPublicMenuCopy(result.branding.locale)} />;
+  }
 
   if (result.outcome === 'notFound' || result.outcome === 'unavailable') {
     // FT-3B, Section 15: neither outcome carries a Backend-resolved locale
@@ -58,9 +66,13 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
   const showExclusive =
     Boolean(exclusiveKey) &&
     (previewExclusive || (result.data.context.restaurant.exclusiveInUse !== false && !previewAllowed));
+  // The guest's own light / dark pick (null = never chose), so an exclusive design renders it on the first paint.
+  const savedTheme = (await cookies()).get(GUEST_THEME_COOKIE)?.value;
+  const guestTheme = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : null;
   return (
     <PublicMenuView
       data={result.data}
+      guestTheme={guestTheme}
       publicCode={publicCode}
       exclusiveRendererKey={showExclusive ? exclusiveKey : undefined}
       template={parseMenuTemplate(

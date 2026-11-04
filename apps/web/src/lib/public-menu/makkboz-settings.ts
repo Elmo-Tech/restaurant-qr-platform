@@ -10,6 +10,9 @@
  * last line (hero, story) or the last word (menu title) is drawn in the gold accent. An empty or
  * missing value always falls back to the documented default.
  */
+/** The Restaurant's default colour mode; SYSTEM follows the guest's device. A guest's own pick (cookie) wins. */
+export const MAKKBOZ_THEMES = ['LIGHT', 'DARK', 'SYSTEM'] as const;
+export type MakkbozTheme = (typeof MAKKBOZ_THEMES)[number];
 export const MAKKBOZ_MOTIONS = ['SUBTLE', 'OFF'] as const;
 export type MakkbozMotion = (typeof MAKKBOZ_MOTIONS)[number];
 /** How the menu opens: photo cards or the compact list (the guest can switch). */
@@ -103,6 +106,9 @@ export interface MakkbozCategoryExtra {
 export type MakkbozTextSettings = Record<MakkbozCopyField, string>;
 
 export interface MakkbozMenuSettings extends MakkbozTextSettings {
+  theme: MakkbozTheme;
+  /** Shows the light / dark switch in the header. */
+  allowThemeSwitch: boolean;
   motion: MakkbozMotion;
   defaultView: MakkbozView;
   showAnnouncement: boolean;
@@ -116,6 +122,8 @@ export interface MakkbozMenuSettings extends MakkbozTextSettings {
 
 export const DEFAULT_MAKKBOZ_SETTINGS: MakkbozMenuSettings = {
   ...MAKKBOZ_COPY_DEFAULTS,
+  theme: 'LIGHT',
+  allowThemeSwitch: true,
   motion: 'SUBTLE',
   defaultView: 'CARDS',
   showAnnouncement: true,
@@ -175,6 +183,8 @@ export function normalizeMakkbozSettings(value: unknown): MakkbozMenuSettings {
     isMakkbozMediaPath(row[key]) ? row[key] : null;
   return {
     ...text,
+    theme: MAKKBOZ_THEMES.find((theme) => theme === row.theme) ?? 'LIGHT',
+    allowThemeSwitch: bool('allowThemeSwitch', true),
     motion: MAKKBOZ_MOTIONS.find((motion) => motion === row.motion) ?? 'SUBTLE',
     defaultView: MAKKBOZ_VIEWS.find((view) => view === row.defaultView) ?? 'CARDS',
     showAnnouncement: bool('showAnnouncement', true),

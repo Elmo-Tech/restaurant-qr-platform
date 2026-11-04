@@ -105,3 +105,11 @@ public menu published-only, Platform assignment of the third renderer, seed pric
 Arabic RTL and English LTR at 1440 and 390 px, rail scroll-spy, product sheet with sizes and required filling, favorites, search,
 list view, dashboard login → edit copy → save draft (guest unchanged) → publish (guest updated). Not verified: production build, screen
 reader, Safari, an automated contrast audit, end-to-end ordering on this DB.
+
+## Light / dark mode (DEC-065)
+
+- The dashboard default is `theme` (LIGHT / DARK / SYSTEM) and `allowThemeSwitch` in the draft / publish settings; the guest's own choice (header sun / moon button, shown when switching is allowed) is stored in the shared `guest_theme` cookie and wins over the default.
+- The server reads the cookie (`/q/[publicCode]/page.tsx`) and renders the first paint with it; SYSTEM is resolved by CSS (`prefers-color-scheme`) alone, so nothing flashes.
+- Both palettes are token sets that also remap the shared `--g-*` tokens, so the cart, order bar, product sheet and tracking follow the mode.
+- Never add unlayered colour / font resets to the skin stylesheet: they beat the Tailwind utilities of the shared components and make their text invisible (guarded by the contract test).
+- A restaurant with this design and no published menu shows the branded "menu on its way" page (`BrandedMenuPending`), not the generic error.

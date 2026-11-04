@@ -2,7 +2,7 @@
 
 import Link from 'next/link';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
-import { GuestIconBag, GuestIconClose, GuestIconPhone, GuestIconReceipt, GuestIconSearch } from '../../../../components/guest/icons';
+import { GuestIconBag, GuestIconClose, GuestIconMoon, GuestIconPhone, GuestIconReceipt, GuestIconSearch, GuestIconSun } from '../../../../components/guest/icons';
 import type { RestaurantContact } from '../../../../lib/contact/types';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../../lib/public-menu/copy';
@@ -20,6 +20,7 @@ import { VerdeImage as MakkbozImage } from '../verde/VerdeImage';
 import { MakkbozCard } from './MakkbozCard';
 import { MakkbozOrnament, MakkbozPieArt, MakkbozVillage, MakkbozWrapArt } from './MakkbozArt';
 import { MAKKBOZ_FONT_CLASSES } from './makkboz-fonts';
+import { useExclusiveTheme } from '../useExclusiveTheme';
 import './makkboz.css';
 
 const FAVORITES_KEY = 'makkboz-favorites';
@@ -70,6 +71,8 @@ export interface MakkbozLocation {
 
 export interface MakkbozMenuProps {
   settings: MakkbozMenuSettings;
+  /** The guest's saved light / dark pick from the cookie (null = never chose). */
+  guestTheme: 'light' | 'dark' | null;
   restaurantName: string;
   logoUrl: string | null;
   locale: string;
@@ -145,7 +148,7 @@ const firstPhoto = (category: PublicMenuCategory | undefined): string | null =>
 
 export function MakkbozMenu(props: MakkbozMenuProps) {
   const {
-    settings, restaurantName, logoUrl, locale, availableLocales, publicCode, designPreview, copy, currency,
+    settings, guestTheme, restaurantName, logoUrl, locale, availableLocales, publicCode, designPreview, copy, currency,
     categories, visibleCategories, query, onQueryChange, canOrder, simpleQuantityByProductId, totalQuantityByProductId,
     onOpenProduct, onQuickAdd, onIncrement, onDecrement, cartCount, onOpenCart, onTrack, hasActiveOrder, shareCode,
     contact, locations, hours, notices, orderingBar, poweredBy, children,
@@ -155,6 +158,12 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
   const brand = makkbozCopy(settings, 'brand', locale, restaurantName).trim() || restaurantName;
   const text = useCallback((key: MakkbozCopyKey) => makkbozCopy(settings, key, locale, brand), [settings, locale, brand]);
 
+  const theme = useExclusiveTheme({
+    guestTheme,
+    defaultMode: settings.theme === 'DARK' ? 'dark' : settings.theme === 'SYSTEM' ? 'system' : 'light',
+    designPreview,
+  });
+  const themeLabel = theme.effective === 'dark' ? copy.lightMode : copy.darkMode;
   // The Restaurant's default view until the guest picks one.
   const [viewChoice, setView] = useState<MakkbozView | null>(null);
   const view: MakkbozView = viewChoice ?? settings.defaultView;
@@ -291,6 +300,7 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
       className={`makkboz-experience ${MAKKBOZ_FONT_CLASSES}`}
       dir={isArabic ? 'rtl' : 'ltr'}
       lang={locale}
+      data-m-theme={theme.attr}
       data-m-motion={settings.motion === 'OFF' ? 'off' : 'on'}
       data-m-view={view === 'LIST' ? 'list' : 'cards'}
       data-m-lang={locale}
@@ -315,6 +325,11 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
                 {localeLabel(code)}
               </Link>
             ))}
+            {settings.allowThemeSwitch ? (
+              <button type="button" className="m-icon-btn m-theme" onClick={theme.toggle} aria-label={themeLabel} title={themeLabel}>
+                {theme.effective === 'dark' ? <GuestIconSun className="size-[20px]" /> : <GuestIconMoon className="size-[19px]" />}
+              </button>
+            ) : null}
             {hasMenu ? (
               <button
                 type="button"
