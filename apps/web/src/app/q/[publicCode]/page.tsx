@@ -1,4 +1,5 @@
 import { cookies } from 'next/headers';
+import { redirect } from 'next/navigation';
 import { getPublicMenu } from '../../../lib/public-menu/api';
 import { getPublicMenuCopy } from '../../../lib/public-menu/copy';
 import { parseMenuTemplate } from '../../../lib/public-menu/templates';
@@ -16,16 +17,21 @@ interface PublicMenuPageProps {
  * FT-3: the public Guest QR Menu entry point, `/q/[publicCode]`. Deliberately
  * outside `app/staff/` -- no Staff auth gate, no sidebar/header chrome, no
  * login redirect (this route's `layout.tsx` tree is just the shared root
- * layout). A Server Component: the fetch happens before any HTML streams,
+ * layout).
+ *
+ * DEC-066: the segment is the Restaurant's readable slug (`/q/el-sherbiny`) or an opaque QR
+ * public code (Table QRs, and every link printed or shared before slugs existed). The Backend
+ * resolves either; an old generic-QR code or a renamed slug is redirected to the current
+ * readable URL, so no existing link breaks. The folder keeps its historical name. A Server Component: the fetch happens before any HTML streams,
  * so the very first response already carries the resolved language and
  * content -- no client-side loading waterfall for the common case, and it
  * works identically with no cookies at all (incognito).
  */
 export default async function PublicMenuPage({ params, searchParams }: PublicMenuPageProps) {
-  const { publicCode } = await params;
+  const { publicCode: segment } = await params;
   const { lang, template, designPreview } = await searchParams;
 
-  const result = await getPublicMenu(publicCode, lang);
+  const result = await getPublicMenu(segment, lang);
 
   // A Restaurant with an exclusive design whose menu is not published yet: a branded page, not a generic error.
   if (result.outcome === 'unavailable' && result.branding) {
@@ -49,6 +55,18 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
         dir={dir}
       />
     );
+  }
+
+  // An old /q/{code} link or a renamed slug: continue on the readable URL, keeping the Guest's own query.
+  const { redirectToSlug, publicCode } = result.data.context.entry;
+  if (redirectToSlug) {
+    const query = new URLSearchParams();
+    if (lang) query.set('lang', lang);
+    if (template) query.set('template', template);
+    if (designPreview) query.set('designPreview', designPreview);
+    const queryString = query.toString();
+    const suffix = queryString ? `?${queryString}` : '';
+    redirect(`/q/${encodeURIComponent(redirectToSlug)}${suffix}`);
   }
 
   // The Restaurant's saved template; `?template=` previews another layout (the Staff design picker uses it),

@@ -1591,6 +1591,23 @@ page in that design's palette and fonts instead of the generic error. Other Rest
 the Platform console; applying the same switch to VERDE (it has its own theme model, DEC-062); delivery fees for El Sherbiny (the owner has
 not given them: the seed format supports `deliveryZones`, the data is not invented).
 
+### DEC-066 — Readable Guest Menu links: `/q/{restaurant-name}`
+
+**Status:** Accepted by the owner (2026-11-04: "only the restaurant name; if two restaurants share a name, add a number"); built, not
+deployed. **Context:** the Restaurant menu link was `/q/{publicCode}` with a 43-character random code, unreadable when shown, pasted or
+shared. **Decision:** every Restaurant gets a **slug** made from its name (Latin letters, digits, single hyphens, 3 to 40 characters; Arabic
+names are transliterated, so `El Sherbiny` is `el-sherbiny`). `/q/{slug}` is the Restaurant's menu (its GENERIC QR, unchanged rules). A taken
+name gets `-2`, `-3` (`pizza-house-2`); a small reserved list (`admin`, `api`, `staff`, ...) is never used. New table `restaurant_slugs`
+(`slug` UNIQUE across current **and former** slugs, `is_current`, one current per Restaurant, format CHECK). A rename (Platform console only)
+keeps the old slug as a former one: it **redirects** to the current slug, so nothing printed or shared breaks. Every existing Restaurant is
+backfilled (repeatable script, plus automatically when the API starts). **Table QRs stay opaque** (`/q/{publicCode}`): a table is identified only
+by its random code, never by a number in the URL, so a guest cannot address another table (QR_SPEC.md #10, #18, #71); a Table QR page shares the
+readable Restaurant link. **Old links:** `/q/{generic publicCode}` keeps working and redirects to `/q/{slug}` (query kept); an old Table QR
+code is untouched. **Security unchanged:** a slug is only a public lookup of the Restaurant's own GENERIC QR, never an authorization; the
+Guest app still uses the resolved QR code for orders, tracking and storage; unknown / inactive / suspended all converge on the same not-found;
+rate limits and Origin checks are unchanged. **Not in scope:** slugs for Branches or Tables, per-menu URLs, custom domains, owner self-edit of the slug.
+Spec updates: QR_SPEC.md (amendment), DATABASE_SPEC.md #54A, API_CONVENTIONS.md (amendment), OPERATIONS_RUNBOOK.md #7.
+
 ---
 
 ---

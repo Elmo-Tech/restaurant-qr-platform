@@ -106,7 +106,7 @@ function marqueeWords(text: string, categories: PublicMenuCategory[]): string[] 
 
 export function VerdeMenu(props: VerdeMenuProps) {
   const {
-    settings, restaurantName, logoUrl, locale, availableLocales, publicCode, designPreview, copy, currency,
+    settings, restaurantName, logoUrl, locale, availableLocales, designPreview, copy, currency,
     categories, visibleCategories, query, onQueryChange, activeCategoryId, onSelectCategory, canOrder,
     simpleQuantityByProductId, totalQuantityByProductId, onOpenProduct, onQuickAdd, onIncrement, onDecrement,
     cartCount, onOpenCart, onTrack, hasActiveOrder, shareCode, notices, orderingBar, contact, poweredBy, children,
@@ -179,7 +179,7 @@ export function VerdeMenu(props: VerdeMenuProps) {
   const stampTitle = brand.trim().split(/\s+/)[0] ?? brand;
 
   const otherLocales = availableLocales.filter((code) => code !== locale);
-  const localeHref = (code: string) => `/q/${publicCode}?lang=${code}${designPreview ? '&designPreview=1' : ''}`;
+  const localeHref = (code: string) => `?lang=${code}${designPreview ? '&designPreview=1' : ''}`;
   const localeLabel = (code: string) => (code === 'ar' ? 'عربي' : code.toUpperCase());
 
   const themeLabel = theme === 'SIGNATURE' ? copy.lightMode : copy.darkMode;

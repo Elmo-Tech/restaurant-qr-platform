@@ -279,7 +279,7 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
   const hasContact = addresses.length > 0 || phoneNumbers.length > 0 || channels.length > 0 || hours !== null;
 
   const otherLocales = availableLocales.filter((code) => code !== locale);
-  const localeHref = (code: string) => `/q/${publicCode}?lang=${code}${designPreview ? '&designPreview=1' : ''}`;
+  const localeHref = (code: string) => `?lang=${code}${designPreview ? '&designPreview=1' : ''}`;
   const localeLabel = (code: string) => (code === 'ar' ? 'عربي' : code.toUpperCase());
 
   const summary = favoritesOnly

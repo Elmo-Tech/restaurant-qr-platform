@@ -28,6 +28,7 @@ import dotenv from 'dotenv';
 import { PrismaPg } from '@prisma/adapter-pg';
 import { PasswordHasherService } from '../src/auth/password/password-hasher.service';
 import { PrismaClient } from '../src/generated/prisma/client';
+import { ensureRestaurantSlug } from '../src/restaurants/restaurant-slug-store';
 import {
   provisionRestaurant,
   validateProvisionInput,
@@ -216,11 +217,11 @@ async function main(): Promise<void> {
       where: { restaurantId: restaurant.id, type: 'GENERIC' },
       select: { publicCode: true },
     });
+    // The readable link (DEC-066); a Restaurant created before slugs existed gets its slug here.
+    const slug = await ensureRestaurantSlug(prisma, restaurant.id);
     const webUrl = (process.env.WEB_URL ?? '').replace(/\/+$/, '');
-    if (qr)
-      console.log(
-        `  Guest menu URL: ${webUrl ? `${webUrl}/q/${qr.publicCode}` : `<WEB_URL>/q/${qr.publicCode}`}`,
-      );
+    if (slug || qr)
+      console.log(`  Guest menu URL: ${webUrl || '<WEB_URL>'}/q/${slug ?? qr?.publicCode}`);
     console.log(`  Owner login e-mail: ${validation.value.ownerEmail}`);
   } finally {
     await prisma.$disconnect();

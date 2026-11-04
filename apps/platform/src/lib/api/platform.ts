@@ -261,7 +261,15 @@ export interface RestaurantAcquisitionView extends RestaurantAcquisitionInput {
   recordedAt: string;
 }
 
+/** The readable Guest Menu link (DEC-066): `/q/{slug}`; former slugs keep redirecting. */
+export interface MenuLink {
+  slug: string | null;
+  formerSlugs: string[];
+  url: string | null;
+}
+
 export interface RestaurantDetail extends RestaurantSummary {
+  menuLink: MenuLink;
   exclusiveDesign: ExclusiveDesignView | null;
   acquisition: RestaurantAcquisitionView | null;
   settings: {
@@ -387,6 +395,15 @@ export const setExclusiveDesign = (
     platformFetch<{ data: ExclusiveDesignView }>(
       `/restaurants/${encodeURIComponent(restaurantId)}/exclusive-design`,
       { method: "PUT", body: input },
+    ),
+  );
+
+/** Edit the readable Guest Menu link; the previous one keeps redirecting. */
+export const updateRestaurantMenuSlug = (id: string, slug: string) =>
+  data(
+    platformFetch<{ data: { slug: string } }>(
+      `/restaurants/${encodeURIComponent(id)}/menu-slug`,
+      { method: "PUT", body: { slug } },
     ),
   );
 

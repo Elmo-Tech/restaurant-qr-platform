@@ -1734,6 +1734,28 @@ A QR always identifies where the guest came from; whether that entry may
 
 ---
 
+# Amendment — Readable Restaurant Menu Link (DEC-066, 2026-11-04)
+
+The Restaurant's menu (its GENERIC QR) is now reached by a **readable slug**: `https://{web}/q/{restaurant-slug}` (for example
+`/q/el-sherbiny`). Amends #7, #13, #72 and #88:
+
+- `/q/{segment}`: the segment is a slug (lowercase letters, digits, hyphens, at most 40 characters) or an opaque QR public code (always 43
+  characters, so the two can never be confused). The Backend resolves a slug to **that Restaurant's own GENERIC QR** and then applies every
+  existing rule (#13 validation, #47 suspended, view-only channels); an unknown slug, an INACTIVE generic QR and a suspended Restaurant all
+  converge on the same "not found".
+- **Table QRs are unchanged**: `/q/{publicCode}`, opaque. A slug can never reach a Table QR, and a Table QR is never addressed by a table
+  number (#10, #18, #71 stand). Regenerating a Table QR (#40-#44) still invalidates the old printed code.
+- **Old links keep working (#88).** `/q/{generic publicCode}` still resolves and the Guest is redirected to `/q/{slug}` (language and preview
+  query kept). A renamed slug keeps redirecting to the current one. An old Table QR code is not redirected.
+- The slug link is the **stable** Restaurant link: regenerating or reactivating the Restaurant QR's opaque code does not change it. Only
+  the opaque `/q/{code}` form is retired by regeneration (#43). To stop the readable link, deactivate the Restaurant QR.
+- A slug is public information and **never an authorization** (#9, #10): it finds the Restaurant's menu entry, nothing else. Orders, tracking
+  and Guest browser storage keep using the resolved QR public code.
+- Slugs are made from the Restaurant name (Arabic transliterated to Latin), numbered when taken (`name-2`), and edited by the Platform
+  team only. A former slug is never given to another Restaurant.
+
+---
+
 # QR Principle
 
 > The QR identifies where the guest entered from; the backend decides what that guest is allowed to do now.

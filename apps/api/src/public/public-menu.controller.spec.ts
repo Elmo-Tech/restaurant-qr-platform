@@ -4,6 +4,7 @@ import type { PublicMenuData } from './public-menu.service';
 
 const SAMPLE_DATA: PublicMenuData = {
   context: {
+    entry: { publicCode: 'code', redirectToSlug: null },
     platform: { poweredByUrl: 'https://menu.elmotechsoft.online/' },
     qrType: 'GENERIC',
     tableOrdering: null,

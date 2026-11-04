@@ -32,7 +32,6 @@ export const GLASS =
 export function LanguageSwitch({
   available,
   resolved,
-  publicCode,
   label,
   designPreview = false,
   previewTemplate = 'ember',
@@ -55,7 +54,7 @@ export function LanguageSwitch({
         return (
           <Link
             key={locale}
-            href={`/q/${publicCode}?lang=${locale}${designPreview ? `&template=${previewTemplate}&designPreview=1` : ''}`}
+            href={`?lang=${locale}${designPreview ? `&template=${previewTemplate}&designPreview=1` : ''}`}
             lang={locale}
             hrefLang={locale}
             aria-current={isActive ? 'true' : undefined}

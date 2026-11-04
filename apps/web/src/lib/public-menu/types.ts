@@ -25,6 +25,12 @@ export interface PublicAnnouncement {
 }
 
 export interface PublicMenuContext {
+  /**
+   * DEC-066: `publicCode` is the opaque QR code the Guest app uses for orders, tracking and its own
+   * browser storage; `redirectToSlug` is set when the Guest arrived by an old `/q/{code}` link or a
+   * renamed slug and the page must send them to `/q/{redirectToSlug}`. Never set for a Table QR.
+   */
+  entry: { publicCode: string; redirectToSlug: string | null };
   /** Platform-owned destination behind the footer's Wayta brand link. */
   platform: { poweredByUrl: string };
   qrType: 'TABLE' | 'GENERIC';

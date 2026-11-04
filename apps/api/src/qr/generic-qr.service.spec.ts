@@ -9,7 +9,11 @@ function build() {
   const update = jest.fn().mockImplementation(({ data }) =>
     Promise.resolve({ publicCode: 'code', status: data.status }),
   );
-  const service = new GenericQrService({ qrCode: { findFirst, create, update } } as never);
+  const slugFindFirst = jest.fn().mockResolvedValue({ slug: 'elmo-bistro' });
+  const service = new GenericQrService({
+    qrCode: { findFirst, create, update },
+    restaurantSlug: { findFirst: slugFindFirst },
+  } as never);
   return { service, findFirst, create, update };
 }
 

@@ -4,6 +4,7 @@ import { DatabaseModule } from '../database/database.module';
 import { EntitlementsModule } from '../entitlements/entitlements.module';
 import { StorageModule } from '../storage/storage.module';
 import { RestaurantsController } from './restaurants.controller';
+import { RestaurantSlugBackfillService } from './restaurant-slug-backfill.service';
 import { RestaurantLocalesService } from './restaurant-locales.service';
 import { RestaurantProfileController } from './restaurant-profile.controller';
 import { RestaurantProfileService } from './restaurant-profile.service';
@@ -39,6 +40,6 @@ import { EditorialTemplateConfigService } from './editorial-template-config.serv
 @Module({
   imports: [DatabaseModule, AuthModule, StorageModule, EntitlementsModule],
   controllers: [RestaurantsController, RestaurantProfileController, RestaurantSetupController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController, EditorialTemplateConfigController, VerdeMenuConfigController, SherbinyMenuConfigController, MakkbozMenuConfigController],
-  providers: [RestaurantLocalesService, RestaurantProfileService, RestaurantSetupService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, EditorialTemplateConfigService, VerdeMenuConfigService, SherbinyMenuConfigService, MakkbozMenuConfigService],
+  providers: [RestaurantSlugBackfillService, RestaurantLocalesService,RestaurantProfileService, RestaurantSetupService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, EditorialTemplateConfigService, VerdeMenuConfigService, SherbinyMenuConfigService, MakkbozMenuConfigService],
 })
 export class RestaurantsModule {}

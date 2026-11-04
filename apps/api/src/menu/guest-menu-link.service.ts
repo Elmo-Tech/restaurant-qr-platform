@@ -4,6 +4,8 @@ import { PrismaService } from '../database/prisma.service';
 /** The Restaurant's existing public Guest Menu entry point, or `null` when it has no ACTIVE GENERIC QR. */
 export interface GuestMenuLink {
   publicCode: string | null;
+  /** The readable link (DEC-066): the menu is `/q/{slug}`. Null until the Restaurant has one; then `/q/{publicCode}` is the link. */
+  slug: string | null;
 }
 
 /**
@@ -23,6 +25,12 @@ export class GuestMenuLinkService {
       orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
       select: { publicCode: true },
     });
-    return { publicCode: qr?.publicCode ?? null };
+    const current = qr
+      ? await this.prisma.restaurantSlug.findFirst({
+          where: { restaurantId, isCurrent: true },
+          select: { slug: true },
+        })
+      : null;
+    return { publicCode: qr?.publicCode ?? null, slug: current?.slug ?? null };
   }
 }

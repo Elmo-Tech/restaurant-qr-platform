@@ -31,6 +31,7 @@
     "provision:restaurant": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/provision-restaurant.ts",
     "seed:restaurant-menu": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/seed-restaurant-menu.ts",
     "apply:restaurant-menu": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/apply-restaurant-menu.ts",
+    "backfill:restaurant-slugs": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/backfill-restaurant-slugs.ts",
     "dev:attach-demo-images": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/dev-attach-demo-images.ts",
     "dev:set-feature": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/dev-set-feature.ts",
     "provision:platform-admin": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/provision-platform-admin.ts"

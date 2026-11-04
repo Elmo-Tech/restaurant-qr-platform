@@ -16,6 +16,7 @@ export type PlatformAction =
   | 'restaurant.feature_changed'
   | 'restaurant.exclusive_design_updated'
   | 'restaurant.package_changed'
+  | 'restaurant.menu_link_changed'
   | 'package.created'
   | 'package.updated'
   | 'package.deleted'

@@ -3,7 +3,7 @@
 import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
-import { getGuestMenuPublicCode } from '../../../../../lib/guest-menu/api';
+import { getGuestMenuSegment } from '../../../../../lib/guest-menu/api';
 import { Button } from '../../../../../components/ui/Button';
 import { IconBan, IconCheckCircle, IconCopy } from './icons';
 import { IconOrders, IconTable } from '../../../../../components/staff/icons';
@@ -46,7 +46,7 @@ export function QuickActions({
   async function copyLink() {
     let next: 'copied' | 'none' | 'error' = 'error';
     try {
-      const code = await getGuestMenuPublicCode(restaurantId);
+      const code = await getGuestMenuSegment(restaurantId);
       if (!code) {
         next = 'none';
       } else {

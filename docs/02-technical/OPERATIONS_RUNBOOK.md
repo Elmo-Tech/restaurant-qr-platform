@@ -53,7 +53,7 @@ Outcomes and exit codes:
 
 | Result | Exit | Meaning |
 |---|---|---|
-| Provisioned | 0 | Prints the Restaurant public id, owner e-mail and the Guest menu URL (`WEB_URL/q/<code>`). |
+| Provisioned | 0 | Prints the Restaurant public id, owner e-mail and the Guest menu URL (`WEB_URL/q/<restaurant-slug>`, DEC-066). |
 | Already provisioned | 0 | The same owner already owns a Restaurant with this exact name; nothing changed (safe to re-run). |
 | Conflict | 1 | The owner e-mail already exists and does not own this Restaurant. Nothing written; an existing user is never modified. |
 | Invalid input | 1 | Bad e-mail/locale/currency/timezone/password; nothing written. |
@@ -234,3 +234,21 @@ Pickup and Delivery), enforced by a database unique index. Staff manage it in
 reactivate (requires `tables.manage` and full Restaurant branch scope). It always
 resolves the Restaurant's current primary active Menu; there are no per-menu
 URLs.
+
+### Readable menu link (DEC-066)
+
+The Guest Menu link is `WEB_URL/q/<restaurant-slug>` (for example `/q/el-sherbiny`), made from the Restaurant name; a taken name gets
+`-2`, `-3`. Old `/q/<long code>` links, printed QR codes and Table QR codes keep working (the generic one redirects to the readable link).
+
+- **After deploying**, the API gives every existing Restaurant its slug by itself at start-up (log line `Assigned readable menu links to N restaurant(s)`).
+  To check first or re-run by hand (from `apps/api`; the first command is a dry run that writes nothing):
+
+  ```powershell
+  npm run backfill:restaurant-slugs
+  npm run backfill:restaurant-slugs -- --apply
+  ```
+
+- **Arabic names are transliterated** (`الشربيني` becomes `al-shrbyny`), which is often not how the brand spells itself. Review each Restaurant in the
+  Platform console (**Restaurants → the restaurant → Guest menu link → Edit link**) and set the real spelling (`el-sherbiny`, `makkboz`). The old
+  link keeps redirecting; `Copy link` gives the URL to share and print.
+- Rollback: dropping `restaurant_slugs` returns every menu link to `/q/<code>`, which never stopped working.

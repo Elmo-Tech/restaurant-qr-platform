@@ -16,7 +16,11 @@ const INPUT: ProvisionRestaurantInput = {
 };
 
 function build(
-  options: { existingUser?: { id: string } | null; owned?: unknown } = {},
+  options: {
+    existingUser?: { id: string } | null;
+    owned?: unknown;
+    takenSlugs?: string[];
+  } = {},
 ) {
   const calls: string[] = [];
   const tx = {
@@ -52,6 +56,15 @@ function build(
           id: 'restaurant-1',
           publicId: 'restaurant-public-1',
         });
+      }),
+    },
+    restaurantSlug: {
+      findMany: jest.fn().mockResolvedValue(
+        (options.takenSlugs ?? []).map((slug) => ({ slug })),
+      ),
+      create: jest.fn().mockImplementation(() => {
+        calls.push('slug');
+        return Promise.resolve({});
       }),
     },
     restaurantSetup: {
@@ -156,10 +169,12 @@ describe('provisionRestaurant', () => {
       branchName: 'Main Branch',
       ownerEmail: 'owner@example.com',
       genericQrPublicCode: 'GENERIC-CODE',
+      menuSlug: 'elmo-bistro',
     });
     expect(m.prisma.$transaction).toHaveBeenCalledTimes(1);
     expect(m.calls).toEqual([
       'restaurant',
+      'slug',
       'setup',
       'locales',
       'user',
@@ -277,6 +292,37 @@ describe('provisionRestaurant', () => {
     );
   });
 
+  it('gives the Restaurant its readable menu link (the name) inside the same transaction', async () => {
+    const m = build();
+
+    await provisionRestaurant(m.prisma as never, m.hasher, INPUT);
+
+    expect(m.tx.restaurantSlug.create).toHaveBeenCalledWith({
+      data: { slug: 'elmo-bistro', restaurantId: 'restaurant-1', isCurrent: true },
+    });
+  });
+
+  it('adds a number to the link when another Restaurant already has that name', async () => {
+    const m = build({ takenSlugs: ['elmo-bistro', 'elmo-bistro-2'] });
+
+    const result = await provisionRestaurant(m.prisma as never, m.hasher, INPUT);
+
+    expect(result).toMatchObject({ outcome: 'provisioned', menuSlug: 'elmo-bistro-3' });
+    expect(m.tx.restaurantSlug.create.mock.calls[0][0].data.slug).toBe('elmo-bistro-3');
+  });
+
+  it('writes the Arabic name as a readable Latin link', async () => {
+    const m = build();
+
+    const result = await provisionRestaurant(m.prisma as never, m.hasher, {
+      ...INPUT,
+      restaurantName: 'مطعم الشربيني',
+    });
+
+    expect(result).toMatchObject({ outcome: 'provisioned' });
+    expect(m.tx.restaurantSlug.create.mock.calls[0][0].data.slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+  });
+
   it('creates no Menu, Product or other demo data', async () => {
     const m = build();
 
@@ -293,6 +339,7 @@ describe('provisionRestaurant', () => {
         'restaurantSetup',
         'restaurantMembership',
         'restaurantRole',
+        'restaurantSlug',
         'user',
       ].sort(),
     );
