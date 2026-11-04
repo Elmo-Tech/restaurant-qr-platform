@@ -802,6 +802,31 @@ describe('Exclusive Menu Design tenant-only base reservation', () => {
     });
   }
 
+  it('a Restaurant whose exclusive design is in use gets branding on the "menu unavailable" outcome; no other Restaurant does', async () => {
+    const unavailable = async (exclusiveDesign: object | null) => {
+      const mock = buildPrismaMock();
+      mock.menuFindFirst.mockResolvedValue(null);
+      mock.qrCodeFindUnique.mockResolvedValue({
+        ...GENERIC_QR_ROW,
+        restaurant: { ...GENERIC_QR_ROW.restaurant, exclusiveDesign },
+      });
+      return new PublicMenuService(mock.prisma as never, limitedEntitlements as never).getPublicMenu({
+        publicCode: 'generic-qr',
+        explicitLang: null,
+        acceptLanguageHeader: null,
+      });
+    };
+    const branded = await unavailable({ baseTemplate: 'CLASSIC', status: 'ACTIVE_CUSTOM', rendererKey: 'SHERBINY_FIRE_DOUGH_V1' });
+    expect(branded).toMatchObject({
+      outcome: 'menuNotAvailable',
+      branding: { exclusiveRendererKey: 'SHERBINY_FIRE_DOUGH_V1', restaurantName: GENERIC_QR_ROW.restaurant.name },
+    });
+    // The Restaurant chose a stock template, has none, or the design is only a base: the generic page stays.
+    expect(await unavailable({ baseTemplate: 'CLASSIC', status: 'ACTIVE_CUSTOM', rendererKey: 'SHERBINY_FIRE_DOUGH_V1', useExclusive: false })).toEqual({ outcome: 'menuNotAvailable' });
+    expect(await unavailable(null)).toEqual({ outcome: 'menuNotAvailable' });
+    expect(JSON.stringify(branded)).not.toMatch(/draft|publishedSettings/i);
+  });
+
   it('resolves the compiled VERDE renderer only for its assigned Restaurant without unlocking stock templates', async () => {
     const assigned = await menuFor({
       exclusiveDesign: {

@@ -1844,5 +1844,14 @@
         }
       ]
     }
+  ],
+  "announcements": [
+    {
+      "texts": {
+        "ar": "بيتزا • كريب • فطير • سوري .. طعم يليق بمزاجك",
+        "en": "Pizza • Crêpes • Fiteer • Syrian — made to crave"
+      },
+      "style": "INFO"
+    }
   ]
 }

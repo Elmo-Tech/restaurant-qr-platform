@@ -54,3 +54,26 @@ test('settings are editable with draft / publish and a private live preview', ()
   assert.ok(api.includes('/makkboz-menu/draft') && api.includes('/makkboz-menu/publish'));
   assert.ok(/heroImageAssetPath: _hero/.test(api.slice(api.indexOf('saveMakkbozMenuDraft'))));
 });
+
+test('light / dark: dashboard default, guest switch in the header, saved in the guest_theme cookie, no flash', () => {
+  const page = read('app/q/[publicCode]/page.tsx');
+  const hook = read('app/q/[publicCode]/useExclusiveTheme.ts');
+  // The server reads the cookie, so the first paint already has the guest's pick.
+  assert.ok(page.includes('GUEST_THEME_COOKIE') && page.includes('guestTheme={guestTheme}'));
+  assert.ok(hook.includes('useGuestTheme') && hook.includes('setTheme(next, !designPreview)'));
+  assert.ok(menu.includes('useExclusiveTheme(') && menu.includes('theme.toggle') && menu.includes('settings.allowThemeSwitch'));
+  assert.ok(menu.includes('aria-label={themeLabel}') && menu.includes('data-m-theme={theme.attr}'));
+  // "System" follows the device through CSS alone, with the same palette as the explicit dark theme.
+  const dark = /\[data-m-theme="dark"\]\{([^}]*)\}/s.exec(css)?.[1] ?? '';
+  const system = /@media \(prefers-color-scheme:dark\)\{\s*\.makkboz-experience\[data-m-theme="system"\]\{([^}]*)\}/s.exec(css)?.[1] ?? '';
+  assert.ok(dark.includes('--m-page:') && dark.includes('--g-accent:') && dark.includes('--g-on-accent:'));
+  assert.equal(system.replace(/\s+/g, ''), dark.replace(/\s+/g, ''));
+  assert.ok(editor.includes("'DARK'") && editor.includes('allowThemeSwitch'));
+});
+
+test('no unlayered colour / font resets (they hid the text of the shared cart, order bar and checkout), and a logo cannot become a huge block', () => {
+  assert.ok(!/\.makkboz-experience\s+(?:button|input|a)(?:\s*,[^{]*)?\{[^}]*(?:color|font)\s*:\s*inherit/.test(css));
+  const heroLogo = /\.m-hero-logo\{([^}]*)\}/.exec(css)?.[1] ?? '';
+  assert.ok(/max-height:\s*1\d\dpx/.test(heroLogo) && /max-width:/.test(heroLogo));
+  assert.ok(css.includes('--m-logo-bg') && css.includes('--m-logo-pad'));
+});

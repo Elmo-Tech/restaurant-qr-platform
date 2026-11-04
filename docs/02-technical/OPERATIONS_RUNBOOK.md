@@ -116,6 +116,43 @@ npm run seed:restaurant-menu -- --seed makkboz --owner-email owner2@example.com
 npm run seed:restaurant-menu -- --seed makkboz --owner-email owner2@example.com --apply
 ```
 
+### 2.1 Apply a seed to a restaurant that ALREADY exists (DEC-065)
+
+Use this when the restaurant was created in the Platform console (or by `provision:restaurant`) and only its menu, photos, branch address
+and phone, exclusive design, announcement and delivery areas are missing. It finds the restaurant from its owner's e-mail; it never creates a
+restaurant or a user and never touches another restaurant.
+
+```powershell
+# From apps/api, with DATABASE_URL and UPLOAD_LOCAL_DIR of the TARGET (a scratch database when rehearsing).
+npm run apply:restaurant-menu -- --seed el-sherbiny --owner-email elsherbiny@wayta.com            # dry run: reads only
+npm run apply:restaurant-menu -- --seed el-sherbiny --owner-email elsherbiny@wayta.com --apply    # writes
+```
+
+| Situation | Result |
+|---|---|
+| owner e-mail unknown / owns no restaurant | refused, exit 1, nothing written |
+| owner owns several restaurants | refused, lists them; add `--restaurant <publicId>` |
+| restaurant already has a menu | refused, nothing written |
+| `--apply --replace-menu` | old menus are switched OFF (inactive, not primary, never deleted), a new primary menu is created |
+| another restaurant already holds the exclusive design | menu applied, design left alone, warning printed (move it in the Platform console) |
+| the run fails half way | database rolled back; photos already written are deleted |
+
+Photos: the seed's `images/` folder is part of the `tools` image, and the command stores every photo through the same validator and storage as
+a dashboard upload into `UPLOAD_LOCAL_DIR`, the folder the API serves at `/media`. On the server the `migrate` service mounts the same `uploads`
+volume (see `compose.coolify.yml`), so run it there, after the deployment that contains this command finished:
+
+```bash
+cd <the folder Coolify deployed from>          # where infra/docker/compose.coolify.yml and .env are
+docker compose --project-directory . --env-file .env -f infra/docker/compose.coolify.yml run --build --rm --no-deps \
+  -e WEB_URL=https://menu.example.com migrate \
+  npm run apply:restaurant-menu -- --seed el-sherbiny --owner-email elsherbiny@wayta.com
+# read the plan, then add --apply (and --replace-menu only if a menu already exists and must be replaced)
+```
+
+`--build` makes sure the tools image has the current seed data. The command prints the guest menu URL; open it, check the design, the sizes
+and a photo, then (if the restaurant should open in Arabic) set the default language in the dashboard: the tool does not change the restaurant's name,
+default language, owner or QR code.
+
 ## 3. Clean development bootstrap (deterministic, no fake datasets)
 
 To get a fresh, empty development environment without hand-editing the database:

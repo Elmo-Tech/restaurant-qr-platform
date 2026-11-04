@@ -68,6 +68,12 @@ services:
       # Operations scripts inherit production safeguards (development-only helpers refuse to run).
       NODE_ENV: production
       DATABASE_URL: postgresql://${POSTGRES_USER:-restaurant_qr_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-restaurant_qr_platform}
+      # Operations commands that store photos (`npm run apply:restaurant-menu`, `seed:restaurant-menu`) must write into
+      # the SAME folder the API serves at /media, so the uploads volume is mounted here too. The migration itself
+      # never touches it.
+      UPLOAD_LOCAL_DIR: /var/lib/restaurant-qr/uploads
+    volumes:
+      - uploads:/var/lib/restaurant-qr/uploads
     depends_on:
       postgres:
         condition: service_healthy

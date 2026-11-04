@@ -11,6 +11,8 @@ import {
 interface GuestThemeValue {
   theme: GuestTheme;
   toggleTheme: () => void;
+  /** Sets the theme; `persist` also remembers it in the guest's cookie (a guest's own pick), default true. */
+  setTheme: (theme: GuestTheme, persist?: boolean) => void;
 }
 
 const GuestThemeContext = createContext<GuestThemeValue | null>(null);
@@ -29,21 +31,33 @@ export function GuestThemeProvider({
   initialTheme: GuestTheme;
   children: ReactNode;
 }) {
-  const [theme, setTheme] = useState<GuestTheme>(initialTheme);
+  const [theme, setThemeState] = useState<GuestTheme>(initialTheme);
 
-  const toggleTheme = useCallback(() => {
-    setTheme((current) => {
-      const next: GuestTheme = current === 'dark' ? 'light' : 'dark';
-      try {
-        document.cookie = `${GUEST_THEME_COOKIE}=${next}; Path=${GUEST_THEME_COOKIE_PATH}; Max-Age=${GUEST_THEME_COOKIE_MAX_AGE}; SameSite=Lax`;
-      } catch {
-        // A blocked cookie only means the choice does not survive a refresh.
-      }
-      return next;
-    });
+  const remember = useCallback((next: GuestTheme) => {
+    try {
+      document.cookie = `${GUEST_THEME_COOKIE}=${next}; Path=${GUEST_THEME_COOKIE_PATH}; Max-Age=${GUEST_THEME_COOKIE_MAX_AGE}; SameSite=Lax`;
+    } catch {
+      // A blocked cookie only means the choice does not survive a refresh.
+    }
   }, []);
 
-  const value = useMemo(() => ({ theme, toggleTheme }), [theme, toggleTheme]);
+  const setTheme = useCallback(
+    (next: GuestTheme, persist = true) => {
+      setThemeState(next);
+      if (persist) remember(next);
+    },
+    [remember],
+  );
+
+  const toggleTheme = useCallback(() => {
+    setThemeState((current) => {
+      const next: GuestTheme = current === 'dark' ? 'light' : 'dark';
+      remember(next);
+      return next;
+    });
+  }, [remember]);
+
+  const value = useMemo(() => ({ theme, toggleTheme, setTheme }), [theme, toggleTheme, setTheme]);
 
   return (
     <GuestThemeContext.Provider value={value}>

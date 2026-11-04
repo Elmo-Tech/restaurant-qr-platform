@@ -279,10 +279,21 @@ export interface PublicMenuData {
   };
 }
 
+/**
+ * What a Restaurant with an exclusive design shows while it has no menu yet (a branded "coming soon" page instead of
+ * a generic error). Only what the guest menu already makes public: the name, the logo and which design to dress it in.
+ */
+export interface PublicMenuBranding {
+  restaurantName: string;
+  logoAssetPath: string | null;
+  exclusiveRendererKey: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
+  locale: PlatformSupportedLocale;
+}
+
 export type GetPublicMenuResult =
   | { outcome: 'found'; data: PublicMenuData }
   | { outcome: 'qrNotFound' }
-  | { outcome: 'menuNotAvailable' };
+  | { outcome: 'menuNotAvailable'; branding?: PublicMenuBranding };
 
 function pickRow(
   rows: PublicTranslatableRow[],
@@ -485,13 +496,27 @@ export class PublicMenuService {
         },
       },
     });
+    // A Restaurant whose exclusive design is in use gets a branded page for this state (see PublicMenuBranding).
+    const menuNotAvailable = (): GetPublicMenuResult => ({
+      outcome: 'menuNotAvailable',
+      ...(exclusiveRendererKey && qr.restaurant.exclusiveDesign?.useExclusive !== false
+        ? {
+            branding: {
+              restaurantName: qr.restaurant.name,
+              logoAssetPath: qr.restaurant.logoAssetPath,
+              exclusiveRendererKey,
+              locale: resolved,
+            },
+          }
+        : {}),
+    });
     if (!menu) {
-      return { outcome: 'menuNotAvailable' };
+      return menuNotAvailable();
     }
     const menuDefaultTranslation = pickRow(menu.translations, defaultLocale);
     if (!menuDefaultTranslation) {
       // Defensive only -- see class docstring.
-      return { outcome: 'menuNotAvailable' };
+      return menuNotAvailable();
     }
     const menuFields = resolvePublicField(
       pickRow(menu.translations, resolved),

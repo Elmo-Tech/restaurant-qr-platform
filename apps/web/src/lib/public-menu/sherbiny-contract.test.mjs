@@ -41,13 +41,29 @@ test('contact, hours and social links render only when present', () => {
 });
 
 test('both themes define the full token set; header, hero and footer are not light-only', () => {
-  const paper = /\[data-s-theme="paper"\]\{([^}]*)\}/s.exec(css)?.[1] ?? '';
+  const paper = /\[data-s-theme="paper"\],\s*\.sherbiny-experience\[data-s-theme="system"\]\{([^}]*)\}/s.exec(css)?.[1] ?? '';
   const night = /\[data-s-theme="night"\]\{([^}]*)\}/s.exec(css)?.[1] ?? '';
   for (const token of ['--s-page', '--s-panel', '--s-text', '--s-soft', '--g-bg', '--g-surface', '--g-text', '--g-accent', '--g-on-accent', '--g-price']) {
     assert.ok(paper.includes(token + ':'), 'paper ' + token);
     assert.ok(night.includes(token + ':'), 'night ' + token);
   }
-  assert.ok(css.includes(':where(.sherbiny-experience) a{'));
+  // No unlayered colour / font resets: they would beat the Tailwind utilities of the shared cart, sheet and checkout.
+  assert.ok(!/\.sherbiny-experience[^{]*(?:button|input|a)[^{]*\{[^}]*(?:color|font)\s*:\s*inherit/.test(css));
+});
+
+test('light / dark: dashboard default, guest switch in the header, saved in the guest_theme cookie, no flash', () => {
+  const page = readFileSync(new URL('../../app/q/[publicCode]/page.tsx', import.meta.url), 'utf8');
+  const hook = readFileSync(new URL('../../app/q/[publicCode]/useExclusiveTheme.ts', import.meta.url), 'utf8');
+  // The server reads the cookie, so the first paint already has the guest's pick.
+  assert.ok(page.includes('GUEST_THEME_COOKIE') && page.includes('guestTheme={guestTheme}'));
+  assert.ok(hook.includes('useGuestTheme') && hook.includes('setTheme(next, !designPreview)'));
+  assert.ok(menu.includes('useExclusiveTheme(') && menu.includes('theme.toggle') && menu.includes('settings.allowThemeSwitch'));
+  assert.ok(menu.includes('aria-label={themeLabel}') && !menu.includes('localStorage'));
+  // "System" follows the device through CSS alone (no script, no flash) and its dark palette is the night palette.
+  const media = /@media \(prefers-color-scheme:dark\)\{\s*\.sherbiny-experience\[data-s-theme="system"\]\{([^}]*)\}/s.exec(css)?.[1] ?? '';
+  const night = /\[data-s-theme="night"\]\{([^}]*)\}/s.exec(css)?.[1] ?? '';
+  assert.equal(media.replace(/\s+/g, ''), night.replace(/\s+/g, ''));
+  assert.ok(editor.includes("'SYSTEM'"));
 });
 
 test('RTL / LTR, accessibility and motion safety', () => {

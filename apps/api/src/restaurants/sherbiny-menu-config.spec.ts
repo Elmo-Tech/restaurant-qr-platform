@@ -39,6 +39,7 @@ describe('El Sherbiny menu settings normalization', () => {
     expect(result.theme).toBe('NIGHT');
     expect(result.motion).toBe('SUBTLE');
     expect(result.allowThemeSwitch).toBe(true);
+    expect(normalizeSherbinySettings({ theme: 'SYSTEM' }).theme).toBe('SYSTEM');
     expect(normalizeSherbinySettings({ theme: 'PAPER', allowThemeSwitch: false })).toMatchObject({
       theme: 'PAPER',
       allowThemeSwitch: false,

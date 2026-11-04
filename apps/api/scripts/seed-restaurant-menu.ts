@@ -33,7 +33,7 @@ import {
   validateProvisionInput,
   type ProvisioningPrisma,
 } from '../src/provisioning/provision-restaurant';
-import { assertValidImageUpload } from '../src/storage/image-file-validator';
+import { createSeedPhotoReader, seedPhotoNames } from '../src/provisioning/seed-photos';
 import { ImageStorageService } from '../src/storage/image-storage.service';
 import {
   menuSeedCounts,
@@ -107,22 +107,8 @@ async function main(): Promise<void> {
 
   // Every photo the seed names must exist and pass the same checks as a dashboard upload, before anything is written.
   const imagesDir = path.resolve(__dirname, '..', 'seed-data', seedName, 'images');
-  const named = new Set<string>();
-  if (seed.restaurant.logo) named.add(seed.restaurant.logo);
-  for (const category of seed.categories) {
-    if (category.image) named.add(category.image);
-    for (const product of category.products) if (product.image) named.add(product.image);
-  }
-  const design = seed.restaurant.exclusiveDesign;
-  if (design?.rendererKey === 'SHERBINY_FIRE_DOUGH_V1' || design?.rendererKey === 'MAKKBOZ_HERITAGE_V1')
-    for (const image of Object.values(design.images ?? {})) if (image) named.add(image);
-  const mimeByExtension: Record<string, string> = { '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png', '.webp': 'image/webp' };
-  const readImage = async (name: string) => {
-    const buffer = await readFile(path.join(imagesDir, name));
-    const file = { originalname: name, mimetype: mimeByExtension[path.extname(name).toLowerCase()] ?? '', size: buffer.length, buffer };
-    assertValidImageUpload(file);
-    return file;
-  };
+  const readImage = createSeedPhotoReader(imagesDir);
+  const named = seedPhotoNames(seed);
   for (const name of named) {
     try {
       await readImage(name);

@@ -8,12 +8,19 @@
 .makkboz-experience{
   --m-forest:#174433;--m-forest-dark:#0d3027;--m-forest-deep:#09291f;--m-gold:#bd8c39;--m-gold-text:#8f6420;--m-gold-light:#e0ba73;
   --m-cream:#f9edd9;--m-paper:#fff8ec;--m-ink:#233b2d;--m-muted:#6f5d46;--m-line:#e6d5b9;--m-dir:1;
+  --m-page:#fff8ed;--m-page-2:#fcf3e5;--m-hero-bg:#fbefd9;--m-band:#fff9f0;--m-card:#fffdf7;--m-card-line:#e6dac7;--m-card-sep:#f1e6d5;
+  --m-hover:#f0e5cf;--m-chip:#fbf2de;--m-chip-line:#e1cfa8;--m-chip-ink:#5c4a2e;--m-title:#174433;--m-text:#233b2d;--m-soft:#6f5d46;--m-soft-2:#7a6246;
+  --m-gold-text:#8f6420;--m-header-bg:rgba(255,249,237,.965);--m-header-line:rgba(156,129,86,.18);--m-btn:#174433;--m-btn-fg:#fff8ec;--m-btn-hover:#2a5f47;
+  --m-rule:#e6d5b9;--m-switch-bg:#f8efdf;--m-switch-line:#ded0b5;--m-switch-ink:#6e6150;--m-fav-bg:rgba(255,251,242,.96);--m-fav-ink:#174433;
+  --m-tag-bg:rgba(247,231,195,.95);--m-tag-ink:#5d4318;--m-stamp-bg:#fff7e7;--m-stamp-ink:#174433;--m-small-bg:#fff4df;--m-nav-bg:#fff8ec;--m-nav-item:#f6ead3;
+  --m-links:#6c5740;--m-photo-bg:#e7dec9;--m-chapter-num:#a47a36;--m-price:#174433;--m-rail:#174433;--m-arch:#174433;--m-story:#174433;--m-footer:#102f25;
+  --m-hero-ring:rgba(194,154,86,.055);--m-sec-line:#e8d8c2;--m-input-focus:#b08039;--m-logo-bg:transparent;--m-logo-pad:0;
   --m-body:var(--m-font-body),'Tajawal','Noto Sans Arabic',Tahoma,sans-serif;
   --m-display:var(--m-font-display),'Aref Ruqaa','Noto Naskh Arabic',serif;
   --m-kufi:var(--m-font-kufi),'Reem Kufi','Noto Kufi Arabic',sans-serif;
   --m-max:1230px;--m-header:83px;
   font-family:var(--m-body);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased;
-  background:var(--m-paper);color:var(--m-ink);min-height:100dvh;position:relative;overflow-x:clip;
+  background:var(--m-page);color:var(--m-text);min-height:100dvh;position:relative;overflow-x:clip;
   color-scheme:light;
   --g-bg:#fff8ec;--g-surface:#fffdf7;--g-surface-2:#f5ead6;--g-line:#e6d5b9;
   --g-text:#233b2d;--g-text-2:#4a5a4c;--g-text-3:#6b5e4a;
@@ -21,12 +28,41 @@
   --g-danger:#a3361e;--g-danger-soft:#fde8e2;--g-shadow:0 22px 70px rgba(31,43,24,.12);
 }
 .makkboz-experience[dir="ltr"]{--m-dir:-1}
-:where(.makkboz-experience) *,:where(.makkboz-experience) *::before,:where(.makkboz-experience) *::after{box-sizing:border-box}
+/* ---- Dark palette: chosen by the Restaurant (default theme), by the guest (guest_theme cookie) or by the system ---- */
+.makkboz-experience[data-m-theme="dark"]{
+  color-scheme:dark;
+  --m-page:#0e1f18;--m-page-2:#102319;--m-hero-bg:#11271e;--m-band:#12291f;--m-card:#15302a;--m-card-line:#264a3d;--m-card-sep:#244538;
+  --m-hover:#1e3b31;--m-chip:#1c3a2f;--m-chip-line:#335a49;--m-chip-ink:#ead9b4;--m-title:#f1dfb8;--m-text:#efe6d2;--m-soft:#c9bda4;--m-soft-2:#d2c6ad;
+  --m-gold-text:#e0ba73;--m-header-bg:rgba(14,31,24,.96);--m-header-line:rgba(224,186,115,.2);--m-btn:#e0ba73;--m-btn-fg:#0d3027;--m-btn-hover:#ecc986;
+  --m-rule:#2a4a3d;--m-switch-bg:#12281f;--m-switch-line:#2f5546;--m-switch-ink:#cfc3aa;--m-fav-bg:rgba(14,31,24,.88);--m-fav-ink:#f1dfb8;
+  --m-tag-bg:rgba(224,186,115,.94);--m-tag-ink:#2d1f06;--m-stamp-bg:#173a2d;--m-stamp-ink:#f1dfb8;--m-small-bg:#1b4333;--m-nav-bg:#0e1f18;--m-nav-item:#16322a;
+  --m-links:#d8cbb0;--m-photo-bg:#1d3a2f;--m-chapter-num:#a98748;--m-price:#f1dfb8;--m-rail:#0a2a20;--m-arch:#1c5240;--m-story:#0b261d;--m-footer:#07140f;
+  --m-hero-ring:rgba(224,186,115,.06);--m-sec-line:#244538;--m-input-focus:#e0ba73;--m-logo-bg:#f6ead2;--m-logo-pad:6px 12px;
+  --g-bg:#0e1f18;--g-surface:#15302a;--g-surface-2:#1d3a2f;--g-line:rgba(224,186,115,.24);
+  --g-text:#f3e9d6;--g-text-2:#d6cab1;--g-text-3:#b7ab92;
+  --g-accent:#e0ba73;--g-on-accent:#0d3027;--g-accent-soft:rgba(224,186,115,.16);--g-accent-text:#e8c98a;--g-price:#ecd19a;
+  --g-danger:#ff9a8d;--g-danger-soft:rgba(217,78,67,.2);--g-shadow:0 22px 70px rgba(0,0,0,.45);
+}
+@media (prefers-color-scheme:dark){
+  .makkboz-experience[data-m-theme="system"]{
+  color-scheme:dark;
+  --m-page:#0e1f18;--m-page-2:#102319;--m-hero-bg:#11271e;--m-band:#12291f;--m-card:#15302a;--m-card-line:#264a3d;--m-card-sep:#244538;
+  --m-hover:#1e3b31;--m-chip:#1c3a2f;--m-chip-line:#335a49;--m-chip-ink:#ead9b4;--m-title:#f1dfb8;--m-text:#efe6d2;--m-soft:#c9bda4;--m-soft-2:#d2c6ad;
+  --m-gold-text:#e0ba73;--m-header-bg:rgba(14,31,24,.96);--m-header-line:rgba(224,186,115,.2);--m-btn:#e0ba73;--m-btn-fg:#0d3027;--m-btn-hover:#ecc986;
+  --m-rule:#2a4a3d;--m-switch-bg:#12281f;--m-switch-line:#2f5546;--m-switch-ink:#cfc3aa;--m-fav-bg:rgba(14,31,24,.88);--m-fav-ink:#f1dfb8;
+  --m-tag-bg:rgba(224,186,115,.94);--m-tag-ink:#2d1f06;--m-stamp-bg:#173a2d;--m-stamp-ink:#f1dfb8;--m-small-bg:#1b4333;--m-nav-bg:#0e1f18;--m-nav-item:#16322a;
+  --m-links:#d8cbb0;--m-photo-bg:#1d3a2f;--m-chapter-num:#a98748;--m-price:#f1dfb8;--m-rail:#0a2a20;--m-arch:#1c5240;--m-story:#0b261d;--m-footer:#07140f;
+  --m-hero-ring:rgba(224,186,115,.06);--m-sec-line:#244538;--m-input-focus:#e0ba73;--m-logo-bg:#f6ead2;--m-logo-pad:6px 12px;
+  --g-bg:#0e1f18;--g-surface:#15302a;--g-surface-2:#1d3a2f;--g-line:rgba(224,186,115,.24);
+  --g-text:#f3e9d6;--g-text-2:#d6cab1;--g-text-3:#b7ab92;
+  --g-accent:#e0ba73;--g-on-accent:#0d3027;--g-accent-soft:rgba(224,186,115,.16);--g-accent-text:#e8c98a;--g-price:#ecd19a;
+  --g-danger:#ff9a8d;--g-danger-soft:rgba(217,78,67,.2);--g-shadow:0 22px 70px rgba(0,0,0,.45);
+  }
+}
 .makkboz-experience [hidden]{display:none!important}
-:where(.makkboz-experience) :is(button,input){font:inherit;color:inherit}
-:where(.makkboz-experience) button{cursor:pointer;-webkit-tap-highlight-color:transparent}
-:where(.makkboz-experience) a{color:inherit;text-decoration:none;-webkit-tap-highlight-color:transparent}
-:where(.makkboz-experience) :is(img,svg){display:block;max-width:100%}
+/* No colour / font / display resets here: they are unlayered, so they would beat the Tailwind utilities (text-g-on-accent, font-extrabold ...) of the shared cart, sheet and checkout. Tailwind's preflight already resets buttons, inputs, links and images. */
+:where(.makkboz-experience) :is(button,a){-webkit-tap-highlight-color:transparent}
+:where(.makkboz-experience) button{cursor:pointer}
 .makkboz-experience :focus-visible{outline:3px solid #e1b35e;outline-offset:3px}
 .makkboz-experience ::selection{background:#e0ba73;color:#0d3027}
 .makkboz-experience .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
@@ -39,24 +75,24 @@
 /* ---- Announcement, header ---- */
 .makkboz-experience .m-announcement{min-height:33px;display:flex;align-items:center;justify-content:center;gap:14px;padding:4px 16px;background:var(--m-forest-dark);color:#f4dfb7;font-size:12.5px;font-weight:700;text-align:center}
 .makkboz-experience .m-announcement span{color:#d8aa5f}
-.makkboz-experience .m-header{position:sticky;top:0;z-index:45;height:var(--m-header);background:rgba(255,249,237,.965);border-bottom:1px solid rgba(156,129,86,.18);backdrop-filter:blur(16px)}
+.makkboz-experience .m-header{position:sticky;top:0;z-index:45;height:var(--m-header);background:var(--m-header-bg);border-bottom:1px solid var(--m-header-line);backdrop-filter:blur(16px)}
 .makkboz-experience .m-header-inner{height:100%;display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:24px}
 .makkboz-experience .m-brand{display:inline-flex;align-items:center;justify-self:start;height:67px;max-width:150px;overflow:hidden}
-.makkboz-experience .m-brand img{height:65px;width:auto;max-width:130px;object-fit:contain}
-.makkboz-experience .m-brand-text{font:700 28px/1.2 var(--m-display);color:var(--m-forest);white-space:nowrap}
+.makkboz-experience .m-brand img{height:65px;width:auto;max-width:130px;object-fit:contain;background:var(--m-logo-bg);padding:var(--m-logo-pad);border-radius:12px}
+.makkboz-experience .m-brand-text{font:700 28px/1.2 var(--m-display);color:var(--m-title);white-space:nowrap}
 .makkboz-experience .m-links{display:flex;align-items:center;gap:38px}
-.makkboz-experience .m-links a{font-size:15px;color:#6c5740;font-weight:700;padding:11px 0;position:relative;transition:color .2s}
-.makkboz-experience .m-links a:hover,.makkboz-experience .m-links a.is-active{color:var(--m-forest)}
+.makkboz-experience .m-links a{font-size:15px;color:var(--m-links);font-weight:700;padding:11px 0;position:relative;transition:color .2s}
+.makkboz-experience .m-links a:hover,.makkboz-experience .m-links a.is-active{color:var(--m-title)}
 .makkboz-experience .m-links a.is-active::after{content:"";position:absolute;height:2px;width:18px;border-radius:2px;background:var(--m-gold);bottom:4px;inset-inline-start:calc(50% - 9px)}
 .makkboz-experience .m-actions{display:flex;align-items:center;gap:6px;justify-self:end}
-.makkboz-experience .m-icon-btn{position:relative;background:transparent;border:0;border-radius:50%;display:grid;place-items:center;width:45px;height:45px;color:var(--m-forest);transition:background .2s}
-.makkboz-experience .m-icon-btn:hover,.makkboz-experience .m-icon-btn.is-active{background:#f0e5cf}
+.makkboz-experience .m-icon-btn{position:relative;background:transparent;border:0;border-radius:50%;display:grid;place-items:center;width:45px;height:45px;color:var(--m-title);transition:background .2s}
+.makkboz-experience .m-icon-btn:hover,.makkboz-experience .m-icon-btn.is-active{background:var(--m-hover)}
 .makkboz-experience .m-icon-btn svg{width:20px;height:20px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .makkboz-experience .m-heart.is-active svg{fill:var(--m-gold);stroke:var(--m-gold)}
 .makkboz-experience .m-lang{width:auto;min-width:45px;padding-inline:10px;border-radius:22px;font:700 13px var(--m-kufi);letter-spacing:.04em}
-.makkboz-experience .m-dot{position:absolute;inset-block-start:8px;inset-inline-end:8px;width:9px;height:9px;border-radius:50%;background:var(--m-gold);border:2px solid #fff8ec}
-.makkboz-experience .m-cart-btn{display:flex;align-items:center;justify-content:center;gap:7px;border:1px solid #d2bd96;border-radius:50px;background:var(--m-forest);color:var(--m-paper);height:44px;padding:0 15px;transition:transform .2s,background .2s}
-.makkboz-experience .m-cart-btn:hover{background:#265940;transform:translateY(-2px)}
+.makkboz-experience .m-dot{position:absolute;inset-block-start:8px;inset-inline-end:8px;width:9px;height:9px;border-radius:50%;background:var(--m-gold);border:2px solid var(--m-page)}
+.makkboz-experience .m-cart-btn{display:flex;align-items:center;justify-content:center;gap:7px;border:1px solid var(--m-chip-line);border-radius:50px;background:var(--m-btn);color:var(--m-btn-fg);height:44px;padding:0 15px;transition:transform .2s,background .2s}
+.makkboz-experience .m-cart-btn:hover{background:var(--m-btn-hover);transform:translateY(-2px)}
 .makkboz-experience .m-cart-count{font:700 13px var(--m-body);min-width:16px;text-align:center}
 .makkboz-experience .m-burger{display:none}
 .makkboz-experience .m-mobile-nav{display:none}
@@ -64,31 +100,31 @@
 .makkboz-experience .m-notices:empty{display:none}
 
 /* ---- Hero ---- */
-.makkboz-experience .m-hero{position:relative;isolation:isolate;background-color:#fbefd9;overflow:hidden}
-.makkboz-experience .m-hero::before{content:"";position:absolute;z-index:-1;width:900px;height:900px;border:2px solid rgba(194,154,86,.055);border-radius:50%;inset-inline-start:-340px;top:-330px;box-shadow:0 0 0 85px rgba(194,154,86,.027),0 0 0 170px rgba(194,154,86,.02)}
+.makkboz-experience .m-hero{position:relative;isolation:isolate;background-color:var(--m-hero-bg);overflow:hidden}
+.makkboz-experience .m-hero::before{content:"";position:absolute;z-index:-1;width:900px;height:900px;border:2px solid var(--m-hero-ring);border-radius:50%;inset-inline-start:-340px;top:-330px;box-shadow:0 0 0 85px rgba(194,154,86,.027),0 0 0 170px rgba(194,154,86,.02)}
 .makkboz-experience .m-hero-grid{display:grid;grid-template-columns:1.035fr .965fr;align-items:center;gap:40px;min-height:605px;padding-block:38px 44px}
 .makkboz-experience .m-hero-copy{position:relative;z-index:2;min-width:0}
 .makkboz-experience .m-hero-eyebrow{margin:0;color:var(--m-gold-text);font-weight:800;font-size:14px;display:flex;align-items:center;gap:13px}
 .makkboz-experience .m-hero-eyebrow span{font-size:22px;line-height:1;color:var(--m-gold)}
-.makkboz-experience .m-hero-logo{width:min(400px,92%);height:auto;max-height:215px;object-fit:contain;margin:8px 0 0;object-position:start}
-.makkboz-experience .m-hero-brand{font:700 clamp(56px,7vw,96px)/1.2 var(--m-display);color:var(--m-forest);margin:6px 0 0}
-.makkboz-experience .m-hero-copy h1{font:700 clamp(26px,2.7vw,38px)/1.6 var(--m-display);margin:6px 0 12px;color:var(--m-forest)}
+.makkboz-experience .m-hero-logo{width:auto;max-width:min(260px,70%);height:auto;max-height:118px;object-fit:contain;margin:8px 0 0;object-position:start;border-radius:20px;box-shadow:0 8px 24px rgba(23,68,51,.14);background:var(--m-logo-bg);padding:var(--m-logo-pad)}
+.makkboz-experience .m-hero-brand{font:700 clamp(56px,7vw,96px)/1.2 var(--m-display);color:var(--m-title);margin:6px 0 0}
+.makkboz-experience .m-hero-copy h1{font:700 clamp(26px,2.7vw,38px)/1.6 var(--m-display);margin:6px 0 12px;color:var(--m-title)}
 .makkboz-experience[data-m-lang="en"] .m-hero-copy h1{line-height:1.3}
 .makkboz-experience .m-hero-copy h1 em{font-style:normal;color:var(--m-gold-text)}
-.makkboz-experience .m-hero-desc{font-size:16px;line-height:2.05;max-width:470px;color:#5f523f;margin:0 0 23px}
+.makkboz-experience .m-hero-desc{font-size:16px;line-height:2.05;max-width:470px;color:var(--m-soft);margin:0 0 23px}
 .makkboz-experience .m-hero-cta{display:flex;align-items:center;gap:22px;flex-wrap:wrap}
-.makkboz-experience .m-btn{min-height:51px;border:1px solid transparent;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;gap:13px;padding:12px 24px;font-weight:800;font-size:15px;background:var(--m-forest);color:var(--m-paper);box-shadow:0 9px 19px rgba(14,61,44,.12);transition:transform .2s,background .2s}
-.makkboz-experience .m-btn:hover{transform:translateY(-2px);background:#2a5f47}
+.makkboz-experience .m-btn{min-height:51px;border:1px solid transparent;border-radius:7px;display:inline-flex;align-items:center;justify-content:center;gap:13px;padding:12px 24px;font-weight:800;font-size:15px;background:var(--m-btn);color:var(--m-btn-fg);box-shadow:0 9px 19px rgba(14,61,44,.12);transition:transform .2s,background .2s}
+.makkboz-experience .m-btn:hover{transform:translateY(-2px);background:var(--m-btn-hover)}
 .makkboz-experience .m-arrow{width:17px;height:17px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .makkboz-experience[dir="rtl"] .m-arrow{transform:scaleX(-1)}
-.makkboz-experience .m-text-action{border:0;background:transparent;color:var(--m-forest);font-weight:700;display:inline-flex;align-items:center;gap:8px;min-height:45px;padding:6px}
+.makkboz-experience .m-text-action{border:0;background:transparent;color:var(--m-title);font-weight:700;display:inline-flex;align-items:center;gap:8px;min-height:45px;padding:6px}
 .makkboz-experience .m-text-action svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .makkboz-experience .m-text-action:hover{text-decoration:underline;text-underline-offset:5px}
-.makkboz-experience .m-hero-fine{display:flex;gap:13px;align-items:center;flex-wrap:wrap;font-size:13px;color:#7f673f;font-weight:700;margin:32px 0 0}
+.makkboz-experience .m-hero-fine{display:flex;gap:13px;align-items:center;flex-wrap:wrap;font-size:13px;color:var(--m-soft-2);font-weight:700;margin:32px 0 0}
 .makkboz-experience .m-fine-icon{color:var(--m-gold);font-size:24px}
 .makkboz-experience .m-fine-dot{display:inline-block;width:4px;height:4px;border-radius:50%;background:#c59b5b}
 .makkboz-experience .m-hero-showcase{height:552px;position:relative;min-width:0;display:flex;align-items:center;justify-content:center;direction:ltr}
-.makkboz-experience .m-hero-arch{width:min(465px,98%);height:525px;border-radius:260px 260px 27px 27px;background:var(--m-forest);position:relative;overflow:hidden;box-shadow:0 22px 50px rgba(34,67,39,.16),inset 0 0 0 8px rgba(244,219,161,.06);display:flex;align-items:center;justify-content:center;flex-direction:column}
+.makkboz-experience .m-hero-arch{width:min(465px,98%);height:525px;border-radius:260px 260px 27px 27px;background:var(--m-arch);position:relative;overflow:hidden;box-shadow:0 22px 50px rgba(34,67,39,.16),inset 0 0 0 8px rgba(244,219,161,.06);display:flex;align-items:center;justify-content:center;flex-direction:column}
 .makkboz-experience .m-arch-texture{position:absolute;inset:-14px;opacity:.45;background-image:repeating-radial-gradient(circle at 52% 52%,transparent 0 49px,rgba(221,184,105,.09) 50px 52px,transparent 53px 91px),repeating-linear-gradient(47deg,transparent 0 88px,rgba(221,184,105,.04) 89px 91px,transparent 92px 126px)}
 .makkboz-experience .m-hero-arch::after{content:"";position:absolute;inset:14px;border-radius:240px 240px 18px 18px;border:1px solid rgba(234,190,116,.33);pointer-events:none}
 .makkboz-experience .m-arch-label{position:absolute;top:91px;left:50%;transform:translateX(-50%);color:#e0bd7c;letter-spacing:.18em;font:600 11px var(--m-kufi);white-space:nowrap}
@@ -97,38 +133,38 @@
 .makkboz-experience .m-photo-ring img,.makkboz-experience .m-ring-art{width:100%;height:100%;border-radius:50%;object-fit:cover;filter:saturate(1.1) contrast(1.04);box-shadow:0 14px 32px rgba(0,0,0,.18)}
 .makkboz-experience .m-ring-art{background:#1f5a43;object-fit:contain;padding:14px}
 .makkboz-experience .m-arch-caption{position:absolute;z-index:1;bottom:23px;inset-inline:0;text-align:center;font:700 24px var(--m-display);color:#efd19c}
-.makkboz-experience .m-stamp{position:absolute;z-index:2;top:50px;left:5px;width:110px;height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1.5px solid var(--m-gold);border-radius:50%;color:var(--m-forest);background:#fff7e7;transform:rotate(-10deg);box-shadow:0 5px 15px rgba(26,40,21,.1);text-align:center}
+.makkboz-experience .m-stamp{position:absolute;z-index:2;top:50px;left:5px;width:110px;height:110px;display:flex;flex-direction:column;align-items:center;justify-content:center;border:1.5px solid var(--m-gold);border-radius:50%;color:var(--m-stamp-ink);background:var(--m-stamp-bg);transform:rotate(-10deg);box-shadow:0 5px 15px rgba(26,40,21,.1);text-align:center}
 .makkboz-experience .m-stamp::after{content:"";position:absolute;inset:5px;border:1px dashed #c4a069;border-radius:50%}
 .makkboz-experience .m-stamp span{font:700 16px var(--m-display);line-height:1.3}
 .makkboz-experience .m-stamp strong{font:700 24px var(--m-display);line-height:1.3}
 .makkboz-experience .m-stamp small{color:var(--m-gold);font-size:17px}
-.makkboz-experience .m-small-photo{position:absolute;z-index:2;bottom:47px;right:-22px;background:#fff4df;width:128px;height:128px;border:7px solid #fff4df;border-radius:50%;overflow:hidden;box-shadow:0 12px 31px rgba(15,61,43,.2)}
+.makkboz-experience .m-small-photo{position:absolute;z-index:2;bottom:47px;right:-22px;background:var(--m-small-bg);width:128px;height:128px;border:7px solid var(--m-small-bg);border-radius:50%;overflow:hidden;box-shadow:0 12px 31px rgba(15,61,43,.2)}
 .makkboz-experience .m-small-photo img,.makkboz-experience .m-small-photo svg{width:100%;height:100%;object-fit:cover}
 .makkboz-experience .m-scribble{position:absolute;bottom:0;left:10px;font-size:39px;color:var(--m-gold)}
-.makkboz-experience .m-hero-edge{display:flex;justify-content:space-around;gap:16px;align-items:center;height:28px;background:var(--m-forest);color:#d8b879;font-size:12px;letter-spacing:5px;overflow:hidden}
+.makkboz-experience .m-hero-edge{display:flex;justify-content:space-around;gap:16px;align-items:center;height:28px;background:var(--m-rail);color:#d8b879;font-size:12px;letter-spacing:5px;overflow:hidden}
 
 /* ---- Values, intro ---- */
-.makkboz-experience .m-values{background:#fff9f0;border-bottom:1px solid var(--m-line)}
+.makkboz-experience .m-values{background:var(--m-band);border-bottom:1px solid var(--m-rule)}
 .makkboz-experience .m-values-inner{display:flex;align-items:center;justify-content:center;gap:70px;min-height:106px}
 .makkboz-experience .m-value{display:flex;gap:14px;align-items:center}
 .makkboz-experience .m-value-mark{color:var(--m-gold);font-size:29px;line-height:1}
 .makkboz-experience .m-value strong{font-weight:800;font-size:15px;display:block}
-.makkboz-experience .m-value small{display:block;font-size:12.5px;color:#775f3f;margin-top:2px}
-.makkboz-experience .m-value-divider{height:38px;width:1px;background:#d7c6a8}
-.makkboz-experience .m-ordering{background:#fff9f0}
+.makkboz-experience .m-value small{display:block;font-size:12.5px;color:var(--m-soft);margin-top:2px}
+.makkboz-experience .m-value-divider{height:38px;width:1px;background:var(--m-rule)}
+.makkboz-experience .m-ordering{background:var(--m-band)}
 .makkboz-experience .m-ordering .m-container{padding-block:18px;display:grid;gap:10px}
 .makkboz-experience .m-ordering .m-container:empty{display:none}
-.makkboz-experience .m-intro{text-align:center;background-color:#fcf3e5;padding:63px 0 40px}
+.makkboz-experience .m-intro{text-align:center;background-color:var(--m-page-2);padding:63px 0 40px}
 .makkboz-experience .m-intro-eyebrow{display:flex;align-items:center;justify-content:center;gap:17px;color:var(--m-gold-text);font:700 18px var(--m-display);margin:0}
 .makkboz-experience .m-rule{display:block;width:55px;height:1px;background:linear-gradient(90deg,transparent,var(--m-gold),transparent)}
-.makkboz-experience .m-intro h2{font:700 clamp(43px,5vw,68px)/1.4 var(--m-display);margin:7px 0 0;color:var(--m-forest)}
+.makkboz-experience .m-intro h2{font:700 clamp(43px,5vw,68px)/1.4 var(--m-display);margin:7px 0 0;color:var(--m-title)}
 .makkboz-experience[data-m-lang="en"] .m-intro h2{line-height:1.2}
 .makkboz-experience .m-intro h2 span{color:var(--m-gold-text)}
-.makkboz-experience .m-intro-note{font-size:15px;margin:1px 0 10px;color:var(--m-muted)}
+.makkboz-experience .m-intro-note{font-size:15px;margin:1px 0 10px;color:var(--m-soft)}
 .makkboz-experience .m-intro-deco{display:flex;gap:12px;align-items:center;justify-content:center;color:#ba8b3d;font-size:17px}
 
 /* ---- Rail ---- */
-.makkboz-experience .m-tools{position:sticky;top:var(--m-header);z-index:30;background:var(--m-forest);box-shadow:0 10px 20px rgba(12,49,35,.09)}
+.makkboz-experience .m-tools{position:sticky;top:var(--m-header);z-index:30;background:var(--m-rail);box-shadow:0 10px 20px rgba(12,49,35,.09)}
 .makkboz-experience .m-rail{min-height:76px;display:flex;align-items:center;gap:9px;overflow-x:auto;scrollbar-width:none;overscroll-behavior-x:contain}
 .makkboz-experience .m-rail::-webkit-scrollbar{display:none}
 .makkboz-experience .m-pill{border:1px solid rgba(236,207,151,.3);border-radius:100px;white-space:nowrap;min-height:44px;background:transparent;color:#f4dfbb;padding:10px 22px;font-weight:700;font-size:14px;transition:background .2s,color .2s,border .2s}
@@ -142,69 +178,69 @@
 .makkboz-experience .m-search-close{background:transparent;border:0;color:#f4e1bb;width:44px;height:44px;display:grid;place-items:center}
 
 /* ---- Catalog ---- */
-.makkboz-experience .m-catalog{background-color:#fff8ed;padding:24px 0 84px;min-height:600px}
-.makkboz-experience .m-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 14px;border-bottom:1px solid var(--m-line);padding:0 0 18px}
-.makkboz-experience .m-toolbar p{color:#7a6246;font-size:14px;margin:0;font-weight:700}
-.makkboz-experience .m-view-switch{display:flex;border:1px solid #ded0b5;border-radius:6px;padding:3px;gap:2px;background:#f8efdf}
-.makkboz-experience .m-view-switch button{display:flex;align-items:center;gap:6px;padding:8px 12px;border:0;border-radius:4px;color:#6e6150;background:transparent;font-size:13px;font-weight:700;min-height:40px}
+.makkboz-experience .m-catalog{background-color:var(--m-page);padding:24px 0 84px;min-height:600px}
+.makkboz-experience .m-toolbar{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:0 0 14px;border-bottom:1px solid var(--m-rule);padding:0 0 18px}
+.makkboz-experience .m-toolbar p{color:var(--m-soft-2);font-size:14px;margin:0;font-weight:700}
+.makkboz-experience .m-view-switch{display:flex;border:1px solid var(--m-switch-line);border-radius:6px;padding:3px;gap:2px;background:var(--m-switch-bg)}
+.makkboz-experience .m-view-switch button{display:flex;align-items:center;gap:6px;padding:8px 12px;border:0;border-radius:4px;color:var(--m-switch-ink);background:transparent;font-size:13px;font-weight:700;min-height:40px}
 .makkboz-experience .m-view-switch svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
-.makkboz-experience .m-view-switch button[aria-pressed="true"]{background:var(--m-forest);color:#f9e9cc}
+.makkboz-experience .m-view-switch button[aria-pressed="true"]{background:var(--m-btn);color:var(--m-btn-fg)}
 .makkboz-experience .m-section{padding-top:33px}
-.makkboz-experience .m-section+.m-section{border-top:1px solid #e8d8c2;margin-top:46px}
+.makkboz-experience .m-section+.m-section{border-top:1px solid var(--m-sec-line);margin-top:46px}
 .makkboz-experience .m-chapter{display:flex;align-items:flex-end;gap:23px;margin-bottom:22px}
-.makkboz-experience .m-chapter-number{font:400 70px/1 var(--m-display);color:#c19558;opacity:.7;margin-bottom:-4px}
+.makkboz-experience .m-chapter-number{font:400 70px/1 var(--m-display);color:var(--m-chapter-num);opacity:.7;margin-bottom:-4px}
 .makkboz-experience .m-chapter-name{flex:1;min-width:0}
-.makkboz-experience .m-chapter-name small{display:flex;align-items:center;gap:13px;color:#8f6420;font:800 12px var(--m-kufi);letter-spacing:.13em;width:fit-content}
+.makkboz-experience .m-chapter-name small{display:flex;align-items:center;gap:13px;color:var(--m-gold-text);font:800 12px var(--m-kufi);letter-spacing:.13em;width:fit-content}
 .makkboz-experience .m-chapter-name small::after{content:"";width:33px;height:1px;background:#c69950}
-.makkboz-experience .m-chapter-name h3{font:700 clamp(32px,3vw,47px)/1.5 var(--m-display);margin:0;color:var(--m-forest)}
+.makkboz-experience .m-chapter-name h3{font:700 clamp(32px,3vw,47px)/1.5 var(--m-display);margin:0;color:var(--m-title)}
 .makkboz-experience[data-m-lang="en"] .m-chapter-name h3{line-height:1.2}
-.makkboz-experience .m-chapter-name p{font-size:14px;color:#6f5c44;margin:2px 0 0}
+.makkboz-experience .m-chapter-name p{font-size:14px;color:var(--m-soft);margin:2px 0 0}
 .makkboz-experience .m-chapter-flower{font-size:28px;color:#cf9e50;align-self:center}
-.makkboz-experience .m-chapter-photo{align-self:center;width:96px;height:96px;border-radius:48px 48px 12px 12px;overflow:hidden;border:2px solid #d4b279;background:#e7dec9;flex-shrink:0}
+.makkboz-experience .m-chapter-photo{align-self:center;width:96px;height:96px;border-radius:48px 48px 12px 12px;overflow:hidden;border:2px solid #d4b279;background:var(--m-photo-bg);flex-shrink:0}
 .makkboz-experience .m-chapter-photo img{width:100%;height:100%;object-fit:cover}
 .makkboz-experience .m-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
-.makkboz-experience .m-card{position:relative;background:#fffdf7;border:1px solid #e6dac7;border-radius:14px;min-width:0;overflow:hidden;display:flex;flex-direction:column;transition:border-color .2s,transform .25s,box-shadow .25s}
+.makkboz-experience .m-card{position:relative;background:var(--m-card);border:1px solid var(--m-card-line);border-radius:14px;min-width:0;overflow:hidden;display:flex;flex-direction:column;transition:border-color .2s,transform .25s,box-shadow .25s}
 .makkboz-experience .m-card:hover{border-color:#d4b279;transform:translateY(-4px);box-shadow:0 15px 28px rgba(45,47,30,.095)}
 .makkboz-experience .m-card-media{position:relative}
-.makkboz-experience .m-card.has-photo .m-card-media{height:218px;background:#e7dec9;overflow:hidden}
+.makkboz-experience .m-card.has-photo .m-card-media{height:218px;background:var(--m-photo-bg);overflow:hidden}
 .makkboz-experience .m-card-photo{display:block;width:100%;height:100%;border:0;padding:0;background:#e8e1d0}
 .makkboz-experience .m-card-photo img{height:100%;width:100%;object-fit:cover;transition:transform .5s ease}
 .makkboz-experience .m-card:hover .m-card-photo img{transform:scale(1.06)}
 .makkboz-experience .m-card:not(.has-photo) .m-card-media{height:0}
 .makkboz-experience .m-card-ornament{display:none}
-.makkboz-experience .m-fav{position:absolute;z-index:2;top:12px;inset-inline-end:12px;width:44px;height:44px;border:0;border-radius:50%;background:rgba(255,251,242,.96);display:grid;place-items:center;color:var(--m-forest);box-shadow:0 2px 8px rgba(0,0,0,.09)}
+.makkboz-experience .m-fav{position:absolute;z-index:2;top:12px;inset-inline-end:12px;width:44px;height:44px;border:0;border-radius:50%;background:var(--m-fav-bg);display:grid;place-items:center;color:var(--m-fav-ink);box-shadow:0 2px 8px rgba(0,0,0,.09)}
 .makkboz-experience .m-fav svg{width:19px;height:19px;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round}
 .makkboz-experience .m-fav.is-favorite svg{fill:var(--m-gold);stroke:var(--m-gold)}
-.makkboz-experience .m-card-tag{position:absolute;z-index:2;bottom:11px;inset-inline-start:11px;padding:6px 11px;border-radius:20px;background:rgba(247,231,195,.95);font-size:12px;font-weight:800;color:#5d4318}
+.makkboz-experience .m-card-tag{position:absolute;z-index:2;bottom:11px;inset-inline-start:11px;padding:6px 11px;border-radius:20px;background:var(--m-tag-bg);font-size:12px;font-weight:800;color:var(--m-tag-ink)}
 .makkboz-experience .m-card:not(.has-photo) .m-card-tag{top:14px;bottom:auto;inset-inline-start:14px;box-shadow:inset 0 0 0 1px #e3cf9f}
 .makkboz-experience .m-card-tag.is-soldout{background:#efe3d6;color:#6b3a2a}
 .makkboz-experience .m-card-body{padding:19px 19px 17px;display:flex;flex-direction:column;flex:1}
 .makkboz-experience .m-card:not(.has-photo) .m-card-body{padding-top:20px}
 .makkboz-experience .m-card:not(.has-photo)::before{content:"";position:absolute;inset-inline-start:0;top:0;bottom:0;width:4px;background:linear-gradient(180deg,#e0ba73,#bd8c39)}
-.makkboz-experience .m-card-category{color:#8f6420;font:700 12px var(--m-body);text-align:start;padding-inline-end:48px}
-.makkboz-experience .m-card-title{font:700 24px/1.42 var(--m-display);margin:7px 0 5px;color:var(--m-forest)}
+.makkboz-experience .m-card-category{color:var(--m-gold-text);font:700 12px var(--m-body);text-align:start;padding-inline-end:48px}
+.makkboz-experience .m-card-title{font:700 24px/1.42 var(--m-display);margin:7px 0 5px;color:var(--m-title)}
 .makkboz-experience[data-m-lang="en"] .m-card-title{font-size:21px;line-height:1.3}
 .makkboz-experience .m-card:not(.has-photo) .m-card-title{padding-inline-end:46px}
 .makkboz-experience .m-card-open{background:none;border:0;padding:0;text-align:start;font:inherit;color:inherit}
-.makkboz-experience .m-card-open:hover{color:#2f654a}
-.makkboz-experience .m-card-desc{font-size:13.5px;color:#6f5d46;line-height:1.75;margin:0 0 12px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.makkboz-experience .m-card-open:hover{color:var(--m-gold-text)}
+.makkboz-experience .m-card-desc{font-size:13.5px;color:var(--m-soft);line-height:1.75;margin:0 0 12px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
 .makkboz-experience .m-card-sizes{list-style:none;margin:0 0 12px;padding:0;display:flex;flex-wrap:wrap;gap:6px}
-.makkboz-experience .m-card-sizes li{display:inline-flex;gap:7px;align-items:baseline;padding:3px 11px;border:1px solid #e1cfa8;border-radius:999px;background:#fbf2de;color:#5c4a2e;font-size:12.5px;font-weight:700}
-.makkboz-experience .m-size-price{font:800 13px var(--m-body);color:var(--m-forest)}
-.makkboz-experience .m-card-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid #f1e6d5;padding-top:13px;margin-top:auto}
-.makkboz-experience .m-price-unit-label{font-size:12px;color:#7a6548;display:block}
-.makkboz-experience .m-price{color:var(--m-forest);font-size:22px;font-weight:800;line-height:1.25}
-.makkboz-experience .m-price-unit{font-size:12px;font-weight:600;color:var(--m-muted)}
-.makkboz-experience .m-price-was{font-size:13px;color:var(--m-muted);text-decoration:line-through}
+.makkboz-experience .m-card-sizes li{display:inline-flex;gap:7px;align-items:baseline;padding:3px 11px;border:1px solid var(--m-chip-line);border-radius:999px;background:var(--m-chip);color:var(--m-chip-ink);font-size:12.5px;font-weight:700}
+.makkboz-experience .m-size-price{font:800 13px var(--m-body);color:var(--m-title)}
+.makkboz-experience .m-card-footer{display:flex;justify-content:space-between;align-items:center;gap:10px;border-top:1px solid var(--m-card-sep);padding-top:13px;margin-top:auto}
+.makkboz-experience .m-price-unit-label{font-size:12px;color:var(--m-soft-2);display:block}
+.makkboz-experience .m-price{color:var(--m-price);font-size:22px;font-weight:800;line-height:1.25}
+.makkboz-experience .m-price-unit{font-size:12px;font-weight:600;color:var(--m-soft)}
+.makkboz-experience .m-price-was{font-size:13px;color:var(--m-soft);text-decoration:line-through}
 .makkboz-experience .m-unavailable{font-size:13px;font-weight:800;color:#8a5a3a}
 .makkboz-experience .m-card.is-soldout .m-card-body>*:not(.m-card-footer){opacity:.6}
-.makkboz-experience .m-add{position:relative;width:44px;height:44px;border:0;border-radius:8px;background:var(--m-forest);color:#fdf0d5;display:grid;place-items:center;transition:background .2s,transform .2s;flex:none}
-.makkboz-experience .m-add:hover{background:#2f654a;transform:scale(1.04)}
+.makkboz-experience .m-add{position:relative;width:44px;height:44px;border:0;border-radius:8px;background:var(--m-btn);color:var(--m-btn-fg);display:grid;place-items:center;transition:background .2s,transform .2s;flex:none}
+.makkboz-experience .m-add:hover{background:var(--m-btn-hover);transform:scale(1.04)}
 .makkboz-experience .m-add svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .makkboz-experience .m-add-count{position:absolute;inset-block-start:-7px;inset-inline-end:-7px;min-width:20px;height:20px;border-radius:999px;padding:0 5px;background:#e0ba73;color:#0d3027;font:800 11px/20px var(--m-body);text-align:center}
-.makkboz-experience .m-stepper{display:flex;align-items:center;flex:none;border:1px solid var(--m-forest);border-radius:8px;overflow:hidden;background:#fffdf7}
-.makkboz-experience .m-stepper button{width:40px;height:44px;border:0;background:transparent;color:var(--m-forest);font-size:20px;font-weight:800}
-.makkboz-experience .m-stepper button:hover{background:var(--m-forest);color:#fdf0d5}
+.makkboz-experience .m-stepper{display:flex;align-items:center;flex:none;border:1px solid var(--m-btn);border-radius:8px;overflow:hidden;background:var(--m-card)}
+.makkboz-experience .m-stepper button{width:40px;height:44px;border:0;background:transparent;color:var(--m-title);font-size:20px;font-weight:800}
+.makkboz-experience .m-stepper button:hover{background:var(--m-btn);color:var(--m-btn-fg)}
 .makkboz-experience .m-stepper span{min-width:26px;text-align:center;font-weight:800}
 /* compact list: a scan-friendly format */
 .makkboz-experience[data-m-view="list"] .m-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
@@ -220,11 +256,11 @@
 .makkboz-experience[data-m-view="list"] .m-card:hover{transform:none}
 .makkboz-experience .m-empty{text-align:center;padding:85px 12px 95px}
 .makkboz-experience .m-empty-mark{width:56px;height:56px;margin:0 auto;color:var(--m-gold)}
-.makkboz-experience .m-empty h3{font:700 29px var(--m-display);color:var(--m-forest);margin:9px 0 5px}
-.makkboz-experience .m-empty p{color:var(--m-muted);margin:0 0 20px}
+.makkboz-experience .m-empty h3{font:700 29px var(--m-display);color:var(--m-title);margin:9px 0 5px}
+.makkboz-experience .m-empty p{color:var(--m-soft);margin:0 0 20px}
 
 /* ---- Story, footer ---- */
-.makkboz-experience .m-story{background:var(--m-forest);color:#fff4df;position:relative;overflow:hidden;padding:72px 0 43px}
+.makkboz-experience .m-story{background:var(--m-story);color:#fff4df;position:relative;overflow:hidden;padding:72px 0 43px}
 .makkboz-experience .m-story::before{content:"";position:absolute;border:1px solid rgba(237,206,143,.09);width:650px;height:650px;border-radius:50%;inset-inline-end:-250px;top:-280px;box-shadow:0 0 0 80px rgba(222,189,117,.025),0 0 0 160px rgba(222,189,117,.025)}
 .makkboz-experience .m-story-grid{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:50px}
 .makkboz-experience .m-story-content{position:relative;z-index:1}
@@ -238,7 +274,7 @@
 .makkboz-experience .m-story-art>svg{display:block;width:100%;height:auto;max-height:345px}
 .makkboz-experience .m-story-star{position:absolute;font-size:30px;color:#d9b474}
 .makkboz-experience .m-story-star.one{right:13%;top:14%}.makkboz-experience .m-story-star.two{left:17%;top:21%;font-size:15px}
-.makkboz-experience .m-footer{background:#102f25;color:#f9ecd4;padding-top:52px}
+.makkboz-experience .m-footer{background:var(--m-footer);color:#f9ecd4;padding-top:52px}
 .makkboz-experience .m-footer-grid{display:grid;grid-template-columns:1.2fr 1.6fr;gap:55px;padding-bottom:39px}
 .makkboz-experience .m-footer-brand strong{display:block;font:700 46px/1.4 var(--m-display)}
 .makkboz-experience .m-footer-brand p{color:#e1d2b7;font-size:14px;margin:0}
@@ -286,13 +322,13 @@
   .makkboz-experience .m-share{display:none}
   .makkboz-experience .m-cart-btn{height:42px;padding:0 12px}
   .makkboz-experience .m-burger{display:grid}
-  .makkboz-experience .m-mobile-nav{position:absolute;z-index:44;top:100%;inset-inline:0;background:#fff8ec;border-bottom:1px solid rgba(156,129,86,.3);padding:14px 16px;gap:8px;box-shadow:0 20px 40px rgba(31,43,24,.18)}
+  .makkboz-experience .m-mobile-nav{position:absolute;z-index:44;top:100%;inset-inline:0;background:var(--m-nav-bg);border-bottom:1px solid var(--m-header-line);padding:14px 16px;gap:8px;box-shadow:0 20px 40px rgba(31,43,24,.18)}
   .makkboz-experience .m-mobile-nav.is-open{display:grid}
-  .makkboz-experience .m-mobile-nav a{display:block;padding:14px;border-radius:10px;background:#f6ead3;color:var(--m-forest);font-weight:800;min-height:44px}
+  .makkboz-experience .m-mobile-nav a{display:block;padding:14px;border-radius:10px;background:var(--m-nav-item);color:var(--m-title);font-weight:800;min-height:44px}
   .makkboz-experience .m-hero-grid{display:flex;flex-direction:column;gap:18px;padding-block:28px 38px;min-height:0}
   .makkboz-experience .m-hero-copy{width:100%;text-align:center}
   .makkboz-experience .m-hero-eyebrow{justify-content:center;font-size:12.5px;gap:8px}
-  .makkboz-experience .m-hero-logo{width:min(320px,88%);margin:3px auto 0;max-height:165px;object-position:center}
+  .makkboz-experience .m-hero-logo{width:auto;max-width:min(220px,70%);margin:3px auto 0;max-height:100px;object-position:center}
   .makkboz-experience .m-hero-copy h1{font-size:26px;line-height:1.55;margin:0 0 6px}
   .makkboz-experience .m-hero-desc{font-size:14px;line-height:1.85;margin:0 auto 19px;max-width:420px}
   .makkboz-experience .m-hero-cta{justify-content:center;gap:9px}

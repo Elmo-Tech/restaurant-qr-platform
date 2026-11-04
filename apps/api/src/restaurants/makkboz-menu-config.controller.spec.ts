@@ -59,7 +59,7 @@ describe('Makkboz menu HTTP endpoints', () => {
 
   const base = `/restaurants/${restaurantId}/makkboz-menu`;
   const settings = {
-    motion: 'OFF', defaultView: 'LIST', showAnnouncement: true, showValues: true, showStory: true, heroTitleEn: 'Great mood',
+    theme: 'SYSTEM', allowThemeSwitch: false, motion: 'OFF', defaultView: 'LIST', showAnnouncement: true, showValues: true, showStory: true, heroTitleEn: 'Great mood',
   };
 
   it('uses the authorized restaurant for every call, ignoring the URL value', async () => {

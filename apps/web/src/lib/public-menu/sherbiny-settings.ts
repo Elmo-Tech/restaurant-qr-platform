@@ -10,7 +10,8 @@
  * of a heading is drawn in the accent colour. An empty/missing value always falls back to the
  * documented default, so the page never shows a blank slot.
  */
-export const SHERBINY_THEMES = ['NIGHT', 'PAPER'] as const;
+/** NIGHT = dark, PAPER = light; SYSTEM follows the guest's device. A guest's own pick (cookie) wins. */
+export const SHERBINY_THEMES = ['NIGHT', 'PAPER', 'SYSTEM'] as const;
 export type SherbinyTheme = (typeof SHERBINY_THEMES)[number];
 export const SHERBINY_MOTIONS = ['SUBTLE', 'OFF'] as const;
 export type SherbinyMotion = (typeof SHERBINY_MOTIONS)[number];
