@@ -77,9 +77,18 @@ export interface OrderQuote {
   deliveryZoneName: string | null;
   items: {
     name: string;
+    /** The Category the product sits in (the Restaurant's default language), so equal names in two Categories stay apart. */
+    categoryName: string;
+    /** The Category's position in the menu: the order the message groups by. */
+    categoryOrder: number;
     variantName: string | null;
     quantity: number;
-    modifiers: string[];
+    /** The chosen extras with their group and their own price ("0.00" when free), in menu order. */
+    modifiers: {
+      groupName: string;
+      optionName: string;
+      priceAdjustment: string;
+    }[];
     unitPrice: string;
     discountAmount: string;
     lineTotal: string;
@@ -675,6 +684,16 @@ export class PublicOrdersService {
           select: {
             id: true,
             basePrice: true,
+            category: {
+              select: {
+                displayOrder: true,
+                translations: {
+                  where: { locale: defaultLocale },
+                  select: { name: true },
+                  take: 1,
+                },
+              },
+            },
             discountType: true,
             discountValue: true,
             discountEnabled: true,
@@ -749,6 +768,17 @@ export class PublicOrdersService {
         const today = localDateIn(branchTimezone, new Date());
         let total = new Prisma.Decimal(0);
         let discountTotal = new Prisma.Decimal(0);
+        // What only the WhatsApp message needs (the Category and the priced extras); kept beside `itemsData`
+        // because that array is written to the database as it is.
+        const quoteDetails: {
+          categoryName: string;
+          categoryOrder: number;
+          modifiers: {
+            groupName: string;
+            optionName: string;
+            priceAdjustment: string;
+          }[];
+        }[] = [];
         const itemsData = input.items.map((item) => {
           const product = productById.get(item.productId);
           const productNameSnapshot = product?.translations[0]?.name;
@@ -888,6 +918,15 @@ export class PublicOrdersService {
           total = total.plus(lineTotal);
           discountTotal = discountTotal.plus(lineDiscount);
 
+          quoteDetails.push({
+            categoryName: product.category.translations[0]?.name ?? '',
+            categoryOrder: product.category.displayOrder,
+            modifiers: selections.map((selection) => ({
+              groupName: selection.groupNameSnapshot,
+              optionName: selection.optionNameSnapshot,
+              priceAdjustment: selection.priceAdjustment.toFixed(2),
+            })),
+          });
           return {
             productId: item.productId,
             productNameSnapshot,
@@ -978,11 +1017,13 @@ export class PublicOrdersService {
             orderType,
             branchName: branch?.translations[0]?.name ?? branch?.name ?? '',
             deliveryZoneName: deliveryZoneNameSnapshot,
-            items: itemsData.map((line) => ({
+            items: itemsData.map((line, index) => ({
               name: line.productNameSnapshot,
+              categoryName: quoteDetails[index].categoryName,
+              categoryOrder: quoteDetails[index].categoryOrder,
               variantName: line.variantNameSnapshot,
               quantity: line.quantity,
-              modifiers: line.modifiers.create.map((modifier) => modifier.modifierOptionNameSnapshot),
+              modifiers: quoteDetails[index].modifiers,
               unitPrice: line.unitPrice.toFixed(2),
               discountAmount: line.discountAmount.toFixed(2),
               lineTotal: line.lineTotal.toFixed(2),

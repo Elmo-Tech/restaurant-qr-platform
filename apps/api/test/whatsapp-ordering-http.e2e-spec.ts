@@ -407,7 +407,11 @@ describeSandbox('WhatsApp ordering (real PostgreSQL)', () => {
     expect(ok.status).toBe(200);
     expect(ok.body.data.total).toBe('100.00');
     expect(ok.body.data.currencyCode).toBe('EGP');
-    expect(ok.body.data.message).toContain('2× IT Burger — 100 EGP');
+    // the Category the product sits in, the product with its quantity, and its line price
+    expect(ok.body.data.message).toContain('New order from the digital menu');
+    expect(ok.body.data.message).toContain('🗂️ *Category: IT Mains*');
+    expect(ok.body.data.message).toContain('*1) IT Burger* × 2');
+    expect(ok.body.data.message).toContain('💰 Price: 100 EGP');
     expect(ok.body.data.message).toContain('*Total: 100 EGP*');
     expect(ok.body.data.message).toContain('Mona Hassan');
     expect(ok.body.data.message).toContain('No onions'); // formatting characters neutralized

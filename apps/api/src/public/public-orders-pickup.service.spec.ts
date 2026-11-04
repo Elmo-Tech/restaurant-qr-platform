@@ -51,12 +51,14 @@ const PRODUCT_ROW = {
   id: 'product-1',
   basePrice: decimal('100.00'),
   translations: [{ name: 'Burger' }],
+  category: { displayOrder: 0, translations: [{ name: 'Mains' }] },
   variants: [] as unknown[],
   modifierGroups: [] as unknown[],
 };
 
 const PRODUCT_WITH_SIZE_ROW = {
   ...PRODUCT_ROW,
+  category: { displayOrder: 0, translations: [{ name: 'Mains' }] },
   variants: [] as unknown[],
   modifierGroups: [
     {
