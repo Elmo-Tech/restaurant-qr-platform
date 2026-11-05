@@ -7,6 +7,7 @@ import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { Alert } from '../../../../../../components/ui/Alert';
 import { SettingsBackLink } from '../../../../../../components/staff/SettingsBackLink';
 import { OrderingOptionsCard } from '../guest-qr/OrderingOptionsCard';
+import { WhatsappConnectionCard } from './WhatsappConnectionCard';
 
 /** Only relocation of existing switches; all API writes, states and entitlements remain identical. */
 export function OrderingWorkspace({
@@ -43,6 +44,7 @@ export function OrderingWorkspace({
           </Link>
         </Alert>
       ) : null}
+      {features.WHATSAPP_ORDERING && hasWhatsappNumber && initialWhatsappOrderingEnabled ? <WhatsappConnectionCard restaurantId={restaurantId} canManage={canManage} /> : null}
       <OrderingOptionsCard
         restaurantId={restaurantId}
         initialPickupEnabled={initialPickupEnabled}
