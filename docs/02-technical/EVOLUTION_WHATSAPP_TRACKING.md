@@ -36,3 +36,23 @@ Without all four values the feature is disabled; ordinary WhatsApp checkout stay
 5. Database: ONLY review/apply additive migration in approved isolated disposable database, with backup and migration-history validation. Existing start-dev.ps1 scripts automatically run prisma migrate deploy; never start them against shared databases.
 6. Test privacy of provider logs and backups. Register a stable callback URL, monitor webhook delivery health and provider failures. Adjust reporting timezone to branch before release.
 7. CI passing does not replace real provider test. No merge/deploy authorized.
+
+## Evolution storage policy — important for disk usage
+Evolution has its OWN PostgreSQL persistence, even though Wayta saves no chat bodies. In the
+Evolution v2.3.7 staging deployment, investigate and test these existing settings before rollout:
+
+- DATABASE_SAVE_DATA_INSTANCE=true (preserve pairing records).
+- DATABASE_SAVE_DATA_NEW_MESSAGE=false
+- DATABASE_SAVE_MESSAGE_UPDATE=false
+- DATABASE_SAVE_DATA_CONTACTS=false
+- DATABASE_SAVE_DATA_CHATS=false
+- DATABASE_SAVE_DATA_HISTORIC=false
+- DATABASE_SAVE_DATA_LABELS=false
+- LOG_LEVEL=ERROR,WARN (do not log full webhook bodies).
+
+These are proposed Evolution instance/server configuration values, NOT yet applied. First confirm
+that MESSAGES_UPSERT still emits reliably with disabled message persistence on actual v2.3.7.
+Do not clear existing Evolution tables or alter a shared production Evolution container
+without backup, explicit approval, and a rollback plan. Review file/media caches and provider
+session retention separately. Environment configuration applies to Evolution itself,
+not to Wayta's NestJS app.
