@@ -17,6 +17,7 @@
  *   npm run apply:restaurant-menu -- --seed el-sherbiny --owner-email elsherbiny@wayta.com
  *   npm run apply:restaurant-menu -- --seed el-sherbiny --owner-email elsherbiny@wayta.com --apply
  *   npm run apply:restaurant-menu -- --seed el-sherbiny --owner-email elsherbiny@wayta.com --apply --replace-menu
+ *   npm run apply:restaurant-menu -- --seed meat-lovers --owner-email <account email> --apply
  *
  * On the server this runs in the tools image with the uploads volume mounted (OPERATIONS_RUNBOOK.md); the photos
  * are written to UPLOAD_LOCAL_DIR, the same folder the API serves at /media.

@@ -20,6 +20,15 @@ import {
   type MakkbozCopyField,
   type MakkbozImageSlot,
 } from '../restaurants/makkboz-menu-config';
+import {
+  MEAT_LOVERS_BRAND_MAX,
+  MEAT_LOVERS_COPY_LIMITS,
+  MEAT_LOVERS_IMAGE_FIELD,
+  MEAT_LOVERS_IMAGE_SLOTS,
+  normalizeMeatLoversSettings,
+  type MeatLoversCopyField,
+  type MeatLoversImageSlot,
+} from '../restaurants/meat-lovers-menu-config';
 
 /**
  * Operations-only seeding of ONE Restaurant's bilingual menu from a reviewed JSON file
@@ -112,6 +121,18 @@ export interface MakkbozSeedDesign {
   categoryChapters?: Record<string, { tag: Localized; intro: Localized }>;
 }
 
+export interface MeatLoversSeedDesign {
+  rendererKey: 'MEAT_LOVERS_BUTCHER_V1';
+  /** Brand text shown when the Restaurant has no logo (both languages; empty = the Restaurant name). */
+  brandAr: string;
+  brandEn: string;
+  copy?: Partial<Record<MeatLoversCopyField, string>>;
+  /** Design photo slots (hero, story). */
+  images?: Partial<Record<MeatLoversImageSlot, SeedImage>>;
+  /** Per category key: the small section label and the one-line intro, in both languages. */
+  categoryChapters?: Record<string, { tag: Localized; intro: Localized }>;
+}
+
 /** A short banner at the top of the Guest Menu (DEC-042). Only added when the Restaurant has no announcement yet. */
 export interface SeedAnnouncement {
   texts: Localized;
@@ -135,7 +156,7 @@ export interface MenuSeed {
     logo?: SeedImage;
     /** Restaurant-wide contact numbers shown to guests (international format). */
     contact?: { phone?: string; whatsapp?: string };
-    exclusiveDesign?: VerdeSeedDesign | SherbinySeedDesign | MakkbozSeedDesign;
+    exclusiveDesign?: VerdeSeedDesign | SherbinySeedDesign | MakkbozSeedDesign | MeatLoversSeedDesign;
   };
   branch: { names: Localized; address?: string; phone?: string };
   menu: { nameInternal: string; names: Localized };
@@ -295,6 +316,26 @@ export function menuSeedProblems(seed: MenuSeed): string[] {
     }
     for (const [slot, image] of Object.entries(design.images ?? {})) {
       if (!(MAKKBOZ_IMAGE_SLOTS as readonly string[]).includes(slot))
+        problems.push(`design photo slot ${slot} does not exist`);
+      checkImage(`design photo ${slot}`, image);
+    }
+    for (const [key, chapter] of Object.entries(design.categoryChapters ?? {})) {
+      if (!categoryKeys.has(key)) problems.push(`design chapter points at unknown category ${key}`);
+      if (!localized(chapter.tag) || !localized(chapter.intro))
+        problems.push(`design chapter of ${key} lacks a language`);
+    }
+  } else if (design?.rendererKey === 'MEAT_LOVERS_BUTCHER_V1') {
+    for (const brand of [design.brandAr, design.brandEn])
+      if (!hasText(brand) || brand.length > MEAT_LOVERS_BRAND_MAX)
+        problems.push(`design brand names must be 1-${MEAT_LOVERS_BRAND_MAX} characters`);
+    for (const [field, value] of Object.entries(design.copy ?? {})) {
+      const max = (MEAT_LOVERS_COPY_LIMITS as Record<string, number>)[field];
+      if (max === undefined) problems.push(`design copy field ${field} does not exist`);
+      else if (typeof value !== 'string' || value.length > max)
+        problems.push(`design copy field ${field} is longer than ${max} characters`);
+    }
+    for (const [slot, image] of Object.entries(design.images ?? {})) {
+      if (!(MEAT_LOVERS_IMAGE_SLOTS as readonly string[]).includes(slot))
         problems.push(`design photo slot ${slot} does not exist`);
       checkImage(`design photo ${slot}`, image);
     }
@@ -658,6 +699,28 @@ async function assignExclusiveDesign(
         };
     }
     raw = normalizeMakkbozSettings({
+      ...design.copy,
+      brandAr: design.brandAr,
+      brandEn: design.brandEn,
+      ...images,
+      categoryExtras,
+    });
+  } else if (design.rendererKey === 'MEAT_LOVERS_BUTCHER_V1') {
+    const images: Record<string, string | null> = {};
+    for (const slot of MEAT_LOVERS_IMAGE_SLOTS)
+      images[MEAT_LOVERS_IMAGE_FIELD[slot]] = await photo(design.images?.[slot]);
+    const categoryExtras: Record<string, unknown> = {};
+    for (const [key, chapter] of Object.entries(design.categoryChapters ?? {})) {
+      const id = categoryIds.get(key);
+      if (id)
+        categoryExtras[id] = {
+          tagAr: chapter.tag.ar,
+          tagEn: chapter.tag.en,
+          introAr: chapter.intro.ar,
+          introEn: chapter.intro.en,
+        };
+    }
+    raw = normalizeMeatLoversSettings({
       ...design.copy,
       brandAr: design.brandAr,
       brandEn: design.brandEn,

@@ -963,6 +963,35 @@ describe('Exclusive Menu Design tenant-only base reservation', () => {
     expect(other.data.context.restaurant.makkbozSettings).toBeUndefined();
   });
 
+  it('returns only the PUBLISHED Meat Lovers appearance under its own key, never the draft nor other designs', async () => {
+    const assigned = await menuFor({
+      exclusiveDesign: {
+        baseTemplate: 'CLASSIC',
+        status: 'ACTIVE_CUSTOM',
+        rendererKey: 'MEAT_LOVERS_BUTCHER_V1',
+        draftSettings: { heroTitleEn: 'DRAFT ONLY COPY' },
+        publishedSettings: { heroTitleEn: 'Published copy', theme: 'LIGHT', defaultView: 'LIST' },
+      },
+    });
+    expect(assigned.outcome).toBe('found');
+    if (assigned.outcome !== 'found') return;
+    const restaurant = assigned.data.context.restaurant;
+    expect(restaurant.exclusiveRendererKey).toBe('MEAT_LOVERS_BUTCHER_V1');
+    expect(restaurant.meatLoversSettings?.heroTitleEn).toBe('Published copy');
+    expect(restaurant.meatLoversSettings?.theme).toBe('LIGHT');
+    expect(restaurant.meatLoversSettings?.defaultView).toBe('LIST');
+    expect(restaurant.makkbozSettings).toBeUndefined();
+    expect(restaurant.sherbinySettings).toBeUndefined();
+    expect(restaurant.verdeSettings).toBeUndefined();
+    expect(JSON.stringify(assigned.data)).not.toContain('DRAFT ONLY COPY');
+
+    const other = await menuFor({ exclusiveDesign: null });
+    expect(other.outcome).toBe('found');
+    if (other.outcome !== 'found') return;
+    expect(other.data.context.restaurant.meatLoversSettings).toBeUndefined();
+    expect(other.data.context.restaurant.exclusiveRendererKey).toBeUndefined();
+  });
+
   it('lists the Branch address and phone only for display, leaving out Branches with neither', async () => {
     const result = await menuFor({}, 'TABLE');
     expect(result.outcome).toBe('found');

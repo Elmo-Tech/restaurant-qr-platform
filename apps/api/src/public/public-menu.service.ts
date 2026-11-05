@@ -8,6 +8,7 @@ import {
   type SherbinyMenuSettings,
 } from '../restaurants/sherbiny-menu-config';
 import { normalizeMakkbozSettings, type MakkbozMenuSettings } from '../restaurants/makkboz-menu-config';
+import { normalizeMeatLoversSettings, type MeatLoversMenuSettings } from '../restaurants/meat-lovers-menu-config';
 import { normalizeEditorialSettings, type EditorialTemplateSettings } from '../restaurants/editorial-template-config';
 import {
   DEFAULT_POWERED_BY_URL,
@@ -89,13 +90,15 @@ export interface PublicMenuContext {
     /** How the menu is laid out (DEC-044); presentation only. Classic when the saved one is not allowed (DEC-051). */
     menuTemplate: MenuTemplate;
     /** Tenant-private compiled renderer; never part of the shared package template catalog. */
-    exclusiveRendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
+    exclusiveRendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1' | 'MEAT_LOVERS_BUTCHER_V1';
     /** Published VERDE appearance only (DEC-062); the draft is never returned to guests. */
     verdeSettings?: VerdeMenuSettings;
     /** Published El Sherbiny appearance only; the draft is never returned to guests. */
     sherbinySettings?: SherbinyMenuSettings;
     /** Published Makkboz appearance only; the draft is never returned to guests. */
     makkbozSettings?: MakkbozMenuSettings;
+    /** Published Meat Lovers appearance only; the draft is never returned to guests. */
+    meatLoversSettings?: MeatLoversMenuSettings;
     /** The Restaurant shows its exclusive design to guests (staff choice); false = a stock template is shown. */
     exclusiveInUse?: boolean;
     /** Only published EMBER settings are visible to guests; drafts remain private. */
@@ -296,7 +299,7 @@ export interface PublicMenuData {
 export interface PublicMenuBranding {
   restaurantName: string;
   logoAssetPath: string | null;
-  exclusiveRendererKey: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
+  exclusiveRendererKey: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1' | 'MEAT_LOVERS_BUTCHER_V1';
   locale: PlatformSupportedLocale;
 }
 
@@ -456,7 +459,8 @@ export class PublicMenuService {
       qr.restaurant.exclusiveDesign?.status === 'ACTIVE_CUSTOM' &&
       (customKey === 'VERDE_NAPOLI_V1' ||
         customKey === 'SHERBINY_FIRE_DOUGH_V1' ||
-        customKey === 'MAKKBOZ_HERITAGE_V1')
+        customKey === 'MAKKBOZ_HERITAGE_V1' ||
+        customKey === 'MEAT_LOVERS_BUTCHER_V1')
         ? customKey
         : null;
     const effective = effectiveOrdering(qr.restaurant, features);
@@ -978,7 +982,13 @@ export class PublicMenuService {
             ...(exclusiveRendererKey
               ? {
                   exclusiveRendererKey,
-                  ...(exclusiveRendererKey === 'MAKKBOZ_HERITAGE_V1'
+                  ...(exclusiveRendererKey === 'MEAT_LOVERS_BUTCHER_V1'
+                    ? {
+                        meatLoversSettings: normalizeMeatLoversSettings(
+                          qr.restaurant.exclusiveDesign?.publishedSettings,
+                        ),
+                      }
+                    : exclusiveRendererKey === 'MAKKBOZ_HERITAGE_V1'
                     ? {
                         makkbozSettings: normalizeMakkbozSettings(
                           qr.restaurant.exclusiveDesign?.publishedSettings,

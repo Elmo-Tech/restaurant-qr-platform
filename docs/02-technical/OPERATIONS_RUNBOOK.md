@@ -116,6 +116,18 @@ npm run seed:restaurant-menu -- --seed makkboz --owner-email owner2@example.com
 npm run seed:restaurant-menu -- --seed makkboz --owner-email owner2@example.com --apply
 ```
 
+**Meat Lovers (ميت لافرز, Nasr City)** is a fourth seed, `--seed meat-lovers` (`apps/api/seed-data/meat-lovers/`, design `MEAT_LOVERS_BUTCHER_V1`, see
+`docs/03-ui-ux/MEAT_LOVERS_EXCLUSIVE_RENDERER_IMPLEMENTATION.md`): a per-kilo butcher menu (4 weights per cut). Same rules. For the account that
+already exists use section 2.1 with the owner's e-mail:
+
+```powershell
+npm run apply:restaurant-menu -- --seed meat-lovers --owner-email <account email>            # dry run
+npm run apply:restaurant-menu -- --seed meat-lovers --owner-email <account email> --apply    # writes
+```
+
+Afterwards, in the Platform console choose the "Meat Lovers — The Butcher's Edit" design for that restaurant if it is not already assigned,
+and in the restaurant settings confirm the WhatsApp number and switch WhatsApp ordering on.
+
 ### 2.1 Apply a seed to a restaurant that ALREADY exists (DEC-065)
 
 Use this when the restaurant was created in the Platform console (or by `provision:restaurant`) and only its menu, photos, branch address
