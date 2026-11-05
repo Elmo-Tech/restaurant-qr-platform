@@ -78,5 +78,18 @@ jobs:
           src/demo/*.ts
           src/platform/dto/platform-demo.dto.ts
           src/platform/platform-demo.controller.ts
+      - name: Verify signed WhatsApp receipt and Evolution filtering regressions
+        run: >-
+          npm exec --workspace=apps/api -- jest --runInBand
+          signed-whatsapp-reference.spec.ts
+          whatsapp-tracking.service.spec.ts
+          whatsapp-order-message.spec.ts
+          public-orders.controller.spec.ts
+      - name: Lint WhatsApp integration API modules
+        run: >-
+          npm exec --workspace=apps/api -- eslint
+          --rule 'prettier/prettier: off'
+          src/whatsapp-tracking/*.ts
+          src/public/public-orders.controller.ts
       - name: Check commit whitespace
         run: git diff --check HEAD~1 HEAD
