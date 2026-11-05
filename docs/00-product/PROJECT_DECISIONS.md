@@ -1627,3 +1627,13 @@ If a decision changes:
 3. Record the reason for the change.
 4. Review affected specifications.
 5. Review affected implementation before proceeding.
+
+---
+
+### DEC-062 — Verified WhatsApp Order Receipt Tracking (2026-11-05)
+
+**Status:** Owner authorized isolated feature-branch implementation on 2026-11-05; real-provider QA, acceptance, merge and deployment remain pending.
+
+**Amends DEC-042 only for explicitly connected restaurants.** WhatsApp checkout still validates and prices with the same authoritative NestJS Backend and opens wa.me with a prefilled message. No order or pending checkout is stored merely because the customer requests a quote, presses Send, or opens WhatsApp. If a restaurant opts into verified tracking, the Backend adds a time-limited signed reference to the generated message. Only a verified inbound Evolution message to the connected, number-matched restaurant instance creates one small `WhatsappOrderReceipt` row (tenant, branch, reference, provider message id, amount, currency, order type, timestamp). Duplicate messages and replayed references never increase the count. Unrelated chats/media are not stored in Wayta. The regular `Order` table and app order lifecycle are unchanged. A received WhatsApp order is NOT considered accepted, fulfilled or paid.
+
+Provider session verification must fail closed; if disconnected, the original WhatsApp checkout remains available without a verified-count claim. Integration requires separate deployment configuration, provider-side privacy/retention review, isolated database migration test and explicit owner approval before merge/deploy. Visibility and actions must respect real package entitlements, restaurant settings, staff permissions and branch scope.
