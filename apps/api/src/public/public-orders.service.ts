@@ -1,4 +1,8 @@
 import { Injectable } from '@nestjs/common';
+import {
+  validateGuestOrderFields,
+  type GuestFieldError,
+} from './guest-order-fields';
 import { resolveLocalizedName } from '../common/name-translations';
 import {
   dateOnlyString,
@@ -163,6 +167,8 @@ export type CreateGuestOrderResult =
   | { outcome: 'duplicateItems' }
   /** FT-7: GENERIC QR checkout without a non-empty customer name AND phone. */
   | { outcome: 'customerDetailsRequired' }
+  /** A provided checkout field is not acceptable (invalid phone, too short/long, ...): one stable code per field, nothing was created. */
+  | { outcome: 'invalidFields'; errors: GuestFieldError[] }
   /** FT-7: GENERIC QR, more than one ACTIVE Branch, and no branchId supplied. */
   | { outcome: 'branchRequired' }
   /** DEC-042: the Branch is closed right now (opening hours or manual closure); Pickup and Delivery only. */
@@ -459,6 +465,7 @@ export class PublicOrdersService {
             tableOrderingEnabled: true,
             whatsappOrderingEnabled: true,
             whatsappNumber: true,
+            countryCode: true,
           },
         },
         branch: { select: { timezone: true } },
@@ -544,26 +551,36 @@ export class PublicOrdersService {
       if (!viaWhatsapp && effective.whatsapp) {
         return { outcome: 'whatsappOnly' };
       }
-      customerName = input.customerName?.trim() || null;
-      customerPhone = input.customerPhone?.trim() || null;
-      customerNotes = input.customerNotes?.trim() || null;
-      if (!customerName || !customerPhone) {
+      // Missing details keep their own stable outcomes; details that are present must also be
+      // acceptable (a real phone for the Restaurant's country, sane lengths, no control
+      // characters) and are stored normalized (phone as E.164).
+      if (!input.customerName?.trim() || !input.customerPhone?.trim()) {
         return { outcome: 'customerDetailsRequired' };
       }
       if (isDelivery) {
-        deliveryAddress = input.deliveryAddress?.trim() || null;
-        if (!deliveryAddress) {
+        if (!input.deliveryAddress?.trim()) {
           return { outcome: 'deliveryDetailsRequired' };
         }
         if (!input.deliveryZoneId) {
           return { outcome: 'deliveryZoneInvalid' };
         }
         deliveryZoneId = input.deliveryZoneId;
-        deliveryBuilding = input.deliveryBuilding?.trim() || null;
-        deliveryFloor = input.deliveryFloor?.trim() || null;
-        deliveryApartment = input.deliveryApartment?.trim() || null;
-        deliveryLandmark = input.deliveryLandmark?.trim() || null;
       }
+      const validated = validateGuestOrderFields(input, {
+        defaultCountry: qr.restaurant.countryCode,
+        delivery: isDelivery,
+      });
+      if (!validated.ok) {
+        return { outcome: 'invalidFields', errors: validated.errors };
+      }
+      customerName = validated.fields.customerName;
+      customerPhone = validated.fields.customerPhone;
+      customerNotes = validated.fields.customerNotes;
+      deliveryAddress = validated.fields.deliveryAddress;
+      deliveryBuilding = validated.fields.deliveryBuilding;
+      deliveryFloor = validated.fields.deliveryFloor;
+      deliveryApartment = validated.fields.deliveryApartment;
+      deliveryLandmark = validated.fields.deliveryLandmark;
 
       // Branch authority: only an eligible Branch of THIS QR's own
       // Restaurant -- ACTIVE for Pickup; ACTIVE with at least one ACTIVE

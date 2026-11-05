@@ -81,6 +81,8 @@ export interface PublicMenuContext {
   restaurant: {
     name: string;
     currencyCode: string;
+    /** ISO 3166-1 alpha-2: the default country of the checkout phone field (display + convenience; the order endpoint validates with its own copy). */
+    countryCode: string;
     logoAssetPath: string | null;
     /** Guest hero cover image; null keeps the default branded hero. */
     coverAssetPath: string | null;
@@ -392,6 +394,7 @@ export class PublicMenuService {
             status: true,
             defaultLocale: true,
             currencyCode: true,
+            countryCode: true,
             logoAssetPath: true,
             coverAssetPath: true,
             pickupEnabled: true,
@@ -969,6 +972,7 @@ export class PublicMenuService {
           restaurant: {
             name: qr.restaurant.name,
             currencyCode: qr.restaurant.currencyCode,
+            countryCode: qr.restaurant.countryCode,
             logoAssetPath: qr.restaurant.logoAssetPath,
             coverAssetPath: qr.restaurant.coverAssetPath,
             ...(exclusiveRendererKey

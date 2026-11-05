@@ -40,6 +40,8 @@ export type SubmitGuestOrderResult =
   | { outcome: 'itemsUnavailable' }
   | { outcome: 'notFound' }
   | { outcome: 'pickupDetailsRequired' }
+  /** 400 VALIDATION_ERROR: the API refused specific fields; each has a stable code (INVALID_PHONE, TOO_SHORT ...). Nothing was created. */
+  | { outcome: 'invalidFields'; fields: { field: string; code: string }[] }
   | { outcome: 'pickupBranchInvalid' }
   | { outcome: 'pickupUnavailable' }
   /** DEC-042: WhatsApp ordering is off (409 WHATSAPP_ORDERING_UNAVAILABLE). */
@@ -175,6 +177,17 @@ async function sendOrder(
     if (error instanceof ApiError) {
       if (error.code === 'ORDER_ITEM_UNAVAILABLE') {
         return { outcome: 'itemsUnavailable' };
+      }
+      if (error.code === 'VALIDATION_ERROR') {
+        const raw = (error.details as { fields?: unknown } | undefined)?.fields;
+        const fields = Array.isArray(raw)
+          ? raw.flatMap((entry: { field?: unknown; code?: unknown }) =>
+              typeof entry?.field === 'string' && typeof entry?.code === 'string'
+                ? [{ field: entry.field, code: entry.code }]
+                : [],
+            )
+          : [];
+        if (fields.length > 0) return { outcome: 'invalidFields', fields };
       }
       if (error.code === 'PICKUP_CUSTOMER_DETAILS_REQUIRED') {
         return { outcome: 'pickupDetailsRequired' };

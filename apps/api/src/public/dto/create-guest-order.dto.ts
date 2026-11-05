@@ -12,6 +12,12 @@ import { PLATFORM_SUPPORTED_LOCALES } from '../../restaurants/platform-locales';
 import { IsMoneyDecimalString } from '../../menu/money-decimal';
 import { Transform, Type } from 'class-transformer';
 import {
+  cleanMultiLine,
+  cleanPhoneInput,
+  cleanSingleLine,
+  GUEST_FIELD_LIMITS,
+} from '../guest-order-fields';
+import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
@@ -25,10 +31,6 @@ import {
   Min,
   ValidateNested,
 } from 'class-validator';
-
-function trim(value: unknown): unknown {
-  return typeof value === 'string' ? value.trim() : value;
-}
 
 function trimLower(value: unknown): unknown {
   return typeof value === 'string' ? value.trim().toLowerCase() : value;
@@ -122,21 +124,27 @@ export class CreateGuestOrderDto {
   branchId?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanSingleLine(value))
   @IsString()
-  @MaxLength(100, { message: 'customerName must be at most 100 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.customerName.max, {
+    message: `customerName must be at most ${GUEST_FIELD_LIMITS.customerName.max} characters`,
+  })
   customerName?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanPhoneInput(value))
   @IsString()
-  @MaxLength(30, { message: 'customerPhone must be at most 30 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.customerPhone.max, {
+    message: `customerPhone must be at most ${GUEST_FIELD_LIMITS.customerPhone.max} characters`,
+  })
   customerPhone?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanMultiLine(value))
   @IsString()
-  @MaxLength(500, { message: 'customerNotes must be at most 500 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.customerNotes.max, {
+    message: `customerNotes must be at most ${GUEST_FIELD_LIMITS.customerNotes.max} characters`,
+  })
   customerNotes?: string;
 
   // FT-8: for a GENERIC QR the Guest may choose ONLY the fulfillment MODE.
@@ -155,32 +163,42 @@ export class CreateGuestOrderDto {
   deliveryZoneId?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanSingleLine(value))
   @IsString()
-  @MaxLength(300, { message: 'deliveryAddress must be at most 300 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.deliveryAddress.max, {
+    message: `deliveryAddress must be at most ${GUEST_FIELD_LIMITS.deliveryAddress.max} characters`,
+  })
   deliveryAddress?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanSingleLine(value))
   @IsString()
-  @MaxLength(50, { message: 'deliveryBuilding must be at most 50 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.deliveryBuilding.max, {
+    message: `deliveryBuilding must be at most ${GUEST_FIELD_LIMITS.deliveryBuilding.max} characters`,
+  })
   deliveryBuilding?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanSingleLine(value))
   @IsString()
-  @MaxLength(30, { message: 'deliveryFloor must be at most 30 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.deliveryFloor.max, {
+    message: `deliveryFloor must be at most ${GUEST_FIELD_LIMITS.deliveryFloor.max} characters`,
+  })
   deliveryFloor?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanSingleLine(value))
   @IsString()
-  @MaxLength(30, { message: 'deliveryApartment must be at most 30 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.deliveryApartment.max, {
+    message: `deliveryApartment must be at most ${GUEST_FIELD_LIMITS.deliveryApartment.max} characters`,
+  })
   deliveryApartment?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanSingleLine(value))
   @IsString()
-  @MaxLength(150, { message: 'deliveryLandmark must be at most 150 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.deliveryLandmark.max, {
+    message: `deliveryLandmark must be at most ${GUEST_FIELD_LIMITS.deliveryLandmark.max} characters`,
+  })
   deliveryLandmark?: string;
 }

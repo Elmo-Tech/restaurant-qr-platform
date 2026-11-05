@@ -41,6 +41,8 @@ import { FeaturedBanners } from './FeaturedBanners';
 import { AnnouncementBar } from './AnnouncementBar';
 import { submitWhatsappOrder, type SubmitGuestOrderResult, type WhatsappOrderView } from '../../../lib/public-menu/orders-api';
 import { TrackOrderSheet } from './TrackOrderSheet';
+import { useCheckoutValidation } from './useCheckoutValidation';
+import { sanitizeWhileTyping } from '../../../lib/public-menu/checkout-validation';
 import { fetchSuggestions } from '../../../lib/public-menu/suggestions';
 import { readTrackedOrders, rememberOrder } from '../../../lib/public-menu/tracking';
 import { WaytaLockup } from '../../../components/brand/Wayta';
@@ -454,20 +456,30 @@ export function PublicMenuView({
         ? selectedZoneId
         : null;
   const selectedZone = zones.find((zone) => zone.id === resolvedZoneId) ?? null;
+  // Name, phone, address and the other typed fields: one shared set of rules for every template
+  // (instant inline feedback here; the API repeats them and is the authority).
+  const validation = useCheckoutValidation({
+    fields,
+    enabled: isGenericQr,
+    delivery: isDelivery,
+    country: data.context.restaurant.countryCode,
+    locale,
+  });
+  const submitValues = validation.valuesForSubmit();
   const checkout: PendingOrderCheckout | null = isGenericQr
     ? {
         fulfillment,
         branchId: resolvedBranchId,
-        customerName: fields.customerName,
-        customerPhone: fields.customerPhone,
-        customerNotes: fields.customerNotes,
+        customerName: submitValues.customerName,
+        customerPhone: submitValues.customerPhone,
+        customerNotes: submitValues.customerNotes,
         deliveryZoneId: isDelivery ? resolvedZoneId : null,
         // A Pickup attempt never carries delivery text (typed earlier, then switched away from).
-        deliveryAddress: isDelivery ? fields.deliveryAddress : '',
-        deliveryBuilding: isDelivery ? fields.deliveryBuilding : '',
-        deliveryFloor: isDelivery ? fields.deliveryFloor : '',
-        deliveryApartment: isDelivery ? fields.deliveryApartment : '',
-        deliveryLandmark: isDelivery ? fields.deliveryLandmark : '',
+        deliveryAddress: isDelivery ? submitValues.deliveryAddress : '',
+        deliveryBuilding: isDelivery ? submitValues.deliveryBuilding : '',
+        deliveryFloor: isDelivery ? submitValues.deliveryFloor : '',
+        deliveryApartment: isDelivery ? submitValues.deliveryApartment : '',
+        deliveryLandmark: isDelivery ? submitValues.deliveryLandmark : '',
       }
     : null;
   // A stable primitive for effect dependencies (the object above is new every render).
@@ -871,13 +883,11 @@ export function PublicMenuView({
           unitLabel,
         )
       : null;
+  // Branch, delivery area and the minimum order block the button with a reason. The typed
+  // fields (name, phone, address ...) do not: tapping send shows each problem under its field.
   const checkoutDetailsComplete =
     !isGenericQr ||
-    (resolvedBranchId !== null &&
-      fields.customerName.trim() !== '' &&
-      fields.customerPhone.trim() !== '' &&
-      (!isDelivery ||
-        (resolvedZoneId !== null && fields.deliveryAddress.trim() !== '' && !belowMinimum)));
+    (resolvedBranchId !== null && (!isDelivery || (resolvedZoneId !== null && !belowMinimum)));
   // Opening hours (DEC-042): a closed Branch takes no Pickup / Delivery orders. Advisory
   // here; the Backend refuses with BRANCH_CLOSED either way.
   const branchClosed =
@@ -910,9 +920,9 @@ export function PublicMenuView({
     : branchClosed
       ? copy.branchClosedHint
       : !checkoutDetailsComplete && !belowMinimum
-      ? isDelivery
-        ? copy.deliveryDetailsRequiredError
-        : copy.pickupDetailsRequiredError
+      ? isDelivery && resolvedBranchId !== null
+        ? copy.deliveryAreaError
+        : copy.pickupBranchError
       : null;
 
   // "Check again": re-read the advisory availability. Failure is shown as such -- never
@@ -952,6 +962,7 @@ export function PublicMenuView({
 
   async function handlePlaceOrder() {
     if (!canSubmit) return;
+    if (!(await validation.checkBeforeSend())) return;
     setIsSubmitting(true);
     setSubmitError(null);
     const items = orderableLines.map((line) => ({
@@ -1020,6 +1031,13 @@ export function PublicMenuView({
       setSubmitError(copy.orderNotFoundError);
       return;
     }
+    if (result.outcome === 'invalidFields') {
+      // The API refused specific fields: show each one under its field (stable codes, our words).
+      if (!validation.applyServerIssues(result.fields)) {
+        setSubmitError(isDelivery ? copy.deliveryDetailsRequiredError : copy.pickupDetailsRequiredError);
+      }
+      return;
+    }
     if (result.outcome === 'pickupDetailsRequired') {
       setSubmitError(
         isDelivery ? copy.deliveryDetailsRequiredError : copy.pickupDetailsRequiredError,
@@ -1080,6 +1098,7 @@ export function PublicMenuView({
   /** DEC-042: prices the cart on the Backend and hands the ready-to-send message to WhatsApp. No order is stored. */
   async function handleSendWhatsapp() {
     if (!canSubmit) return;
+    if (!(await validation.checkBeforeSend())) return;
     setIsSubmitting(true);
     setSubmitError(null);
     const items = orderableLines.map((line) => ({
@@ -1292,7 +1311,12 @@ export function PublicMenuView({
                     zoneId: resolvedZoneId,
                     onZoneChange: setSelectedZoneId,
                     fields,
-                    onFieldChange: (key, value) => setFields((prev) => ({ ...prev, [key]: value })),
+                    onFieldChange: (key, value) => {
+                      validation.onFieldEdited(key);
+                      setFields((prev) => ({ ...prev, [key]: sanitizeWhileTyping(key, value) }));
+                    },
+                    fieldErrors: validation.fieldErrors,
+                    onFieldBlur: validation.onFieldBlur,
                     subtotalDisplay: totalDisplay,
                     deliveryFeeDisplay: isDelivery && selectedZone ? deliveryFeeDisplay : null,
                     grandTotalDisplay: isDelivery ? grandTotalDisplay : totalDisplay,

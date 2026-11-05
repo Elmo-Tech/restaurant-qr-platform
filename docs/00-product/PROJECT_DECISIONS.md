@@ -1610,6 +1610,22 @@ Spec updates: QR_SPEC.md (amendment), DATABASE_SPEC.md #54A, API_CONVENTIONS.md 
 
 ---
 
+### DEC-068 — Guest checkout validation: a real phone number and sane fields, in the API and on the device
+
+**Status:** Requested by the owner (2026-11-05, after a real order arrived with the phone `548`); built on `feat/guest-order-validation`, not
+deployed. **Decision:** the API refuses an order whose phone is not a real number for the Restaurant's country (`restaurants.countryCode`; a
+number written with `+` or `00` may belong to any country), using the same `libphonenumber-js` the dashboard already uses (the `max` metadata;
+added to `apps/api` at the version `apps/web` pins). Egypt: mobile `01[0125]xxxxxxxx`, landlines by area code (Cairo/Giza `02` + 8 digits,
+Alexandria `03` + 7, other governorates `0xx` + 7); toll-free and premium numbers are refused. Arabic-Indic digits are converted first; the phone is saved
+and sent to WhatsApp as E.164. Name (2 to 100, a letter), delivery address (5 to 300, a letter) and every other text field get length limits, trimming and
+control-character stripping in the DTO; each refusal is `400 VALIDATION_ERROR` with a stable per-field code (`INVALID_PHONE`, `TOO_SHORT`, `TOO_LONG`,
+`MUST_CONTAIN_LETTER`), never an English sentence. The one shared checkout (`CheckoutSections`, used by every template) shows the same checks instantly under
+each field in Arabic or English; tapping send with a problem sends nothing and focuses the first bad field. **Not changed:** idempotency, pricing, tenant rules,
+the Table (dine-in) flow (no customer fields), the DB schema (no migration). **Open for the owner to confirm:** the landline lengths above, and that a
+one-letter name or a numbers-only address is refused. Spec: API_CONVENTIONS.md #108O; UI: `docs/03-ui-ux/GUEST_CHECKOUT_VALIDATION_IMPLEMENTATION.md`.
+
+---
+
 ---
 
 ---
