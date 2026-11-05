@@ -115,6 +115,11 @@ services:
       RATE_LIMIT_PUBLIC_TRACKING_LIMIT: ${RATE_LIMIT_PUBLIC_TRACKING_LIMIT:-120}
       RATE_LIMIT_PUBLIC_LOOKUP_LIMIT: ${RATE_LIMIT_PUBLIC_LOOKUP_LIMIT:-10}
       LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Optional Evolution integration, kept API-only (never exposed to browsers).
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL:-}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
+      WAYTA_API_PUBLIC_URL: ${WAYTA_API_PUBLIC_URL:-}
+      WHATSAPP_ORDER_SIGNING_KEY: ${WHATSAPP_ORDER_SIGNING_KEY:-}
       # optional AI menu import (n8n); empty = the import answers 503 and the rest of the platform keeps working
       N8N_MENU_IMPORT_URL: ${N8N_MENU_IMPORT_URL:-}
       N8N_MENU_IMPORT_SECRET: ${N8N_MENU_IMPORT_SECRET:-}

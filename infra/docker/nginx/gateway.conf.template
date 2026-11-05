@@ -98,6 +98,13 @@ server {
         return 404;
     }
 
+    # Callback carries a high-entropy capability token in the path; do not write
+    # it to gateway access logs. API still validates token, instance and order HMAC.
+    location ^~ /api/v1/whatsapp-tracking/webhook/ {
+        access_log off;
+        proxy_pass $api_upstream;
+    }
+
     location /api/v1/ {
         # menu imports can wait on the AI workflow for minutes (MENU_IMPORT_TIMEOUT_SECONDS)
         proxy_read_timeout 600s;
