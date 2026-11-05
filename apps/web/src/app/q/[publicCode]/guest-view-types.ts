@@ -69,6 +69,10 @@ export interface CheckoutFormProps {
   onZoneChange: (zoneId: string | null) => void;
   fields: Record<CheckoutFieldKey, string>;
   onFieldChange: (key: CheckoutFieldKey, value: string) => void;
+  /** Localized problem sentences to show under fields (already limited to what the Guest should see now). */
+  fieldErrors: Partial<Record<CheckoutFieldKey, string>>;
+  /** The Guest left a field: its problem (if any) may be shown from now on. */
+  onFieldBlur: (key: CheckoutFieldKey) => void;
   subtotalDisplay: string;
   /** Delivery only, once a zone is chosen. */
   deliveryFeeDisplay: string | null;

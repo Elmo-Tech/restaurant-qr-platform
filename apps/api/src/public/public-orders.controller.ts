@@ -270,6 +270,16 @@ export class PublicOrdersController {
     if (result.outcome === 'customerDetailsRequired') {
       throw new BadRequestException(CUSTOMER_DETAILS_REQUIRED_RESPONSE);
     }
+    if (result.outcome === 'invalidFields') {
+      // Same envelope as a DTO failure (API_CONVENTIONS.md #34): VALIDATION_ERROR + one code per field.
+      throw new BadRequestException({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'The request contains invalid data.',
+          details: { fields: result.errors },
+        },
+      });
+    }
     if (result.outcome === 'branchRequired') {
       throw new BadRequestException(PICKUP_BRANCH_REQUIRED_RESPONSE);
     }

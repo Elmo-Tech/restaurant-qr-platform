@@ -4,6 +4,7 @@ import { useState, type ReactNode } from 'react';
 import { GuestIconAlert, GuestIconMapPin } from '../../../components/guest/icons';
 import { Price } from '../../../components/guest/Price';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
+import { CHECKOUT_LIMITS } from '../../../lib/public-menu/checkout-validation';
 import { formatMoney } from '../../../lib/public-menu/price-format';
 import type { CheckoutFieldKey, CheckoutFormProps } from './guest-view-types';
 
@@ -35,12 +36,15 @@ function Field({
   label,
   children,
   reserveLabelLines = false,
+  error,
 }: {
   id: string;
   label: string;
   children: ReactNode;
   /** In a narrow multi-column row, keep a two-line label slot so the inputs stay level when one label wraps. */
   reserveLabelLines?: boolean;
+  /** The problem with the value, in the Guest's language. Shown under the control. */
+  error?: string;
 }) {
   return (
     <div className="min-w-0">
@@ -53,6 +57,29 @@ function Field({
         {label}
       </label>
       {children}
+      <FieldError id={`${id}-error`} message={error} />
+    </div>
+  );
+}
+
+/**
+ * The message under a field. The line is always in the page (a polite live region), and opens and
+ * closes by animating its row height, so a message never makes the form jump (and with reduced
+ * motion it simply appears).
+ */
+function FieldError({ id, message }: { id: string; message?: string }) {
+  return (
+    <div
+      aria-live="polite"
+      className={`grid transition-[grid-template-rows,opacity] duration-200 motion-reduce:transition-none ${
+        message ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'
+      }`}
+    >
+      <div className="min-h-0 overflow-hidden">
+        <p id={id} className="pt-1.5 text-[12.5px] font-semibold leading-snug text-g-danger">
+          {message}
+        </p>
+      </div>
     </div>
   );
 }
@@ -70,6 +97,8 @@ function TextField({
   ltr = false,
   placeholder,
   reserveLabelLines = false,
+  error,
+  onBlur,
 }: {
   fieldKey: CheckoutFieldKey;
   label: string;
@@ -83,10 +112,12 @@ function TextField({
   ltr?: boolean;
   placeholder?: string;
   reserveLabelLines?: boolean;
+  error?: string;
+  onBlur: (key: CheckoutFieldKey) => void;
 }) {
   const id = `checkout-${fieldKey}`;
   return (
-    <Field id={id} label={label} reserveLabelLines={reserveLabelLines}>
+    <Field id={id} label={label} reserveLabelLines={reserveLabelLines} error={error}>
       <input
         id={id}
         type={type}
@@ -98,8 +129,13 @@ function TextField({
         disabled={disabled}
         placeholder={placeholder}
         aria-required={required || undefined}
+        aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
         onChange={(event) => onChange(fieldKey, event.target.value)}
-        className={`${INPUT_CLASS} ${ltr ? 'rtl:text-right' : ''}`}
+        onBlur={() => onBlur(fieldKey)}
+        className={`${INPUT_CLASS} ${ltr ? 'rtl:text-right' : ''} ${
+          error ? 'border-g-danger focus:border-g-danger' : ''
+        }`}
       />
     </Field>
   );
@@ -308,32 +344,36 @@ export function ContactSection({
   copy: PublicMenuCopy;
   disabled: boolean;
 }) {
-  const { fields, onFieldChange } = checkout;
+  const { fields, onFieldChange, fieldErrors, onFieldBlur } = checkout;
   return (
     <CheckoutSection title={copy.yourDetails} id="checkout-details-title">
-      <div className="grid grid-cols-2 gap-2.5">
+      <div className="flex flex-col gap-3">
         <TextField
           fieldKey="customerName"
           label={copy.customerName}
           required
           value={fields.customerName}
-          maxLength={100}
+          maxLength={CHECKOUT_LIMITS.customerName.max}
           autoComplete="name"
           disabled={disabled}
           onChange={onFieldChange}
+          error={fieldErrors.customerName}
+          onBlur={onFieldBlur}
         />
         <TextField
           fieldKey="customerPhone"
           label={copy.customerPhone}
           required
           value={fields.customerPhone}
-          maxLength={30}
+          maxLength={CHECKOUT_LIMITS.customerPhone.max}
           type="tel"
           ltr
           autoComplete="tel"
           placeholder="01x xxxx xxxx"
           disabled={disabled}
           onChange={onFieldChange}
+          error={fieldErrors.customerPhone}
+          onBlur={onFieldBlur}
         />
       </div>
     </CheckoutSection>
@@ -349,7 +389,7 @@ export function AddressSection({
   copy: PublicMenuCopy;
   disabled: boolean;
 }) {
-  const { fields, onFieldChange } = checkout;
+  const { fields, onFieldChange, fieldErrors, onFieldBlur } = checkout;
   return (
     <CheckoutSection title={copy.deliveryAddressSection} id="checkout-address-title">
       <div className="flex flex-col gap-3">
@@ -358,10 +398,12 @@ export function AddressSection({
           label={copy.deliveryAddress}
           required
           value={fields.deliveryAddress}
-          maxLength={300}
+          maxLength={CHECKOUT_LIMITS.deliveryAddress.max}
           autoComplete="street-address"
           disabled={disabled}
           onChange={onFieldChange}
+          error={fieldErrors.deliveryAddress}
+          onBlur={onFieldBlur}
         />
         <div className="grid grid-cols-3 gap-2.5">
           <TextField
@@ -369,36 +411,44 @@ export function AddressSection({
             reserveLabelLines
             label={copy.deliveryBuilding}
             value={fields.deliveryBuilding}
-            maxLength={50}
+            maxLength={CHECKOUT_LIMITS.deliveryBuilding.max}
             disabled={disabled}
             onChange={onFieldChange}
+            error={fieldErrors.deliveryBuilding}
+            onBlur={onFieldBlur}
           />
           <TextField
             fieldKey="deliveryFloor"
             reserveLabelLines
             label={copy.deliveryFloor}
             value={fields.deliveryFloor}
-            maxLength={30}
+            maxLength={CHECKOUT_LIMITS.deliveryFloor.max}
             disabled={disabled}
             onChange={onFieldChange}
+            error={fieldErrors.deliveryFloor}
+            onBlur={onFieldBlur}
           />
           <TextField
             fieldKey="deliveryApartment"
             reserveLabelLines
             label={copy.deliveryApartment}
             value={fields.deliveryApartment}
-            maxLength={30}
+            maxLength={CHECKOUT_LIMITS.deliveryApartment.max}
             disabled={disabled}
             onChange={onFieldChange}
+            error={fieldErrors.deliveryApartment}
+            onBlur={onFieldBlur}
           />
         </div>
         <TextField
           fieldKey="deliveryLandmark"
           label={copy.deliveryLandmark}
           value={fields.deliveryLandmark}
-          maxLength={150}
+          maxLength={CHECKOUT_LIMITS.deliveryLandmark.max}
           disabled={disabled}
           onChange={onFieldChange}
+          error={fieldErrors.deliveryLandmark}
+          onBlur={onFieldBlur}
         />
       </div>
     </CheckoutSection>
@@ -415,16 +465,21 @@ export function NotesSection({
   disabled: boolean;
 }) {
   return (
-    <Field id="checkout-customerNotes" label={copy.customerNotes}>
+    <Field id="checkout-customerNotes" label={copy.customerNotes} error={checkout.fieldErrors.customerNotes}>
       <textarea
         id="checkout-customerNotes"
         dir="auto"
         value={checkout.fields.customerNotes}
-        maxLength={500}
+        maxLength={CHECKOUT_LIMITS.customerNotes.max}
         rows={3}
         disabled={disabled}
+        aria-invalid={checkout.fieldErrors.customerNotes ? true : undefined}
+        aria-describedby={checkout.fieldErrors.customerNotes ? 'checkout-customerNotes-error' : undefined}
         onChange={(event) => checkout.onFieldChange('customerNotes', event.target.value)}
-        className={`${INPUT_CLASS} h-auto resize-none py-3`}
+        onBlur={() => checkout.onFieldBlur('customerNotes')}
+        className={`${INPUT_CLASS} h-auto resize-none py-3 ${
+          checkout.fieldErrors.customerNotes ? 'border-g-danger focus:border-g-danger' : ''
+        }`}
       />
     </Field>
   );

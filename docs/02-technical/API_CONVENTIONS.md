@@ -2302,6 +2302,36 @@ Not an integration: the Guest's phone opens WhatsApp on the Restaurant's own num
 
 ---
 
+# 108O. Guest Checkout Field Validation (DEC-068, 2026-11-05)
+
+Applies to `POST /public/qr/{publicCode}/orders` and `POST /public/qr/{publicCode}/whatsapp-order` (same body, same checks). The API is the
+authority; the Guest menu repeats the rules for instant feedback only. UI details: `docs/03-ui-ux/GUEST_CHECKOUT_VALIDATION_IMPLEMENTATION.md`.
+
+- **Sanitizing (DTO, before validation):** text is Unicode NFC; control characters, zero-width space, BOM, line/paragraph separators and bidi
+  override/isolate characters are removed; single-line fields collapse whitespace and are trimmed; `customerNotes` keeps line breaks (one
+  blank line at most). `customerPhone` also has Arabic-Indic / Eastern Arabic / full-width digits converted to `0-9`. Lengths are counted after
+  cleaning. Maximums: `customerName` 100, `customerPhone` 30 (as typed), `customerNotes` 500, `deliveryAddress` 300, `deliveryBuilding` 50,
+  `deliveryFloor` 30, `deliveryApartment` 30, `deliveryLandmark` 150. Over a maximum: `400 VALIDATION_ERROR`, field code `TOO_LONG`.
+- **Required details keep their codes:** a blank name or phone is `400 PICKUP_CUSTOMER_DETAILS_REQUIRED`; a blank address on Delivery is
+  `400 DELIVERY_DETAILS_REQUIRED` (unchanged).
+- **Provided details must be acceptable (new):** `400 VALIDATION_ERROR` with `details.fields` listing **every** bad field at once, one stable code each
+  (the envelope of #34):
+  - `INVALID_PHONE` -- `customerPhone` is not a real number for the Restaurant's country (`restaurants.countryCode`; a number with `+` or `00` may be
+    of any country). Toll-free, premium and other service numbers are refused. Egypt: mobile `01[0125]xxxxxxxx`, landlines by area code.
+  - `TOO_SHORT` -- `customerName` under 2 characters, `deliveryAddress` under 5.
+  - `MUST_CONTAIN_LETTER` -- `customerName` or `deliveryAddress` without any letter.
+  - `TOO_LONG` -- over the maximum above (also produced by the DTO for any `@MaxLength`).
+  Example: `{ "error": { "code": "VALIDATION_ERROR", "message": "The request contains invalid data.", "details": { "fields": [ { "field": "customerPhone", "code": "INVALID_PHONE" } ] } } }`.
+  Nothing is created and no idempotency record is written. The web client maps the code to a localized sentence; it never reads `message`.
+- **Stored value:** `customerPhone` is saved (order snapshot) and put in the WhatsApp message as E.164 (`+201012345678`). Notes, name and address are saved
+  as cleaned. Delivery text sent with a Pickup order is ignored. A TABLE QR ignores every customer field, as before.
+- **Guest menu context:** `context.restaurant.countryCode` (ISO 3166-1 alpha-2) is added so the phone field can default to the Restaurant's country.
+- **Unchanged:** idempotency (`clientRequestId`), pricing, `expectedTotal`, tenant and branch rules, order tracking by phone (compares the last ten digits; it now also
+  reads Arabic-Indic digits), rate limits. Item `quantity` is still a whole number 1 to 99 and `items` at most 50 lines.
+- **Logging:** phone numbers are never logged.
+
+---
+
 # 108M. Guest Menu Template (DEC-044, 2026-10-18)
 
 Presentation only: how the same menu is laid out (`CLASSIC`, `LIST`, `GALLERY`, `MENU`, `FLOATING`, `CENTERED`, `COMPACT`, `EDITORIAL`; default `CLASSIC`).

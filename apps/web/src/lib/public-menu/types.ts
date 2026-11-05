@@ -39,6 +39,8 @@ export interface PublicMenuContext {
   restaurant: {
     name: string;
     currencyCode: string;
+    /** ISO 3166-1 alpha-2: the default country for the checkout phone number (absent from an older API). */
+    countryCode?: string;
     logoAssetPath: string | null;
     /** Guest hero cover image; `null` keeps the default branded hero. */
     coverAssetPath: string | null;

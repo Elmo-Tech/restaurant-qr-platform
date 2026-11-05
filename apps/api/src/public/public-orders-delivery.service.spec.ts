@@ -33,7 +33,7 @@ const TABLE_QR_ROW = {
   restaurantId: 'restaurant-1',
   branchId: 'branch-1',
   tableId: 'table-1',
-  restaurant: { status: 'ACTIVE' as const, defaultLocale: 'en', currencyCode: 'EGP' },
+  restaurant: { status: 'ACTIVE' as const, defaultLocale: 'en', currencyCode: 'EGP', countryCode: 'EG' },
   table: { tableNumber: '7', status: 'ACTIVE' as const },
 };
 
@@ -44,7 +44,7 @@ const GENERIC_QR_ROW = {
   restaurantId: 'restaurant-1',
   branchId: null,
   tableId: null,
-  restaurant: { status: 'ACTIVE' as const, defaultLocale: 'en', currencyCode: 'EGP' },
+  restaurant: { status: 'ACTIVE' as const, defaultLocale: 'en', currencyCode: 'EGP', countryCode: 'EG' },
   table: null,
 };
 
@@ -217,6 +217,26 @@ describe('PublicOrdersService.createOrder -- DELIVERY (FT-8)', () => {
     expect(mock.orderCreate).not.toHaveBeenCalled();
   });
 
+  it('refuses a too-short address and an unreal phone together, creating nothing', async () => {
+    const mock = buildMock({ qr: GENERIC_QR_ROW });
+    const service = buildService(mock);
+
+    const result = await service.createOrder({
+      ...DELIVERY_INPUT,
+      customerPhone: '548',
+      deliveryAddress: '12',
+    });
+
+    expect(result).toEqual({
+      outcome: 'invalidFields',
+      errors: [
+        { field: 'customerPhone', code: 'INVALID_PHONE' },
+        { field: 'deliveryAddress', code: 'TOO_SHORT' },
+      ],
+    });
+    expect(mock.orderCreate).not.toHaveBeenCalled();
+  });
+
   it('building, floor, apartment, landmark and notes are optional', async () => {
     const mock = buildMock({ qr: GENERIC_QR_ROW });
     const service = buildService(mock);
@@ -225,7 +245,7 @@ describe('PublicOrdersService.createOrder -- DELIVERY (FT-8)', () => {
       ...BASE_INPUT,
       fulfillment: 'DELIVERY',
       customerName: 'Sara',
-      customerPhone: '123',
+      customerPhone: '01012345678',
       deliveryZoneId: ZONE_ID,
       deliveryAddress: '12 University St',
     });
@@ -417,7 +437,7 @@ describe('PublicOrdersService.createOrder -- DELIVERY (FT-8)', () => {
 
     expect(mock.orderCreate.mock.calls[0][0].data).toMatchObject({
       customerNameSnapshot: 'Sara Ali',
-      customerPhoneSnapshot: '+20 100 000 0000',
+      customerPhoneSnapshot: '+201000000000',
       customerNotesSnapshot: 'Ring twice',
       deliveryZoneId: ZONE_ID,
       deliveryZoneNameSnapshot: 'University District',
@@ -520,7 +540,7 @@ describe('PublicOrdersService.createOrder -- other types unchanged by FT-8', () 
     await service.createOrder({
       ...BASE_INPUT,
       customerName: 'Sara',
-      customerPhone: '123',
+      customerPhone: '01012345678',
     });
 
     const data = mock.orderCreate.mock.calls[0][0].data;
