@@ -44,7 +44,7 @@ export function OrderingWorkspace({
           </Link>
         </Alert>
       ) : null}
-      {features.WHATSAPP_ORDERING && hasWhatsappNumber && initialWhatsappOrderingEnabled ? <WhatsappConnectionCard restaurantId={restaurantId} canManage={canManage} /> : null}
+      {features.WHATSAPP_ORDERING && hasWhatsappNumber ? <WhatsappConnectionCard restaurantId={restaurantId} canManage={canManage} /> : null}
       <OrderingOptionsCard
         restaurantId={restaurantId}
         initialPickupEnabled={initialPickupEnabled}
