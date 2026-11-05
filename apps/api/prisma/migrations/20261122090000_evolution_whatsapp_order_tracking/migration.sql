@@ -17,7 +17,7 @@ CREATE TABLE "whatsapp_order_receipts" (
   "provider_message_id" VARCHAR(160) NOT NULL,
   "total_amount" DECIMAL(14,2) NOT NULL,
   "currency_code" CHAR(3) NOT NULL,
-  "order_type" "OrderType" NOT NULL,
+  "order_type" "order_type" NOT NULL,
   "received_at" TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
   CONSTRAINT "whatsapp_order_receipts_restaurant_id_provider_message_id_key" UNIQUE ("restaurant_id", "provider_message_id")
 );
