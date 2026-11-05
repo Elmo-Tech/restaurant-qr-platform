@@ -1,5 +1,6 @@
 'use client';
 import { useCallback,useEffect,useState } from 'react';
+import QRCode from 'qrcode';
 import { getConnection, connectWhatsapp, type ConnectionView } from '../../../../../../lib/whatsapp-tracking/api';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 export function WhatsappConnectionCard({restaurantId,canManage}:{restaurantId:string;canManage:boolean}) {
@@ -7,16 +8,25 @@ export function WhatsappConnectionCard({restaurantId,canManage}:{restaurantId:st
   const ar=locale.startsWith('ar');
   const [state,setState]=useState<ConnectionView|null>(null);
   const [busy,setBusy]=useState(false),[error,setError]=useState('');
+  const [renderedQr,setRenderedQr]=useState<string|null>(null);
   const refresh=useCallback(async()=>{
     try { setState(await getConnection(restaurantId));setError(''); }
     catch{setError(ar?'تعذر قراءة الاتصال':'Connection status unavailable');}
   },[restaurantId,ar]);
   useEffect(()=>{void refresh();},[refresh]);
   useEffect(()=>{
-    if(!state?.qrCode||state.connected)return;
+    let active=true;
+    if(!state?.qrText) return;
+    void QRCode.toDataURL(state.qrText,{width:240,margin:2}).then(image=>{
+      if(active)setRenderedQr(image);
+    }).catch(()=>{if(active)setRenderedQr(null);});
+    return()=>{active=false;};
+  },[state?.qrText]);
+  useEffect(()=>{
+    if((!state?.qrCode&&!state?.qrText)||state.connected)return;
     const timer=window.setInterval(()=>{if(document.visibilityState==='visible')void refresh();},15000);
     return()=>window.clearInterval(timer);
-  },[state?.qrCode,state?.connected,refresh]);
+  },[state?.qrCode,state?.qrText,state?.connected,refresh]);
   async function connect(){
     setBusy(true);setError('');
     try{setState(await connectWhatsapp(restaurantId));}
@@ -32,15 +42,15 @@ export function WhatsappConnectionCard({restaurantId,canManage}:{restaurantId:st
       (ar?'متصل':'Connected'):state?.state==='UNAVAILABLE'?(ar?'الحالة غير معروفة':'Status unavailable'):
       state?.state==='NOT_CONFIGURED'?(ar?'يحتاج تجهيز السيرفر':'Server setup required'):(ar?'غير متصل':'Not connected')}</p>
     {state?.connected&&state.number?<p dir="ltr" className="mt-2 text-sm">+{state.number}</p>:null}
-    {state?.qrCode?<div className="mt-4">
+    {(state?.qrCode || (state?.qrText && renderedQr))?<div className="mt-4">
       {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img src={state.qrCode} width={240} height={240} className="max-w-full rounded-xl border bg-white p-2" alt={ar?'رمز ربط واتساب':'WhatsApp linking QR'}/>
+      <img src={state.qrCode ?? renderedQr ?? ''} width={240} height={240} className="max-w-full rounded-xl border bg-white p-2" alt={ar?'رمز ربط واتساب':'WhatsApp linking QR'}/>
       <p className="mt-2 text-sm text-muted-foreground">{ar?'واتساب ← الأجهزة المرتبطة ← ربط جهاز. استخدم رقم المطعم.':'WhatsApp > Linked devices > Link a device. Use restaurant number.'}</p>
     </div>:null}
     {error?<p role="alert" className="mt-2 text-sm text-destructive">{error}</p>:null}
     {!state?.connected&&canManage&&state?.state!=='NOT_CONFIGURED'?
       <button type="button" disabled={busy} onClick={()=>void connect()} className="mt-4 rounded-lg bg-primary px-4 py-2.5 text-sm text-primary-foreground disabled:opacity-50">
-        {busy?(ar?'جاري الربط...':'Connecting...'):state?.qrCode?(ar?'تجديد QR':'Refresh QR'):(ar?'ربط واتساب':'Connect WhatsApp')}
+        {busy?(ar?'جاري الربط...':'Connecting...'):(state?.qrCode||state?.qrText)?(ar?'تجديد QR':'Refresh QR'):(ar?'ربط واتساب':'Connect WhatsApp')}
       </button>:null}
     <p className="mt-3 text-xs text-muted-foreground">{ar?'Wayta لا يخزن المحادثات. العدادات قد تكون ناقصة أثناء قطع الاتصال.':'Wayta does not store chat histories. Counts may be incomplete while disconnected.'}</p>
   </section>;

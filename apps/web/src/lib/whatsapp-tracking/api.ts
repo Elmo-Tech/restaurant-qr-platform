@@ -1,7 +1,7 @@
 import { apiFetch } from '../api/client';
 export interface ConnectionView {
   connected:boolean; state:'NOT_CONFIGURED'|'NOT_CONNECTED'|'CONNECTED'|'UNAVAILABLE';
-  number:string|null; qrCode:string|null;
+  number:string|null; qrCode:string|null; qrText:string|null;
 }
 export interface TodayView {count:number;total:string;currencyCode:string}
 export async function getConnection(id:string) {

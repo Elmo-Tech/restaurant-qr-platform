@@ -27,7 +27,7 @@ export function parseInboundEvolutionMessage(raw: unknown): { id: string; text: 
   const text = typeof message.conversation === 'string' ? message.conversation : record(message.extendedTextMessage).text;
   return typeof text === 'string' && text.length <= 12000 ? { id: key.id, text } : null;
 }
-export interface ConnectionView { connected: boolean; state: 'NOT_CONFIGURED' | 'NOT_CONNECTED' | 'CONNECTED' | 'UNAVAILABLE'; number: string | null; qrCode: string | null }
+export interface ConnectionView { connected: boolean; state: 'NOT_CONFIGURED' | 'NOT_CONNECTED' | 'CONNECTED' | 'UNAVAILABLE'; number: string | null; qrCode: string | null; qrText: string | null }
 @Injectable()
 export class WhatsappTrackingService {
   constructor(private readonly db: PrismaService, private readonly cfg: ConfigService,
@@ -72,14 +72,14 @@ export class WhatsappTrackingService {
     return { link, number };
   }
   async state(restaurantId: string): Promise<ConnectionView> {
-    if (!this.settings()) return { connected:false, state:'NOT_CONFIGURED', number:null, qrCode:null };
+    if (!this.settings()) return { connected:false, state:'NOT_CONFIGURED', number:null, qrCode:null, qrText:null };
     const exists = await this.db.whatsappConnection.findUnique({ where: { restaurantId }, select:{ restaurantId:true } });
-    if (!exists) return { connected:false, state:'NOT_CONNECTED', number:null, qrCode:null };
+    if (!exists) return { connected:false, state:'NOT_CONNECTED', number:null, qrCode:null, qrText:null };
     try {
       const ok = await this.verified(restaurantId);
-      return ok ? { connected:true, state:'CONNECTED', number:ok.number, qrCode:null } :
-        { connected:false, state:'NOT_CONNECTED', number:null, qrCode:null };
-    } catch { return { connected:false, state:'UNAVAILABLE', number:null, qrCode:null }; }
+      return ok ? { connected:true, state:'CONNECTED', number:ok.number, qrCode:null, qrText:null } :
+        { connected:false, state:'NOT_CONNECTED', number:null, qrCode:null, qrText:null };
+    } catch { return { connected:false, state:'UNAVAILABLE', number:null, qrCode:null, qrText:null }; }
   }
   async connect(restaurantId: string): Promise<ConnectionView> {
     const s = this.settings();
@@ -96,9 +96,9 @@ export class WhatsappTrackingService {
       await this.fetchProvider('/instance/create', 'POST',
         { instanceName, integration:'WHATSAPP-BAILEYS', qrcode:true });
       await this.fetchProvider('/webhook/set/' + encodeURIComponent(instanceName), 'POST', {
-        webhook: { enabled:true, webhookByEvents:false,
-          url:s.callback + '/api/v1/whatsapp-tracking/webhook/' + secret,
-          events:['MESSAGES_UPSERT','CONNECTION_UPDATE'] },
+        enabled:true, webhookByEvents:false, webhookBase64:false,
+        url:s.callback + '/api/v1/whatsapp-tracking/webhook/' + secret,
+        events:['MESSAGES_UPSERT','CONNECTION_UPDATE'],
       });
       existing = await this.db.whatsappConnection.create({ data:{
         restaurantId, instanceName, webhookSecretHash:hash(secret),
@@ -113,7 +113,8 @@ export class WhatsappTrackingService {
     const qrCode = image?.startsWith('data:image/png;base64,') ? image :
       image && /^[A-Za-z0-9+/=]+$/.test(image) && image.length < 200000 ?
         'data:image/png;base64,' + image : null;
-    return { ...current, qrCode };
+    const qrText = typeof payload.code === 'string' && payload.code.length < 5000 ? payload.code : null;
+    return { ...current, qrCode, qrText };
   }
   /** Never writes abandoned attempts. */
   async prepare(restaurantId: string, branchId: string, quote: OrderQuote, baseMessage: string) {
