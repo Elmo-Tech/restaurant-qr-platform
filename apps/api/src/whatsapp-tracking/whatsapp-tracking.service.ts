@@ -1,0 +1,168 @@
+import { createHash, randomBytes } from 'node:crypto';
+import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { Prisma } from '../generated/prisma/client';
+import { PrismaService } from '../database/prisma.service';
+import { EntitlementsService } from '../entitlements/entitlements.service';
+import { decodeSigningKey, issueWhatsappReference, verifyWhatsappReference } from './signed-whatsapp-reference';
+import type { OrderQuote } from '../public/public-orders.service';
+
+type JsonMap = Record<string, unknown>;
+const record = (value: unknown): JsonMap => value && typeof value === 'object' && !Array.isArray(value) ? value as JsonMap : {};
+const digits = (value: string): string => value.replace(/\D/g, '');
+const hash = (text: string): string => createHash('sha256').update(text).digest('hex');
+function safeBase(value: string): boolean {
+  try { const url = new URL(value); return url.protocol === 'https:' || (url.protocol === 'http:' && ['localhost','127.0.0.1'].includes(url.hostname)); }
+  catch { return false; }
+}
+export function parseInboundEvolutionMessage(raw: unknown): { id: string; text: string } | null {
+  const event = record(raw);
+  if (!['messages.upsert','MESSAGES_UPSERT'].includes(String(event.event))) return null;
+  const data = record(event.data);
+  const key = record(data.key);
+  if (key.fromMe !== false || typeof key.id !== 'string' || key.id.length < 2 || key.id.length > 160) return null;
+  const remote = key.remoteJid;
+  if (typeof remote !== 'string' || !/@(s\.whatsapp\.net|lid)$/.test(remote)) return null;
+  const message = record(data.message);
+  const text = typeof message.conversation === 'string' ? message.conversation : record(message.extendedTextMessage).text;
+  return typeof text === 'string' && text.length <= 12000 ? { id: key.id, text } : null;
+}
+export interface ConnectionView { connected: boolean; state: 'NOT_CONFIGURED' | 'NOT_CONNECTED' | 'CONNECTED' | 'UNAVAILABLE'; number: string | null; qrCode: string | null }
+@Injectable()
+export class WhatsappTrackingService {
+  constructor(private readonly db: PrismaService, private readonly cfg: ConfigService,
+    private readonly features: EntitlementsService) {}
+  private settings() {
+    const base = String(this.cfg.get('EVOLUTION_API_URL') ?? '').replace(/\/+$/, '');
+    const apiKey = String(this.cfg.get('EVOLUTION_API_KEY') ?? '');
+    const callback = String(this.cfg.get('WAYTA_API_PUBLIC_URL') ?? '').replace(/\/+$/, '');
+    const signingKey = decodeSigningKey(this.cfg.get<string>('WHATSAPP_ORDER_SIGNING_KEY'));
+    return safeBase(base) && safeBase(callback) && apiKey && signingKey ? { base, apiKey, callback, signingKey } : null;
+  }
+  private async fetchProvider(path: string, method = 'GET', body?: JsonMap): Promise<unknown> {
+    const s = this.settings();
+    if (!s) throw new ServiceUnavailableException('WHATSAPP_TRACKING_NOT_CONFIGURED');
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 8000);
+    try {
+      const response = await fetch(s.base + path, { method,
+        headers: { apikey: s.apiKey, 'Content-Type': 'application/json' },
+        ...(body ? { body: JSON.stringify(body) } : {}), signal: controller.signal });
+      if (!response.ok) throw new Error('Provider returned an error');
+      return await response.json();
+    } catch { throw new ServiceUnavailableException('WHATSAPP_PROVIDER_UNAVAILABLE'); }
+    finally { clearTimeout(timer); }
+  }
+  /** Fail closed if the linked device number differs from the restaurant's configured WhatsApp. */
+  private async verified(restaurantId: string) {
+    const link = await this.db.whatsappConnection.findUnique({ where: { restaurantId } });
+    if (!link) return null;
+    const restaurant = await this.db.restaurant.findUnique({ where: { id: restaurantId },
+      select: { whatsappNumber: true, whatsappOrderingEnabled: true, status: true } });
+    if (!restaurant || restaurant.status !== 'ACTIVE' || !restaurant.whatsappOrderingEnabled ||
+      !restaurant.whatsappNumber || !(await this.features.isEnabled(restaurantId,'WHATSAPP_ORDERING'))) return null;
+    const state = record(await this.fetchProvider('/instance/connectionState/' + encodeURIComponent(link.instanceName)));
+    if ((record(state.instance).state ?? state.state) !== 'open') return null;
+    const fetched = await this.fetchProvider('/instance/fetchInstances?instanceName=' + encodeURIComponent(link.instanceName));
+    const data = Array.isArray(fetched) ? record(fetched[0]) : record(fetched);
+    const owner = data.ownerJid ?? record(data.instance).ownerJid;
+    if (typeof owner !== 'string' || !owner.includes('@')) return null;
+    const number = digits(owner.split('@')[0].split(':')[0]);
+    if (!number || number !== digits(restaurant.whatsappNumber)) return null;
+    return { link, number };
+  }
+  async state(restaurantId: string): Promise<ConnectionView> {
+    if (!this.settings()) return { connected:false, state:'NOT_CONFIGURED', number:null, qrCode:null };
+    const exists = await this.db.whatsappConnection.findUnique({ where: { restaurantId }, select:{ restaurantId:true } });
+    if (!exists) return { connected:false, state:'NOT_CONNECTED', number:null, qrCode:null };
+    try {
+      const ok = await this.verified(restaurantId);
+      return ok ? { connected:true, state:'CONNECTED', number:ok.number, qrCode:null } :
+        { connected:false, state:'NOT_CONNECTED', number:null, qrCode:null };
+    } catch { return { connected:false, state:'UNAVAILABLE', number:null, qrCode:null }; }
+  }
+  async connect(restaurantId: string): Promise<ConnectionView> {
+    const s = this.settings();
+    if (!s) throw new ServiceUnavailableException('WHATSAPP_TRACKING_NOT_CONFIGURED');
+    const restaurant = await this.db.restaurant.findUnique({ where:{ id: restaurantId },
+      select:{ whatsappOrderingEnabled:true, whatsappNumber:true } });
+    if (!restaurant?.whatsappNumber || !restaurant.whatsappOrderingEnabled ||
+        !(await this.features.isEnabled(restaurantId,'WHATSAPP_ORDERING')))
+      throw new ServiceUnavailableException('WHATSAPP_ORDERING_UNAVAILABLE');
+    let existing = await this.db.whatsappConnection.findUnique({ where:{ restaurantId } });
+    const instanceName = existing?.instanceName ?? 'wayta-' + restaurantId.replace(/-/g,'');
+    if (!existing) {
+      const secret = randomBytes(32).toString('hex');
+      await this.fetchProvider('/instance/create', 'POST',
+        { instanceName, integration:'WHATSAPP-BAILEYS', qrcode:true });
+      await this.fetchProvider('/webhook/set/' + encodeURIComponent(instanceName), 'POST', {
+        webhook: { enabled:true, webhookByEvents:false,
+          url:s.callback + '/api/v1/whatsapp-tracking/webhook/' + secret,
+          events:['MESSAGES_UPSERT','CONNECTION_UPDATE'] },
+      });
+      existing = await this.db.whatsappConnection.create({ data:{
+        restaurantId, instanceName, webhookSecretHash:hash(secret),
+      } });
+    }
+    const current = await this.state(restaurantId);
+    if (current.connected) return current;
+    const payload = record(await this.fetchProvider('/instance/connect/' + encodeURIComponent(instanceName)));
+    const qr = record(payload.qrcode);
+    const image = typeof payload.base64 === 'string' ? payload.base64 :
+      typeof qr.base64 === 'string' ? qr.base64 : null;
+    const qrCode = image?.startsWith('data:image/png;base64,') ? image :
+      image && /^[A-Za-z0-9+/=]+$/.test(image) && image.length < 200000 ?
+        'data:image/png;base64,' + image : null;
+    return { ...current, qrCode };
+  }
+  /** Never writes abandoned attempts. */
+  async prepare(restaurantId: string, branchId: string, quote: OrderQuote, baseMessage: string) {
+    const s = this.settings();
+    if (!s) return null;
+    let link;
+    try { link = await this.verified(restaurantId); } catch { return null; }
+    if (!link || link.number !== digits(quote.whatsappNumber)) return null;
+    if (quote.orderType !== 'PICKUP' && quote.orderType !== 'DELIVERY') return null;
+    return issueWhatsappReference({ restaurantId, branchId, orderType:quote.orderType, total:quote.total,
+      currencyCode:quote.currencyCode, baseMessage, key:s.signingKey });
+  }
+  /** Webhook body is validated transiently and NEVER persisted or logged. */
+  async ingest(secret: string, payload: unknown): Promise<void> {
+    if (!/^[a-f0-9]{64}$/.test(secret)) return;
+    const s = this.settings();
+    if (!s) return;
+    const link = await this.db.whatsappConnection.findUnique({ where:{ webhookSecretHash:hash(secret) } });
+    if (!link || record(payload).instance !== link.instanceName) return;
+    const inbound = parseInboundEvolutionMessage(payload);
+    if (!inbound) return;
+    const verified = verifyWhatsappReference({ restaurantId:link.restaurantId, receivedMessage:inbound.text,
+      key:s.signingKey });
+    if (!verified) return;
+    let current;
+    try { current = await this.verified(link.restaurantId); } catch { return; }
+    if (!current || current.link.instanceName !== link.instanceName) return;
+    const branch = await this.db.branch.findFirst({ where:{
+      id:verified.branchId, restaurantId:link.restaurantId, status:'ACTIVE' }, select:{ id:true } });
+    if (!branch) return;
+    try {
+      await this.db.whatsappOrderReceipt.create({ data:{
+        restaurantId:link.restaurantId, branchId:branch.id, reference:verified.reference,
+        providerMessageId:inbound.id, totalAmount:verified.total,
+        currencyCode:verified.currencyCode, orderType:verified.orderType,
+      } });
+    } catch(error) {
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return;
+      throw error;
+    }
+  }
+  async today(restaurantId: string) {
+    const now = new Date(), from = new Date(now);
+    from.setUTCHours(0,0,0,0);
+    const rows = await this.db.whatsappOrderReceipt.findMany({
+      where:{ restaurantId, receivedAt:{ gte:from, lt:new Date(from.getTime()+86400000) } },
+      select:{ totalAmount:true, currencyCode:true } });
+    const restaurant = await this.db.restaurant.findUnique({ where:{ id:restaurantId }, select:{ currencyCode:true } });
+    return { count:rows.length, total:rows.reduce((sum,row)=>sum.plus(row.totalAmount),new Prisma.Decimal(0)).toFixed(2),
+      currencyCode:restaurant?.currencyCode ?? 'EGP' };
+  }
+}
