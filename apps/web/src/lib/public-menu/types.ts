@@ -2,6 +2,7 @@ import type { RestaurantContact } from '../contact/types';
 import type { VerdeMenuSettings } from './verde-settings';
 import type { SherbinyMenuSettings } from './sherbiny-settings';
 import type { MakkbozMenuSettings } from './makkboz-settings';
+import type { MeatLoversMenuSettings } from './meat-lovers-settings';
 import type { EmberTemplateSettings } from './ember-settings';
 import type { BloomTemplateSettings } from './bloom-settings';
 import type { BrewTemplateSettings } from './brew-settings';
@@ -45,13 +46,15 @@ export interface PublicMenuContext {
     /** How the menu is laid out (DEC-044); presentation only. */
     menuTemplate?: string;
     /** Explicit trusted, tenant-scoped Backend assignment. Not a stock template. */
-    exclusiveRendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
+    exclusiveRendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1' | 'MEAT_LOVERS_BUTCHER_V1';
     /** Published VERDE appearance (DEC-062); present only with `exclusiveRendererKey`. */
     verdeSettings?: VerdeMenuSettings;
     /** Published El Sherbiny appearance; present only with its `exclusiveRendererKey`. */
     sherbinySettings?: SherbinyMenuSettings;
     /** Published Makkboz appearance; present only with its `exclusiveRendererKey`. */
     makkbozSettings?: MakkbozMenuSettings;
+    /** Published Meat Lovers appearance; present only with its `exclusiveRendererKey`. */
+    meatLoversSettings?: MeatLoversMenuSettings;
     /** The Restaurant shows its exclusive design to guests; false = a stock template (staff choice). */
     exclusiveInUse?: boolean;
     /** Only published values; available to a package-authorized EMBER preview. */

@@ -259,6 +259,28 @@ export interface PublicMenuCopy {
   makkbozShowAll: string;
   makkbozChooseOptions: string;
   makkbozLinkCopied: string;
+  /** Navigation, favorites, view and weight labels of the exclusive Meat Lovers menu. */
+  meatLoversNavSections: string;
+  meatLoversNavMenu: string;
+  meatLoversNavStory: string;
+  meatLoversNavContact: string;
+  meatLoversAll: string;
+  meatLoversFavorites: string;
+  meatLoversFavoriteAdd: (name: string) => string;
+  meatLoversFavoriteRemove: (name: string) => string;
+  meatLoversFavoriteAdded: string;
+  meatLoversFavoriteRemoved: string;
+  meatLoversViewMode: string;
+  meatLoversViewCards: string;
+  meatLoversViewList: string;
+  meatLoversResultCount: (count: number) => string;
+  meatLoversChooseWeight: string;
+  meatLoversChooseWeightAria: (name: string) => string;
+  meatLoversChoose: string;
+  /** "EGP / kg": `unit` is the localized currency label. */
+  meatLoversPerKg: (unit: string) => string;
+  meatLoversShowAll: string;
+  meatLoversBackTop: string;
   slideOf: (index: number, count: number) => string;
   orderingMode: string;
   // Final polish: two-step checkout + editing a line
@@ -557,6 +579,26 @@ const EN_COPY: PublicMenuCopy = {
   makkbozShowAll: 'Show all dishes',
   makkbozChooseOptions: 'Choose',
   makkbozLinkCopied: 'Menu link copied',
+  meatLoversNavSections: 'Sections',
+  meatLoversNavMenu: 'Menu',
+  meatLoversNavStory: 'The cut story',
+  meatLoversNavContact: 'Find us',
+  meatLoversAll: 'All selections',
+  meatLoversFavorites: 'Favorites',
+  meatLoversFavoriteAdd: (name) => `Add ${name} to favorites`,
+  meatLoversFavoriteRemove: (name) => `Remove ${name} from favorites`,
+  meatLoversFavoriteAdded: 'Added to your favorites',
+  meatLoversFavoriteRemoved: 'Removed from favorites',
+  meatLoversViewMode: 'How cuts are shown',
+  meatLoversViewCards: 'Photo view',
+  meatLoversViewList: 'List view',
+  meatLoversResultCount: (count) => (count === 1 ? '1 item' : `${count} items`),
+  meatLoversChooseWeight: 'Choose weight',
+  meatLoversChooseWeightAria: (name) => `Choose the weight of ${name}`,
+  meatLoversChoose: 'Choose',
+  meatLoversPerKg: (unit) => `${unit} / kg`,
+  meatLoversShowAll: 'Show all cuts',
+  meatLoversBackTop: 'Back to top',
   slideOf: (index, count) => `Pick ${index} of ${count}`,
   orderingMode: 'How would you like your order?',
   stepOf: (step, total) => `Step ${step} of ${total}`,
@@ -852,6 +894,26 @@ const AR_COPY: PublicMenuCopy = {
   makkbozShowAll: 'عرض كل الأصناف',
   makkbozChooseOptions: 'اختار',
   makkbozLinkCopied: 'تم نسخ رابط المنيو',
+  meatLoversNavSections: 'الأقسام',
+  meatLoversNavMenu: 'المنيو',
+  meatLoversNavStory: 'حكاية القطعة',
+  meatLoversNavContact: 'العنوان',
+  meatLoversAll: 'كل الأصناف',
+  meatLoversFavorites: 'المفضلة',
+  meatLoversFavoriteAdd: (name) => `إضافة ${name} إلى المفضلة`,
+  meatLoversFavoriteRemove: (name) => `إزالة ${name} من المفضلة`,
+  meatLoversFavoriteAdded: 'اتضاف لمفضلاتك',
+  meatLoversFavoriteRemoved: 'اتشال من المفضلة',
+  meatLoversViewMode: 'طريقة عرض الأصناف',
+  meatLoversViewCards: 'عرض صور',
+  meatLoversViewList: 'عرض قائمة',
+  meatLoversResultCount: (count) => `${count} صنف`,
+  meatLoversChooseWeight: 'اختار الوزن',
+  meatLoversChooseWeightAria: (name) => `اختيار وزن ${name}`,
+  meatLoversChoose: 'اختار',
+  meatLoversPerKg: (unit) => `${unit} / كجم`,
+  meatLoversShowAll: 'عرض كل الأصناف',
+  meatLoversBackTop: 'العودة للأعلى',
   slideOf: (index, count) => `اختيار ${index} من ${count}`,
   orderingMode: 'كيف تريد استلام طلبك؟',
   stepOf: (step, total) => `الخطوة ${step} من ${total}`,

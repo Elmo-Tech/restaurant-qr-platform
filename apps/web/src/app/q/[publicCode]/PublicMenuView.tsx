@@ -82,6 +82,9 @@ const SherbinyMenu = dynamic(() => import('./sherbiny/SherbinyMenu').then((modul
 import { DEFAULT_MAKKBOZ_SETTINGS, normalizeMakkbozSettings, type MakkbozMenuSettings } from '../../../lib/public-menu/makkboz-settings';
 import { MAKKBOZ_DESIGN_PREVIEW_READY, isMakkbozPreviewUpdate } from '../../../lib/public-menu/makkboz-preview';
 const MakkbozMenu = dynamic(() => import('./makkboz/MakkbozMenu').then((module) => module.MakkbozMenu));
+import { DEFAULT_MEAT_LOVERS_SETTINGS, normalizeMeatLoversSettings, type MeatLoversMenuSettings } from '../../../lib/public-menu/meat-lovers-settings';
+import { MEAT_LOVERS_DESIGN_PREVIEW_READY, isMeatLoversPreviewUpdate } from '../../../lib/public-menu/meat-lovers-preview';
+const MeatLoversMenu = dynamic(() => import('./meat-lovers/MeatLoversMenu').then((module) => module.MeatLoversMenu));
 import {DEFAULT_BREW_SETTINGS,BREW_DESIGN_PREVIEW_READY,isBrewPreviewUpdate,normalizeBrewTemplateSettings,type BrewTemplateSettings} from '../../../lib/public-menu/brew-settings';
 import {DEFAULT_EDITORIAL_SETTINGS, EDITORIAL_DESIGN_PREVIEW_READY, isEditorialPreviewUpdate, normalizeEditorialTemplateSettings,type EditorialTemplateSettings} from '../../../lib/public-menu/editorial-settings';
 import {
@@ -128,7 +131,7 @@ export function PublicMenuView({
   /** Explicit staff-frame preview flag; the server never returns draft settings. */
   designPreview?: boolean;
   /** Backend-resolved private renderer; must never be selected by public URL. */
-  exclusiveRendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
+  exclusiveRendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1' | 'MEAT_LOVERS_BUTCHER_V1';
   /** The guest's saved light / dark pick (cookie), read on the server; null = never chose. */
   guestTheme?: 'light' | 'dark' | null;
 }) {
@@ -249,6 +252,23 @@ export function PublicMenuView({
       ? makkbozLiveDraft
       : (data.context.restaurant.makkbozSettings ?? DEFAULT_MAKKBOZ_SETTINGS)
     : null;
+  const isMeatLovers = exclusiveRendererKey === 'MEAT_LOVERS_BUTCHER_V1';
+  const [meatLoversLiveDraft, setMeatLoversLiveDraft] = useState<MeatLoversMenuSettings | null>(null);
+  useEffect(() => {
+    if (!designPreview || !isMeatLovers || window.parent === window) return;
+    const listen = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== window.parent || !isMeatLoversPreviewUpdate(event.data)) return;
+      setMeatLoversLiveDraft(normalizeMeatLoversSettings(event.data.settings));
+    };
+    window.addEventListener('message', listen);
+    window.parent.postMessage({ type: MEAT_LOVERS_DESIGN_PREVIEW_READY }, window.location.origin);
+    return () => window.removeEventListener('message', listen);
+  }, [designPreview, isMeatLovers]);
+  const meatLoversSettings: MeatLoversMenuSettings | null = isMeatLovers
+    ? designPreview && meatLoversLiveDraft
+      ? meatLoversLiveDraft
+      : (data.context.restaurant.meatLoversSettings ?? DEFAULT_MEAT_LOVERS_SETTINGS)
+    : null;
   const hasCategories = data.menu.categories.length > 0;
   // Both premium demo references show one category at a time.
   // Search results still span all categories so no matching products disappear.
@@ -303,7 +323,7 @@ export function PublicMenuView({
   // The template decides the header, the cards, the headings and the category strip (DEC-044).
   // Photo-free templates show no photos anywhere (cards, cart, product page, featured banners).
   const layout = layoutOf(template);
-  const showPhotos = isVerde || isSherbiny || isMakkboz || layout.photos;
+  const showPhotos = isVerde || isSherbiny || isMakkboz || isMeatLovers || layout.photos;
 
   // "Our picks": featured, still available, with a photo (the banner needs one). Photo banners do
   // not exist in the photo-free template; a featured dish still carries its "Featured" tag there.
@@ -344,7 +364,7 @@ export function PublicMenuView({
       }))
       .filter((category) => category.products.length > 0);
   }, [data.menu.categories, isSearching, normalizedQuery, searchIndex]);
-  const isPremiumSingleCategory = isVerde || isSherbiny || isMakkboz || template === 'ember' || template === 'bloom' || template === 'brew';
+  const isPremiumSingleCategory = isVerde || isSherbiny || isMakkboz || isMeatLovers || template === 'ember' || template === 'bloom' || template === 'brew';
   const premiumVisibleCategories = isPremiumSingleCategory && !isSearching
     ? visibleCategories.filter((category) => category.id === premiumCategoryId)
     : visibleCategories;
@@ -1205,7 +1225,7 @@ export function PublicMenuView({
     hasActiveOrder,
   };
   const Hero =
-    isVerde || isSherbiny || isMakkboz ? GuestHeroCompact : layout.hero === 'brew' ? GuestHeroBrew : layout.hero === 'bloom'
+    isVerde || isSherbiny || isMakkboz || isMeatLovers ? GuestHeroCompact : layout.hero === 'brew' ? GuestHeroBrew : layout.hero === 'bloom'
       ? GuestHeroBloom
       : layout.hero === 'ember'
       ? GuestHeroEmber
@@ -1386,7 +1406,44 @@ export function PublicMenuView({
           data-bloom-palette={template === 'bloom' ? bloomSettings.palette : undefined}
           data-bloom-motion={template === 'bloom' ? bloomSettings.motion : undefined}
         >
-        {makkbozSettings ? (
+        {meatLoversSettings ? (
+          <MeatLoversMenu
+            settings={meatLoversSettings}
+            guestTheme={guestTheme}
+            restaurantName={data.context.restaurant.name}
+            logoUrl={logoUrl}
+            locale={locale}
+            availableLocales={data.locale.available}
+            publicCode={publicCode}
+            designPreview={designPreview}
+            copy={copy}
+            currency={currency}
+            categories={data.menu.categories}
+            visibleCategories={visibleCategories}
+            query={query}
+            onQueryChange={setQuery}
+            canOrder={canOrder}
+            simpleQuantityByProductId={simpleQuantityByProductId}
+            totalQuantityByProductId={totalQuantityByProductId}
+            onOpenProduct={handleOpenProduct}
+            onQuickAdd={handleQuickAdd}
+            onIncrement={handleCardIncrement}
+            onDecrement={handleCardDecrement}
+            cartCount={cartCount}
+            onOpenCart={canOrder ? () => setIsCartOpen(true) : null}
+            onTrack={trackingAvailable ? openTracking : null}
+            hasActiveOrder={hasActiveOrder}
+            shareCode={data.context.restaurant.shareCode}
+            contact={data.context.restaurant.contact}
+            locations={data.context.locations ?? []}
+            hours={data.context.restaurant.hours}
+            notices={verdeNotices}
+            orderingBar={verdeOrdering}
+            poweredBy={verdePoweredBy}
+          >
+            {overlays}
+          </MeatLoversMenu>
+        ) : makkbozSettings ? (
           <MakkbozMenu
             settings={makkbozSettings}
             guestTheme={guestTheme}

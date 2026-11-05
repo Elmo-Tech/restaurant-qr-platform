@@ -3,7 +3,7 @@
  * seed file in `apps/api/seed-data/<seed>/menu.json`: Menu, Categories, Products with their Arabic and English names,
  * sizes (Product Variants), add-ons and required choices (Modifier Groups), the Branch address and phone, contact numbers,
  * the logo and the photos in `<seed>/images/` (stored through the same validator and storage the dashboard upload uses)
- * and, when the file asks for it, the Restaurant's exclusive design (VERDE or El Sherbiny). Onboarding content for a real
+ * and, when the file asks for it, the Restaurant's exclusive design (VERDE, El Sherbiny, Makkboz or Meat Lovers). Onboarding content for a real
  * restaurant, not QA data.
  *
  * SAFE BY DEFAULT: with no --apply it only validates the seed and prints the plan (zero writes). The owner password is
@@ -15,6 +15,7 @@
  *   npm run seed:restaurant-menu -- --seed verde-napoletana --owner-email owner@example.com
  *   npm run seed:restaurant-menu -- --seed verde-napoletana --owner-email owner@example.com --apply
  *   npm run seed:restaurant-menu -- --seed el-sherbiny --owner-email owner@example.com --apply
+ *   npm run seed:restaurant-menu -- --seed meat-lovers --owner-email owner@example.com --apply
  *
  * Photos are written under UPLOAD_LOCAL_DIR (the folder the API serves at /media), so on a server run it with the
  * API's own UPLOAD_LOCAL_DIR; without --apply nothing is read into storage, only checked.

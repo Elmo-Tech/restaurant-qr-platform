@@ -15,7 +15,8 @@ export function seedPhotoNames(seed: MenuSeed): Set<string> {
   const design = seed.restaurant.exclusiveDesign;
   if (
     design?.rendererKey === 'SHERBINY_FIRE_DOUGH_V1' ||
-    design?.rendererKey === 'MAKKBOZ_HERITAGE_V1'
+    design?.rendererKey === 'MAKKBOZ_HERITAGE_V1' ||
+    design?.rendererKey === 'MEAT_LOVERS_BUTCHER_V1'
   )
     for (const image of Object.values(design.images ?? {}))
       if (image) named.add(image);

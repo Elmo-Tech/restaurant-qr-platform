@@ -22,6 +22,8 @@ import { SherbinyMenuConfigController } from './sherbiny-menu-config.controller'
 import { SherbinyMenuConfigService } from './sherbiny-menu-config.service';
 import { MakkbozMenuConfigController } from './makkboz-menu-config.controller';
 import { MakkbozMenuConfigService } from './makkboz-menu-config.service';
+import { MeatLoversMenuConfigController } from './meat-lovers-menu-config.controller';
+import { MeatLoversMenuConfigService } from './meat-lovers-menu-config.service';
 import { EditorialTemplateConfigController } from './editorial-template-config.controller';
 import { EditorialTemplateConfigService } from './editorial-template-config.service';
 
@@ -39,7 +41,7 @@ import { EditorialTemplateConfigService } from './editorial-template-config.serv
  */
 @Module({
   imports: [DatabaseModule, AuthModule, StorageModule, EntitlementsModule],
-  controllers: [RestaurantsController, RestaurantProfileController, RestaurantSetupController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController, EditorialTemplateConfigController, VerdeMenuConfigController, SherbinyMenuConfigController, MakkbozMenuConfigController],
-  providers: [RestaurantSlugBackfillService, RestaurantLocalesService,RestaurantProfileService, RestaurantSetupService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, EditorialTemplateConfigService, VerdeMenuConfigService, SherbinyMenuConfigService, MakkbozMenuConfigService],
+  controllers: [RestaurantsController, RestaurantProfileController, RestaurantSetupController, EmberTemplateConfigController, BloomTemplateConfigController, BrewTemplateConfigController, EditorialTemplateConfigController, VerdeMenuConfigController, SherbinyMenuConfigController, MakkbozMenuConfigController, MeatLoversMenuConfigController],
+  providers: [RestaurantSlugBackfillService, RestaurantLocalesService,RestaurantProfileService, RestaurantSetupService, EmberTemplateConfigService, BloomTemplateConfigService, BrewTemplateConfigService, EditorialTemplateConfigService, VerdeMenuConfigService, SherbinyMenuConfigService, MakkbozMenuConfigService, MeatLoversMenuConfigService],
 })
 export class RestaurantsModule {}

@@ -1874,7 +1874,7 @@ No migration. The exclusive El Sherbiny renderer (`renderer_key = SHERBINY_FIRE_
 `apps/api/src/restaurants/sherbiny-menu-config.ts` (allow-listed copy in both languages, enums, booleans, per-category band
 text and server-owned `/media/<uuid>.(jpg|png|webp)` paths; a byte-identical copy lives in the Web app and a spec keeps them
 equal). The public menu context additionally returns `locations` (Branch name, address, phone; display only).
-The Makkboz renderer (`MAKKBOZ_HERITAGE_V1`, `apps/api/src/restaurants/makkboz-menu-config.ts`) uses the same columns the same way.
+The Makkboz renderer (`MAKKBOZ_HERITAGE_V1`, `apps/api/src/restaurants/makkboz-menu-config.ts`) uses the same columns the same way, as does Meat Lovers (`MEAT_LOVERS_BUTCHER_V1`, `meat-lovers-menu-config.ts`, DEC-067).
 
 ---
 

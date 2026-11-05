@@ -1608,6 +1608,19 @@ Guest app still uses the resolved QR code for orders, tracking and storage; unkn
 rate limits and Origin checks are unchanged. **Not in scope:** slugs for Branches or Tables, per-menu URLs, custom domains, owner self-edit of the slug.
 Spec updates: QR_SPEC.md (amendment), DATABASE_SPEC.md #54A, API_CONVENTIONS.md (amendment), OPERATIONS_RUNBOOK.md #7.
 
+### DEC-067 — Meat Lovers exclusive menu design ("The Butcher's Edit") and per-kilo selling
+
+**Status:** Built, not merged or deployed; owner confirmation items in `MEAT_LOVERS_EXCLUSIVE_RENDERER_IMPLEMENTATION.md` section 7.
+**Context:** a real premium butcher shop (Meat Lovers, Nasr City, Cairo) needs a bespoke Guest Menu from its HTML concept; every price on its
+flyer is EGP **per kilo**. **Decision:** a fourth compiled exclusive renderer `MEAT_LOVERS_BUTCHER_V1` following DEC-062 to DEC-065 exactly
+(one Restaurant, Platform-only assignment, draft / published settings edited in the dashboard, light / dark with the shared guest cookie, branded
+"menu on its way" page, base-template fallback, no schema change). **Per-kilo model without a new entity:** each cut has four Product Variants
+that are weights (250 g, 500 g, 1 kg default, 2 kg) priced from the per-kilo price with exact decimals in the seed; the card shows the per-kilo
+price by reading the 1 kg size's name and price (no arithmetic); free optional Modifier Groups hold cutting and packaging choices; no prices or
+offers are invented. Backend authority over totals, promotions and idempotency is unchanged. **Data:** reusable seed `meat-lovers` for
+`seed:restaurant-menu` and `apply:restaurant-menu`; WhatsApp number = the first printed order phone (to be confirmed). **Not in scope:**
+fractional-weight input, scale-based pricing, a generic "price per unit" field on Product (a later decision if more butchers or grocers join).
+
 ---
 
 ---
