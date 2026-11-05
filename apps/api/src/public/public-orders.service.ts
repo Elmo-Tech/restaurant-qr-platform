@@ -67,6 +67,8 @@ export interface CreateGuestOrderInput {
 
 /** The authoritative priced order of a dry run: what the WhatsApp message is built from. */
 export interface OrderQuote {
+  restaurantId: string;
+  branchId: string;
   restaurantName: string;
   /** The Restaurant's WhatsApp number the message goes to (international, as stored). */
   whatsappNumber: string;
@@ -1010,6 +1012,8 @@ export class PublicOrdersService {
             },
           });
           throw new QuotedSignal({
+            restaurantId,
+            branchId,
             restaurantName: qr.restaurant.name,
             whatsappNumber: qr.restaurant.whatsappNumber ?? '',
             defaultLocale,

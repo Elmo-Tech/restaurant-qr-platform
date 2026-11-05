@@ -22,6 +22,8 @@ const item = (overrides: Partial<Item> = {}): Item => ({
 });
 
 const quote = (overrides: Partial<OrderQuote> = {}): OrderQuote => ({
+  restaurantId: '11111111-1111-4111-8111-111111111111',
+  branchId: '22222222-2222-4222-8222-222222222222',
   restaurantName: 'Elmo Cafe',
   whatsappNumber: '+201012345678',
   defaultLocale: 'en',

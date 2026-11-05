@@ -16,6 +16,7 @@ import {
 } from '../common/rate-limit/rate-limit-group';
 import { CreateGuestOrderDto } from './dto/create-guest-order.dto';
 import { PublicOrdersService } from './public-orders.service';
+import { WhatsappTrackingService } from '../whatsapp-tracking/whatsapp-tracking.service';
 import type {
   CreateGuestOrderInput,
   CreateGuestOrderResult,
@@ -185,7 +186,7 @@ interface GuestOrderResponseBody {
  */
 @Controller('public/qr')
 export class PublicOrdersController {
-  constructor(private readonly publicOrdersService: PublicOrdersService) {}
+  constructor(private readonly publicOrdersService: PublicOrdersService, private readonly whatsappTracking: WhatsappTrackingService) {}
 
   @Post(':publicCode/orders')
   @HttpCode(HttpStatus.CREATED)
@@ -224,10 +225,12 @@ export class PublicOrdersController {
     if (result.outcome !== 'quoted')
       throw new NotFoundException(QR_NOT_FOUND_RESPONSE);
     const message = buildWhatsappMessage(result.quote);
+    const proof = await this.whatsappTracking.prepare(result.quote.restaurantId, result.quote.branchId, result.quote, message);
+    const outbound = proof?.message ?? message;
     return {
       data: {
-        message,
-        whatsappUrl: buildWhatsappUrl(result.quote.whatsappNumber, message),
+        message: outbound,
+        whatsappUrl: buildWhatsappUrl(result.quote.whatsappNumber, outbound),
         total: result.quote.total,
         currencyCode: result.quote.currencyCode,
       },
