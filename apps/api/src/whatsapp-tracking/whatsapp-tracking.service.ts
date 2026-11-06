@@ -1,5 +1,5 @@
-import { createHash, randomBytes } from 'node:crypto';
-import { Injectable, ServiceUnavailableException } from '@nestjs/common';
+import { createHash, createHmac } from 'node:crypto';
+import { ConflictException, Injectable, Logger, ServiceUnavailableException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Prisma } from '../generated/prisma/client';
 import { PrismaService } from '../database/prisma.service';
@@ -11,6 +11,41 @@ type JsonMap = Record<string, unknown>;
 const record = (value: unknown): JsonMap => value && typeof value === 'object' && !Array.isArray(value) ? value as JsonMap : {};
 const digits = (value: string): string => value.replace(/\D/g, '');
 const hash = (text: string): string => createHash('sha256').update(text).digest('hex');
+
+/** Provider responses differ by Evolution version. Never accept a fuzzy name match. */
+export function evolutionInstances(payload: unknown): JsonMap[] | null {
+  if (Array.isArray(payload)) return payload.map(record);
+  const value = record(payload);
+  if (Array.isArray(value.response)) return value.response.map(record);
+  if (Array.isArray(value.data)) return value.data.map(record);
+  if (Array.isArray(value.instances)) return value.instances.map(record);
+  return null;
+}
+function instanceNameOf(value: JsonMap): string | null {
+  const nested = record(value.instance);
+  const result = value.instanceName ?? value.name ?? nested.instanceName ?? nested.name;
+  return typeof result === 'string' ? result : null;
+}
+function instanceOwnerOf(value: JsonMap): string | null {
+  const nested = record(value.instance);
+  const owner = value.ownerJid ?? nested.ownerJid;
+  return typeof owner === 'string' ? owner : null;
+}
+/** null means no webhook was configured; unfamiliar non-null shapes fail closed. */
+export function evolutionWebhookUrl(payload: unknown): string | null | undefined {
+  if (payload === null) return null;
+  if (typeof payload !== 'object' || Array.isArray(payload)) return undefined;
+  const envelope = record(payload);
+  const first = envelope.webhook === null ? null : record(envelope.webhook);
+  const second = first && first.webhook === null ? null : record(first?.webhook);
+  for (const item of [second, first, envelope]) {
+    if (typeof item?.url === 'string') return item.url;
+  }
+  if ([envelope, first, second].some(x => x?.enabled === true)) return undefined;
+  // Some Evolution releases return an empty object instead of null.
+  return Object.keys(envelope).length === 0 || envelope.webhook === null ? null : undefined;
+}
+
 function safeBase(value: string): boolean {
   try { const url = new URL(value); return url.protocol === 'https:' || (url.protocol === 'http:' && ['localhost','127.0.0.1'].includes(url.hostname)); }
   catch { return false; }
@@ -30,6 +65,7 @@ export function parseInboundEvolutionMessage(raw: unknown): { id: string; text: 
 export interface ConnectionView { connected: boolean; state: 'NOT_CONFIGURED' | 'NOT_CONNECTED' | 'CONNECTED' | 'UNAVAILABLE'; number: string | null; qrCode: string | null; qrText: string | null }
 @Injectable()
 export class WhatsappTrackingService {
+  private readonly logger = new Logger(WhatsappTrackingService.name);
   constructor(private readonly db: PrismaService, private readonly cfg: ConfigService,
     private readonly features: EntitlementsService) {}
   private settings() {
@@ -42,16 +78,40 @@ export class WhatsappTrackingService {
   private async fetchProvider(path: string, method = 'GET', body?: JsonMap): Promise<unknown> {
     const s = this.settings();
     if (!s) throw new ServiceUnavailableException('WHATSAPP_TRACKING_NOT_CONFIGURED');
+    // Deliberately log only a finite operation label: no webhook URL, callback token,
+    // request/response body, customer details or credentials.
+    const operation = path.startsWith('/instance/create') ? 'instance-create' :
+      path.startsWith('/instance/fetchInstances') ? 'instance-lookup' :
+      path.startsWith('/webhook/find') ? 'webhook-lookup' :
+      path.startsWith('/webhook/set') ? 'webhook-register' :
+      path.startsWith('/instance/connect') ? 'instance-connect' : 'connection-state';
     const controller = new AbortController();
     const timer = setTimeout(() => controller.abort(), 8000);
     try {
       const response = await fetch(s.base + path, { method,
         headers: { apikey: s.apiKey, 'Content-Type': 'application/json' },
         ...(body ? { body: JSON.stringify(body) } : {}), signal: controller.signal });
-      if (!response.ok) throw new Error('Provider returned an error');
+      if (!response.ok) {
+        this.logger.warn('Evolution ' + operation + ' HTTP ' + response.status);
+        throw new ServiceUnavailableException('WHATSAPP_PROVIDER_UNAVAILABLE');
+      }
+      // GET /webhook/find may legitimately return JSON null.
+      if (response.status === 204) return null;
       return await response.json();
-    } catch { throw new ServiceUnavailableException('WHATSAPP_PROVIDER_UNAVAILABLE'); }
-    finally { clearTimeout(timer); }
+    } catch (error) {
+      if (error instanceof ServiceUnavailableException) throw error;
+      this.logger.warn('Evolution ' + operation + ' failed (' +
+        (error instanceof Error ? error.name : 'unknown') + ')');
+      throw new ServiceUnavailableException('WHATSAPP_PROVIDER_UNAVAILABLE');
+    } finally { clearTimeout(timer); }
+  }
+
+  private async findExactInstance(instanceName: string): Promise<JsonMap | null> {
+    const payload = await this.fetchProvider(
+      '/instance/fetchInstances?instanceName=' + encodeURIComponent(instanceName));
+    const instances = evolutionInstances(payload);
+    if (!instances) throw new ServiceUnavailableException('WHATSAPP_INSTANCE_LOOKUP_UNEXPECTED');
+    return instances.find(item => instanceNameOf(item) === instanceName) ?? null;
   }
   /** Fail closed if the linked device number differs from the restaurant's configured WhatsApp. */
   private async verified(restaurantId: string) {
@@ -89,21 +149,59 @@ export class WhatsappTrackingService {
     if (!restaurant?.whatsappNumber || !restaurant.whatsappOrderingEnabled ||
         !(await this.features.isEnabled(restaurantId,'WHATSAPP_ORDERING')))
       throw new ServiceUnavailableException('WHATSAPP_ORDERING_UNAVAILABLE');
-    let existing = await this.db.whatsappConnection.findUnique({ where:{ restaurantId } });
-    const instanceName = existing?.instanceName ?? 'wayta-' + restaurantId.replace(/-/g,'');
-    if (!existing) {
-      const secret = randomBytes(32).toString('hex');
-      await this.fetchProvider('/instance/create', 'POST',
-        { instanceName, integration:'WHATSAPP-BAILEYS', qrcode:true });
-      await this.fetchProvider('/webhook/set/' + encodeURIComponent(instanceName), 'POST', {
-        enabled:true, webhookByEvents:false, webhookBase64:false,
-        url:s.callback + '/api/v1/whatsapp-tracking/webhook/' + secret,
-        events:['MESSAGES_UPSERT','CONNECTION_UPDATE'],
-      });
-      existing = await this.db.whatsappConnection.create({ data:{
-        restaurantId, instanceName, webhookSecretHash:hash(secret),
-      } });
+    const existing = await this.db.whatsappConnection.findUnique({ where:{ restaurantId } });
+    const instanceName = existing?.instanceName ?? 'wayta-' + restaurantId.replace(/-/g, '');
+    let providerInstance = await this.findExactInstance(instanceName);
+    if (!providerInstance) {
+      try {
+        await this.fetchProvider('/instance/create', 'POST', {
+          instanceName, integration:'WHATSAPP-BAILEYS', qrcode:true,
+        });
+      } catch (error) {
+        // A concurrent click may have created it already. Recheck *exactly*
+        // instead of treating any other failure as a successful create.
+        providerInstance = await this.findExactInstance(instanceName);
+        if (!providerInstance) throw error;
+      }
+      providerInstance = providerInstance ?? await this.findExactInstance(instanceName);
+      if (!providerInstance) throw new ServiceUnavailableException('WHATSAPP_INSTANCE_NOT_FOUND');
     }
+    // Never attach a pre-existing device that belongs to a different WhatsApp number.
+    const owner = instanceOwnerOf(providerInstance);
+    if (owner && digits(owner.split('@')[0].split(':')[0]) !== digits(restaurant.whatsappNumber)) {
+      throw new ConflictException('WHATSAPP_INSTANCE_NUMBER_MISMATCH');
+    }
+
+    if (!existing) {
+      const currentWebhook = await this.fetchProvider(
+        '/webhook/find/' + encodeURIComponent(instanceName));
+      const previousUrl = evolutionWebhookUrl(currentWebhook);
+      const expectedPrefix = s.callback + '/api/v1/whatsapp-tracking/webhook/';
+      if (previousUrl === undefined ||
+          (previousUrl !== null && previousUrl !== '' &&
+            (!previousUrl.startsWith(expectedPrefix) ||
+             !/^[a-f0-9]{64}$/.test(previousUrl.slice(expectedPrefix.length))))) {
+        // An existing unrelated webhook is *never* overwritten automatically.
+        throw new ConflictException('WHATSAPP_EXISTING_INSTANCE_WEBHOOK_CONFLICT');
+      }
+    }
+
+    // Deterministic per-restaurant 256-bit capability token. This lets an
+    // interrupted setup safely retry without losing its callback secret.
+    // Domain-separated from the message-signing HMAC; do not log or return it.
+    const secret = createHmac('sha256', s.signingKey)
+      .update('wayta-evolution-webhook-v1|' + restaurantId + '|' + instanceName)
+      .digest('hex');
+    await this.fetchProvider('/webhook/set/' + encodeURIComponent(instanceName), 'POST', {
+      enabled:true, webhookByEvents:false, webhookBase64:false,
+      url:s.callback + '/api/v1/whatsapp-tracking/webhook/' + secret,
+      events:['MESSAGES_UPSERT','CONNECTION_UPDATE'],
+    });
+    await this.db.whatsappConnection.upsert({
+      where:{ restaurantId },
+      create:{ restaurantId, instanceName, webhookSecretHash:hash(secret) },
+      update:{ webhookSecretHash:hash(secret) },
+    });
     const current = await this.state(restaurantId);
     if (current.connected) return current;
     const payload = record(await this.fetchProvider('/instance/connect/' + encodeURIComponent(instanceName)));
@@ -113,7 +211,8 @@ export class WhatsappTrackingService {
     const qrCode = image?.startsWith('data:image/png;base64,') ? image :
       image && /^[A-Za-z0-9+/=]+$/.test(image) && image.length < 200000 ?
         'data:image/png;base64,' + image : null;
-    const qrText = typeof payload.code === 'string' && payload.code.length < 5000 ? payload.code : null;
+    const qrTextCandidate = typeof payload.code === 'string' ? payload.code : qr.code;
+    const qrText = typeof qrTextCandidate === 'string' && qrTextCandidate.length < 5000 ? qrTextCandidate : null;
     return { ...current, qrCode, qrText };
   }
   /** Never writes abandoned attempts. */
