@@ -1,4 +1,5 @@
 import { ConflictException } from '@nestjs/common';
+import { issueWhatsappReference } from './signed-whatsapp-reference';
 import { parseInboundEvolutionMessage, evolutionInstances, evolutionWebhookUrl,
   WhatsappTrackingService } from './whatsapp-tracking.service';
 describe('Evolution ingress filter',()=>{
@@ -138,5 +139,102 @@ describe('Evolution instance recovery without destructive reconnect', () => {
     });
     expect((await service.connect(restaurantId)).qrText).toBe('qr-text');
     expect(db.whatsappConnection.upsert).toHaveBeenCalledTimes(1);
+  });
+});
+
+
+describe('WhatsApp webhook receipt ingress (no customer data in logs)', () => {
+  const restaurantId = '95d0e44a-9eee-4fcb-811e-bc1e62e41643';
+  const branchId = '22222222-2222-4222-8222-222222222222';
+  const instanceName = 'wayta-95d0e44a9eee4fcb811ebc1e62e41643';
+  const key = Buffer.alloc(32, 42);
+  const secret = 'f'.repeat(64);
+  const sha256 = require('node:crypto') as typeof import('node:crypto');
+  const secretHash = sha256.createHash('sha256').update(secret).digest('hex');
+
+  function subject() {
+    const link = { restaurantId, instanceName, webhookSecretHash: secretHash };
+    const db = {
+      whatsappConnection: { findUnique: jest.fn().mockResolvedValue(link) },
+      restaurant: { findUnique: jest.fn().mockResolvedValue({
+        whatsappNumber: '+201000000000', whatsappOrderingEnabled: true, status: 'ACTIVE',
+      }) },
+      branch: { findFirst: jest.fn().mockResolvedValue({ id: branchId }) },
+      whatsappOrderReceipt: { create: jest.fn((data: unknown) => Promise.resolve(data)) },
+    };
+    const config = { get: jest.fn((name: string) => ({
+      EVOLUTION_API_URL: 'https://evolution.example.com',
+      EVOLUTION_API_KEY: 'fake-key',
+      WAYTA_API_PUBLIC_URL: 'https://menu.example.com',
+      WHATSAPP_ORDER_SIGNING_KEY: key.toString('base64'),
+    })[name as 'EVOLUTION_API_URL' | 'EVOLUTION_API_KEY' | 'WAYTA_API_PUBLIC_URL' | 'WHATSAPP_ORDER_SIGNING_KEY']) };
+    const service = new WhatsappTrackingService(db as never, config as never, {
+      isEnabled: jest.fn().mockResolvedValue(true),
+    } as never);
+    jest.spyOn(service as unknown as { fetchProvider: (path: string) => Promise<unknown> }, 'fetchProvider')
+      .mockImplementation((path: string) => {
+        if (path.startsWith('/instance/connectionState')) return Promise.resolve({ instance: { state: 'open' } });
+        if (path.startsWith('/instance/fetchInstances')) return Promise.resolve([{
+          instanceName, ownerJid: '201000000000@s.whatsapp.net',
+        }]);
+        return Promise.reject(new Error('Unexpected provider operation'));
+      });
+    const dispositions: string[] = [];
+    jest.spyOn(service as unknown as { ingressDisposition: (reason: string) => void }, 'ingressDisposition')
+      .mockImplementation((reason: string) => { dispositions.push(reason); });
+    const signed = issueWhatsappReference({
+      restaurantId, branchId, orderType: 'PICKUP',
+      currencyCode: 'EGP', total: '120.50',
+      baseMessage: '*Test order*\nTotal: 120.50 EGP', key,
+    });
+    const event = (message = signed.message): unknown => ({
+      event: 'messages.upsert', instance: instanceName,
+      data: { key: { fromMe: false, id: 'message-for-testing', remoteJid: '111@s.whatsapp.net' },
+        message: { conversation: message } },
+    });
+    return { db, service, signed, event, dispositions };
+  }
+
+  it('stores a verified Evolution v2.3.7 message and emits a minimal receipt-created disposition', async () => {
+    const { service, db, event, signed, dispositions } = subject();
+    await service.ingest(secret, event());
+    expect(db.whatsappOrderReceipt.create).toHaveBeenCalledTimes(1);
+    const input: unknown = db.whatsappOrderReceipt.create.mock.calls[0]?.[0];
+    expect(input).toMatchObject({ data: {
+      restaurantId, branchId, reference: signed.reference,
+      totalAmount: '120.50', currencyCode: 'EGP', orderType: 'PICKUP',
+    } });
+    expect(dispositions).toEqual(['receipt-created']);
+  });
+
+  it('distinguishes other events, outgoing messages, missing refs and tampered refs', async () => {
+    const { service, db, event, signed, dispositions } = subject();
+    await service.ingest(secret, { event: 'connection.update', instance: instanceName, data: { state: 'open' } });
+    const normal = event('hello') as {event: string; instance: string; data: {key: {fromMe: boolean}; message: unknown}};
+    await service.ingest(secret, normal);
+    await service.ingest(secret, { ...normal,
+      data: { ...normal.data, key: { ...normal.data.key, fromMe: true } },
+    });
+    await service.ingest(secret, event(signed.message.replace('Test order', 'Test orders')));
+    expect(dispositions).toEqual([
+      'non-message-event', 'no-order-reference', 'not-inbound-message', 'invalid-or-expired-reference',
+    ]);
+    expect(db.whatsappOrderReceipt.create).not.toHaveBeenCalled();
+  });
+
+  it('reports connection and branch rejection without storing orders or leaking text', async () => {
+    const { service, db, event, dispositions } = subject();
+    const provider = jest.spyOn(service as unknown as { fetchProvider: (path: string) => Promise<unknown> }, 'fetchProvider');
+    provider.mockResolvedValue({ instance: { state: 'close' } });
+    await service.ingest(secret, event());
+    expect(dispositions).toEqual(['connection-not-verified']);
+    provider.mockImplementation((path: string) =>
+      path.includes('connectionState')
+        ? Promise.resolve({ instance: { state: 'open' } })
+        : Promise.resolve([{ instanceName, ownerJid: '201000000000@s.whatsapp.net' }]));
+    db.branch.findFirst.mockResolvedValue(null);
+    await service.ingest(secret, event());
+    expect(dispositions).toEqual(['connection-not-verified', 'branch-not-active']);
+    expect(db.whatsappOrderReceipt.create).not.toHaveBeenCalled();
   });
 });
