@@ -462,7 +462,7 @@ export function MenuWorkspace({
                 <Link href={`/staff/restaurants/${restaurantId}/menu/import`}>{t('import.entry')}</Link>
               </Button>
             ) : null}
-            <OpenGuestMenuButton restaurantId={restaurantId} />
+            <OpenGuestMenuButton />
           </>
         }
       />
