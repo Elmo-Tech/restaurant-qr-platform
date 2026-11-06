@@ -9,6 +9,8 @@ import { DemoBanner } from './DemoBanner';
 import { MobileNavigation } from './MobileNavigation';
 import { Breadcrumbs } from './Breadcrumbs';
 import { useStaffI18n } from '../../lib/i18n/client';
+import { GuestMenuLinkProvider } from '../menu/GuestMenuLink';
+import { GuestMenuFab } from '../menu/GuestMenuFab';
 
 interface StaffShellProps {
   restaurantId: string;
@@ -171,6 +173,7 @@ export function StaffShell({
     // `overflow-x-clip`: nothing inside the shell (a wide row, an off-screen element) may ever
     // make the page scroll sideways. The content column itself is `min-w-0 flex-1`, so it can
     // only ever take the width left beside the sidebar.
+    <GuestMenuLinkProvider restaurantId={restaurantId}>
     <div className="flex min-h-screen w-full max-w-full overflow-x-clip bg-background">
       <RestaurantSidebar
         restaurantId={restaurantId}
@@ -227,6 +230,8 @@ export function StaffShell({
           }}
         />
       </div>
+      <GuestMenuFab restaurantId={restaurantId} />
     </div>
+    </GuestMenuLinkProvider>
   );
 }

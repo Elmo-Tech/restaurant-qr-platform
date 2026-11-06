@@ -1608,6 +1608,31 @@ Guest app still uses the resolved QR code for orders, tracking and storage; unkn
 rate limits and Origin checks are unchanged. **Not in scope:** slugs for Branches or Tables, per-menu URLs, custom domains, owner self-edit of the slug.
 Spec updates: QR_SPEC.md (amendment), DATABASE_SPEC.md #54A, API_CONVENTIONS.md (amendment), OPERATIONS_RUNBOOK.md #7.
 
+### DEC-070 — QR stand templates, QR-only export, and the prominent "open the menu" button
+
+**Status:** Accepted. **Scope:** staff dashboard (apps/web) only; no API, schema or guest-menu change.
+
+**QR stand.** One size only: a standard A6 portrait stand (105 × 148 mm), four templates (classic, dark, bold colour, minimal frame), built as
+millimetre SVG from the QR module matrix (`QRCode.create`, level H) so there is one source of truth. Customisation is deliberately small: names
+(default from the Restaurant), ONE main colour, caption language (ar / en / both), the logo toggle, and the table number (automatic for a table QR).
+The QR is always black on white with a 4-module quiet zone; text colours are adjusted for contrast, so a colour choice can never make the code unreadable.
+A fixed small footer "مدعوم من ويتا · Powered by Wayta" is in every template (not editable). Posters, bags and menus are designed by the Restaurant itself
+from the QR-only file; this is not a design editor.
+
+**Two downloads.** (1) The finished stand: PNG (1240 × 1748, about 300 dpi), a real PDF (A6, one page per stand, written by a small in-repo writer with
+lossless Flate image data, no PDF dependency), and Print (@page 105 mm × 148 mm). (2) QR only: PNG and SVG (quiet zone included, optional transparent
+SVG). "Stands for all tables" builds one A6 PDF / print job with a page per table of the selected Branch. Arabic is exported correctly because the export embeds
+IBM Plex Sans Arabic (copied to `apps/web/public/fonts/stand`, SIL OFL) and the logo into the SVG before it is rasterised.
+
+**Where.** Restaurant QR settings page (below the existing appearance card), the single-table QR dialog ("Design a stand"), and the Tables page header (all tables).
+Existing permissions are unchanged; the table QR URLs stay opaque `/q/{publicCode}`, the Restaurant QR uses the readable `/q/{slug}` (DEC-066).
+
+**Open guest menu.** `OpenGuestMenuButton` is now a brand-coloured primary button with an icon and a dropdown (open in a new tab, copy link, show QR, quick preview).
+A floating button, mounted once in the staff shell, is available on every dashboard page; it expands to a labelled pill on desktop hover / focus and sits above the bottom navigation on
+phones (hidden with the keyboard up, in the kitchen screen, and on phones on pages with a sticky save bar). The link is fetched once per workspace (`GuestMenuLinkProvider`); neither control
+ever creates a QR, and both stay hidden / disabled when the Restaurant has no active generic QR. Quick preview frames the same-origin guest menu (`X-Frame-Options: SAMEORIGIN` allows it).
+The design choices are remembered per browser (localStorage) as a convenience only. Details: docs/03-ui-ux/QR_STAND_AND_OPEN_MENU_IMPLEMENTATION.md.
+
 ---
 
 ---

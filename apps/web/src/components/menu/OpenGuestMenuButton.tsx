@@ -1,60 +1,70 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { getGuestMenuSegment } from '../../lib/guest-menu/api';
+import { useCallback, useId, useRef, useState } from 'react';
 import { useStaffI18n } from '../../lib/i18n/client';
 import { Button } from '../ui/Button';
-
-type LinkState = { status: 'loading' } | { status: 'ready'; segment: string | null } | { status: 'error' };
+import { IconChevronDown, IconGlobeOpen } from '../staff/icons';
+import { useGuestMenuLink } from './GuestMenuLink';
+import { GuestMenuMenu } from './GuestMenuMenu';
 
 /**
- * FT-7 Staff quick action (design-system-v2: rebuilt on the shared `Button`
- * primitive via `asChild`): opens the Restaurant's existing public Guest
- * Menu (`/q/:slug`, the ACTIVE GENERIC QR) in a new tab. Read-only --
- * if the Restaurant has no ACTIVE GENERIC QR it shows a small unavailable
- * state and never creates one. The Guest Menu itself resolves the
- * Restaurant's current primary ACTIVE Menu; this does not link to any
- * individual Menu.
+ * The Staff quick action that opens the Restaurant's public Guest Menu
+ * (`/q/:slug`, the ACTIVE GENERIC QR) in a new tab: a prominent brand-coloured
+ * button with an icon, and a small dropdown beside it (copy the link, show the
+ * QR, quick preview). Read-only -- if the Restaurant has no ACTIVE GENERIC QR it
+ * shows a small unavailable state and never creates one. The link is fetched
+ * once for the whole workspace (`GuestMenuLinkProvider`), not per button.
  */
-export function OpenGuestMenuButton({ restaurantId }: { restaurantId: string }) {
+export function OpenGuestMenuButton() {
   const { t } = useStaffI18n();
-  const [state, setState] = useState<LinkState>({ status: 'loading' });
+  const link = useGuestMenuLink();
+  const [open, setOpen] = useState(false);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuId = useId();
+  const close = useCallback(() => setOpen(false), []);
 
-  useEffect(() => {
-    let cancelled = false;
-    getGuestMenuSegment(restaurantId)
-      .then((segment) => {
-        if (!cancelled) setState({ status: 'ready', segment });
-      })
-      .catch(() => {
-        if (!cancelled) setState({ status: 'error' });
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [restaurantId]);
-
-  if (state.status === 'ready' && state.segment) {
+  if (link.status === 'ready') {
     return (
-      <Button asChild variant="secondary">
-        <a href={`/q/${encodeURIComponent(state.segment)}`} target="_blank" rel="noopener noreferrer">
-          {t('guestMenu.open')}
-        </a>
-      </Button>
+      <div className="relative inline-flex">
+        <Button asChild className="rounded-e-none font-semibold">
+          <a
+            href={link.url ?? undefined}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(event) => {
+              event.preventDefault();
+              link.open();
+            }}
+          >
+            <IconGlobeOpen />
+            {t('guestMenu.openMenu')}
+          </a>
+        </Button>
+        <Button
+          ref={triggerRef}
+          type="button"
+          aria-label={t('guestMenu.moreActions')}
+          aria-haspopup="menu"
+          aria-expanded={open}
+          aria-controls={open ? menuId : undefined}
+          onClick={() => setOpen((current) => !current)}
+          className="w-10 rounded-s-none border-s border-primary-foreground/30 px-0"
+        >
+          <IconChevronDown />
+        </Button>
+        {open ? <GuestMenuMenu id={menuId} triggerRef={triggerRef} placement="down" onClose={close} /> : null}
+      </div>
     );
   }
 
   const hint =
-    state.status === 'loading'
-      ? undefined
-      : state.status === 'error'
-        ? t('guestMenu.loadError')
-        : t('guestMenu.noQr');
+    link.status === 'loading' ? undefined : link.status === 'error' ? t('guestMenu.loadError') : t('guestMenu.noQr');
 
   return (
     <div className="flex flex-col items-start gap-1">
-      <Button type="button" variant="secondary" disabled>
-        {t('guestMenu.open')}
+      <Button type="button" disabled>
+        <IconGlobeOpen />
+        {t('guestMenu.openMenu')}
       </Button>
       {hint ? <p className="text-xs text-muted-foreground">{hint}</p> : null}
     </div>

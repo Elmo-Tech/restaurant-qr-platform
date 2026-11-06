@@ -31,6 +31,7 @@ import { restaurantSetupMessages } from './restaurantSetup';
 import { staffMessages } from './staff';
 import { subscriptionMessages } from './subscription';
 import { tablesMessages } from './tables';
+import { qrStandMessages } from './qrStand';
 import { variantsMessages } from './variants';
 
 /**
@@ -73,6 +74,7 @@ const en = {
   ...staffMessages.en,
   ...subscriptionMessages.en,
   ...tablesMessages.en,
+  ...qrStandMessages.en,
   ...variantsMessages.en,
 };
 
@@ -110,6 +112,7 @@ const ar = {
   ...staffMessages.ar,
   ...subscriptionMessages.ar,
   ...tablesMessages.ar,
+  ...qrStandMessages.ar,
   ...variantsMessages.ar,
 };
 
