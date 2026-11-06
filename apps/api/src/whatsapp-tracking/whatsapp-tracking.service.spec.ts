@@ -66,14 +66,14 @@ describe('Evolution instance recovery without destructive reconnect', () => {
 
   it('adopts the expected orphaned instance without creating or deleting it', async () => {
     const { provider, service, db } = createSubject();
-    provider.mockImplementation(async (path: string) => {
+    provider.mockImplementation((path: string) => {
       if (path.startsWith('/instance/fetchInstances')) {
-        return [{ instance: { instanceName } }];
+        return Promise.resolve([{ instance: { instanceName } }]);
       }
-      if (path.startsWith('/webhook/find')) return null;
-      if (path.startsWith('/webhook/set')) return { webhook: {} };
-      if (path.startsWith('/instance/connect')) return { qrcode: { code: 'test-qr-payload' } };
-      throw new Error('Unexpected provider call: ' + path);
+      if (path.startsWith('/webhook/find')) return Promise.resolve(null);
+      if (path.startsWith('/webhook/set')) return Promise.resolve({ webhook: {} });
+      if (path.startsWith('/instance/connect')) return Promise.resolve({ qrcode: { code: 'test-qr-payload' } });
+      return Promise.reject(new Error('Unexpected provider call: ' + path));
     });
 
     const result = await service.connect(restaurantId);
@@ -85,20 +85,21 @@ describe('Evolution instance recovery without destructive reconnect', () => {
       enabled: true, webhookByEvents: false,
       events: ['MESSAGES_UPSERT','CONNECTION_UPDATE'],
     }));
-    expect(db.whatsappConnection.upsert).toHaveBeenCalledWith(expect.objectContaining({
+    const savedAssociation: unknown = db.whatsappConnection.upsert.mock.calls[0]?.[0];
+    expect(savedAssociation).toMatchObject({
       where: { restaurantId },
-      create: expect.objectContaining({ restaurantId, instanceName }),
-    }));
+      create: { restaurantId, instanceName },
+    });
   });
 
   it('refuses to hijack a webhook belonging to another service', async () => {
     const { provider, service, db } = createSubject();
-    provider.mockImplementation(async (path: string) => {
-      if (path.startsWith('/instance/fetchInstances')) return [{ name: instanceName }];
-      if (path.startsWith('/webhook/find')) return {
+    provider.mockImplementation((path: string) => {
+      if (path.startsWith('/instance/fetchInstances')) return Promise.resolve([{ name: instanceName }]);
+      if (path.startsWith('/webhook/find')) return Promise.resolve({
         enabled: true, url: 'https://another-project.example.com/incoming',
-      };
-      throw new Error('Unexpected provider call: ' + path);
+      });
+      return Promise.reject(new Error('Unexpected provider call: ' + path));
     });
     await expect(service.connect(restaurantId)).rejects.toBeInstanceOf(ConflictException);
     expect(provider.mock.calls.some(x => x[0].startsWith('/webhook/set'))).toBe(false);
@@ -115,16 +116,16 @@ describe('Evolution instance recovery without destructive reconnect', () => {
   it('recovers a concurrent creation when an exact matching instance appears', async () => {
     const { provider, service, db } = createSubject();
     let searches = 0;
-    provider.mockImplementation(async (path: string) => {
+    provider.mockImplementation((path: string) => {
       if (path.startsWith('/instance/fetchInstances')) {
         searches += 1;
-        return searches === 1 ? [] : [{ name: instanceName }];
+        return Promise.resolve(searches === 1 ? [] : [{ name: instanceName }]);
       }
-      if (path.startsWith('/instance/create')) throw new Error('Concurrent conflict');
-      if (path.startsWith('/webhook/find')) return null;
-      if (path.startsWith('/webhook/set')) return {};
-      if (path.startsWith('/instance/connect')) return { qrcode: { code: 'qr-text' } };
-      throw new Error('Unexpected provider call');
+      if (path.startsWith('/instance/create')) return Promise.reject(new Error('Concurrent conflict'));
+      if (path.startsWith('/webhook/find')) return Promise.resolve(null);
+      if (path.startsWith('/webhook/set')) return Promise.resolve({});
+      if (path.startsWith('/instance/connect')) return Promise.resolve({ qrcode: { code: 'qr-text' } });
+      return Promise.reject(new Error('Unexpected provider call'));
     });
     expect((await service.connect(restaurantId)).qrText).toBe('qr-text');
     expect(db.whatsappConnection.upsert).toHaveBeenCalledTimes(1);
