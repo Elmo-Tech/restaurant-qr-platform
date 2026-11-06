@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - integration/wayta-verde-release-candidate-2026-11-02
+      - development
   pull_request:
     branches: [main]
     paths:
