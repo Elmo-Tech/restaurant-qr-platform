@@ -56,3 +56,23 @@ Do not clear existing Evolution tables or alter a shared production Evolution co
 without backup, explicit approval, and a rollback plan. Review file/media caches and provider
 session retention separately. Environment configuration applies to Evolution itself,
 not to Wayta's NestJS app.
+
+
+## 2026-11-06 staging fix — provider webhook schema
+
+The staging log `Evolution webhook-register HTTP 400` was traced to a **mismatch
+between public API guide examples and the tagged Evolution 2.3.7 source code**.
+Evolution 2.3.7 `src/api/integrations/event/webhook/webhook.schema.ts`
+requires `{ "webhook": { "enabled": true, "url": "...", "byEvents": false,
+"base64": false, "events": ["MESSAGES_UPSERT", "CONNECTION_UPDATE"] } }`.
+The flattened object with `webhookByEvents` and `webhookBase64` fails
+validation. Source:
+https://github.com/evolution-foundation/evolution-api/blob/2.3.7/src/api/integrations/event/webhook/webhook.schema.ts
+
+The nested fix is regression-tested in
+`apps/api/src/whatsapp-tracking/whatsapp-tracking.service.spec.ts`.
+Keep the callback capability token secret. The staging operator must redeploy
+`development` and confirm that Evolution returns HTTP 201 on webhook
+registration, that `GET /webhook/find/{instance}` is properly configured
+without printing its URL, and that a real-device QR scan and inbound receipt
+work. Never delete a provider instance to remedy registration validation.
