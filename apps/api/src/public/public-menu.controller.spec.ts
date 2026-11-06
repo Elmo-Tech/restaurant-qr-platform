@@ -22,6 +22,7 @@ const SAMPLE_DATA: PublicMenuData = {
     branch: null,
     table: null,
     announcements: [],
+    offers: [],
     suggestions: false,
     tracking: true,
     templatesAllowed: true,

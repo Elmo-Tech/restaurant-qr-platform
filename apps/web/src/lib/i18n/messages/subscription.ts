@@ -63,6 +63,8 @@ export const subscriptionMessages = defineMessages({
     'subscription.feature.TABLE_ORDERING.hint': 'Guests order from the table QR, and you run table sessions.',
     'subscription.feature.KITCHEN': 'Kitchen screen',
     'subscription.feature.KITCHEN.hint': 'Accepted orders appear as tickets for the kitchen to prepare.',
+    'subscription.feature.OFFERS': 'Offers and bundles',
+    'subscription.feature.OFFERS.hint': 'Fixed-price offers with choices, shown first in your guest menu.',
 
     'subscription.upgrade.noPrice': 'Price on request',
     'subscription.upgrade.offer': '{percent}% off',
@@ -158,6 +160,8 @@ export const subscriptionMessages = defineMessages({
     'subscription.feature.TABLE_ORDERING.hint': 'يطلب الضيف من QR الطاولة وتدير أنت جلسات الطاولات.',
     'subscription.feature.KITCHEN': 'شاشة المطبخ',
     'subscription.feature.KITCHEN.hint': 'الطلبات المقبولة تظهر كتذاكر ليحضّرها المطبخ.',
+    'subscription.feature.OFFERS': 'العروض والباندل',
+    'subscription.feature.OFFERS.hint': 'عروض بسعر ثابت مع اختيارات، تظهر أولًا في منيو الضيف.',
 
     'subscription.upgrade.noPrice': 'السعر عند الطلب',
     'subscription.upgrade.offer': 'خصم {percent}%',

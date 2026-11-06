@@ -1,5 +1,6 @@
 import { Prisma } from '../generated/prisma/client';
 import { createProductPublicId } from '../menu/product-public-id';
+import { offerSeedProblems, seedOffers, type SeedOffer } from './seed-offers';
 import { normalizeVerdeSettings } from '../restaurants/verde-menu-config';
 import { normalizePhone } from '../restaurants/restaurant-contact';
 import {
@@ -164,6 +165,8 @@ export interface MenuSeed {
   categories: SeedCategory[];
   announcements?: SeedAnnouncement[];
   deliveryZones?: SeedDeliveryZone[];
+  /** Offers / Bundles (DEC-069). Created switched off unless an entry says `active: true`; see `seed-offers.ts`. */
+  offers?: SeedOffer[];
 }
 
 const MONEY = /^\d+(\.\d{1,2})?$/;
@@ -183,6 +186,7 @@ export function menuSeedProblems(seed: MenuSeed): string[] {
   if (!localized(seed.menu?.names)) problems.push('menu lacks a name');
   if (!Array.isArray(seed.categories) || seed.categories.length === 0)
     problems.push('no category');
+  problems.push(...offerSeedProblems(seed.offers));
 
   const checkGroup = (where: string, group: SeedModifierGroup) => {
     if (!localized(group.names)) problems.push(`${where} lacks a name`);
@@ -388,6 +392,8 @@ export type MenuSeedResult =
       archivedMenus: number;
       announcements: number;
       deliveryZones: number;
+      /** Offers created from the seed (DEC-069); the names of ones left alone are not counted. */
+      offers: number;
     }
   | { outcome: 'alreadySeeded' };
 
@@ -643,8 +649,17 @@ export async function seedMenu(
     }
   }
 
+  const offersResult = await seedOffers(
+    tx,
+    restaurantId,
+    seed.restaurant.defaultLocale,
+    seed.offers,
+    photo,
+  );
+
   return {
     outcome: 'seeded',
+    offers: offersResult.created.length,
     counts: menuSeedCounts(seed),
     exclusiveDesign: await assignExclusiveDesign(
       tx,

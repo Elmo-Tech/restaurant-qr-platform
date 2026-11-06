@@ -12,6 +12,7 @@ export const FEATURE_KEYS = [
   "KITCHEN",
   "TABLE_ORDERING",
   "MENU_IMPORT",
+  "OFFERS",
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 

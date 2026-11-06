@@ -2586,3 +2586,13 @@ Staff UX is acceptable when:
 - **Settings -> Profile** has a "Cover image" card beside the logo: upload, wide preview, replace, remove (with confirmation). Client-side checks mirror the server (JPEG / PNG / WebP, 5 MB, at least 800 x 300 px, at most 6000 px, aspect ratio 1.3:1 to 3.2:1; recommended 1600 x 900); the Backend remains authoritative. Only users with `restaurant.manage` and Restaurant-wide scope can change it.
 - **Branch and Delivery area forms** show one name field per active content language, default language first (required), others optional, each with its own text direction. Clearing a non-default name removes that translation.
 - **Everywhere a Branch or Delivery area name is shown** (Dashboard, Orders filter and cards, Tables, Staff branch access, Branches, Delivery) the Staff language's own name is used, falling back to the default-language name.
+
+---
+
+# Amendment: Offers page (DEC-069, 2026-11-06)
+
+`/staff/restaurants/{id}/menu/offers` is the third tab of the Menu area ("Offers", shown only when the package includes the feature). It lists the offers with price, days, number of parts, badge and state
+(Showing now / Not today / Scheduled / Ended / Switched off), an on/off switch per offer, move up / down, edit and delete (delete = hide from guests, past orders keep it). The editor is one page: names and
+descriptions per active language, the fixed price, the label, a photo (same control as products), weekday buttons, optional start and end dates, the "show to guests" switch, and the **parts builder**:
+there is no offer "type": the page has **Included items** (picked from the menu with a quantity; or typed) and optional **choice groups** (a title, how many the guest picks: 1 = pick one, more = pick that many, and the choices picked from the menu, each with an optional extra price). An offer with no group needs nothing from the guest. Limits (6 parts, 20 choices) are shown and checked
+instantly; the Backend repeats every check and its stable error codes are shown in the Staff language. Reading needs `menu.view`; changing needs `menu.manage` with Restaurant-wide Branch scope.

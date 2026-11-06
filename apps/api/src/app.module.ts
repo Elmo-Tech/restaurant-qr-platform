@@ -10,6 +10,7 @@ import { DashboardModule } from './dashboard/dashboard.module';
 import { DatabaseModule } from './database/database.module';
 import { DemoModule } from './demo/demo.module';
 import { AnnouncementsModule } from './announcements/announcements.module';
+import { OffersModule } from './offers/offers.module';
 import { MySubscriptionModule } from './my-subscription/my-subscription.module';
 import { PlatformModule } from './platform/platform.module';
 import { SuggestionsModule } from './suggestions/suggestions.module';
@@ -48,6 +49,7 @@ const rootEnvFilePath = path.resolve(__dirname, '..', '..', '..', '.env');
     MenuModule,
     MenuImportModule,
     AnnouncementsModule,
+    OffersModule,
     MySubscriptionModule,
     SuggestionsModule,
     PlatformModule,

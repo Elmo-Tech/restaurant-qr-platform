@@ -4028,10 +4028,14 @@ The Web builds `{web}/q/{slug ?? publicCode}`.
 
 > URLs identify the resource context, HTTP communicates intent, the Backend enforces the business rules, and every response should be predictable enough that clients never need to guess.
 
+---
 
+# 108P. Offers / Bundles (DEC-069, 2026-11-06)
 
+Contract in `docs/01-domain/OFFERS_SPEC.md` (#5 Staff API, #6 Guest menu, #7 Guest order). Summary:
 
-
-
-
-
+- **Staff:** `/restaurants/{restaurantId}/offers` (list, get, create, `PATCH` partial update where `slots` replaces the slot list and keeps ids sent with it, `DELETE` = archive, `PUT /order`, `POST|DELETE /{offerId}/image`). Reading `menu.view`; changes `menu.manage` + Restaurant-wide Branch scope + CSRF; every route needs the `OFFERS` package feature (`403 FEATURE_NOT_AVAILABLE`). Money is a decimal string. `restaurantId` comes from the authorized request only.
+- **Staff error codes:** `OFFER_NOT_FOUND` 404; `OFFER_LIMIT_REACHED` 409; 422 for `DEFAULT_TRANSLATION_REQUIRED`, `LOCALE_NOT_ACTIVE`, `OFFER_PRICE_REQUIRED`, `OFFER_DATES_INVALID`, `OFFER_DAYS_INVALID`, `OFFER_ORDER_INVALID`, `OFFER_SLOTS_INVALID` (`details.reason`: NO_SLOTS, TOO_MANY_SLOTS, TOO_MANY_OPTIONS, SLOT_NEEDS_OPTIONS, SINGLE_NEEDS_TWO, MULTI_COUNT_INVALID, FIXED_ADJUSTMENT, DUPLICATE_ID, UNKNOWN_ID).
+- **Guest menu:** `GET /public/qr/{publicCode}/menu` gains `context.offers` (Guest DTO `PublicOffer`, raw ids like products; `[]` without the feature).
+- **Guest order** (`POST .../orders` and `.../whatsapp-order`): an item is a product line OR `{ offerId, quantity, offerChoices: [{ slotId, optionId, quantity }] }` (never both). Responses: `409 OFFER_UNAVAILABLE` (missing, off, outside dates or weekday in the order Branch timezone, or the feature is not allowed) and `409 OFFER_CHANGED` (the choices no longer fit the offer's slots / options), both with `details.offerIds`; nothing is created. The order view's `items[]` gain `offerId` (and `productId` may be null); an offer's choices are listed in `modifiers` (slot title = group, choice = option, adjustment x quantity = price, included items "0.00").
+- Kitchen, Staff order, Table Session bill and top-products read models project offer lines the same way (`dashboard.topProducts[].isOffer`).

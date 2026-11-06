@@ -29,6 +29,11 @@ export function usesMenuImport(membership: AuthContextMembership): boolean {
   return membership.restaurant.features?.MENU_IMPORT === true;
 }
 
+/** Offers / Bundles (DEC-069): the Offers page in the dashboard. A package feature; the Backend refuses the rest. */
+export function usesOffers(membership: AuthContextMembership): boolean {
+  return featureOn(membership, 'OFFERS');
+}
+
 /** Table ordering: the tables board, table sessions and table orders. */
 export function usesTableOrdering(membership: AuthContextMembership): boolean {
   return featureOn(membership, 'TABLE_ORDERING');

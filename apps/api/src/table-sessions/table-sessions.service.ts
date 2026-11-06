@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { OFFER_CHOICES_SELECT, offerChoiceModifiers } from '../offers/offer-order';
 import { BranchAccessService } from '../auth/context/branch-access.service';
 import type { RestaurantAccessContext } from '../auth/context/restaurant-access.service';
 import { hasPermission } from '../auth/permission/has-permission';
@@ -46,7 +47,9 @@ export interface SessionListItem {
 }
 
 export interface SessionOrderItemView {
-  productId: string;
+  /** Null for an Offer line (DEC-069). */
+  productId: string | null;
+  offerId: string | null;
   productNameSnapshot: string;
   /** The size chosen for this line (DEC-041), or null for a product without sizes. */
   variantName: string | null;
@@ -245,6 +248,8 @@ const DETAIL_SELECT = {
         orderBy: { createdAt: 'asc' },
         select: {
           productId: true,
+          offerId: true,
+          ...OFFER_CHOICES_SELECT,
           productNameSnapshot: true,
           variantNameSnapshot: true,
           unitPrice: true,
@@ -1118,16 +1123,20 @@ function toDetail(
         totalAmount: formatMoney(order.totalAmount),
         items: order.items.map((item) => ({
           productId: item.productId,
+          offerId: item.offerId,
           productNameSnapshot: item.productNameSnapshot,
           variantName: item.variantNameSnapshot ?? null,
           unitPrice: formatMoney(item.unitPrice),
           quantity: item.quantity,
           lineTotal: formatMoney(item.lineTotal),
-          modifiers: item.modifiers.map((m) => ({
-            groupName: m.modifierGroupNameSnapshot,
-            optionName: m.modifierOptionNameSnapshot,
-            priceAdjustment: formatMoney(m.priceAdjustmentSnapshot),
-          })),
+          modifiers: [
+            ...item.modifiers.map((m) => ({
+              groupName: m.modifierGroupNameSnapshot,
+              optionName: m.modifierOptionNameSnapshot,
+              priceAdjustment: formatMoney(m.priceAdjustmentSnapshot),
+            })),
+            ...offerChoiceModifiers(item.offerChoices),
+          ],
         })),
       },
     })),

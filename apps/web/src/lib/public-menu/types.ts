@@ -25,6 +25,47 @@ export interface PublicAnnouncement {
   text: string;
 }
 
+/** Offers / Bundles (DEC-069): mirrors the Backend's `PublicOffer` exactly. Money is always an exact decimal string. */
+export type PublicOfferSlotKind = 'FIXED' | 'SINGLE' | 'MULTI';
+export type PublicOfferBadge = 'OFFER' | 'GIFT' | 'MOST_ORDERED';
+
+export interface PublicOfferOption {
+  id: string;
+  name: string;
+  /** Added to the offer price when chosen ("0.00" = free); always "0.00" for an included item. */
+  priceAdjustment: string;
+  /** Units an INCLUDED item brings ("2 x taameya"); 1 for a choice. */
+  quantity: number;
+}
+
+export interface PublicOfferSlot {
+  id: string;
+  kind: PublicOfferSlotKind;
+  /** MULTI: how many to pick in total; SINGLE: 1; FIXED: 0. */
+  requiredCount: number;
+  title: string;
+  /** FIXED: the included items. SINGLE / MULTI: the choices. */
+  options: PublicOfferOption[];
+}
+
+export interface PublicOffer {
+  id: string;
+  name: string;
+  description: string | null;
+  /** The fixed offer price. */
+  price: string;
+  badge: PublicOfferBadge;
+  imageAssetPath: string | null;
+  /** 0 (Sunday) to 6 (Saturday); empty = every day. */
+  daysOfWeek: number[];
+  startsOn: string | null;
+  endsOn: string | null;
+  availableToday: boolean;
+  /** An included menu item (or every choice of a group) is sold out: the offer cannot be ordered right now. */
+  soldOut?: boolean;
+  slots: PublicOfferSlot[];
+}
+
 export interface PublicMenuContext {
   /**
    * DEC-066: `publicCode` is the opaque QR code the Guest app uses for orders, tracking and its own
@@ -77,6 +118,12 @@ export interface PublicMenuContext {
   table: { number: string } | null;
   /** Live announcements for the banner (DEC-042), already in the Guest's language; at most three. */
   announcements: PublicAnnouncement[];
+  /**
+   * Offers / Bundles (DEC-069): the active offers in display order (absent from an older API = none). An offer that is not valid
+   * on today's weekday comes with `availableToday: false` and is shown dimmed. Display data only: the Backend re-validates and
+   * re-prices every offer line on submit.
+   */
+  offers?: PublicOffer[];
   /** Smart suggestions are on (DEC-042): the cart may ask for "Complete your meal" products. */
   suggestions?: boolean;
   /** Order tracking is available (DEC-043); `false` hides the track-order control. */
@@ -203,7 +250,9 @@ export interface GuestOrderItemModifierView {
 }
 
 export interface GuestOrderItemView {
-  productId: string;
+  /** Null for an Offer line (DEC-069); its choices are listed in `modifiers`. */
+  productId: string | null;
+  offerId?: string | null;
   name: string;
   /** The chosen size (DEC-041), or null for a product without sizes. */
   variantName: string | null;

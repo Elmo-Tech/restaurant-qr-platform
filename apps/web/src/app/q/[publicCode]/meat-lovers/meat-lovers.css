@@ -389,3 +389,9 @@ a.ml-contact-line:hover{color:#fff}
   .meat-lovers-experience .ml-card{animation:none!important}
   .meat-lovers-experience *,.meat-lovers-experience *::before,.meat-lovers-experience *::after{transition-duration:.01ms!important;scroll-behavior:auto!important;animation-duration:.01ms!important}
 }
+
+/* Offers / Bundles (DEC-069): the shared strip takes the theme tokens; only spacing, the display face and the chip accent are the design's own. */
+.meat-lovers-experience .ml-offers{padding-block:6px 34px}
+.meat-lovers-experience [data-offers-strip] h2,.meat-lovers-experience [data-offers-strip] .g-display{font-family:var(--ml-display);font-weight:800;text-transform:uppercase;letter-spacing:.02em}
+.meat-lovers-experience [data-offers-strip] [data-offer-card]{border-radius:6px}
+.meat-lovers-experience [data-offers-chip]{color:var(--g-accent-text)}

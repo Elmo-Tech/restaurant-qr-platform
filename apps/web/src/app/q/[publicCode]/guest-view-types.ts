@@ -4,6 +4,18 @@
  * Backend returned or an exact BigInt-derived one -- never authoritative; the Backend
  * recomputes every total on submit.
  */
+import type { ReactNode } from 'react';
+
+/**
+ * Offers / Bundles (DEC-069) as the exclusive designs receive them: the ready-made strip (one shared component, dressed by the
+ * design's own `--g-*` tokens), the label of the first "Offers" chip and what the chip does (scroll to the strip). `null` when
+ * there is nothing to show (no offers, or the Guest is searching).
+ */
+export interface DesignOffers {
+  strip: ReactNode;
+  chipLabel: string;
+  onJump: () => void;
+}
 
 /** One selected Modifier Option shown on a Cart line, e.g. "Size: Large". */
 export interface CartLineSelection {
@@ -35,8 +47,15 @@ export interface CartLine {
   /** True while a product discount applies to this line. */
   discounted: boolean;
   selections: CartLineSelection[];
+  /** Offers (DEC-069): set for an Offer line (then `productId` is empty); `offerChoices` are the Guest's choices (identities). */
+  offerId: string | null;
+  offerChoices: { slotId: string; optionId: string; quantity: number }[];
+  /** An Offer line shows one row per slot: "Pick your sandwich: Liver (+10)" and "Gift: Free fries". */
+  offerRows?: { slotId: string; title: string; value: string; included: boolean }[];
   /** SOLD_OUT since being added to the Cart: stays visible, blocks submit until removed. */
   blocked: boolean;
+  /** Why an Offer line is blocked: not valid today / switched off, or its items changed and must be chosen again. */
+  blockedReason: 'OFFER_NOT_TODAY' | 'OFFER_SOLD_OUT' | 'OFFER_CHANGED' | null;
 }
 
 /** The free-text checkout fields, keyed for one shared change handler. */

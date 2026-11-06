@@ -44,6 +44,8 @@ import {
   toPublicHours,
   type PublicHours,
 } from '../branches/branch-hours';
+import { itemName, itemOrderable, optionItemSelect } from '../offers/offer-items';
+import { offerAvailability } from '../offers/offer-rules';
 import { redirectTarget, resolveEntry } from './public-entry';
 import { resolvePublicLocale } from './public-locale';
 import { resolvePublicField } from './public-translation-fallback';
@@ -121,6 +123,13 @@ export interface PublicMenuContext {
   table: { number: string } | null;
   /** Live announcements for the banner (DEC-042): at most three, already in the Guest's language. */
   announcements: PublicAnnouncement[];
+  /**
+   * Offers / Bundles (DEC-069): the ACTIVE offers inside their dates, in display order; empty when the Restaurant has none
+   * or its package does not include the feature (the top strip then shows the featured products as before). An offer that is
+   * not valid on today's weekday is included with `availableToday: false` (shown dimmed). Display data only: order creation
+   * re-resolves everything.
+   */
+  offers: PublicOffer[];
   /** Smart suggestions are on (DEC-042): the cart may ask for "Complete your meal" products. */
   suggestions: boolean;
   /** Order tracking is available (DEC-043): the Guest menu shows the track-order control only then. */
@@ -189,6 +198,40 @@ function hoursOf(
       branch.timezone,
     ),
   );
+}
+
+export interface PublicOfferSlot {
+  id: string;
+  kind: 'FIXED' | 'SINGLE' | 'MULTI';
+  /** MULTI: how many to pick in total; SINGLE: 1; FIXED: 0. */
+  requiredCount: number;
+  title: string;
+  /** FIXED: the included items. SINGLE / MULTI: the choices, each with its paid adjustment ("0.00" = free). */
+  options: {
+    id: string;
+    name: string;
+    priceAdjustment: string;
+    /** Units an INCLUDED item brings ("2 x taameya"); 1 for a choice. */
+    quantity: number;
+  }[];
+}
+
+export interface PublicOffer {
+  id: string;
+  name: string;
+  description: string | null;
+  /** The fixed offer price (exact decimal string); chosen options may add their own adjustment. */
+  price: string;
+  badge: 'OFFER' | 'GIFT' | 'MOST_ORDERED';
+  imageAssetPath: string | null;
+  /** 0 (Sunday) to 6 (Saturday); empty = every day. */
+  daysOfWeek: number[];
+  startsOn: string | null;
+  endsOn: string | null;
+  availableToday: boolean;
+  /** An included menu item (or every choice of a group) is sold out or hidden: the offer cannot be ordered right now. */
+  soldOut: boolean;
+  slots: PublicOfferSlot[];
 }
 
 export interface PublicAnnouncement {
@@ -374,6 +417,138 @@ export class PublicMenuService {
         staffOpenRequired: qr.table.staffOpenRequired,
       }),
     };
+  }
+
+  /**
+   * DEC-069: the Restaurant's ACTIVE offers for the Guest menu, one Tenant-scoped query with all translations of the (at most
+   * two) locales in use. Offers outside their dates are left out; an offer on the wrong weekday is kept, flagged
+   * `availableToday: false`. A name needs a default-language row; options without one are skipped (defensive only).
+   */
+  private async loadOffers(
+    restaurantId: string,
+    resolved: string,
+    defaultLocale: string,
+    localesToLoad: string[],
+    today: string,
+  ): Promise<PublicOffer[]> {
+    const rows = await this.prisma.offer.findMany({
+      where: { restaurantId, status: 'ACTIVE' },
+      orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }],
+      take: 30,
+      select: {
+        id: true,
+        status: true,
+        badge: true,
+        price: true,
+        daysOfWeek: true,
+        startsOn: true,
+        endsOn: true,
+        imageAssetPath: true,
+        translations: {
+          where: { locale: { in: localesToLoad } },
+          select: { locale: true, name: true, description: true },
+        },
+        slots: {
+          where: { restaurantId },
+          orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+          select: {
+            id: true,
+            kind: true,
+            requiredCount: true,
+            translations: {
+              where: { locale: { in: localesToLoad } },
+              select: { locale: true, title: true },
+            },
+            options: {
+              where: { restaurantId },
+              orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
+              select: {
+                id: true,
+                priceAdjustment: true,
+                translations: {
+                  where: { locale: { in: localesToLoad } },
+                  select: { locale: true, name: true },
+                },
+                ...optionItemSelect(localesToLoad),
+              },
+            },
+          },
+        },
+      },
+    });
+
+    const result: PublicOffer[] = [];
+    for (const row of rows) {
+      const availability = offerAvailability(
+        {
+          status: row.status,
+          daysOfWeek: row.daysOfWeek,
+          startsOn: dateOnlyString(row.startsOn),
+          endsOn: dateOnlyString(row.endsOn),
+        },
+        today,
+      );
+      if (availability !== 'AVAILABLE' && availability !== 'TODAY_OFF') continue;
+      const nameDefault = pickRow(row.translations, defaultLocale);
+      if (!nameDefault) continue;
+      const nameFields = resolvePublicField(pickRow(row.translations, resolved), nameDefault);
+
+      const slots: PublicOfferSlot[] = [];
+      let complete = true;
+      let soldOut = false;
+      for (const slot of row.slots) {
+        const titleRows: PublicTranslatableRow[] = slot.translations.map((t) => ({
+          locale: t.locale,
+          name: t.title,
+          description: null,
+        }));
+        const titleDefault = pickRow(titleRows, defaultLocale);
+        if (!titleDefault) {
+          complete = false;
+          break;
+        }
+        const options: PublicOfferSlot['options'] = [];
+        for (const option of slot.options) {
+          // A menu-linked item reads its name live from the menu and is only offered while its product is orderable:
+          // a missing included item, or a choice group with nothing left to pick, makes the whole offer sold out.
+          const name = itemName(option, option.translations, resolved, defaultLocale);
+          if (name === null || !itemOrderable(option)) {
+            if (slot.kind === 'FIXED') soldOut = true;
+            continue;
+          }
+          options.push({
+            id: option.id,
+            name,
+            priceAdjustment: option.priceAdjustment.toFixed(2),
+            quantity: option.quantity,
+          });
+        }
+        if (slot.kind !== 'FIXED' && options.length === 0) soldOut = true;
+        slots.push({
+          id: slot.id,
+          kind: slot.kind,
+          requiredCount: slot.requiredCount,
+          title: resolvePublicField(pickRow(titleRows, resolved), titleDefault).name,
+          options,
+        });
+      }
+      if (!complete || slots.length === 0) continue;
+      result.push({
+        id: row.id,
+        name: nameFields.name,
+        description: nameFields.description,
+        price: row.price.toFixed(2),
+        badge: row.badge,
+        imageAssetPath: row.imageAssetPath,
+        daysOfWeek: [...(row.daysOfWeek ?? [])].sort((a, b) => a - b),
+        startsOn: dateOnlyString(row.startsOn),
+        endsOn: dateOnlyString(row.endsOn),
+        availableToday: availability === 'AVAILABLE',
+        soldOut,
+        slots,
+      });
+    }
+    return result;
   }
 
   async getPublicMenu(input: GetPublicMenuInput): Promise<GetPublicMenuResult> {
@@ -894,6 +1069,11 @@ export class PublicMenuService {
       if (live && text !== null) announcements.push({ id: row.id, style: row.style, text });
     }
 
+    // Offers (DEC-069): none when the package does not include the feature.
+    const offers = features.OFFERS
+      ? await this.loadOffers(qr.restaurantId, resolved, defaultLocale, localesToLoad, today)
+      : [];
+
     // The readable link (DEC-066) only works while the Restaurant's generic QR is ACTIVE, so a Table QR page
     // looks that up too. Without a slug yet (not backfilled) the generic QR's code is the link.
     const currentSlug =
@@ -1027,6 +1207,7 @@ export class PublicMenuService {
             : null,
           table: qr.table ? { number: qr.table.tableNumber } : null,
           announcements,
+          offers,
           suggestions: features.SMART_SUGGESTIONS && qr.restaurant.suggestionsMode !== 'OFF',
           tracking: features.ORDER_TRACKING,
           templatesAllowed: templates.length > 1,

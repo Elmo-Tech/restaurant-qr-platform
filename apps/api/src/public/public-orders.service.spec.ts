@@ -364,6 +364,7 @@ describe('PublicOrdersService.createOrder', () => {
         items: [
           {
             productId: 'product-1',
+            offerId: null,
             name: 'Burger',
             variantName: null,
             quantity: 1,

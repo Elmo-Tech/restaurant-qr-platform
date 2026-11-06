@@ -1,6 +1,7 @@
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { assertValidImageUpload } from '../storage/image-file-validator';
+import { offerSeedPhotoNames } from './seed-offers';
 import type { MenuSeed } from './seed-menu';
 
 /** Every photo file a seed names (logo, category and product photos, the design's photo slots). */
@@ -12,6 +13,7 @@ export function seedPhotoNames(seed: MenuSeed): Set<string> {
     for (const product of category.products)
       if (product.image) named.add(product.image);
   }
+  for (const name of offerSeedPhotoNames(seed.offers)) named.add(name);
   const design = seed.restaurant.exclusiveDesign;
   if (
     design?.rendererKey === 'SHERBINY_FIRE_DOUGH_V1' ||

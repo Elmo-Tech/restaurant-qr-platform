@@ -1639,6 +1639,27 @@ one-letter name or a numbers-only address is refused. Spec: API_CONVENTIONS.md #
 
 ---
 
+### DEC-069 — Offers / Bundles: fixed-price packages with choices
+
+**Status:** Approved by the owner (2026-11-06) after an interactive mockup; built on `feat/offers-bundles`, not deployed. **Context:** customers asked for
+offers such as "ful or taameya sandwich with free fries" (the guest must choose) or a box that combines several items at one price; `PROMOTIONS_SPEC.md`
+#96 says bundles need an explicit model and must not overload V1 Promotions. **Decision:** an explicit **Offer** model (`offers` plus translation, slot
+and option tables, see `docs/01-domain/OFFERS_SPEC.md`): name / description / photo / **one fixed price** / badge (offer, gift, most ordered) / validity by
+**days of the week** (+ optional start and end dates, no hours) / status (active, disabled, deleted = archived). An offer is made of **slots**: FIXED
+(included, the gift), SINGLE (pick one), MULTI (pick N, repeats allowed); every selectable option may carry a **paid adjustment** on top of the offer price.
+Limits: 6 slots, 20 options, 30 offers per Restaurant; the same offer may be ordered several times, each line with its own choices. **Backend authority:**
+price and validation are decided only in the Backend with `Decimal` (offer active, today valid in the order Branch's timezone, every slot satisfied exactly, every
+chosen option belongs to that offer); a changed or expired offer returns the stable codes `OFFER_UNAVAILABLE` / `OFFER_CHANGED` and the web shows a localized
+message. **Orders:** an order line is a product OR an offer (`order_items.product_id` nullable, `offer_id`, CHECK exactly one); the choices are snapshot rows
+(`order_item_offer_choices`) projected into the same `modifiers` view every reader already renders, so the kitchen, Staff screens and Guest tracking need no
+bespoke UI; history is never rewritten. **Guest UI (approved placement "B"):** the top strip shows the active offers in place of featured products (which come
+back when there are none), plus a first "🎁 Offers" chip in the category bar; an offer not available today stays visible, dimmed; one shared strip + choice sheet +
+cart line serves every template and every exclusive design. The WhatsApp message lists offers as the first group. **Packages:** new feature key `OFFERS` (customer-visible,
+no backfill into existing packages). **Not in V1:** inventory, hours of the day, per-Branch offers, stacking with product discounts, AI-assistant knowledge of offers.
+Spec: OFFERS_SPEC.md; DATABASE_SPEC.md #54B; API_CONVENTIONS.md (Offers); GUEST_EXPERIENCE_SPEC.md and STAFF_DASHBOARD_UX_SPEC.md (Offers).
+
+---
+
 ---
 
 ---

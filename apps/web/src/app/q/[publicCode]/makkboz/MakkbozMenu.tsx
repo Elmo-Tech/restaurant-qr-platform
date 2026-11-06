@@ -6,6 +6,7 @@ import { GuestIconBag, GuestIconClose, GuestIconMoon, GuestIconPhone, GuestIconR
 import type { RestaurantContact } from '../../../../lib/contact/types';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../../lib/public-menu/copy';
+import type { DesignOffers } from '../guest-view-types';
 import {
   makkbozCopy,
   type MakkbozCopyKey,
@@ -105,6 +106,8 @@ export interface MakkbozMenuProps {
   notices: ReactNode;
   /** Pickup / delivery switch and ordering notices, shown under the hero. */
   orderingBar: ReactNode;
+  /** Offers / Bundles (DEC-069): the shared strip and the first "Offers" chip; null = none to show. */
+  offers?: DesignOffers | null;
   poweredBy: ReactNode;
   /** Shared overlays (cart bar, cart, product sheet, tracking) rendered inside the themed root. */
   children?: ReactNode;
@@ -151,7 +154,7 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
     settings, guestTheme, restaurantName, logoUrl, locale, availableLocales, designPreview, copy, currency,
     categories, visibleCategories, query, onQueryChange, canOrder, simpleQuantityByProductId, totalQuantityByProductId,
     onOpenProduct, onQuickAdd, onIncrement, onDecrement, cartCount, onOpenCart, onTrack, hasActiveOrder, shareCode,
-    contact, locations, hours, notices, orderingBar, poweredBy, children,
+    contact, locations, hours, notices, orderingBar, offers, poweredBy, children,
   } = props;
 
   const isArabic = locale === 'ar';
@@ -463,6 +466,8 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
 
       {orderingBar ? <div className="m-ordering"><div className="m-container">{orderingBar}</div></div> : null}
 
+      {offers ? <div className="m-offers"><div className="m-container">{offers.strip}</div></div> : null}
+
       <section className="m-intro m-paper" id="menu" aria-labelledby="m-menu-title">
         <div className="m-container">
           <p className="m-intro-eyebrow"><span className="m-rule" aria-hidden="true" /> {text('menuEyebrow')} <span className="m-rule" aria-hidden="true" /></p>
@@ -476,6 +481,11 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
         <div className="m-tools" id="m-tools">
           <div className="m-container">
             <nav className="m-rail" aria-label={copy.verdeMenuSections}>
+              {offers ? (
+                <button type="button" className="m-pill" data-offers-chip onClick={offers.onJump}>
+                  <bdi>🎁 {offers.chipLabel}</bdi>
+                </button>
+              ) : null}
               <button type="button" className={`m-pill${activeId === 'all' ? ' is-active' : ''}`} aria-current={activeId === 'all' ? 'true' : undefined} onClick={() => scrollTo('menu')}>
                 {copy.makkbozAll} <span className="m-pill-count">{totalProducts}</span>
               </button>

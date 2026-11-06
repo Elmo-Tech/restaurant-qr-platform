@@ -29,11 +29,26 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
 function trimLower(value: unknown): unknown {
   return typeof value === 'string' ? value.trim().toLowerCase() : value;
+}
+
+/** DEC-069: one chosen option of an Offer slot. */
+export class OfferChoiceDto {
+  @IsUUID('all', { message: 'slotId must be a well-formed UUID' })
+  slotId!: string;
+
+  @IsUUID('all', { message: 'optionId must be a well-formed UUID' })
+  optionId!: string;
+
+  @IsInt({ message: 'quantity must be a whole number' })
+  @Min(1, { message: 'quantity must be at least 1' })
+  @Max(20, { message: 'quantity must be at most 20' })
+  quantity!: number;
 }
 
 /**
@@ -49,8 +64,23 @@ function trimLower(value: unknown): unknown {
  * normalizes an omitted array to empty.
  */
 export class CreateGuestOrderItemDto {
+  /** A product line. Exactly one of `productId` / `offerId` must be sent (DEC-069). */
+  @ValidateIf((item: CreateGuestOrderItemDto) => item.offerId === undefined)
   @IsUUID('all', { message: 'productId must be a well-formed UUID' })
-  productId!: string;
+  productId?: string;
+
+  /** An offer line (DEC-069): the Offer's identity only. Its price comes from the Backend. */
+  @ValidateIf((item: CreateGuestOrderItemDto) => item.productId === undefined)
+  @IsUUID('all', { message: 'offerId must be a well-formed UUID' })
+  offerId?: string;
+
+  /** Offer line only: the chosen option of each non-included slot (identities and a quantity -- never a price or a name). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20, { message: 'offerChoices must contain at most 20 entries' })
+  @ValidateNested({ each: true })
+  @Type(() => OfferChoiceDto)
+  offerChoices?: OfferChoiceDto[];
 
   @IsInt({ message: 'quantity must be a whole number' })
   @Min(1, { message: 'quantity must be at least 1' })

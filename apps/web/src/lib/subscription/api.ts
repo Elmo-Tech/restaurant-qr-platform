@@ -11,7 +11,8 @@ export type PlanFeatureKey =
   | 'MENU_TEMPLATES'
   | 'DASHBOARD_ORDERING'
   | 'TABLE_ORDERING'
-  | 'KITCHEN';
+  | 'KITCHEN'
+  | 'OFFERS';
 
 export interface PlanSubscription {
   kind: 'PAID' | 'TRIAL';

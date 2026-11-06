@@ -16,6 +16,17 @@ import { EntitlementsService } from '../entitlements/entitlements.service';
 import { Prisma } from '../generated/prisma/client';
 import type { OrderStatus, OrderType } from '../generated/prisma/client';
 import {
+  OFFER_CHOICES_SELECT,
+  offerChoiceModifiers,
+  offerLineKey,
+  resolveOfferChoices,
+  type OfferChoiceInput,
+  type OrderableOffer,
+  type StoredOfferChoice,
+} from '../offers/offer-order';
+import { itemName, itemOrderable, optionItemSelect } from '../offers/offer-items';
+import { offerAvailability } from '../offers/offer-rules';
+import {
   isClosedSessionTriggerViolation,
   resolveDineInSessionSlot,
   TableNotOrderableError,
@@ -24,7 +35,12 @@ import {
 } from '../table-sessions/table-session-ordering';
 
 export interface CreateGuestOrderItemInput {
-  productId: string;
+  /** A product line: the Product's identity. Exactly one of `productId` / `offerId` is set (DEC-069). */
+  productId?: string;
+  /** An offer line (DEC-069): the Offer's identity; the choices are in `offerChoices`. */
+  offerId?: string;
+  /** Offer line only: one entry per chosen option (slot, option, quantity) -- identities, never a price or a name. */
+  offerChoices?: OfferChoiceInput[];
   quantity: number;
   /** Option IDENTITY only -- never a price/name (CRITICAL MONEY RULE). Omitted/undefined is normalized to no selections. */
   modifierOptionIds?: string[];
@@ -69,6 +85,13 @@ export interface CreateGuestOrderInput {
   dryRun?: boolean;
 }
 
+/** One slot of an Offer line in the WhatsApp quote: `included` marks the free gift items. */
+export interface QuoteOfferSlot {
+  title: string;
+  included: boolean;
+  choices: { name: string; quantity: number; priceAdjustment: string }[];
+}
+
 /** The authoritative priced order of a dry run: what the WhatsApp message is built from. */
 export interface OrderQuote {
   restaurantName: string;
@@ -80,6 +103,10 @@ export interface OrderQuote {
   branchName: string;
   deliveryZoneName: string | null;
   items: {
+    /** An Offer line (DEC-069) is listed first in the WhatsApp message under its own "Offers" group. */
+    kind: 'PRODUCT' | 'OFFER';
+    /** Offer lines only: every slot with what the Guest chose (or what is included), in the Restaurant's default language. */
+    offerSlots: QuoteOfferSlot[] | null;
     name: string;
     /** The Category the product sits in (the Restaurant's default language), so equal names in two Categories stay apart. */
     categoryName: string;
@@ -118,7 +145,10 @@ export interface GuestOrderItemModifierView {
 }
 
 export interface GuestOrderItemView {
-  productId: string;
+  /** Null for an Offer line (DEC-069). */
+  productId: string | null;
+  /** Set for an Offer line; its choices are listed in `modifiers`. */
+  offerId: string | null;
   name: string;
   /** The chosen size (DEC-041), or null for a product without sizes. */
   variantName: string | null;
@@ -196,6 +226,10 @@ export type CreateGuestOrderResult =
         currencyCode: string;
       };
     }
+  /** DEC-069: an Offer in the order is missing, switched off, outside its dates or weekdays, or the feature is not allowed. Nothing was created. */
+  | { outcome: 'offerUnavailable'; offerIds: string[] }
+  /** DEC-069: an Offer's slots or options no longer match what the Guest chose (or the choices are not complete). Nothing was created. */
+  | { outcome: 'offerChanged'; offerIds: string[] }
   /** Table Sessions: a TABLE QR whose table is locked by staff (no OPEN session and a staff open is required). Never produced for Pickup/Delivery. */
   | { outcome: 'tableOrderingUnavailable' }
   /** DEC-038: the Restaurant switched Table ordering off (view-only Table channel). */
@@ -217,7 +251,10 @@ interface OrderViewRow {
   restaurant?: { defaultLocale: string };
   deliveryZone?: { translations: { locale: string; name: string }[] } | null;
   items: {
-    productId: string;
+    productId: string | null;
+    offerId?: string | null;
+    /** DEC-069: the choices of an Offer line, projected into `modifiers`. */
+    offerChoices?: StoredOfferChoice[];
     productNameSnapshot: string;
     unitPrice: Prisma.Decimal;
     quantity: number;
@@ -254,6 +291,8 @@ const ORDER_VIEW_SELECT = {
   items: {
     select: {
       productId: true,
+      offerId: true,
+      ...OFFER_CHOICES_SELECT,
       productNameSnapshot: true,
       unitPrice: true,
       quantity: true,
@@ -312,17 +351,21 @@ function toGuestOrderView(order: OrderViewRow, locale?: string): GuestOrderView 
     discountTotal: (order.discountTotalAmount ?? new Prisma.Decimal(0)).toFixed(2),
     items: order.items.map((item) => ({
       productId: item.productId,
+      offerId: item.offerId ?? null,
       name: item.productNameSnapshot,
       variantName: item.variantNameSnapshot ?? null,
       quantity: item.quantity,
       unitPrice: item.unitPrice.toFixed(2),
       discountAmount: (item.discountAmount ?? new Prisma.Decimal(0)).toFixed(2),
       lineTotal: item.lineTotal.toFixed(2),
-      modifiers: item.modifiers.map((modifier) => ({
-        groupName: modifier.modifierGroupNameSnapshot,
-        optionName: modifier.modifierOptionNameSnapshot,
-        priceAdjustment: modifier.priceAdjustmentSnapshot.toFixed(2),
-      })),
+      modifiers: [
+        ...item.modifiers.map((modifier) => ({
+          groupName: modifier.modifierGroupNameSnapshot,
+          optionName: modifier.modifierOptionNameSnapshot,
+          priceAdjustment: modifier.priceAdjustmentSnapshot.toFixed(2),
+        })),
+        ...offerChoiceModifiers(item.offerChoices ?? []),
+      ],
     })),
   };
 }
@@ -345,6 +388,20 @@ class QuotedSignal extends Error {
 
 /** FT-8: thrown inside the transaction when the zone is not a valid ACTIVE zone of the resolved Branch. */
 class DeliveryZoneInvalidError extends Error {}
+
+/** DEC-069: an Offer is missing, off, not valid today, or not allowed for this Restaurant; rolls everything back. */
+class OfferUnavailableError extends Error {
+  constructor(readonly offerIds: string[]) {
+    super('offer unavailable');
+  }
+}
+
+/** DEC-069: the Guest's choices do not fit the Offer as it is now; rolls everything back. */
+class OfferChangedError extends Error {
+  constructor(readonly offerIds: string[]) {
+    super('offer changed');
+  }
+}
 
 /** Product Discounts V1: thrown inside the transaction when the displayed total is stale; rolls everything back. */
 class PriceChangedError extends Error {
@@ -415,14 +472,28 @@ export class PublicOrdersService {
   ) {}
 
   async createOrder(input: CreateGuestOrderInput): Promise<CreateGuestOrderResult> {
-    const productIds = input.items.map((item) => item.productId);
+    // DEC-069: a line is a Product line OR an Offer line, never both and never neither.
+    if (
+      input.items.some(
+        (item) => (item.productId === undefined) === (item.offerId === undefined),
+      )
+    ) {
+      return { outcome: 'itemsUnavailable' };
+    }
+    const productIds = input.items.flatMap((item) =>
+      item.productId === undefined ? [] : [item.productId],
+    );
 
     // FT-6A: line identity is (productId + its exact set of selected
     // Modifier Options), NOT productId alone -- "Burger + Cheese" and
     // "Burger + Bacon" are two genuinely distinct lines (Cart identity
     // requirement) and must both be accepted; only a true repeat of the
     // SAME Product with the SAME selections in two items is a duplicate.
+    // An Offer line's identity is the Offer plus its exact choices.
     const lineKeys = input.items.map((item) => {
+      if (item.offerId !== undefined) {
+        return offerLineKey(item.offerId, item.offerChoices ?? []);
+      }
       const optionIds = item.modifierOptionIds ?? [];
       return `${item.productId}::${item.variantId ?? ''}::${[...optionIds].sort().join(',')}`;
     });
@@ -479,10 +550,8 @@ export class PublicOrdersService {
     const restaurantId = qr.restaurantId;
     // What the platform allows this Restaurant (DEC-043) combined with its own switches: the same
     // answer the Guest menu used to decide what to offer.
-    const effective = effectiveOrdering(
-      qr.restaurant,
-      await this.entitlements.forRestaurant(restaurantId),
-    );
+    const features = await this.entitlements.forRestaurant(restaurantId);
+    const effective = effectiveOrdering(qr.restaurant, features);
     const defaultLocale = qr.restaurant.defaultLocale;
     const currencyCode = qr.restaurant.currencyCode;
 
@@ -783,6 +852,125 @@ export class PublicOrdersService {
         // Product Discounts V1: today's calendar date in the order Branch's
         // timezone, shared by every line of this order.
         const today = localDateIn(branchTimezone, new Date());
+
+        // DEC-069: every Offer of this order is re-resolved HERE, fresh and Tenant-scoped, and must be ACTIVE, valid
+        // today (weekday and dates, in THIS Branch's timezone) and allowed by the package. A missing, foreign,
+        // switched-off, archived or expired Offer rejects the whole order with the same OFFER_UNAVAILABLE.
+        const distinctOfferIds = Array.from(
+          new Set(input.items.flatMap((item) => (item.offerId ? [item.offerId] : []))),
+        );
+        const offerById = new Map<string, OrderableOffer>();
+        if (distinctOfferIds.length > 0) {
+          if (!features.OFFERS) {
+            throw new OfferUnavailableError(distinctOfferIds);
+          }
+          const offerRows = await tx.offer.findMany({
+            where: { id: { in: distinctOfferIds }, restaurantId, status: 'ACTIVE' },
+            select: {
+              id: true,
+              price: true,
+              status: true,
+              daysOfWeek: true,
+              startsOn: true,
+              endsOn: true,
+              translations: {
+                where: { locale: defaultLocale },
+                select: { name: true },
+                take: 1,
+              },
+              slots: {
+                where: { restaurantId },
+                select: {
+                  id: true,
+                  kind: true,
+                  requiredCount: true,
+                  displayOrder: true,
+                  translations: {
+                    where: { locale: defaultLocale },
+                    select: { title: true },
+                    take: 1,
+                  },
+                  options: {
+                    where: { restaurantId },
+                    select: {
+                      id: true,
+                      priceAdjustment: true,
+                      displayOrder: true,
+                      // a typed item's own name (default language); a menu-linked item reads the menu's
+                      translations: {
+                        where: { locale: defaultLocale },
+                        select: { locale: true, name: true },
+                      },
+                      ...optionItemSelect([defaultLocale]),
+                    },
+                  },
+                },
+              },
+            },
+          });
+          const unavailable: string[] = [];
+          for (const id of distinctOfferIds) {
+            const row = offerRows.find((candidate) => candidate.id === id);
+            const nameSnapshot = row?.translations[0]?.name;
+            if (
+              row === undefined ||
+              nameSnapshot === undefined ||
+              offerAvailability(
+                {
+                  status: row.status,
+                  daysOfWeek: row.daysOfWeek,
+                  startsOn: dateOnlyString(row.startsOn),
+                  endsOn: dateOnlyString(row.endsOn),
+                },
+                today,
+              ) !== 'AVAILABLE'
+            ) {
+              unavailable.push(id);
+              continue;
+            }
+            const slots: OrderableOffer['slots'] = [];
+            for (const slot of row.slots) {
+              const titleSnapshot = slot.translations[0]?.title;
+              if (titleSnapshot === undefined) {
+                // Defensive only -- a default-locale title always exists.
+                unavailable.push(id);
+                break;
+              }
+              const options: OrderableOffer['slots'][number]['options'] = [];
+              for (const option of slot.options) {
+                const optionName = itemName(option, option.translations, defaultLocale, defaultLocale);
+                // A linked item whose product is sold out / hidden is not offered: a missing included item (or a
+                // choice group with nothing left) makes the whole offer unavailable, a missing choice is "changed".
+                if (optionName === null || !itemOrderable(option)) {
+                  if (slot.kind === 'FIXED') unavailable.push(id);
+                  continue;
+                }
+                options.push({
+                  id: option.id,
+                  displayOrder: option.displayOrder,
+                  nameSnapshot: optionName,
+                  priceAdjustment: option.priceAdjustment,
+                  quantity: option.quantity,
+                });
+              }
+              if (slot.kind !== 'FIXED' && options.length === 0) unavailable.push(id);
+              slots.push({
+                id: slot.id,
+                kind: slot.kind,
+                requiredCount: slot.requiredCount,
+                displayOrder: slot.displayOrder,
+                titleSnapshot,
+                options,
+              });
+            }
+            if (!unavailable.includes(id)) {
+              offerById.set(id, { id, price: row.price, nameSnapshot, slots });
+            }
+          }
+          if (unavailable.length > 0) {
+            throw new OfferUnavailableError(unavailable);
+          }
+        }
         let total = new Prisma.Decimal(0);
         let discountTotal = new Prisma.Decimal(0);
         // What only the WhatsApp message needs (the Category and the priced extras); kept beside `itemsData`
@@ -790,6 +978,7 @@ export class PublicOrdersService {
         const quoteDetails: {
           categoryName: string;
           categoryOrder: number;
+          offerSlots: QuoteOfferSlot[] | null;
           modifiers: {
             groupName: string;
             optionName: string;
@@ -797,7 +986,58 @@ export class PublicOrdersService {
           }[];
         }[] = [];
         const itemsData = input.items.map((item) => {
-          const product = productById.get(item.productId);
+          if (item.offerId !== undefined) {
+            // DEC-069: an Offer line. Price = the fixed offer price + the paid adjustments of the chosen options;
+            // the Guest's choices must satisfy every slot exactly. Product discounts never apply to it.
+            const offer = offerById.get(item.offerId);
+            if (offer === undefined) throw new OfferUnavailableError([item.offerId]);
+            const resolved = resolveOfferChoices(offer, item.offerChoices ?? []);
+            if (!resolved.ok) throw new OfferChangedError([item.offerId]);
+            const lineTotal = resolved.unitTotal.times(item.quantity);
+            total = total.plus(lineTotal);
+            const offerSlots: QuoteOfferSlot[] = [];
+            for (const choice of resolved.choices) {
+              let entry = offerSlots.find((slot) => slot.title === choice.slotTitleSnapshot && slot.included === choice.included);
+              if (!entry) {
+                entry = { title: choice.slotTitleSnapshot, included: choice.included, choices: [] };
+                offerSlots.push(entry);
+              }
+              entry.choices.push({
+                name: choice.optionNameSnapshot,
+                quantity: choice.quantity,
+                priceAdjustment: choice.priceAdjustment.toFixed(2),
+              });
+            }
+            quoteDetails.push({ categoryName: '', categoryOrder: -1, offerSlots, modifiers: [] });
+            return {
+              productId: null,
+              offerId: item.offerId,
+              productNameSnapshot: offer.nameSnapshot,
+              unitPrice: resolved.basePrice,
+              quantity: item.quantity,
+              lineTotal,
+              discountAmount: new Prisma.Decimal(0),
+              discountTypeSnapshot: null,
+              discountValueSnapshot: null,
+              variantId: null,
+              variantNameSnapshot: null,
+              variantPriceSnapshot: null,
+              offerChoices: {
+                create: resolved.choices.map((choice) => ({
+                  offerSlotId: choice.slotId,
+                  offerSlotOptionId: choice.optionId,
+                  slotKind: choice.slotKind,
+                  slotTitleSnapshot: choice.slotTitleSnapshot,
+                  optionNameSnapshot: choice.optionNameSnapshot,
+                  priceAdjustmentSnapshot: choice.priceAdjustment,
+                  quantity: choice.quantity,
+                  included: choice.included,
+                  displayOrder: choice.displayOrder,
+                })),
+              },
+            };
+          }
+          const product = item.productId === undefined ? undefined : productById.get(item.productId);
           const productNameSnapshot = product?.translations[0]?.name;
           if (product === undefined || productNameSnapshot === undefined) {
             // Defensive only -- Batch C/D creation guarantees a
@@ -938,6 +1178,7 @@ export class PublicOrdersService {
           quoteDetails.push({
             categoryName: product.category.translations[0]?.name ?? '',
             categoryOrder: product.category.displayOrder,
+            offerSlots: null,
             modifiers: selections.map((selection) => ({
               groupName: selection.groupNameSnapshot,
               optionName: selection.optionNameSnapshot,
@@ -945,7 +1186,7 @@ export class PublicOrdersService {
             })),
           });
           return {
-            productId: item.productId,
+            productId: item.productId as string,
             productNameSnapshot,
             unitPrice,
             quantity: item.quantity,
@@ -1035,6 +1276,8 @@ export class PublicOrdersService {
             branchName: branch?.translations[0]?.name ?? branch?.name ?? '',
             deliveryZoneName: deliveryZoneNameSnapshot,
             items: itemsData.map((line, index) => ({
+              kind: quoteDetails[index].offerSlots === null ? ('PRODUCT' as const) : ('OFFER' as const),
+              offerSlots: quoteDetails[index].offerSlots,
               name: line.productNameSnapshot,
               categoryName: quoteDetails[index].categoryName,
               categoryOrder: quoteDetails[index].categoryOrder,
@@ -1124,6 +1367,12 @@ export class PublicOrdersService {
       }
       if (error instanceof DeliveryZoneInvalidError) {
         return { outcome: 'deliveryZoneInvalid' };
+      }
+      if (error instanceof OfferUnavailableError) {
+        return { outcome: 'offerUnavailable', offerIds: error.offerIds };
+      }
+      if (error instanceof OfferChangedError) {
+        return { outcome: 'offerChanged', offerIds: error.offerIds };
       }
       if (error instanceof PriceChangedError) {
         return {

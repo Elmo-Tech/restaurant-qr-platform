@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import { GuestIconSearch, GuestIconStar } from '../../../components/guest/icons';
+import { GuestIconGift, GuestIconSearch, GuestIconStar } from '../../../components/guest/icons';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import { DEFAULT_MENU_TEMPLATE, layoutOf, type MenuTemplate } from '../../../lib/public-menu/templates';
 import { categoryDomId } from './useMenuNavigation';
@@ -28,6 +28,8 @@ export interface ChipItem {
   /** The category image as a 22px round thumbnail; text only when there is none. */
   imageUrl: string | null;
   isFeatured?: boolean;
+  /** Offers (DEC-069): the first chip, with a gift icon; it scrolls to the Offers strip. */
+  isOffers?: boolean;
 }
 
 /**
@@ -132,7 +134,11 @@ export function CategoryChips({
                         }`
                   }
                 >
-                  {item.isFeatured ? (
+                  {item.isOffers ? (
+                    <GuestIconGift
+                      className={`size-4 ${isActive ? 'text-g-on-accent' : 'text-g-accent'}`}
+                    />
+                  ) : item.isFeatured ? (
                     <GuestIconStar
                       className={`size-4 ${isActive ? 'text-g-on-accent' : 'text-g-accent'}`}
                     />

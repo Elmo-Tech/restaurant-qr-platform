@@ -9,6 +9,7 @@ import {
   GuestIconChat,
   GuestIconChevron,
   GuestIconClose,
+  GuestIconGift,
   GuestIconTrash,
 } from '../../../components/guest/icons';
 import { Price } from '../../../components/guest/Price';
@@ -18,6 +19,7 @@ import { Sheet } from '../../../components/guest/Sheet';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
+import { getOffersCopy, type OffersCopy } from '../../../lib/public-menu/offers-copy';
 import type { WhatsappOrderView } from '../../../lib/public-menu/orders-api';
 import type { GuestOrderView, PublicMenuProduct } from '../../../lib/public-menu/types';
 import { CartSuggestions } from './CartSuggestions';
@@ -95,6 +97,7 @@ function CartItemRow({
   line,
   currency,
   copy,
+  offersCopy,
   onIncrement,
   onDecrement,
   onRemove,
@@ -105,6 +108,7 @@ function CartItemRow({
   line: CartLine;
   currency: string;
   copy: PublicMenuCopy;
+  offersCopy: OffersCopy;
   onIncrement: (lineKey: string) => void;
   onDecrement: (lineKey: string) => void;
   onRemove: (lineKey: string) => void;
@@ -139,7 +143,24 @@ function CartItemRow({
           <p className="text-[15px] font-bold leading-snug text-g-text">
             <bdi>{line.name}</bdi>
           </p>
-          {modifiers ? (
+          {line.offerRows ? (
+            <>
+              <p className="mt-0.5 flex items-center gap-1 text-[11.5px] font-bold text-g-accent-text">
+                <GuestIconGift className="size-3" />
+                {offersCopy.cartOfferTag}
+              </p>
+              <ul className="mt-1 flex flex-col gap-0.5">
+                {line.offerRows.map((row) => (
+                  <li key={row.slotId} dir="auto" className="text-[12.5px] leading-[1.5] text-g-text-2">
+                    <span className={row.included ? 'font-bold text-g-accent-text' : 'font-bold text-g-text'}>
+                      <bdi>{row.title}</bdi>:
+                    </span>{' '}
+                    <bdi>{row.value}</bdi>
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : modifiers ? (
             <p dir="auto" className="mt-0.5 text-[12.5px] leading-[1.5] text-g-text-2">
               {modifiers}
             </p>
@@ -182,11 +203,26 @@ function CartItemRow({
         ) : null}
       </div>
       {line.blocked ? (
-        <div className="mx-3.5 mb-3.5 flex items-center justify-between gap-3 rounded-xl bg-g-danger-soft px-3 py-2.5">
+        <div className="mx-3.5 mb-3.5 flex flex-wrap items-center justify-between gap-3 rounded-xl bg-g-danger-soft px-3 py-2.5">
           <p className="flex items-center gap-2 text-sm font-semibold text-g-danger">
             <GuestIconAlert className="size-4 shrink-0" />
-            {copy.removeToContinue}
+            {line.blockedReason === 'OFFER_CHANGED'
+              ? offersCopy.lineChanged
+              : line.blockedReason === 'OFFER_NOT_TODAY'
+                ? offersCopy.lineNotToday
+                : line.blockedReason === 'OFFER_SOLD_OUT'
+                  ? offersCopy.lineUnavailable
+                  : copy.removeToContinue}
           </p>
+          {line.blockedReason === 'OFFER_CHANGED' ? (
+            <button
+              type="button"
+              onClick={() => onEditLine(line.lineKey)}
+              className="flex h-11 shrink-0 items-center rounded-full border border-g-accent px-3.5 text-sm font-bold text-g-accent-text"
+            >
+              {offersCopy.chooseAgain}
+            </button>
+          ) : null}
           <button
             type="button"
             onClick={() => onRemove(line.lineKey)}
@@ -309,6 +345,7 @@ export function CartPanel({
 
   const hasBlockedLines = lines.some((line) => line.blocked);
   const isDelivery = checkout?.fulfillment === 'DELIVERY';
+  const offersCopy = getOffersCopy(locale);
   const isTwoStep = checkout !== null && !confirmedOrder && lines.length > 0;
   const canContinue = lines.length > 0 && !hasBlockedLines;
   const disabled = isSubmitting;
@@ -453,6 +490,7 @@ export function CartPanel({
             >
               {lines.map((line) => (
                 <CartItemRow
+                  offersCopy={offersCopy}
                   key={line.lineKey}
                   line={line}
                   currency={currency}

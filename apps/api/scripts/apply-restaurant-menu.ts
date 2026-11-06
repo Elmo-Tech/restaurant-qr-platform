@@ -18,6 +18,9 @@
  *   npm run apply:restaurant-menu -- --seed el-sherbiny --owner-email elsherbiny@wayta.com --apply
  *   npm run apply:restaurant-menu -- --seed el-sherbiny --owner-email elsherbiny@wayta.com --apply --replace-menu
  *   npm run apply:restaurant-menu -- --seed meat-lovers --owner-email <account email> --apply
+ *   npm run apply:restaurant-menu -- --seed <name> --owner-email <account email> --offers-only [--apply]
+ *     (Offers / Bundles, DEC-069: ONLY the seed's "offers", for a restaurant that already has its menu. Repeatable:
+ *      an offer whose name already exists is left as it is; new ones are created switched OFF unless the seed says "active": true.)
  *
  * On the server this runs in the tools image with the uploads volume mounted (OPERATIONS_RUNBOOK.md); the photos
  * are written to UPLOAD_LOCAL_DIR, the same folder the API serves at /media.
@@ -32,6 +35,7 @@ import { PrismaPg } from '@prisma/adapter-pg';
 import { PrismaClient } from '../src/generated/prisma/client';
 import {
   applyMenuToExistingRestaurant,
+  applyOffersToExistingRestaurant,
   type ApplyAssets,
   type ApplyMenuPrisma,
 } from '../src/provisioning/apply-menu';
@@ -115,6 +119,68 @@ async function main(): Promise<void> {
     );
     process.exitCode = 1;
     return;
+  }
+
+  // Offers / Bundles (DEC-069): only the seed's offers, onto a Restaurant that already has its menu.
+  if (process.argv.includes('--offers-only')) {
+    console.log(
+      `Apply the OFFERS of "${seedName}" to the restaurant of ${ownerEmail} -- mode: ${isApply ? 'APPLY' : 'DRY RUN'}`,
+    );
+    const offersPrisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+    try {
+      const offerStorage = new ImageStorageService(
+        new ConfigService({ UPLOAD_LOCAL_DIR: uploadDir }) as never,
+      );
+      const offerAssets: ApplyAssets = {
+        store: async (name) => {
+          const file = await readImage(name);
+          return (await offerStorage.saveImage(file.buffer, file.mimetype)).assetPath;
+        },
+        discard: async (assetPaths) => {
+          for (const assetPath of assetPaths) await offerStorage.deleteImage(assetPath);
+        },
+      };
+      const outcome = await applyOffersToExistingRestaurant(offersPrisma as unknown as ApplyMenuPrisma, {
+        seed,
+        ownerEmail,
+        restaurantPublicId: readFlag('restaurant'),
+        apply: isApply,
+        assets: offerAssets,
+      });
+      switch (outcome.outcome) {
+        case 'noOffers':
+          console.error('REFUSED: the seed has no "offers". Nothing was written.');
+          process.exitCode = 1;
+          return;
+        case 'ownerNotFound':
+          console.error(`REFUSED: no user with e-mail ${ownerEmail}. Nothing was written.`);
+          process.exitCode = 1;
+          return;
+        case 'noRestaurant':
+          console.error(`REFUSED: ${ownerEmail} is not an active OWNER of any restaurant. Nothing was written.`);
+          process.exitCode = 1;
+          return;
+        case 'ambiguous':
+          console.error(`REFUSED: ${ownerEmail} owns several restaurants. Pick one with --restaurant <publicId>:`);
+          for (const restaurant of outcome.restaurants) console.error(`  - ${restaurant.publicId}  ${restaurant.name}`);
+          process.exitCode = 1;
+          return;
+        case 'dryRun':
+          console.log(
+            `  Restaurant:  ${outcome.restaurant.name} (${outcome.restaurant.publicId}) -- ${outcome.offers} offer(s) in the seed (existing names are left as they are; new ones are created switched off).`,
+          );
+          console.log('DRY RUN complete. Nothing was written. Re-run with --apply to write.');
+          return;
+        case 'applied':
+          console.log(`APPLIED to "${outcome.restaurant.name}" (${outcome.restaurant.publicId}).`);
+          console.log(`  Created (switched off): ${outcome.created.join(' | ') || '-'}`);
+          console.log(`  Already there, left alone: ${outcome.skipped.join(' | ') || '-'}`);
+          console.log('  Switch them on in the dashboard (Menu > Offers).');
+          return;
+      }
+    } finally {
+      await offersPrisma.$disconnect();
+    }
   }
 
   const counts = menuSeedCounts(seed);

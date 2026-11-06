@@ -20,6 +20,7 @@ import { menuImportMessages } from './menuImport';
 import { menuMessages } from './menu';
 import { menuHubMessages } from './menuHub';
 import { menuStructureMessages } from './menuStructure';
+import { offersMessages } from './offers';
 import { ordersMessages } from './orders';
 import { presetsMessages } from './presets';
 import { productMessages } from './product';
@@ -62,6 +63,7 @@ const en = {
   ...menuMessages.en,
   ...menuHubMessages.en,
   ...menuStructureMessages.en,
+  ...offersMessages.en,
   ...ordersMessages.en,
   ...presetsMessages.en,
   ...productMessages.en,
@@ -100,6 +102,7 @@ const ar = {
   ...menuMessages.ar,
   ...menuHubMessages.ar,
   ...menuStructureMessages.ar,
+  ...offersMessages.ar,
   ...ordersMessages.ar,
   ...presetsMessages.ar,
   ...productMessages.ar,

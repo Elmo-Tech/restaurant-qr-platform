@@ -146,6 +146,7 @@ function buildPrismaMock() {
   return {
     prisma: {
       restaurantAnnouncement: { findMany: jest.fn().mockResolvedValue([]) },
+      offer: { findMany: jest.fn().mockResolvedValue([]) },
       qrCode: {
         findUnique: qrCodeFindUnique,
         findFirst: qrCodeFindFirst,
@@ -481,6 +482,7 @@ describe('PublicMenuService.getPublicMenu', () => {
       branch: { name: 'Downtown Branch' },
       table: { number: '12' },
       announcements: [],
+      offers: [],
       suggestions: false,
       tracking: true,
       templatesAllowed: true,
@@ -526,6 +528,7 @@ describe('PublicMenuService.getPublicMenu', () => {
       branch: null,
       table: null,
       announcements: [],
+      offers: [],
       suggestions: false,
       tracking: true,
       templatesAllowed: true,

@@ -207,9 +207,9 @@ describe('DashboardService.getMetrics', () => {
       // only the non-rejected order's items are read
       expect(mocks.orderItemFindMany.mock.calls[0][0].where).toEqual({ orderId: { in: ['o1'] } });
       expect(result.topProducts).toEqual([
-        { productId: 'p-fries', name: 'Fries', quantity: 5, amount: '75.00' },
-        { productId: 'p-burger', name: 'Burger', quantity: 3, amount: '135.00' },
-        { productId: 'p-cola', name: 'Cola', quantity: 1, amount: '10.00' },
+        { productId: 'p-fries', isOffer: false, name: 'Fries', quantity: 5, amount: '75.00' },
+        { productId: 'p-burger', isOffer: false, name: 'Burger', quantity: 3, amount: '135.00' },
+        { productId: 'p-cola', isOffer: false, name: 'Cola', quantity: 1, amount: '10.00' },
       ]);
     });
 

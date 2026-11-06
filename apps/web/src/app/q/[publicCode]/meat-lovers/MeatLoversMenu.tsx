@@ -6,6 +6,7 @@ import { GuestIconBag, GuestIconClose, GuestIconMoon, GuestIconPhone, GuestIconR
 import type { RestaurantContact } from '../../../../lib/contact/types';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../../lib/public-menu/copy';
+import type { DesignOffers } from '../guest-view-types';
 import {
   meatLoversCopy,
   type MeatLoversCopyKey,
@@ -105,6 +106,8 @@ export interface MeatLoversMenuProps {
   notices: ReactNode;
   /** Pickup / delivery switch and ordering notices, shown under the hero. */
   orderingBar: ReactNode;
+  /** Offers / Bundles (DEC-069): the shared strip and the first "Offers" chip; null = none to show. */
+  offers?: DesignOffers | null;
   poweredBy: ReactNode;
   /** Shared overlays (cart bar, cart, product sheet, tracking) rendered inside the themed root. */
   children?: ReactNode;
@@ -156,7 +159,7 @@ export function MeatLoversMenu(props: MeatLoversMenuProps) {
     settings, guestTheme, restaurantName, logoUrl, locale, availableLocales, designPreview, copy, currency,
     categories, visibleCategories, query, onQueryChange, canOrder, simpleQuantityByProductId, totalQuantityByProductId,
     onOpenProduct, onQuickAdd, onIncrement, onDecrement, cartCount, onOpenCart, onTrack, hasActiveOrder, shareCode,
-    contact, locations, hours, notices, orderingBar, poweredBy, children,
+    contact, locations, hours, notices, orderingBar, offers, poweredBy, children,
   } = props;
 
   const isArabic = locale === 'ar';
@@ -400,6 +403,8 @@ export function MeatLoversMenu(props: MeatLoversMenuProps) {
 
       {orderingBar ? <div className="ml-ordering"><div className="ml-container">{orderingBar}</div></div> : null}
 
+      {offers ? <div className="ml-offers"><div className="ml-container">{offers.strip}</div></div> : null}
+
       <section className="ml-menu" id="menu" aria-labelledby="ml-menu-title">
         <div className="ml-container">
           <div className="ml-menu-title">
@@ -414,6 +419,11 @@ export function MeatLoversMenu(props: MeatLoversMenuProps) {
             <div className="ml-tools" id="ml-tools">
               <div className="ml-tabs-wrap">
                 <div className="ml-tabs" role="group" aria-label={copy.verdeMenuSections}>
+                  {offers ? (
+                    <button type="button" className="ml-tab" data-offers-chip onClick={offers.onJump}>
+                      <bdi>🎁 {offers.chipLabel}</bdi>
+                    </button>
+                  ) : null}
                   <button type="button" className="ml-tab" aria-pressed={activeSelection === 'all' && !isSearching} onClick={() => choose('all')}>
                     {copy.meatLoversAll}<span dir="ltr">{pad(totalProducts)}</span>
                   </button>
@@ -456,6 +466,12 @@ export function MeatLoversMenu(props: MeatLoversMenuProps) {
               <aside className="ml-index" aria-label={copy.verdeMenuSections}>
                 <span className="ml-index-title" dir="ltr">NAVIGATION / {pad(categories.length)}</span>
                 <div>
+                  {offers ? (
+                    <button type="button" className="ml-index-item" data-offers-chip onClick={offers.onJump}>
+                      <small dir="ltr" aria-hidden="true">🎁</small>
+                      <span><bdi>{offers.chipLabel}</bdi></span>
+                    </button>
+                  ) : null}
                   {categories.map((category, index) => (
                     <button key={category.id} type="button" className="ml-index-item" aria-pressed={activeSelection === category.id && !isSearching} onClick={() => choose(category.id)}>
                       <small dir="ltr">{pad(index + 1)}</small>
