@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import { ConflictException } from '@nestjs/common';
 import { issueWhatsappReference } from './signed-whatsapp-reference';
 import { parseInboundEvolutionMessage, evolutionInstances, evolutionWebhookUrl,
@@ -149,8 +150,7 @@ describe('WhatsApp webhook receipt ingress (no customer data in logs)', () => {
   const instanceName = 'wayta-95d0e44a9eee4fcb811ebc1e62e41643';
   const key = Buffer.alloc(32, 42);
   const secret = 'f'.repeat(64);
-  const sha256 = require('node:crypto') as typeof import('node:crypto');
-  const secretHash = sha256.createHash('sha256').update(secret).digest('hex');
+  const secretHash = createHash('sha256').update(secret).digest('hex');
 
   function subject() {
     const link = { restaurantId, instanceName, webhookSecretHash: secretHash };
