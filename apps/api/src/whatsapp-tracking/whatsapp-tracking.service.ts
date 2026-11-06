@@ -192,10 +192,17 @@ export class WhatsappTrackingService {
     const secret = createHmac('sha256', s.signingKey)
       .update('wayta-evolution-webhook-v1|' + restaurantId + '|' + instanceName)
       .digest('hex');
+    // Evolution v2.3.7's webhook.schema.ts requires a nested 'webhook' object.
+    // The properties inside it are named 'byEvents' and 'base64', not the
+    // flattened API-guide aliases 'webhookByEvents'/'webhookBase64'.
     await this.fetchProvider('/webhook/set/' + encodeURIComponent(instanceName), 'POST', {
-      enabled:true, webhookByEvents:false, webhookBase64:false,
-      url:s.callback + '/api/v1/whatsapp-tracking/webhook/' + secret,
-      events:['MESSAGES_UPSERT','CONNECTION_UPDATE'],
+      webhook: {
+        enabled: true,
+        url: s.callback + '/api/v1/whatsapp-tracking/webhook/' + secret,
+        byEvents: false,
+        base64: false,
+        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+      },
     });
     await this.db.whatsappConnection.upsert({
       where:{ restaurantId },
