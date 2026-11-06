@@ -36,7 +36,7 @@ describe('Evolution instance recovery without destructive reconnect', () => {
       restaurant: { findUnique: jest.fn().mockResolvedValue(restaurant) },
       whatsappConnection: {
         findUnique: jest.fn().mockResolvedValue(null),
-        upsert: jest.fn().mockResolvedValue({ restaurantId, instanceName }),
+        upsert: jest.fn((input: unknown) => Promise.resolve(input)),
       },
     };
     const config = { get: jest.fn((name: string) => ({
