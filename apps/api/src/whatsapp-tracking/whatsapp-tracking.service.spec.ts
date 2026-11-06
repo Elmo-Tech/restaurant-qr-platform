@@ -81,10 +81,19 @@ describe('Evolution instance recovery without destructive reconnect', () => {
     expect(result.qrText).toBe('test-qr-payload');
     expect(provider).not.toHaveBeenCalledWith('/instance/create', 'POST', expect.anything());
     const webhookRequest = provider.mock.calls.find(x => x[0].startsWith('/webhook/set'));
-    expect(webhookRequest?.[2]).toEqual(expect.objectContaining({
-      enabled: true, webhookByEvents: false,
-      events: ['MESSAGES_UPSERT','CONNECTION_UPDATE'],
-    }));
+    // Enforce the *actual* Evolution 2.3.7 schema, not the flattened API docs.
+    const webhookBody: unknown = webhookRequest?.[2];
+    expect(webhookBody).toMatchObject({
+      webhook: {
+        enabled: true,
+        byEvents: false,
+        base64: false,
+        events: ['MESSAGES_UPSERT', 'CONNECTION_UPDATE'],
+      },
+    });
+    expect(Object.keys(webhookBody as Record<string, unknown>)).toEqual(['webhook']);
+    const envelope = (webhookBody as { webhook: { url: string } }).webhook;
+    expect(envelope.url).toMatch(/^https:\/\/menu\.example\.com\/api\/v1\/whatsapp-tracking\/webhook\/[a-f0-9]{64}$/);
     const savedAssociation: unknown = db.whatsappConnection.upsert.mock.calls[0]?.[0];
     expect(savedAssociation).toMatchObject({
       where: { restaurantId },
