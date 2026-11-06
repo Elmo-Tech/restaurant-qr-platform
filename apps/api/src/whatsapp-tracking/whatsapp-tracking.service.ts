@@ -263,7 +263,8 @@ export class WhatsappTrackingService {
       const data = record(record(payload).data);
       const key = record(data.key);
       const reason = key.fromMe !== false ? 'not-inbound-message' :
-        typeof key.remoteJid !== 'string' || !/@(s\\.whatsapp\\.net|lid)$/.test(key.remoteJid) ?
+        typeof key.remoteJid !== 'string' ||
+          !(key.remoteJid.endsWith('@s.whatsapp.net') || key.remoteJid.endsWith('@lid')) ?
           'non-individual-chat' : 'unsupported-message-shape';
       this.ingressDisposition(reason);
       return;
