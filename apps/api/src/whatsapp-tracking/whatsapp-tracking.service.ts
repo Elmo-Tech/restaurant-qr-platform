@@ -233,32 +233,77 @@ export class WhatsappTrackingService {
     return issueWhatsappReference({ restaurantId, branchId, orderType:quote.orderType, total:quote.total,
       currencyCode:quote.currencyCode, baseMessage, key:s.signingKey });
   }
+  /**
+   * An allowlisted *disposition only* is safe to log. Never log the callback
+   * capability, event JSON, chat JID, message content, order reference or MAC.
+   * The 200 webhook response also covers intentionally ignored events.
+   */
+  private ingressDisposition(reason: string): void {
+    this.logger.log('WhatsApp webhook disposition=' + reason);
+  }
   /** Webhook body is validated transiently and NEVER persisted or logged. */
   async ingest(secret: string, payload: unknown): Promise<void> {
+    // Invalid capability tokens may be internet noise: do not emit attacker-triggered logs.
     if (!/^[a-f0-9]{64}$/.test(secret)) return;
     const s = this.settings();
-    if (!s) return;
+    if (!s) { this.ingressDisposition('configuration-unavailable'); return; }
     const link = await this.db.whatsappConnection.findUnique({ where:{ webhookSecretHash:hash(secret) } });
-    if (!link || record(payload).instance !== link.instanceName) return;
+    if (!link) return; // Do not log guessed secrets.
+    if (record(payload).instance !== link.instanceName) {
+      this.ingressDisposition('instance-mismatch');
+      return;
+    }
+    const event = record(payload).event;
+    if (event !== 'messages.upsert' && event !== 'MESSAGES_UPSERT') {
+      this.ingressDisposition('non-message-event');
+      return;
+    }
     const inbound = parseInboundEvolutionMessage(payload);
-    if (!inbound) return;
+    if (!inbound) {
+      const data = record(record(payload).data);
+      const key = record(data.key);
+      const reason = key.fromMe !== false ? 'not-inbound-message' :
+        typeof key.remoteJid !== 'string' || !/@(s\\.whatsapp\\.net|lid)$/.test(key.remoteJid) ?
+          'non-individual-chat' : 'unsupported-message-shape';
+      this.ingressDisposition(reason);
+      return;
+    }
+    // Do not log a non-order chat as if it were an order; never log its text.
+    if (!inbound.text.includes('Wayta-Ref:')) {
+      this.ingressDisposition('no-order-reference');
+      return;
+    }
     const verified = verifyWhatsappReference({ restaurantId:link.restaurantId, receivedMessage:inbound.text,
       key:s.signingKey });
-    if (!verified) return;
+    if (!verified) {
+      this.ingressDisposition('invalid-or-expired-reference');
+      return;
+    }
     let current;
-    try { current = await this.verified(link.restaurantId); } catch { return; }
-    if (!current || current.link.instanceName !== link.instanceName) return;
+    try { current = await this.verified(link.restaurantId); }
+    catch { this.ingressDisposition('connection-verification-error'); return; }
+    if (!current || current.link.instanceName !== link.instanceName) {
+      this.ingressDisposition('connection-not-verified');
+      return;
+    }
     const branch = await this.db.branch.findFirst({ where:{
       id:verified.branchId, restaurantId:link.restaurantId, status:'ACTIVE' }, select:{ id:true } });
-    if (!branch) return;
+    if (!branch) {
+      this.ingressDisposition('branch-not-active');
+      return;
+    }
     try {
       await this.db.whatsappOrderReceipt.create({ data:{
         restaurantId:link.restaurantId, branchId:branch.id, reference:verified.reference,
         providerMessageId:inbound.id, totalAmount:verified.total,
         currencyCode:verified.currencyCode, orderType:verified.orderType,
       } });
+      this.ingressDisposition('receipt-created');
     } catch(error) {
-      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') return;
+      if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+        this.ingressDisposition('duplicate-receipt');
+        return;
+      }
       throw error;
     }
   }
