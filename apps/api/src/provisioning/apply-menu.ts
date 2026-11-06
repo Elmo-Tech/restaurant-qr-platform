@@ -5,6 +5,7 @@ import {
   type MenuSeedResult,
   type SeedAssets,
 } from './seed-menu';
+import { seedOffers } from './seed-offers';
 
 /**
  * Operations-only: puts a reviewed menu seed onto a Restaurant that ALREADY EXISTS (created from the Platform console
@@ -151,6 +152,62 @@ export async function applyMenuToExistingRestaurant(
       return { outcome: 'menuExists', restaurant, existingMenus: 1 };
     }
     return { outcome: 'applied', restaurant, result };
+  } catch (error) {
+    await input.assets?.discard?.(stored).catch(() => undefined);
+    throw error;
+  }
+}
+
+export type ApplyOffersOutcome =
+  | Extract<ApplyMenuOutcome, { outcome: 'ownerNotFound' | 'noRestaurant' | 'ambiguous' }>
+  | { outcome: 'noOffers' }
+  | { outcome: 'dryRun'; restaurant: OwnedRestaurant; offers: number }
+  | {
+      outcome: 'applied';
+      restaurant: OwnedRestaurant;
+      created: string[];
+      skipped: string[];
+    };
+
+/**
+ * Operations-only (DEC-069): applies ONLY the `offers` of a menu seed to a Restaurant that already has its menu
+ * (`--offers-only`). Same owner lookup, one transaction, photos removed again on failure. Repeatable: an offer whose name
+ * already exists is left untouched, and offers are created switched off unless the seed says `active: true`.
+ */
+export async function applyOffersToExistingRestaurant(
+  prisma: ApplyMenuPrisma,
+  input: {
+    seed: MenuSeed;
+    ownerEmail: string;
+    restaurantPublicId?: string;
+    apply: boolean;
+    assets?: ApplyAssets;
+  },
+): Promise<ApplyOffersOutcome> {
+  if (!input.seed.offers || input.seed.offers.length === 0) return { outcome: 'noOffers' };
+  const found = await findRestaurantByOwnerEmail(prisma, input.ownerEmail, input.restaurantPublicId);
+  if (found.outcome !== 'found') return found;
+  const { restaurant } = found;
+  if (!input.apply) {
+    return { outcome: 'dryRun', restaurant, offers: input.seed.offers.length };
+  }
+  const stored: string[] = [];
+  const photo = async (image: string | undefined): Promise<string | null> => {
+    if (!image) return null;
+    if (!input.assets) throw new Error('The seed has photos but no photo store was provided.');
+    const assetPath = await input.assets.store(image);
+    stored.push(assetPath);
+    return assetPath;
+  };
+  try {
+    const result = await prisma.$transaction(
+      (tx) =>
+        seedOffers(tx, restaurant.id, input.seed.restaurant.defaultLocale, input.seed.offers, photo),
+      { timeout: 60_000, maxWait: 10_000 },
+    );
+    // Photos of offers that were skipped (already there) are not needed.
+    if (result.created.length === 0) await input.assets?.discard?.(stored);
+    return { outcome: 'applied', restaurant, ...result };
   } catch (error) {
     await input.assets?.discard?.(stored).catch(() => undefined);
     throw error;

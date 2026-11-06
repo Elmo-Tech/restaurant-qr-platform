@@ -32,6 +32,23 @@ describe('feature entitlements', () => {
     expect(OPT_IN_FEATURES).toEqual(['MENU_IMPORT']);
   });
 
+  it('Offers (DEC-069) is a customer feature: on without a package, only in a package that lists it, overridable per restaurant', () => {
+    expect(FEATURE_KEYS).toContain('OFFERS');
+    expect(OPT_IN_FEATURES).not.toContain('OFFERS');
+    expect(CUSTOMER_FEATURE_KEYS).toContain('OFFERS');
+    expect(resolveFeatures([]).OFFERS).toBe(true);
+    // a package includes it only when it lists it (no backfill adds it to existing packages)
+    expect(resolveFeatures([], ['KITCHEN']).OFFERS).toBe(false);
+    expect(resolveFeatures([], ['OFFERS']).OFFERS).toBe(true);
+    // a restaurant override wins in both directions and changes nothing else
+    expect(resolveFeatures([{ feature: 'OFFERS', enabled: false }]).OFFERS).toBe(false);
+    expect(resolveFeatures([{ feature: 'OFFERS', enabled: true }], []).OFFERS).toBe(true);
+    expect(resolveFeatures([{ feature: 'OFFERS', enabled: false }])).toEqual({
+      ...NO_PACKAGE_DEFAULTS,
+      OFFERS: false,
+    });
+  });
+
   it('menu import is off by default and only an override or a package that lists it turns it on (DEC-057)', () => {
     expect(resolveFeatures([]).MENU_IMPORT).toBe(false);
     expect(resolveFeatures([], null).MENU_IMPORT).toBe(false);

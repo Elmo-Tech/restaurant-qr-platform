@@ -115,6 +115,25 @@ describe('PublicOrdersController', () => {
     });
   });
 
+  it('maps invalidFields to 400 VALIDATION_ERROR with one stable code per field', async () => {
+    const errors = [
+      { field: 'customerPhone', code: 'INVALID_PHONE' },
+      { field: 'customerName', code: 'TOO_SHORT' },
+    ];
+    publicOrdersService.createOrder.mockResolvedValue({ outcome: 'invalidFields', errors });
+
+    await expect(
+      controller.createOrder('code-1', { clientRequestId: 'req-1', items: [] }),
+    ).rejects.toMatchObject({
+      response: {
+        error: {
+          code: 'VALIDATION_ERROR',
+          details: { fields: errors },
+        },
+      },
+    });
+  });
+
   it('maps duplicateItems to 400 VALIDATION_ERROR', async () => {
     publicOrdersService.createOrder.mockResolvedValue({ outcome: 'duplicateItems' });
 

@@ -21,6 +21,10 @@ export function toFieldErrorCode(
       return 'INVALID_TYPE';
     case 'isLength':
       return 'INVALID_LENGTH';
+    case 'maxLength':
+      return 'TOO_LONG';
+    case 'minLength':
+      return 'TOO_SHORT';
     case 'isTimeZone':
       return 'INVALID_TIMEZONE';
     default:

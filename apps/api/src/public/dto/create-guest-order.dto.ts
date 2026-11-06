@@ -12,6 +12,12 @@ import { PLATFORM_SUPPORTED_LOCALES } from '../../restaurants/platform-locales';
 import { IsMoneyDecimalString } from '../../menu/money-decimal';
 import { Transform, Type } from 'class-transformer';
 import {
+  cleanMultiLine,
+  cleanPhoneInput,
+  cleanSingleLine,
+  GUEST_FIELD_LIMITS,
+} from '../guest-order-fields';
+import {
   ArrayMaxSize,
   ArrayMinSize,
   IsArray,
@@ -23,15 +29,26 @@ import {
   Max,
   MaxLength,
   Min,
+  ValidateIf,
   ValidateNested,
 } from 'class-validator';
 
-function trim(value: unknown): unknown {
-  return typeof value === 'string' ? value.trim() : value;
-}
-
 function trimLower(value: unknown): unknown {
   return typeof value === 'string' ? value.trim().toLowerCase() : value;
+}
+
+/** DEC-069: one chosen option of an Offer slot. */
+export class OfferChoiceDto {
+  @IsUUID('all', { message: 'slotId must be a well-formed UUID' })
+  slotId!: string;
+
+  @IsUUID('all', { message: 'optionId must be a well-formed UUID' })
+  optionId!: string;
+
+  @IsInt({ message: 'quantity must be a whole number' })
+  @Min(1, { message: 'quantity must be at least 1' })
+  @Max(20, { message: 'quantity must be at most 20' })
+  quantity!: number;
 }
 
 /**
@@ -47,8 +64,23 @@ function trimLower(value: unknown): unknown {
  * normalizes an omitted array to empty.
  */
 export class CreateGuestOrderItemDto {
+  /** A product line. Exactly one of `productId` / `offerId` must be sent (DEC-069). */
+  @ValidateIf((item: CreateGuestOrderItemDto) => item.offerId === undefined)
   @IsUUID('all', { message: 'productId must be a well-formed UUID' })
-  productId!: string;
+  productId?: string;
+
+  /** An offer line (DEC-069): the Offer's identity only. Its price comes from the Backend. */
+  @ValidateIf((item: CreateGuestOrderItemDto) => item.productId === undefined)
+  @IsUUID('all', { message: 'offerId must be a well-formed UUID' })
+  offerId?: string;
+
+  /** Offer line only: the chosen option of each non-included slot (identities and a quantity -- never a price or a name). */
+  @IsOptional()
+  @IsArray()
+  @ArrayMaxSize(20, { message: 'offerChoices must contain at most 20 entries' })
+  @ValidateNested({ each: true })
+  @Type(() => OfferChoiceDto)
+  offerChoices?: OfferChoiceDto[];
 
   @IsInt({ message: 'quantity must be a whole number' })
   @Min(1, { message: 'quantity must be at least 1' })
@@ -122,21 +154,27 @@ export class CreateGuestOrderDto {
   branchId?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanSingleLine(value))
   @IsString()
-  @MaxLength(100, { message: 'customerName must be at most 100 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.customerName.max, {
+    message: `customerName must be at most ${GUEST_FIELD_LIMITS.customerName.max} characters`,
+  })
   customerName?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanPhoneInput(value))
   @IsString()
-  @MaxLength(30, { message: 'customerPhone must be at most 30 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.customerPhone.max, {
+    message: `customerPhone must be at most ${GUEST_FIELD_LIMITS.customerPhone.max} characters`,
+  })
   customerPhone?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanMultiLine(value))
   @IsString()
-  @MaxLength(500, { message: 'customerNotes must be at most 500 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.customerNotes.max, {
+    message: `customerNotes must be at most ${GUEST_FIELD_LIMITS.customerNotes.max} characters`,
+  })
   customerNotes?: string;
 
   // FT-8: for a GENERIC QR the Guest may choose ONLY the fulfillment MODE.
@@ -155,32 +193,42 @@ export class CreateGuestOrderDto {
   deliveryZoneId?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanSingleLine(value))
   @IsString()
-  @MaxLength(300, { message: 'deliveryAddress must be at most 300 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.deliveryAddress.max, {
+    message: `deliveryAddress must be at most ${GUEST_FIELD_LIMITS.deliveryAddress.max} characters`,
+  })
   deliveryAddress?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanSingleLine(value))
   @IsString()
-  @MaxLength(50, { message: 'deliveryBuilding must be at most 50 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.deliveryBuilding.max, {
+    message: `deliveryBuilding must be at most ${GUEST_FIELD_LIMITS.deliveryBuilding.max} characters`,
+  })
   deliveryBuilding?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanSingleLine(value))
   @IsString()
-  @MaxLength(30, { message: 'deliveryFloor must be at most 30 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.deliveryFloor.max, {
+    message: `deliveryFloor must be at most ${GUEST_FIELD_LIMITS.deliveryFloor.max} characters`,
+  })
   deliveryFloor?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanSingleLine(value))
   @IsString()
-  @MaxLength(30, { message: 'deliveryApartment must be at most 30 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.deliveryApartment.max, {
+    message: `deliveryApartment must be at most ${GUEST_FIELD_LIMITS.deliveryApartment.max} characters`,
+  })
   deliveryApartment?: string;
 
   @IsOptional()
-  @Transform(({ value }) => trim(value))
+  @Transform(({ value }) => cleanSingleLine(value))
   @IsString()
-  @MaxLength(150, { message: 'deliveryLandmark must be at most 150 characters' })
+  @MaxLength(GUEST_FIELD_LIMITS.deliveryLandmark.max, {
+    message: `deliveryLandmark must be at most ${GUEST_FIELD_LIMITS.deliveryLandmark.max} characters`,
+  })
   deliveryLandmark?: string;
 }

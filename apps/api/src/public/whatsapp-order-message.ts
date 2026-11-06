@@ -22,6 +22,7 @@ const LABELS: Record<
     newOrder: string;
     sentFromMenu: string;
     category: string;
+    offers: string;
     size: string;
     price: string;
     delivery: string;
@@ -46,6 +47,7 @@ const LABELS: Record<
     newOrder: 'New order from the digital menu',
     sentFromMenu: 'Sent from the digital menu',
     category: 'Category',
+    offers: 'Offers',
     size: 'Size',
     price: 'Price',
     delivery: 'Delivery',
@@ -69,6 +71,7 @@ const LABELS: Record<
     newOrder: 'طلب جديد من المنيو الإلكتروني',
     sentFromMenu: 'تم إرسال الطلب من المنيو الإلكتروني',
     category: 'القسم',
+    offers: 'العروض',
     size: 'المقاس',
     price: 'السعر',
     delivery: 'توصيل',
@@ -159,6 +162,7 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
     items: OrderQuote['items'];
   }[] = [];
   for (const item of quote.items) {
+    if (item.kind === 'OFFER') continue; // Offers (DEC-069) are their own first group, below.
     const key = `${item.categoryOrder}|${item.categoryName}`;
     let group = groups.find((candidate) => candidate.key === key);
     if (!group) {
@@ -175,6 +179,30 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
   groups.sort((a, b) => a.order - b.order);
 
   let number = 0;
+
+  // Offers (DEC-069) come first as their own group: every chosen slot with ✅, the included gift with 🎁.
+  const offerItems = quote.items.filter((item) => item.kind === 'OFFER');
+  if (offerItems.length > 0) {
+    const separator = language === 'ar' ? '، ' : ', ';
+    lines.push(DIVIDER);
+    lines.push(`🎁 *${t.category}: ${t.offers}*`);
+    for (const item of offerItems) {
+      number += 1;
+      lines.push('');
+      lines.push(`*${number}) ${plain(item.name)}* × ${item.quantity}`);
+      for (const slot of item.offerSlots ?? []) {
+        const picked = slot.choices.map(
+          (choice) =>
+            `${choice.quantity > 1 ? `${choice.quantity}× ` : ''}${plain(choice.name)}${extraPrice(choice.priceAdjustment)}`,
+        );
+        lines.push(
+          `${slot.included ? '🎁' : '✅'} ${plain(slot.title)}: ${picked.join(separator)}`,
+        );
+      }
+      lines.push(`💰 ${t.price}: ${cost(item.lineTotal)}`);
+    }
+  }
+
   for (const group of groups) {
     lines.push(DIVIDER);
     if (group.name) lines.push(`🗂️ *${t.category}: ${plain(group.name)}*`);

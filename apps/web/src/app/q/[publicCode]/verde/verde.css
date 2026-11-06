@@ -408,3 +408,10 @@
   .verde-experience .v-marquee-track,.verde-experience .v-hero-image,.verde-experience .v-dish{animation:none!important}
   .verde-experience *,.verde-experience *::before,.verde-experience *::after{transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+
+/* Offers / Bundles (DEC-069): the shared strip takes the theme tokens; only spacing, the display face and the chip accent are the design's own. */
+.verde-experience .v-offers{padding-block:12px 30px}
+.verde-experience [data-offers-strip] h2{font-family:var(--v-display);text-transform:uppercase;letter-spacing:.01em;font-weight:800}
+.verde-experience [data-offers-strip] .g-display{font-family:var(--v-display);font-weight:800}
+.verde-experience [data-offers-strip] [data-offer-card]{border-radius:22px;border-width:1.5px}
+.verde-experience [data-offers-chip]{color:var(--g-accent-text);border-color:var(--g-accent)}

@@ -2558,3 +2558,20 @@ off, or Pickup and Delivery both off for a Restaurant QR), the Guest sees a
 # Guest Experience Principle
 
 > Scan, discover, order, and continue the meal with as little software friction as possible, while the Platform quietly protects pricing, table identity, session integrity, and Restaurant operations in the background.
+
+---
+
+# Amendment: Offers / Bundles (DEC-069, 2026-11-06)
+
+- **Placement "B":** while at least one offer is active the top strip of the menu (where "Our picks" shows) lists the offers and the featured products step aside; with none, nothing changes.
+  A "Offers" chip (gift icon) is the **first** chip of the category navigation (or of the design's own navigation) and scrolls to the strip. Searching hides the strip and the chip.
+- **Card:** photo or gift tile, badge (offer / gift / most ordered), name, description, the fixed price, the days it runs and a "Choose & add" pill. An offer not valid on today's weekday stays visible,
+  dimmed, with "Not available today" and no action.
+- **Choice sheet** (same look as the product sheet): one card per slot with a status chip (Included / Pick one / Pick N / Done); included items are listed with a gift icon, single choices are radio rows,
+  multi choices are steppers that must add up to the slot's count; paid choices show "+N". The Add button stays disabled (`aria-disabled`) until every slot is complete and the line above it says
+  which slot is still missing; tapping it scrolls to that slot. Live price = offer price + paid choices, times the quantity stepper.
+- **Cart:** one line per offer copy with its choices listed under it ("Pick your sandwich: Liver (+10)", "Offer gift: Free fries"), edit re-opens the sheet. A line whose offer is off today is blocked
+  ("remove it to continue"); one whose items changed is blocked with "Choose again". After a refused order (OFFER_UNAVAILABLE / OFFER_CHANGED) the menu is refetched and a localized message shows;
+  nothing is created.
+- One shared strip (`OffersStrip`), sheet (`OfferSheet`) and cart row serve every stock template and the exclusive designs (VERDE, El Sherbiny, Makkboz, Meat Lovers); colours come from the `--g-*` tokens of the
+  surrounding theme, so light / dark and RTL / LTR follow the design. The feature is hidden when the package does not include `OFFERS`.

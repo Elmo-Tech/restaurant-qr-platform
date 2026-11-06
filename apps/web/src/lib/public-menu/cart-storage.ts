@@ -12,12 +12,16 @@
  * identity `PublicMenuView`/`CartPanel` use to tell lines apart.
  */
 export interface StoredCartItem {
+  /** The Product; an empty string for an Offer line (DEC-069), which carries `offerId` instead. */
   productId: string;
   quantity: number;
   /** Canonical (sorted) order -- see `cartLineKey`. Empty for a Product with no Modifier Groups. */
   modifierOptionIds: string[];
   /** The chosen size (DEC-041) -- identity only; absent/null for a product without sizes. */
   variantId?: string | null;
+  /** Offers / Bundles (DEC-069): the Offer this line is a copy of (identity only), and the Guest's choices in it. */
+  offerId?: string | null;
+  offerChoices?: { slotId: string; optionId: string; quantity: number }[];
 }
 
 function storageKey(publicCode: string): string {
@@ -33,9 +37,46 @@ export function cartLineKey(
   return `${productId}::${variantId ?? ''}::${[...modifierOptionIds].sort().join(',')}`;
 }
 
+/** Stable identity of an Offer line (DEC-069): the Offer plus its exact choices, order-independent. */
+export function offerLineIdentity(
+  offerId: string,
+  choices: readonly { slotId: string; optionId: string; quantity: number }[],
+): string {
+  const parts = choices.map((pick) => `${pick.slotId}:${pick.optionId}:${pick.quantity}`).sort();
+  return `offer::${offerId}::${parts.join(',')}`;
+}
+
+/** The identity of ANY stored line (product or offer): what the quantity controls and the pending-attempt check key on. */
+export function storedItemKey(item: StoredCartItem): string {
+  return item.offerId
+    ? offerLineIdentity(item.offerId, item.offerChoices ?? [])
+    : cartLineKey(item.productId, item.modifierOptionIds, item.variantId);
+}
+
+function isOfferChoice(value: unknown): boolean {
+  if (typeof value !== 'object' || value === null) return false;
+  const pick = value as { slotId?: unknown; optionId?: unknown; quantity?: unknown };
+  return (
+    typeof pick.slotId === 'string' &&
+    typeof pick.optionId === 'string' &&
+    Number.isInteger(pick.quantity) &&
+    (pick.quantity as number) > 0
+  );
+}
+
 function isStoredCartItem(value: unknown): value is StoredCartItem {
   if (typeof value !== 'object' || value === null) return false;
   const candidate = value as Partial<StoredCartItem>;
+  if (candidate.offerId !== undefined && candidate.offerId !== null) {
+    // An Offer line: its own identity (offerId + choices); never a product.
+    return (
+      typeof candidate.offerId === 'string' &&
+      Number.isInteger(candidate.quantity) &&
+      (candidate.quantity as number) > 0 &&
+      (candidate.offerChoices === undefined ||
+        (Array.isArray(candidate.offerChoices) && candidate.offerChoices.every(isOfferChoice)))
+    );
+  }
   return (
     typeof candidate.productId === 'string' &&
     Number.isInteger(candidate.quantity) &&
@@ -51,6 +92,16 @@ function isStoredCartItem(value: unknown): value is StoredCartItem {
 
 /** Normalizes a validated-but-possibly-legacy stored row (from before FT-6A) to always carry a `modifierOptionIds` array. */
 function normalizeStoredCartItem(item: StoredCartItem): StoredCartItem {
+  if (item.offerId) {
+    return {
+      productId: '',
+      quantity: item.quantity,
+      modifierOptionIds: [],
+      variantId: null,
+      offerId: item.offerId,
+      offerChoices: item.offerChoices ?? [],
+    };
+  }
   return { ...item, modifierOptionIds: item.modifierOptionIds ?? [], variantId: item.variantId ?? null };
 }
 

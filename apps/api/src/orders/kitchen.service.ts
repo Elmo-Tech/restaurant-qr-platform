@@ -1,5 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../database/prisma.service';
+import { OFFER_CHOICES_SELECT, offerChoiceModifiers } from '../offers/offer-order';
 import type { OrderStatus, OrderType } from '../generated/prisma/client';
 import { resolveOrderBranchIdFilter } from './order-branch-scope';
 import type { AuthorizedOrderScope } from './orders.service';
@@ -100,6 +101,7 @@ export class KitchenService {
             productNameSnapshot: true,
             variantNameSnapshot: true,
             quantity: true,
+            ...OFFER_CHOICES_SELECT,
             modifiers: {
               orderBy: { displayOrder: 'asc' },
               select: {
@@ -134,10 +136,17 @@ export class KitchenService {
           name: item.productNameSnapshot,
           variantName: item.variantNameSnapshot,
           quantity: item.quantity,
-          modifiers: item.modifiers.map((modifier) => ({
-            groupName: modifier.modifierGroupNameSnapshot,
-            optionName: modifier.modifierOptionNameSnapshot,
-          })),
+          modifiers: [
+            ...item.modifiers.map((modifier) => ({
+              groupName: modifier.modifierGroupNameSnapshot,
+              optionName: modifier.modifierOptionNameSnapshot,
+            })),
+            // An Offer line (DEC-069): its choices and included items, so the kitchen sees what to prepare.
+            ...offerChoiceModifiers(item.offerChoices ?? []).map((choice) => ({
+              groupName: choice.groupName,
+              optionName: choice.optionName,
+            })),
+          ],
         })),
       };
     });

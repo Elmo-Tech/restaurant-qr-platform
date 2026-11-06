@@ -1610,6 +1610,9 @@ for:
 
 should receive an explicit Combo / Bundle model.
 
+**Update (DEC-069, 2026-11-06):** that explicit model now exists as **Offers / Bundles** (`docs/01-domain/OFFERS_SPEC.md`): fixed price, slots with choices and paid
+adjustments, weekday validity, its own tables. It is still not a Promotion: product discounts and Promotions never apply to an Offer line in V1.
+
 Do not overload simple V1 Promotions to represent complex Bundles.
 
 ---

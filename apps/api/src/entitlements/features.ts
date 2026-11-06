@@ -25,6 +25,8 @@ export const FEATURE_KEYS = [
   'KITCHEN',
   /** AI menu import from photos, a PDF or an Excel file (DEC-057). OFF unless the platform turns it on. */
   'MENU_IMPORT',
+  /** Offers / Bundles: fixed-price packages with choices in the Guest menu and the dashboard (DEC-069). */
+  'OFFERS',
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number];

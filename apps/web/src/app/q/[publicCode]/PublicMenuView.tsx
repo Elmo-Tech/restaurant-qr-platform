@@ -9,9 +9,20 @@ import { getPublicMenuCopy } from '../../../lib/public-menu/copy';
 import {
   cartLineKey,
   loadCart,
+  offerLineIdentity,
   saveCart,
+  storedItemKey,
   type StoredCartItem,
 } from '../../../lib/public-menu/cart-storage';
+import {
+  MAX_OFFER_QUANTITY,
+  OFFERS_SECTION_ID,
+  resolveOfferLine,
+  type OfferPick,
+} from '../../../lib/public-menu/offers';
+import { extraLabel, getOffersCopy } from '../../../lib/public-menu/offers-copy';
+import { OfferSheet } from './OfferSheet';
+import { OffersStrip } from './OffersStrip';
 import {
   lineTotalMinorUnits,
   fromMinorUnits,
@@ -25,6 +36,7 @@ import {
   payloadMatchesPendingAttempt,
   resolveClientRequestId,
   type PendingOrderCheckout,
+  type PendingOrderItem,
 } from '../../../lib/public-menu/pending-order-attempt';
 import { currencyLabel, formatAmount } from '../../../lib/public-menu/price-format';
 import { matchesSearch, normalizeForSearch } from '../../../lib/public-menu/search';
@@ -33,14 +45,22 @@ import type {
   GuestOrderView,
   PublicMenuData,
   PublicMenuProduct,
+  PublicOffer,
 } from '../../../lib/public-menu/types';
 import { CartBar } from './CartBar';
 import { CartPanel } from './CartPanel';
 import { CategoryChips, type ChipItem } from './CategoryChips';
 import { FeaturedBanners } from './FeaturedBanners';
 import { AnnouncementBar } from './AnnouncementBar';
-import { submitWhatsappOrder, type SubmitGuestOrderResult, type WhatsappOrderView } from '../../../lib/public-menu/orders-api';
+import {
+  submitWhatsappOrder,
+  type SubmitGuestOrderItem,
+  type SubmitGuestOrderResult,
+  type WhatsappOrderView,
+} from '../../../lib/public-menu/orders-api';
 import { TrackOrderSheet } from './TrackOrderSheet';
+import { useCheckoutValidation } from './useCheckoutValidation';
+import { sanitizeWhileTyping } from '../../../lib/public-menu/checkout-validation';
 import { fetchSuggestions } from '../../../lib/public-menu/suggestions';
 import { readTrackedOrders, rememberOrder } from '../../../lib/public-menu/tracking';
 import { WaytaLockup } from '../../../components/brand/Wayta';
@@ -55,6 +75,7 @@ import {
 import type {
   CartLine,
   CheckoutFieldKey,
+  DesignOffers,
   Fulfillment,
   OrderingContextView,
 } from './guest-view-types';
@@ -82,6 +103,9 @@ const SherbinyMenu = dynamic(() => import('./sherbiny/SherbinyMenu').then((modul
 import { DEFAULT_MAKKBOZ_SETTINGS, normalizeMakkbozSettings, type MakkbozMenuSettings } from '../../../lib/public-menu/makkboz-settings';
 import { MAKKBOZ_DESIGN_PREVIEW_READY, isMakkbozPreviewUpdate } from '../../../lib/public-menu/makkboz-preview';
 const MakkbozMenu = dynamic(() => import('./makkboz/MakkbozMenu').then((module) => module.MakkbozMenu));
+import { DEFAULT_MEAT_LOVERS_SETTINGS, normalizeMeatLoversSettings, type MeatLoversMenuSettings } from '../../../lib/public-menu/meat-lovers-settings';
+import { MEAT_LOVERS_DESIGN_PREVIEW_READY, isMeatLoversPreviewUpdate } from '../../../lib/public-menu/meat-lovers-preview';
+const MeatLoversMenu = dynamic(() => import('./meat-lovers/MeatLoversMenu').then((module) => module.MeatLoversMenu));
 import {DEFAULT_BREW_SETTINGS,BREW_DESIGN_PREVIEW_READY,isBrewPreviewUpdate,normalizeBrewTemplateSettings,type BrewTemplateSettings} from '../../../lib/public-menu/brew-settings';
 import {DEFAULT_EDITORIAL_SETTINGS, EDITORIAL_DESIGN_PREVIEW_READY, isEditorialPreviewUpdate, normalizeEditorialTemplateSettings,type EditorialTemplateSettings} from '../../../lib/public-menu/editorial-settings';
 import {
@@ -128,7 +152,7 @@ export function PublicMenuView({
   /** Explicit staff-frame preview flag; the server never returns draft settings. */
   designPreview?: boolean;
   /** Backend-resolved private renderer; must never be selected by public URL. */
-  exclusiveRendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
+  exclusiveRendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1' | 'MEAT_LOVERS_BUTCHER_V1';
   /** The guest's saved light / dark pick (cookie), read on the server; null = never chose. */
   guestTheme?: 'light' | 'dark' | null;
 }) {
@@ -249,6 +273,23 @@ export function PublicMenuView({
       ? makkbozLiveDraft
       : (data.context.restaurant.makkbozSettings ?? DEFAULT_MAKKBOZ_SETTINGS)
     : null;
+  const isMeatLovers = exclusiveRendererKey === 'MEAT_LOVERS_BUTCHER_V1';
+  const [meatLoversLiveDraft, setMeatLoversLiveDraft] = useState<MeatLoversMenuSettings | null>(null);
+  useEffect(() => {
+    if (!designPreview || !isMeatLovers || window.parent === window) return;
+    const listen = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin || event.source !== window.parent || !isMeatLoversPreviewUpdate(event.data)) return;
+      setMeatLoversLiveDraft(normalizeMeatLoversSettings(event.data.settings));
+    };
+    window.addEventListener('message', listen);
+    window.parent.postMessage({ type: MEAT_LOVERS_DESIGN_PREVIEW_READY }, window.location.origin);
+    return () => window.removeEventListener('message', listen);
+  }, [designPreview, isMeatLovers]);
+  const meatLoversSettings: MeatLoversMenuSettings | null = isMeatLovers
+    ? designPreview && meatLoversLiveDraft
+      ? meatLoversLiveDraft
+      : (data.context.restaurant.meatLoversSettings ?? DEFAULT_MEAT_LOVERS_SETTINGS)
+    : null;
   const hasCategories = data.menu.categories.length > 0;
   // Both premium demo references show one category at a time.
   // Search results still span all categories so no matching products disappear.
@@ -300,10 +341,16 @@ export function PublicMenuView({
     return products;
   }, [data.menu.categories]);
 
+  // Offers / Bundles (DEC-069): fixed-price packages with choices. With at least one active offer the top strip shows
+  // them INSTEAD of the featured products (which come back when there are none), and the first chip jumps there.
+  const offers = useMemo(() => data.context.offers ?? [], [data.context.offers]);
+  const offersCopy = getOffersCopy(locale);
+  const hasOffers = offers.length > 0;
+
   // The template decides the header, the cards, the headings and the category strip (DEC-044).
   // Photo-free templates show no photos anywhere (cards, cart, product page, featured banners).
   const layout = layoutOf(template);
-  const showPhotos = isVerde || isSherbiny || isMakkboz || layout.photos;
+  const showPhotos = isVerde || isSherbiny || isMakkboz || isMeatLovers || layout.photos;
 
   // "Our picks": featured, still available, with a photo (the banner needs one). Photo banners do
   // not exist in the photo-free template; a featured dish still carries its "Featured" tag there.
@@ -344,7 +391,7 @@ export function PublicMenuView({
       }))
       .filter((category) => category.products.length > 0);
   }, [data.menu.categories, isSearching, normalizedQuery, searchIndex]);
-  const isPremiumSingleCategory = isVerde || isSherbiny || isMakkboz || template === 'ember' || template === 'bloom' || template === 'brew';
+  const isPremiumSingleCategory = isVerde || isSherbiny || isMakkboz || isMeatLovers || template === 'ember' || template === 'bloom' || template === 'brew';
   const premiumVisibleCategories = isPremiumSingleCategory && !isSearching
     ? visibleCategories.filter((category) => category.id === premiumCategoryId)
     : visibleCategories;
@@ -353,8 +400,22 @@ export function PublicMenuView({
     0,
   );
 
-  const showFeatured = featuredProducts.length > 0 && !isSearching;
+  const showOffers = hasOffers && !isSearching;
+  // The featured strip gives its place to the offers while there are any.
+  const showFeatured = featuredProducts.length > 0 && !isSearching && !hasOffers;
+  const scrollToOffers = () => {
+    document.getElementById(`category-${OFFERS_SECTION_ID}`)?.scrollIntoView({
+      behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth',
+      block: 'start',
+    });
+  };
   const selectPremiumCategory = (id: string) => {
+    // The "Offers" chip is not a category: it scrolls to the strip at the top and keeps the shown category.
+    if (id === OFFERS_SECTION_ID) {
+      setQuery('');
+      window.requestAnimationFrame(scrollToOffers);
+      return;
+    }
     // Category content switches in place, unlike normal templates which jump to an anchored section.
     // Clear search first so every category is selectable, then keep the chip strip at the top.
     setQuery('');
@@ -370,12 +431,15 @@ export function PublicMenuView({
   };
   const navigation = useMenuNavigation(
     [
-      ...(featuredProducts.length > 0 ? [FEATURED_SECTION_ID] : []),
+      ...(hasOffers ? [OFFERS_SECTION_ID] : featuredProducts.length > 0 ? [FEATURED_SECTION_ID] : []),
       ...data.menu.categories.map((category) => category.id),
     ],
     isSearching,
   );
   const chipItems: ChipItem[] = [
+    ...(showOffers
+      ? [{ id: OFFERS_SECTION_ID, name: offersCopy.sectionTitle, imageUrl: null, isOffers: true }]
+      : []),
     ...(showFeatured
       ? [{ id: FEATURED_SECTION_ID, name: copy.ourPicks, imageUrl: null, isFeatured: true }]
       : []),
@@ -454,20 +518,30 @@ export function PublicMenuView({
         ? selectedZoneId
         : null;
   const selectedZone = zones.find((zone) => zone.id === resolvedZoneId) ?? null;
+  // Name, phone, address and the other typed fields: one shared set of rules for every template
+  // (instant inline feedback here; the API repeats them and is the authority).
+  const validation = useCheckoutValidation({
+    fields,
+    enabled: isGenericQr,
+    delivery: isDelivery,
+    country: data.context.restaurant.countryCode,
+    locale,
+  });
+  const submitValues = validation.valuesForSubmit();
   const checkout: PendingOrderCheckout | null = isGenericQr
     ? {
         fulfillment,
         branchId: resolvedBranchId,
-        customerName: fields.customerName,
-        customerPhone: fields.customerPhone,
-        customerNotes: fields.customerNotes,
+        customerName: submitValues.customerName,
+        customerPhone: submitValues.customerPhone,
+        customerNotes: submitValues.customerNotes,
         deliveryZoneId: isDelivery ? resolvedZoneId : null,
         // A Pickup attempt never carries delivery text (typed earlier, then switched away from).
-        deliveryAddress: isDelivery ? fields.deliveryAddress : '',
-        deliveryBuilding: isDelivery ? fields.deliveryBuilding : '',
-        deliveryFloor: isDelivery ? fields.deliveryFloor : '',
-        deliveryApartment: isDelivery ? fields.deliveryApartment : '',
-        deliveryLandmark: isDelivery ? fields.deliveryLandmark : '',
+        deliveryAddress: isDelivery ? submitValues.deliveryAddress : '',
+        deliveryBuilding: isDelivery ? submitValues.deliveryBuilding : '',
+        deliveryFloor: isDelivery ? submitValues.deliveryFloor : '',
+        deliveryApartment: isDelivery ? submitValues.deliveryApartment : '',
+        deliveryLandmark: isDelivery ? submitValues.deliveryLandmark : '',
       }
     : null;
   // A stable primitive for effect dependencies (the object above is new every render).
@@ -496,7 +570,11 @@ export function PublicMenuView({
     // immediately on mount.
     queueMicrotask(() => {
       const stored = loadCart(publicCode);
-      const reconciled = stored.filter((item) => productById.has(item.productId));
+      // An Offer line (DEC-069) stays only while the current menu still offers that offer; its choices are
+      // re-checked against the offer when the lines are built (a changed offer blocks the line, never silently drops it).
+      const reconciled = stored.filter((item) =>
+        item.offerId ? offers.some((offer) => offer.id === item.offerId) : productById.has(item.productId),
+      );
       setCart(reconciled);
       if (reconciled.length !== stored.length) {
         saveCart(publicCode, reconciled);
@@ -521,6 +599,8 @@ export function PublicMenuView({
       quantity: item.quantity,
       modifierOptionIds: item.modifierOptionIds,
       variantId: item.variantId ?? null,
+      offerId: item.offerId ?? null,
+      offerChoices: item.offerChoices ?? [],
     }));
     const currentCheckout = JSON.parse(checkoutKey) as PendingOrderCheckout | null;
     if (!payloadMatchesPendingAttempt(publicCode, items, currentCheckout)) {
@@ -551,6 +631,7 @@ export function PublicMenuView({
     const simple = new Map<string, number>();
     const total = new Map<string, number>();
     for (const item of cart) {
+      if (item.offerId) continue; // Offer lines have no product card to count on.
       total.set(item.productId, (total.get(item.productId) ?? 0) + item.quantity);
       if (item.modifierOptionIds.length === 0 && !item.variantId) simple.set(item.productId, item.quantity);
     }
@@ -563,7 +644,7 @@ export function PublicMenuView({
       const key = cartLineKey(productId, modifierOptionIds, variantId);
       updateCart((prev) => {
         const current = prev.find(
-          (item) => cartLineKey(item.productId, item.modifierOptionIds, item.variantId) === key,
+          (item) => storedItemKey(item) === key,
         );
         if (!current) {
           return [
@@ -572,7 +653,7 @@ export function PublicMenuView({
           ];
         }
         return prev.map((item) =>
-          cartLineKey(item.productId, item.modifierOptionIds, item.variantId) === key
+          storedItemKey(item) === key
             ? { ...item, quantity: Math.min(item.quantity + quantity, MAX_QUANTITY) }
             : item,
         );
@@ -597,7 +678,8 @@ export function PublicMenuView({
   // The answer is product ids of this very menu; a failed request just means no suggestions.
   const suggestionsOn = data.context.suggestions === true;
   const cartProductKey = useMemo(
-    () => [...new Set(cart.map((item) => item.productId))].sort().join(','),
+    () =>
+      [...new Set(cart.filter((item) => !item.offerId).map((item) => item.productId))].sort().join(','),
     [cart],
   );
   const [suggestionIds, setSuggestionIds] = useState<string[]>([]);
@@ -664,12 +746,12 @@ export function PublicMenuView({
     const newKey = cartLineKey(productId, modifierOptionIds, variantId);
     updateCart((prev) => {
       const index = prev.findIndex(
-        (item) => cartLineKey(item.productId, item.modifierOptionIds, item.variantId) === oldKey,
+        (item) => storedItemKey(item) === oldKey,
       );
       if (index === -1) return prev;
       const rest = prev.filter((_, position) => position !== index);
       const existing = rest.findIndex(
-        (item) => cartLineKey(item.productId, item.modifierOptionIds, item.variantId) === newKey,
+        (item) => storedItemKey(item) === newKey,
       );
       if (existing !== -1) {
         return rest.map((item, position) =>
@@ -688,10 +770,100 @@ export function PublicMenuView({
     });
   }
 
+  // ---- Offers (DEC-069) ----
+  // The Offer open in its choice sheet, and -- when opened from a cart row -- the line being replaced.
+  const [sheetOffer, setSheetOffer] = useState<PublicOffer | null>(null);
+  const [editingOffer, setEditingOffer] = useState<{
+    lineKey: string;
+    choices: OfferPick[];
+    quantity: number;
+  } | null>(null);
+
+  const handleOpenOffer = useCallback((offer: PublicOffer) => setSheetOffer(offer), []);
+
+  function closeOfferSheet() {
+    setSheetOffer(null);
+    setEditingOffer(null);
+  }
+
+  /** Adds `quantity` copies of the offer with these exact choices (an identical line is merged, a different choice is its own line). */
+  const addOfferLine = useCallback(
+    (offerId: string, choices: OfferPick[], quantity: number) => {
+      const key = offerLineIdentity(offerId, choices);
+      updateCart((prev) => {
+        if (prev.some((item) => storedItemKey(item) === key)) {
+          return prev.map((item) =>
+            storedItemKey(item) === key
+              ? { ...item, quantity: Math.min(item.quantity + quantity, MAX_OFFER_QUANTITY) }
+              : item,
+          );
+        }
+        return [
+          ...prev,
+          {
+            productId: '',
+            quantity: Math.min(quantity, MAX_OFFER_QUANTITY),
+            modifierOptionIds: [],
+            variantId: null,
+            offerId,
+            offerChoices: choices,
+          },
+        ];
+      });
+    },
+    [updateCart],
+  );
+
+  function handleConfirmOffer(choices: OfferPick[], quantity: number) {
+    if (!sheetOffer) return;
+    if (editingOffer) {
+      // Editing replaces the line in place (its identity is the offer plus its choices).
+      const oldKey = editingOffer.lineKey;
+      const newKey = offerLineIdentity(sheetOffer.id, choices);
+      const offerId = sheetOffer.id;
+      updateCart((prev) => {
+        const index = prev.findIndex((item) => storedItemKey(item) === oldKey);
+        if (index === -1) return prev;
+        const rest = prev.filter((_, position) => position !== index);
+        const existing = rest.findIndex((item) => storedItemKey(item) === newKey);
+        if (existing !== -1) {
+          return rest.map((item, position) =>
+            position === existing
+              ? { ...item, quantity: Math.min(item.quantity + quantity, MAX_OFFER_QUANTITY) }
+              : item,
+          );
+        }
+        const replacement: StoredCartItem = {
+          productId: '',
+          quantity: Math.min(quantity, MAX_OFFER_QUANTITY),
+          modifierOptionIds: [],
+          variantId: null,
+          offerId,
+          offerChoices: choices,
+        };
+        return [...rest.slice(0, index), replacement, ...rest.slice(index)];
+      });
+    } else {
+      addOfferLine(sheetOffer.id, choices, quantity);
+    }
+    closeOfferSheet();
+  }
+
   function handleEditLine(lineKey: string) {
-    const item = cart.find(
-      (entry) => cartLineKey(entry.productId, entry.modifierOptionIds, entry.variantId) === lineKey,
-    );
+    const item = cart.find((entry) => storedItemKey(entry) === lineKey);
+    if (item?.offerId) {
+      const offer = offers.find((candidate) => candidate.id === item.offerId);
+      if (!offer) return;
+      // A changed offer starts the choice again; an unchanged one reopens with the same choices.
+      const resolved = resolveOfferLine(offers, { offerId: offer.id, choices: item.offerChoices ?? [] }, extraLabel);
+      setEditingOffer({
+        lineKey,
+        choices: resolved?.problem === 'CHANGED' ? [] : (item.offerChoices ?? []),
+        quantity: item.quantity,
+      });
+      setSheetOffer(offer);
+      return;
+    }
     const product = item ? productById.get(item.productId) : undefined;
     if (!item || !product) return;
     const selectedByGroup: Record<string, string[]> = {};
@@ -708,7 +880,7 @@ export function PublicMenuView({
     (lineKey: string) => {
       updateCart((prev) =>
         prev.map((item) =>
-          cartLineKey(item.productId, item.modifierOptionIds, item.variantId) === lineKey
+          storedItemKey(item) === lineKey
             ? { ...item, quantity: Math.min(item.quantity + 1, MAX_QUANTITY) }
             : item,
         ),
@@ -722,7 +894,7 @@ export function PublicMenuView({
       updateCart((prev) =>
         prev
           .map((item) =>
-            cartLineKey(item.productId, item.modifierOptionIds, item.variantId) === lineKey
+            storedItemKey(item) === lineKey
               ? { ...item, quantity: item.quantity - 1 }
               : item,
           )
@@ -734,7 +906,7 @@ export function PublicMenuView({
 
   function handleRemove(lineKey: string) {
     updateCart((prev) =>
-      prev.filter((item) => cartLineKey(item.productId, item.modifierOptionIds, item.variantId) !== lineKey),
+      prev.filter((item) => storedItemKey(item) !== lineKey),
     );
   }
 
@@ -764,8 +936,58 @@ export function PublicMenuView({
     );
   }, []);
 
+  // An offer that vanished from the menu (switched off, deleted, expired) after the page loaded: drop its cart line.
+  useEffect(() => {
+    if (!hasHydratedCart) return;
+    if (!cart.some((item) => item.offerId && !offers.some((offer) => offer.id === item.offerId))) return;
+    queueMicrotask(() =>
+      updateCart((prev) =>
+        prev.filter((item) => !item.offerId || offers.some((offer) => offer.id === item.offerId)),
+      ),
+    );
+  }, [offers, hasHydratedCart, cart, updateCart]);
+
   const cartLines: CartLine[] = cart
-    .map((item) => {
+    .map((item): CartLine | null => {
+      if (item.offerId) {
+        // An Offer line (DEC-069): name, rows and price always come from the CURRENT offer, never from storage.
+        const resolved = resolveOfferLine(
+          offers,
+          { offerId: item.offerId, choices: item.offerChoices ?? [] },
+          extraLabel,
+          locale === 'ar' ? '، ' : ', ',
+        );
+        if (!resolved) return null;
+        const unitPrice = resolved.unitPrice;
+        return {
+          lineKey: storedItemKey(item),
+          productId: '',
+          offerId: resolved.offer.id,
+          offerChoices: item.offerChoices ?? [],
+          quantity: item.quantity,
+          modifierOptionIds: [],
+          variantId: null,
+          variantName: null,
+          name: resolved.offer.name,
+          hasModifierGroups: true,
+          imageAssetPath: resolved.offer.imageAssetPath,
+          unitPrice,
+          lineTotal: fromMinorUnits(lineTotalMinorUnits(unitPrice, item.quantity)),
+          originalLineTotal: fromMinorUnits(lineTotalMinorUnits(unitPrice, item.quantity)),
+          discounted: false,
+          selections: [],
+          offerRows: resolved.rows,
+          blocked: resolved.problem !== null,
+          blockedReason:
+            resolved.problem === 'UNAVAILABLE'
+              ? resolved.offer.soldOut === true
+                ? ('OFFER_SOLD_OUT' as const)
+                : ('OFFER_NOT_TODAY' as const)
+              : resolved.problem === 'CHANGED'
+                ? ('OFFER_CHANGED' as const)
+                : null,
+        };
+      }
       const product = productById.get(item.productId);
       if (!product) return null;
 
@@ -810,7 +1032,7 @@ export function PublicMenuView({
         : originalUnitPrice;
 
       return {
-        lineKey: cartLineKey(item.productId, item.modifierOptionIds, item.variantId),
+        lineKey: storedItemKey(item),
         productId: item.productId,
         quantity: item.quantity,
         modifierOptionIds: item.modifierOptionIds,
@@ -824,10 +1046,35 @@ export function PublicMenuView({
         originalLineTotal: fromMinorUnits(lineTotalMinorUnits(originalUnitPrice, item.quantity)),
         discounted,
         selections,
+        offerId: null,
+        offerChoices: [],
+        blockedReason: null,
         blocked: product.availability === 'SOLD_OUT' || sizeMissing,
       };
     })
     .filter((line): line is CartLine => line !== null);
+
+  /** What the order endpoints receive for the orderable lines: identities and quantities only -- never a price or a name. */
+  const toPendingItems = (lines: CartLine[]): PendingOrderItem[] =>
+    lines.map((line) => ({
+      productId: line.productId,
+      quantity: line.quantity,
+      modifierOptionIds: line.modifierOptionIds,
+      variantId: line.variantId,
+      offerId: line.offerId,
+      offerChoices: line.offerChoices,
+    }));
+  const toSubmitItems = (lines: CartLine[]): SubmitGuestOrderItem[] =>
+    lines.map((line) =>
+      line.offerId
+        ? { offerId: line.offerId, quantity: line.quantity, offerChoices: line.offerChoices }
+        : {
+            productId: line.productId,
+            quantity: line.quantity,
+            modifierOptionIds: line.modifierOptionIds,
+            ...(line.variantId ? { variantId: line.variantId } : {}),
+          },
+    );
 
   const orderableLines = cartLines.filter((line) => !line.blocked);
   const hasBlockedLines = cartLines.some((line) => line.blocked);
@@ -871,13 +1118,11 @@ export function PublicMenuView({
           unitLabel,
         )
       : null;
+  // Branch, delivery area and the minimum order block the button with a reason. The typed
+  // fields (name, phone, address ...) do not: tapping send shows each problem under its field.
   const checkoutDetailsComplete =
     !isGenericQr ||
-    (resolvedBranchId !== null &&
-      fields.customerName.trim() !== '' &&
-      fields.customerPhone.trim() !== '' &&
-      (!isDelivery ||
-        (resolvedZoneId !== null && fields.deliveryAddress.trim() !== '' && !belowMinimum)));
+    (resolvedBranchId !== null && (!isDelivery || (resolvedZoneId !== null && !belowMinimum)));
   // Opening hours (DEC-042): a closed Branch takes no Pickup / Delivery orders. Advisory
   // here; the Backend refuses with BRANCH_CLOSED either way.
   const branchClosed =
@@ -910,9 +1155,9 @@ export function PublicMenuView({
     : branchClosed
       ? copy.branchClosedHint
       : !checkoutDetailsComplete && !belowMinimum
-      ? isDelivery
-        ? copy.deliveryDetailsRequiredError
-        : copy.pickupDetailsRequiredError
+      ? isDelivery && resolvedBranchId !== null
+        ? copy.deliveryAreaError
+        : copy.pickupBranchError
       : null;
 
   // "Check again": re-read the advisory availability. Failure is shown as such -- never
@@ -952,21 +1197,22 @@ export function PublicMenuView({
 
   async function handlePlaceOrder() {
     if (!canSubmit) return;
+    if (!(await validation.checkBeforeSend())) return;
     setIsSubmitting(true);
     setSubmitError(null);
-    const items = orderableLines.map((line) => ({
-      productId: line.productId,
-      quantity: line.quantity,
-      modifierOptionIds: line.modifierOptionIds,
-      ...(line.variantId ? { variantId: line.variantId } : {}),
-    }));
+    const items = toSubmitItems(orderableLines);
     // FT-5 critical fix: reuse the SAME clientRequestId as any still-
     // pending attempt for this exact Cart payload (a retry after a lost
     // response, including across a refresh or an EN/AR navigation), or
     // generate+persist a fresh one -- never a brand-new id on every call,
     // which would silently defeat the Backend's idempotency guarantee on
     // the most important case (an ambiguous network failure).
-    const clientRequestId = resolveClientRequestId(publicCode, items, checkout, generateUuid);
+    const clientRequestId = resolveClientRequestId(
+      publicCode,
+      toPendingItems(orderableLines),
+      checkout,
+      generateUuid,
+    );
     const result = await submitGuestOrder(
       publicCode,
       clientRequestId,
@@ -1016,8 +1262,24 @@ export function PublicMenuView({
       setSubmitError(copy.itemsUnavailableError);
       return;
     }
+    if (result.outcome === 'offerUnavailable' || result.outcome === 'offerChanged') {
+      // An offer was switched off, expired, is not valid today, or its items changed. Nothing was created; the cart
+      // is kept. Refetch the menu so the cart marks the line (remove / choose again) and the strip shows the truth.
+      setSubmitError(
+        result.outcome === 'offerUnavailable' ? offersCopy.unavailableError : offersCopy.changedError,
+      );
+      router.refresh();
+      return;
+    }
     if (result.outcome === 'notFound') {
       setSubmitError(copy.orderNotFoundError);
+      return;
+    }
+    if (result.outcome === 'invalidFields') {
+      // The API refused specific fields: show each one under its field (stable codes, our words).
+      if (!validation.applyServerIssues(result.fields)) {
+        setSubmitError(isDelivery ? copy.deliveryDetailsRequiredError : copy.pickupDetailsRequiredError);
+      }
       return;
     }
     if (result.outcome === 'pickupDetailsRequired') {
@@ -1080,14 +1342,10 @@ export function PublicMenuView({
   /** DEC-042: prices the cart on the Backend and hands the ready-to-send message to WhatsApp. No order is stored. */
   async function handleSendWhatsapp() {
     if (!canSubmit) return;
+    if (!(await validation.checkBeforeSend())) return;
     setIsSubmitting(true);
     setSubmitError(null);
-    const items = orderableLines.map((line) => ({
-      productId: line.productId,
-      quantity: line.quantity,
-      modifierOptionIds: line.modifierOptionIds,
-      ...(line.variantId ? { variantId: line.variantId } : {}),
-    }));
+    const items = toSubmitItems(orderableLines);
     const result = await submitWhatsappOrder(
       publicCode,
       items,
@@ -1205,7 +1463,7 @@ export function PublicMenuView({
     hasActiveOrder,
   };
   const Hero =
-    isVerde || isSherbiny || isMakkboz ? GuestHeroCompact : layout.hero === 'brew' ? GuestHeroBrew : layout.hero === 'bloom'
+    isVerde || isSherbiny || isMakkboz || isMeatLovers ? GuestHeroCompact : layout.hero === 'brew' ? GuestHeroBrew : layout.hero === 'bloom'
       ? GuestHeroBloom
       : layout.hero === 'ember'
       ? GuestHeroEmber
@@ -1292,7 +1550,12 @@ export function PublicMenuView({
                     zoneId: resolvedZoneId,
                     onZoneChange: setSelectedZoneId,
                     fields,
-                    onFieldChange: (key, value) => setFields((prev) => ({ ...prev, [key]: value })),
+                    onFieldChange: (key, value) => {
+                      validation.onFieldEdited(key);
+                      setFields((prev) => ({ ...prev, [key]: sanitizeWhileTyping(key, value) }));
+                    },
+                    fieldErrors: validation.fieldErrors,
+                    onFieldBlur: validation.onFieldBlur,
                     subtotalDisplay: totalDisplay,
                     deliveryFeeDisplay: isDelivery && selectedZone ? deliveryFeeDisplay : null,
                     grandTotalDisplay: isDelivery ? grandTotalDisplay : totalDisplay,
@@ -1329,8 +1592,40 @@ export function PublicMenuView({
             onConfirm={handleConfirmOptions}
           />
         ) : null}
+
+        {sheetOffer ? (
+          <OfferSheet
+            key={`${sheetOffer.id}:${editingOffer?.lineKey ?? 'new'}`}
+            offer={sheetOffer}
+            currency={currency}
+            copy={copy}
+            offersCopy={offersCopy}
+            dir={dir}
+            initial={editingOffer ?? undefined}
+            showPhotos={showPhotos}
+            onCancel={closeOfferSheet}
+            onConfirm={handleConfirmOffer}
+          />
+        ) : null}
     </>
   );
+  // Offers (DEC-069) for the exclusive designs: the same shared strip, dressed by the design's own tokens, plus the first chip.
+  const designOffers: DesignOffers | null = showOffers
+    ? {
+        strip: (
+          <OffersStrip
+            offers={offers}
+            currency={currency}
+            offersCopy={offersCopy}
+            canOrder={canOrder}
+            showPhotos={showPhotos}
+            onOpen={handleOpenOffer}
+          />
+        ),
+        chipLabel: offersCopy.sectionTitle,
+        onJump: () => selectPremiumCategory(OFFERS_SECTION_ID),
+      }
+    : null;
   const poweredByLink = data.context.platform?.poweredByUrl ?? 'https://menu.elmotechsoft.online/';
   const verdePoweredBy = (
     <>
@@ -1386,7 +1681,45 @@ export function PublicMenuView({
           data-bloom-palette={template === 'bloom' ? bloomSettings.palette : undefined}
           data-bloom-motion={template === 'bloom' ? bloomSettings.motion : undefined}
         >
-        {makkbozSettings ? (
+        {meatLoversSettings ? (
+          <MeatLoversMenu
+            settings={meatLoversSettings}
+            guestTheme={guestTheme}
+            restaurantName={data.context.restaurant.name}
+            logoUrl={logoUrl}
+            locale={locale}
+            availableLocales={data.locale.available}
+            publicCode={publicCode}
+            designPreview={designPreview}
+            copy={copy}
+            currency={currency}
+            categories={data.menu.categories}
+            visibleCategories={visibleCategories}
+            query={query}
+            onQueryChange={setQuery}
+            canOrder={canOrder}
+            simpleQuantityByProductId={simpleQuantityByProductId}
+            totalQuantityByProductId={totalQuantityByProductId}
+            onOpenProduct={handleOpenProduct}
+            onQuickAdd={handleQuickAdd}
+            onIncrement={handleCardIncrement}
+            onDecrement={handleCardDecrement}
+            cartCount={cartCount}
+            onOpenCart={canOrder ? () => setIsCartOpen(true) : null}
+            onTrack={trackingAvailable ? openTracking : null}
+            hasActiveOrder={hasActiveOrder}
+            shareCode={data.context.restaurant.shareCode}
+            contact={data.context.restaurant.contact}
+            locations={data.context.locations ?? []}
+            hours={data.context.restaurant.hours}
+            notices={verdeNotices}
+            orderingBar={verdeOrdering}
+            offers={designOffers}
+            poweredBy={verdePoweredBy}
+          >
+            {overlays}
+          </MeatLoversMenu>
+        ) : makkbozSettings ? (
           <MakkbozMenu
             settings={makkbozSettings}
             guestTheme={guestTheme}
@@ -1419,6 +1752,7 @@ export function PublicMenuView({
             hours={data.context.restaurant.hours}
             notices={verdeNotices}
             orderingBar={verdeOrdering}
+            offers={designOffers}
             poweredBy={verdePoweredBy}
           >
             {overlays}
@@ -1459,6 +1793,7 @@ export function PublicMenuView({
             hours={data.context.restaurant.hours}
             notices={verdeNotices}
             orderingBar={verdeOrdering}
+            offers={designOffers}
             poweredBy={verdePoweredBy}
           >
             {overlays}
@@ -1494,6 +1829,7 @@ export function PublicMenuView({
             shareCode={data.context.restaurant.shareCode}
             notices={verdeNotices}
             orderingBar={verdeOrdering}
+            offers={designOffers}
             contact={<GuestContact contact={data.context.restaurant.contact} copy={copy} />}
             poweredBy={verdePoweredBy}
           >
@@ -1598,6 +1934,17 @@ export function PublicMenuView({
                 <GuestIconInfo className="mt-0.5 size-5 shrink-0 text-g-accent-text" />
                 {copy.branchClosedNotice}
               </p>
+            ) : null}
+
+            {showOffers ? (
+              <OffersStrip
+                offers={offers}
+                currency={currency}
+                offersCopy={offersCopy}
+                canOrder={canOrder}
+                showPhotos={showPhotos}
+                onOpen={handleOpenOffer}
+              />
             ) : null}
 
             {showFeatured ? (

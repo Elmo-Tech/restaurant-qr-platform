@@ -23,6 +23,16 @@ export interface PendingOrderItem {
   modifierOptionIds: string[];
   /** The chosen size (DEC-041), identity only. */
   variantId?: string | null;
+  /** An Offer line (DEC-069): `productId` is then an empty string. The Offer and the Guest's choices are part of the payload identity too. */
+  offerId?: string | null;
+  offerChoices?: { slotId: string; optionId: string; quantity: number }[];
+}
+
+function offerChoiceKey(item: PendingOrderItem): string {
+  return (item.offerChoices ?? [])
+    .map((pick) => `${pick.slotId}:${pick.optionId}:${pick.quantity}`)
+    .sort()
+    .join(',');
 }
 
 /**
@@ -134,10 +144,14 @@ function canonicalizeItems(items: PendingOrderItem[]): PendingOrderItem[] {
       quantity: item.quantity,
       modifierOptionIds: [...item.modifierOptionIds].sort(),
       variantId: item.variantId ?? null,
+      offerId: item.offerId ?? null,
+      offerChoices: [...(item.offerChoices ?? [])].sort((a, b) =>
+        `${a.slotId}:${a.optionId}`.localeCompare(`${b.slotId}:${b.optionId}`),
+      ),
     }))
     .sort((a, b) =>
-      `${a.productId}::${a.variantId ?? ''}::${a.modifierOptionIds.join(',')}`.localeCompare(
-        `${b.productId}::${b.variantId ?? ''}::${b.modifierOptionIds.join(',')}`,
+      `${a.productId}::${a.variantId ?? ''}::${a.modifierOptionIds.join(',')}::${a.offerId ?? ''}::${offerChoiceKey(a)}`.localeCompare(
+        `${b.productId}::${b.variantId ?? ''}::${b.modifierOptionIds.join(',')}::${b.offerId ?? ''}::${offerChoiceKey(b)}`,
       ),
     );
 }
@@ -152,6 +166,8 @@ function itemsEqual(a: PendingOrderItem[], b: PendingOrderItem[]): boolean {
       item.productId === other.productId &&
       item.quantity === other.quantity &&
       item.variantId === other.variantId &&
+      item.offerId === other.offerId &&
+      offerChoiceKey(item) === offerChoiceKey(other) &&
       item.modifierOptionIds.length === other.modifierOptionIds.length &&
       item.modifierOptionIds.every((id, i) => id === other.modifierOptionIds[i])
     );
@@ -168,7 +184,20 @@ function isPendingOrderItem(value: unknown): value is PendingOrderItem {
     candidate.modifierOptionIds.every((id) => typeof id === 'string') &&
     (candidate.variantId === undefined ||
       candidate.variantId === null ||
-      typeof candidate.variantId === 'string')
+      typeof candidate.variantId === 'string') &&
+    (candidate.offerId === undefined ||
+      candidate.offerId === null ||
+      typeof candidate.offerId === 'string') &&
+    (candidate.offerChoices === undefined ||
+      (Array.isArray(candidate.offerChoices) &&
+        candidate.offerChoices.every(
+          (pick) =>
+            typeof pick === 'object' &&
+            pick !== null &&
+            typeof pick.slotId === 'string' &&
+            typeof pick.optionId === 'string' &&
+            Number.isInteger(pick.quantity),
+        )))
   );
 }
 

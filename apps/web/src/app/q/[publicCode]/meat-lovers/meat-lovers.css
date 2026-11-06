@@ -1,0 +1,397 @@
+/*
+ * Meat Lovers exclusive menu skin (MEAT_LOVERS_BUTCHER_V1), from the approved "The Butcher's Edit" concept (V3
+ * curved edition): charcoal and warm paper, butcher red, tan accents, rounded cards. Every selector lives under
+ * `.meat-lovers-experience`, the root the Backend-selected renderer mounts, so no stock template is affected. The
+ * `--g-*` tokens the shared Guest components read (cart bar, cart, product sheet, tracking) are mapped to this
+ * palette in both modes so those overlays match. The header, hero and story band are dark in light mode too, as in
+ * the concept. Layout uses logical properties and the root's own `dir`, so Arabic (RTL) and English (LTR) share one
+ * sheet.
+ */
+.meat-lovers-experience{
+  --ml-page:#f4f0e8;--ml-paper:#fffdf8;--ml-panel:#faf7f0;--ml-text:#24211f;--ml-muted:#6b655d;--ml-rule:#ded7cd;--ml-rule-strong:#cabeb0;
+  --ml-red:#c42c24;--ml-red-text:#b3261f;--ml-red-hover:#a61d18;--ml-accent:#8a6a42;--ml-heading:#201e1b;--ml-wash:#ebe4d9;
+  --ml-card:#fbf8f3;--ml-card-line:#e6ded3;--ml-card-hover:#e8d6c9;--ml-card-shadow:0 8px 26px rgba(59,38,23,.055);--ml-chip-active:#f7e9e4;
+  --ml-header:#171716;--ml-hero:#161716;--ml-hero-ink:#fbf5eb;--ml-hero-muted:#c5bdb1;--ml-story:#151413;
+  --ml-btn:#c42c24;--ml-btn-hover:#a61d18;--ml-btn-fg:#fff;
+  --ml-display:var(--ml-font-display),'Alexandria','IBM Plex Sans Arabic',Tahoma,sans-serif;
+  --ml-body:var(--ml-font-body),'IBM Plex Sans Arabic',Tahoma,Arial,sans-serif;
+  --ml-label:var(--ml-font-label),'Barlow Condensed','Arial Narrow',sans-serif;
+  --ml-max:1312px;
+  font-family:var(--ml-body);font-size:16px;line-height:1.8;-webkit-font-smoothing:antialiased;
+  background:var(--ml-page);color:var(--ml-text);min-height:100dvh;position:relative;overflow-x:clip;color-scheme:light;
+  --g-bg:#fffdf8;--g-surface:#fbf8f3;--g-surface-2:#ebe4d9;--g-line:#ded7cd;
+  --g-text:#24211f;--g-text-2:#4a4540;--g-text-3:#6b655d;
+  --g-accent:#c42c24;--g-on-accent:#ffffff;--g-accent-soft:#f7e9e4;--g-accent-text:#a61d18;--g-price:#201e1b;
+  --g-danger:#a3361e;--g-danger-soft:#fde8e2;--g-shadow:0 22px 70px rgba(47,26,16,.14);
+}
+.meat-lovers-experience[data-ml-theme="dark"]{
+  color-scheme:dark;
+  --ml-page:#1c1b19;--ml-paper:#242321;--ml-panel:#211f1d;--ml-text:#f3eee7;--ml-muted:#b5aa9f;--ml-rule:#403b35;--ml-rule-strong:#5d5348;
+  --ml-red:#d6483c;--ml-red-text:#f08a7e;--ml-red-hover:#b82822;--ml-accent:#d0ac7c;--ml-heading:#faf7f0;--ml-wash:#2c2a27;
+  --ml-card:#2b2926;--ml-card-line:#494038;--ml-card-hover:#786254;--ml-card-shadow:0 14px 28px rgba(0,0,0,.13);--ml-chip-active:#49312c;
+  --ml-btn:#c23a30;--ml-btn-hover:#a62e26;--ml-btn-fg:#fff;
+  --g-bg:#242321;--g-surface:#2b2926;--g-surface-2:#34312d;--g-line:#4a423a;
+  --g-text:#f3eee7;--g-text-2:#d8cfc4;--g-text-3:#b5aa9f;
+  --g-accent:#c23a30;--g-on-accent:#ffffff;--g-accent-soft:rgba(214,72,60,.18);--g-accent-text:#f08a7e;--g-price:#faf7f0;
+  --g-danger:#ff9a8d;--g-danger-soft:rgba(217,78,67,.2);--g-shadow:0 22px 70px rgba(0,0,0,.5);
+}
+@media (prefers-color-scheme:dark){
+  .meat-lovers-experience[data-ml-theme="system"]{
+  color-scheme:dark;
+  --ml-page:#1c1b19;--ml-paper:#242321;--ml-panel:#211f1d;--ml-text:#f3eee7;--ml-muted:#b5aa9f;--ml-rule:#403b35;--ml-rule-strong:#5d5348;
+  --ml-red:#d6483c;--ml-red-text:#f08a7e;--ml-red-hover:#b82822;--ml-accent:#d0ac7c;--ml-heading:#faf7f0;--ml-wash:#2c2a27;
+  --ml-card:#2b2926;--ml-card-line:#494038;--ml-card-hover:#786254;--ml-card-shadow:0 14px 28px rgba(0,0,0,.13);--ml-chip-active:#49312c;
+  --ml-btn:#c23a30;--ml-btn-hover:#a62e26;--ml-btn-fg:#fff;
+  --g-bg:#242321;--g-surface:#2b2926;--g-surface-2:#34312d;--g-line:#4a423a;
+  --g-text:#f3eee7;--g-text-2:#d8cfc4;--g-text-3:#b5aa9f;
+  --g-accent:#c23a30;--g-on-accent:#ffffff;--g-accent-soft:rgba(214,72,60,.18);--g-accent-text:#f08a7e;--g-price:#faf7f0;
+  --g-danger:#ff9a8d;--g-danger-soft:rgba(217,78,67,.2);--g-shadow:0 22px 70px rgba(0,0,0,.5);
+  }
+}
+.meat-lovers-experience [hidden]{display:none!important}
+/* No colour / font / display resets here: they are unlayered, so they would beat the Tailwind utilities (text-g-on-accent, font-extrabold ...) of the shared cart, sheet and checkout. Tailwind's preflight already resets buttons, inputs, links and images. */
+:where(.meat-lovers-experience) :is(button,a){-webkit-tap-highlight-color:transparent}
+:where(.meat-lovers-experience) button{cursor:pointer}
+.meat-lovers-experience :focus-visible{outline:3px solid #e9a54c;outline-offset:3px}
+.meat-lovers-experience ::selection{background:#b52e27;color:#fff}
+.meat-lovers-experience .sr-only{position:absolute;width:1px;height:1px;margin:-1px;padding:0;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+.meat-lovers-experience [id]{scroll-margin-top:96px}
+.meat-lovers-experience h1,.meat-lovers-experience h2,.meat-lovers-experience h3,.meat-lovers-experience h4,.meat-lovers-experience p{margin:0}
+.ml-container{width:min(var(--ml-max),calc(100% - 96px));margin-inline:auto}
+.ml-skip{position:absolute;inset-inline-start:12px;top:-60px;z-index:80;background:var(--ml-red);color:#fff;padding:10px 16px;border-radius:10px;font-weight:700}
+.ml-skip:focus{top:10px}
+
+/* ---- top strip + header ---- */
+.ml-strip{background:#101010;color:#d3b99b;border-bottom:1px solid #38322c;font:600 10px/1.3 var(--ml-label);letter-spacing:1.85px}
+.ml-strip-inner{display:flex;align-items:center;justify-content:space-between;min-height:31px;gap:20px}
+.ml-strip-note{font-family:var(--ml-body);font-size:11px;letter-spacing:.2px;color:#cfc4b7}
+.ml-header{background:var(--ml-header);color:#f0eae1;position:sticky;top:0;z-index:32;border-bottom:1px solid #363431}
+.ml-header-inner{height:77px;display:flex;align-items:center;justify-content:space-between;gap:24px}
+.ml-brand{display:flex;align-items:center;flex-shrink:0;max-width:210px;color:#f6efe6}
+.ml-brand img{width:auto;height:auto;max-height:54px;max-width:190px;object-fit:contain;background:var(--ml-logo-bg,transparent);padding:var(--ml-logo-pad,0);border-radius:8px}
+.ml-brand-text{font-family:var(--ml-display);font-weight:800;font-size:20px;letter-spacing:.02em;line-height:1.2;text-transform:uppercase}
+.ml-links{display:flex;align-items:center;gap:36px;padding-inline-start:18px;margin-inline-end:auto}
+.ml-links a{font-size:13px;font-weight:600;color:#e6ddd3;position:relative;padding:25px 0;text-decoration:none}
+.ml-links a::after{content:"";position:absolute;inset-inline:0;bottom:16px;height:2px;background:#e04935;transform:scaleX(0);transition:transform .2s}
+.ml-links a:hover::after,.ml-links a:focus-visible::after{transform:scaleX(1)}
+.ml-actions{display:flex;align-items:center;gap:6px}
+.ml-icon-btn{height:44px;min-width:44px;display:grid;place-items:center;background:transparent;border:0;color:#f2e9df;position:relative;border-radius:13px;transition:background .2s,color .2s;text-decoration:none;font-size:13px;font-weight:700;padding:0 8px}
+.ml-icon-btn:hover{background:rgba(255,255,255,.08);color:#f0b48a}
+.ml-icon-btn svg{width:21px;height:21px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ml-cart-count{position:absolute;inset-block-start:3px;inset-inline-start:2px;background:var(--ml-red);border-radius:999px;min-width:19px;height:19px;display:grid;place-items:center;font:700 11px/1 Arial,sans-serif;color:#fff;padding:0 4px}
+.ml-dot{position:absolute;top:9px;inset-inline-end:9px;width:9px;height:9px;border-radius:50%;background:#e04935;border:2px solid var(--ml-header)}
+.ml-theme-switch{height:39px;min-width:123px;display:flex;align-items:center;justify-content:center;gap:9px;background:transparent;border:1px solid #7a6b5f;color:#eadccb;padding:0 12px;font-size:12px;font-weight:700;border-radius:999px;transition:background .2s}
+.ml-theme-switch:hover{background:#302822}
+.ml-theme-switch svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ml-burger{display:none}
+.ml-mobile-nav{display:none;background:#1c1b1a;flex-direction:column;gap:2px;padding:8px 20px 14px;border-top:1px solid #38332d;border-radius:0 0 16px 16px}
+.ml-mobile-nav.is-open{display:flex}
+.ml-mobile-nav a{padding:12px 13px;font-weight:700;color:#f6efea;border-radius:10px;text-decoration:none}
+.ml-mobile-nav a:hover{background:rgba(255,255,255,.06)}
+.ml-notices:has(.ml-container:not(:empty)),.ml-ordering:has(.ml-container:not(:empty)){background:var(--ml-page)}
+.ml-notices .ml-container:not(:empty){padding-block:10px 0}
+.ml-ordering .ml-container:not(:empty){padding-block:6px 4px}
+
+/* ---- hero (dark in both modes) ---- */
+.ml-hero{background:var(--ml-hero);color:var(--ml-hero-ink);position:relative;overflow:hidden;min-height:622px;isolation:isolate;--ml-sweep:90deg}
+.meat-lovers-experience[dir="ltr"] .ml-hero{--ml-sweep:270deg}
+.ml-hero::before{content:"";position:absolute;inset:0;background:radial-gradient(ellipse 70% 120% at 0% 25%,rgba(109,47,35,.17),transparent 57%),linear-gradient(117deg,#211e1a 0%,#101110 63%);z-index:-2}
+.ml-hero-texture{position:absolute;inset:0;z-index:-1;opacity:.2;pointer-events:none;background-image:repeating-linear-gradient(0deg,transparent 0,transparent 5px,rgba(225,206,163,.012) 6px),repeating-linear-gradient(90deg,transparent 0,transparent 7px,rgba(255,255,255,.012) 8px)}
+.ml-hero-grid{display:flex;align-items:center;min-height:625px;padding-block:71px 115px;position:relative}
+.ml-hero-copy{position:relative;z-index:3;width:52%}
+.ml-micro,.ml-section-id{display:inline-flex;align-items:center;gap:13px;color:#d7b99a;font:600 12px/1.4 var(--ml-label);letter-spacing:2.15px}
+.ml-tiny-line{display:inline-block;width:32px;height:2px;background:#d6483c}
+.ml-micro-index{color:#9d8c7e}
+.ml-hero h1{font-family:var(--ml-display);font-size:clamp(55px,5.4vw,82px);line-height:1.36;letter-spacing:-2px;font-weight:800;margin:26px 0 20px;color:#f8eadb}
+.meat-lovers-experience[data-ml-lang="en"] .ml-hero h1{line-height:1.12;letter-spacing:-1.5px}
+.ml-stop{color:#e04935}
+.ml-hero-desc{font-size:16px;line-height:1.95;color:var(--ml-hero-muted);max-width:490px}
+.ml-hero-ctas{display:flex;align-items:center;gap:28px;margin-top:34px;flex-wrap:wrap}
+.ml-button{border:0;min-height:51px;display:inline-flex;align-items:center;justify-content:center;gap:14px;padding:0 29px;font-weight:800;font-size:15px;transition:transform .2s,background .2s;text-align:center;background:var(--ml-btn);color:var(--ml-btn-fg);border-radius:14px;text-decoration:none}
+.ml-button:hover{background:var(--ml-btn-hover)}
+.meat-lovers-experience[data-ml-motion="on"] .ml-button:hover{transform:translateY(-2px)}
+.ml-button svg{width:19px;height:19px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.meat-lovers-experience[dir="ltr"] .ml-arrow{transform:scaleX(-1)}
+.ml-button-link{font-size:14px;font-weight:800;color:#e1d5c6;display:inline-flex;gap:12px;align-items:center;border-radius:9px;text-decoration:none;min-height:44px}
+.ml-button-link:hover{color:#fff}
+.ml-down{color:#ddaa79;font-size:22px}
+.ml-hero-under{border-top:1px solid #423b33;max-width:495px;display:flex;gap:16px;align-items:center;margin-top:46px;padding-top:17px;font-size:12px;color:#b9ac9d;flex-wrap:wrap}
+.ml-hero-under b{font:600 10px var(--ml-label);letter-spacing:2px;color:#cca77e}
+.ml-under-rule{width:20px;height:1px;background:#d54835}
+.ml-hero-art{position:absolute;inset-block:0;inset-inline-end:calc((100% - 100vw)/2);width:min(78vw,1190px);height:100%;z-index:0;pointer-events:none}
+.ml-hero-frame{position:absolute;inset:0;overflow:hidden;background:#34231b}
+.ml-hero-photo{width:100%;height:100%;object-fit:cover;object-position:center 47%;filter:saturate(.85) contrast(1.13) brightness(.82)}
+.ml-hero-fallback{display:grid;place-items:center;width:100%;height:100%;background:radial-gradient(ellipse at 40% 40%,#4a2a22,#1a1412 70%)}
+.ml-hero-mark{width:clamp(120px,18vw,240px);height:auto;color:rgba(222,176,140,.28)}
+.ml-hero-shade{position:absolute;inset:0;background:linear-gradient(var(--ml-sweep),rgba(14,13,12,.08) 0%,rgba(17,16,15,.23) 41%,#161716 92%),linear-gradient(180deg,rgba(0,0,0,.43),transparent 35%,rgba(0,0,0,.14) 72%,#161716 100%)}
+.ml-stamp{position:absolute;z-index:3;top:112px;inset-inline-end:90px;width:116px;height:116px;border:1px solid rgba(238,201,155,.65);border-radius:50%;color:#efd0a7;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;background:rgba(19,17,16,.78);transform:rotate(-11deg);font:600 13px/1.1 var(--ml-label);letter-spacing:1.7px;text-align:center}
+.ml-stamp svg{width:34px;height:34px;stroke-width:1.4}
+.ml-hero-index{position:absolute;z-index:3;bottom:110px;inset-inline-end:90px;color:#e5d1b5;font:600 12px var(--ml-label);letter-spacing:2px}
+.ml-hero-wave{position:absolute;bottom:-2px;inset-inline:0;width:100%;height:95px;fill:var(--ml-paper);z-index:3;transition:fill .25s}
+
+/* ---- menu ---- */
+.ml-menu{background:radial-gradient(ellipse 62% 36% at 94% 4%,rgba(170,98,66,.038),transparent 82%),var(--ml-paper);padding-block:77px 100px;border-bottom:1px solid var(--ml-rule);position:relative}
+.ml-menu-title{display:flex;justify-content:space-between;align-items:center;gap:24px;margin-bottom:26px}
+.ml-section-id{color:var(--ml-red-text)}
+.ml-red-dash{width:25px;height:2px;background:var(--ml-red);display:inline-block}
+.ml-menu-title h2{color:var(--ml-heading);font-family:var(--ml-display);font-size:clamp(32px,3.9vw,58px);font-weight:700;line-height:1.43;letter-spacing:-.9px;margin-top:10px}
+.meat-lovers-experience[data-ml-lang="en"] .ml-menu-title h2{line-height:1.15}
+.ml-menu-title h2 span{color:var(--ml-red-text)}
+.ml-menu-title>p{font-size:13px;color:var(--ml-muted);line-height:1.9;max-width:380px}
+.ml-tools{scroll-margin-top:108px;padding:15px 0 24px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:22px}
+.ml-tabs-wrap{min-width:0;flex:1}
+.ml-tabs{display:flex;gap:8px;align-items:center;flex-wrap:wrap}
+.ml-tab{display:inline-flex;align-items:center;gap:8px;min-height:45px;border:1px solid var(--ml-rule);border-radius:999px;background:var(--ml-panel);padding:9px 16px;color:var(--ml-text);font-size:12px;font-weight:600;line-height:1.7;white-space:nowrap;transition:background .2s,border-color .2s}
+.ml-tab:hover{background:var(--ml-wash)}
+.ml-tab[aria-pressed="true"]{border-color:var(--ml-red);background:var(--ml-chip-active)}
+.ml-tab span{font:700 11px var(--ml-label);color:var(--ml-red-text)}
+.ml-tool-actions{display:flex;align-items:center;gap:9px}
+.ml-search{height:46px;display:flex;align-items:center;gap:9px;border:1px solid var(--ml-rule-strong);border-radius:999px;padding-inline:15px;background:var(--ml-panel);width:236px;transition:border-color .2s}
+.ml-search:focus-within{border-color:var(--ml-red)}
+.ml-search>svg{color:var(--ml-muted);flex-shrink:0;stroke:currentColor;stroke-width:1.8;fill:none}
+.ml-search input{border:0;background:transparent;min-width:0;width:100%;font:inherit;font-size:13px;outline:0;color:var(--ml-text)}
+.ml-search input::placeholder{color:var(--ml-muted)}
+.ml-search-clear{display:grid;place-items:center;width:28px;height:28px;border:0;background:transparent;color:var(--ml-muted);border-radius:50%;flex-shrink:0}
+.ml-search-clear svg{stroke:currentColor;stroke-width:2;fill:none}
+.ml-view-switch{display:flex;border:1px solid var(--ml-rule-strong);background:var(--ml-panel);border-radius:14px;padding:2px}
+.ml-view-switch button{height:40px;min-width:40px;display:grid;place-items:center;border:0;background:transparent;color:var(--ml-muted);border-radius:10px}
+.ml-view-switch button[aria-pressed="true"]{background:var(--ml-heading);color:var(--ml-paper)}
+.ml-view-switch svg{width:18px;height:18px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+.ml-content{display:grid;grid-template-columns:202px minmax(0,1fr);gap:38px}
+.ml-index{position:sticky;top:101px;align-self:start;border-inline-start:1px solid var(--ml-rule);padding-inline-start:25px;padding-top:12px}
+.ml-index-title{font:700 11px/1.4 var(--ml-label);color:var(--ml-muted);letter-spacing:1.8px;display:block;margin-bottom:20px}
+.meat-lovers-experience[dir="rtl"] .ml-index-title{text-align:right}
+.ml-index-item{display:flex;align-items:center;gap:14px;border:0;padding:10px;width:100%;background:transparent;color:var(--ml-muted);text-align:start;font-weight:700;font-size:14px;min-height:46px;border-radius:12px;transition:background .2s}
+.ml-index-item small{font:700 14px var(--ml-label);color:var(--ml-red-text)}
+.ml-index-item:hover,.ml-index-item[aria-pressed="true"]{background:var(--ml-wash);color:var(--ml-text)}
+.ml-index-item[aria-pressed="true"] span{color:var(--ml-red-text)}
+.ml-index-bottom{margin-top:56px;display:flex;align-items:center;gap:8px;border-top:1px solid var(--ml-rule);padding-top:20px;font:600 11px/1.45 var(--ml-label);letter-spacing:1.25px;color:var(--ml-accent)}
+.ml-index-bottom svg{width:34px;height:34px;flex-shrink:0}
+.ml-products{min-width:0}
+.ml-products-head{display:flex;justify-content:space-between;align-items:end;gap:18px;margin-bottom:20px}
+.ml-products-head h3{font-family:var(--ml-display);font-size:clamp(23px,2.4vw,32px);font-weight:700;line-height:1.48;color:var(--ml-heading)}
+.ml-products-head>span{font-size:13px;color:var(--ml-muted)}
+.ml-section+.ml-section{margin-top:44px}
+.ml-category-heading{display:flex;align-items:center;gap:16px;margin-bottom:18px;padding-bottom:14px;border-bottom:1px solid var(--ml-rule)}
+.ml-category-heading>div{flex:1;min-width:0}
+.ml-category-heading span[dir]{font:600 10px/1.4 var(--ml-label);letter-spacing:1.8px;color:var(--ml-red-text);display:block}
+.meat-lovers-experience[dir="rtl"] .ml-category-heading>div>span{text-align:right}
+.ml-category-heading h4{font-family:var(--ml-display);font-weight:700;font-size:clamp(20px,2vw,26px);line-height:1.5;color:var(--ml-heading)}
+.ml-category-heading p{font-size:13px;color:var(--ml-muted);line-height:1.8;margin-top:2px}
+.ml-category-photo{width:64px;height:64px;border-radius:16px;overflow:hidden;flex-shrink:0;background:#25201c;border:1px solid var(--ml-card-line)}
+.ml-category-photo img{width:100%;height:100%;object-fit:cover}
+.ml-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px 18px}
+.ml-card{min-width:0;position:relative;display:flex;flex-direction:column;border:1px solid var(--ml-card-line);border-radius:23px;background:var(--ml-card);overflow:hidden;box-shadow:var(--ml-card-shadow);isolation:isolate;transition:transform .23s ease,box-shadow .23s ease,border-color .23s ease}
+.ml-card:hover{border-color:var(--ml-card-hover);box-shadow:0 16px 36px rgba(31,19,15,.11)}
+.meat-lovers-experience[data-ml-motion="on"] .ml-card:hover{transform:translateY(-2px)}
+.ml-frame{position:relative;margin:9px 9px 0;border-radius:17px;overflow:hidden}
+.ml-media{display:block;position:relative;width:100%;border:0;background:#25201c;overflow:hidden;aspect-ratio:1.17;padding:0;border-radius:17px}
+.ml-media img{width:100%;height:100%;object-fit:cover;transition:transform .5s,filter .3s;filter:saturate(.9) contrast(1.05)}
+.meat-lovers-experience[data-ml-motion="on"] .ml-card:hover .ml-media img{transform:scale(1.05)}
+.ml-shade{position:absolute;inset:0;background:linear-gradient(180deg,transparent 52%,rgba(0,0,0,.28));pointer-events:none}
+.ml-placeholder{display:grid;place-items:center;width:100%;height:100%;background:linear-gradient(140deg,#2c2520,#171513)}
+.ml-placeholder-mark{width:46px;height:46px;color:rgba(222,176,140,.5)}
+.ml-tag{position:absolute;inset-inline-end:10px;top:10px;font:600 11px/1.6 var(--ml-body);background:rgba(20,17,16,.78);color:#f6eee4;padding:5px 10px;border-radius:10px;max-width:70%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ml-tag.is-soldout{background:#fff;color:#7a1d17}
+.ml-add{position:absolute;inset-inline-start:10px;bottom:10px;width:44px;height:44px;border:0;border-radius:12px;background:var(--ml-btn);color:#fff;display:grid;place-items:center;box-shadow:0 5px 12px rgba(0,0,0,.2);transition:background .2s}
+.ml-add:hover{background:var(--ml-btn-hover)}
+.ml-add svg{width:21px;height:21px;stroke:currentColor;stroke-width:2;fill:none;stroke-linecap:round}
+.ml-add-count{position:absolute;top:-8px;inset-inline-end:-8px;min-width:20px;height:20px;border-radius:999px;background:#fff;color:#a61d18;font:700 12px/20px var(--ml-label);text-align:center;padding:0 4px;box-shadow:0 2px 6px rgba(0,0,0,.25)}
+.ml-stepper{position:absolute;inset-inline-start:10px;bottom:10px;height:44px;display:flex;align-items:center;background:var(--ml-btn);color:#fff;border-radius:12px;overflow:hidden;box-shadow:0 5px 12px rgba(0,0,0,.2)}
+.ml-stepper button{width:40px;height:44px;border:0;background:transparent;color:#fff;font-size:20px;line-height:1}
+.ml-stepper span{min-width:22px;text-align:center;font:700 16px var(--ml-label)}
+.ml-fav{position:absolute;z-index:2;top:18px;inset-inline-start:18px;width:42px;height:42px;display:grid;place-items:center;border-radius:12px;background:rgba(22,19,18,.72);color:#fff;border:1px solid rgba(255,255,255,.38)}
+.ml-fav svg{width:19px;height:19px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linejoin:round}
+.ml-fav.is-favorite{background:var(--ml-red);border-color:var(--ml-red)}
+.ml-fav.is-favorite svg{fill:#fff}
+.ml-info{padding:14px 17px 18px;display:flex;flex-direction:column;flex:1}
+.ml-no{display:flex;justify-content:space-between;gap:8px;font:600 10px var(--ml-label);letter-spacing:1.4px;color:var(--ml-accent);margin-bottom:7px}
+.ml-no span:last-child{color:var(--ml-muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.ml-name{font-family:var(--ml-display);font-weight:700;font-size:17px;line-height:1.65;letter-spacing:-.25px;color:var(--ml-text);min-height:29px}
+.ml-name button{display:block;width:100%;background:none;border:0;padding:0;text-align:start;font:inherit;color:inherit;letter-spacing:inherit}
+.ml-name button:hover{color:var(--ml-red-text)}
+.ml-desc{font-size:12px;line-height:1.75;color:var(--ml-muted);margin:5px 0 12px;min-height:38px;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.ml-bottom{margin-top:auto;display:flex;justify-content:space-between;align-items:end;gap:8px;padding-top:14px;flex-wrap:wrap}
+.ml-price{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 5px;color:var(--ml-heading)}
+.ml-per-kilo{display:inline-flex;align-items:baseline;gap:5px}
+.ml-per-kilo strong,.ml-amount{font:700 29px/1 var(--ml-label);letter-spacing:.3px;color:var(--ml-heading)}
+.ml-per-kilo span,.ml-unit,.ml-per-kilo-note,.ml-from{font-size:11px;font-weight:700;color:var(--ml-muted)}
+.ml-was{font-size:13px;color:var(--ml-muted)}
+.ml-unavailable{font-size:13px;font-weight:700;color:var(--ml-muted)}
+.ml-quick{border:1px solid var(--ml-rule-strong);border-radius:10px;min-height:39px;padding:7px 11px;color:var(--ml-text);font-size:11px;font-weight:700;background:transparent;white-space:nowrap}
+.ml-quick:hover{border-color:var(--ml-red);color:var(--ml-red-text)}
+.ml-card.is-soldout .ml-media{filter:grayscale(.8) opacity(.65)}
+.ml-card.is-soldout .ml-info{opacity:.75}
+.ml-empty{text-align:center;padding:72px 20px;background:var(--ml-panel);border:1px dashed var(--ml-rule-strong);border-radius:23px}
+.ml-empty-mark{width:36px;height:36px;color:var(--ml-red-text);margin-bottom:13px}
+.ml-empty h3{font-family:var(--ml-display);font-size:24px;color:var(--ml-heading)}
+.ml-empty p{color:var(--ml-muted);margin:8px 0 20px}
+
+/* list view: compact rows */
+.meat-lovers-experience[data-ml-view="list"] .ml-grid{display:flex;flex-direction:column;gap:12px}
+.meat-lovers-experience[data-ml-view="list"] .ml-card{display:grid;grid-template-columns:142px minmax(0,1fr);gap:16px;align-items:center;padding:11px;border-radius:19px}
+.meat-lovers-experience[data-ml-view="list"] .ml-frame{margin:0;border-radius:13px}
+.meat-lovers-experience[data-ml-view="list"] .ml-media{aspect-ratio:1.24;border-radius:13px}
+.meat-lovers-experience[data-ml-view="list"] .ml-add,.meat-lovers-experience[data-ml-view="list"] .ml-stepper{bottom:7px;inset-inline-start:7px;height:44px}
+.meat-lovers-experience[data-ml-view="list"] .ml-fav{top:18px;inset-inline-start:18px}
+.meat-lovers-experience[data-ml-view="list"] .ml-info{padding:3px 0;min-height:0}
+.meat-lovers-experience[data-ml-view="list"] .ml-no{margin-bottom:2px}
+.meat-lovers-experience[data-ml-view="list"] .ml-name{min-height:0}
+.meat-lovers-experience[data-ml-view="list"] .ml-desc{min-height:0;margin-bottom:6px}
+.meat-lovers-experience[data-ml-view="list"] .ml-bottom{padding-top:6px}
+
+/* ---- story band (dark in both modes) ---- */
+.ml-story{background:var(--ml-story);color:#f6eee4;overflow:hidden;position:relative}
+.ml-story::before{content:"";position:absolute;inset:0;background:repeating-linear-gradient(95deg,transparent 0 12px,rgba(183,141,95,.025) 13px 15px),radial-gradient(ellipse at 75% 45%,rgba(137,33,23,.17),transparent 63%);pointer-events:none}
+.ml-story-grid{display:grid;grid-template-columns:1.15fr .85fr;min-height:445px;gap:70px;align-items:center;position:relative}
+.ml-story-visual{height:425px;align-self:stretch;position:relative;overflow:hidden;order:2;border-radius:26px 26px 8px 26px;background:#2a2420}
+.meat-lovers-experience[dir="rtl"] .ml-story-visual{border-radius:26px 26px 26px 8px}
+.ml-story-visual img{width:100%;height:100%;object-fit:cover;filter:saturate(.8) contrast(1.12) brightness(.82)}
+.ml-story-visual::after{content:"";position:absolute;inset:0;background:linear-gradient(90deg,rgba(19,16,14,.3),transparent);pointer-events:none}
+.ml-story-fallback{display:grid;place-items:center;width:100%;height:100%;background:radial-gradient(ellipse at 40% 40%,#43261f,#18120f 70%)}
+.ml-story-caption{position:absolute;bottom:26px;inset-inline-end:27px;z-index:2;color:#f0e4d5;font:700 15px var(--ml-label);letter-spacing:2px}
+.ml-story-words{order:1;padding-block:65px}
+.ml-story-words .ml-section-id{color:#f19b8f}
+.ml-story-words .ml-red-dash{background:#e04935}
+.ml-story-words h2{font-family:var(--ml-display);font-size:clamp(35px,4vw,58px);line-height:1.4;font-weight:800;letter-spacing:-1.5px;margin:16px 0 22px;color:#fbf2e8}
+.meat-lovers-experience[data-ml-lang="en"] .ml-story-words h2{line-height:1.15}
+.ml-story-words h2 em{color:#ee6c5e;font-style:normal}
+.ml-story-words p{color:#cfc7be;line-height:2;font-size:16px;max-width:480px}
+.ml-story-link{margin-top:25px;display:inline-flex;align-items:center;gap:12px;border-bottom:1px solid #d1584a;padding-bottom:7px;font-weight:800;color:#f9efe4;text-decoration:none;min-height:44px;align-items:center}
+.ml-story-link svg{color:#ee6c5e;width:20px;height:20px;stroke:currentColor;stroke-width:1.8;fill:none;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---- footer ---- */
+.ml-footer{background:#0e0e0e;color:#ddcfc1}
+.ml-footer-grid{display:flex;align-items:flex-start;justify-content:space-between;gap:30px;padding-block:44px 28px;flex-wrap:wrap}
+.ml-footer-brand{max-width:340px}
+.ml-footer-logo{display:inline-flex;margin-bottom:12px;color:#f6efe6;text-decoration:none}
+.ml-footer-logo img{max-height:60px;width:auto;background:var(--ml-logo-bg,transparent);padding:var(--ml-logo-pad,0);border-radius:8px}
+.ml-footer-brand p{font-size:12px;color:#c0b5a9;line-height:1.9}
+.ml-footer-contact{display:flex;flex-direction:column;gap:8px;min-width:240px;max-width:420px}
+.ml-footer-contact small{font:700 11px var(--ml-body);letter-spacing:.06em;color:#e0b98f;margin-bottom:2px}
+.ml-contact-line{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:#e4d8cb;text-decoration:none;line-height:1.7}
+.ml-contact-line svg{width:17px;height:17px;flex-shrink:0;margin-top:4px;stroke:#e0b98f;stroke-width:1.7;fill:none;stroke-linecap:round;stroke-linejoin:round}
+a.ml-contact-line{min-height:32px;align-items:center}
+a.ml-contact-line:hover{color:#fff}
+.ml-hours{display:flex;align-items:center;gap:8px;font-size:12px;color:#c0b5a9}
+.ml-hours span{width:8px;height:8px;border-radius:50%;background:#c0675d}
+.ml-hours.is-open span{background:#5fb27a}
+.ml-channels{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:10px}
+.ml-channels a{display:inline-flex;align-items:center;gap:8px;color:#e4d8cb;text-decoration:none;font-size:12px;min-height:40px}
+.ml-channels a:hover{color:#fff}
+.ml-back-top{font-size:13px;font-weight:700;color:#efd8be;text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
+.ml-back-top:hover{color:#fff}
+.ml-footer-bottom{display:flex;justify-content:space-between;gap:16px;align-items:center;border-top:1px solid #2a2622;padding-block:16px 22px;font-size:12px;color:#a99d90;flex-wrap:wrap}
+.ml-powered{display:inline-flex;align-items:center}
+.ml-toast{position:fixed;bottom:96px;inset-inline:0;margin-inline:auto;width:max-content;max-width:min(90vw,430px);z-index:60;background:#211b19;color:#fff;border-inline-start:3px solid #d84336;padding:12px 20px;border-radius:14px;box-shadow:0 12px 30px rgba(0,0,0,.28);font-size:13px;font-weight:700;opacity:0;transform:translateY(10px);pointer-events:none;transition:opacity .2s,transform .2s}
+.ml-toast.is-visible{opacity:1;transform:none}
+
+/* ---- responsive ---- */
+@media(max-width:1190px){
+  .ml-container{width:min(var(--ml-max),calc(100% - 64px))}
+  .ml-links{gap:22px}
+  .ml-content{grid-template-columns:170px minmax(0,1fr);gap:26px}
+  .ml-index{padding-inline-start:15px}
+  .ml-tools{flex-wrap:wrap;align-items:flex-start}
+  .ml-grid{gap:18px 14px}
+  .ml-name{font-size:16px}
+  .ml-info{padding:12px 14px 16px}
+}
+@media(max-width:930px){
+  .ml-links{display:none}
+  .ml-burger{display:grid}
+  .ml-hero-copy{width:60%}
+  .ml-content{display:block}
+  .ml-index{display:none}
+  .ml-menu{padding-block:63px 80px}
+  .ml-stamp{width:94px;height:94px;font-size:11px;inset-inline-end:40px}
+  .ml-hero-index{inset-inline-end:40px}
+  .ml-story-grid{gap:30px}
+}
+@media(max-width:700px){
+  .ml-container{width:calc(100% - 38px)}
+  .ml-strip-note{display:none}
+  .ml-strip-inner{justify-content:center}
+  .ml-header-inner{height:67px;gap:7px}
+  .ml-brand img{max-height:46px;max-width:140px}
+  .ml-actions{gap:0}
+  .ml-theme-switch{min-width:42px;width:42px;padding:0;height:42px;border-color:transparent}
+  .ml-theme-switch span{display:none}
+  .ml-hero{min-height:640px}
+  .ml-hero-grid{align-items:flex-end;min-height:640px;padding:0 0 119px}
+  .ml-hero-copy{width:100%}
+  .ml-hero h1{font-size:clamp(43px,11vw,60px);line-height:1.44;letter-spacing:-1px;margin:17px 0 15px}
+  .meat-lovers-experience[data-ml-lang="en"] .ml-hero h1{line-height:1.12}
+  .ml-hero-desc{font-size:14px;line-height:1.9;max-width:450px}
+  .ml-hero-art{inset:0 0 auto 0;height:410px;width:100%;opacity:.85}
+  .ml-hero-shade{background:linear-gradient(180deg,rgba(0,0,0,.06) 0%,rgba(0,0,0,.01) 30%,#171614 96%),linear-gradient(90deg,rgba(16,15,14,.47),rgba(16,15,14,.1))}
+  .ml-stamp,.ml-hero-index{display:none}
+  .ml-hero-ctas{margin-top:22px;gap:17px}
+  .ml-hero-under{margin-top:23px;padding-top:12px}
+  .ml-hero-wave{height:67px}
+  .ml-menu{padding-block:45px 93px}
+  .ml-menu-title{display:block;margin-bottom:12px}
+  .ml-menu-title h2{font-size:clamp(26px,8vw,34px)}
+  .ml-menu-title>p{margin-top:12px}
+  .ml-tools{display:block;padding:0 0 8px;margin-bottom:12px}
+  .ml-tabs-wrap{position:sticky;top:67px;z-index:20;background:var(--ml-paper);margin-inline:-19px;padding:8px 19px;border-bottom:1px solid var(--ml-rule)}
+  .ml-tabs{overflow-x:auto;flex-wrap:nowrap;scrollbar-width:none;padding-bottom:2px}
+  .ml-tabs::-webkit-scrollbar{display:none}
+  .ml-tab{padding:8px 14px;min-height:44px}
+  .ml-tool-actions{width:100%;margin-top:12px}
+  .ml-search{width:100%;flex:1;height:44px}
+  .ml-grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:13px 11px}
+  .ml-card{border-radius:18px}
+  .ml-frame{margin:6px 6px 0;border-radius:13px}
+  .ml-media{aspect-ratio:1.05;border-radius:13px}
+  .ml-tag{font-size:9px;padding:4px 7px;inset-inline-end:6px;top:7px}
+  .ml-fav{width:38px;height:38px;top:12px;inset-inline-start:12px;border-radius:10px}
+  .ml-add,.ml-stepper{inset-inline-start:7px;bottom:7px}
+  .ml-info{padding:11px 10px 14px}
+  .ml-no{font-size:8px;letter-spacing:.8px}
+  .ml-name{font-size:14px;min-height:47px}
+  .ml-desc{display:none}
+  .ml-bottom{padding-top:7px;gap:9px}
+  .ml-per-kilo strong,.ml-amount{font-size:25px}
+  .ml-quick{min-height:40px;padding:5px 9px}
+  .meat-lovers-experience[data-ml-view="list"] .ml-card{grid-template-columns:120px minmax(0,1fr);padding:9px;gap:12px}
+  .meat-lovers-experience[data-ml-view="list"] .ml-desc{display:none}
+  .ml-category-photo{width:52px;height:52px;border-radius:13px}
+  .ml-story-grid{display:flex;flex-direction:column;gap:0;min-height:0}
+  .ml-story-visual{order:0;width:100%;height:255px;align-self:center;border-radius:20px;margin-top:38px}
+  .ml-story-words{order:1;width:100%;padding:38px 0 48px}
+  .ml-story-words h2{font-size:38px;margin-bottom:13px}
+  .ml-story-words p{font-size:14px}
+  .ml-footer-grid{flex-direction:column;gap:22px;padding-block:32px 18px}
+  .ml-toast{bottom:84px}
+}
+@media(max-width:390px){
+  .ml-container{width:calc(100% - 30px)}
+  .ml-hero-grid{min-height:622px;padding-bottom:95px}
+  .ml-hero{min-height:622px}
+  .ml-hero h1{font-size:41px}
+  .ml-button{padding:0 18px;font-size:13px;min-height:49px}
+  .ml-button-link{font-size:12px}
+  .ml-grid{gap:11px 9px}
+  .ml-name{font-size:13px;min-height:44px}
+  .ml-per-kilo strong,.ml-amount{font-size:23px}
+  .ml-quick{display:none}
+  .meat-lovers-experience[data-ml-view="list"] .ml-quick{display:inline-flex}
+  .meat-lovers-experience[data-ml-view="list"] .ml-card{grid-template-columns:104px minmax(0,1fr)}
+}
+
+/* ---- motion (optional; content is fully visible without it) ---- */
+@keyframes ml-rise{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:none}}
+@supports (animation-timeline:view()){
+  .meat-lovers-experience[data-ml-motion="on"] .ml-card{animation:ml-rise linear forwards;animation-timeline:view();animation-range:entry 0% entry 35%}
+}
+@media(prefers-reduced-motion:reduce){
+  .meat-lovers-experience .ml-card{animation:none!important}
+  .meat-lovers-experience *,.meat-lovers-experience *::before,.meat-lovers-experience *::after{transition-duration:.01ms!important;scroll-behavior:auto!important;animation-duration:.01ms!important}
+}
+
+/* Offers / Bundles (DEC-069): the shared strip takes the theme tokens; only spacing, the display face and the chip accent are the design's own. */
+.meat-lovers-experience .ml-offers{padding-block:6px 34px}
+.meat-lovers-experience [data-offers-strip] h2,.meat-lovers-experience [data-offers-strip] .g-display{font-family:var(--ml-display);font-weight:800;text-transform:uppercase;letter-spacing:.02em}
+.meat-lovers-experience [data-offers-strip] [data-offer-card]{border-radius:6px}
+.meat-lovers-experience [data-offers-chip]{color:var(--g-accent-text)}

@@ -9,6 +9,7 @@ import { designMessages } from './design';
 import { verdeDesignMessages } from './verde-design';
 import { sherbinyDesignMessages } from './sherbiny-design';
 import { makkbozDesignMessages } from './makkboz-design';
+import { meatLoversDesignMessages } from './meat-lovers-design';
 import { entitlementsMessages } from './entitlements';
 import { hoursMessages } from './hours';
 import { suggestionsMessages } from './suggestions';
@@ -19,6 +20,7 @@ import { menuImportMessages } from './menuImport';
 import { menuMessages } from './menu';
 import { menuHubMessages } from './menuHub';
 import { menuStructureMessages } from './menuStructure';
+import { offersMessages } from './offers';
 import { ordersMessages } from './orders';
 import { presetsMessages } from './presets';
 import { productMessages } from './product';
@@ -50,6 +52,7 @@ const en = {
   ...verdeDesignMessages.en,
   ...sherbinyDesignMessages.en,
   ...makkbozDesignMessages.en,
+  ...meatLoversDesignMessages.en,
   ...entitlementsMessages.en,
   ...hoursMessages.en,
   ...suggestionsMessages.en,
@@ -60,6 +63,7 @@ const en = {
   ...menuMessages.en,
   ...menuHubMessages.en,
   ...menuStructureMessages.en,
+  ...offersMessages.en,
   ...ordersMessages.en,
   ...presetsMessages.en,
   ...productMessages.en,
@@ -87,6 +91,7 @@ const ar = {
   ...verdeDesignMessages.ar,
   ...sherbinyDesignMessages.ar,
   ...makkbozDesignMessages.ar,
+  ...meatLoversDesignMessages.ar,
   ...entitlementsMessages.ar,
   ...hoursMessages.ar,
   ...suggestionsMessages.ar,
@@ -97,6 +102,7 @@ const ar = {
   ...menuMessages.ar,
   ...menuHubMessages.ar,
   ...menuStructureMessages.ar,
+  ...offersMessages.ar,
   ...ordersMessages.ar,
   ...presetsMessages.ar,
   ...productMessages.ar,

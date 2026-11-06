@@ -405,3 +405,9 @@
   .makkboz-experience .m-photo-ring,.makkboz-experience .m-photo-ring::before,.makkboz-experience .m-card{animation:none!important}
   .makkboz-experience *,.makkboz-experience *::before,.makkboz-experience *::after{transition-duration:.01ms!important;scroll-behavior:auto!important}
 }
+
+/* Offers / Bundles (DEC-069): the shared strip takes the theme tokens; only spacing, the display face and the chip accent are the design's own. */
+.makkboz-experience .m-offers{padding-block:6px 34px}
+.makkboz-experience [data-offers-strip] h2,.makkboz-experience [data-offers-strip] .g-display{font-family:var(--m-display);font-weight:700}
+.makkboz-experience [data-offers-strip] [data-offer-card]{border-radius:16px;border-color:var(--m-chip-line,var(--g-line))}
+.makkboz-experience [data-offers-chip]{color:var(--g-accent-text)}

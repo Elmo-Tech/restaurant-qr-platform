@@ -64,7 +64,9 @@ export interface DashboardTimeSeriesPoint {
 
 /** One of the best-selling products of the period (REJECTED / CANCELLED orders excluded; amounts are net of discounts). */
 export interface DashboardTopProduct {
+  /** The Product id, or the Offer id for an Offer line (DEC-069); `isOffer` says which. */
   productId: string;
+  isOffer: boolean;
   name: string;
   quantity: number;
   amount: string;
@@ -208,6 +210,7 @@ export class DashboardService {
             where: { orderId: { in: revenueOrderIds } },
             select: {
               productId: true,
+              offerId: true,
               productNameSnapshot: true,
               quantity: true,
               lineTotal: true,
@@ -216,21 +219,25 @@ export class DashboardService {
         : [];
     const byProduct = new Map<
       string,
-      { name: string; quantity: number; amount: Prisma.Decimal }
+      { name: string; quantity: number; amount: Prisma.Decimal; isOffer: boolean }
     >();
     for (const item of soldItems) {
-      const entry = byProduct.get(item.productId) ?? {
+      // A line is a Product line or an Offer line (DEC-069); an Offer is counted under its own id.
+      const key = item.productId ?? item.offerId ?? item.productNameSnapshot;
+      const entry = byProduct.get(key) ?? {
         name: item.productNameSnapshot,
         quantity: 0,
         amount: new Prisma.Decimal(0),
+        isOffer: item.productId === null,
       };
       entry.quantity += item.quantity;
       entry.amount = entry.amount.plus(item.lineTotal);
-      byProduct.set(item.productId, entry);
+      byProduct.set(key, entry);
     }
     const topProducts: DashboardTopProduct[] = [...byProduct.entries()]
       .map(([productId, entry]) => ({
         productId,
+        isOffer: entry.isOffer,
         name: entry.name,
         quantity: entry.quantity,
         amount: entry.amount,

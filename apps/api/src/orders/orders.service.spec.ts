@@ -261,6 +261,7 @@ describe('OrdersService.getOrderDetail', () => {
         items: [
           {
             productId: 'product-1',
+            offerId: null,
             productNameSnapshot: 'Burger',
             variantName: null,
             unitPrice: '100.00',

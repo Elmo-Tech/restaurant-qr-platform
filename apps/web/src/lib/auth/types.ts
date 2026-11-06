@@ -10,6 +10,8 @@ export type FeatureKey =
   | 'DASHBOARD_ORDERING'
   | 'TABLE_ORDERING'
   | 'KITCHEN'
+  /** Offers / Bundles (DEC-069): the Offers page in the dashboard and the Offers strip in the Guest menu. */
+  | 'OFFERS'
   /** AI menu import (DEC-057): the one opt-in feature, OFF unless the platform turns it on. */
   | 'MENU_IMPORT';
 

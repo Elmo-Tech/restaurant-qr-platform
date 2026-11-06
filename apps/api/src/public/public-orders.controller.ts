@@ -246,6 +246,12 @@ export class PublicOrdersController {
       expectedTotal: dto.expectedTotal,
       items: dto.items.map((item) => ({
         productId: item.productId,
+        offerId: item.offerId,
+        offerChoices: item.offerChoices?.map((choice) => ({
+          slotId: choice.slotId,
+          optionId: choice.optionId,
+          quantity: choice.quantity,
+        })),
         quantity: item.quantity,
         modifierOptionIds: item.modifierOptionIds ?? [],
         variantId: item.variantId ?? undefined,
@@ -269,6 +275,16 @@ export class PublicOrdersController {
   private refuse(result: CreateGuestOrderResult): void {
     if (result.outcome === 'customerDetailsRequired') {
       throw new BadRequestException(CUSTOMER_DETAILS_REQUIRED_RESPONSE);
+    }
+    if (result.outcome === 'invalidFields') {
+      // Same envelope as a DTO failure (API_CONVENTIONS.md #34): VALIDATION_ERROR + one code per field.
+      throw new BadRequestException({
+        error: {
+          code: 'VALIDATION_ERROR',
+          message: 'The request contains invalid data.',
+          details: { fields: result.errors },
+        },
+      });
     }
     if (result.outcome === 'branchRequired') {
       throw new BadRequestException(PICKUP_BRANCH_REQUIRED_RESPONSE);
@@ -327,6 +343,25 @@ export class PublicOrdersController {
     }
     if (result.outcome === 'duplicateItems') {
       throw new BadRequestException(DUPLICATE_ITEMS_RESPONSE);
+    }
+    if (result.outcome === 'offerUnavailable') {
+      // DEC-069: 409, nothing created; the Guest app keeps the cart line and says which offer is gone.
+      throw new ConflictException({
+        error: {
+          code: 'OFFER_UNAVAILABLE',
+          message: 'An offer in your order is not available right now.',
+          details: { offerIds: result.offerIds },
+        },
+      });
+    }
+    if (result.outcome === 'offerChanged') {
+      throw new ConflictException({
+        error: {
+          code: 'OFFER_CHANGED',
+          message: 'An offer in your order has changed. Please choose again.',
+          details: { offerIds: result.offerIds },
+        },
+      });
     }
   }
 }

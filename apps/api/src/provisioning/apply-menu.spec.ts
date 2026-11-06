@@ -44,6 +44,7 @@ const seeded = {
   archivedMenus: 0,
   announcements: 1,
   deliveryZones: 0,
+  offers: 0,
 };
 
 describe('applying a menu to an existing restaurant', () => {
