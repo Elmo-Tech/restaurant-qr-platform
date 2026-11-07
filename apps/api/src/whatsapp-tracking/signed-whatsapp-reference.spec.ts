@@ -1,5 +1,6 @@
 import { randomBytes } from 'node:crypto';
 import { decodeSigningKey, issueWhatsappReference, verifyWhatsappReference } from './signed-whatsapp-reference';
+import type { WhatsappReferenceRejectReason } from './signed-whatsapp-reference';
 
 const key = randomBytes(32);
 const restaurantId = '11111111-1111-4111-8111-111111111111';
@@ -36,4 +37,31 @@ describe('stateless WhatsApp order receipt authentication', () => {
     expect(decodeSigningKey(secret)?.length).toBe(32);
     expect(decodeSigningKey('test')).toBeNull();
   });
+
+  it('classifies transport changes, expiry and HMAC mismatch without logging the WT1 token', () => {
+    const now = Date.UTC(2026, 10, 5, 12);
+    const message = issue(now).message;
+    const reasons = (text: string, time = now): WhatsappReferenceRejectReason[] => {
+      const found: WhatsappReferenceRejectReason[] = [];
+      const result = verifyWhatsappReference({
+        restaurantId, key, receivedMessage: text, now: time,
+        onReject: reason => { found.push(reason); },
+      });
+      expect(result).toBeNull();
+      return found;
+    };
+    expect(reasons(message.replace('\n\nWayta-Ref:', '\nWayta-Ref:'))).toEqual(['footer-missing']);
+    expect(reasons(message.replace('WT1.', 'WT1.BAD.'))).toEqual(['token-malformed']);
+    expect(reasons(message.replace('Burger x 2', 'Burger x 3'))).toEqual(['signature-mismatch']);
+    expect(reasons(message, now + 25 * 3600_000)).toEqual(['expired']);
+    expect(reasons(message, now - 120_000)).toEqual(['issued-in-future']);
+    expect(reasons(message + 'Z'.repeat(12001))).toEqual(['too-long']);
+    const valid: WhatsappReferenceRejectReason[] = [];
+    expect(verifyWhatsappReference({
+      restaurantId, key, receivedMessage: message, now,
+      onReject: reason => { valid.push(reason); },
+    })?.reference).toBeTruthy();
+    expect(valid).toEqual([]);
+  });
+
 });
