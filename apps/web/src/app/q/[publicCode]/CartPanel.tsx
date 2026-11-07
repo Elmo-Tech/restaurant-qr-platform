@@ -691,37 +691,79 @@ export function CartPanel({
   );
 }
 
-/** WhatsApp ordering: the ready-to-send message. The order is only placed once the Guest sends it in WhatsApp. */
+/** Copy first: wa.me's prefilled text varies by client. The clipboard content is the signed payload. */
 function WhatsappHandoff({ copy, handoff }: { copy: PublicMenuCopy; handoff: WhatsappOrderView }) {
   const [copied, setCopied] = useState(false);
+  const [copyFailed, setCopyFailed] = useState(false);
+
+  // Open chat WITHOUT the prefilled text query. The actual clipboard message
+  // was issued/signed by the Backend and already passed through to this view.
+  // Do not construct arbitrary external destinations from an unchecked URL.
+  const chatUrl = (() => {
+    try {
+      const url = new URL(handoff.whatsappUrl);
+      if (url.protocol !== 'https:' || url.hostname !== 'wa.me' ||
+          !/^\/[1-9][0-9]{5,15}\/?$/.test(url.pathname)) return null;
+      return url.origin + url.pathname;
+    } catch { return null; }
+  })();
+
   async function copyMessage() {
     try {
       await navigator.clipboard.writeText(handoff.message);
       setCopied(true);
-      window.setTimeout(() => setCopied(false), 2200);
+      setCopyFailed(false);
     } catch {
-      // Clipboard blocked: the message is on screen and can be selected by hand.
+      setCopyFailed(true);
     }
   }
+
+  async function copyAndOpenChat() {
+    if (!chatUrl) return;
+    try {
+      await navigator.clipboard.writeText(handoff.message);
+      setCopied(true);
+      setCopyFailed(false);
+      // Same-tab navigation after an async clipboard write is not subject to
+      // popup blockers. Browser Back returns to the menu.
+      window.location.assign(chatUrl);
+    } catch {
+      setCopyFailed(true);
+    }
+  }
+
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-col items-center gap-3 text-center">
-        <span className="guest-anim-bump flex size-16 items-center justify-center rounded-full bg-[#25D366] text-white">
+        <span className="guest-anim-bump flex size-16 shrink-0 items-center justify-center rounded-full bg-[#25D366] text-white">
           <GuestIconChat className="size-8" strokeWidth={2.2} />
         </span>
         <p role="status" className="max-w-sm text-[15px] leading-[1.7] text-g-text-2">
           {copy.whatsappReadyBody}
         </p>
       </div>
-      <a
-        href={handoff.whatsappUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex h-[54px] items-center justify-center gap-2.5 rounded-[18px] bg-[#25D366] text-[16.5px] font-extrabold text-white shadow-[0_10px_24px_rgb(37_211_102/0.28)]"
+      <button
+        type="button"
+        onClick={() => void copyAndOpenChat()}
+        disabled={!chatUrl}
+        className="flex h-[54px] items-center justify-center gap-2.5 rounded-[18px] bg-[#25D366] text-[16.5px] font-extrabold text-white shadow-[0_10px_24px_rgb(37_211_102/0.28)] disabled:opacity-50"
       >
         <GuestIconChat className="size-5" strokeWidth={2.4} />
         {copy.whatsappOpen}
-      </a>
+      </button>
+      <p className="text-center text-[13px] leading-6 text-g-text-2">
+        {copy.whatsappPasteInstructions}
+      </p>
+      {copyFailed ? (
+        <div role="alert" className="rounded-2xl border border-g-line bg-g-surface-2 px-4 py-3 text-sm text-g-text-2">
+          <p>{copy.whatsappClipboardUnavailable}</p>
+          {chatUrl ? (
+            <a href={chatUrl} target="_blank" rel="noopener noreferrer" className="mt-2 inline-block font-bold text-g-accent-text underline">
+              {copy.whatsappOpenChatOnly}
+            </a>
+          ) : null}
+        </div>
+      ) : null}
       <section aria-label={copy.whatsappMessageLabel} className="rounded-[20px] border border-g-line bg-g-surface p-4">
         <pre dir="auto" className="whitespace-pre-wrap break-words text-start font-[inherit] text-[13.5px] leading-[1.75] text-g-text">
           {handoff.message}
