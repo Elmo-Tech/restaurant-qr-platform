@@ -14,7 +14,7 @@ all other applications. Host evidence before this proposal: 6 vCPU, 11 GiB RAM,
 These are risky resource conditions, not a measured proof of a specific OOM.
 
 Goal: GitHub Actions runs QA and builds/publishes images, and Main-Node only pulls
-immutable SHA-tagged images and starts containers/migrations.
+commit-SHA-tagged images and starts containers/migrations.
 
 ## Files
 
@@ -40,7 +40,7 @@ For each exact commit SHA `S` from a successful publish workflow:
 - `ghcr.io/elmo-tech/restaurant-qr-platform-platform:S`
 - `ghcr.io/elmo-tech/restaurant-qr-platform-gateway:S`
 
-No mutable `latest` tags are used. Publish only Linux amd64; verify the actual
+No rolling `latest` tags are used. Commit-SHA tags can technically be overwritten in GHCR; use image digests for stronger immutability when hardening production. Publish only Linux amd64; verify the actual
 Main-Node architecture is x86_64/amd64 before cutover.
 
 ## Phase 0 — protect Main-Node (owner; NO deployment)
@@ -200,7 +200,7 @@ variables, especially all DB credentials and Evolution/WhatsApp secrets.
   names, runtime settings, migrations, healthchecks, persistent volumes and
   gateway routing are identical.
 - Off-server workflow builds five images sequentially on a GitHub runner and
-  tags every one with the same immutable commit SHA.
+  tags every one with the same commit SHA.
 - Repository variables for both public hosts verified against Coolify.
 - All five private GHCR images published; private registry auth verified.
 - Manual staged cutover: NO Docker BuildKit compile steps on Main-Node.
