@@ -10,6 +10,15 @@ on:
       - 'package-lock.json'
       - '.dockerignore'
       - '.github/workflows/wayta-publish-ghcr.yml'
+  pull_request:
+    branches: [development]
+    paths:
+      - 'apps/**'
+      - 'infra/docker/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.dockerignore'
+      - '.github/workflows/wayta-publish-ghcr.yml'
   workflow_dispatch:
 
 # Prevent overlapping publication of two different releases.
@@ -73,7 +82,7 @@ jobs:
   publish:
     name: Build and publish pinned GHCR images
     needs: verify
-    if: github.ref == 'refs/heads/development'
+    if: github.event_name != 'pull_request' && github.ref == 'refs/heads/development'
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:
@@ -103,7 +112,7 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       # Run sequentially within ONE job so Next.js builds do not compete for RAM.
-      # Every image uses the immutable source commit SHA. Never push 'latest'.
+      # Every image uses a source-SHA tag (GHCR tags are technically mutable). Never push 'latest'.
       - name: Publish Prisma migration / admin tools
         uses: docker/build-push-action@v6
         with:
