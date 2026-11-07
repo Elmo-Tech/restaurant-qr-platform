@@ -15,6 +15,17 @@ export interface VerifiedWhatsappReference {
   currencyCode: string;
 }
 
+/** Static, low-cardinality reasons only. Never log received text or the WT1 token. */
+export type WhatsappReferenceRejectReason =
+  | 'too-long'
+  | 'footer-missing'
+  | 'token-malformed'
+  | 'timestamp-invalid'
+  | 'expired'
+  | 'issued-in-future'
+  | 'amount-invalid'
+  | 'signature-mismatch';
+
 const canonical = (value: string): string => value.replace(/\r\n?/g, '\n').trim();
 const digest = (value: string): string => createHash('sha256').update(canonical(value), 'utf8').digest('hex');
 
@@ -63,25 +74,36 @@ export function verifyWhatsappReference(input: {
   receivedMessage: string;
   key: Buffer;
   now?: number;
+  /** Opt-in diagnostic callback. Only static reason codes are emitted. */
+  onReject?: (reason: WhatsappReferenceRejectReason) => void;
 }): VerifiedWhatsappReference | null {
-  if (input.receivedMessage.length > 12000) return null;
+  const reject = (reason: WhatsappReferenceRejectReason): null => {
+    input.onReject?.(reason);
+    return null;
+  };
+  if (input.receivedMessage.length > 12000) return reject('too-long');
   const received = canonical(input.receivedMessage);
   const match = /\n\nWayta-Ref: (WT1\.[^\s]+)$/.exec(received);
-  if (!match) return null;
+  if (!match) return reject('footer-missing');
   const token = match[1];
   const parts = TOKEN_PATTERN.exec(token);
-  if (!parts) return null;
+  if (!parts) return reject('token-malformed');
   const [, issuedString, , branch, centsString, currency, kind, mac] = parts;
   const issued = parseInt(issuedString, 36);
   const now = Math.floor((input.now ?? Date.now()) / 1000);
-  if (!Number.isSafeInteger(issued) || issued > now + MAX_FUTURE_SKEW_SECONDS ||
-      issued < now - MAX_AGE_SECONDS) return null;
-  const cents = BigInt(parseInt(centsString, 36));
-  if (cents < 0n || cents > 99999999999999n) return null;
+  if (!Number.isSafeInteger(issued)) return reject('timestamp-invalid');
+  if (issued > now + MAX_FUTURE_SKEW_SECONDS) return reject('issued-in-future');
+  if (issued < now - MAX_AGE_SECONDS) return reject('expired');
+  const amount = parseInt(centsString, 36);
+  if (!Number.isSafeInteger(amount)) return reject('amount-invalid');
+  const cents = BigInt(amount);
+  if (cents < 0n || cents > 99999999999999n) return reject('amount-invalid');
   const payload = token.slice(0, -(mac.length + 1));
   const body = received.slice(0, match.index);
   const expected = signature(input.key, input.restaurantId, payload, body);
-  if (!timingSafeEqual(Buffer.from(mac, 'ascii'), Buffer.from(expected, 'ascii'))) return null;
+  if (!timingSafeEqual(Buffer.from(mac, 'ascii'), Buffer.from(expected, 'ascii'))) {
+    return reject('signature-mismatch');
+  }
   const branchId = [branch.slice(0,8), branch.slice(8,12), branch.slice(12,16), branch.slice(16,20), branch.slice(20)].join('-');
   return {
     reference: token,
