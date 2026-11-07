@@ -20,7 +20,7 @@ test('Guest handoff is explicit about paste-and-send and provides clipboard fail
   for (const key of ['whatsappPasteInstructions', 'whatsappClipboardUnavailable', 'whatsappOpenChatOnly']) {
     assert.ok(handoff.includes('copy.' + key), key);
     assert.ok(i18n.includes(key + ': string;'), key + ' typed');
-    assert.ok((i18n.match(new RegExp(key + ': \\'', 'g')) ?? []).length === 2, key + ' both locales');
+    assert.equal(i18n.split('\n').filter(line => line.trimStart().startsWith(key + ": '")).length, 2, key + ' both locales');
   }
   assert.ok(handoff.includes('setCopyFailed(true)'));
   assert.ok(handoff.includes('role="alert"'));
