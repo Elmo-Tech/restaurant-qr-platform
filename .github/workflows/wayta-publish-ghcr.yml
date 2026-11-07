@@ -23,8 +23,8 @@ on:
 
 # Prevent overlapping publication of two different releases.
 concurrency:
-  group: wayta-prebuilt-${{ github.ref }}
-  cancel-in-progress: false
+  group: wayta-prebuilt-${{ github.event_name == 'pull_request' && format('pr-{0}', github.event.pull_request.number) || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
