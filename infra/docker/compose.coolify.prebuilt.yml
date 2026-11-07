@@ -1,6 +1,7 @@
 # GHCR prebuilt deployment for Coolify; NO image is built on Main-Node.
 # Keep compose.coolify.yml active until images have passed CI and registry pull tests.
-# Set WAYTA_IMAGE_TAG to an exact successful 40-character GitHub Actions commit SHA.
+# Set WAYTA_IMAGE_TAG to the exact successful 40-character GitHub Actions commit SHA.
+# Tags are SHA-named but GHCR tags remain mutable; use digests for stronger pinning.
 # Use the SAME Coolify application to preserve named volumes, service identity and routes.
 # NEXT_PUBLIC_API_URL is baked into the image in GitHub Actions. GitHub repository
 # Action variables WAYTA_DEV_WEB_HOST and WAYTA_DEV_PLATFORM_HOST must equal the
