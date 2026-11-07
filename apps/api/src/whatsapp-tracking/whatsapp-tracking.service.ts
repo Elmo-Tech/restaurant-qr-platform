@@ -275,11 +275,10 @@ export class WhatsappTrackingService {
       return;
     }
     const verified = verifyWhatsappReference({ restaurantId:link.restaurantId, receivedMessage:inbound.text,
-      key:s.signingKey });
-    if (!verified) {
-      this.ingressDisposition('invalid-or-expired-reference');
-      return;
-    }
+      key:s.signingKey,
+      onReject: reason => this.ingressDisposition('reference-' + reason),
+    });
+    if (!verified) return;
     let current;
     try { current = await this.verified(link.restaurantId); }
     catch { this.ingressDisposition('connection-verification-error'); return; }
