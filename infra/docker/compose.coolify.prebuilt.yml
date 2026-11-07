@@ -1,0 +1,229 @@
+# GHCR prebuilt deployment for Coolify; NO image is built on Main-Node.
+# Keep compose.coolify.yml active until images have passed CI and registry pull tests.
+# Set WAYTA_IMAGE_TAG to the exact successful 40-character GitHub Actions commit SHA.
+# Tags are SHA-named but GHCR tags remain mutable; use digests for stronger pinning.
+# Use the SAME Coolify application to preserve named volumes, service identity and routes.
+# NEXT_PUBLIC_API_URL is baked into the image in GitHub Actions. GitHub repository
+# Action variables WAYTA_DEV_WEB_HOST and WAYTA_DEV_PLATFORM_HOST must equal the
+# existing Coolify WEB_HOST and PLATFORM_HOST respectively.
+
+# Restaurant QR Platform -- production deployment for Coolify (Docker Compose build pack).
+#
+#   Compose file location in Coolify:  /infra/docker/compose.coolify.yml   (base directory: /)
+#   Guide:                             docs/02-technical/COOLIFY_DEPLOYMENT.md
+#
+# Topology (everything is on one private network; only the gateway is reachable from Coolify's proxy):
+#
+#   Internet --HTTPS--> Coolify proxy (Traefik/Caddy, certificates) --HTTP--> gateway:8080
+#       menu host      /            -> web:3000       restaurant app (Next.js)
+#                      /api/v1/*    -> api:4000       NestJS API
+#                      /media/*     -> api:4000       uploaded images (persistent volume)
+#                      /socket.io/* -> api:4000       Socket.IO/WebSocket transport
+#       console host   /            -> platform:3001  platform console (Next.js)
+#                      /api/v1/platform/* -> api:4000
+#   web, platform --(server-side calls: API_INTERNAL_URL)--> api:4000
+#   api, migrate -------------------------------------------> postgres:5432   (never published)
+#
+# Nothing here publishes a host port. PostgreSQL and the API are reachable only from inside the network.
+# Required variables fail the deployment immediately when missing (`${VAR:?message}`); see
+# infra/docker/coolify.env.example for the full list and COOLIFY_DEPLOYMENT.md for how to enter them.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "5"
+
+x-node-hardening: &node-hardening
+  restart: unless-stopped
+  security_opt:
+    - no-new-privileges:true
+  logging: *logging
+
+services:
+  # ---------------------------------------------------------------------------------------------- database
+  postgres:
+    image: postgres:18.6-bookworm
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-restaurant_qr_platform}
+      POSTGRES_USER: ${POSTGRES_USER:-restaurant_qr_app}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD (a long random value, letters and digits only)}
+    volumes:
+      # PostgreSQL 18 keeps its data in a versioned directory under /var/lib/postgresql (18/docker), so the
+      # volume is mounted at the parent, as in the development compose file.
+      - postgres_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+
+  # ----------------------------------------------------------------------------------------- migrations
+  # One-shot: applies the committed Prisma migrations (`prisma migrate deploy`) and exits. The API starts only
+  # after it finished successfully, so a failed migration stops the deployment before new code serves traffic.
+  # There is exactly one migration runner per deployment, and Prisma also takes a database advisory lock, so two
+  # deployments can never migrate at the same time.
+  migrate:
+    image: ghcr.io/elmo-tech/restaurant-qr-platform-api-tools:${WAYTA_IMAGE_TAG:?Set WAYTA_IMAGE_TAG to the successful GitHub Actions commit SHA}
+    pull_policy: missing
+    restart: "no"
+    logging: *logging
+    environment:
+      # Operations scripts inherit production safeguards (development-only helpers refuse to run).
+      NODE_ENV: production
+      DATABASE_URL: postgresql://${POSTGRES_USER:-restaurant_qr_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-restaurant_qr_platform}
+      # Operations commands that store photos (`npm run apply:restaurant-menu`, `seed:restaurant-menu`) must write into
+      # the SAME folder the API serves at /media, so the uploads volume is mounted here too. The migration itself
+      # never touches it.
+      UPLOAD_LOCAL_DIR: /var/lib/restaurant-qr/uploads
+    volumes:
+      - uploads:/var/lib/restaurant-qr/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  # ---------------------------------------------------------------------------------------------------- api
+  api:
+    <<: *node-hardening
+    image: ghcr.io/elmo-tech/restaurant-qr-platform-api:${WAYTA_IMAGE_TAG:?Set WAYTA_IMAGE_TAG to the successful GitHub Actions commit SHA}
+    pull_policy: missing
+    environment:
+      NODE_ENV: production
+      API_HOST: 0.0.0.0
+      API_PORT: 4000
+      API_PREFIX: /api/v1
+      DATABASE_URL: postgresql://${POSTGRES_USER:-restaurant_qr_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-restaurant_qr_platform}
+      # the two browser origins allowed to call the API with credentials (both are the public HTTPS origins)
+      CORS_ORIGIN: https://${WEB_HOST:?Set WEB_HOST (for example menu.example.com)}
+      PLATFORM_ORIGIN: https://${PLATFORM_HOST:?Set PLATFORM_HOST (for example control.example.com)}
+      AUTH_COOKIE_SECURE: "true"
+      AUTH_COOKIE_SAME_SITE: lax
+      AUTH_SESSION_COOKIE_NAME: ${AUTH_SESSION_COOKIE_NAME:-restaurant_session}
+      AUTH_SESSION_TTL_DAYS: ${AUTH_SESSION_TTL_DAYS:-30}
+      PLATFORM_SESSION_COOKIE_NAME: ${PLATFORM_SESSION_COOKIE_NAME:-platform_session}
+      PLATFORM_SESSION_TTL_HOURS: ${PLATFORM_SESSION_TTL_HOURS:-12}
+      RESTAURANT_INVITATION_TTL_DAYS: ${RESTAURANT_INVITATION_TTL_DAYS:-7}
+      PASSWORD_RESET_TTL_MINUTES: ${PASSWORD_RESET_TTL_MINUTES:-45}
+      SUBSCRIPTION_GRACE_DAYS: ${SUBSCRIPTION_GRACE_DAYS:-7}
+      UPLOAD_LOCAL_DIR: /var/lib/restaurant-qr/uploads
+      # Coolify's proxy -> gateway -> API are two proxy hops in front of the API (see COOLIFY_DEPLOYMENT.md,
+      # "TRUST_PROXY_HOPS"). Put another CDN or proxy in front of Coolify's and this becomes 3.
+      TRUST_PROXY_HOPS: ${TRUST_PROXY_HOPS:-2}
+      RATE_LIMIT_ENABLED: ${RATE_LIMIT_ENABLED:-true}
+      RATE_LIMIT_WINDOW_SECONDS: ${RATE_LIMIT_WINDOW_SECONDS:-60}
+      RATE_LIMIT_DEFAULT_LIMIT: ${RATE_LIMIT_DEFAULT_LIMIT:-300}
+      RATE_LIMIT_LOGIN_LIMIT: ${RATE_LIMIT_LOGIN_LIMIT:-10}
+      RATE_LIMIT_PUBLIC_ORDER_LIMIT: ${RATE_LIMIT_PUBLIC_ORDER_LIMIT:-30}
+      RATE_LIMIT_PUBLIC_TRACKING_LIMIT: ${RATE_LIMIT_PUBLIC_TRACKING_LIMIT:-120}
+      RATE_LIMIT_PUBLIC_LOOKUP_LIMIT: ${RATE_LIMIT_PUBLIC_LOOKUP_LIMIT:-10}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+      # Optional Evolution integration, kept API-only (never exposed to browsers).
+      EVOLUTION_API_URL: ${EVOLUTION_API_URL:-}
+      EVOLUTION_API_KEY: ${EVOLUTION_API_KEY:-}
+      WAYTA_API_PUBLIC_URL: ${WAYTA_API_PUBLIC_URL:-}
+      WHATSAPP_ORDER_SIGNING_KEY: ${WHATSAPP_ORDER_SIGNING_KEY:-}
+      # optional AI menu import (n8n); empty = the import answers 503 and the rest of the platform keeps working
+      N8N_MENU_IMPORT_URL: ${N8N_MENU_IMPORT_URL:-}
+      N8N_MENU_IMPORT_SECRET: ${N8N_MENU_IMPORT_SECRET:-}
+      MENU_IMPORT_TIMEOUT_SECONDS: ${MENU_IMPORT_TIMEOUT_SECONDS:-300}
+      # encrypts the model API keys saved from the Platform console (DEC-059); empty = keys cannot be saved
+      AI_KEYS_ENCRYPTION_KEY: ${AI_KEYS_ENCRYPTION_KEY:-}
+      # temporary demo restaurants (DEC-060); the defaults suit one API instance
+      DEMO_MAX_ACTIVE: ${DEMO_MAX_ACTIVE:-20}
+      DEMO_PURGE_GRACE_MINUTES: ${DEMO_PURGE_GRACE_MINUTES:-60}
+      DEMO_SWEEP_SECONDS: ${DEMO_SWEEP_SECONDS:-60}
+    volumes:
+      - uploads:/var/lib/restaurant-qr/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    expose:
+      - "4000"
+    healthcheck:
+      # /ready = the process is up AND PostgreSQL answers (/health is liveness only)
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:4000/ready').then((r)=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ---------------------------------------------------------------------------------------------------- web
+  web:
+    <<: *node-hardening
+    image: ghcr.io/elmo-tech/restaurant-qr-platform-web:${WAYTA_IMAGE_TAG:?Set WAYTA_IMAGE_TAG to the successful GitHub Actions commit SHA}
+    pull_policy: missing
+    environment:
+      NODE_ENV: production
+      # server-side calls stay on the private network
+      API_INTERNAL_URL: http://api:4000
+      # the origin printed QR codes point to: ${WEB_URL}/q/{restaurant-slug} (Table QRs: /q/{publicCode})
+      WEB_URL: https://${WEB_HOST}
+    depends_on:
+      api:
+        condition: service_healthy
+    expose:
+      - "3000"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/').then((r)=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ----------------------------------------------------------------------------------------------- platform
+  platform:
+    <<: *node-hardening
+    image: ghcr.io/elmo-tech/restaurant-qr-platform-platform:${WAYTA_IMAGE_TAG:?Set WAYTA_IMAGE_TAG to the successful GitHub Actions commit SHA}
+    pull_policy: missing
+    environment:
+      NODE_ENV: production
+      API_INTERNAL_URL: http://api:4000
+    depends_on:
+      api:
+        condition: service_healthy
+    expose:
+      - "3001"
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3001/login').then((r)=>process.exit(r.status<500?0:1)).catch(()=>process.exit(1))"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ------------------------------------------------------------------------------------------------ gateway
+  # The ONLY service Coolify's proxy talks to. In Coolify assign BOTH domains to this service, with port 8080
+  # (see COOLIFY_DEPLOYMENT.md): https://menu.example.com:8080,https://control.example.com:8080
+  gateway:
+    image: ghcr.io/elmo-tech/restaurant-qr-platform-gateway:${WAYTA_IMAGE_TAG:?Set WAYTA_IMAGE_TAG to the successful GitHub Actions commit SHA}
+    pull_policy: missing
+    restart: unless-stopped
+    logging: *logging
+    environment:
+      WEB_HOST: ${WEB_HOST}
+      PLATFORM_HOST: ${PLATFORM_HOST}
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+      platform:
+        condition: service_healthy
+    expose:
+      - "8080"
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O", "/dev/null", "http://127.0.0.1:8080/gateway-health"]
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+
+volumes:
+  # database files: back up with pg_dump (a volume is not a backup)
+  postgres_data:
+  # uploaded product and category images: back up together with the database
+  uploads:
