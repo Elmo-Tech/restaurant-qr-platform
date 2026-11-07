@@ -217,7 +217,7 @@ describe('WhatsApp webhook receipt ingress (no customer data in logs)', () => {
     });
     await service.ingest(secret, event(signed.message.replace('Test order', 'Test orders')));
     expect(dispositions).toEqual([
-      'non-message-event', 'no-order-reference', 'not-inbound-message', 'invalid-or-expired-reference',
+      'non-message-event', 'no-order-reference', 'not-inbound-message', 'reference-signature-mismatch',
     ]);
     expect(db.whatsappOrderReceipt.create).not.toHaveBeenCalled();
   });
