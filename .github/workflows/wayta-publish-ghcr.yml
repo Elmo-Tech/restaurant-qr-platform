@@ -1,0 +1,179 @@
+name: Wayta GHCR prebuilt images (off-server)
+
+on:
+  push:
+    branches: [development]
+    paths:
+      - 'apps/**'
+      - 'infra/docker/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.dockerignore'
+      - '.github/workflows/wayta-publish-ghcr.yml'
+  workflow_dispatch:
+
+# Prevent overlapping publication of two different releases.
+concurrency:
+  group: wayta-prebuilt-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  verify:
+    name: Validate release inputs
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Validate Prisma schema (no DB connection)
+        run: npm run db:validate
+      - name: Typecheck API
+        run: npm run typecheck:api
+      - name: Typecheck Web
+        run: npm run typecheck:web
+      - name: Typecheck Platform
+        run: npm run typecheck:platform
+      - name: Verify WhatsApp tracking regressions
+        run: npm exec --workspace=apps/api -- jest --runInBand whatsapp-tracking.service.spec.ts signed-whatsapp-reference.spec.ts
+      - name: Validate prebuilt Compose topology (no Docker pulls/builds)
+        env:
+          WEB_HOST: menu.example.test
+          PLATFORM_HOST: control.example.test
+          POSTGRES_PASSWORD: ci-only-not-a-real-password
+          WAYTA_IMAGE_TAG: '0000000000000000000000000000000000000000'
+        run: |
+          docker compose -f infra/docker/compose.coolify.prebuilt.yml config --format json > /tmp/wayta-compose.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const assert = require('node:assert/strict');
+          const c = JSON.parse(fs.readFileSync('/tmp/wayta-compose.json', 'utf8'));
+          const expected = { migrate: 'api-tools', api: 'api', web: 'web', platform: 'platform', gateway: 'gateway' };
+          for (const [service, suffix] of Object.entries(expected)) {
+            assert.ok(c.services[service], service + ' missing');
+            assert.equal(c.services[service].build, undefined, service + ' must not build on VPS');
+            assert.equal(c.services[service].image,
+              'ghcr.io/elmo-tech/restaurant-qr-platform-' + suffix + ':' + process.env.WAYTA_IMAGE_TAG);
+          }
+          assert.ok(c.services.postgres, 'postgres is still managed');
+          assert.ok(c.services.api.volumes.some(v => v.target === '/var/lib/restaurant-qr/uploads'));
+          assert.ok(c.services.postgres.volumes.some(v => v.target === '/var/lib/postgresql'));
+          assert.ok(c.services.migrate.depends_on.postgres, 'migration requires postgres');
+          assert.ok(c.services.api.depends_on.migrate, 'api requires migration');
+          console.log('Prebuilt-only Compose preserves services, migrations and data mounts.');
+          NODE
+
+  publish:
+    name: Build and publish pinned GHCR images
+    needs: verify
+    if: github.ref == 'refs/heads/development'
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate public host build variables
+        env:
+          WEB_HOST: ${{ vars.WAYTA_DEV_WEB_HOST }}
+          PLATFORM_HOST: ${{ vars.WAYTA_DEV_PLATFORM_HOST }}
+        shell: bash
+        run: |
+          for host in "$WEB_HOST" "$PLATFORM_HOST"; do
+            if [[ ! "$host" =~ ^[a-z0-9][a-z0-9.-]*\.[a-z]{2,}$ ]]; then
+              echo "::error::Set WAYTA_DEV_WEB_HOST and WAYTA_DEV_PLATFORM_HOST to the exact Coolify hostnames (without https://)."
+              exit 1
+            fi
+          done
+          if [[ "$WEB_HOST" == "$PLATFORM_HOST" ]]; then
+            echo "::error::Menu and platform public hosts must be different."
+            exit 1
+          fi
+      - uses: docker/setup-buildx-action@v3
+      - name: Authenticate GHCR with short-lived GitHub token
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # Run sequentially within ONE job so Next.js builds do not compete for RAM.
+      # Every image uses the immutable source commit SHA. Never push 'latest'.
+      - name: Publish Prisma migration / admin tools
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.api
+          target: tools
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/elmo-tech/restaurant-qr-platform-api-tools:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/Elmo-Tech/restaurant-qr-platform
+          cache-from: type=gha,scope=wayta-api
+          cache-to: type=gha,mode=max,scope=wayta-api
+
+      - name: Publish API runtime
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.api
+          target: runtime
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/elmo-tech/restaurant-qr-platform-api:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/Elmo-Tech/restaurant-qr-platform
+          cache-from: type=gha,scope=wayta-api
+          cache-to: type=gha,mode=max,scope=wayta-api
+
+      - name: Publish restaurant Web
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.web
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/elmo-tech/restaurant-qr-platform-web:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/Elmo-Tech/restaurant-qr-platform
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://${{ vars.WAYTA_DEV_WEB_HOST }}
+            NEXT_PUBLIC_API_BASE_PATH=/api/v1
+          cache-from: type=gha,scope=wayta-web
+          cache-to: type=gha,mode=max,scope=wayta-web
+
+      - name: Publish Platform console
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.platform
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/elmo-tech/restaurant-qr-platform-platform:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/Elmo-Tech/restaurant-qr-platform
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://${{ vars.WAYTA_DEV_PLATFORM_HOST }}
+            NEXT_PUBLIC_API_BASE_PATH=/api/v1
+          cache-from: type=gha,scope=wayta-platform
+          cache-to: type=gha,mode=max,scope=wayta-platform
+
+      - name: Publish gateway
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infra/docker/Dockerfile.gateway
+          platforms: linux/amd64
+          push: true
+          tags: ghcr.io/elmo-tech/restaurant-qr-platform-gateway:${{ github.sha }}
+          labels: org.opencontainers.image.source=https://github.com/Elmo-Tech/restaurant-qr-platform
+          cache-from: type=gha,scope=wayta-gateway
+          cache-to: type=gha,mode=max,scope=wayta-gateway
+
+      - name: Display release tag (not a deployment)
+        run: |
+          echo "GHCR publish complete for ${{ github.sha }}"
+          echo "Set Coolify WAYTA_IMAGE_TAG to ${{ github.sha }} AFTER checking all five packages."
+          echo "No Coolify redeploy is triggered by this workflow."
