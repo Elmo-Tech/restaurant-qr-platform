@@ -96,6 +96,9 @@ export interface PublicMenuCopy {
   whatsappReadyTitle: string;
   whatsappReadyBody: string;
   whatsappOpen: string;
+  whatsappPasteInstructions: string;
+  whatsappClipboardUnavailable: string;
+  whatsappOpenChatOnly: string;
   whatsappCopy: string;
   whatsappCopied: string;
   whatsappMessageLabel: string;
@@ -361,8 +364,11 @@ const EN_COPY: PublicMenuCopy = {
   orderViaWhatsapp: 'Or send it on WhatsApp',
   preparingWhatsapp: 'Preparing your message…',
   whatsappReadyTitle: 'Send it on WhatsApp',
-  whatsappReadyBody: 'Your order is written and ready. Open WhatsApp and press send so the restaurant receives it. It is not placed until you send the message.',
-  whatsappOpen: 'Open WhatsApp',
+  whatsappReadyBody: 'Your order is ready. Use the button below to copy the exact message and open the restaurant\'s WhatsApp chat.',
+  whatsappOpen: 'Copy order and open WhatsApp',
+  whatsappPasteInstructions: 'When WhatsApp opens, paste the copied order message and press Send. Opening the chat alone does not place an order.',
+  whatsappClipboardUnavailable: 'Automatic copy is unavailable in this browser. Select and copy the complete order message below, then open WhatsApp and paste it without edits.',
+  whatsappOpenChatOnly: 'Open restaurant chat',
   whatsappCopy: 'Copy the message',
   whatsappCopied: 'Message copied',
   whatsappMessageLabel: 'Your order message',
@@ -656,8 +662,11 @@ const AR_COPY: PublicMenuCopy = {
   orderViaWhatsapp: 'أو أرسله على واتساب',
   preparingWhatsapp: 'جارٍ تجهيز رسالتك…',
   whatsappReadyTitle: 'أرسله على واتساب',
-  whatsappReadyBody: 'طلبك مكتوب وجاهز. افتح واتساب واضغط إرسال ليصل الطلب إلى المطعم. لا يُعتبر الطلب مُرسلًا إلا بعد إرسال الرسالة.',
-  whatsappOpen: 'افتح واتساب',
+  whatsappReadyBody: 'طلبك جاهز. اضغط الزر لنسخ رسالة الطلب كاملة وفتح شات المطعم على واتساب.',
+  whatsappOpen: 'انسخ الطلب وافتح واتساب',
+  whatsappPasteInstructions: 'لما واتساب يفتح، الصق الرسالة اللي اتنسخت واضغط إرسال. مجرد فتح الشات مش بيسجل الطلب.',
+  whatsappClipboardUnavailable: 'المتصفح منع النسخ التلقائي. حدّد رسالة الطلب كاملة وانسخها من تحت، وبعدها افتح شات المطعم والصقها من غير تعديل.',
+  whatsappOpenChatOnly: 'افتح شات المطعم',
   whatsappCopy: 'انسخ الرسالة',
   whatsappCopied: 'تم نسخ الرسالة',
   whatsappMessageLabel: 'رسالة طلبك',
