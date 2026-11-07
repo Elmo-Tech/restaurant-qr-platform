@@ -37,6 +37,8 @@ jobs:
         run: npm run typecheck:api
       - name: Typecheck Staff + Guest Web
         run: npm run typecheck:web
+      - name: Verify WhatsApp guest handoff transport regression
+        run: node --test apps/web/src/lib/public-menu/whatsapp-handoff.contract.test.mjs
       - name: Typecheck Platform Console
         run: npm run typecheck:platform
       - name: Targeted tenant isolation, guest menu, provisioning, acquisition and menu tests
