@@ -6,7 +6,7 @@ on:
       - integration/wayta-verde-release-candidate-2026-11-02
       - development
   pull_request:
-    branches: [main]
+    branches: [main, development]
     paths:
       - 'apps/**'
       - 'docs/03-ui-ux/WAYTA_VERDE_RELEASE_CANDIDATE_2026-11-02.md'
