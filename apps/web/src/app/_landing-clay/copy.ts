@@ -9,6 +9,7 @@ export const PLAN_FEATURES = [
   'DASHBOARD_ORDERING',
   'TABLE_ORDERING',
   'KITCHEN',
+  'OFFERS',
 ] as const;
 export type PlanFeature = (typeof PLAN_FEATURES)[number];
 
@@ -222,6 +223,7 @@ const AR: LandingCopy = {
       DASHBOARD_ORDERING: 'استلام الطلبات في اللوحة',
       TABLE_ORDERING: 'طلبات الطاولات',
       KITCHEN: 'شاشة المطبخ',
+      OFFERS: 'العروض والباندل',
     },
     basics: ['منيو رقمي بلغتين', 'كود QR لمطعمك', 'لوحة تحكم لفريقك'],
     currencyLabel: 'العملة',
@@ -421,6 +423,7 @@ const EN: LandingCopy = {
       DASHBOARD_ORDERING: 'Receive orders in the dashboard',
       TABLE_ORDERING: 'Table orders',
       KITCHEN: 'Kitchen screen',
+      OFFERS: 'Offers and bundles',
     },
     basics: ['Digital menu in two languages', 'A QR code for your restaurant', 'Dashboard for your team'],
     currencyLabel: 'Currency',

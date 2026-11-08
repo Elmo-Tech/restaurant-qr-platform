@@ -1,0 +1,2757 @@
+{
+  "version": 1,
+  "restaurant": {
+    "name": "Meat Lovers",
+    "defaultLocale": "ar",
+    "currencyCode": "EGP",
+    "countryCode": "EG",
+    "timezone": "Africa/Cairo",
+    "menuTemplate": "CLASSIC",
+    "logo": "logo.png",
+    "contact": {
+      "phone": "+201153755799",
+      "whatsapp": "+201122888566"
+    },
+    "exclusiveDesign": {
+      "rendererKey": "MEAT_LOVERS_BUTCHER_V1",
+      "brandAr": "ميت لافرز",
+      "brandEn": "MEAT LOVERS",
+      "images": {
+        "hero": "hero.webp",
+        "story": "story.webp"
+      },
+      "categoryChapters": {
+        "pure-red": {
+          "tag": {
+            "ar": "PURE RED CUTS",
+            "en": "PURE RED CUTS"
+          },
+          "intro": {
+            "ar": "قطع اللحم الأحمر الصافي بالكيلو.",
+            "en": "Pure lean red meat, by the kilo."
+          }
+        },
+        "kandouz": {
+          "tag": {
+            "ar": "KANDOUZ CUTS",
+            "en": "KANDOUZ CUTS"
+          },
+          "intro": {
+            "ar": "قطع الكندوز للشوي والطبخ والفرم.",
+            "en": "Kandouz cuts for grilling, cooking and mincing."
+          }
+        },
+        "lamb": {
+          "tag": {
+            "ar": "LAMB CUTS",
+            "en": "LAMB CUTS"
+          },
+          "intro": {
+            "ar": "قطع الضاني بالكيلو، من الفخدة للكبدة.",
+            "en": "Lamb cuts by the kilo, from leg to liver."
+          }
+        },
+        "ready": {
+          "tag": {
+            "ar": "READY TO COOK",
+            "en": "READY TO COOK"
+          },
+          "intro": {
+            "ar": "أصناف جاهزة للشوي أو الفرن أو التحمير.",
+            "en": "Ready for the grill, the oven or the pan."
+          }
+        }
+      }
+    }
+  },
+  "branch": {
+    "names": {
+      "ar": "فرع مدينة نصر",
+      "en": "Nasr City Branch"
+    },
+    "address": "مدينة نصر، القاهرة. 3 عمارات السعودية، قبالة دار الدفاع الجوي، متفرع من شارع النزهة.",
+    "phone": "+201122888566"
+  },
+  "menu": {
+    "nameInternal": "Main menu",
+    "names": {
+      "ar": "المنيو",
+      "en": "Menu"
+    }
+  },
+  "sharedModifierGroups": {
+    "packing": {
+      "names": {
+        "ar": "التغليف",
+        "en": "Packaging"
+      },
+      "helper": {
+        "ar": "اختياري — اختار اللي يناسبك",
+        "en": "Optional — pick what suits you"
+      },
+      "min": 0,
+      "max": 1,
+      "options": [
+        {
+          "names": {
+            "ar": "عبوة واحدة",
+            "en": "One pack"
+          },
+          "price": "0"
+        },
+        {
+          "names": {
+            "ar": "عبوات صغيرة (مقسمة)",
+            "en": "Smaller packs (portioned)"
+          },
+          "price": "0"
+        }
+      ]
+    }
+  },
+  "categories": [
+    {
+      "key": "pure-red",
+      "names": {
+        "ar": "كل الأحمر الصافي",
+        "en": "Pure Red Meat"
+      },
+      "descriptions": {
+        "ar": "جميع الأصناف بالكيلو (1000 جرام).",
+        "en": "Every cut is sold per kilo (1,000 g)."
+      },
+      "image": "cat-pure.webp",
+      "sharedModifierGroups": [
+        "packing"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "بفتيك صافي",
+            "en": "Pure Bifteck"
+          },
+          "descriptions": {
+            "ar": "شرائح بفتيك من اللحم الأحمر الصافي، مناسبة للتحمير والتسوية السريعة.",
+            "en": "Bifteck slices of pure lean red meat, suited to quick searing and pan-cooking."
+          },
+          "image": "p-steak.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "سمك الشرائح",
+                "en": "Slice thickness"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "رفيعة",
+                    "en": "Thin"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "متوسطة",
+                    "en": "Medium"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "سميكة",
+                    "en": "Thick"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "بيكاتا صافية",
+            "en": "Pure Piccata"
+          },
+          "descriptions": {
+            "ar": "شرائح رفيعة من اللحم الأحمر الصافي بتقطيع البيكاتا.",
+            "en": "Thin slices of pure lean red meat, cut piccata-style."
+          },
+          "image": "p-herb-steak.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "سمك الشرائح",
+                "en": "Slice thickness"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "رفيعة",
+                    "en": "Thin"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "متوسطة",
+                    "en": "Medium"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "سميكة",
+                    "en": "Thick"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كباب حلة صافي",
+            "en": "Pure Kebab Hala"
+          },
+          "descriptions": {
+            "ar": "قطع من اللحم الأحمر الصافي مناسبة لكباب الحلة والطواجن.",
+            "en": "Cubes of pure lean red meat for kebab hala and slow-cooked pots."
+          },
+          "image": "p-skewers.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "مكعبات صغيرة",
+                    "en": "Small cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مكعبات متوسطة",
+                    "en": "Medium cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "قطع كبيرة",
+                    "en": "Large pieces"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "فيليه كندوز كامل",
+            "en": "Whole Kandouz Fillet"
+          },
+          "descriptions": {
+            "ar": "قطعة فيليه كاملة من لحم الكندوز.",
+            "en": "A whole fillet cut of kandouz meat."
+          },
+          "image": "p-fillet.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التجهيز",
+                "en": "How it is prepared"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "قطعة كاملة",
+                    "en": "Whole piece"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "شرائح",
+                    "en": "Sliced"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مقطعة مكعبات",
+                    "en": "Cut into cubes"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "روست بيف كامل",
+            "en": "Whole Roast Beef"
+          },
+          "descriptions": {
+            "ar": "قطعة روست بيف كاملة، تتجهز حسب طلبك.",
+            "en": "A whole roast-beef cut, prepared the way you ask."
+          },
+          "image": "p-ribeye.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التجهيز",
+                "en": "How it is prepared"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "قطعة كاملة",
+                    "en": "Whole piece"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "شرائح",
+                    "en": "Sliced"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مقطعة مكعبات",
+                    "en": "Cut into cubes"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "شاورما صافية",
+            "en": "Pure Shawarma Meat"
+          },
+          "descriptions": {
+            "ar": "شرائح من اللحم الأحمر الصافي لتحضير الشاورما في البيت.",
+            "en": "Slices of pure lean red meat for making shawarma at home."
+          },
+          "image": "p-cuts-board.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "سمك الشرائح",
+                "en": "Slice thickness"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "رفيعة",
+                    "en": "Thin"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "متوسطة",
+                    "en": "Medium"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "سميكة",
+                    "en": "Thick"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "شريحة كولاتا صافية",
+            "en": "Pure Collata Slice"
+          },
+          "descriptions": {
+            "ar": "شرائح كولاتا من اللحم الأحمر الصافي.",
+            "en": "Collata slices of pure lean red meat."
+          },
+          "image": "p-steak.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "سمك الشرائح",
+                "en": "Slice thickness"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "رفيعة",
+                    "en": "Thin"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "متوسطة",
+                    "en": "Medium"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "سميكة",
+                    "en": "Thick"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "وش فخدة صافي",
+            "en": "Pure Thigh Top (Wesh Fakhda)"
+          },
+          "descriptions": {
+            "ar": "وش الفخدة من اللحم الأحمر الصافي.",
+            "en": "The top-of-thigh cut of pure lean red meat."
+          },
+          "image": "p-herb-steak.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "مكعبات صغيرة",
+                    "en": "Small cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مكعبات متوسطة",
+                    "en": "Medium cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "قطع كبيرة",
+                    "en": "Large pieces"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "شين صافي",
+            "en": "Pure Shin"
+          },
+          "descriptions": {
+            "ar": "قطعة الشين من اللحم الأحمر الصافي، مناسبة للطبخ البطيء.",
+            "en": "The shin cut of pure lean red meat, suited to slow cooking."
+          },
+          "image": "p-cuts-board.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "مكعبات صغيرة",
+                    "en": "Small cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مكعبات متوسطة",
+                    "en": "Medium cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "قطع كبيرة",
+                    "en": "Large pieces"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "مفروم صافي",
+            "en": "Pure Mince"
+          },
+          "descriptions": {
+            "ar": "لحم أحمر صافي مفروم.",
+            "en": "Minced pure lean red meat."
+          },
+          "image": "p-mince.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "درجة الفرم",
+                "en": "Mincing"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "فرم مرة واحدة",
+                    "en": "Minced once"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "فرم مرتين (ناعم)",
+                    "en": "Minced twice (fine)"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كبدة بقر صافية",
+            "en": "Pure Beef Liver"
+          },
+          "descriptions": {
+            "ar": "كبدة بقري صافية، بالكيلو.",
+            "en": "Pure beef liver, sold by the kilo."
+          },
+          "image": "p-liver.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "162.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "325",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "650",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1300",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "شرائح",
+                    "en": "Sliced"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مكعبات",
+                    "en": "Cubes"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "kandouz",
+      "names": {
+        "ar": "لحوم كندوز",
+        "en": "Kandouz Meats"
+      },
+      "descriptions": {
+        "ar": "تشكيلة قطع الكندوز، وتتباع بالكيلو.",
+        "en": "A selection of kandouz cuts, sold by the kilo."
+      },
+      "image": "cat-kandouz.webp",
+      "sharedModifierGroups": [
+        "packing"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "كندوز علوي",
+            "en": "Kandouz Upper Cut"
+          },
+          "descriptions": {
+            "ar": "قطعة علوي من لحم الكندوز، مناسبة للطبخ.",
+            "en": "The upper cut of kandouz meat, suited to cooking."
+          },
+          "image": "p-ribeye.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "105",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "210",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "420",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "840",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "مكعبات صغيرة",
+                    "en": "Small cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مكعبات متوسطة",
+                    "en": "Medium cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "قطع كبيرة",
+                    "en": "Large pieces"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كندوز قطع دوش",
+            "en": "Kandouz Dosh Cuts"
+          },
+          "descriptions": {
+            "ar": "قطع دوش من لحم الكندوز، مناسبة للطواجن والطبخ الهادي.",
+            "en": "Dosh cuts of kandouz meat, suited to pots and slow cooking."
+          },
+          "image": "p-cuts-board.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "112.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "225",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "450",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "900",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "مكعبات صغيرة",
+                    "en": "Small cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مكعبات متوسطة",
+                    "en": "Medium cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "قطع كبيرة",
+                    "en": "Large pieces"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "مفروم كندوز ممتاز",
+            "en": "Premium Kandouz Mince"
+          },
+          "descriptions": {
+            "ar": "لحم كندوز مفروم ممتاز، للبيت والكفتة والحواوشي.",
+            "en": "Premium minced kandouz meat for home cooking, kofta and hawawshi."
+          },
+          "image": "p-mince.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "137.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "275",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "550",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1100",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "درجة الفرم",
+                "en": "Mincing"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "فرم مرة واحدة",
+                    "en": "Minced once"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "فرم مرتين (ناعم)",
+                    "en": "Minced twice (fine)"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "مفروم كندوز خالي الدسم",
+            "en": "Fat-Free Kandouz Mince"
+          },
+          "descriptions": {
+            "ar": "لحم كندوز مفروم مُصنَّف في المنيو كخالي الدسم.",
+            "en": "Minced kandouz meat, listed on the printed menu as fat-free."
+          },
+          "image": "p-mince-2.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "131.25",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "262.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "525",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1050",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "درجة الفرم",
+                "en": "Mincing"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "فرم مرة واحدة",
+                    "en": "Minced once"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "فرم مرتين (ناعم)",
+                    "en": "Minced twice (fine)"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كندوز انتركوت",
+            "en": "Kandouz Entrecôte"
+          },
+          "descriptions": {
+            "ar": "قطعة انتركوت من لحم الكندوز للتسوية والشواء.",
+            "en": "An entrecôte cut of kandouz meat for grilling and pan-cooking."
+          },
+          "image": "p-steak.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "133.75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "267.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "535",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1070",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "ستيك متوسط السمك",
+                    "en": "Medium-thick steaks"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "ستيك سميك",
+                    "en": "Thick steaks"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "قطعة كاملة",
+                    "en": "Whole piece"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كندوز موزة (شين)",
+            "en": "Kandouz Moza (Shin)"
+          },
+          "descriptions": {
+            "ar": "موزة الكندوز (الشين)، مناسبة للطبخ البطيء.",
+            "en": "The kandouz moza (shin), suited to slow cooking."
+          },
+          "image": "p-herb-steak.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "133.75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "267.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "535",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1070",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "مكعبات صغيرة",
+                    "en": "Small cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مكعبات متوسطة",
+                    "en": "Medium cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "قطع كبيرة",
+                    "en": "Large pieces"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كندوز ريش خلفية",
+            "en": "Kandouz Back Ribs"
+          },
+          "descriptions": {
+            "ar": "ريش خلفية من لحم الكندوز.",
+            "en": "Back ribs of kandouz meat."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "133.75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "267.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "535",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1070",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "تقطيع الريش",
+                "en": "How the ribs are cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "ريش كاملة",
+                    "en": "Whole rack"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "ريش مفصولة",
+                    "en": "Separated ribs"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كبدة وقلب كندوز",
+            "en": "Kandouz Liver & Heart"
+          },
+          "descriptions": {
+            "ar": "كبدة وقلب من الكندوز.",
+            "en": "Kandouz liver and heart."
+          },
+          "image": "p-liver.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "137.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "275",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "550",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1100",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "شرائح",
+                    "en": "Sliced"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مكعبات",
+                    "en": "Cubes"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كندوز ريب آي",
+            "en": "Kandouz Ribeye"
+          },
+          "descriptions": {
+            "ar": "قطعة ريب آي من لحم الكندوز للشواء والتسوية.",
+            "en": "A ribeye cut of kandouz meat for grilling and pan-cooking."
+          },
+          "image": "p-ribeye.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "136.25",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "272.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "545",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1090",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "ستيك متوسط السمك",
+                    "en": "Medium-thick steaks"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "ستيك سميك",
+                    "en": "Thick steaks"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "قطعة كاملة",
+                    "en": "Whole piece"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كندوز كوارع (كرعين)",
+            "en": "Kandouz Trotters (Kara'ain)"
+          },
+          "descriptions": {
+            "ar": "كوارع (كرعين) من الكندوز.",
+            "en": "Kandouz trotters (kara'ain)."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "112.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "225",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "450",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "900",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التجهيز",
+                "en": "How it is prepared"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "كما هي",
+                    "en": "As it is"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مقطعة",
+                    "en": "Cut into pieces"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كندوز عكاوي",
+            "en": "Kandouz Okawy"
+          },
+          "descriptions": {
+            "ar": "عكاوي من لحم الكندوز.",
+            "en": "Okawy cuts of kandouz meat."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "137.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "275",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "550",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1100",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التجهيز",
+                "en": "How it is prepared"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "كما هي",
+                    "en": "As it is"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مقطعة",
+                    "en": "Cut into pieces"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "lamb",
+      "names": {
+        "ar": "اللحمة الضاني",
+        "en": "Lamb"
+      },
+      "descriptions": {
+        "ar": "جميع الأصناف بالكيلو (1000 جرام).",
+        "en": "Every cut is sold per kilo (1,000 g)."
+      },
+      "image": "cat-lamb.webp",
+      "sharedModifierGroups": [
+        "packing"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "فخدة ضاني",
+            "en": "Lamb Leg"
+          },
+          "descriptions": {
+            "ar": "فخدة ضاني، مناسبة للفرن والتحمير.",
+            "en": "Lamb leg, suited to the oven and roasting."
+          },
+          "image": "p-lamb.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التجهيز",
+                "en": "How it is prepared"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "قطعة كاملة",
+                    "en": "Whole piece"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "شرائح",
+                    "en": "Sliced"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مقطعة مكعبات",
+                    "en": "Cut into cubes"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كتف ضاني",
+            "en": "Lamb Shoulder"
+          },
+          "descriptions": {
+            "ar": "كتف ضاني، مناسب للطواجن والتسوية.",
+            "en": "Lamb shoulder, suited to pots and slow roasting."
+          },
+          "image": "p-lamb.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "مكعبات صغيرة",
+                    "en": "Small cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مكعبات متوسطة",
+                    "en": "Medium cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "قطع كبيرة",
+                    "en": "Large pieces"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "رقبة ضاني",
+            "en": "Lamb Neck"
+          },
+          "descriptions": {
+            "ar": "رقبة ضاني، مناسبة للطبخ الهادي.",
+            "en": "Lamb neck, suited to slow cooking."
+          },
+          "image": "p-lamb.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "مكعبات صغيرة",
+                    "en": "Small cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مكعبات متوسطة",
+                    "en": "Medium cubes"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "قطع كبيرة",
+                    "en": "Large pieces"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "ريش ضاني",
+            "en": "Lamb Ribs"
+          },
+          "descriptions": {
+            "ar": "ريش ضاني، مناسبة للشواء.",
+            "en": "Lamb ribs, suited to grilling."
+          },
+          "image": "p-lamb.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "تقطيع الريش",
+                "en": "How the ribs are cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "ريش كاملة",
+                    "en": "Whole rack"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "ريش مفصولة",
+                    "en": "Separated ribs"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كبدة ضاني",
+            "en": "Lamb Liver"
+          },
+          "descriptions": {
+            "ar": "كبدة ضاني، بالكيلو.",
+            "en": "Lamb liver, sold by the kilo."
+          },
+          "image": "p-liver.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "150",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "300",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "600",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1200",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "شرائح",
+                    "en": "Sliced"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مكعبات",
+                    "en": "Cubes"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "لية ضاني (دهن)",
+            "en": "Lamb Tail Fat (Layya)"
+          },
+          "descriptions": {
+            "ar": "لية ضاني (دهن)، بالكمية المطلوبة.",
+            "en": "Lamb tail fat (layya), in the amount you need."
+          },
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "118.75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "237.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "475",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "950",
+              "default": false
+            }
+          ],
+          "modifierGroups": [
+            {
+              "names": {
+                "ar": "طريقة التقطيع",
+                "en": "How it is cut"
+              },
+              "helper": {
+                "ar": "اختياري — اختار اللي يناسبك",
+                "en": "Optional — pick what suits you"
+              },
+              "min": 0,
+              "max": 1,
+              "options": [
+                {
+                  "names": {
+                    "ar": "قطعة واحدة",
+                    "en": "One piece"
+                  },
+                  "price": "0"
+                },
+                {
+                  "names": {
+                    "ar": "مكعبات",
+                    "en": "Cubes"
+                  },
+                  "price": "0"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "key": "ready",
+      "names": {
+        "ar": "جاهز عالتسوية",
+        "en": "Ready to Cook"
+      },
+      "descriptions": {
+        "ar": "أصناف متجهزة، تتباع بالكيلو.",
+        "en": "Prepared items, sold by the kilo."
+      },
+      "image": "cat-ready.webp",
+      "sharedModifierGroups": [
+        "packing"
+      ],
+      "products": [
+        {
+          "names": {
+            "ar": "ممبار بلدي",
+            "en": "Baladi Mumbar"
+          },
+          "descriptions": {
+            "ar": "ممبار بلدي جاهز للتسوية.",
+            "en": "Baladi mumbar, ready to cook."
+          },
+          "image": "p-sausage.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "87.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "175",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "350",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "700",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كفتة أرز",
+            "en": "Rice Kofta"
+          },
+          "descriptions": {
+            "ar": "كفتة بالأرز جاهزة للتسوية.",
+            "en": "Kofta with rice, ready to cook."
+          },
+          "image": "p-mince.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "93.75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "187.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "375",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "750",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "حواوشي",
+            "en": "Hawawshi"
+          },
+          "descriptions": {
+            "ar": "حواوشي جاهز للتسوية.",
+            "en": "Hawawshi, ready to cook."
+          },
+          "image": "p-mince-2.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "112.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "225",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "450",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "900",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "سجق ميت لافرز",
+            "en": "Meat Lovers Sausage"
+          },
+          "descriptions": {
+            "ar": "سجق من تجهيز ميت لافرز، جاهز للتسوية.",
+            "en": "Sausage prepared by Meat Lovers, ready to cook."
+          },
+          "image": "p-sausage-2.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "118.75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "237.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "475",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "950",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "برجر ميت لافرز",
+            "en": "Meat Lovers Burger"
+          },
+          "descriptions": {
+            "ar": "برجر من تجهيز ميت لافرز، جاهز للتسوية.",
+            "en": "Burger patties prepared by Meat Lovers, ready to cook."
+          },
+          "image": "p-burger.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "118.75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "237.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "475",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "950",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كفتة جاهزة للشواء",
+            "en": "Ready-to-Grill Kofta"
+          },
+          "descriptions": {
+            "ar": "كفتة مجهزة للشواء.",
+            "en": "Kofta prepared for the grill."
+          },
+          "image": "p-skewers.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "118.75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "237.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "475",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "950",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كفتة داوود باشا",
+            "en": "Dawood Basha Kofta"
+          },
+          "descriptions": {
+            "ar": "كفتة داوود باشا جاهزة للتسوية.",
+            "en": "Dawood Basha kofta, ready to cook."
+          },
+          "image": "p-mince.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "118.75",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "237.5",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "475",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "950",
+              "default": false
+            }
+          ]
+        },
+        {
+          "names": {
+            "ar": "كفتة طرب",
+            "en": "Tarab Kofta"
+          },
+          "descriptions": {
+            "ar": "كفتة طرب جاهزة للتسوية.",
+            "en": "Tarab kofta, ready to cook."
+          },
+          "image": "p-mince-2.webp",
+          "variants": [
+            {
+              "names": {
+                "ar": "ربع كيلو (250 جم)",
+                "en": "250 g"
+              },
+              "price": "125",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "نص كيلو (500 جم)",
+                "en": "500 g"
+              },
+              "price": "250",
+              "default": false
+            },
+            {
+              "names": {
+                "ar": "كيلو (1000 جم)",
+                "en": "1 kg"
+              },
+              "price": "500",
+              "default": true
+            },
+            {
+              "names": {
+                "ar": "2 كيلو (2000 جم)",
+                "en": "2 kg"
+              },
+              "price": "1000",
+              "default": false
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

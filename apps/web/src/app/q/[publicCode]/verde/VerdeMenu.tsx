@@ -7,6 +7,7 @@ import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../../lib/public-menu/copy';
 import type { PublicMenuCategory, PublicMenuProduct } from '../../../../lib/public-menu/types';
 import { verdeCopy, type VerdeCopyKey, type VerdeMenuSettings, type VerdeTheme } from '../../../../lib/public-menu/verde-settings';
+import type { DesignOffers } from '../guest-view-types';
 import { ShareButton } from '../ShareButton';
 import { VerdeBannerArt, VerdeChapterArt, VerdePizzaArt } from './VerdeArt';
 import { VERDE_FONT_CLASSES } from './verde-fonts';
@@ -81,6 +82,8 @@ export interface VerdeMenuProps {
   notices: ReactNode;
   /** Pickup / delivery switch and ordering notices, shown under the hero and the ticker. */
   orderingBar: ReactNode;
+  /** Offers / Bundles (DEC-069): the shared strip and the first "Offers" chip; null = none to show. */
+  offers?: DesignOffers | null;
   contact: ReactNode;
   poweredBy: ReactNode;
   /** Shared overlays (cart bar, cart, product sheet, tracking) rendered inside the themed root so they match the skin. */
@@ -109,7 +112,7 @@ export function VerdeMenu(props: VerdeMenuProps) {
     settings, restaurantName, logoUrl, locale, availableLocales, designPreview, copy, currency,
     categories, visibleCategories, query, onQueryChange, activeCategoryId, onSelectCategory, canOrder,
     simpleQuantityByProductId, totalQuantityByProductId, onOpenProduct, onQuickAdd, onIncrement, onDecrement,
-    cartCount, onOpenCart, onTrack, hasActiveOrder, shareCode, notices, orderingBar, contact, poweredBy, children,
+    cartCount, onOpenCart, onTrack, hasActiveOrder, shareCode, notices, orderingBar, offers, contact, poweredBy, children,
   } = props;
 
   const brand = settings.brandWord.trim() || restaurantName;
@@ -300,6 +303,8 @@ export function VerdeMenu(props: VerdeMenuProps) {
 
       {orderingBar ? <div className="v-wrap v-notices v-ordering">{orderingBar}</div> : null}
 
+      {offers ? <div className="v-wrap v-offers">{offers.strip}</div> : null}
+
       {settings.showChapters && hasMenu ? (
         <section id="discover" className="v-wrap" aria-labelledby="v-intro-title">
           <div className="v-intro">
@@ -340,6 +345,11 @@ export function VerdeMenu(props: VerdeMenuProps) {
           {hasMenu ? (
             <div className="v-mobile-rail">
               <nav className="v-rail-inner" ref={railRef} aria-label={copy.verdeMenuSections}>
+                {offers ? (
+                  <button type="button" data-offers-chip onClick={offers.onJump}>
+                    <bdi>🎁 {offers.chipLabel}</bdi>
+                  </button>
+                ) : null}
                 {categories.map((category) => (
                   <button key={category.id} type="button" aria-pressed={!isSearching && category.id === activeCategory?.id} onClick={() => selectCategory(category.id)}>
                     <bdi>{category.name}</bdi>
@@ -354,6 +364,13 @@ export function VerdeMenu(props: VerdeMenuProps) {
               <aside className="v-sidebar">
                 <p className="v-sidebar-heading" dir="ltr">{text('sidebarHeading')}</p>
                 <nav className="v-category-nav" aria-label={copy.verdeMenuSections}>
+                  {offers ? (
+                    <button type="button" data-offers-chip onClick={offers.onJump}>
+                      <span className="number" dir="ltr" aria-hidden="true">🎁</span>
+                      <span className="label"><bdi>{offers.chipLabel}</bdi></span>
+                      <span className="chev" aria-hidden="true">↗</span>
+                    </button>
+                  ) : null}
                   {categories.map((category, index) => (
                     <button key={category.id} type="button" aria-current={!isSearching && category.id === activeCategory?.id ? 'true' : undefined} className={!isSearching && category.id === activeCategory?.id ? 'is-active' : ''} onClick={() => selectCategory(category.id)}>
                       <span className="number" dir="ltr">{pad(index + 1)}</span>

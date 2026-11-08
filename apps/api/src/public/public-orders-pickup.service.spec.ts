@@ -32,7 +32,7 @@ const TABLE_QR_ROW = {
   restaurantId: 'restaurant-1',
   branchId: 'branch-1',
   tableId: 'table-1',
-  restaurant: { status: 'ACTIVE' as const, defaultLocale: 'en', currencyCode: 'EGP' },
+  restaurant: { status: 'ACTIVE' as const, defaultLocale: 'en', currencyCode: 'EGP', countryCode: 'EG' },
   table: { tableNumber: '7', status: 'ACTIVE' as const },
 };
 
@@ -43,7 +43,7 @@ const GENERIC_QR_ROW = {
   restaurantId: 'restaurant-1',
   branchId: null,
   tableId: null,
-  restaurant: { status: 'ACTIVE' as const, defaultLocale: 'en', currencyCode: 'EGP' },
+  restaurant: { status: 'ACTIVE' as const, defaultLocale: 'en', currencyCode: 'EGP', countryCode: 'EG' },
   table: null,
 };
 
@@ -232,7 +232,7 @@ describe('PublicOrdersService.createOrder -- GENERIC QR creates PICKUP (FT-7)', 
       branchId: BRANCH_A,
       restaurantId: 'restaurant-1',
       customerNameSnapshot: 'Sara Ali',
-      customerPhoneSnapshot: '+20 100 000 0000',
+      customerPhoneSnapshot: '+201000000000',
       customerNotesSnapshot: 'No onions',
     });
     expect(result).toEqual({
@@ -278,6 +278,59 @@ describe('PublicOrdersService.createOrder -- GENERIC QR creates PICKUP (FT-7)', 
     const result = await service.createOrder({ ...PICKUP_INPUT, ...override });
 
     expect(result).toEqual({ outcome: 'customerDetailsRequired' });
+    expect(mock.orderCreate).not.toHaveBeenCalled();
+  });
+
+  it('refuses a phone that is not a real number for the Restaurant country, creating nothing', async () => {
+    const mock = buildMock({ qr: GENERIC_QR_ROW });
+    const service = buildService(mock);
+
+    const result = await service.createOrder({ ...PICKUP_INPUT, customerPhone: '548' });
+
+    expect(result).toEqual({
+      outcome: 'invalidFields',
+      errors: [{ field: 'customerPhone', code: 'INVALID_PHONE' }],
+    });
+    expect(mock.orderCreate).not.toHaveBeenCalled();
+  });
+
+  it('stores the phone normalized to E.164, whatever the Guest typed', async () => {
+    const mock = buildMock({ qr: GENERIC_QR_ROW });
+    const service = buildService(mock);
+
+    await service.createOrder({ ...PICKUP_INPUT, customerPhone: '010 1234 5678' });
+
+    expect(mock.orderCreate.mock.calls[0][0].data.customerPhoneSnapshot).toBe('+201012345678');
+  });
+
+  it('reads a local phone in the Restaurant country (Saudi Arabia here)', async () => {
+    const mock = buildMock({
+      qr: { ...GENERIC_QR_ROW, restaurant: { ...GENERIC_QR_ROW.restaurant, countryCode: 'SA' } },
+    });
+    const service = buildService(mock);
+
+    await service.createOrder({ ...PICKUP_INPUT, customerPhone: '0581234567' });
+    expect(mock.orderCreate.mock.calls[0][0].data.customerPhoneSnapshot).toBe('+966581234567');
+
+    const refused = await service.createOrder({ ...PICKUP_INPUT, customerPhone: '01012345678' });
+    expect(refused).toEqual({
+      outcome: 'invalidFields',
+      errors: [{ field: 'customerPhone', code: 'INVALID_PHONE' }],
+    });
+  });
+
+  it('refuses a one-letter name and a name without any letter', async () => {
+    const mock = buildMock({ qr: GENERIC_QR_ROW });
+    const service = buildService(mock);
+
+    expect(await service.createOrder({ ...PICKUP_INPUT, customerName: 'S' })).toEqual({
+      outcome: 'invalidFields',
+      errors: [{ field: 'customerName', code: 'TOO_SHORT' }],
+    });
+    expect(await service.createOrder({ ...PICKUP_INPUT, customerName: '12345' })).toEqual({
+      outcome: 'invalidFields',
+      errors: [{ field: 'customerName', code: 'MUST_CONTAIN_LETTER' }],
+    });
     expect(mock.orderCreate).not.toHaveBeenCalled();
   });
 

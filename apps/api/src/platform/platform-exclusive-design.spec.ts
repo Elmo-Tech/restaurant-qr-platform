@@ -148,6 +148,22 @@ describe('Platform Admin: tenant-owned exclusive design assignment', () => {
     expect(taken.prisma.restaurantExclusiveDesign.upsert).not.toHaveBeenCalled();
   });
 
+  it('accepts the Meat Lovers renderer and refuses it for a second Restaurant', async () => {
+    const t = setup();
+    const custom = {
+      baseTemplate: 'CLASSIC' as const,
+      status: 'ACTIVE_CUSTOM' as const,
+      rendererKey: 'MEAT_LOVERS_BUTCHER_V1' as const,
+    };
+    expect(await t.service.setExclusiveDesign(ADMIN, RESTAURANT_ID, custom)).toEqual({ outcome: 'ok', data: custom });
+    const taken = setup();
+    taken.prisma.restaurantExclusiveDesign.findUnique
+      .mockResolvedValueOnce(null)
+      .mockResolvedValueOnce({ restaurantId: '22222222-2222-4222-8222-222222222222' });
+    await expect(taken.service.setExclusiveDesign(ADMIN, RESTAURANT_ID, custom)).rejects.toThrow('already belongs');
+    expect(taken.prisma.restaurantExclusiveDesign.upsert).not.toHaveBeenCalled();
+  });
+
   it('accepts the El Sherbiny renderer, refuses it for a second Restaurant and rejects unknown keys', async () => {
     const t = setup();
     const custom = {

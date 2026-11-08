@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { GuestIconBag, GuestIconClose, GuestIconMoon, GuestIconPhone, GuestIconReceipt, GuestIconSearch, GuestIconSun } from '../../../../components/guest/icons';
 import { Price } from '../../../../components/guest/Price';
+import type { DesignOffers } from '../guest-view-types';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../../lib/public-menu/copy';
 import { toMinorUnits } from '../../../../lib/public-menu/money';
@@ -71,6 +72,8 @@ export interface SherbinyMenuProps {
   notices: ReactNode;
   /** Pickup / delivery switch and ordering notices, shown under the hero and the ticker. */
   orderingBar: ReactNode;
+  /** Offers / Bundles (DEC-069): the shared strip and the first "Offers" chip; null = none to show. */
+  offers?: DesignOffers | null;
   poweredBy: ReactNode;
   /** Shared overlays (cart bar, cart, product sheet, tracking) rendered inside the themed root so they match the skin. */
   children?: ReactNode;
@@ -120,7 +123,7 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
     categories, visibleCategories, query, onQueryChange, activeCategoryId, onSelectCategory, canOrder,
     simpleQuantityByProductId, totalQuantityByProductId, onOpenProduct, onQuickAdd, onIncrement, onDecrement,
     cartCount, onOpenCart, onTrack, hasActiveOrder, shareCode, contact, locations, hours, notices, orderingBar,
-    poweredBy, children,
+    offers, poweredBy, children,
   } = props;
 
   const isArabic = locale === 'ar';
@@ -399,6 +402,8 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
 
       {orderingBar ? <div className="s-container s-ordering">{orderingBar}</div> : null}
 
+      {offers ? <div className="s-container s-offers">{offers.strip}</div> : null}
+
       <main className="s-main">
         {showFavorites ? (
           <section className="s-section s-favorites" id="favorites" aria-labelledby="s-fav-title">
@@ -473,6 +478,11 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
             {hasMenu ? (
               <div className="s-rail-wrap">
                 <nav className="s-rail" aria-label={copy.verdeMenuSections}>
+                  {offers ? (
+                    <button type="button" data-offers-chip onClick={offers.onJump}>
+                      <bdi>🎁 {offers.chipLabel}</bdi>
+                    </button>
+                  ) : null}
                   <button type="button" aria-pressed={!isSearching && showAll} onClick={selectAll}>{copy.sherbinyAllSections}</button>
                   {categories.map((category) => (
                     <button key={category.id} type="button" aria-pressed={!isSearching && !showAll && category.id === activeCategory?.id} onClick={() => selectCategory(category.id)}>
@@ -491,6 +501,12 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
                     <strong dir="auto">{text('indexTitle')}</strong>
                   </div>
                   <nav className="s-index-scroll" aria-label={copy.verdeMenuSections}>
+                    {offers ? (
+                      <button type="button" className="s-index-btn" data-offers-chip onClick={offers.onJump}>
+                        <span className="s-index-num" dir="ltr" aria-hidden="true">🎁</span>
+                        <span className="s-index-label"><bdi>{offers.chipLabel}</bdi></span>
+                      </button>
+                    ) : null}
                     <button type="button" className="s-index-btn" aria-pressed={!isSearching && showAll} onClick={selectAll}>
                       <span className="s-index-num" dir="ltr">00</span>
                       <span className="s-index-label">{copy.sherbinyAllSections}</span>

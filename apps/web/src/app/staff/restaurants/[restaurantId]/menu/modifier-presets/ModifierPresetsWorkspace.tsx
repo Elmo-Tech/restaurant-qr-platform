@@ -38,6 +38,8 @@ export interface ModifierPresetsWorkspaceProps {
   currencyCode: string;
   canManage: boolean;
   hasMenuManagePermission: boolean;
+  /** The package includes Offers (DEC-069): the "Offers" tab is shown. */
+  offersEnabled?: boolean;
 }
 
 /**
@@ -57,6 +59,7 @@ export function ModifierPresetsWorkspace({
   currencyCode,
   canManage,
   hasMenuManagePermission,
+  offersEnabled = false,
 }: ModifierPresetsWorkspaceProps) {
   const { t } = useStaffI18n();
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
@@ -100,7 +103,7 @@ export function ModifierPresetsWorkspace({
       <MenuHubBackLink restaurantId={restaurantId} parent="menus" />
       <PageHeader title={t('presets.title')} description={t('presets.subtitle')} />
 
-      <MenuSectionTabs restaurantId={restaurantId} active="modifier-library" />
+      <MenuSectionTabs restaurantId={restaurantId} active="modifier-library" offersEnabled={offersEnabled} />
 
       {!canManage && hasMenuManagePermission ? (
         <Alert variant="info">{t('presets.needsFullScope')}</Alert>

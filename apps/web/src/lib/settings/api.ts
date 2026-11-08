@@ -18,6 +18,7 @@ import {normalizeEditorialTemplateSettings,type EditorialTemplateSettings} from 
 import {normalizeVerdeSettings,type VerdeMenuSettings,type VerdeImageSlot} from '../public-menu/verde-settings';
 import {normalizeSherbinySettings,type SherbinyMenuSettings,type SherbinyImageSlot} from '../public-menu/sherbiny-settings';
 import {normalizeMakkbozSettings,type MakkbozMenuSettings,type MakkbozImageSlot} from '../public-menu/makkboz-settings';
+import {normalizeMeatLoversSettings,type MeatLoversMenuSettings,type MeatLoversImageSlot} from '../public-menu/meat-lovers-settings';
 import type { ContactField, RestaurantContact } from '../contact/types';
 import { apiFetch, apiFetchFormData } from '../api/client';
 import type { QrStyle } from '../qr/style';
@@ -98,7 +99,7 @@ export async function updateRestaurantProfile(
 export interface ExclusiveDesignStatusView {
   baseTemplate: MenuTemplateApi;
   status: 'RESERVED' | 'ACTIVE_BASE' | 'ACTIVE_CUSTOM' | 'DISABLED';
-  rendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
+  rendererKey?: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1' | 'MEAT_LOVERS_BUTCHER_V1';
   /** The Restaurant shows its exclusive design (true) or a stock template (false). */
   useExclusive?: boolean;
 }
@@ -519,4 +520,51 @@ export async function resetMakkbozCategoryImage(restaurantId: string, categoryId
 export async function publishMakkbozMenu(restaurantId: string): Promise<MakkbozMenuConfigView> {
   const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/makkboz-menu/publish`, { method: 'POST' });
   return makkbozView(x.data);
+}
+/** Exclusive Meat Lovers menu: private draft / published appearance, available only to the assigned Restaurant. */
+export interface MeatLoversMenuConfigView { draft: MeatLoversMenuSettings; published: MeatLoversMenuSettings }
+const meatLoversView = (raw: unknown): MeatLoversMenuConfigView => {
+  const row = raw && typeof raw === 'object' ? (raw as Record<string, unknown>) : {};
+  return { draft: normalizeMeatLoversSettings(row.draft), published: normalizeMeatLoversSettings(row.published) };
+};
+export async function getMeatLoversMenuConfig(restaurantId: string): Promise<MeatLoversMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/meat-lovers-menu`);
+  return meatLoversView(x.data);
+}
+/** Image paths are server-owned: they are never sent with the text settings. */
+export async function saveMeatLoversMenuDraft(restaurantId: string, settings: MeatLoversMenuSettings): Promise<MeatLoversMenuConfigView> {
+  const { heroImageAssetPath: _hero, storyImageAssetPath: _small, categoryExtras, ...rest } = normalizeMeatLoversSettings(settings);
+  void [_hero, _small];
+  const body = {
+    ...rest,
+    categoryExtras: Object.fromEntries(
+      Object.entries(categoryExtras).map(([id, { tagAr, tagEn, introAr, introEn }]) => [id, { tagAr, tagEn, introAr, introEn }]),
+    ),
+  };
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/meat-lovers-menu/draft`, { method: 'PATCH', body });
+  return meatLoversView(x.data);
+}
+export async function uploadMeatLoversImage(restaurantId: string, slot: MeatLoversImageSlot, file: File): Promise<MeatLoversMenuConfigView> {
+  const form = new FormData();
+  form.set('image', file);
+  const x = await apiFetchFormData<{ data: unknown }>(`${restaurantPath(restaurantId)}/meat-lovers-menu/images/${slot}`, form);
+  return meatLoversView(x.data);
+}
+export async function resetMeatLoversImage(restaurantId: string, slot: MeatLoversImageSlot): Promise<MeatLoversMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/meat-lovers-menu/images/${slot}`, { method: 'DELETE' });
+  return meatLoversView(x.data);
+}
+export async function uploadMeatLoversCategoryImage(restaurantId: string, categoryId: string, file: File): Promise<MeatLoversMenuConfigView> {
+  const form = new FormData();
+  form.set('image', file);
+  const x = await apiFetchFormData<{ data: unknown }>(`${restaurantPath(restaurantId)}/meat-lovers-menu/category-images/${categoryId}`, form);
+  return meatLoversView(x.data);
+}
+export async function resetMeatLoversCategoryImage(restaurantId: string, categoryId: string): Promise<MeatLoversMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/meat-lovers-menu/category-images/${categoryId}`, { method: 'DELETE' });
+  return meatLoversView(x.data);
+}
+export async function publishMeatLoversMenu(restaurantId: string): Promise<MeatLoversMenuConfigView> {
+  const x = await apiFetch<{ data: unknown }>(`${restaurantPath(restaurantId)}/meat-lovers-menu/publish`, { method: 'POST' });
+  return meatLoversView(x.data);
 }

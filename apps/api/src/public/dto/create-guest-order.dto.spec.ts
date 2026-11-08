@@ -1,5 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
+import { validationExceptionFactory } from '../../common/http/validation-exception.factory';
 import { CreateGuestOrderDto } from './create-guest-order.dto';
 
 const WELL_FORMED_UUID = '11111111-1111-4111-8111-111111111111';
@@ -173,8 +174,98 @@ describe('CreateGuestOrderDto -- Pickup fields (FT-7)', () => {
     ['customerName', 101],
     ['customerPhone', 31],
     ['customerNotes', 501],
+    ['deliveryAddress', 301],
+    ['deliveryBuilding', 51],
+    ['deliveryFloor', 31],
+    ['deliveryApartment', 31],
+    ['deliveryLandmark', 151],
   ])('rejects %s longer than its maximum', async (field, length) => {
     const errors = await validateBody({ ...base, [field]: 'x'.repeat(length) });
     expect(errors.some((error) => error.property === field)).toBe(true);
+  });
+
+  it.each([
+    ['customerName', 100],
+    ['customerPhone', 30],
+    ['customerNotes', 500],
+    ['deliveryAddress', 300],
+    ['deliveryBuilding', 50],
+    ['deliveryFloor', 30],
+    ['deliveryApartment', 30],
+    ['deliveryLandmark', 150],
+  ])('accepts %s at exactly its maximum', async (field, length) => {
+    const errors = await validateBody({ ...base, [field]: 'x'.repeat(length) });
+    expect(errors).toHaveLength(0);
+  });
+
+  it('answers an over-long field with the stable code TOO_LONG, not the framework message', async () => {
+    const errors = await validateBody({ ...base, deliveryLandmark: 'x'.repeat(151) });
+    const exception = validationExceptionFactory(errors);
+    expect(exception.getResponse()).toMatchObject({
+      error: {
+        code: 'VALIDATION_ERROR',
+        details: { fields: [{ field: 'deliveryLandmark', code: 'TOO_LONG' }] },
+      },
+    });
+  });
+
+  it('converts Arabic-Indic digits in the phone to Western digits', async () => {
+    const instance = plainToInstance(CreateGuestOrderDto, {
+      ...base,
+      customerPhone: ' ٠١٠١٢٣٤٥٦٧٨ ',
+    });
+    expect(await validate(instance)).toHaveLength(0);
+    expect(instance.customerPhone).toBe('01012345678');
+  });
+
+  const NUL = String.fromCharCode(0);
+  const BEL = String.fromCharCode(7);
+  const TAB = String.fromCharCode(9);
+  const LF = String.fromCharCode(10);
+  const CR = String.fromCharCode(13);
+  const BIDI_OVERRIDE = String.fromCharCode(0x202e);
+  const ZERO_WIDTH_SPACE = String.fromCharCode(0x200b);
+
+  it('removes control and bidi-override characters and collapses whitespace in single-line fields', async () => {
+    const instance = plainToInstance(CreateGuestOrderDto, {
+      ...base,
+      customerName: `Sara${NUL}  ${BIDI_OVERRIDE}Ali${LF}`,
+      deliveryAddress: `12${TAB}University${CR}${LF}St${ZERO_WIDTH_SPACE}`,
+      deliveryFloor: `${BEL} 3 `,
+    });
+    expect(await validate(instance)).toHaveLength(0);
+    expect(instance.customerName).toBe('Sara Ali');
+    expect(instance.deliveryAddress).toBe('12 University St');
+    expect(instance.deliveryFloor).toBe('3');
+  });
+
+  it('keeps line breaks in the order notes but removes control characters', async () => {
+    const instance = plainToInstance(CreateGuestOrderDto, {
+      ...base,
+      customerNotes: `No onions${CR}${LF}Extra sauce${NUL}${LF}${LF}${LF}${LF}Thanks`,
+    });
+    expect(await validate(instance)).toHaveLength(0);
+    expect(instance.customerNotes).toBe(`No onions${LF}Extra sauce${LF}${LF}Thanks`);
+  });
+
+  it('counts the length after cleaning, so invisible characters cannot fill the limit', async () => {
+    const errors = await validateBody({
+      ...base,
+      customerName: ZERO_WIDTH_SPACE.repeat(200) + 'Sara',
+    });
+    expect(errors).toHaveLength(0);
+  });
+
+  it('rejects a non-string text field', async () => {
+    const errors = await validateBody({ ...base, customerName: 12345 });
+    expect(errors.some((error) => error.property === 'customerName')).toBe(true);
+  });
+
+  it.each([0, 100, 1.5, -1, '2', null])('rejects the item quantity %p', async (quantity) => {
+    const errors = await validateBody({
+      clientRequestId: WELL_FORMED_UUID,
+      items: [{ productId: WELL_FORMED_UUID, quantity }],
+    });
+    expect(errors.length).toBeGreaterThan(0);
   });
 });

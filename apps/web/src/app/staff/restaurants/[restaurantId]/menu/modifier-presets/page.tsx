@@ -6,6 +6,7 @@ import {
   canViewMenu,
   hasMenuManagePermission,
 } from '../../../../../../lib/menu/capabilities';
+import { usesOffers } from '../../../../../../lib/entitlements/access';
 import { Alert } from '../../../../../../components/ui/Alert';
 import { ModifierPresetsWorkspace } from './ModifierPresetsWorkspace';
 
@@ -64,6 +65,7 @@ export default async function ModifierPresetsPage({ params }: ModifierPresetsPag
       currencyCode={membership.restaurant.currencyCode}
       canManage={canManageMenu(membership)}
       hasMenuManagePermission={hasMenuManagePermission(membership)}
+      offersEnabled={usesOffers(membership)}
     />
   );
 }

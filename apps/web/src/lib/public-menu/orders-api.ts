@@ -3,12 +3,16 @@ import { ApiError } from '../api/errors';
 import type { GuestOrderView } from './types';
 
 export interface SubmitGuestOrderItem {
-  productId: string;
+  /** A product line. Exactly one of `productId` / `offerId` is sent (DEC-069). */
+  productId?: string;
   quantity: number;
   /** Selected Modifier Option IDENTITY only -- never a price/name (CRITICAL MONEY RULE, CLAUDE.md #27). */
-  modifierOptionIds: string[];
+  modifierOptionIds?: string[];
   /** The chosen size IDENTITY (DEC-041) -- never a price or name; omitted for a product without sizes. */
   variantId?: string | null;
+  /** An Offer line (DEC-069): the Offer's identity and the Guest's choices (identities and quantities only). */
+  offerId?: string;
+  offerChoices?: { slotId: string; optionId: string; quantity: number }[];
 }
 
 /** FT-7: Pickup-only checkout fields; omitted entirely for a TABLE QR. */
@@ -40,6 +44,8 @@ export type SubmitGuestOrderResult =
   | { outcome: 'itemsUnavailable' }
   | { outcome: 'notFound' }
   | { outcome: 'pickupDetailsRequired' }
+  /** 400 VALIDATION_ERROR: the API refused specific fields; each has a stable code (INVALID_PHONE, TOO_SHORT ...). Nothing was created. */
+  | { outcome: 'invalidFields'; fields: { field: string; code: string }[] }
   | { outcome: 'pickupBranchInvalid' }
   | { outcome: 'pickupUnavailable' }
   /** DEC-042: WhatsApp ordering is off (409 WHATSAPP_ORDERING_UNAVAILABLE). */
@@ -62,6 +68,10 @@ export type SubmitGuestOrderResult =
    * Backend's current total payable (display hint only -- the menu is refetched).
    */
   | { outcome: 'priceChanged'; total: string | null }
+  /** DEC-069: an offer in the cart is gone, switched off, not valid today, or the package no longer has Offers (409 OFFER_UNAVAILABLE). Nothing was created. */
+  | { outcome: 'offerUnavailable'; offerIds: string[] }
+  /** DEC-069: an offer's slots or options changed since the Guest chose (409 OFFER_CHANGED). Nothing was created. */
+  | { outcome: 'offerChanged'; offerIds: string[] }
   | { outcome: 'networkError' };
 
 /**
@@ -175,6 +185,26 @@ async function sendOrder(
     if (error instanceof ApiError) {
       if (error.code === 'ORDER_ITEM_UNAVAILABLE') {
         return { outcome: 'itemsUnavailable' };
+      }
+      if (error.code === 'OFFER_UNAVAILABLE' || error.code === 'OFFER_CHANGED') {
+        const raw = (error.details as { offerIds?: unknown } | undefined)?.offerIds;
+        const offerIds = Array.isArray(raw)
+          ? raw.filter((id): id is string => typeof id === 'string')
+          : [];
+        return error.code === 'OFFER_UNAVAILABLE'
+          ? { outcome: 'offerUnavailable', offerIds }
+          : { outcome: 'offerChanged', offerIds };
+      }
+      if (error.code === 'VALIDATION_ERROR') {
+        const raw = (error.details as { fields?: unknown } | undefined)?.fields;
+        const fields = Array.isArray(raw)
+          ? raw.flatMap((entry: { field?: unknown; code?: unknown }) =>
+              typeof entry?.field === 'string' && typeof entry?.code === 'string'
+                ? [{ field: entry.field, code: entry.code }]
+                : [],
+            )
+          : [];
+        if (fields.length > 0) return { outcome: 'invalidFields', fields };
       }
       if (error.code === 'PICKUP_CUSTOMER_DETAILS_REQUIRED') {
         return { outcome: 'pickupDetailsRequired' };

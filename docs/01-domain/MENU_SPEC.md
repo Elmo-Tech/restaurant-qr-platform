@@ -1615,6 +1615,9 @@ Behavioral recommendation engine is deferred.
 
 ---
 
+> **Offers / Bundles (DEC-069)** are specified in `docs/01-domain/OFFERS_SPEC.md`: a fixed-price offer made of slots (included / pick one / pick N) with paid choices,
+> shown first in the Guest menu. They are an explicit model beside Products, not a Product, Category or Modifier trick.
+
 # 99. V1 Deferred Menu Features
 
 Not required initially:

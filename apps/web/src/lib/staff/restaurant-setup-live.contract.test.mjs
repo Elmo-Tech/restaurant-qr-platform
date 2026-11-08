@@ -11,6 +11,7 @@ const setupPage = read(base + '/setup/page.tsx');
 const panel = read('../../components/staff/RestaurantSetupPanel.tsx');
 const card = read('../../components/staff/RestaurantSetupChecklistCard.tsx');
 const guestMenuButton = read('../../components/menu/OpenGuestMenuButton.tsx');
+const guestMenuLink = read('../../components/menu/GuestMenuLink.tsx');
 const translations = read('../i18n/messages/restaurantSetup.ts');
 const api = read('./restaurant-setup-api.ts');
 const service = read('../../../../api/src/restaurants/restaurant-setup.service.ts');
@@ -76,8 +77,9 @@ test('operations auto-completes from active branch and required delivery zone, w
 test('preview opens the real public Guest Menu and requires a separate one-click confirmation', () => {
   assert.match(card, /OpenGuestMenuButton/);
   assert.match(card, /expanded \|\| step\.key === 'PREVIEW'/);
-  assert.match(guestMenuButton, /getGuestMenuSegment\(restaurantId\)/);
-  assert.match(guestMenuButton, /`\/q\/\$\{encodeURIComponent\(state\.segment\)\}`/);
+  assert.match(guestMenuLink, /getGuestMenuSegment\(restaurantId\)/);
+  assert.match(guestMenuLink, /`\/q\/\$\{encodeURIComponent\(state\.segment\)\}`/);
+  assert.match(guestMenuButton, /useGuestMenuLink/);
   assert.doesNotMatch(guestMenuButton, /reviewSetupStep|confirmPreview/);
   assert.match(translations, /'setup\.action\.confirmPreview': 'I previewed the menu'/);
   assert.match(translations, /'setup\.action\.confirmPreview': 'عاينت المنيو'/);

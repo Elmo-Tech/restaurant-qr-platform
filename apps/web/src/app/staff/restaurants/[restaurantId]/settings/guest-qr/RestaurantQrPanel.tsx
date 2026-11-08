@@ -26,6 +26,7 @@ import { Button } from '../../../../../../components/ui/Button';
 import { Card } from '../../../../../../components/ui/Card';
 import { Switch } from '../../../../../../components/ui/Switch';
 import { IconQr } from '../../../../../../components/staff/icons';
+import { StandDesigner } from '../../../../../../components/qr/StandDesigner';
 
 function sanitizeFilenameSegment(value: string): string {
   const cleaned = value
@@ -475,6 +476,26 @@ export function RestaurantQrPanel({
               </div>
               </div>
             </div>
+
+            {/* ---- the A6 stand and the QR-only files ---- */}
+            <section
+              aria-labelledby="restaurant-qr-stand-title"
+              className="flex min-w-0 flex-col gap-4 border-t border-border pt-5"
+            >
+              <div>
+                <h3 id="restaurant-qr-stand-title" className="text-sm font-semibold text-foreground">
+                  {t('stand.title')}
+                </h3>
+                <p className="mt-0.5 text-xs text-muted-foreground">{t('stand.hint')}</p>
+              </div>
+              <StandDesigner
+                restaurantId={restaurantId}
+                restaurantName={restaurantName}
+                logoUrl={logoUrl}
+                guestUrl={guestUrl}
+                allowTableInput
+              />
+            </section>
           </>
         ) : null}
       </div>

@@ -186,6 +186,7 @@ enum FeatureKey {
   TABLE_ORDERING
   KITCHEN
   MENU_IMPORT
+  OFFERS
 
   @@map("feature_key")
 }
@@ -381,10 +382,13 @@ model Restaurant {
   locales               RestaurantLocale[]
   branches              Branch[]
   announcements         RestaurantAnnouncement[]
+  offers                Offer[]
+  offerSlots            OfferSlot[]
+  offerSlotOptions      OfferSlotOption[]
   productSuggestions    ProductSuggestion[]
-  templateConfigs        RestaurantTemplateConfig[]
+  templateConfigs       RestaurantTemplateConfig[]
   features              RestaurantFeature[]
-  package               Package?                 @relation(fields: [packageId], references: [id], onDelete: Restrict)
+  package               Package?                    @relation(fields: [packageId], references: [id], onDelete: Restrict)
   subscriptions         Subscription[]
   subscriptionRequests  SubscriptionRequest[]
   platformAuditLog      PlatformAuditLog[]
@@ -409,11 +413,11 @@ model Restaurant {
   whatsappOrderReceipts WhatsappOrderReceipt[]
   setupVisibilities     RestaurantSetupVisibility[]
   exclusiveDesign       RestaurantExclusiveDesign?
-  acquisition           RestaurantAcquisition?   @relation("RestaurantAcquisitionOwner")
+  acquisition           RestaurantAcquisition?      @relation("RestaurantAcquisitionOwner")
   ownerContact          RestaurantOwnerContact?
   demoAccessLinks       DemoAccessLink[]
   slugs                 RestaurantSlug[]
-  referredAcquisitions  RestaurantAcquisition[]  @relation("RestaurantAcquisitionReferrer")
+  referredAcquisitions  RestaurantAcquisition[]     @relation("RestaurantAcquisitionReferrer")
 
   @@index([packageId])
   @@map("restaurants")
@@ -422,19 +426,19 @@ model Restaurant {
 // A private Restaurant-bound design slot. Stock base is a temporary fallback.
 // This is separate from package templates and can later hold a bespoke renderer.
 model RestaurantExclusiveDesign {
-  restaurantId String               @id @map("restaurant_id") @db.Uuid
-  baseTemplate MenuTemplate         @map("base_template")
-  status       ExclusiveDesignStatus @default(RESERVED)
+  restaurantId      String                @id @map("restaurant_id") @db.Uuid
+  baseTemplate      MenuTemplate          @map("base_template")
+  status            ExclusiveDesignStatus @default(RESERVED)
   // A vetted, compiled renderer key, UNIQUE across Restaurants, never a package template.
-  rendererKey  String?              @unique @map("renderer_key") @db.VarChar(80)
+  rendererKey       String?               @unique @map("renderer_key") @db.VarChar(80)
   // Bespoke renderer appearance: draft edits never reach the public menu until published (DEC-062).
-  draftSettings     Json @default("{}") @map("draft_settings")
-  publishedSettings Json @default("{}") @map("published_settings")
-  settingsVersion   Int  @default(1) @map("settings_version")
+  draftSettings     Json                  @default("{}") @map("draft_settings")
+  publishedSettings Json                  @default("{}") @map("published_settings")
+  settingsVersion   Int                   @default(1) @map("settings_version")
   // Staff choice: guests see the exclusive design (true) or the stock template saved on the Restaurant (false).
-  useExclusive      Boolean @default(true) @map("use_exclusive")
-  createdAt    DateTime             @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt    DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+  useExclusive      Boolean               @default(true) @map("use_exclusive")
+  createdAt         DateTime              @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime              @updatedAt @map("updated_at") @db.Timestamptz
 
   restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
@@ -445,20 +449,20 @@ model RestaurantExclusiveDesign {
 // Private Platform-only customer-attribution data; never part of Guest/Staff responses.
 // No backfill: historic restaurants have no record and display "Not recorded".
 model RestaurantAcquisition {
-  restaurantId                  String                           @id @map("restaurant_id") @db.Uuid
-  sourceType                    RestaurantAcquisitionSourceType  @map("source_type")
-  referringRestaurantId         String?                          @map("referring_restaurant_id") @db.Uuid
-  referringRestaurantName       String?                          @map("referring_restaurant_name") @db.VarChar(200)
-  sourceName                    String?                          @map("source_name") @db.VarChar(200)
-  sourcePlatform                String?                          @map("source_platform") @db.VarChar(40)
-  sourceDetail                  String?                          @map("source_detail") @db.VarChar(300)
-  campaign                      String?                          @db.VarChar(160)
-  recordedByAdminId             String?                          @map("recorded_by_admin_id") @db.Uuid
-  createdAt                     DateTime                         @default(now()) @map("created_at") @db.Timestamptz
-  updatedAt                     DateTime                         @updatedAt @map("updated_at") @db.Timestamptz
+  restaurantId            String                          @id @map("restaurant_id") @db.Uuid
+  sourceType              RestaurantAcquisitionSourceType @map("source_type")
+  referringRestaurantId   String?                         @map("referring_restaurant_id") @db.Uuid
+  referringRestaurantName String?                         @map("referring_restaurant_name") @db.VarChar(200)
+  sourceName              String?                         @map("source_name") @db.VarChar(200)
+  sourcePlatform          String?                         @map("source_platform") @db.VarChar(40)
+  sourceDetail            String?                         @map("source_detail") @db.VarChar(300)
+  campaign                String?                         @db.VarChar(160)
+  recordedByAdminId       String?                         @map("recorded_by_admin_id") @db.Uuid
+  createdAt               DateTime                        @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt               DateTime                        @updatedAt @map("updated_at") @db.Timestamptz
 
-  restaurant                    Restaurant                       @relation("RestaurantAcquisitionOwner", fields: [restaurantId], references: [id], onDelete: Cascade)
-  referringRestaurant           Restaurant?                      @relation("RestaurantAcquisitionReferrer", fields: [referringRestaurantId], references: [id], onDelete: SetNull)
+  restaurant          Restaurant  @relation("RestaurantAcquisitionOwner", fields: [restaurantId], references: [id], onDelete: Cascade)
+  referringRestaurant Restaurant? @relation("RestaurantAcquisitionReferrer", fields: [referringRestaurantId], references: [id], onDelete: SetNull)
 
   @@index([sourceType, sourcePlatform])
   @@index([referringRestaurantId])
@@ -493,7 +497,7 @@ model RestaurantTemplateConfig {
   createdAt         DateTime     @default(now()) @map("created_at") @db.Timestamptz
   updatedAt         DateTime     @updatedAt @map("updated_at") @db.Timestamptz
 
-  restaurant        Restaurant   @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
 
   @@unique([restaurantId, template])
   @@map("restaurant_template_configs")
@@ -601,6 +605,148 @@ model RestaurantAnnouncementTranslation {
 
   @@unique([announcementId, locale])
   @@map("restaurant_announcement_translations")
+}
+
+// -----------------------------------------------------------------------------
+// Offers / Bundles (DEC-069, OFFERS_SPEC.md): a fixed-price package made of slots
+// (included items, pick-one, pick-N) with optional paid option adjustments. An
+// order line is a product OR an offer (`order_items`), and what the Guest chose is
+// kept as snapshot rows (`order_item_offer_choices`). ARCHIVED = deleted for
+// Guests; the rows stay so historical orders keep their references.
+// -----------------------------------------------------------------------------
+
+enum OfferStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+
+  @@map("offer_status")
+}
+
+enum OfferBadge {
+  OFFER
+  GIFT
+  MOST_ORDERED
+
+  @@map("offer_badge")
+}
+
+enum OfferSlotKind {
+  FIXED
+  SINGLE
+  MULTI
+
+  @@map("offer_slot_kind")
+}
+
+/// The fixed price is `price`; slot option adjustments are added on top. `daysOfWeek` holds 0 (Sunday)
+/// to 6 (Saturday); an empty array means every day. Dates are inclusive calendar dates in the order
+/// Branch timezone. CHECK constraints (price, days, dates) live in the migration.
+model Offer {
+  id             String      @id @default(uuid()) @db.Uuid
+  restaurantId   String      @map("restaurant_id") @db.Uuid
+  status         OfferStatus
+  badge          OfferBadge  @default(OFFER)
+  price          Decimal     @db.Decimal(14, 2)
+  daysOfWeek     Int[]       @default([]) @map("days_of_week") @db.SmallInt
+  startsOn       DateTime?   @map("starts_on") @db.Date
+  endsOn         DateTime?   @map("ends_on") @db.Date
+  imageAssetPath String?     @map("image_asset_path")
+  displayOrder   Int         @default(0) @map("display_order")
+  createdAt      DateTime    @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt      DateTime    @updatedAt @map("updated_at") @db.Timestamptz
+  archivedAt     DateTime?   @map("archived_at") @db.Timestamptz
+
+  restaurant   Restaurant         @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  translations OfferTranslation[]
+  slots        OfferSlot[]
+  orderItems   OrderItem[]
+
+  @@index([restaurantId, status])
+  @@map("offers")
+}
+
+model OfferTranslation {
+  id          String  @id @default(uuid()) @db.Uuid
+  offerId     String  @map("offer_id") @db.Uuid
+  locale      String
+  name        String
+  description String?
+
+  offer Offer @relation(fields: [offerId], references: [id], onDelete: Cascade)
+
+  @@unique([offerId, locale])
+  @@map("offer_translations")
+}
+
+/// One part of an Offer: FIXED (included), SINGLE (pick one), MULTI (pick `requiredCount` in total).
+model OfferSlot {
+  id            String        @id @default(uuid()) @db.Uuid
+  restaurantId  String        @map("restaurant_id") @db.Uuid
+  offerId       String        @map("offer_id") @db.Uuid
+  kind          OfferSlotKind
+  requiredCount Int           @default(1) @map("required_count")
+  displayOrder  Int           @default(0) @map("display_order")
+
+  restaurant   Restaurant             @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  offer        Offer                  @relation(fields: [offerId], references: [id], onDelete: Cascade)
+  translations OfferSlotTranslation[]
+  options      OfferSlotOption[]
+  choices      OrderItemOfferChoice[]
+
+  @@index([restaurantId])
+  @@index([offerId])
+  @@map("offer_slots")
+}
+
+model OfferSlotTranslation {
+  id     String @id @default(uuid()) @db.Uuid
+  slotId String @map("slot_id") @db.Uuid
+  locale String
+  title  String
+
+  slot OfferSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+
+  @@unique([slotId, locale])
+  @@map("offer_slot_translations")
+}
+
+model OfferSlotOption {
+  id              String  @id @default(uuid()) @db.Uuid
+  restaurantId    String  @map("restaurant_id") @db.Uuid
+  slotId          String  @map("slot_id") @db.Uuid
+  priceAdjustment Decimal @default(0) @map("price_adjustment") @db.Decimal(14, 2)
+  displayOrder    Int     @default(0) @map("display_order")
+  /// The menu item this option IS (and, when it has sizes, which size). Its name is then read live from the menu
+  /// (no translations of its own); NULL = a free-text item with its own translations. `quantity` is how many units
+  /// an INCLUDED item brings (2 x taameya); for a choice it stays 1 (the Guest picks how many).
+  productId       String? @map("product_id") @db.Uuid
+  variantId       String? @map("variant_id") @db.Uuid
+  quantity        Int     @default(1)
+
+  restaurant   Restaurant                   @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  product      Product?                     @relation(fields: [productId], references: [id], onDelete: Restrict)
+  variant      ProductVariant?              @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  slot         OfferSlot                    @relation(fields: [slotId], references: [id], onDelete: Cascade)
+  translations OfferSlotOptionTranslation[]
+  choices      OrderItemOfferChoice[]
+
+  @@index([restaurantId])
+  @@index([slotId])
+  @@index([productId])
+  @@map("offer_slot_options")
+}
+
+model OfferSlotOptionTranslation {
+  id       String @id @default(uuid()) @db.Uuid
+  optionId String @map("option_id") @db.Uuid
+  locale   String
+  name     String
+
+  option OfferSlotOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+
+  @@unique([optionId, locale])
+  @@map("offer_slot_option_translations")
 }
 
 enum BranchHoursMode {
@@ -1181,6 +1327,7 @@ model Product {
   category       Category             @relation(fields: [categoryId], references: [id], onDelete: Restrict)
   translations   ProductTranslation[]
   orderItems     OrderItem[]
+  offerOptions   OfferSlotOption[]
   modifierGroups ModifierGroup[]
   variants       ProductVariant[]
   // Manual suggestion rules where this product is the trigger / the suggestion.
@@ -1245,6 +1392,7 @@ model ProductVariant {
   product      Product                     @relation(fields: [productId], references: [id], onDelete: Restrict)
   translations ProductVariantTranslation[]
   orderItems   OrderItem[]
+  offerOptions OfferSlotOption[]
 
   @@index([restaurantId])
   @@index([productId])
@@ -1923,7 +2071,11 @@ model DeliveryZoneTranslation {
 model OrderItem {
   id                    String               @id @default(uuid()) @db.Uuid
   orderId               String               @map("order_id") @db.Uuid
-  productId             String               @map("product_id") @db.Uuid
+  // A line is a Product line OR an Offer line (DEC-069): exactly one of `productId` / `offerId` is set
+  // (CHECK `order_items_product_xor_offer` in the migration). `productNameSnapshot` holds the Offer name
+  // for an Offer line so every reader of the snapshot keeps working.
+  productId             String?              @map("product_id") @db.Uuid
+  offerId               String?              @map("offer_id") @db.Uuid
   // Section 9/ORDER_LIFECYCLE_SPEC.md #39: the Restaurant default-locale
   // Product name at submission time -- a later Product rename must never
   // rewrite historical Order meaning.
@@ -1951,18 +2103,49 @@ model OrderItem {
   variantPriceSnapshot  Decimal?             @map("variant_price_snapshot") @db.Decimal(14, 2)
   createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz
 
-  order     Order               @relation(fields: [orderId], references: [id], onDelete: Restrict)
+  order        Order                  @relation(fields: [orderId], references: [id], onDelete: Restrict)
   // Restrict, mirroring every other Product foreign key in this schema --
   // never Cascade: a historical OrderItem must survive regardless of the
   // referenced Product's own lifecycle.
-  product   Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
-  variant   ProductVariant?     @relation(fields: [variantId], references: [id], onDelete: Restrict)
-  modifiers OrderItemModifier[]
+  product      Product?               @relation(fields: [productId], references: [id], onDelete: Restrict)
+  offer        Offer?                 @relation(fields: [offerId], references: [id], onDelete: Restrict)
+  variant      ProductVariant?        @relation(fields: [variantId], references: [id], onDelete: Restrict)
+  modifiers    OrderItemModifier[]
+  offerChoices OrderItemOfferChoice[]
 
   @@index([orderId])
   @@index([productId])
+  @@index([offerId])
   @@index([variantId])
   @@map("order_items")
+}
+
+/// Offers (DEC-069): one row per chosen option AND per included item of an Offer line, as they were when
+/// the order was placed. `offerSlotId` / `offerSlotOptionId` are plain soft references (SET NULL when the
+/// Offer is edited later); the snapshot text is the history. `priceAdjustmentSnapshot` is the adjustment of
+/// ONE unit; the line adds adjustment x `quantity`.
+model OrderItemOfferChoice {
+  id                      String        @id @default(uuid()) @db.Uuid
+  orderItemId             String        @map("order_item_id") @db.Uuid
+  offerSlotId             String?       @map("offer_slot_id") @db.Uuid
+  offerSlotOptionId       String?       @map("offer_slot_option_id") @db.Uuid
+  slotKind                OfferSlotKind @map("slot_kind")
+  slotTitleSnapshot       String        @map("slot_title_snapshot")
+  optionNameSnapshot      String        @map("option_name_snapshot")
+  priceAdjustmentSnapshot Decimal       @map("price_adjustment_snapshot") @db.Decimal(14, 2)
+  quantity                Int           @default(1)
+  included                Boolean       @default(false)
+  displayOrder            Int           @map("display_order")
+  createdAt               DateTime      @default(now()) @map("created_at") @db.Timestamptz
+
+  orderItem OrderItem        @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  slot      OfferSlot?       @relation(fields: [offerSlotId], references: [id], onDelete: SetNull)
+  option    OfferSlotOption? @relation(fields: [offerSlotOptionId], references: [id], onDelete: SetNull)
+
+  @@index([orderItemId])
+  @@index([offerSlotId])
+  @@index([offerSlotOptionId])
+  @@map("order_item_offer_choices")
 }
 
 /**
@@ -2022,10 +2205,10 @@ model User {
   passwordResetTokens  PasswordResetToken[]
   memberships          RestaurantMembership[]
   menuImportJobs       MenuImportJob[]
-  sentInvitations      RestaurantInvitation[] @relation("InvitedByUser")
+  sentInvitations      RestaurantInvitation[]      @relation("InvitedByUser")
   subscriptionRequests SubscriptionRequest[]
-  setupVisibilities     RestaurantSetupVisibility[]
-  setupsCompleted       RestaurantSetup[] @relation("RestaurantSetupCompletedBy")
+  setupVisibilities    RestaurantSetupVisibility[]
+  setupsCompleted      RestaurantSetup[]           @relation("RestaurantSetupCompletedBy")
 
   @@map("users")
 }
@@ -2347,8 +2530,6 @@ model MenuImportProductTranslation {
   @@map("menu_import_product_translations")
 }
 
-
-/** Onboarding enrollment is explicit. Legacy restaurants have NO row by default. */
 /// A restaurant-owned Evolution session. A secret webhook path is stored only as SHA-256.
 model WhatsappConnection {
   restaurantId     String   @id @map("restaurant_id") @db.Uuid
@@ -2385,6 +2566,9 @@ model WhatsappOrderReceipt {
   @@map("whatsapp_order_receipts")
 }
 
+/**
+ * Onboarding enrollment is explicit. Legacy restaurants have NO row by default.
+ */
 model RestaurantSetup {
   restaurantId        String    @id @map("restaurant_id") @db.Uuid
   version             Int       @default(1)
@@ -2404,7 +2588,9 @@ model RestaurantSetup {
   @@map("restaurant_setups")
 }
 
-/** Hiding a guide affects only this user in this restaurant, never completion. */
+/**
+ * Hiding a guide affects only this user in this restaurant, never completion.
+ */
 model RestaurantSetupVisibility {
   restaurantId String    @map("restaurant_id") @db.Uuid
   userId       String    @map("user_id") @db.Uuid

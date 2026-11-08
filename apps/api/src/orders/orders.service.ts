@@ -1,6 +1,11 @@
 import { Injectable } from '@nestjs/common';
 import { isWellFormedUuid } from '../common/is-uuid';
 import { PrismaService } from '../database/prisma.service';
+import {
+  OFFER_CHOICES_SELECT,
+  offerChoiceModifiers,
+  type StoredOfferChoice,
+} from '../offers/offer-order';
 import { BranchAccessService } from '../auth/context/branch-access.service';
 import type { RestaurantAccessContext } from '../auth/context/restaurant-access.service';
 import { hasPermission } from '../auth/permission/has-permission';
@@ -39,7 +44,10 @@ export interface OrderItemModifierView {
 }
 
 export interface OrderItemView {
-  productId: string;
+  /** Null for an Offer line (DEC-069). */
+  productId: string | null;
+  /** Set for an Offer line; its choices are listed in `modifiers`. */
+  offerId: string | null;
   productNameSnapshot: string;
   /** The size chosen for this line (DEC-041), or null for a product without sizes. */
   variantName: string | null;
@@ -124,6 +132,8 @@ function formatMoney(value: { toFixed(digits: number): string }): string {
 
 const ORDER_ITEM_VIEW_SELECT = {
   productId: true,
+  offerId: true,
+  ...OFFER_CHOICES_SELECT,
   productNameSnapshot: true,
   variantNameSnapshot: true,
   unitPrice: true,
@@ -141,7 +151,9 @@ const ORDER_ITEM_VIEW_SELECT = {
 } as const;
 
 function toOrderItemView(item: {
-  productId: string;
+  productId: string | null;
+  offerId?: string | null;
+  offerChoices?: StoredOfferChoice[];
   productNameSnapshot: string;
   variantNameSnapshot?: string | null;
   unitPrice: { toFixed(digits: number): string };
@@ -156,17 +168,21 @@ function toOrderItemView(item: {
 }): OrderItemView {
   return {
     productId: item.productId,
+    offerId: item.offerId ?? null,
     productNameSnapshot: item.productNameSnapshot,
     variantName: item.variantNameSnapshot ?? null,
     unitPrice: formatMoney(item.unitPrice),
     quantity: item.quantity,
     discountAmount: item.discountAmount ? formatMoney(item.discountAmount) : '0.00',
     lineTotal: formatMoney(item.lineTotal),
-    modifiers: item.modifiers.map((modifier) => ({
-      groupName: modifier.modifierGroupNameSnapshot,
-      optionName: modifier.modifierOptionNameSnapshot,
-      priceAdjustment: formatMoney(modifier.priceAdjustmentSnapshot),
-    })),
+    modifiers: [
+      ...item.modifiers.map((modifier) => ({
+        groupName: modifier.modifierGroupNameSnapshot,
+        optionName: modifier.modifierOptionNameSnapshot,
+        priceAdjustment: formatMoney(modifier.priceAdjustmentSnapshot),
+      })),
+      ...offerChoiceModifiers(item.offerChoices ?? []),
+    ],
   };
 }
 

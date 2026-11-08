@@ -25,6 +25,7 @@ import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../components/ui/PageHeader';
 import { IconPlus, IconSearch, IconTable } from '../../../../../components/staff/icons';
 import { QrPreviewDialog } from './QrPreviewDialog';
+import { AllTablesStandDialog } from './AllTablesStandDialog';
 import * as sessionsApi from '../../../../../lib/table-sessions/api';
 import type { SessionCapabilities } from '../../../../../lib/table-sessions/capabilities';
 import type { TableBoardRow } from '../../../../../lib/table-sessions/types';
@@ -126,6 +127,7 @@ export function TablesWorkspace({
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [qrTarget, setQrTarget] = useState<TableRow | null>(null);
+  const [allStandOpen, setAllStandOpen] = useState(false);
 
   // Table Sessions: ONE workspace. The board (availability and the live session) is read
   // from the Backend per Branch; sessions are viewed in a panel, never on a second
@@ -471,11 +473,18 @@ export function TablesWorkspace({
         title={t('tables.title')}
         description={t('tables.subtitle')}
         actions={
-          canManage && selectedBranchId ? (
-            <Button onClick={startCreate}>
-              <IconPlus className="me-1.5 h-4 w-4" /> {t('tables.new')}
-            </Button>
-          ) : undefined
+          <div className="flex flex-wrap items-center gap-2">
+            {selectedBranchId && tables && tables.length > 0 ? (
+              <Button variant="secondary" onClick={() => setAllStandOpen(true)}>
+                {t('stand.all.open')}
+              </Button>
+            ) : null}
+            {canManage && selectedBranchId ? (
+              <Button onClick={startCreate}>
+                <IconPlus className="me-1.5 h-4 w-4" /> {t('tables.new')}
+              </Button>
+            ) : null}
+          </div>
         }
       />
 
@@ -698,8 +707,21 @@ export function TablesWorkspace({
         />
       ) : null}
 
+      {allStandOpen && selectedBranchId && tables ? (
+        <AllTablesStandDialog
+          restaurantId={restaurantId}
+          branchId={selectedBranchId}
+          restaurantName={restaurantName}
+          logoUrl={resolveAssetUrl(logoAssetPath)}
+          webOrigin={webOrigin}
+          tables={tables}
+          onClose={() => setAllStandOpen(false)}
+        />
+      ) : null}
+
       {qrTarget && qrTarget.qr ? (
         <QrPreviewDialog
+          restaurantId={restaurantId}
           target={{
             restaurantName,
             branchName: selectedBranchName,
