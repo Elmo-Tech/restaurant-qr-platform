@@ -12,6 +12,7 @@ export const FEATURE_KEYS = [
   "KITCHEN",
   "TABLE_ORDERING",
   "MENU_IMPORT",
+  "OFFERS",
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 
@@ -222,11 +223,12 @@ export interface PackageInput {
 }
 
 /** Compiled bespoke renderers of this build; each belongs to exactly one Restaurant. */
-export type ExclusiveRendererKey = "VERDE_NAPOLI_V1" | "SHERBINY_FIRE_DOUGH_V1" | "MAKKBOZ_HERITAGE_V1";
+export type ExclusiveRendererKey = "VERDE_NAPOLI_V1" | "SHERBINY_FIRE_DOUGH_V1" | "MAKKBOZ_HERITAGE_V1" | "MEAT_LOVERS_BUTCHER_V1";
 export const EXCLUSIVE_RENDERERS: { key: ExclusiveRendererKey; label: string }[] = [
   { key: "VERDE_NAPOLI_V1", label: "VERDE — Napoli Club" },
   { key: "SHERBINY_FIRE_DOUGH_V1", label: "El Sherbiny — Fire & Dough" },
   { key: "MAKKBOZ_HERITAGE_V1", label: "Makkboz — Heritage" },
+  { key: "MEAT_LOVERS_BUTCHER_V1", label: "Meat Lovers — The Butcher's Edit" },
 ];
 export type ExclusiveDesignStatus = "RESERVED" | "ACTIVE_BASE" | "ACTIVE_CUSTOM" | "DISABLED";
 export type ExclusiveBaseTemplate = "CLASSIC" | PackageTemplate;

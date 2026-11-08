@@ -30,6 +30,7 @@ describe('guest order tracking rules', () => {
     expect(samePhone('01012345678', '+20 10 1234 5678')).toBe(true);
     expect(samePhone('+201012345678', '01012345678')).toBe(true);
     expect(samePhone('201012345678', '(010) 1234-5678')).toBe(true);
+    expect(samePhone('+201012345678', '٠١٠١٢٣٤٥٦٧٨')).toBe(true);
     expect(samePhone('01012345678', '01012345679')).toBe(false);
     expect(samePhone(null, '01012345678')).toBe(false);
   });

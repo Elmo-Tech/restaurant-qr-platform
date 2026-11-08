@@ -234,3 +234,15 @@ export function GuestIconReceipt(props: SVGProps<SVGSVGElement>) {
     </Icon>
   );
 }
+
+/** Offers (DEC-069): a wrapped gift. */
+export function GuestIconGift(props: SVGProps<SVGSVGElement>) {
+  return (
+    <Icon {...props}>
+      <path d="M4 11h16v9a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1v-9z" />
+      <path d="M3 7.5h18V11H3z" />
+      <path d="M12 7.5V21" />
+      <path d="M12 7.5C10 7.5 7.5 6.8 7.5 5a2 2 0 0 1 3.5-1.3c.7.7 1 2.3 1 3.8zM12 7.5c2 0 4.5-.7 4.5-2.5a2 2 0 0 0-3.5-1.3c-.7.7-1 2.3-1 3.8z" />
+    </Icon>
+  );
+}

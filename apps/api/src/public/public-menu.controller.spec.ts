@@ -11,6 +11,7 @@ const SAMPLE_DATA: PublicMenuData = {
     restaurant: {
       name: 'Elmo Bistro',
       currencyCode: 'EGP',
+      countryCode: 'EG',
       logoAssetPath: null,
       coverAssetPath: null,
       menuTemplate: 'CLASSIC',
@@ -21,6 +22,7 @@ const SAMPLE_DATA: PublicMenuData = {
     branch: null,
     table: null,
     announcements: [],
+    offers: [],
     suggestions: false,
     tracking: true,
     templatesAllowed: true,

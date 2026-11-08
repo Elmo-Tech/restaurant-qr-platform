@@ -1,12 +1,13 @@
 'use client';
 
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { Button } from '../../../../../components/ui/Button';
 import { Alert } from '../../../../../components/ui/Alert';
 import { IconClose } from '../../../../../components/staff/icons';
 import { DEFAULT_QR_STYLE, type QrStyle } from '../../../../../lib/qr/style';
 import { useQrImage } from '../../../../../lib/qr/use-qr-image';
+import { StandDesigner } from '../../../../../components/qr/StandDesigner';
 
 export interface QrPreviewTarget {
   restaurantName: string;
@@ -42,12 +43,14 @@ function sanitizeFilenameSegment(value: string): string {
  * an internal Restaurant/Table id.
  */
 export function QrPreviewDialog({
+  restaurantId,
   target,
   guestUrl,
   qrStyle = DEFAULT_QR_STYLE,
   logoUrl = null,
   onClose,
 }: {
+  restaurantId: string;
   target: QrPreviewTarget;
   guestUrl: string;
   /** The Restaurant's saved QR appearance (Settings > Restaurant QR). */
@@ -57,6 +60,7 @@ export function QrPreviewDialog({
   onClose: () => void;
 }) {
   const { t } = useStaffI18n();
+  const [view, setView] = useState<'qr' | 'stand'>('qr');
   const panelRef = useRef<HTMLDivElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
   // The same renderer as the Restaurant QR designer: colors, centered logo, quiet zone,
@@ -139,6 +143,8 @@ export function QrPreviewDialog({
        * reliably prints in every browser; a `<canvas>` element's drawn
        * pixels are not guaranteed to survive print rendering at all.
        */}
+      {view === 'qr' ? (
+      <>
       <style>{`
         @media print {
           body * { visibility: hidden; }
@@ -173,6 +179,8 @@ export function QrPreviewDialog({
         ) : null}
         <p className="text-sm text-muted-foreground">{t('tables.qr.scan')}</p>
       </div>
+      </>
+      ) : null}
 
       <div className="fixed inset-0 z-50 print:hidden">
         <div
@@ -187,7 +195,7 @@ export function QrPreviewDialog({
             role="dialog"
             aria-modal="true"
             aria-labelledby="qr-dialog-title"
-            className="pointer-events-auto flex h-full w-full flex-col bg-card shadow-xl sm:h-auto sm:max-h-[calc(100vh-64px)] sm:max-w-[420px] sm:rounded-lg"
+            className={`pointer-events-auto flex h-full w-full flex-col bg-card shadow-xl sm:h-auto sm:max-h-[calc(100vh-64px)] sm:rounded-lg ${view === 'stand' ? 'sm:max-w-[860px]' : 'sm:max-w-[420px]'}`}
           >
             <div className="flex flex-shrink-0 items-start justify-between gap-4 border-b border-border px-5 py-4">
               <div className="min-w-0">
@@ -215,6 +223,17 @@ export function QrPreviewDialog({
               </button>
             </div>
 
+            {view === 'stand' ? (
+              <div className="min-w-0 flex-1 overflow-y-auto px-5 py-5">
+                <StandDesigner
+                  restaurantId={restaurantId}
+                  restaurantName={target.restaurantName}
+                  logoUrl={logoUrl}
+                  guestUrl={guestUrl}
+                  fixedTableNumber={target.tableNumber}
+                />
+              </div>
+            ) : (
             <div className="flex flex-1 flex-col items-center gap-4 overflow-y-auto px-5 py-6">
               {error ? <Alert variant="error">{error}</Alert> : null}
 
@@ -253,8 +272,18 @@ export function QrPreviewDialog({
                 {guestUrl}
               </p>
             </div>
+            )}
 
             <div className="flex flex-shrink-0 flex-wrap items-center justify-end gap-2 border-t border-border px-5 py-4">
+              {view === 'stand' ? (
+                <Button variant="secondary" type="button" onClick={() => setView('qr')}>
+                  {t('stand.back')}
+                </Button>
+              ) : (
+              <>
+              <Button variant="secondary" type="button" onClick={() => setView('stand')}>
+                {t('stand.open')}
+              </Button>
               <Button
                 variant="secondary"
                 type="button"
@@ -280,6 +309,8 @@ export function QrPreviewDialog({
                   {t('tables.qr.openMenu')}
                 </a>
               </Button>
+              </>
+              )}
             </div>
           </div>
         </div>

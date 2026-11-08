@@ -9,6 +9,8 @@ import {
 type Item = OrderQuote['items'][number];
 
 const item = (overrides: Partial<Item> = {}): Item => ({
+  kind: 'PRODUCT',
+  offerSlots: null,
   name: 'Burger',
   categoryName: 'Burgers',
   categoryOrder: 1,
@@ -300,6 +302,72 @@ describe('WhatsApp order message', () => {
     );
     expect(message).toContain('📝 Notes: URGENT please');
     expect(message).toContain('👤 Name: Mona');
+  });
+
+  it('lists the Offers first as their own group: ✅ for each chosen slot, 🎁 for the included gift (Arabic)', () => {
+    const message = buildWhatsappMessage(
+      quote({
+        defaultLocale: 'ar',
+        deliveryZoneName: null,
+        orderType: 'PICKUP',
+        items: [
+          item({ name: 'كبدة إسكندراني', categoryName: 'السندوتشات', lineTotal: '45.00' }),
+          item({
+            kind: 'OFFER',
+            name: 'وجبة الفطار',
+            categoryName: '',
+            categoryOrder: -1,
+            quantity: 2,
+            lineTotal: '90.00',
+            offerSlots: [
+              {
+                title: 'اختار الساندويتش',
+                included: false,
+                choices: [{ name: 'كبدة', quantity: 1, priceAdjustment: '10.00' }],
+              },
+              {
+                title: 'هدية العرض',
+                included: true,
+                choices: [{ name: 'بطاطس هدية', quantity: 1, priceAdjustment: '0.00' }],
+              },
+            ],
+          }),
+          item({
+            kind: 'OFFER',
+            name: 'بوكس العيلة',
+            categoryName: '',
+            categoryOrder: -1,
+            lineTotal: '120.00',
+            offerSlots: [
+              {
+                title: 'اختار ٣ ساندويتشات',
+                included: false,
+                choices: [
+                  { name: 'طعمية', quantity: 2, priceAdjustment: '0.00' },
+                  { name: 'جبنة رومي', quantity: 1, priceAdjustment: '5.00' },
+                ],
+              },
+            ],
+          }),
+        ],
+        subtotal: '255.00',
+        total: '255.00',
+        deliveryFee: '0.00',
+      }),
+    );
+    const lines = message.split('\n');
+    const offersAt = lines.indexOf('🎁 *القسم: العروض*');
+    const categoryAt = lines.indexOf('🗂️ *القسم: السندوتشات*');
+    expect(offersAt).toBeGreaterThan(-1);
+    expect(categoryAt).toBeGreaterThan(offersAt);
+    expect(message).toContain('*1) وجبة الفطار* × 2');
+    expect(message).toContain('✅ اختار الساندويتش: كبدة (+10)');
+    expect(message).toContain('🎁 هدية العرض: بطاطس هدية');
+    expect(message).toContain('💰 السعر: 90 ج.م');
+    expect(message).toContain('*2) بوكس العيلة* × 1');
+    expect(message).toContain('✅ اختار ٣ ساندويتشات: 2× طعمية، جبنة رومي (+5)');
+    // numbering continues into the product group
+    expect(message).toContain('*3) كبدة إسكندراني* × 1');
   });
 
   it('builds the wa.me link with digits only and an encoded message', () => {

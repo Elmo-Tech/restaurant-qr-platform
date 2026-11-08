@@ -7,7 +7,7 @@ import type { PublicMenuData } from './types';
 export interface PublicMenuBranding {
   restaurantName: string;
   logoAssetPath: string | null;
-  exclusiveRendererKey: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1';
+  exclusiveRendererKey: 'VERDE_NAPOLI_V1' | 'SHERBINY_FIRE_DOUGH_V1' | 'MAKKBOZ_HERITAGE_V1' | 'MEAT_LOVERS_BUTCHER_V1';
   locale: 'ar' | 'en';
 }
 
@@ -16,7 +16,7 @@ export type GetPublicMenuResult =
   | { outcome: 'notFound' }
   | { outcome: 'unavailable'; branding?: PublicMenuBranding };
 
-const RENDERER_KEYS = ['VERDE_NAPOLI_V1', 'SHERBINY_FIRE_DOUGH_V1', 'MAKKBOZ_HERITAGE_V1'] as const;
+const RENDERER_KEYS = ['VERDE_NAPOLI_V1', 'SHERBINY_FIRE_DOUGH_V1', 'MAKKBOZ_HERITAGE_V1', 'MEAT_LOVERS_BUTCHER_V1'] as const;
 
 /** The branding block of a MENU_NOT_AVAILABLE answer, or undefined when it is missing or not exactly what is expected. */
 function parseBranding(value: unknown): PublicMenuBranding | undefined {

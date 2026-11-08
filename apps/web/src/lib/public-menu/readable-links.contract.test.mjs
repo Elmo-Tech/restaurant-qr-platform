@@ -9,7 +9,7 @@ const page = read('app/q/[publicCode]/page.tsx');
 const hero = read('app/q/[publicCode]/GuestHero.tsx');
 const view = read('app/q/[publicCode]/PublicMenuView.tsx');
 const share = read('app/q/[publicCode]/ShareButton.tsx');
-const menus = ['verde/VerdeMenu', 'sherbiny/SherbinyMenu', 'makkboz/MakkbozMenu'].map((name) =>
+const menus = ['verde/VerdeMenu', 'sherbiny/SherbinyMenu', 'makkboz/MakkbozMenu', 'meat-lovers/MeatLoversMenu'].map((name) =>
   read(`app/q/[publicCode]/${name}.tsx`),
 );
 const guestMenuApi = read('lib/guest-menu/api.ts');

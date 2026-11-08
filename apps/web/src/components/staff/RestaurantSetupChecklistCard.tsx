@@ -123,7 +123,7 @@ function SetupStepRow({ step, expanded, restaurantId, onReview, onSkipBranding, 
           </svg>
         </Link>
       ) : null}
-      {showGuestMenu && restaurantId ? <OpenGuestMenuButton restaurantId={restaurantId} /> : null}
+      {showGuestMenu && restaurantId ? <OpenGuestMenuButton /> : null}
       {(expanded || step.key === 'PREVIEW') && onReview && step.status === 'NEEDS_REVIEW' ? (
         <button type="button" disabled={busy} onClick={() => onReview(step.key)}
           className="inline-flex min-h-11 shrink-0 items-center rounded-lg border border-primary/30 bg-primary/10 px-3 py-2 text-xs font-bold text-primary hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:opacity-60">

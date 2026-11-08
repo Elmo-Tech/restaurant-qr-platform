@@ -1435,6 +1435,29 @@ same-named Restaurants keeps the plain name). `qr_codes.public_code` is unchange
 
 ---
 
+# 54B. Offers / Bundles (DEC-069, 2026-11-06)
+
+Migration `20261122090000_offers_bundles`. Additive, plus one relaxation (`order_items.product_id` becomes nullable). Full model and rules: `docs/01-domain/OFFERS_SPEC.md`.
+
+| Table | Purpose |
+|---|---|
+| `offers` | one fixed-price offer: `restaurant_id` (Tenant), `status` (ACTIVE / INACTIVE / ARCHIVED), `badge`, `price` numeric(14,2), `days_of_week` smallint[] (0 = Sunday; empty = every day), `starts_on` / `ends_on` (dates, Branch timezone), `image_asset_path`, `display_order`, `archived_at` |
+| `offer_translations` | `(offer_id, locale)` unique: `name`, `description` |
+| `offer_slots` | `restaurant_id`, `offer_id` (CASCADE), `kind` (FIXED / SINGLE / MULTI), `required_count`, `display_order` |
+| `offer_slot_translations` | `(slot_id, locale)` unique: `title` |
+| `offer_slot_options` | `restaurant_id`, `slot_id` (CASCADE), `price_adjustment` numeric(14,2), `display_order`, `product_id` / `variant_id` (nullable FKs, **RESTRICT**: the option IS that menu item, its name read live; no translations of its own), `quantity` (1 to 99, units an included item brings) |
+| `offer_slot_option_translations` | `(option_id, locale)` unique: `name` |
+| `order_item_offer_choices` | the snapshot of one chosen option or included item of an Offer line: `order_item_id` (CASCADE), `offer_slot_id` / `offer_slot_option_id` (nullable, **ON DELETE SET NULL**), `slot_kind`, `slot_title_snapshot`, `option_name_snapshot`, `price_adjustment_snapshot` (one unit), `quantity`, `included`, `display_order` |
+
+`order_items`: `product_id` NULLABLE, new `offer_id` (FK `offers`, **RESTRICT**), CHECK `order_items_product_xor_offer` (exactly one of the two). An Offer line keeps the Offer name in
+`product_name_snapshot` and the fixed price in `unit_price`, so every existing reader keeps working.
+
+Custom SQL (Prisma cannot express it): CHECKs for non-negative money, `days_of_week <@ {0..6}`, `ends_on >= starts_on`, `offers_archived_consistent` (ARCHIVED iff `archived_at` is set), the slot shape
+(FIXED 0, SINGLE 1, MULTI 1 to 20) and text lengths; ENABLE ROW LEVEL SECURITY and REVOKE from PUBLIC / anon / authenticated on all seven tables (the Backend is the only reader). New
+`feature_key` value `OFFERS`. "Delete" archives (rows stay; `order_items.offer_id` is RESTRICT). Rollback: see the header of the migration.
+
+---
+
 # 55. Table QR Relationship
 
 TABLE QR requires:
@@ -1874,7 +1897,7 @@ No migration. The exclusive El Sherbiny renderer (`renderer_key = SHERBINY_FIRE_
 `apps/api/src/restaurants/sherbiny-menu-config.ts` (allow-listed copy in both languages, enums, booleans, per-category band
 text and server-owned `/media/<uuid>.(jpg|png|webp)` paths; a byte-identical copy lives in the Web app and a spec keeps them
 equal). The public menu context additionally returns `locations` (Branch name, address, phone; display only).
-The Makkboz renderer (`MAKKBOZ_HERITAGE_V1`, `apps/api/src/restaurants/makkboz-menu-config.ts`) uses the same columns the same way.
+The Makkboz renderer (`MAKKBOZ_HERITAGE_V1`, `apps/api/src/restaurants/makkboz-menu-config.ts`) uses the same columns the same way, as does Meat Lovers (`MEAT_LOVERS_BUTCHER_V1`, `meat-lovers-menu-config.ts`, DEC-067).
 
 ---
 

@@ -36,7 +36,7 @@ const TABLE_QR_ROW = {
   restaurantId: 'restaurant-1',
   branchId: 'branch-1',
   tableId: 'table-1',
-  restaurant: { status: 'ACTIVE' as const, defaultLocale: 'en', currencyCode: 'EGP' },
+  restaurant: { status: 'ACTIVE' as const, defaultLocale: 'en', currencyCode: 'EGP', countryCode: 'EG' },
   table: { tableNumber: '7', status: 'ACTIVE' as const },
 };
 
@@ -364,6 +364,7 @@ describe('PublicOrdersService.createOrder', () => {
         items: [
           {
             productId: 'product-1',
+            offerId: null,
             name: 'Burger',
             variantName: null,
             quantity: 1,

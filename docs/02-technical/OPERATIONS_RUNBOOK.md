@@ -116,6 +116,18 @@ npm run seed:restaurant-menu -- --seed makkboz --owner-email owner2@example.com
 npm run seed:restaurant-menu -- --seed makkboz --owner-email owner2@example.com --apply
 ```
 
+**Meat Lovers (ميت لافرز, Nasr City)** is a fourth seed, `--seed meat-lovers` (`apps/api/seed-data/meat-lovers/`, design `MEAT_LOVERS_BUTCHER_V1`, see
+`docs/03-ui-ux/MEAT_LOVERS_EXCLUSIVE_RENDERER_IMPLEMENTATION.md`): a per-kilo butcher menu (4 weights per cut). Same rules. For the account that
+already exists use section 2.1 with the owner's e-mail:
+
+```powershell
+npm run apply:restaurant-menu -- --seed meat-lovers --owner-email <account email>            # dry run
+npm run apply:restaurant-menu -- --seed meat-lovers --owner-email <account email> --apply    # writes
+```
+
+Afterwards, in the Platform console choose the "Meat Lovers — The Butcher's Edit" design for that restaurant if it is not already assigned,
+and in the restaurant settings confirm the WhatsApp number and switch WhatsApp ordering on.
+
 ### 2.1 Apply a seed to a restaurant that ALREADY exists (DEC-065)
 
 Use this when the restaurant was created in the Platform console (or by `provision:restaurant`) and only its menu, photos, branch address
@@ -252,3 +264,18 @@ The Guest Menu link is `WEB_URL/q/<restaurant-slug>` (for example `/q/el-sherbin
   Platform console (**Restaurants → the restaurant → Guest menu link → Edit link**) and set the real spelling (`el-sherbiny`, `makkboz`). The old
   link keeps redirecting; `Copy link` gives the URL to share and print.
 - Rollback: dropping `restaurant_slugs` returns every menu link to `/q/<code>`, which never stopped working.
+
+---
+
+## Offers / Bundles seeds (DEC-069)
+
+A menu seed (`apps/api/seed-data/<name>/menu.json`) may carry an optional `offers` array (see `docs/01-domain/OFFERS_SPEC.md` #9 and `apps/api/src/provisioning/seed-offers.ts`). It is applied with a **new** menu
+(`seed:restaurant-menu` / `apply:restaurant-menu`) or on its own to a restaurant that already has its menu, from the tools image (nothing runs on deploy):
+
+```bash
+npm run apply:restaurant-menu -- --seed <name> --owner-email <account email> --offers-only
+npm run apply:restaurant-menu -- --seed <name> --owner-email <account email> --offers-only --apply
+```
+
+Repeatable and never destructive: an offer whose default-language name already exists (not deleted) is left exactly as it is; new offers are created **switched off** unless the entry says `"active": true`.
+The migration `20261122090000_offers_bundles` runs from the Coolify `migrate` service. The restaurant's package must include the `OFFERS` feature (or the restaurant has no package) for offers to show.

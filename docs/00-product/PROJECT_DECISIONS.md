@@ -1608,6 +1608,81 @@ Guest app still uses the resolved QR code for orders, tracking and storage; unkn
 rate limits and Origin checks are unchanged. **Not in scope:** slugs for Branches or Tables, per-menu URLs, custom domains, owner self-edit of the slug.
 Spec updates: QR_SPEC.md (amendment), DATABASE_SPEC.md #54A, API_CONVENTIONS.md (amendment), OPERATIONS_RUNBOOK.md #7.
 
+### DEC-067 — Meat Lovers exclusive menu design ("The Butcher's Edit") and per-kilo selling
+
+**Status:** Built, not merged or deployed; owner confirmation items in `MEAT_LOVERS_EXCLUSIVE_RENDERER_IMPLEMENTATION.md` section 7.
+**Context:** a real premium butcher shop (Meat Lovers, Nasr City, Cairo) needs a bespoke Guest Menu from its HTML concept; every price on its
+flyer is EGP **per kilo**. **Decision:** a fourth compiled exclusive renderer `MEAT_LOVERS_BUTCHER_V1` following DEC-062 to DEC-065 exactly
+(one Restaurant, Platform-only assignment, draft / published settings edited in the dashboard, light / dark with the shared guest cookie, branded
+"menu on its way" page, base-template fallback, no schema change). **Per-kilo model without a new entity:** each cut has four Product Variants
+that are weights (250 g, 500 g, 1 kg default, 2 kg) priced from the per-kilo price with exact decimals in the seed; the card shows the per-kilo
+price by reading the 1 kg size's name and price (no arithmetic); free optional Modifier Groups hold cutting and packaging choices; no prices or
+offers are invented. Backend authority over totals, promotions and idempotency is unchanged. **Data:** reusable seed `meat-lovers` for
+`seed:restaurant-menu` and `apply:restaurant-menu`; WhatsApp number = the first printed order phone (to be confirmed). **Not in scope:**
+fractional-weight input, scale-based pricing, a generic "price per unit" field on Product (a later decision if more butchers or grocers join).
+
+---
+
+### DEC-068 — Guest checkout validation: a real phone number and sane fields, in the API and on the device
+
+**Status:** Requested by the owner (2026-11-05, after a real order arrived with the phone `548`); built on `feat/guest-order-validation`, not
+deployed. **Decision:** the API refuses an order whose phone is not a real number for the Restaurant's country (`restaurants.countryCode`; a
+number written with `+` or `00` may belong to any country), using the same `libphonenumber-js` the dashboard already uses (the `max` metadata;
+added to `apps/api` at the version `apps/web` pins). Egypt: mobile `01[0125]xxxxxxxx`, landlines by area code (Cairo/Giza `02` + 8 digits,
+Alexandria `03` + 7, other governorates `0xx` + 7); toll-free and premium numbers are refused. Arabic-Indic digits are converted first; the phone is saved
+and sent to WhatsApp as E.164. Name (2 to 100, a letter), delivery address (5 to 300, a letter) and every other text field get length limits, trimming and
+control-character stripping in the DTO; each refusal is `400 VALIDATION_ERROR` with a stable per-field code (`INVALID_PHONE`, `TOO_SHORT`, `TOO_LONG`,
+`MUST_CONTAIN_LETTER`), never an English sentence. The one shared checkout (`CheckoutSections`, used by every template) shows the same checks instantly under
+each field in Arabic or English; tapping send with a problem sends nothing and focuses the first bad field. **Not changed:** idempotency, pricing, tenant rules,
+the Table (dine-in) flow (no customer fields), the DB schema (no migration). **Open for the owner to confirm:** the landline lengths above, and that a
+one-letter name or a numbers-only address is refused. Spec: API_CONVENTIONS.md #108O; UI: `docs/03-ui-ux/GUEST_CHECKOUT_VALIDATION_IMPLEMENTATION.md`.
+
+---
+
+### DEC-069 — Offers / Bundles: fixed-price packages with choices
+
+**Status:** Approved by the owner (2026-11-06) after an interactive mockup; built on `feat/offers-bundles`, not deployed. **Context:** customers asked for
+offers such as "ful or taameya sandwich with free fries" (the guest must choose) or a box that combines several items at one price; `PROMOTIONS_SPEC.md`
+#96 says bundles need an explicit model and must not overload V1 Promotions. **Decision:** an explicit **Offer** model (`offers` plus translation, slot
+and option tables, see `docs/01-domain/OFFERS_SPEC.md`): name / description / photo / **one fixed price** / badge (offer, gift, most ordered) / validity by
+**days of the week** (+ optional start and end dates, no hours) / status (active, disabled, deleted = archived). An offer is made of **slots**: FIXED
+(included, the gift), SINGLE (pick one), MULTI (pick N, repeats allowed); every selectable option may carry a **paid adjustment** on top of the offer price.
+Limits: 6 slots, 20 options, 30 offers per Restaurant; the same offer may be ordered several times, each line with its own choices. **Backend authority:**
+price and validation are decided only in the Backend with `Decimal` (offer active, today valid in the order Branch's timezone, every slot satisfied exactly, every
+chosen option belongs to that offer); a changed or expired offer returns the stable codes `OFFER_UNAVAILABLE` / `OFFER_CHANGED` and the web shows a localized
+message. **Orders:** an order line is a product OR an offer (`order_items.product_id` nullable, `offer_id`, CHECK exactly one); the choices are snapshot rows
+(`order_item_offer_choices`) projected into the same `modifiers` view every reader already renders, so the kitchen, Staff screens and Guest tracking need no
+bespoke UI; history is never rewritten. **Guest UI (approved placement "B"):** the top strip shows the active offers in place of featured products (which come
+back when there are none), plus a first "🎁 Offers" chip in the category bar; an offer not available today stays visible, dimmed; one shared strip + choice sheet +
+cart line serves every template and every exclusive design. The WhatsApp message lists offers as the first group. **Packages:** new feature key `OFFERS` (customer-visible,
+no backfill into existing packages). **Not in V1:** inventory, hours of the day, per-Branch offers, stacking with product discounts, AI-assistant knowledge of offers.
+Spec: OFFERS_SPEC.md; DATABASE_SPEC.md #54B; API_CONVENTIONS.md (Offers); GUEST_EXPERIENCE_SPEC.md and STAFF_DASHBOARD_UX_SPEC.md (Offers).
+
+### DEC-070 — QR stand templates, QR-only export, and the prominent "open the menu" button
+
+**Status:** Accepted. **Scope:** staff dashboard (apps/web) only; no API, schema or guest-menu change.
+
+**QR stand.** One size only: a standard A6 portrait stand (105 × 148 mm), four templates (classic, dark, bold colour, minimal frame), built as
+millimetre SVG from the QR module matrix (`QRCode.create`, level H) so there is one source of truth. Customisation is deliberately small: names
+(default from the Restaurant), ONE main colour, caption language (ar / en / both), the logo toggle, and the table number (automatic for a table QR).
+The QR is always black on white with a 4-module quiet zone; text colours are adjusted for contrast, so a colour choice can never make the code unreadable.
+A fixed small footer "مدعوم من ويتا · Powered by Wayta" is in every template (not editable). Posters, bags and menus are designed by the Restaurant itself
+from the QR-only file; this is not a design editor.
+
+**Two downloads.** (1) The finished stand: PNG (1240 × 1748, about 300 dpi), a real PDF (A6, one page per stand, written by a small in-repo writer with
+lossless Flate image data, no PDF dependency), and Print (@page 105 mm × 148 mm). (2) QR only: PNG and SVG (quiet zone included, optional transparent
+SVG). "Stands for all tables" builds one A6 PDF / print job with a page per table of the selected Branch. Arabic is exported correctly because the export embeds
+IBM Plex Sans Arabic (copied to `apps/web/public/fonts/stand`, SIL OFL) and the logo into the SVG before it is rasterised.
+
+**Where.** Restaurant QR settings page (below the existing appearance card), the single-table QR dialog ("Design a stand"), and the Tables page header (all tables).
+Existing permissions are unchanged; the table QR URLs stay opaque `/q/{publicCode}`, the Restaurant QR uses the readable `/q/{slug}` (DEC-066).
+
+**Open guest menu.** `OpenGuestMenuButton` is now a brand-coloured primary button with an icon and a dropdown (open in a new tab, copy link, show QR, quick preview).
+A floating button, mounted once in the staff shell, is available on every dashboard page; it expands to a labelled pill on desktop hover / focus and sits above the bottom navigation on
+phones (hidden with the keyboard up, in the kitchen screen, and on phones on pages with a sticky save bar). The link is fetched once per workspace (`GuestMenuLinkProvider`); neither control
+ever creates a QR, and both stay hidden / disabled when the Restaurant has no active generic QR. Quick preview frames the same-origin guest menu (`X-Frame-Options: SAMEORIGIN` allows it).
+The design choices are remembered per browser (localStorage) as a convenience only. Details: docs/03-ui-ux/QR_STAND_AND_OPEN_MENU_IMPLEMENTATION.md.
+
 ---
 
 ---

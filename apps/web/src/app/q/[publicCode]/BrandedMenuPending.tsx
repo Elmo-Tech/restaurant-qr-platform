@@ -2,6 +2,7 @@ import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuBranding } from '../../../lib/public-menu/api';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import { MAKKBOZ_FONT_CLASSES } from './makkboz/makkboz-fonts';
+import { MEAT_LOVERS_FONT_CLASSES } from './meat-lovers/meat-lovers-fonts';
 import { SHERBINY_FONT_CLASSES } from './sherbiny/sherbiny-fonts';
 import { VERDE_FONT_CLASSES } from './verde/verde-fonts';
 import './branded-pending.css';
@@ -10,6 +11,7 @@ const LOOK = {
   VERDE_NAPOLI_V1: { skin: 'verde', fonts: VERDE_FONT_CLASSES },
   SHERBINY_FIRE_DOUGH_V1: { skin: 'sherbiny', fonts: SHERBINY_FONT_CLASSES },
   MAKKBOZ_HERITAGE_V1: { skin: 'makkboz', fonts: MAKKBOZ_FONT_CLASSES },
+  MEAT_LOVERS_BUTCHER_V1: { skin: 'meat-lovers', fonts: MEAT_LOVERS_FONT_CLASSES },
 } as const;
 
 /**

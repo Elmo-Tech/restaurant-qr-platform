@@ -2,6 +2,8 @@
  * Guest order tracking (DEC-042, slice 5): the pure rules. No I/O.
  */
 
+import { toWesternDigits } from './guest-order-fields';
+
 export type TrackableStatus =
   | 'PENDING'
   | 'ACCEPTED'
@@ -40,9 +42,9 @@ export function trackingRef(orderId: string): string {
 const PHONE_KEY_DIGITS = 10;
 const MIN_PHONE_DIGITS = 7;
 
-/** Digits only. */
+/** Digits only; Arabic-Indic / Eastern Arabic digits count as the digits they are. */
 export function phoneDigits(value: string): string {
-  return value.replace(/\D/g, '');
+  return toWesternDigits(value).replace(/\D/g, '');
 }
 
 export function isPlausiblePhone(value: string): boolean {

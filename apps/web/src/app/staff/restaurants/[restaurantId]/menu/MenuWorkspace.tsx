@@ -32,6 +32,8 @@ export interface MenuWorkspaceProps {
   canManage: boolean;
   /** The platform turned Menu Import on for this Restaurant (DEC-057); without it the entry is not shown. */
   canImportMenu: boolean;
+  /** The package includes Offers (DEC-069): the "Offers" tab is shown. */
+  offersEnabled?: boolean;
   /** `menu.manage` alone, regardless of Branch scope -- used only for the explanatory read-only note (Section 24). */
   hasMenuManagePermission: boolean;
   /** FT-1, Section 20: optional Menu/Category to select on first load, restoring context from the Product Editor's "Back to Menu" link. Ignored if either id no longer matches a loaded Menu/Category. */
@@ -77,6 +79,7 @@ export function MenuWorkspace({
   currencyCode,
   canManage,
   canImportMenu,
+  offersEnabled = false,
   hasMenuManagePermission,
   initialMenuId,
   initialCategoryId,
@@ -459,12 +462,12 @@ export function MenuWorkspace({
                 <Link href={`/staff/restaurants/${restaurantId}/menu/import`}>{t('import.entry')}</Link>
               </Button>
             ) : null}
-            <OpenGuestMenuButton restaurantId={restaurantId} />
+            <OpenGuestMenuButton />
           </>
         }
       />
 
-      <MenuSectionTabs restaurantId={restaurantId} active="products" />
+      <MenuSectionTabs restaurantId={restaurantId} active="products" offersEnabled={offersEnabled} />
 
       {!canManage && hasMenuManagePermission ? (
         <Alert variant="info">{t('menu.needsFullScope')}</Alert>

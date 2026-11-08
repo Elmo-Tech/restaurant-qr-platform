@@ -235,7 +235,7 @@ export default async function RestaurantLandingPage({
         }
         actions={
           restaurant.status === 'ACTIVE' && canViewMenu(membership) ? (
-            <OpenGuestMenuButton restaurantId={restaurantId} />
+            <OpenGuestMenuButton />
           ) : undefined
         }
       />
