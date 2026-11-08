@@ -83,6 +83,8 @@ jobs:
           whatsapp-order-message.spec.ts
           guest-order-fields.spec.ts
       - name: Run real PostgreSQL Offers and WhatsApp checkout E2E
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
         run: npm exec --workspace=apps/api -- jest --config ./test/jest-e2e.json --runInBand offers-http.e2e-spec.ts
       - name: Verify Guest checkout and signed WhatsApp transport
         run: >-
