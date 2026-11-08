@@ -1,0 +1,91 @@
+name: Wayta Combined Main + Development Integration QA
+
+on:
+  pull_request:
+    branches: [development, main]
+    paths:
+      - 'apps/**'
+      - 'package*.json'
+      - '.github/workflows/wayta-combined-integration-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-and-feature-qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: wayta_ci
+          POSTGRES_PASSWORD: wayta_ci_only
+          POSTGRES_DB: wayta_scratch
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U wayta_ci -d wayta_scratch"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://wayta_ci:wayta_ci_only@127.0.0.1:5432/wayta_scratch?schema=public
+      OFFERS_E2E_DATABASE_URL: postgresql://wayta_ci:wayta_ci_only@127.0.0.1:5432/wayta_scratch?schema=public
+      CORS_ORIGIN: http://localhost:3000
+      NODE_ENV: test
+    steps:
+      - name: Checkout merged integration candidate
+        uses: actions/checkout@v4
+      - name: Use Node.js 24 with locked npm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate unified Prisma schema
+        run: npm run db:validate
+      - name: Deploy both migrations on disposable PostgreSQL 18
+        run: npm exec --workspace=apps/api -- prisma migrate deploy
+      - name: Verify both persisted feature schemas
+        run: |
+          node <<'NODE'
+          const { Client } = require('pg');
+          (async () => {
+            const client = new Client({ connectionString: process.env.DATABASE_URL });
+            await client.connect();
+            const names = ['offers', 'offer_slots', 'order_item_offer_choices', 'whatsapp_connections', 'whatsapp_order_receipts'];
+            const result = await client.query('SELECT table_name FROM information_schema.tables WHERE table_schema = $1 AND table_name = ANY($2)', ['public', names]);
+            const found = new Set(result.rows.map(row => row.table_name));
+            for (const name of names) {
+              if (!found.has(name)) throw new Error('Missing merged migration table: ' + name);
+            }
+            const ledger = await client.query("SELECT migration_name, finished_at FROM _prisma_migrations WHERE migration_name LIKE '20261122090000_%' ORDER BY migration_name");
+            if (ledger.rows.length !== 2 || ledger.rows.some(row => !row.finished_at)) {
+              throw new Error('Both independent migration ledgers must have finished successfully');
+            }
+            console.log('PASS: Offers and signed WhatsApp receipt tables exist; both migration ledger rows finished');
+            await client.end();
+          })().catch(error => { console.error(error.message); process.exitCode = 1; });
+          NODE
+      - name: Run Offers + signed WhatsApp unit regressions
+        run: >-
+          npm exec --workspace=apps/api -- jest --runInBand
+          offer-order.spec.ts
+          offer-rules.spec.ts
+          signed-whatsapp-reference.spec.ts
+          whatsapp-tracking.service.spec.ts
+          public-orders.controller.spec.ts
+          whatsapp-order-message.spec.ts
+          guest-order-fields.spec.ts
+      - name: Run real PostgreSQL Offers and WhatsApp checkout E2E
+        run: npm exec --workspace=apps/api -- jest --config ./test/jest-e2e.json --runInBand offers-http.e2e-spec.ts
+      - name: Verify Guest checkout and signed WhatsApp transport
+        run: >-
+          node --test
+          apps/web/src/lib/public-menu/checkout-validation.test.mjs
+          apps/web/src/lib/public-menu/checkout-form.contract.test.mjs
+          apps/web/src/lib/public-menu/whatsapp-handoff.contract.test.mjs
+          apps/web/src/lib/public-menu/offers.test.mjs
