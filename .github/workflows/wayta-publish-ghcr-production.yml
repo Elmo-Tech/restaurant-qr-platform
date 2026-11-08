@@ -18,7 +18,6 @@ on:
 # NO push trigger, NO Coolify token or webhook. Production deployment is always manual.
 permissions:
   contents: read
-  packages: write
 
 concurrency:
   group: wayta-prod-images-${{ github.ref }}
@@ -106,6 +105,9 @@ jobs:
 
   publish:
     name: Publish five prod-prefixed images (NO DEPLOY)
+    permissions:
+      contents: read
+      packages: write
     needs: verify
     if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.release_phrase == 'BUILD_PRODUCTION_IMAGES'
     runs-on: ubuntu-latest
