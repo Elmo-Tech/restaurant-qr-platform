@@ -47,6 +47,8 @@ jobs:
         run: npm ci
       - name: Validate unified Prisma schema
         run: npm run db:validate
+      - name: Generate merged Prisma Client for Jest and NestJS
+        run: npm run db:generate
       - name: Deploy both migrations on disposable PostgreSQL 18
         run: npm exec --workspace=apps/api -- prisma migrate deploy
       - name: Verify both persisted feature schemas
