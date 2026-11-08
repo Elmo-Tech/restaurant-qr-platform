@@ -273,6 +273,11 @@ export const envSchema = z
         .optional(),
     ),
 
+    EVOLUTION_API_URL: z.string().trim().optional(),
+    EVOLUTION_API_KEY: z.string().trim().optional(),
+    WAYTA_API_PUBLIC_URL: z.string().trim().optional(),
+    WHATSAPP_ORDER_SIGNING_KEY: z.string().trim().optional(),
+
     // FT-9: how many reverse-proxy hops to trust for the client IP
     // (`X-Forwarded-For`). 0 = trust none (direct connection, the local-dev
     // default). Set to 1 behind Nginx, otherwise every client shares the
