@@ -1,3 +1,4 @@
+import { RESERVED_SLUGS } from '../restaurants/restaurant-slug';
 import { Injectable } from '@nestjs/common';
 import { BadRequestException, ConflictException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -140,10 +141,13 @@ export class PlatformRestaurantsService {
   ): RestaurantDetail['menuLink'] {
     const current = slugs.find((s) => s.isCurrent)?.slug ?? null;
     const origin = String(this.config.get('CORS_ORIGIN', { infer: true }) ?? '').replace(/\/+$/, '');
+    const tenantDomain = this.config.get('RESTAURANT_BASE_DOMAIN', { infer: true });
     return {
       slug: current,
       formerSlugs: slugs.filter((s) => !s.isCurrent).map((s) => s.slug),
-      url: current && origin ? `${origin}/q/${current}` : null,
+      url: current && tenantDomain && !RESERVED_SLUGS.has(current)
+        ? `https://${current}.${tenantDomain}/`
+        : current && origin ? `${origin}/q/${current}` : null,
     };
   }
 

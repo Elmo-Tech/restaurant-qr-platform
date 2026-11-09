@@ -5,6 +5,7 @@ import { WhatsappTrackingModule } from '../whatsapp-tracking/whatsapp-tracking.m
 import { PublicLandingController } from './public-landing.controller';
 import { PublicLandingService } from './public-landing.service';
 import { PublicMenuController } from './public-menu.controller';
+import { PublicRestaurantHostGuard } from './public-restaurant-host.guard';
 import { PublicMenuService } from './public-menu.service';
 import { PublicOrderTrackingController } from './public-order-tracking.controller';
 import { PublicOrderTrackingService } from './public-order-tracking.service';
@@ -32,6 +33,7 @@ import { PublicSuggestionsService } from './public-suggestions.service';
   ],
   providers: [
     PublicMenuService,
+    PublicRestaurantHostGuard,
     PublicOrdersService,
     PublicOrderTrackingService,
     PublicSuggestionsService,

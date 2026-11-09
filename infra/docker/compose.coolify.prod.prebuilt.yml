@@ -100,6 +100,7 @@ services:
       # the two browser origins allowed to call the API with credentials (both are the public HTTPS origins)
       CORS_ORIGIN: https://${WEB_HOST:?Set WEB_HOST (for example menu.example.com)}
       PLATFORM_ORIGIN: https://${PLATFORM_HOST:?Set PLATFORM_HOST (for example control.example.com)}
+      RESTAURANT_BASE_DOMAIN: ${RESTAURANT_BASE_DOMAIN:-}
       AUTH_COOKIE_SECURE: "true"
       AUTH_COOKIE_SAME_SITE: lax
       AUTH_SESSION_COOKIE_NAME: ${AUTH_SESSION_COOKIE_NAME:-restaurant_session}
@@ -162,6 +163,7 @@ services:
       NODE_ENV: production
       # server-side calls stay on the private network
       API_INTERNAL_URL: http://api:4000
+      RESTAURANT_BASE_DOMAIN: ${RESTAURANT_BASE_DOMAIN:-}
       # the origin printed QR codes point to: ${WEB_URL}/q/{restaurant-slug} (Table QRs: /q/{publicCode})
       WEB_URL: https://${WEB_HOST}
     depends_on:
@@ -204,9 +206,28 @@ services:
     pull_policy: missing
     restart: unless-stopped
     logging: *logging
+    # Production-only stable Docker-provider routers. Coolify still manages
+    # the four existing exact-host routes and connects the gateway network.
+    # Keep file-provider wildcard cert placeholder (priority 1) unchanged.
+    # Tenant routers use priority 20 and this same gateway:8080.
+    labels:
+      - 'traefik.http.routers.wayta-tenants-https.rule=HostRegexp(`^[a-z0-9]+(?:-[a-z0-9]+)*[.]waytaapp[.]com\z`) && !Host(`control.waytaapp.com`) && !Host(`www.waytaapp.com`)'
+      - 'traefik.http.routers.wayta-tenants-https.entrypoints=https'
+      - 'traefik.http.routers.wayta-tenants-https.tls=true'
+      - 'traefik.http.routers.wayta-tenants-https.priority=20'
+      - 'traefik.http.routers.wayta-tenants-https.service=wayta-tenants-gateway'
+      - 'traefik.http.services.wayta-tenants-gateway.loadbalancer.server.port=8080'
+      - 'traefik.http.routers.wayta-tenants-http.rule=HostRegexp(`^[a-z0-9]+(?:-[a-z0-9]+)*[.]waytaapp[.]com\z`) && !Host(`control.waytaapp.com`) && !Host(`www.waytaapp.com`)'
+      - 'traefik.http.routers.wayta-tenants-http.entrypoints=http'
+      - 'traefik.http.routers.wayta-tenants-http.priority=20'
+      - 'traefik.http.routers.wayta-tenants-http.middlewares=wayta-tenants-redirect-https'
+      - 'traefik.http.routers.wayta-tenants-http.service=wayta-tenants-gateway'
+      - 'traefik.http.middlewares.wayta-tenants-redirect-https.redirectscheme.scheme=https'
+      - 'traefik.http.middlewares.wayta-tenants-redirect-https.redirectscheme.permanent=true'
     environment:
       WEB_HOST: ${WEB_HOST}
       PLATFORM_HOST: ${PLATFORM_HOST}
+      RESTAURANT_WILDCARD_HOST: ${RESTAURANT_WILDCARD_HOST:-}
     depends_on:
       api:
         condition: service_healthy

@@ -25,6 +25,7 @@ if (!apiBasePath) {
 }
 
 export const API_BASE_URL = apiUrl + apiBasePath;
+export const API_BASE_PATH = apiBasePath;
 
 /**
  * Where SERVER-SIDE code (Server Components, route handlers) reaches the API. In production the browser talks

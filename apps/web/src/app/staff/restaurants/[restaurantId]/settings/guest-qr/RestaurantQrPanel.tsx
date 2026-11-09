@@ -6,6 +6,7 @@ import * as qrApi from '../../../../../../lib/qr/api';
 import type { GenericQr } from '../../../../../../lib/qr/api';
 import * as settingsApi from '../../../../../../lib/settings/api';
 import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
+import { genericMenuUrl } from '../../../../../../lib/public-menu/restaurant-subdomains';
 import {
   colorIssue,
   DEFAULT_QR_STYLE,
@@ -116,7 +117,7 @@ export function RestaurantQrPanel({
     }
   }
 
-  const guestUrl = qr ? `${webOrigin}/q/${qr.slug ?? qr.publicCode}` : null;
+  const guestUrl = qr ? genericMenuUrl(webOrigin, qr.slug ?? qr.publicCode, process.env.NEXT_PUBLIC_RESTAURANT_BASE_DOMAIN) : null;
   const isActive = qr?.status === 'ACTIVE';
   const logoUrl = resolveAssetUrl(logoAssetPath);
   const issue = colorIssue(draft.foregroundColor, draft.backgroundColor);

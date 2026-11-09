@@ -97,7 +97,7 @@ describe('slug validity', () => {
   });
 
   it('refuses reserved words', () => {
-    for (const word of ['admin', 'api', 'staff', 'q', 'platform']) {
+    for (const word of ['admin', 'api', 'staff', 'q', 'platform', 'control', 'cdn', 'mail']) {
       expect(RESERVED_SLUGS.has(word)).toBe(true);
     }
     expect(slugProblem('admin')).toBe('reserved');
