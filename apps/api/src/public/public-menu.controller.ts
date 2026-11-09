@@ -1,5 +1,6 @@
 import {
   Controller,
+  UseGuards,
   Get,
   Headers,
   HttpCode,
@@ -8,6 +9,7 @@ import {
   Param,
   Query,
 } from '@nestjs/common';
+import { PublicRestaurantHostGuard } from './public-restaurant-host.guard';
 import { PublicMenuService } from './public-menu.service';
 import type { PublicMenuData } from './public-menu.service';
 
@@ -50,6 +52,7 @@ interface PublicMenuResponseBody {
  * public QR/Menu endpoints is documented, deferred follow-up work, not a
  * silently-accepted gap.
  */
+@UseGuards(PublicRestaurantHostGuard)
 @Controller('public/qr')
 export class PublicMenuController {
   constructor(private readonly publicMenuService: PublicMenuService) {}
