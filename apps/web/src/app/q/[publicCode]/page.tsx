@@ -77,7 +77,7 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
     validRestaurantHostSlug(shareCode) &&
     designPreview !== '1' // Staff previews must remain embeddable on the apex.
   ) {
-    const host = (await headers()).get('host')?.toLowerCase().replace(/:\\d+$/, '');
+    const host = (await headers()).get('host')?.toLowerCase().replace(/:\d+$/, '');
     const canonicalHost = `${shareCode}.${baseDomain}`;
     if (host !== canonicalHost) {
       redirect(`https://${canonicalHost}/${suffix}`);
