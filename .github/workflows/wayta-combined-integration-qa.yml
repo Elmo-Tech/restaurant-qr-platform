@@ -88,6 +88,7 @@ jobs:
         run: npm exec --workspace=apps/api -- jest --config ./test/jest-e2e.json --runInBand offers-http.e2e-spec.ts
       - name: Verify real PostgreSQL restaurant hostname isolation
         env:
+          NODE_OPTIONS: --experimental-vm-modules
           RESTAURANT_BASE_DOMAIN: waytaapp.com
         run: >-
           npm exec --workspace=apps/api -- jest --config ./test/jest-e2e.json
