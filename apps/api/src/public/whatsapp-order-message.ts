@@ -1,17 +1,11 @@
 import type { OrderQuote } from './public-orders.service';
 
 /**
- * The WhatsApp order message (DEC-042, slice 7): built ONLY from the Backend's own priced
- * order (`OrderQuote`), never from anything the Guest's device calculated. It is written for
- * the Restaurant to read, so labels, product, Category, size and extra names are in the
- * Restaurant's default language; the Guest's own free text (name, address, notes) is quoted as typed.
- * WhatsApp's own markup is used: *bold* for the headline, the Category, each product and the total.
- *
- * Layout (the owner approved it): a headline that says the order came from the digital menu; the
- * order type and branch; the products GROUPED BY CATEGORY (in menu order, a divider between groups)
- * so two products with the same name in two Categories are never confused; each product with its
- * size and its extras (one line per extras group, each extra with its own price) and the line
- * price; then the customer, the totals and a closing line.
+ * Compact WhatsApp order message (DEC-042): based only on the Backend-priced
+ * OrderQuote, never on Guest-calculated prices. Keep categories in menu order
+ * (to distinguish duplicate product names) and every modifier directly below
+ * its product. The optional signed Wayta-Ref footer is added later by
+ * WhatsappTrackingService.prepare; never append or modify it here.
  */
 
 export type MessageLanguage = 'ar' | 'en';
@@ -20,11 +14,7 @@ const LABELS: Record<
   MessageLanguage,
   {
     newOrder: string;
-    sentFromMenu: string;
-    category: string;
     offers: string;
-    size: string;
-    price: string;
     delivery: string;
     pickup: string;
     branch: string;
@@ -33,63 +23,52 @@ const LABELS: Record<
     discount: string;
     deliveryFee: string;
     total: string;
-    customer: string;
-    phone: string;
-    address: string;
     building: string;
     floor: string;
     apartment: string;
     landmark: string;
+    extras: string;
+    perItem: string;
     notes: string;
   }
 > = {
   en: {
-    newOrder: 'New order from the digital menu',
-    sentFromMenu: 'Sent from the digital menu',
-    category: 'Category',
+    newOrder: 'New order',
     offers: 'Offers',
-    size: 'Size',
-    price: 'Price',
     delivery: 'Delivery',
     pickup: 'Pickup',
     branch: 'Branch',
-    area: 'Delivery area',
+    area: 'Area',
     subtotal: 'Items',
     discount: 'Discount',
     deliveryFee: 'Delivery fee',
     total: 'Total',
-    customer: 'Name',
-    phone: 'Phone',
-    address: 'Address',
     building: 'Building',
     floor: 'Floor',
     apartment: 'Apartment',
     landmark: 'Landmark',
-    notes: 'Notes',
+    extras: 'Extras',
+    perItem: 'per item',
+    notes: 'Order notes',
   },
   ar: {
-    newOrder: 'طلب جديد من المنيو الإلكتروني',
-    sentFromMenu: 'تم إرسال الطلب من المنيو الإلكتروني',
-    category: 'القسم',
+    newOrder: 'طلب جديد',
     offers: 'العروض',
-    size: 'المقاس',
-    price: 'السعر',
     delivery: 'توصيل',
-    pickup: 'استلام من الفرع',
-    branch: 'الفرع',
-    area: 'منطقة التوصيل',
+    pickup: 'استلام',
+    branch: 'فرع',
+    area: 'منطقة',
     subtotal: 'الأصناف',
     discount: 'الخصم',
-    deliveryFee: 'رسوم التوصيل',
+    deliveryFee: 'التوصيل',
     total: 'الإجمالي',
-    customer: 'الاسم',
-    phone: 'الهاتف',
-    address: 'العنوان',
     building: 'المبنى',
     floor: 'الدور',
     apartment: 'الشقة',
     landmark: 'علامة مميزة',
-    notes: 'ملاحظات',
+    extras: 'إضافات',
+    perItem: 'لكل قطعة',
+    notes: 'ملاحظات الطلب',
   },
 };
 
@@ -108,7 +87,7 @@ export function plain(value: string): string {
 
 /** How the Restaurant's own language writes a currency; any other code is shown as it is. */
 const CURRENCY_SYMBOLS: Record<MessageLanguage, Record<string, string>> = {
-  ar: { EGP: 'ج.م', SAR: 'ر.س', AED: 'د.إ', KWD: 'د.ك', QAR: 'ر.ق', USD: '$' },
+  ar: { EGP: 'ج', SAR: 'ر.س', AED: 'د.إ', KWD: 'د.ك', QAR: 'ر.ق', USD: '$' },
   en: {},
 };
 
@@ -133,28 +112,27 @@ function extraPrice(amount: string): string {
     : ` (+${amountText(amount)})`;
 }
 
-const DIVIDER = '━━━━━━━━━━';
-
 export function buildWhatsappMessage(quote: OrderQuote): string {
   const language = messageLanguage(quote.defaultLocale);
   const t = LABELS[language];
   const cost = (amount: string): string =>
     money(amount, quote.currencyCode, language);
-  const lines: string[] = [];
+  const separator = language === 'ar' ? '، ' : ', ';
+  const lines: string[] = ['🧾 *' + t.newOrder + '*'];
 
-  lines.push(`🧾 *${t.newOrder}*`);
-  lines.push(`🏪 ${plain(quote.restaurantName)}`);
   const orderType =
-    quote.orderType === 'DELIVERY' ? `🛵 ${t.delivery}` : `🛍️ ${t.pickup}`;
-  lines.push(
-    quote.deliveryZoneName
-      ? `${orderType} — ${t.area}: ${plain(quote.deliveryZoneName)}`
-      : orderType,
-  );
-  if (quote.branchName)
-    lines.push(`📍 ${t.branch}: ${plain(quote.branchName)}`);
+    quote.orderType === 'DELIVERY' ? '🛵 ' + t.delivery : '🛍️ ' + t.pickup;
+  const context = [
+    quote.branchName ? t.branch + ' ' + plain(quote.branchName) : null,
+    quote.orderType === 'DELIVERY' && quote.deliveryZoneName
+      ? t.area + ' ' + plain(quote.deliveryZoneName)
+      : null,
+  ].filter((part): part is string => part !== null);
+  lines.push(orderType + (context.length ? ' | ' + context.join(' | ') : ''));
 
-  // Products grouped by Category in menu order; inside a group, the order the Guest added them.
+  // Offers are first; product categories remain in menu order to distinguish
+  // otherwise identical product names. No icons or lengthy category labels.
+  const offerItems = quote.items.filter((item) => item.kind === 'OFFER');
   const groups: {
     key: string;
     name: string;
@@ -162,8 +140,8 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
     items: OrderQuote['items'];
   }[] = [];
   for (const item of quote.items) {
-    if (item.kind === 'OFFER') continue; // Offers (DEC-069) are their own first group, below.
-    const key = `${item.categoryOrder}|${item.categoryName}`;
+    if (item.kind === 'OFFER') continue;
+    const key = item.categoryOrder + '|' + item.categoryName;
     let group = groups.find((candidate) => candidate.key === key);
     if (!group) {
       group = {
@@ -179,100 +157,103 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
   groups.sort((a, b) => a.order - b.order);
 
   let number = 0;
+  const itemLine = (item: OrderQuote['items'][number]): string => {
+    number += 1;
+    const variant = item.variantName ? ' (' + plain(item.variantName) + ')' : '';
+    return (
+      number + ') *' + plain(item.name) + variant + ' × ' +
+      item.quantity + ' — ' + cost(item.lineTotal) + '*'
+    );
+  };
 
-  // Offers (DEC-069) come first as their own group: every chosen slot with ✅, the included gift with 🎁.
-  const offerItems = quote.items.filter((item) => item.kind === 'OFFER');
-  if (offerItems.length > 0) {
-    const separator = language === 'ar' ? '، ' : ', ';
-    lines.push(DIVIDER);
-    lines.push(`🎁 *${t.category}: ${t.offers}*`);
+  if (offerItems.length) {
+    lines.push('', '*' + t.offers + '*');
     for (const item of offerItems) {
-      number += 1;
-      lines.push('');
-      lines.push(`*${number}) ${plain(item.name)}* × ${item.quantity}`);
+      lines.push(itemLine(item));
       for (const slot of item.offerSlots ?? []) {
         const picked = slot.choices.map(
           (choice) =>
-            `${choice.quantity > 1 ? `${choice.quantity}× ` : ''}${plain(choice.name)}${extraPrice(choice.priceAdjustment)}`,
+            (choice.quantity > 1 ? choice.quantity + '× ' : '') +
+            plain(choice.name) + extraPrice(choice.priceAdjustment),
         );
-        lines.push(
-          `${slot.included ? '🎁' : '✅'} ${plain(slot.title)}: ${picked.join(separator)}`,
-        );
+        if (picked.length)
+          lines.push(
+            '↳ ' + (slot.included ? '🎁 ' : '') +
+            plain(slot.title) + ': ' + picked.join(separator),
+          );
       }
-      lines.push(`💰 ${t.price}: ${cost(item.lineTotal)}`);
     }
   }
 
   for (const group of groups) {
-    lines.push(DIVIDER);
-    if (group.name) lines.push(`🗂️ *${t.category}: ${plain(group.name)}*`);
+    lines.push('');
+    if (group.name) lines.push('*' + plain(group.name) + '*');
     for (const item of group.items) {
-      number += 1;
-      lines.push('');
-      lines.push(`*${number}) ${plain(item.name)}* × ${item.quantity}`);
-      if (item.variantName)
-        lines.push(`📏 ${t.size}: ${plain(item.variantName)}`);
-      // One line per extras group, each extra with its own price.
+      lines.push(itemLine(item));
+
+      // Modifiers follow the *specific cart line* immediately, even when the
+      // same product is ordered with different extras or in other categories.
       const byGroup = new Map<string, string[]>();
       for (const modifier of item.modifiers) {
-        const label = plain(modifier.groupName);
+        const label = plain(modifier.groupName) || t.extras;
         const list = byGroup.get(label) ?? [];
         list.push(
-          `${plain(modifier.optionName)}${extraPrice(modifier.priceAdjustment)}`,
+          plain(modifier.optionName) + extraPrice(modifier.priceAdjustment),
         );
         byGroup.set(label, list);
       }
-      for (const [label, options] of byGroup)
-        lines.push(`➕ ${label}: ${options.join(' · ')}`);
-      lines.push(`💰 ${t.price}: ${cost(item.lineTotal)}`);
+      for (const [label, options] of byGroup) {
+        lines.push(
+          '↳ ' + label + ': ' + options.join(separator) +
+          (item.quantity > 1 ? ' ' + t.perItem : ''),
+        );
+      }
     }
   }
-  lines.push(DIVIDER);
 
   const details: string[] = [];
-  if (quote.customerName)
-    details.push(`👤 ${t.customer}: ${plain(quote.customerName)}`);
-  if (quote.customerPhone)
-    details.push(`📞 ${t.phone}: ${plain(quote.customerPhone)}`);
-  if (quote.deliveryAddress)
-    details.push(`🏠 ${t.address}: ${plain(quote.deliveryAddress)}`);
-  const place = [
+  if (quote.customerName || quote.customerPhone) {
+    details.push(
+      [
+        quote.customerName ? '👤 ' + plain(quote.customerName) : null,
+        quote.customerPhone ? '📞 ' + plain(quote.customerPhone) : null,
+      ]
+        .filter((part): part is string => part !== null)
+        .join(' | '),
+    );
+  }
+  const address = [
+    quote.deliveryAddress ? plain(quote.deliveryAddress) : null,
     quote.deliveryBuilding
-      ? `${t.building}: ${plain(quote.deliveryBuilding)}`
+      ? t.building + ' ' + plain(quote.deliveryBuilding)
       : null,
-    quote.deliveryFloor ? `${t.floor}: ${plain(quote.deliveryFloor)}` : null,
+    quote.deliveryFloor ? t.floor + ' ' + plain(quote.deliveryFloor) : null,
     quote.deliveryApartment
-      ? `${t.apartment}: ${plain(quote.deliveryApartment)}`
+      ? t.apartment + ' ' + plain(quote.deliveryApartment)
       : null,
     quote.deliveryLandmark
-      ? `${t.landmark}: ${plain(quote.deliveryLandmark)}`
+      ? t.landmark + ' ' + plain(quote.deliveryLandmark)
       : null,
   ].filter((part): part is string => part !== null);
-  if (place.length > 0) details.push(`   ${place.join(' · ')}`);
+  if (address.length) details.push('📍 ' + address.join(separator));
+  // The current quote only contains ORDER-level notes, not item-specific notes.
+  // Do not attribute these notes to an arbitrary product.
   if (quote.customerNotes)
-    details.push(`📝 ${t.notes}: ${plain(quote.customerNotes)}`);
-  if (details.length > 0) {
-    lines.push(...details);
-    lines.push(DIVIDER);
-  }
+    details.push('📝 ' + t.notes + ': ' + plain(quote.customerNotes));
+  if (details.length) lines.push('', ...details);
 
   const hasBreakdown =
     quote.deliveryFee !== '0.00' || quote.discountTotal !== '0.00';
   if (hasBreakdown) {
-    lines.push(`${t.subtotal}: ${cost(quote.subtotal)}`);
+    lines.push(t.subtotal + ': ' + cost(quote.subtotal));
     if (quote.discountTotal !== '0.00')
-      lines.push(`${t.discount}: -${cost(quote.discountTotal)}`);
+      lines.push(t.discount + ': -' + cost(quote.discountTotal));
     if (quote.deliveryFee !== '0.00')
-      lines.push(`${t.deliveryFee}: ${cost(quote.deliveryFee)}`);
+      lines.push(t.deliveryFee + ': ' + cost(quote.deliveryFee));
   }
-  lines.push(`💰 *${t.total}: ${cost(quote.total)}*`);
-  lines.push('');
-  lines.push(`📲 ${t.sentFromMenu}`);
+  lines.push('💰 *' + t.total + ': ' + cost(quote.total) + '*');
 
-  return lines
-    .join('\n')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim();
+  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
 }
 
 /** The `wa.me` link that opens WhatsApp on the Restaurant's number with the message ready to send. */
