@@ -31,6 +31,7 @@ import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
 import { IconOrders, IconQr, IconTable } from '../../../../../components/staff/icons';
 import { Analysis } from './Analysis';
+import { WhatsappOrdersPanel } from './WhatsappOrdersPanel';
 import { AttentionPanel, type AttentionItem } from './AttentionPanel';
 import { IconAlert, IconClock, IconRefresh } from './icons';
 import { LiveTables, sortActiveRows } from './LiveTables';
@@ -447,6 +448,8 @@ export function OperationsDashboard({
           ) : null}
         </div>
       ) : null}
+
+      {access.analytics ? <WhatsappOrdersPanel restaurantId={restaurantId} /> : null}
 
       {access.analytics ? (
         <div className="flex flex-col gap-4">

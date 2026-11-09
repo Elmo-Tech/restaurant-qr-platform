@@ -22,6 +22,7 @@ import { RateLimitModule } from './common/rate-limit/rate-limit.module';
 import { HealthModule } from './health/health.module';
 import { QrModule } from './qr/qr.module';
 import { PublicModule } from './public/public.module';
+import { WhatsappTrackingModule } from './whatsapp-tracking/whatsapp-tracking.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
 import { StaffModule } from './staff/staff.module';
 import { TablesModule } from './tables/tables.module';
@@ -61,6 +62,7 @@ const rootEnvFilePath = path.resolve(__dirname, '..', '..', '..', '.env');
     RateLimitModule,
     HealthModule,
     PublicModule,
+    WhatsappTrackingModule,
     RestaurantsModule,
     DemoModule,
   ],

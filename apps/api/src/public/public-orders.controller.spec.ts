@@ -23,7 +23,7 @@ describe('PublicOrdersController', () => {
 
   beforeEach(() => {
     publicOrdersService = { createOrder: jest.fn() };
-    controller = new PublicOrdersController(publicOrdersService as never);
+    controller = new PublicOrdersController(publicOrdersService as never, { prepare: jest.fn().mockResolvedValue(null) } as never);
   });
 
   it('passes publicCode + DTO fields through unchanged', async () => {

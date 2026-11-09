@@ -1,0 +1,61 @@
+name: Wayta prebuilt Compose safety checks
+
+on:
+  pull_request:
+    branches: [development]
+    paths:
+      - 'infra/docker/**'
+      - '.github/workflows/wayta-publish-ghcr.yml'
+      - '.github/workflows/wayta-prebuilt-config-qa.yml'
+  push:
+    branches: [development]
+    paths:
+      - 'infra/docker/compose.coolify.prebuilt.yml'
+      - '.github/workflows/wayta-prebuilt-config-qa.yml'
+
+permissions:
+  contents: read
+
+jobs:
+  verify-compose:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Original and prebuilt Compose must have identical runtime configuration
+        env:
+          WEB_HOST: menu.example.test
+          PLATFORM_HOST: control.example.test
+          POSTGRES_PASSWORD: ci-only-not-a-real-password
+          WAYTA_IMAGE_TAG: '0000000000000000000000000000000000000000'
+        run: |
+          docker compose -f infra/docker/compose.coolify.yml config --format json > /tmp/wayta-before.json
+          docker compose -f infra/docker/compose.coolify.prebuilt.yml config --format json > /tmp/wayta-after.json
+          node <<'NODE'
+          const fs = require('node:fs');
+          const assert = require('node:assert/strict');
+          const before = JSON.parse(fs.readFileSync('/tmp/wayta-before.json', 'utf8'));
+          const after = JSON.parse(fs.readFileSync('/tmp/wayta-after.json', 'utf8'));
+          const expected = { migrate: 'api-tools', api: 'api', web: 'web', platform: 'platform', gateway: 'gateway' };
+          assert.deepEqual(Object.keys(after.services).sort(), Object.keys(before.services).sort());
+          for (const [name, suffix] of Object.entries(expected)) {
+            assert.equal(after.services[name].build, undefined, name + ' must not contain build');
+            assert.equal(after.services[name].image,
+              'ghcr.io/elmo-tech/restaurant-qr-platform-' + suffix + ':' + process.env.WAYTA_IMAGE_TAG);
+          }
+          assert.equal(after.services.postgres.image, before.services.postgres.image);
+          for (const name of Object.keys(before.services)) {
+            const oldSvc = { ...before.services[name] };
+            const newSvc = { ...after.services[name] };
+            delete oldSvc.build;
+            delete newSvc.build;
+            if (expected[name]) {
+              delete oldSvc.image;
+              delete newSvc.image;
+              delete oldSvc.pull_policy;
+              delete newSvc.pull_policy;
+            }
+            assert.deepEqual(newSvc, oldSvc, 'Unexpected runtime change in ' + name);
+          }
+          assert.deepEqual(after.volumes, before.volumes, 'Named volumes must be identical');
+          console.log('PASS: images only; same mounts, environment, commands, dependencies, healthchecks, volumes.');
+          NODE

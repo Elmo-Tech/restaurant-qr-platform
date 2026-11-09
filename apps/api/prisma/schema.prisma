@@ -409,6 +409,8 @@ model Restaurant {
   modifierPresetOptions ModifierPresetOption[]
   deliveryZones         DeliveryZone[]
   setup                 RestaurantSetup?
+  whatsappConnection    WhatsappConnection?
+  whatsappOrderReceipts WhatsappOrderReceipt[]
   setupVisibilities     RestaurantSetupVisibility[]
   exclusiveDesign       RestaurantExclusiveDesign?
   acquisition           RestaurantAcquisition?      @relation("RestaurantAcquisitionOwner")
@@ -549,6 +551,7 @@ model Branch {
   tables             Table[]
   qrCodes            QrCode[]
   orders             Order[]
+  whatsappOrderReceipts WhatsappOrderReceipt[]
   deliveryZones      DeliveryZone[]
   translations       BranchTranslation[]
 
@@ -2531,6 +2534,42 @@ model MenuImportProductTranslation {
 
   @@unique([productId, locale])
   @@map("menu_import_product_translations")
+}
+
+/// A restaurant-owned Evolution session. A secret webhook path is stored only as SHA-256.
+model WhatsappConnection {
+  restaurantId     String   @id @map("restaurant_id") @db.Uuid
+  instanceName     String   @unique @map("instance_name") @db.VarChar(70)
+  webhookSecretHash String  @unique @map("webhook_secret_hash") @db.Char(64)
+  linkedNumber     String?  @map("linked_number") @db.VarChar(24)
+  state            String   @default("DISCONNECTED") @db.VarChar(24)
+  createdAt        DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+
+  @@map("whatsapp_connections")
+}
+
+/// One row per verified inbound order, never a conversation or a pending checkout.
+model WhatsappOrderReceipt {
+  id                String    @id @default(uuid()) @db.Uuid
+  restaurantId      String    @map("restaurant_id") @db.Uuid
+  branchId          String    @map("branch_id") @db.Uuid
+  reference         String    @unique @db.VarChar(180)
+  providerMessageId String    @map("provider_message_id") @db.VarChar(160)
+  totalAmount       Decimal   @map("total_amount") @db.Decimal(14, 2)
+  currencyCode      String    @map("currency_code") @db.Char(3)
+  orderType         OrderType @map("order_type")
+  receivedAt        DateTime  @default(now()) @map("received_at") @db.Timestamptz
+
+  restaurant Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  branch     Branch     @relation(fields: [branchId], references: [id], onDelete: Restrict)
+
+  @@unique([restaurantId, providerMessageId])
+  @@index([restaurantId, receivedAt])
+  @@index([restaurantId, branchId, receivedAt])
+  @@map("whatsapp_order_receipts")
 }
 
 /**

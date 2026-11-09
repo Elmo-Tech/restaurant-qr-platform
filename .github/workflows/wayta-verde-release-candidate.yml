@@ -4,8 +4,9 @@ on:
   push:
     branches:
       - integration/wayta-verde-release-candidate-2026-11-02
+      - development
   pull_request:
-    branches: [main]
+    branches: [main, development]
     paths:
       - 'apps/**'
       - 'docs/03-ui-ux/WAYTA_VERDE_RELEASE_CANDIDATE_2026-11-02.md'
@@ -36,6 +37,8 @@ jobs:
         run: npm run typecheck:api
       - name: Typecheck Staff + Guest Web
         run: npm run typecheck:web
+      - name: Verify WhatsApp guest handoff transport regression
+        run: node --test apps/web/src/lib/public-menu/whatsapp-handoff.contract.test.mjs
       - name: Typecheck Platform Console
         run: npm run typecheck:platform
       - name: Targeted tenant isolation, guest menu, provisioning, acquisition and menu tests
@@ -78,5 +81,18 @@ jobs:
           src/demo/*.ts
           src/platform/dto/platform-demo.dto.ts
           src/platform/platform-demo.controller.ts
+      - name: Verify signed WhatsApp receipt and Evolution filtering regressions
+        run: >-
+          npm exec --workspace=apps/api -- jest --runInBand
+          signed-whatsapp-reference.spec.ts
+          whatsapp-tracking.service.spec.ts
+          whatsapp-order-message.spec.ts
+          public-orders.controller.spec.ts
+      - name: Lint WhatsApp integration API modules
+        run: >-
+          npm exec --workspace=apps/api -- eslint
+          --rule 'prettier/prettier: off'
+          src/whatsapp-tracking/*.ts
+          src/public/public-orders.controller.ts
       - name: Check commit whitespace
         run: git diff --check HEAD~1 HEAD
