@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { PROD, checkContext, checkBuild, checkApp, checkEnvs, release } from '../../scripts/release/deploy-coolify-production.mjs';
 const sha = 'a'.repeat(40);
 const prev = 'b'.repeat(40);
@@ -43,6 +44,27 @@ function mockApi({app=validApp(), oldSha=prev, latestSha=sha, builds=[build()]}=
   };
   return {calls, restore:()=>{ globalThis.fetch=original; }};
 }
+test('approved new production hosts are pinned across release workflow, Compose, and gateway', () => {
+  assert.equal(PROD.web, 'waytaapp.com');
+  assert.equal(PROD.platform, 'control.waytaapp.com');
+  const workflow = readFileSync(new URL('../../.github/workflows/wayta-publish-ghcr-production.yml', import.meta.url), 'utf8');
+  const compose = readFileSync(new URL('../../infra/docker/compose.coolify.prod.prebuilt.yml', import.meta.url), 'utf8');
+  const gateway = readFileSync(new URL('../../infra/docker/nginx/gateway.conf.template', import.meta.url), 'utf8');
+  assert.match(workflow, /PROD_WEB_HOST: waytaapp\.com/);
+  assert.match(workflow, /PROD_PLATFORM_HOST: control\.waytaapp\.com/);
+  assert.match(workflow, /NEXT_PUBLIC_API_URL=https:\/\/\$\{\{ env\.PROD_WEB_HOST \}\}/);
+  assert.match(workflow, /NEXT_PUBLIC_API_URL=https:\/\/\$\{\{ env\.PROD_PLATFORM_HOST \}\}/);
+  assert.match(compose, /WEB_HOST=waytaapp\.com/);
+  assert.match(compose, /PLATFORM_HOST=control\.waytaapp\.com/);
+  assert.match(gateway, /server_name wayta\.elmotechsoft\.online;/);
+  assert.match(gateway, /return 308 https:\/\/waytaapp\.com\$request_uri;/);
+  assert.match(gateway, /server_name wayta-control\.elmotechsoft\.online;/);
+  assert.match(gateway, /return 308 https:\/\/control\.waytaapp\.com\$request_uri;/);
+  // Old Evolution callbacks must still reach the API directly, not rely on POST redirects.
+  const legacyWebServer = gateway.split('server_name wayta.elmotechsoft.online;')[1].split('server_name wayta-control.elmotechsoft.online;')[0];
+  assert.match(legacyWebServer, /location \^~ \/api\/v1\/whatsapp-tracking\/webhook\//);
+  assert.match(legacyWebServer, /proxy_pass \$api_upstream;/);
+});
 test('must run against main in the correct repository with both credentials',()=>{
   assert.equal(checkContext(releaseEnv()),sha);
   assert.throws(()=>checkContext({...releaseEnv(),GITHUB_REF:'refs/heads/development'}),/main/);
@@ -66,6 +88,9 @@ test('Coolify envs must have one readable production SHA and correct hosts',()=>
   assert.throws(()=>checkEnvs([...envs(),{key:'WAYTA_PROD_IMAGE_SHA',value:sha}]),/one readable/);
   assert.throws(()=>checkEnvs(envs('*****')),/unavailable/);
   assert.throws(()=>checkEnvs(envs().map(e=>e.key==='WEB_HOST'?{...e,value:'wrong.example'}:e)),/host variables/);
+  assert.throws(()=>checkEnvs([...envs(),{key:'WAYTA_API_PUBLIC_URL',value:'https://wayta.elmotechsoft.online'}]),/WAYTA_API_PUBLIC_URL/);
+  assert.doesNotThrow(()=>checkEnvs([...envs(),{key:'WAYTA_API_PUBLIC_URL',value:'https://waytaapp.com'}]));
+
 });
 test('promotes exactly one SHA and deploys only the allowlisted app',async()=>{
   const m=mockApi();
