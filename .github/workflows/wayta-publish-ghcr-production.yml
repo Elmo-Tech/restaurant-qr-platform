@@ -106,6 +106,14 @@ jobs:
           console.log('PASS: Production GHCR Compose changes image sources only; all mounts and runtime settings match.');
           NODE
 
+      - name: Validate Nginx primary hosts, legacy redirects and webhook exception
+        run: |
+          docker build -f infra/docker/Dockerfile.gateway -t wayta-gateway-config-ci .
+          docker run --rm \
+            -e WEB_HOST=waytaapp.com \
+            -e PLATFORM_HOST=control.waytaapp.com \
+            wayta-gateway-config-ci nginx -t
+
   publish:
     name: Publish five prod-prefixed images (NO DEPLOY)
     permissions:
