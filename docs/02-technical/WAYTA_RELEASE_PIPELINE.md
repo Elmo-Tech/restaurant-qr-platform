@@ -3,10 +3,14 @@
 ## Scope
 - Repo: `Elmo-Tech/restaurant-qr-platform`
 - Production Coolify application: **`k9f0hhxjgktrzd9ln5m3mzsu`** only
-- Production domains: `wayta.elmotechsoft.online`, `wayta-control.elmotechsoft.online`
+- Production domains: `waytaapp.com`, `control.waytaapp.com`
 - Existing production Compose: `/infra/docker/compose.coolify.prod.prebuilt.yml`
 - Development application `xznrnvtousdp0s7murqq8xf5` must never be touched.
 - Docker Compose volumes must remain the existing production PostgreSQL and uploads mounts. No CI operation creates or destroys any Docker volume.
+
+## Custom domain transition
+
+The owner approved `https://waytaapp.com` and `https://control.waytaapp.com` as the only canonical Production origins on 2026-11-09. First follow [WAYTA_PRODUCTION_DOMAIN_CUTOVER.md](WAYTA_PRODUCTION_DOMAIN_CUTOVER.md) to configure DNS/TLS, all four Coolify ingress routes, new `WEB_HOST`/`PLATFORM_HOST` variables and Evolution callback migration plan **before** a release. Retain old QR and callback host routes; never change Development.
 
 ## Every code release — no SHA copy/paste
 1. Work on a feature branch, QA on `development`, review the PR and merge into `main`.

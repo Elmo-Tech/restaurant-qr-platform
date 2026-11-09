@@ -7,8 +7,8 @@ export const PROD = Object.freeze({
   uuid: 'k9f0hhxjgktrzd9ln5m3mzsu',
   api: 'https://elmotechsoft.online/api/v1',
   compose: '/infra/docker/compose.coolify.prod.prebuilt.yml',
-  web: 'wayta.elmotechsoft.online',
-  platform: 'wayta-control.elmotechsoft.online',
+  web: 'waytaapp.com',
+  platform: 'control.waytaapp.com',
   workflow: 'wayta-publish-ghcr-production.yml',
 });
 const SHA = /^[a-f0-9]{40}$/;
@@ -52,6 +52,17 @@ export function envValue(items, key) {
 export function checkEnvs(items) {
   if (envValue(items, 'WEB_HOST') !== PROD.web || envValue(items, 'PLATFORM_HOST') !== PROD.platform) {
     throw new Error('Production host variables differ from approved domains.');
+  }
+  // Only new webhook registrations use WAYTA_API_PUBLIC_URL, but a stale explicit
+  // value would register new Evolution callbacks against the retired menu origin.
+  const rows = Array.isArray(items) ? items : items?.data;
+  const publicUrlRows = rows.filter(e => e.key === 'WAYTA_API_PUBLIC_URL' && e.is_preview !== true);
+  if (publicUrlRows.length > 1) throw new Error('Duplicate WAYTA_API_PUBLIC_URL variables.');
+  if (publicUrlRows.length === 1 &&
+      (typeof publicUrlRows[0].value !== 'string' ||
+       (publicUrlRows[0].value !== '' &&
+        publicUrlRows[0].value.replace(/\/+$/, '') !== 'https://' + PROD.web))) {
+    throw new Error('WAYTA_API_PUBLIC_URL must use the approved production Web origin.');
   }
   const current = envValue(items, KEY);
   if (!SHA.test(current)) throw new Error('Current production image SHA unavailable.');

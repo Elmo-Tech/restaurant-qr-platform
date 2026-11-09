@@ -87,6 +87,33 @@ server {
     }
 }
 
+# Legacy production domains: keep previously printed QR codes working when Coolify continues
+# routing these old HTTPS hosts to this gateway. The new domains remain the only primary origins.
+# Preserve existing Evolution API callbacks on the old menu host during the provider migration;
+# redirecting webhooks would depend on the provider following 308 for POST requests.
+server {
+    listen 8080;
+    server_name wayta.elmotechsoft.online;
+
+    location ^~ /api/v1/whatsapp-tracking/webhook/ {
+        access_log off;
+        proxy_pass $api_upstream;
+    }
+
+    location / {
+        return 308 https://waytaapp.com$request_uri;
+    }
+}
+
+server {
+    listen 8080;
+    server_name wayta-control.elmotechsoft.online;
+
+    location / {
+        return 308 https://control.waytaapp.com$request_uri;
+    }
+}
+
 # ------------------------------------------------------------------------------------------------ restaurant app
 server {
     listen 8080;
