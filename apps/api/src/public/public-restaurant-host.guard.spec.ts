@@ -64,7 +64,7 @@ describe('PublicRestaurantHostGuard', () => {
   });
 
   it('is disabled until the deployment has explicitly opted in', async () => {
-    const { guard, db } = setup(undefined);
+    const { guard, db } = setup('');
     await expect(guard.canActivate(context('other.waytaapp.com', 'code') as never)).resolves.toBe(true);
     expect(db.restaurantSlug.findFirst).not.toHaveBeenCalled();
   });
