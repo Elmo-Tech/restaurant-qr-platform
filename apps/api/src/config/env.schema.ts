@@ -82,6 +82,15 @@ export const envSchema = z
           'CORS_ORIGIN must not be a wildcard (SECURITY_SPEC.md #68: never combine credentials=true with origin=*)',
       }),
 
+    // Opt-in Guest restaurant subdomains. Empty/unset keeps existing host-neutral QR behavior.
+    // Exact DNS suffix only; never turn this into credentialed wildcard CORS.
+    RESTAURANT_BASE_DOMAIN: z.preprocess(
+      (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
+      z.string().trim().toLowerCase()
+        .regex(/^[a-z0-9]+(?:[.-][a-z0-9]+)*\\.[a-z]{2,}$/, 'RESTAURANT_BASE_DOMAIN must be a DNS domain')
+        .optional(),
+    ),
+
     // Business Foundation S, settled contract (AUTH_TENANCY_SPEC.md #78):
     // Staff Invitation absolute expiry, 7 days by default. Already
     // documented in .env.example as RESTAURANT_INVITATION_TTL_DAYS=7 --
