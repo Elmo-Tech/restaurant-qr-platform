@@ -42,8 +42,8 @@ test('Tenant hosts cannot reach Staff APIs, realtime or provider webhooks throug
 
   // The apex-only checks must cover the generic API, Socket.IO, and incoming
   // WhatsApp tracking webhooks. Only QR-scoped public APIs stay available.
-  const apexOnlyChecks = tenant.match(/if \\(\\$host != \\$$\\{WEB_HOST\\}\\) \\{ return 404; \\}/g) ?? [];
-  assert.equal(apexOnlyChecks.length, 3, 'all three sensitive route groups must reject tenant hosts');
+  const apexOnlyChecks = tenant.split('if ($host != ${WEB_HOST}) { return 404; }').length - 1;
+  assert.equal(apexOnlyChecks, 3, 'all three sensitive route groups must reject tenant hosts');
 
   const legacy = gateway.slice(0, tenantStart);
   assert.ok(legacy.includes('server_name wayta.elmotechsoft.online;'));
