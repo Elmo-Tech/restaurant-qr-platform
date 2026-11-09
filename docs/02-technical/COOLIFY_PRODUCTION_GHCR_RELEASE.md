@@ -23,14 +23,16 @@ The original `infra/docker/compose.coolify.yml` and development
 The production Compose is the exact existing service topology with image sources
 swapped; PostgreSQL continues to use its existing official image/volume.
 
-## Known PRODUCTION public origins (observed in Coolify)
+## Approved PRODUCTION public origins (updated by owner, 2026-11-09)
 
-- Restaurant public Web: `wayta.elmotechsoft.online`
-- Platform control: `wayta-control.elmotechsoft.online`
+- Restaurant public Web: `waytaapp.com`
+- Platform control: `control.waytaapp.com`
 
-These hostnames are explicitly baked into separate production Next.js images:
-- web `NEXT_PUBLIC_API_URL=https://wayta.elmotechsoft.online`
-- platform `NEXT_PUBLIC_API_URL=https://wayta-control.elmotechsoft.online`
+The previous `wayta.elmotechsoft.online` / `wayta-control.elmotechsoft.online` hosts remain **legacy** QR / webhook / redirect entries during migration, not the canonical origins. Follow [WAYTA_PRODUCTION_DOMAIN_CUTOVER.md](WAYTA_PRODUCTION_DOMAIN_CUTOVER.md) before changing existing Coolify host variables or deploying a build for the new domains.
+
+The new canonical origins are baked into separate production Next.js images:
+- web `NEXT_PUBLIC_API_URL=https://waytaapp.com`
+- platform `NEXT_PUBLIC_API_URL=https://control.waytaapp.com`
 
 No credentials are required in the image build. In the EXISTING Coolify application's
 runtime environment, `WEB_HOST` and `PLATFORM_HOST` MUST match the values
