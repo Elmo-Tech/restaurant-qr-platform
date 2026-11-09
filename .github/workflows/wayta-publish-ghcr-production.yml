@@ -108,6 +108,32 @@ jobs:
               delete original.pull_policy;
               delete production.pull_policy;
             }
+            if (name === 'gateway') {
+              // Production-only Traefik routers are deliberately absent from Dev.
+              // They must remain on the SAME existing gateway service:8080.
+              const labels = production.labels || {};
+              const prefix = 'traefik.http.routers.wayta-tenants-';
+              const service = 'traefik.http.services.wayta-tenants-gateway.loadbalancer.server.port';
+              assert.equal(original.labels, undefined, 'Dev gateway must not claim production tenant hosts');
+              assert.equal(labels[service], '8080');
+              assert.equal(labels[prefix + 'https.entrypoints'], 'https');
+              assert.equal(labels[prefix + 'https.tls'], 'true');
+              assert.equal(labels[prefix + 'https.service'], 'wayta-tenants-gateway');
+              assert.equal(labels[prefix + 'https.priority'], '20');
+              assert.equal(labels[prefix + 'http.entrypoints'], 'http');
+              assert.equal(labels[prefix + 'http.priority'], '20');
+              assert.equal(labels[prefix + 'http.middlewares'], 'wayta-tenants-redirect-https');
+              assert.equal(labels[prefix + 'http.service'], 'wayta-tenants-gateway');
+              const rule = labels[prefix + 'https.rule'];
+              assert.equal(rule, labels[prefix + 'http.rule']);
+              assert.ok(rule.includes('HostRegexp(') && rule.includes('waytaapp') && rule.includes('\\z`'));
+              assert.ok(rule.includes('!Host(`control.waytaapp.com`)'));
+              assert.ok(rule.includes('!Host(`www.waytaapp.com`)'));
+              assert.equal(labels['traefik.http.middlewares.wayta-tenants-redirect-https.redirectscheme.scheme'], 'https');
+              assert.equal(labels['traefik.http.middlewares.wayta-tenants-redirect-https.redirectscheme.permanent'], 'true');
+              delete original.labels;
+              delete production.labels;
+            }
             assert.deepEqual(production, original, 'Unexpected runtime change for ' + name);
           }
           assert.equal(after.services.gateway.environment.WEB_HOST, process.env.WEB_HOST);
