@@ -7,7 +7,6 @@ import type { INestApplication } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import type { App } from 'supertest/types';
 import { PrismaService } from '../src/database/prisma.service';
 import { PublicRestaurantHostGuard } from '../src/public/public-restaurant-host.guard';
 import { PublicMenuController } from '../src/public/public-menu.controller';
@@ -40,7 +39,7 @@ const QR_OWNER: Record<string, string> = {
 };
 
 describe('Guest restaurant hostname isolation (HTTP, two test restaurants)', () => {
-  let app: INestApplication<App>;
+  let app: INestApplication;
   const db = {
     restaurantSlug: {
       findUnique: jest.fn(async ({ where }: { where: { slug: string } }) => {
@@ -94,7 +93,7 @@ describe('Guest restaurant hostname isolation (HTTP, two test restaurants)', () 
         { provide: WhatsappTrackingService, useValue: whatsapp },
       ],
     }).compile();
-    app = moduleRef.createNestApplication<App>();
+    app = moduleRef.createNestApplication();
     app.setGlobalPrefix('api/v1');
     await app.init();
   });
