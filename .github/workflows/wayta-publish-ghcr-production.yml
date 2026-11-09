@@ -124,6 +124,11 @@ jobs:
             -e WEB_HOST=waytaapp.com \
             -e PLATFORM_HOST=control.waytaapp.com \
             wayta-gateway-config-ci nginx -t
+          docker run --rm \
+            -e WEB_HOST=waytaapp.com \
+            -e PLATFORM_HOST=control.waytaapp.com \
+            -e RESTAURANT_WILDCARD_HOST='*.waytaapp.com' \
+            wayta-gateway-config-ci nginx -t
 
   publish:
     name: Publish five prod-prefixed images (NO DEPLOY)
