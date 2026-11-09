@@ -6,8 +6,9 @@
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const RESERVED = new Set([
   'admin', 'api', 'app', 'auth', 'cdn', 'control', 'dashboard', 'demo',
-  'kitchen', 'login', 'logout', 'mail', 'menu', 'new', 'platform', 'q',
-  'qr', 'restaurant', 'restaurants', 'staff', 'static', 'support', 'www',
+  'kitchen', 'login', 'logout', 'mail', 'menu', 'new', 'null', 'platform', 'q',
+  'qr', 'restaurant', 'restaurants', 'staff', 'static', 'support', 'test',
+  'undefined', 'wayta', 'www',
 ]);
 
 export function validRestaurantHostSlug(slug: string): boolean {
