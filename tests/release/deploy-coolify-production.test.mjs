@@ -65,7 +65,7 @@ test('Coolify envs must have one readable production SHA and correct hosts',()=>
   assert.equal(checkEnvs(envs()),prev);
   assert.throws(()=>checkEnvs([...envs(),{key:'WAYTA_PROD_IMAGE_SHA',value:sha}]),/one readable/);
   assert.throws(()=>checkEnvs(envs('*****')),/unavailable/);
-  assert.throws(()=>checkEnvs(envs().map(e=>e.key==='WEB_HOST'?{...e,value:'wrong.example'}:e)),/hosts/);
+  assert.throws(()=>checkEnvs(envs().map(e=>e.key==='WEB_HOST'?{...e,value:'wrong.example'}:e)),/host variables/);
 });
 test('promotes exactly one SHA and deploys only the allowlisted app',async()=>{
   const m=mockApi();
