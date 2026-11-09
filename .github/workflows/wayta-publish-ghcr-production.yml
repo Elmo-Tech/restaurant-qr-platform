@@ -7,6 +7,8 @@ on:
       - 'infra/docker/compose.coolify.prod.prebuilt.yml'
       - '.github/workflows/wayta-publish-ghcr-production.yml'
       - 'docs/02-technical/COOLIFY_PRODUCTION_GHCR_RELEASE.md'
+  push:
+    branches: [main]
   workflow_dispatch:
     inputs:
       release_phrase:
@@ -15,7 +17,7 @@ on:
         default: ''
         type: string
 
-# NO push trigger, NO Coolify token or webhook. Production deployment is always manual.
+# Push builds images on GitHub only; no Coolify token or webhook. Production deployment is always manual.
 permissions:
   contents: read
 
@@ -109,7 +111,7 @@ jobs:
       contents: read
       packages: write
     needs: verify
-    if: github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.release_phrase == 'BUILD_PRODUCTION_IMAGES'
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || (github.event_name == 'workflow_dispatch' && inputs.release_phrase == 'BUILD_PRODUCTION_IMAGES'))
     runs-on: ubuntu-latest
     timeout-minutes: 120
     steps:

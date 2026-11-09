@@ -1,12 +1,12 @@
 # Wayta — Production GHCR image-only release (NO automatic deployment)
 
-**Release status:** staged implementation only until approved. Source branch: `main`.
+**Release status:** GHCR prebuilt production cutover completed by the operator in November 2026. Subsequent releases use [WAYTA_RELEASE_PIPELINE.md](WAYTA_RELEASE_PIPELINE.md) after CI/CD PR approval. Source branch: `main`.
 **Risk:** Main-Node previously had 92% full root disk and all 4 GiB swap in use.
 Do not start a Coolify deployment with inadequate capacity or unverified backups.
 
 This path explicitly separates:
 1. **Code promotion** to `main` (already completed in PR #24).
-2. **Production image build** on a GitHub-hosted runner (manually triggered).
+2. **Production image build** on a GitHub-hosted runner (automatic on approved `main` pushes; manual retry available).
 3. **Production deployment** on Main-Node using the **existing** Coolify application
    and prebuilt images. Only this last step changes the live containers/database.
 
@@ -14,7 +14,7 @@ This path explicitly separates:
 
 | File | Purpose |
 | --- | --- |
-| `.github/workflows/wayta-publish-ghcr-production.yml` | Manual main-only QA + sequential GHCR builds; **no Coolify calls** |
+| `.github/workflows/wayta-publish-ghcr-production.yml` | Main-only QA + sequential GHCR builds; auto on `main` push or manual retry; **no Coolify calls** |
 | `infra/docker/compose.coolify.prod.prebuilt.yml` | Same 6 services and named volumes; 5 SHA-tagged prebuilt images, **no build:** |
 | This document | Manual gated cutover, backups, smoke tests and rollback |
 
@@ -48,10 +48,9 @@ above. Stop and correct mismatches before deployment.
    Merely merging these files does NOT publish production images and is not
    a request to deploy. Confirm Coolify **Auto deploy = Manual deployments only**.
 
-## Gate B — MANUAL production-image build on GitHub
+## Gate B — production-image build on GitHub (automatic on main; optional manual retry)
 
-GitHub → `Elmo-Tech/restaurant-qr-platform` → Actions →
-**Wayta Production GHCR images (manual, off-server)** → Run workflow:
+After each push/merge to `main`, GitHub automatically runs **Wayta Production GHCR images (manual, off-server)** to validate and publish the production images. The workflow name is historical; the action is now automatic on `main` **but never deploys**. For a manual rebuild/retry, go to GitHub → `Elmo-Tech/restaurant-qr-platform` → Actions → **Wayta Production GHCR images (manual, off-server)** → Run workflow:
 
 - Branch: **main**
 - `release_phrase`: `BUILD_PRODUCTION_IMAGES`
@@ -115,7 +114,7 @@ into a chat, source repo, screenshots, Compose environment or shell history.
 Before pulling, verify Docker registry authentication and that the exact
 `prod-<MAIN_SHA>` tags exist in all five GHCR packages.
 
-## Gate D — Cut over SAME live Coolify application, no new resource
+## Gate D — manual initial cutover / subsequent approved releases on SAME live Coolify application
 
 Go to the existing **Restaurant QR Platform** application inside project
 `Larage & POS & Wayta & Quran Stars`, environment `wayta-menu`.
@@ -127,7 +126,7 @@ Its two currently mapped external routes were:
 Do not create or delete an application, change resource identity, change
 Docker Compose project name, remove the DB/storage volumes, or move domains.
 
-1. Confirm **Auto deploy → Manual deployments only**, save and refresh.
+1. Confirm **Auto deploy → Manual deployments only**, save and refresh. For subsequent code releases, prefer the approved one-click action in [WAYTA_RELEASE_PIPELINE.md](WAYTA_RELEASE_PIPELINE.md); this section is the operator's manual fallback.
 2. Screenshot/record existing Compose path, domain-to-`gateway:8080` bindings,
    existing volume mapping and environment variables **without revealing secrets**.
 3. Environment Variables:
