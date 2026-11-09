@@ -90,6 +90,7 @@ test('Coolify envs must have one readable production SHA and correct hosts',()=>
   assert.throws(()=>checkEnvs(envs().map(e=>e.key==='WEB_HOST'?{...e,value:'wrong.example'}:e)),/host variables/);
   assert.throws(()=>checkEnvs([...envs(),{key:'WAYTA_API_PUBLIC_URL',value:'https://wayta.elmotechsoft.online'}]),/WAYTA_API_PUBLIC_URL/);
   assert.doesNotThrow(()=>checkEnvs([...envs(),{key:'WAYTA_API_PUBLIC_URL',value:'https://waytaapp.com'}]));
+  assert.doesNotThrow(()=>checkEnvs([...envs(),{key:'WAYTA_API_PUBLIC_URL',value:'https://waytaapp.com/'}]));
 
 });
 test('promotes exactly one SHA and deploys only the allowlisted app',async()=>{
