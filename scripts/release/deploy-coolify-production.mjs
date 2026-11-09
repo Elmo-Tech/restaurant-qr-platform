@@ -7,8 +7,8 @@ export const PROD = Object.freeze({
   uuid: 'k9f0hhxjgktrzd9ln5m3mzsu',
   api: 'https://elmotechsoft.online/api/v1',
   compose: '/infra/docker/compose.coolify.prod.prebuilt.yml',
-  web: 'wayta.elmotechsoft.online',
-  platform: 'wayta-control.elmotechsoft.online',
+  web: 'waytaapp.com',
+  platform: 'control.waytaapp.com',
   workflow: 'wayta-publish-ghcr-production.yml',
 });
 const SHA = /^[a-f0-9]{40}$/;
