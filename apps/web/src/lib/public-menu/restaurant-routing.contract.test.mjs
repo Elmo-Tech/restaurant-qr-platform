@@ -7,7 +7,7 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8');
 
 test('Next Proxy routes tenant root through established QR Guest page and isolates Staff', () => {
   const proxy = read('proxy.ts');
-  assert.ok(proxy.includes('restaurantSlugFromHost(request.headers.get(\'host\'), baseDomain)'));
+  assert.ok(proxy.includes("restaurantSlugFromHost(request.headers.get('host'), baseDomain)"));
   assert.ok(proxy.includes('rewritten.pathname = `/q/${slug}`'));
   assert.ok(proxy.includes('return NextResponse.rewrite(rewritten)'));
   assert.ok(proxy.includes('return NextResponse.redirect(apex)'));
