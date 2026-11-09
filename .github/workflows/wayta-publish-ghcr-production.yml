@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'infra/docker/compose.coolify.prod.prebuilt.yml'
+      - 'infra/docker/nginx/gateway.conf.template'
       - '.github/workflows/wayta-publish-ghcr-production.yml'
       - 'docs/02-technical/COOLIFY_PRODUCTION_GHCR_RELEASE.md'
   push:
@@ -26,8 +27,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  PROD_WEB_HOST: wayta.elmotechsoft.online
-  PROD_PLATFORM_HOST: wayta-control.elmotechsoft.online
+  PROD_WEB_HOST: waytaapp.com
+  PROD_PLATFORM_HOST: control.waytaapp.com
 
 jobs:
   verify:
@@ -64,8 +65,8 @@ jobs:
           public-orders.controller.spec.ts
       - name: Verify image-only production Compose preserves original services, volumes and healthchecks
         env:
-          WEB_HOST: wayta.elmotechsoft.online
-          PLATFORM_HOST: wayta-control.elmotechsoft.online
+          WEB_HOST: waytaapp.com
+          PLATFORM_HOST: control.waytaapp.com
           POSTGRES_PASSWORD: ci-test-only-not-a-secret
           WAYTA_PROD_IMAGE_SHA: '0000000000000000000000000000000000000000'
         run: |
@@ -124,8 +125,8 @@ jobs:
         run: |
           test "${GITHUB_REF}" = "refs/heads/main"
           [[ "${GITHUB_SHA}" =~ ^[a-f0-9]{40}$ ]]
-          test "${PROD_WEB_HOST}" = "wayta.elmotechsoft.online"
-          test "${PROD_PLATFORM_HOST}" = "wayta-control.elmotechsoft.online"
+          test "${PROD_WEB_HOST}" = "waytaapp.com"
+          test "${PROD_PLATFORM_HOST}" = "control.waytaapp.com"
           echo "Building production-only images for commit ${GITHUB_SHA}; Coolify remains untouched."
       - uses: docker/setup-buildx-action@v3
       - name: Authenticate to GHCR with ephemeral token
