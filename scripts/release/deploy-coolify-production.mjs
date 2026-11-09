@@ -53,6 +53,16 @@ export function checkEnvs(items) {
   if (envValue(items, 'WEB_HOST') !== PROD.web || envValue(items, 'PLATFORM_HOST') !== PROD.platform) {
     throw new Error('Production host variables differ from approved domains.');
   }
+  // Only new webhook registrations use WAYTA_API_PUBLIC_URL, but a stale explicit
+  // value would register new Evolution callbacks against the retired menu origin.
+  const rows = Array.isArray(items) ? items : items?.data;
+  const publicUrlRows = rows.filter(e => e.key === 'WAYTA_API_PUBLIC_URL' && e.is_preview !== true);
+  if (publicUrlRows.length > 1) throw new Error('Duplicate WAYTA_API_PUBLIC_URL variables.');
+  if (publicUrlRows.length === 1 &&
+      publicUrlRows[0].value !== '' &&
+      publicUrlRows[0].value !== 'https://' + PROD.web) {
+    throw new Error('WAYTA_API_PUBLIC_URL must use the approved production Web origin.');
+  }
   const current = envValue(items, KEY);
   if (!SHA.test(current)) throw new Error('Current production image SHA unavailable.');
   return current;
