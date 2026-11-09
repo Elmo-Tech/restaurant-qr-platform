@@ -44,9 +44,11 @@ test('the language switch stays on the page it is on (readable slug, or a Table 
 });
 
 test('sharing and staff links use the readable segment, falling back to the opaque code', () => {
-  assert.ok(share.includes('`${window.location.origin}/q/${shareCode}`'));
+  assert.ok(share.includes('genericMenuUrl(window.location.origin, shareCode'));
+  assert.ok(page.includes('validRestaurantHostSlug(shareCode)'));
+  assert.ok(page.includes('redirect(`https://${canonicalHost}/${suffix}`)'));
   assert.ok(guestMenuApi.includes('body.data.slug ?? body.data.publicCode'));
-  assert.ok(qrPanel.includes('`${webOrigin}/q/${qr.slug ?? qr.publicCode}`'));
+  assert.ok(qrPanel.includes('genericMenuUrl(webOrigin, qr.slug ?? qr.publicCode'));
   assert.ok(designWorkspace.includes('qr.slug ?? qr.publicCode'));
 });
 
