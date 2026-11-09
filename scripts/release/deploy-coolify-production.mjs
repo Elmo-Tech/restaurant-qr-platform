@@ -61,7 +61,7 @@ export function checkEnvs(items) {
   if (publicUrlRows.length === 1 &&
       (typeof publicUrlRows[0].value !== 'string' ||
        (publicUrlRows[0].value !== '' &&
-        publicUrlRows[0].value.replace(/\\/+$/, '') !== 'https://' + PROD.web))) {
+        publicUrlRows[0].value.replace(/\/+$/, '') !== 'https://' + PROD.web))) {
     throw new Error('WAYTA_API_PUBLIC_URL must use the approved production Web origin.');
   }
   const current = envValue(items, KEY);
