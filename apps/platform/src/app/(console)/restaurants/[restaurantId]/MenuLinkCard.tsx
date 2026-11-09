@@ -28,7 +28,23 @@ export function MenuLinkCard({
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const origin = link.url && link.slug ? link.url.slice(0, link.url.length - link.slug.length - 3) : "";
+  // The Platform API supplies either legacy /q/{slug} or the canonical
+  // restaurant subdomain. Preserve that URL shape when renaming the slug.
+  let parsedLink: URL | null = null;
+  try {
+    parsedLink = link.url ? new URL(link.url) : null;
+  } catch {
+    // Ignore malformed legacy links rather than generating an invalid URL.
+  }
+  const domainSuffix = parsedLink && link.slug &&
+    parsedLink.pathname === "/" && parsedLink.hostname.startsWith(`${link.slug}.`)
+    ? parsedLink.hostname.slice(link.slug.length)
+    : null;
+  function urlForSlug(nextSlug: string): string | null {
+    if (!parsedLink) return null;
+    if (domainSuffix) return `${parsedLink.protocol}//${nextSlug}${domainSuffix}/`;
+    return `${parsedLink.origin}/q/${nextSlug}`;
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,7 +62,7 @@ export function MenuLinkCard({
       onSaved({
         slug: next.slug,
         formerSlugs: link.slug && link.slug !== next.slug ? [...link.formerSlugs, link.slug] : link.formerSlugs,
-        url: origin ? `${origin}/q/${next.slug}` : null,
+        url: urlForSlug(next.slug),
       });
       setValue(next.slug);
       setEditing(false);
@@ -111,7 +127,7 @@ export function MenuLinkCard({
             <div>
               <Label htmlFor="menu-link-slug">{t("menuLink.field")}</Label>
               <div dir="ltr" className="flex items-center gap-2">
-                <span className="shrink-0 text-sm text-muted-foreground">/q/</span>
+                <span className="shrink-0 text-sm text-muted-foreground">{domainSuffix ? "https://" : "/q/"}</span>
                 <Input
                   id="menu-link-slug"
                   dir="ltr"
@@ -125,6 +141,7 @@ export function MenuLinkCard({
                   spellCheck={false}
                   required
                 />
+                {domainSuffix ? <span className="shrink-0 text-sm text-muted-foreground">{domainSuffix}</span> : null}
               </div>
               <p className="mt-1.5 text-xs text-muted-foreground">{t("menuLink.hint")}</p>
             </div>
