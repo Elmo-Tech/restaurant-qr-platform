@@ -20,8 +20,10 @@ The platform console stays at `control.waytaapp.com` and Staff stays on the apex
                                         exact control host --> platform:3001
                                         tenant wildcard   --> web:3000
                                         /api/v1/public/qr/* --> api:4000 (host ownership guard)
-                                        /media/*           --> api:4000
-                                        /socket.io/*       --> api:4000
+                                        /media/*           --> api:4000 (public images)
+                                        other /api/v1/*    --> 404 (no Staff APIs)
+                                        /socket.io/*       --> 404 (no Staff realtime)
+                                        tracking webhook   --> 404 (on tenant hosts)
 ```
 
 - Next.js 16 `proxy.ts` rewrites tenant `/` to the existing server-rendered `/q/{slug}` Guest route.
@@ -30,12 +32,12 @@ The platform console stays at `control.waytaapp.com` and Staff stays on the apex
 - The opaque QR code remains the authoritative Backend identity. Hostnames/slug labels are not an authorization grant.
 - Existing `/q/{code}` and former slug aliases still resolve, including old printed QR links. Former subdomains redirect to the current hostname through the resolved menu.
 - Staff design preview (`?designPreview=1`) deliberately stays on the apex, preserving same-origin embed behavior.
-- Restaurant subdomains never serve Staff/Platform routes. Host-only Staff cookies, the strict credentialed CORS list and platform permissions are unchanged.
+- Restaurant subdomains never serve Staff/Platform routes, shared Socket.IO or WhatsApp provider webhooks. Only QR-scoped public API routes and public media are forwarded; all other API routes fail closed. Host-only Staff cookies, the strict credentialed CORS list and platform permissions are unchanged.
 
 ## Production enablement checklist (manual and approved only)
 
 1. Keep the existing production Coolify project, PostgreSQL and uploads volumes. Check restorable backups; no schema migration is added by this feature.
-2. CI on this branch must pass API Jest/TypeScript, Next typecheck/build, web contract tests, Nginx syntax test, and existing production prebuilt-parity checks. Do not merge/ship if red.
+2. CI on this branch must pass API Jest/TypeScript, Next typecheck/build, web contract tests, Nginx syntax with and without the wildcard, two-restaurant HTTP isolation, real disposable PostgreSQL hostname/QR isolation, and existing production prebuilt-parity checks. Do not merge/ship if red. The real database test stubs only the full Menu aggregate, not the Prisma tenant lookups. This is **not** a deployed guest-browser checkout E2E test.
 3. For the production Coolify stack, the exact opt-in values must match:
    - `WEB_HOST=waytaapp.com`
    - `PLATFORM_HOST=control.waytaapp.com`
@@ -43,7 +45,7 @@ The platform console stays at `control.waytaapp.com` and Staff stays on the apex
    - `RESTAURANT_WILDCARD_HOST=*.waytaapp.com` (Nginx gateway only)
    - Next Web image must have been built with `NEXT_PUBLIC_RESTAURANT_BASE_DOMAIN=waytaapp.com`.
    Keep these unset on Development unless testing against an isolated DNS suffix.
-4. At the ingress, replace the temporary `wildcard-placeholder` 503 routing **only when** the new gateway image is deployed and healthy. The target must be the existing production `gateway:8080` service, never a new database/app or a hardcoded ephemeral Docker IP. Preserve the dynamic ACME resolver/certificate and keep apex + console host routers higher priority than the wildcard route. Configure a verified Coolify-provided wildcard route or equivalent durable Traefik service; test actual host routing before removing the placeholder. Do not point a wildcard router at `servers: []` in the final state.
+4. At the ingress, route tenant hosts **only when** the new gateway image is deployed and healthy. The target must be the existing production `gateway:8080` service, never a new database/app or hardcoded ephemeral Docker IP. Preserve the dynamic ACME resolver/certificate and keep apex + console host routers higher priority than the wildcard route. **Do not assume that typing `https://*.waytaapp.com:8080` into Coolify Domains generates a valid Traefik rule on this installed version**: inspect the actual Docker-provider router/service labels or use a carefully scoped file-provider `HostRegexp` rule referring to the existing gateway service, and confirm its network reachability and priorities. Keep the current low-priority `wildcard-placeholder` as a certificate-holder/fallback until the new live route has been verified; do not remove the ACME certificate request just to silence a 503. Never use `servers: []` as the active application route.
 5. First enable a non-sensitive test restaurant whose **current slug** exists. Verify `https://{slug}.waytaapp.com/` yields that restaurant, correct branding, live menus and guest APIs, checkout, QR actions, images and HTTPS.
 6. Test with separate restaurants A and B: a B QR on `a.waytaapp.com` must receive **404 QR_NOT_FOUND**, even on POST order, WhatsApp quote, suggestions, tracking and phone lookup. Check reserved names and a non-existent restaurant.
 7. Validate `/q/{oldCode}`, `/q/{formerSlug}`, `https://{formerSlug}.waytaapp.com/`, Table QRs, Staff preview and `control.waytaapp.com`. Check mobile templates, Arabic/English, API/asset requests, callbacks and auth. Keep old `elmotechsoft.online` redirects and **do not redirect Evolution inbound webhooks**.
