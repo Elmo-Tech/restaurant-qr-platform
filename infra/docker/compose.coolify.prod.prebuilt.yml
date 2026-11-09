@@ -3,7 +3,7 @@
 # Images use prod-<40-char Git commit SHA> to prevent accidental reuse of development bundles.
 # WORKFLOW: wayta-publish-ghcr-production.yml (manual only; never auto-deploys).
 # Must use the SAME existing Coolify Application/Compose project, with the SAME persisted volumes.
-# Verify WEB_HOST=wayta.elmotechsoft.online and PLATFORM_HOST=wayta-control.elmotechsoft.online
+# Verify WEB_HOST=waytaapp.com and PLATFORM_HOST=control.waytaapp.com
 # against Coolify settings BEFORE deployment; these origins are compiled into the Next.js images.
 # Set WAYTA_PROD_IMAGE_SHA to the FULL 40-char MAIN commit SHA reported by the successful workflow.
 # No automatic rollback of Prisma migrations; take and verify database + uploads backups first.
