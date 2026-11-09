@@ -100,9 +100,20 @@ export interface ContractData {
   number: string;
   issuedAt: string;
   subscriptionId: string;
+  isDraft: boolean;
+  documentText: string | null;
+  documentLocale: "ar" | "en" | null;
+  revision: number;
+  assets: { seal: string | null; signature: string | null };
   terms: {
     number: string;
-    restaurant: { name: string; countryCode: string; ownerEmails: string[] };
+    restaurant: {
+      name: string;
+      countryCode: string;
+      ownerEmails: string[];
+      ownerContact?: { fullName: string; phone: string } | null;
+      menuUrl?: string | null;
+    };
     package: { name: string; features: string[] };
     period: BillingPeriod;
     startsAt: string;

@@ -6,6 +6,12 @@
 
 ## Product behavior
 
+Paid subscriptions created after this change also capture the contact name and
+telephone in the Contract's existing terms snapshot. The printable Contract
+shows those values alongside the Restaurant brand name in Arabic and English.
+The private Facebook URL is not included. Previously created Contracts retain
+their original snapshot; this change does not backfill or edit them.
+
 When an Admin creates a Restaurant, collect:
 - **Owner full name** (required in the Platform UI)
 - **Contact telephone/mobile** (required in the Platform UI; normalized by Backend)

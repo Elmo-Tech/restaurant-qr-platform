@@ -1,7 +1,13 @@
-import { Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { EnvConfig } from '../../config/env.schema';
 import { PrismaService } from '../../database/prisma.service';
+import { restaurantMenuUrl } from '../../restaurants/menu-link';
 import {
   CUSTOMER_FEATURE_KEYS,
   type FeatureKey,
@@ -162,7 +168,13 @@ export interface BillingView {
 
 export interface ContractTerms {
   number: string;
-  restaurant: { name: string; countryCode: string; ownerEmails: string[] };
+  restaurant: {
+    name: string;
+    countryCode: string;
+    ownerEmails: string[];
+    ownerContact?: { fullName: string; phone: string } | null;
+    menuUrl?: string | null;
+  };
   package: { name: string; features: FeatureKey[] };
   period: BillingPeriodKey;
   startsAt: string;
@@ -178,6 +190,11 @@ export interface ContractView {
   issuedAt: string;
   subscriptionId: string;
   terms: ContractTerms;
+  isDraft: boolean;
+  documentText: string | null;
+  documentLocale: string | null;
+  revision: number;
+  assets: { seal: string | null; signature: string | null };
 }
 
 interface Refused {
@@ -190,6 +207,8 @@ interface Resolved {
     name: string;
     countryCode: string;
     ownerEmails: string[];
+    ownerContact: { fullName: string; phone: string } | null;
+    menuUrl: string | null;
   };
   pkg: { id: string; name: string; features: FeatureKey[] };
   startsAt: Date;
@@ -438,6 +457,8 @@ export class PlatformBillingService {
             name: restaurant.name,
             countryCode: restaurant.countryCode,
             ownerEmails: restaurant.ownerEmails,
+            ownerContact: restaurant.ownerContact,
+            menuUrl: restaurant.menuUrl,
           },
           package: { name: pkg.name, features: pkg.features },
           period: input.period,
@@ -471,6 +492,7 @@ export class PlatformBillingService {
             contract: {
               create: {
                 number,
+                isDraft: true,
                 terms: terms as unknown as Prisma.InputJsonObject,
               },
             },
@@ -804,6 +826,7 @@ export class PlatformBillingService {
       where: { subscriptionId },
     });
     if (!row) return { outcome: 'SUBSCRIPTION_NOT_FOUND' };
+    const assets = row.issuedAssets;
     return {
       outcome: 'ok',
       data: {
@@ -811,8 +834,158 @@ export class PlatformBillingService {
         issuedAt: row.issuedAt.toISOString(),
         subscriptionId,
         terms: row.terms as unknown as ContractTerms,
+        isDraft: row.isDraft,
+        documentText: row.documentText,
+        documentLocale: row.documentLocale,
+        revision: row.revision,
+        assets: (assets ?? { seal: null, signature: null }) as {
+          seal: string | null;
+          signature: string | null;
+        },
       },
     };
+  }
+
+  async saveSigningAsset(
+    admin: PlatformAdminPrincipal,
+    subscriptionId: string,
+    revision: number,
+    kind: 'seal' | 'signature',
+    bytes: Buffer,
+    mime: string,
+  ): Promise<void> {
+    if (!UUID.test(subscriptionId)) throw new NotFoundException();
+    const row = await this.prisma.contract.findUnique({
+      where: { subscriptionId },
+      select: { id: true, revision: true, isDraft: true, issuedAssets: true },
+    });
+    if (!row) throw new NotFoundException();
+    if (!row.isDraft || row.revision !== revision)
+      throw new ConflictException(
+        'Contract changed or was issued. Reload and try again.',
+      );
+    const existing = (row.issuedAssets ?? { seal: null, signature: null }) as {
+      seal: string | null;
+      signature: string | null;
+    };
+    const assets = {
+      ...existing,
+      [kind]: `data:${mime};base64,${bytes.toString('base64')}`,
+    };
+    const result = await this.prisma.contract.updateMany({
+      where: { id: row.id, isDraft: true, revision },
+      data: { issuedAssets: assets, revision: { increment: 1 } },
+    });
+    if (result.count !== 1)
+      throw new ConflictException(
+        'Contract changed or was issued. Reload and try again.',
+      );
+    await this.audit.record({
+      admin,
+      action: 'contract.signing_asset_updated',
+      details: { subscriptionId, kind },
+    });
+  }
+
+  async reopenContract(
+    admin: PlatformAdminPrincipal,
+    subscriptionId: string,
+  ): Promise<void> {
+    if (!UUID.test(subscriptionId)) throw new NotFoundException();
+    const row = await this.prisma.contract.findUnique({
+      where: { subscriptionId },
+      include: {
+        subscription: {
+          select: {
+            restaurant: {
+              select: {
+                ownerContact: { select: { fullName: true, phone: true } },
+                slugs: {
+                  where: { isCurrent: true },
+                  select: { slug: true },
+                  take: 1,
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+    if (!row) throw new NotFoundException();
+    if (row.isDraft) return;
+    if (row.documentText !== null) {
+      throw new ConflictException('Issued contracts cannot be reopened.');
+    }
+    const terms = row.terms as unknown as ContractTerms;
+    const slug = row.subscription.restaurant.slugs[0]?.slug;
+    const menuUrl = slug
+      ? restaurantMenuUrl(
+          slug,
+          this.config.get('CORS_ORIGIN', { infer: true }),
+          this.config.get('MENU_SUBDOMAIN_ORIGIN', { infer: true }),
+        )
+      : null;
+    const nextTerms = {
+      ...terms,
+      restaurant: {
+        ...terms.restaurant,
+        ownerContact:
+          terms.restaurant.ownerContact ??
+          row.subscription.restaurant.ownerContact,
+        menuUrl: terms.restaurant.menuUrl ?? menuUrl,
+      },
+    };
+    const result = await this.prisma.contract.updateMany({
+      where: { id: row.id, isDraft: false, revision: row.revision },
+      data: {
+        isDraft: true,
+        terms: nextTerms as unknown as Prisma.InputJsonObject,
+        revision: { increment: 1 },
+      },
+    });
+    if (result.count !== 1)
+      throw new ConflictException('Contract changed. Reload and try again.');
+    await this.audit.record({
+      admin,
+      action: 'contract.reopened',
+      details: { subscriptionId },
+    });
+  }
+
+  async saveContractDraft(
+    admin: PlatformAdminPrincipal,
+    subscriptionId: string,
+    revision: number,
+    locale: string,
+    text: string,
+    issue: boolean,
+  ): Promise<void> {
+    if (!UUID.test(subscriptionId)) throw new NotFoundException();
+    if (!text.trim())
+      throw new BadRequestException('Contract text is required.');
+    const result = await this.prisma.contract.updateMany({
+      where: { subscriptionId, isDraft: true, revision },
+      data: {
+        documentText: text,
+        documentLocale: locale,
+        revision: { increment: 1 },
+        ...(issue
+          ? {
+              isDraft: false,
+              issuedAt: new Date(),
+            }
+          : {}),
+      },
+    });
+    if (result.count !== 1)
+      throw new ConflictException(
+        'Contract changed or was issued. Reload and try again.',
+      );
+    await this.audit.record({
+      admin,
+      action: issue ? 'contract.issued' : 'contract.draft_saved',
+      details: { subscriptionId },
+    });
   }
 
   /** Change the billing country (EG = EGP, anything else = USD). Existing subscriptions keep their currency. */
@@ -897,6 +1070,12 @@ export class PlatformBillingService {
           name: true,
           countryCode: true,
           packageId: true,
+          ownerContact: { select: { fullName: true, phone: true } },
+          slugs: {
+            where: { isCurrent: true },
+            select: { slug: true },
+            take: 1,
+          },
           memberships: {
             where: { role: 'OWNER' },
             select: { user: { select: { email: true } } },
@@ -991,6 +1170,14 @@ export class PlatformBillingService {
         name: restaurant.name,
         countryCode: restaurant.countryCode,
         ownerEmails: restaurant.memberships.map((m) => m.user.email),
+        ownerContact: restaurant.ownerContact,
+        menuUrl: restaurant.slugs[0]
+          ? restaurantMenuUrl(
+              restaurant.slugs[0].slug,
+              this.config.get('CORS_ORIGIN', { infer: true }),
+              this.config.get('MENU_SUBDOMAIN_ORIGIN', { infer: true }),
+            )
+          : null,
       },
       pkg: {
         id: pkg.id,

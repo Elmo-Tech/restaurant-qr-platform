@@ -1626,7 +1626,7 @@ export function PublicMenuView({
         onJump: () => selectPremiumCategory(OFFERS_SECTION_ID),
       }
     : null;
-  const poweredByLink = data.context.platform?.poweredByUrl ?? 'https://menu.elmotechsoft.online/';
+  const poweredByLink = data.context.platform?.poweredByUrl ?? 'https://waytaapp.com/';
   const verdePoweredBy = (
     <>
       <span>{copy.poweredBy}</span>
@@ -1995,7 +1995,7 @@ export function PublicMenuView({
           <a
             href={
               data.context.platform?.poweredByUrl ??
-              'https://menu.elmotechsoft.online/'
+              'https://waytaapp.com/'
             }
             aria-label="Wayta ويتا"
             className="rounded-sm opacity-70 transition-opacity hover:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-g-accent"

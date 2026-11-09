@@ -72,6 +72,7 @@ export default async function GuestQrSettingsPage({ params }: GuestQrSettingsPag
       qrStyle={membership.restaurant.qrStyle}
       logoAssetPath={membership.restaurant.logoAssetPath}
       webOrigin={getWebOrigin()}
+      subdomainOrigin={process.env.MENU_SUBDOMAIN_ORIGIN || undefined}
     />
   );
 }

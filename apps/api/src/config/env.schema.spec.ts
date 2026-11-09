@@ -27,6 +27,32 @@ function omit(
 }
 
 describe('validateEnv', () => {
+  it('accepts only the intended production or local subdomain root', () => {
+    for (const value of ['https://waytaapp.com', 'http://localhost:3000']) {
+      expect(
+        validateEnv(validConfig({ MENU_SUBDOMAIN_ORIGIN: value }))
+          .MENU_SUBDOMAIN_ORIGIN,
+      ).toBe(value);
+    }
+    for (const value of [
+      'https://waytaapp.com.evil.test',
+      'http://waytaapp.com',
+      'https://waytaapp.com/path',
+    ]) {
+      expect(() =>
+        validateEnv(validConfig({ MENU_SUBDOMAIN_ORIGIN: value })),
+      ).toThrow(/MENU_SUBDOMAIN_ORIGIN/);
+    }
+    expect(() =>
+      validateEnv(
+        validConfig({
+          NODE_ENV: 'production',
+          AUTH_COOKIE_SECURE: 'true',
+          MENU_SUBDOMAIN_ORIGIN: 'http://localhost:3000',
+        }),
+      ),
+    ).toThrow(/MENU_SUBDOMAIN_ORIGIN/);
+  });
   it('accepts a valid configuration and coerces API_PORT to a number', () => {
     const result = validateEnv(validConfig());
 
@@ -187,13 +213,17 @@ describe('validateEnv', () => {
   });
 
   it('applies the documented default PASSWORD_RESET_TTL_MINUTES when omitted', () => {
-    const result = validateEnv(omit(validConfig(), 'PASSWORD_RESET_TTL_MINUTES'));
+    const result = validateEnv(
+      omit(validConfig(), 'PASSWORD_RESET_TTL_MINUTES'),
+    );
 
     expect(result.PASSWORD_RESET_TTL_MINUTES).toBe(45);
   });
 
   it('coerces a valid PASSWORD_RESET_TTL_MINUTES to a number', () => {
-    const result = validateEnv(validConfig({ PASSWORD_RESET_TTL_MINUTES: '30' }));
+    const result = validateEnv(
+      validConfig({ PASSWORD_RESET_TTL_MINUTES: '30' }),
+    );
 
     expect(result.PASSWORD_RESET_TTL_MINUTES).toBe(30);
   });

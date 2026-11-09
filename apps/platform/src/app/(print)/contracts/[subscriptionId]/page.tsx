@@ -6,6 +6,7 @@ import { isLocale, type Locale } from "@/lib/i18n/locale";
 import { getI18n } from "@/lib/i18n/server";
 import { cn } from "@/lib/utils";
 import { ContractDocument } from "./ContractDocument";
+import { ContractEditor } from "./ContractEditor";
 import { PrintButton } from "./PrintButton";
 
 /** One contract, in ONE language (`?lang=ar` or `?lang=en`; the console language when missing). */
@@ -15,7 +16,7 @@ export default async function ContractPage({
 }: PageProps<"/contracts/[subscriptionId]">) {
   const [{ subscriptionId }, query, { t, locale: consoleLocale }] = await Promise.all([params, searchParams, getI18n()]);
   const asked = Array.isArray(query.lang) ? query.lang[0] : query.lang;
-  const locale: Locale = isLocale(asked) ? asked : consoleLocale;
+  const requestedLocale: Locale = isLocale(asked) ? asked : consoleLocale;
 
   const result = await platformServerGet<ContractData>(
     `/subscriptions/${encodeURIComponent(subscriptionId)}/contract`,
@@ -29,6 +30,7 @@ export default async function ContractPage({
       </main>
     );
   }
+  const locale: Locale = result.data.documentLocale ?? requestedLocale;
 
   const switchTo = (target: Locale, label: string) => (
     <Link
@@ -46,16 +48,17 @@ export default async function ContractPage({
   return (
     <div className="bg-neutral-200 pb-10 print:bg-white print:pb-0">
       <style>{"@page { size: A4; margin: 12mm; } html, body { background: #fff; }"}</style>
-      <PrintButton
-        languages={
+      {!result.data.isDraft ? <PrintButton
+        languages={!result.data.documentLocale ?
           <div className="flex gap-1 rounded-lg bg-neutral-200 p-1" role="group">
             {switchTo("ar", "العربية")}
             {switchTo("en", "English")}
           </div>
-        }
-      />
+        : null}
+      /> : !result.data.documentLocale ? <div className="mx-auto max-w-[210mm] p-3 print:hidden">{switchTo("ar", "العربية")} {switchTo("en", "English")}</div> : null}
 
-      <ContractDocument data={result.data} locale={locale} />
+      <ContractEditor key={`${result.data.subscriptionId}-${result.data.revision}`} data={result.data} locale={locale} />
+      {!result.data.isDraft && !result.data.documentText ? <ContractDocument data={result.data} locale={locale} /> : null}
     </div>
   );
 }

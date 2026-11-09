@@ -186,7 +186,7 @@ export function SettingsView() {
                   setUrlError(null);
                   setFeedback(null);
                 }}
-                placeholder="https://menu.elmotechsoft.online/"
+                placeholder="https://waytaapp.com/"
                 maxLength={2048}
                 aria-invalid={Boolean(urlError)}
                 aria-describedby={urlError ? "powered-by-url-error" : "powered-by-url-hint"}

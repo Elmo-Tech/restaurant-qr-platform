@@ -90,7 +90,7 @@ server {
 # ------------------------------------------------------------------------------------------------ restaurant app
 server {
     listen 8080;
-    server_name ${WEB_HOST};
+    server_name ${WEB_HOST} *.waytaapp.com;
 
     # The platform administrators' API lives on the console host only. Nest/Express routing is
     # case-insensitive by default, so this gateway boundary must reject every casing too.

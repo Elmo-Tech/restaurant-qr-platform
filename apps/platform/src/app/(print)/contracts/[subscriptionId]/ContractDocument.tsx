@@ -63,6 +63,12 @@ export function ContractDocument({ data, locale }: { data: ContractData; locale:
           <p className="mt-1 text-[16px] font-semibold">
             <bdi>{terms.restaurant.name}</bdi>
           </p>
+          {terms.restaurant.ownerContact ? (
+            <div className="mt-2 space-y-1 text-[13px] text-neutral-600">
+              <p>{text.contactName}: <bdi>{terms.restaurant.ownerContact.fullName}</bdi></p>
+              <p>{text.contactPhone}: <bdi dir="ltr">{terms.restaurant.ownerContact.phone}</bdi></p>
+            </div>
+          ) : null}
           {terms.restaurant.ownerEmails.length > 0 ? (
             <p dir="ltr" className="mt-0.5 text-start text-[13px] text-neutral-600">
               {terms.restaurant.ownerEmails.join(", ")}
@@ -143,10 +149,14 @@ export function ContractDocument({ data, locale }: { data: ContractData; locale:
               <bdi>{name}</bdi>
             </p>
             <div className="mt-14 border-t border-neutral-700 pt-1 text-[12px] text-neutral-500">{text.signature}</div>
-            <div className="mt-7 border-t border-neutral-700 pt-1 text-[12px] text-neutral-500">{text.date}</div>
+            <div className="mt-14 border-t border-neutral-700 pt-1 text-[12px] text-neutral-500">{locale === "ar" ? "الختم" : "Seal"}</div>
           </div>
         ))}
       </section>
+      <footer className="mt-6 break-inside-avoid border-t border-neutral-200 pt-3 text-center text-[11px] leading-5 text-neutral-500">
+        <p>{locale === "ar" ? "ويتا تطبيق تابع لشركة ElmoTech." : "Wayta is an application by ElmoTech."}</p>
+        <p dir="ltr"><a href="https://waytaapp.com/">https://waytaapp.com/</a> <span className="mx-2">·</span> <a href="https://elmotech.it">https://elmotech.it</a></p>
+      </footer>
     </article>
   );
 }

@@ -93,6 +93,7 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-restaurant_qr_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-restaurant_qr_platform}
       # the two browser origins allowed to call the API with credentials (both are the public HTTPS origins)
       CORS_ORIGIN: https://${WEB_HOST:?Set WEB_HOST (for example menu.example.com)}
+      MENU_SUBDOMAIN_ORIGIN: ${MENU_SUBDOMAIN_ORIGIN:-}
       PLATFORM_ORIGIN: https://${PLATFORM_HOST:?Set PLATFORM_HOST (for example control.example.com)}
       AUTH_COOKIE_SECURE: "true"
       AUTH_COOKIE_SAME_SITE: lax
@@ -158,6 +159,7 @@ services:
       API_INTERNAL_URL: http://api:4000
       # the origin printed QR codes point to: ${WEB_URL}/q/{restaurant-slug} (Table QRs: /q/{publicCode})
       WEB_URL: https://${WEB_HOST}
+      MENU_SUBDOMAIN_ORIGIN: ${MENU_SUBDOMAIN_ORIGIN:-}
     depends_on:
       api:
         condition: service_healthy

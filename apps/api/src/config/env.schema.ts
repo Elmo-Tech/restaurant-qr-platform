@@ -82,6 +82,34 @@ export const envSchema = z
           'CORS_ORIGIN must not be a wildcard (SECURITY_SPEC.md #68: never combine credentials=true with origin=*)',
       }),
 
+    // Enable only after wildcard routing and TLS are ready; localhost supports local testing.
+    MENU_SUBDOMAIN_ORIGIN: z.preprocess(
+      (value) =>
+        typeof value === 'string' && value.trim() === '' ? undefined : value,
+      z
+        .string()
+        .url()
+        .refine((value) => {
+          try {
+            const url = new URL(value);
+            return (
+              url.pathname === '/' &&
+              !url.search &&
+              !url.hash &&
+              !url.username &&
+              !url.password &&
+              ((url.protocol === 'https:' &&
+                url.hostname === 'waytaapp.com' &&
+                !url.port) ||
+                (url.protocol === 'http:' && url.hostname === 'localhost'))
+            );
+          } catch {
+            return false;
+          }
+        }, 'Use https://waytaapp.com or a local http://localhost origin')
+        .optional(),
+    ),
+
     // Business Foundation S, settled contract (AUTH_TENANCY_SPEC.md #78):
     // Staff Invitation absolute expiry, 7 days by default. Already
     // documented in .env.example as RESTAURANT_INVITATION_TTL_DAYS=7 --
@@ -243,7 +271,12 @@ export const envSchema = z
     // DEC-060: temporary demo restaurants. All optional: the defaults suit one API instance.
     DEMO_MAX_ACTIVE: z.coerce.number().int().min(1).max(200).default(20),
     // After a demo expires it is locked at once and removed this many minutes later (time to extend it).
-    DEMO_PURGE_GRACE_MINUTES: z.coerce.number().int().min(0).max(1440).default(60),
+    DEMO_PURGE_GRACE_MINUTES: z.coerce
+      .number()
+      .int()
+      .min(0)
+      .max(1440)
+      .default(60),
     // How often the expiry job looks for demos to lock or remove.
     DEMO_SWEEP_SECONDS: z.coerce.number().int().min(10).max(3600).default(60),
     // DEC-059: the chat endpoint the Backend calls when the direct engine is chosen. Optional: the default is
@@ -289,6 +322,16 @@ export const envSchema = z
   // not silently stripped from what ConfigService can still read.
   .passthrough()
   .superRefine((config, ctx) => {
+    if (
+      config.NODE_ENV === 'production' &&
+      config.MENU_SUBDOMAIN_ORIGIN?.startsWith('http://localhost')
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        path: ['MENU_SUBDOMAIN_ORIGIN'],
+        message: 'Local menu subdomains cannot be used in production',
+      });
+    }
     // AUTH_TENANCY_SPEC.md #24, SECURITY_SPEC.md #23: this invariant is
     // enforced at startup rather than trusted from a possibly-stale .env.
     if (config.NODE_ENV === 'production' && !config.AUTH_COOKIE_SECURE) {

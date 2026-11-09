@@ -5,12 +5,21 @@ import {
   HttpCode,
   HttpException,
   HttpStatus,
+  BadRequestException,
   Param,
   Post,
   Put,
   Req,
+  UploadedFile,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FileInterceptor } from '@nestjs/platform-express';
+import { Type } from 'class-transformer';
+import { IsIn, IsInt, IsString, MaxLength, Min } from 'class-validator';
+import { assertValidImageUpload } from '../../storage/image-file-validator';
+import { readImageDimensions } from '../../storage/image-dimensions';
+import type { UploadedImageFile } from '../../storage/uploaded-image-file';
 import {
   CountryBodyDto,
   PaymentBodyDto,
@@ -153,6 +162,19 @@ const toTrialInput = (body: TrialBodyDto): TrialInput => ({
   durationDays: body.durationDays,
   notes: body.notes ?? null,
 });
+
+class ContractDocumentDto {
+  @IsInt() @Min(0) revision!: number;
+  @IsIn(['ar', 'en']) locale!: 'ar' | 'en';
+  @IsString() @MaxLength(20000) text!: string;
+}
+
+class ContractImageDto {
+  @Type(() => Number)
+  @IsInt()
+  @Min(0)
+  revision!: number;
+}
 
 /**
  * Manual billing routes of the platform console (DEC-049): a Restaurant's subscriptions, their
@@ -304,5 +326,80 @@ export class PlatformBillingController {
     @Param('subscriptionId') subscriptionId: string,
   ): Promise<{ data: ContractView }> {
     return unwrap(await this.billing.contract(subscriptionId));
+  }
+
+  @Post('subscriptions/:subscriptionId/contract/reopen')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(PlatformAuthGuard)
+  async reopenContract(
+    @Param('subscriptionId') subscriptionId: string,
+    @Req() request: PlatformRequest,
+  ): Promise<void> {
+    await this.billing.reopenContract(request.platformAdmin, subscriptionId);
+  }
+
+  @Put('subscriptions/:subscriptionId/contract/draft')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(PlatformAuthGuard)
+  async saveContract(
+    @Param('subscriptionId') subscriptionId: string,
+    @Body() body: ContractDocumentDto,
+    @Req() request: PlatformRequest,
+  ): Promise<void> {
+    await this.billing.saveContractDraft(
+      request.platformAdmin,
+      subscriptionId,
+      body.revision,
+      body.locale,
+      body.text,
+      false,
+    );
+  }
+
+  @Post('subscriptions/:subscriptionId/contract/issue')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(PlatformAuthGuard)
+  async issueContract(
+    @Param('subscriptionId') subscriptionId: string,
+    @Body() body: ContractDocumentDto,
+    @Req() request: PlatformRequest,
+  ): Promise<void> {
+    await this.billing.saveContractDraft(
+      request.platformAdmin,
+      subscriptionId,
+      body.revision,
+      body.locale,
+      body.text,
+      true,
+    );
+  }
+
+  @Put('subscriptions/:subscriptionId/contract/images/:kind')
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @UseGuards(PlatformAuthGuard)
+  @UseInterceptors(
+    FileInterceptor('image', { limits: { fileSize: 1024 * 1024 } }),
+  )
+  async uploadSigningAsset(
+    @Param('subscriptionId') subscriptionId: string,
+    @Param('kind') kind: string,
+    @Body() body: ContractImageDto,
+    @UploadedFile() file: UploadedImageFile | undefined,
+    @Req() request: PlatformRequest,
+  ): Promise<void> {
+    if (kind !== 'seal' && kind !== 'signature')
+      throw new BadRequestException('Invalid image kind.');
+    assertValidImageUpload(file);
+    const dimensions = readImageDimensions(file.buffer, file.mimetype);
+    if (!dimensions || dimensions.width > 4096 || dimensions.height > 4096)
+      throw new BadRequestException('Invalid image dimensions.');
+    await this.billing.saveSigningAsset(
+      request.platformAdmin,
+      subscriptionId,
+      body.revision,
+      kind,
+      file.buffer,
+      file.mimetype,
+    );
   }
 }

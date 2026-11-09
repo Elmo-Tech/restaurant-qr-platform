@@ -11,6 +11,8 @@ export interface ContractText {
   numberLabel: string;
   provider: string;
   client: string;
+  contactName: string;
+  contactPhone: string;
   providerTagline: string;
   /** The one sentence the contract is about. */
   statement: (input: { client: string; provider: string; packageName: string; from: string; to: string; period: string }) => string;
@@ -41,6 +43,8 @@ export const CONTRACT_TEXT: Record<Locale, ContractText> = {
     numberLabel: "No.",
     provider: "The Provider",
     client: "The Client",
+    contactName: "Contact person",
+    contactPhone: "Telephone",
     providerTagline: "Digital QR menu platform",
     statement: ({ client, provider, packageName, from, to, period }) =>
       `This agreement records that ${client} has subscribed to the ${provider} service on the "${packageName}" package, billed ${period}, for the period from ${from} to ${to}.`,
@@ -70,6 +74,8 @@ export const CONTRACT_TEXT: Record<Locale, ContractText> = {
     numberLabel: "رقم",
     provider: "المزوِّد",
     client: "العميل",
+    contactName: "اسم المسؤول",
+    contactPhone: "رقم الهاتف",
     providerTagline: "منصة المنيو الرقمي بالـQR",
     statement: ({ client, provider, packageName, from, to, period }) =>
       `يفيد هذا العقد بأن ${client} اشترك في خدمة ${provider} على باقة "${packageName}" بنظام الدفع ${period}، عن الفترة من ${from} إلى ${to}.`,

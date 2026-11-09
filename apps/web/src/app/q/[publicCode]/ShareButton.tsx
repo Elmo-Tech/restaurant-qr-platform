@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { GuestIconCheck, GuestIconShare } from '../../../components/guest/icons';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
+import { shareMenuUrl } from '../../../lib/guest-menu/subdomain-host';
 
 /**
  * Shares the LINK to the Restaurant's menu (never a table link, see `shareCode`).
@@ -32,7 +33,7 @@ export function ShareButton({
   );
 
   async function handleShare() {
-    const url = `${window.location.origin}/q/${shareCode}`;
+    const url = shareMenuUrl(window.location.origin, shareCode);
     const title = copy.shareTitle(restaurantName);
     try {
       if (typeof navigator.share === 'function') {

@@ -88,6 +88,7 @@ export function OperationsDashboard({
   initialTableOrderingEnabled,
   channels,
   webOrigin,
+  subdomainOrigin,
   access,
   setupEligible,
   setupRole,
@@ -102,6 +103,7 @@ export function OperationsDashboard({
   /** What the platform package includes: table orders, and pickup / delivery (dashboard or WhatsApp). */
   channels: { table: boolean; pickupDelivery: boolean };
   webOrigin: string;
+  subdomainOrigin?: string;
   access: DashboardAccess;
   setupEligible: boolean;
   setupRole: string;
@@ -399,6 +401,7 @@ export function OperationsDashboard({
       <QuickActions
         restaurantId={restaurantId}
         webOrigin={webOrigin}
+        subdomainOrigin={subdomainOrigin}
         ordersHref={ordersHref ? `${ordersHref}?status=PENDING&sort=oldest` : null}
         pendingCount={pendingOrders.length}
         tablesHref={tablesHref}

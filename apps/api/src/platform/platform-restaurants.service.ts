@@ -25,8 +25,12 @@ import {
   type VerifiedExclusiveRenderer,
 } from './dto/exclusive-design.dto';
 import type { NormalizedOwnerContact } from './restaurant-owner-contact';
-import { changeRestaurantSlug, type ChangeSlugResult } from '../restaurants/restaurant-slug-store';
+import {
+  changeRestaurantSlug,
+  type ChangeSlugResult,
+} from '../restaurants/restaurant-slug-store';
 import type { AcquisitionSourceType } from './restaurant-acquisition';
+import { restaurantMenuUrl } from '../restaurants/menu-link';
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -139,11 +143,20 @@ export class PlatformRestaurantsService {
     slugs: { slug: string; isCurrent: boolean }[],
   ): RestaurantDetail['menuLink'] {
     const current = slugs.find((s) => s.isCurrent)?.slug ?? null;
-    const origin = String(this.config.get('CORS_ORIGIN', { infer: true }) ?? '').replace(/\/+$/, '');
+    const origin = String(
+      this.config.get('CORS_ORIGIN', { infer: true }) ?? '',
+    ).replace(/\/+$/, '');
     return {
       slug: current,
       formerSlugs: slugs.filter((s) => !s.isCurrent).map((s) => s.slug),
-      url: current && origin ? `${origin}/q/${current}` : null,
+      url:
+        current && origin
+          ? restaurantMenuUrl(
+              current,
+              origin,
+              this.config.get('MENU_SUBDOMAIN_ORIGIN', { infer: true }),
+            )
+          : null,
     };
   }
 
@@ -294,8 +307,13 @@ export class PlatformRestaurantsService {
         whatsappOrderingEnabled: true,
         menuTemplate: true,
         suggestionsMode: true,
-        exclusiveDesign: { select: { baseTemplate: true, status: true, rendererKey: true } },
-        slugs: { select: { slug: true, isCurrent: true }, orderBy: { createdAt: 'asc' } },
+        exclusiveDesign: {
+          select: { baseTemplate: true, status: true, rendererKey: true },
+        },
+        slugs: {
+          select: { slug: true, isCurrent: true },
+          orderBy: { createdAt: 'asc' },
+        },
         ownerContact: {
           select: { fullName: true, phone: true, facebookUrl: true },
         },
@@ -379,8 +397,13 @@ export class PlatformRestaurantsService {
           ? {
               baseTemplate: row.exclusiveDesign.baseTemplate,
               status: row.exclusiveDesign.status,
-              ...(VERIFIED_EXCLUSIVE_RENDERERS.find((key) => key === row.exclusiveDesign?.rendererKey)
-                ? { rendererKey: row.exclusiveDesign.rendererKey as VerifiedExclusiveRenderer }
+              ...(VERIFIED_EXCLUSIVE_RENDERERS.find(
+                (key) => key === row.exclusiveDesign?.rendererKey,
+              )
+                ? {
+                    rendererKey: row.exclusiveDesign
+                      .rendererKey as VerifiedExclusiveRenderer,
+                  }
                 : {}),
             }
           : null,
@@ -451,18 +474,25 @@ export class PlatformRestaurantsService {
       where: { restaurantId },
       select: { baseTemplate: true, status: true, rendererKey: true },
     });
-    const rendererKey = input.status === 'ACTIVE_CUSTOM' ? input.rendererKey : undefined;
+    const rendererKey =
+      input.status === 'ACTIVE_CUSTOM' ? input.rendererKey : undefined;
     if (rendererKey && rendererKey !== before?.rendererKey) {
       const assigned = await this.prisma.restaurantExclusiveDesign.findUnique({
         where: { rendererKey },
         select: { restaurantId: true },
       });
       if (assigned && assigned.restaurantId !== restaurantId) {
-        throw new ConflictException('This bespoke design already belongs to another Restaurant.');
+        throw new ConflictException(
+          'This bespoke design already belongs to another Restaurant.',
+        );
       }
     }
-    if (!before || before.baseTemplate !== input.baseTemplate || before.status !== input.status ||
-        (rendererKey && rendererKey !== before.rendererKey)) {
+    if (
+      !before ||
+      before.baseTemplate !== input.baseTemplate ||
+      before.status !== input.status ||
+      (rendererKey && rendererKey !== before.rendererKey)
+    ) {
       await this.prisma.restaurantExclusiveDesign.upsert({
         where: { restaurantId },
         create: {
@@ -482,10 +512,20 @@ export class PlatformRestaurantsService {
         action: 'restaurant.exclusive_design_updated',
         restaurant: { id: restaurant.id, name: restaurant.name },
         details: {
-          from: before ? { template: before.baseTemplate, status: before.status,
-            ...(before.rendererKey ? { rendererKey: before.rendererKey } : {}) } : null,
-          to: { template: input.baseTemplate, status: input.status,
-            ...(rendererKey ? { rendererKey } : {}) },
+          from: before
+            ? {
+                template: before.baseTemplate,
+                status: before.status,
+                ...(before.rendererKey
+                  ? { rendererKey: before.rendererKey }
+                  : {}),
+              }
+            : null,
+          to: {
+            template: input.baseTemplate,
+            status: input.status,
+            ...(rendererKey ? { rendererKey } : {}),
+          },
         },
       });
     }
@@ -502,7 +542,11 @@ export class PlatformRestaurantsService {
     requested: string,
   ): Promise<ChangeSlugResult> {
     if (!UUID.test(restaurantId)) return { outcome: 'notFound' };
-    const result = await changeRestaurantSlug(this.prisma, restaurantId, requested);
+    const result = await changeRestaurantSlug(
+      this.prisma,
+      restaurantId,
+      requested,
+    );
     if (result.outcome === 'updated') {
       const restaurant = await this.prisma.restaurant.findUnique({
         where: { id: restaurantId },

@@ -28,7 +28,14 @@ export function MenuLinkCard({
   const [saved, setSaved] = useState(false);
   const [copied, setCopied] = useState(false);
 
-  const origin = link.url && link.slug ? link.url.slice(0, link.url.length - link.slug.length - 3) : "";
+  function urlForSlug(slug: string): string | null {
+    if (!link.url || !link.slug) return null;
+    const url = new URL(link.url);
+    if (url.pathname === `/q/${link.slug}`) url.pathname = `/q/${slug}`;
+    else if (url.hostname.startsWith(`${link.slug}.`)) url.hostname = `${slug}.${url.hostname.slice(link.slug.length + 1)}`;
+    else return null;
+    return url.toString().replace(/\/$/, "");
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -46,7 +53,7 @@ export function MenuLinkCard({
       onSaved({
         slug: next.slug,
         formerSlugs: link.slug && link.slug !== next.slug ? [...link.formerSlugs, link.slug] : link.formerSlugs,
-        url: origin ? `${origin}/q/${next.slug}` : null,
+        url: urlForSlug(next.slug),
       });
       setValue(next.slug);
       setEditing(false);

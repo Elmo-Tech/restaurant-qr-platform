@@ -1181,6 +1181,12 @@ model Contract {
   number         String   @unique
   terms          Json
   issuedAt       DateTime @default(now()) @map("issued_at") @db.Timestamptz
+  isDraft        Boolean  @default(false) @map("is_draft")
+  documentText   String?  @map("document_text")
+  documentLocale String?  @map("document_locale") @db.VarChar(2)
+  // Images belong to this contract during draft and remain frozen after issue.
+  issuedAssets   Json?    @map("issued_assets")
+  revision       Int      @default(0)
 
   subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
 

@@ -279,7 +279,7 @@ describe('PublicMenuService.getPublicMenu', () => {
       defaultResult.outcome === 'found'
         ? defaultResult.data.context.platform.poweredByUrl
         : null,
-    ).toBe('https://menu.elmotechsoft.online/');
+    ).toBe('https://waytaapp.com/');
   });
 
   it('passes the Restaurant coverAssetPath through to the Guest context (null keeps the default hero)', async () => {

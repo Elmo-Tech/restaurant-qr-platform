@@ -3,6 +3,15 @@ import { ApiError } from './errors';
 
 const HTTP_NO_CONTENT = 204;
 
+// Guest endpoints on a restaurant host use that host's gateway; Staff stays on the configured origin.
+function apiBaseFor(path: string): string {
+  if (typeof window !== 'undefined' && path.startsWith('/public/qr/') &&
+    /^[a-z0-9]+(?:-[a-z0-9]+)*\.(waytaapp\.com|localhost)$/.test(window.location.hostname)) {
+    return '/api/v1';
+  }
+  return API_BASE_URL;
+}
+
 export type ApiMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 
 export interface ApiFetchOptions {
@@ -42,7 +51,7 @@ export async function apiFetch<TBody = unknown>(
   path: string,
   options: ApiFetchOptions = {},
 ): Promise<TBody> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${apiBaseFor(path)}${path}`, {
     method: options.method ?? 'GET',
     credentials: 'include',
     headers:
