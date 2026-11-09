@@ -223,6 +223,14 @@ describe('validateEnv', () => {
     expect(caught?.message).not.toContain('secret');
   });
 
+  it('enables an exact restaurant base domain only when configured', () => {
+    expect(validateEnv(validConfig()).RESTAURANT_BASE_DOMAIN).toBeUndefined();
+    expect(validateEnv(validConfig({ RESTAURANT_BASE_DOMAIN: 'waytaapp.com' })).RESTAURANT_BASE_DOMAIN)
+      .toBe('waytaapp.com');
+    expect(() => validateEnv(validConfig({ RESTAURANT_BASE_DOMAIN: '*.waytaapp.com' })))
+      .toThrow(/RESTAURANT_BASE_DOMAIN/);
+  });
+
   it('rejects a missing CORS_ORIGIN', () => {
     expect(() => validateEnv(omit(validConfig(), 'CORS_ORIGIN'))).toThrow(
       /CORS_ORIGIN/,
