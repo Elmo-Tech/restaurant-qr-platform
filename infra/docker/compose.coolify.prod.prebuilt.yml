@@ -206,6 +206,24 @@ services:
     pull_policy: missing
     restart: unless-stopped
     logging: *logging
+    # Production-only stable Docker-provider routers. Coolify still manages
+    # the four existing exact-host routes and connects the gateway network.
+    # Keep file-provider wildcard cert placeholder (priority 1) unchanged.
+    # Tenant routers use priority 20 and this same gateway:8080.
+    labels:
+      - 'traefik.http.routers.wayta-tenants-https.rule=HostRegexp(`^[a-z0-9]+(?:-[a-z0-9]+)*[.]waytaapp[.]com\z`) && !Host(`control.waytaapp.com`) && !Host(`www.waytaapp.com`)'
+      - 'traefik.http.routers.wayta-tenants-https.entrypoints=https'
+      - 'traefik.http.routers.wayta-tenants-https.tls=true'
+      - 'traefik.http.routers.wayta-tenants-https.priority=20'
+      - 'traefik.http.routers.wayta-tenants-https.service=wayta-tenants-gateway'
+      - 'traefik.http.services.wayta-tenants-gateway.loadbalancer.server.port=8080'
+      - 'traefik.http.routers.wayta-tenants-http.rule=HostRegexp(`^[a-z0-9]+(?:-[a-z0-9]+)*[.]waytaapp[.]com\z`) && !Host(`control.waytaapp.com`) && !Host(`www.waytaapp.com`)'
+      - 'traefik.http.routers.wayta-tenants-http.entrypoints=http'
+      - 'traefik.http.routers.wayta-tenants-http.priority=20'
+      - 'traefik.http.routers.wayta-tenants-http.middlewares=wayta-tenants-redirect-https'
+      - 'traefik.http.routers.wayta-tenants-http.service=wayta-tenants-gateway'
+      - 'traefik.http.middlewares.wayta-tenants-redirect-https.redirectscheme.scheme=https'
+      - 'traefik.http.middlewares.wayta-tenants-redirect-https.redirectscheme.permanent=true'
     environment:
       WEB_HOST: ${WEB_HOST}
       PLATFORM_HOST: ${PLATFORM_HOST}
