@@ -87,7 +87,7 @@ export const envSchema = z
     RESTAURANT_BASE_DOMAIN: z.preprocess(
       (value) => typeof value === 'string' && value.trim() === '' ? undefined : value,
       z.string().trim().toLowerCase()
-        .regex(/^[a-z0-9]+(?:[.-][a-z0-9]+)*\.[a-z]{2,}$/, 'RESTAURANT_BASE_DOMAIN must be a DNS domain')
+        .regex(/^(?:[a-z0-9]+(?:-[a-z0-9]+)*\.)+[a-z]{2,}$/, 'RESTAURANT_BASE_DOMAIN must be a DNS domain')
         .optional(),
     ),
 
