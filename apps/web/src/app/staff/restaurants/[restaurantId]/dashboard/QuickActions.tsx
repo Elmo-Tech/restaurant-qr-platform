@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { useEffect, useRef, useState } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { getGuestMenuSegment } from '../../../../../lib/guest-menu/api';
-import { menuUrl } from '../../../../../lib/guest-menu/menu-url';
+import { genericMenuUrl } from '../../../../../lib/public-menu/restaurant-subdomains';
 import { Button } from '../../../../../components/ui/Button';
 import { IconBan, IconCheckCircle, IconCopy } from './icons';
 import { IconOrders, IconTable } from '../../../../../components/staff/icons';
@@ -18,7 +18,6 @@ import { IconOrders, IconTable } from '../../../../../components/staff/icons';
 export function QuickActions({
   restaurantId,
   webOrigin,
-  subdomainOrigin,
   ordersHref,
   pendingCount,
   tablesHref,
@@ -26,7 +25,6 @@ export function QuickActions({
 }: {
   restaurantId: string;
   webOrigin: string;
-  subdomainOrigin?: string;
   /** `null` when the member cannot view orders. */
   ordersHref: string | null;
   pendingCount: number;
@@ -53,7 +51,7 @@ export function QuickActions({
       if (!code) {
         next = 'none';
       } else {
-        await navigator.clipboard.writeText(menuUrl(webOrigin, code, subdomainOrigin));
+        await navigator.clipboard.writeText(genericMenuUrl(webOrigin, code, process.env.NEXT_PUBLIC_RESTAURANT_BASE_DOMAIN));
         next = 'copied';
       }
     } catch {

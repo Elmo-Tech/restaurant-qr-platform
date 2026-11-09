@@ -17,7 +17,12 @@ type ContractResponse = {
     isDraft: boolean;
     revision: number;
     documentText: string | null;
-    terms: { restaurant: { ownerContact: { fullName: string } } };
+    terms: {
+      restaurant: {
+        ownerContact: { fullName: string };
+        menuUrl: string | null;
+      };
+    };
     assets: { seal: string | null; signature: string | null };
   };
 };
@@ -29,6 +34,7 @@ suite('contract editing and signing (real HTTP and PostgreSQL)', () => {
   let cookie: string;
   const origin = 'http://localhost:3001';
   const email = `contract-${randomUUID()}@example.test`;
+  const restaurantSlug = `makhboz-${randomUUID().slice(0, 8)}`;
   const password = 'local-test-password-only';
   const png = Buffer.from(
     'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+jRZ8AAAAASUVORK5CYII=',
@@ -76,7 +82,7 @@ suite('contract editing and signing (real HTTP and PostgreSQL)', () => {
         },
         slugs: {
           create: {
-            slug: `makhboz-${randomUUID().slice(0, 8)}`,
+            slug: restaurantSlug,
             isCurrent: true,
           },
         },
@@ -173,6 +179,12 @@ suite('contract editing and signing (real HTTP and PostgreSQL)', () => {
     expect(firstData.isDraft).toBe(true);
     expect(firstData.terms.restaurant.ownerContact.fullName).toBe(
       'Test contact',
+    );
+    const domain = process.env.RESTAURANT_BASE_DOMAIN;
+    expect(firstData.terms.restaurant.menuUrl).toBe(
+      domain
+        ? `https://${restaurantSlug}.${domain}/`
+        : `${process.env.CORS_ORIGIN ?? 'http://localhost:3000'}/q/${restaurantSlug}`,
     );
     expect(firstData.assets).toEqual({ seal: null, signature: null });
     await request(app.getHttpServer())

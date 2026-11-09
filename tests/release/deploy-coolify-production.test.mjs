@@ -13,6 +13,8 @@ const validApp = () => ({
 const envs = (pin = prev) => [
   {key: 'WEB_HOST', value: PROD.web, is_preview: false},
   {key: 'PLATFORM_HOST', value: PROD.platform, is_preview: false},
+  {key: 'RESTAURANT_BASE_DOMAIN', value: PROD.web, is_preview: false},
+  {key: 'RESTAURANT_WILDCARD_HOST', value: '*.' + PROD.web, is_preview: false},
   {key: 'WAYTA_PROD_IMAGE_SHA', value: pin, is_preview: false},
 ];
 const releaseEnv = () => ({
@@ -88,6 +90,10 @@ test('Coolify envs must have one readable production SHA and correct hosts',()=>
   assert.throws(()=>checkEnvs([...envs(),{key:'WAYTA_PROD_IMAGE_SHA',value:sha}]),/one readable/);
   assert.throws(()=>checkEnvs(envs('*****')),/unavailable/);
   assert.throws(()=>checkEnvs(envs().map(e=>e.key==='WEB_HOST'?{...e,value:'wrong.example'}:e)),/host variables/);
+  assert.throws(()=>checkEnvs(envs().filter(e=>e.key!=='RESTAURANT_BASE_DOMAIN')), /RESTAURANT_BASE_DOMAIN/);
+  assert.throws(()=>checkEnvs(envs().filter(e=>e.key!=='RESTAURANT_WILDCARD_HOST')), /RESTAURANT_WILDCARD_HOST/);
+  assert.throws(()=>checkEnvs(envs().map(e=>e.key==='RESTAURANT_BASE_DOMAIN'?{...e,value:'evil.com'}:e)),/Restaurant subdomain/);
+  assert.throws(()=>checkEnvs(envs().map(e=>e.key==='RESTAURANT_WILDCARD_HOST'?{...e,value:'*'}:e)),/Restaurant subdomain/);
   assert.throws(()=>checkEnvs([...envs(),{key:'WAYTA_API_PUBLIC_URL',value:'https://wayta.elmotechsoft.online'}]),/WAYTA_API_PUBLIC_URL/);
   assert.doesNotThrow(()=>checkEnvs([...envs(),{key:'WAYTA_API_PUBLIC_URL',value:'https://waytaapp.com'}]));
   assert.doesNotThrow(()=>checkEnvs([...envs(),{key:'WAYTA_API_PUBLIC_URL',value:'https://waytaapp.com/'}]));

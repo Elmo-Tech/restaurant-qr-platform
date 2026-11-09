@@ -1,13 +1,15 @@
-import { API_BASE_URL } from './config';
+import { API_BASE_PATH, API_BASE_URL } from './config';
+import { restaurantSlugFromHost } from '../public-menu/restaurant-subdomains';
 import { ApiError } from './errors';
 
 const HTTP_NO_CONTENT = 204;
 
-// Guest endpoints on a restaurant host use that host's gateway; Staff stays on the configured origin.
-function apiBaseFor(path: string): string {
-  if (typeof window !== 'undefined' && path.startsWith('/public/qr/') &&
-    /^[a-z0-9]+(?:-[a-z0-9]+)*\.(waytaapp\.com|localhost)$/.test(window.location.hostname)) {
-    return '/api/v1';
+/** Guest browsers call the API on their own restaurant origin. The backend
+ * verifies QR ownership against that hostname; Staff remains on the apex. */
+function browserApiBaseUrl(): string {
+  if (typeof window !== 'undefined' &&
+      restaurantSlugFromHost(window.location.host, process.env.NEXT_PUBLIC_RESTAURANT_BASE_DOMAIN)) {
+    return `${window.location.origin}${API_BASE_PATH}`;
   }
   return API_BASE_URL;
 }
@@ -51,7 +53,7 @@ export async function apiFetch<TBody = unknown>(
   path: string,
   options: ApiFetchOptions = {},
 ): Promise<TBody> {
-  const response = await fetch(`${apiBaseFor(path)}${path}`, {
+  const response = await fetch(`${browserApiBaseUrl()}${path}`, {
     method: options.method ?? 'GET',
     credentials: 'include',
     headers:
@@ -78,7 +80,7 @@ export async function apiFetchFormData<TBody = unknown>(
   formData: FormData,
   method: 'POST' | 'PUT' = 'POST',
 ): Promise<TBody> {
-  const response = await fetch(`${API_BASE_URL}${path}`, {
+  const response = await fetch(`${browserApiBaseUrl()}${path}`, {
     method,
     credentials: 'include',
     body: formData,

@@ -53,6 +53,15 @@ export function checkEnvs(items) {
   if (envValue(items, 'WEB_HOST') !== PROD.web || envValue(items, 'PLATFORM_HOST') !== PROD.platform) {
     throw new Error('Production host variables differ from approved domains.');
   }
+  // Restaurant-domain rollout is opt-in; deploying the wildcard router before
+  // both runtime variables are set would route valid HTTPS requests to 444/404.
+  // Fail before changing WAYTA_PROD_IMAGE_SHA or invoking Coolify deploy.
+  if (
+    envValue(items, 'RESTAURANT_BASE_DOMAIN') !== PROD.web ||
+    envValue(items, 'RESTAURANT_WILDCARD_HOST') !== '*.' + PROD.web
+  ) {
+    throw new Error('Restaurant subdomain variables must match the approved production suffix.');
+  }
   // Only new webhook registrations use WAYTA_API_PUBLIC_URL, but a stale explicit
   // value would register new Evolution callbacks against the retired menu origin.
   const rows = Array.isArray(items) ? items : items?.data;

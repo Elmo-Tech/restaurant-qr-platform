@@ -263,7 +263,6 @@ export default async function RestaurantLandingPage({
             pickupDelivery: offersPickupAndDelivery(membership),
           }}
           webOrigin={getWebOrigin()}
-          subdomainOrigin={process.env.MENU_SUBDOMAIN_ORIGIN || undefined}
           access={access}
           setupEligible={setupEligible}
           setupRole={membership.role}

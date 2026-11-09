@@ -21,7 +21,6 @@ export function GuestQrWorkspace({
   qrStyle,
   logoAssetPath,
   webOrigin,
-  subdomainOrigin,
 }: {
   restaurantId: string;
   restaurantName: string;
@@ -32,7 +31,6 @@ export function GuestQrWorkspace({
   qrStyle: QrStyle;
   logoAssetPath: string | null;
   webOrigin: string;
-  subdomainOrigin?: string;
 }) {
   const { t } = useStaffI18n();
   return (
@@ -48,7 +46,6 @@ export function GuestQrWorkspace({
         canStyle={canManageOrderTypes}
         initialStyle={qrStyle}
         webOrigin={webOrigin}
-        subdomainOrigin={subdomainOrigin}
       />
 
       <div className="flex flex-col gap-2 rounded-xl border border-border bg-card px-4 py-4 text-sm sm:flex-row sm:items-center sm:justify-between">

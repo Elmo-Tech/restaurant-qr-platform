@@ -1,8 +1,9 @@
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
 import { getPublicMenu } from '../../../lib/public-menu/api';
 import { getPublicMenuCopy } from '../../../lib/public-menu/copy';
 import { parseMenuTemplate } from '../../../lib/public-menu/templates';
+import { validRestaurantHostSlug } from '../../../lib/public-menu/restaurant-subdomains';
 import { GUEST_THEME_COOKIE } from '../../../lib/public-menu/theme';
 import { BrandedMenuPending } from './BrandedMenuPending';
 import { GuestStatusPage } from './GuestStatusPage';
@@ -57,15 +58,33 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
     );
   }
 
-  // An old /q/{code} link or a renamed slug: continue on the readable URL, keeping the Guest's own query.
+  // QR links printed before this rollout still resolve via the opaque publicCode.
+  // Generic menus canonicalize to the restaurant's root hostname; Table QR
+  // menus retain /q/{opaquePublicCode} and all their session semantics.
   const { redirectToSlug, publicCode } = result.data.context.entry;
+  const query = new URLSearchParams();
+  if (lang) query.set('lang', lang);
+  if (template) query.set('template', template);
+  if (designPreview) query.set('designPreview', designPreview);
+  const queryString = query.toString();
+  const suffix = queryString ? `?${queryString}` : '';
+  const baseDomain = process.env.RESTAURANT_BASE_DOMAIN;
+  const shareCode = result.data.context.restaurant.shareCode;
+  if (
+    baseDomain &&
+    result.data.context.qrType === 'GENERIC' &&
+    shareCode &&
+    validRestaurantHostSlug(shareCode) &&
+    designPreview !== '1' // Staff previews must remain embeddable on the apex.
+  ) {
+    const host = (await headers()).get('host')?.toLowerCase().replace(/:\d+$/, '');
+    const canonicalHost = `${shareCode}.${baseDomain}`;
+    if (host !== canonicalHost) {
+      redirect(`https://${canonicalHost}/${suffix}`);
+    }
+  }
+
   if (redirectToSlug) {
-    const query = new URLSearchParams();
-    if (lang) query.set('lang', lang);
-    if (template) query.set('template', template);
-    if (designPreview) query.set('designPreview', designPreview);
-    const queryString = query.toString();
-    const suffix = queryString ? `?${queryString}` : '';
     redirect(`/q/${encodeURIComponent(redirectToSlug)}${suffix}`);
   }
 

@@ -3,6 +3,7 @@ import {
   Body,
   ConflictException,
   Controller,
+  UseGuards,
   HttpCode,
   HttpStatus,
   NotFoundException,
@@ -10,6 +11,7 @@ import {
   Post,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { PublicRestaurantHostGuard } from './public-restaurant-host.guard';
 import {
   RATE_LIMIT_GROUPS,
   RateLimitGroup,
@@ -184,6 +186,7 @@ interface GuestOrderResponseBody {
  * accepted gap. Idempotency (`clientRequestId`) is still enforced
  * regardless (Section 11/28).
  */
+@UseGuards(PublicRestaurantHostGuard)
 @Controller('public/qr')
 export class PublicOrdersController {
   constructor(private readonly publicOrdersService: PublicOrdersService, private readonly whatsappTracking: WhatsappTrackingService) {}

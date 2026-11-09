@@ -6,6 +6,7 @@ import * as qrApi from '../../../../../../lib/qr/api';
 import type { GenericQr } from '../../../../../../lib/qr/api';
 import * as settingsApi from '../../../../../../lib/settings/api';
 import { resolveAssetUrl } from '../../../../../../lib/media/asset-url';
+import { genericMenuUrl } from '../../../../../../lib/public-menu/restaurant-subdomains';
 import {
   colorIssue,
   DEFAULT_QR_STYLE,
@@ -27,7 +28,6 @@ import { Card } from '../../../../../../components/ui/Card';
 import { Switch } from '../../../../../../components/ui/Switch';
 import { IconQr } from '../../../../../../components/staff/icons';
 import { StandDesigner } from '../../../../../../components/qr/StandDesigner';
-import { menuUrl } from '../../../../../../lib/guest-menu/menu-url';
 
 function sanitizeFilenameSegment(value: string): string {
   const cleaned = value
@@ -57,7 +57,6 @@ export function RestaurantQrPanel({
   canStyle,
   initialStyle,
   webOrigin,
-  subdomainOrigin,
 }: {
   restaurantId: string;
   restaurantName: string;
@@ -68,7 +67,6 @@ export function RestaurantQrPanel({
   canStyle: boolean;
   initialStyle: QrStyle;
   webOrigin: string;
-  subdomainOrigin?: string;
 }) {
   const { t } = useStaffI18n();
   const [qr, setQr] = useState<GenericQr | null | undefined>(undefined);
@@ -119,7 +117,7 @@ export function RestaurantQrPanel({
     }
   }
 
-  const guestUrl = qr ? menuUrl(webOrigin, qr.slug ?? qr.publicCode, subdomainOrigin) : null;
+  const guestUrl = qr ? genericMenuUrl(webOrigin, qr.slug ?? qr.publicCode, process.env.NEXT_PUBLIC_RESTAURANT_BASE_DOMAIN) : null;
   const isActive = qr?.status === 'ACTIVE';
   const logoUrl = resolveAssetUrl(logoAssetPath);
   const issue = colorIssue(draft.foregroundColor, draft.backgroundColor);

@@ -52,12 +52,13 @@ The root of a single-label restaurant subdomain is internally rewritten to
 `/q/{slug}`; Guest QR API requests use the same host. The server retains the
 existing authorization and QR checks. No wildcard credentialed CORS is added.
 
-`MENU_SUBDOMAIN_ORIGIN` is optional on both API and Web. Unset, links continue
-to use the existing configured Web origin and `/q/{slug}`. For a local run set
-it to `http://localhost:3000` in both processes and open, for example,
-`http://mkhbwz.localhost:3000/`. Once production routing is verified, set it
-to `https://waytaapp.com` in both services to produce links such as
-`https://makhboz.waytaapp.com`. Changing it does not change old printed links.
+The shared `RESTAURANT_BASE_DOMAIN` setting on API and Web controls tenant
+hosts; the Web build also receives `NEXT_PUBLIC_RESTAURANT_BASE_DOMAIN`.
+Unset, links continue to use the configured Web origin and `/q/{slug}`. When
+the approved production routing is enabled with `waytaapp.com`, links such as
+`https://makhboz.waytaapp.com/` are used in the console, contracts and guest
+sharing. See `docs/02-technical/RESTAURANT_SUBDOMAIN_RELEASE.md` for the full
+configuration and host-isolation requirements. Old printed links still work.
 The default Powered by link is updated to `https://waytaapp.com/` only when the
 previous default was still in use; a custom administrator value is preserved.
 
@@ -76,21 +77,21 @@ proxy routing, production data or migration history have been checked.
    migration removes the former shared image table. Existing issued images in
    their contract snapshots remain; any images that existed *only* in the
    shared table are removed and must be uploaded to each draft again.
-3. Keep `MENU_SUBDOMAIN_ORIGIN` empty initially and retain the existing Web
-   host and its certificate so already printed QR codes continue to work.
+3. Keep the existing Web host and its certificate so printed QR codes
+   continue to work. Respect the production release guard and the matching
+   tenant settings required by `RESTAURANT_SUBDOMAIN_RELEASE.md`.
    Verify the migration runner completes successfully and that the API, Web,
    Platform and gateway are healthy. Check an existing contract, draft editing,
    contract-only image uploads, issuing and browser PDF printing.
-4. Separately configure wildcard DNS and a valid wildcard TLS certificate in
-   the outer proxy, and route `*.waytaapp.com` to the gateway. The exact
-   Platform host must take precedence over the wildcard. Check current restaurant
+4. Verify wildcard DNS, TLS and the existing proxy route as described in the
+   subdomain release guide. The exact Platform host must take precedence over
+   the wildcard. Check current restaurant
    slugs against all infrastructure hosts, including the actual Platform host.
    Verify a known restaurant, an unknown/inactive restaurant, old path links,
    ordering, and denial of Platform API routes on the restaurant host.
-5. Only after those checks, set `MENU_SUBDOMAIN_ORIGIN=https://waytaapp.com`
-   for both API and Web (the Coolify compose file passes the same variable to
-   both) and redeploy. Check links in the console, dashboard, contract and
-   Guest share action, plus the complete Guest ordering flow on a subdomain.
+5. With the matching tenant settings enabled, check links in the console,
+   dashboard, contract and Guest share action, plus the complete Guest ordering
+   flow on a subdomain.
 
 For rollback, stop writes first. A previous frontend can show structured
 contract JSON as raw text, and the removed shared image table is not recreated
@@ -102,4 +103,4 @@ branch.
 
 Local release checks include `npm run test:contract-ui`, the API contract HTTP
 test against a disposable local database, and the menu URL tests with
-`node --test apps/web/src/lib/guest-menu/menu-url.test.mjs`.
+`node --test apps/web/src/lib/public-menu/restaurant-subdomains.test.mjs`.

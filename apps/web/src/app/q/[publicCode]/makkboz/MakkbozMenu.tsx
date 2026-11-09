@@ -4,7 +4,7 @@ import Link from 'next/link';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { GuestIconBag, GuestIconClose, GuestIconMoon, GuestIconPhone, GuestIconReceipt, GuestIconSearch, GuestIconSun } from '../../../../components/guest/icons';
 import type { RestaurantContact } from '../../../../lib/contact/types';
-import { shareMenuUrl } from '../../../../lib/guest-menu/subdomain-host';
+import { genericMenuUrl } from '../../../../lib/public-menu/restaurant-subdomains';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../../lib/public-menu/copy';
 import type { DesignOffers } from '../guest-view-types';
@@ -256,7 +256,7 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
 
   const shareMenu = useCallback(async () => {
     if (!shareCode) return;
-    const url = shareMenuUrl(window.location.origin, shareCode);
+    const url = genericMenuUrl(window.location.origin, shareCode, process.env.NEXT_PUBLIC_RESTAURANT_BASE_DOMAIN);
     try {
       if (navigator.share) {
         await navigator.share({ title: brand, url });

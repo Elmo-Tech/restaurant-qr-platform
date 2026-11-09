@@ -3,6 +3,7 @@
 # name and path, so each frontend stays same-origin with the API (host-only HttpOnly cookies keep working,
 # CORS stays strict, CSRF's Origin check is untouched).
 #
+#   $RESTAURANT_WILDCARD_HOST  same Guest routes as $WEB_HOST; Platform exact host takes precedence.
 #   $WEB_HOST       /                      -> web       (Next.js, restaurant app)
 #                   /api/v1/*, /media/*    -> api       (NestJS)
 #                   /socket.io/*           -> api       (Socket.IO / WebSocket transport)
@@ -117,7 +118,7 @@ server {
 # ------------------------------------------------------------------------------------------------ restaurant app
 server {
     listen 8080;
-    server_name ${WEB_HOST} *.waytaapp.com;
+    server_name ${WEB_HOST} ${RESTAURANT_WILDCARD_HOST};
 
     # The platform administrators' API lives on the console host only. Nest/Express routing is
     # case-insensitive by default, so this gateway boundary must reject every casing too.
@@ -128,11 +129,22 @@ server {
     # Callback carries a high-entropy capability token in the path; do not write
     # it to gateway access logs. API still validates token, instance and order HMAC.
     location ^~ /api/v1/whatsapp-tracking/webhook/ {
+        # The legacy host has its own explicit callback block above. Unknown
+        # restaurant subdomains must not accept platform-wide webhooks.
+        if ($host != ${WEB_HOST}) { return 404; }
         access_log off;
         proxy_pass $api_upstream;
     }
 
+    # Restaurant subdomains can access only QR-scoped public endpoints.
+    # The Nest guard additionally checks QR ownership against this Host.
+    location ^~ /api/v1/public/qr/ {
+        proxy_pass $api_upstream;
+    }
+
     location /api/v1/ {
+        # No Staff auth/session/business API on restaurant hostnames.
+        if ($host != ${WEB_HOST}) { return 404; }
         # menu imports can wait on the AI workflow for minutes (MENU_IMPORT_TIMEOUT_SECONDS)
         proxy_read_timeout 600s;
         proxy_pass $api_upstream;
@@ -147,6 +159,7 @@ server {
     # Socket.IO is outside the versioned REST prefix. The shared proxy headers above preserve the
     # Upgrade/Connection handshake, and the longer timeout keeps quiet WebSocket connections alive.
     location ^~ /socket.io/ {
+        if ($host != ${WEB_HOST}) { return 404; }
         proxy_read_timeout 75s;
         proxy_send_timeout 75s;
         proxy_pass $api_upstream;

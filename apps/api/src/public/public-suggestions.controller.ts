@@ -1,11 +1,13 @@
 import {
   Body,
   Controller,
+  UseGuards,
   HttpCode,
   HttpStatus,
   Param,
   Post,
 } from '@nestjs/common';
+import { PublicRestaurantHostGuard } from './public-restaurant-host.guard';
 import { ArrayMaxSize, ArrayMinSize, IsArray, IsUUID } from 'class-validator';
 import { PublicSuggestionsService } from './public-suggestions.service';
 
@@ -23,6 +25,7 @@ class SuggestionsRequestDto {
  * answers an empty list when suggestions are off, the code is unknown or there is nothing to
  * suggest, so it never reveals more than "no suggestions".
  */
+@UseGuards(PublicRestaurantHostGuard)
 @Controller('public/qr')
 export class PublicSuggestionsController {
   constructor(private readonly suggestions: PublicSuggestionsService) {}

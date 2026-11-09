@@ -146,16 +146,15 @@ export class PlatformRestaurantsService {
     const origin = String(
       this.config.get('CORS_ORIGIN', { infer: true }) ?? '',
     ).replace(/\/+$/, '');
+    const tenantDomain = this.config.get('RESTAURANT_BASE_DOMAIN', {
+      infer: true,
+    });
     return {
       slug: current,
       formerSlugs: slugs.filter((s) => !s.isCurrent).map((s) => s.slug),
       url:
         current && origin
-          ? restaurantMenuUrl(
-              current,
-              origin,
-              this.config.get('MENU_SUBDOMAIN_ORIGIN', { infer: true }),
-            )
+          ? restaurantMenuUrl(current, origin, tenantDomain)
           : null,
     };
   }

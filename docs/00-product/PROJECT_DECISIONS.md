@@ -1608,6 +1608,20 @@ Guest app still uses the resolved QR code for orders, tracking and storage; unkn
 rate limits and Origin checks are unchanged. **Not in scope:** slugs for Branches or Tables, per-menu URLs, custom domains, owner self-edit of the slug.
 Spec updates: QR_SPEC.md (amendment), DATABASE_SPEC.md #54A, API_CONVENTIONS.md (amendment), OPERATIONS_RUNBOOK.md #7.
 
+**Amendment (2026-11-09, owner approved) — Restaurant-specific subdomains:** The slug remains the
+Restaurant's globally unique, Platform-managed public identity, but a Restaurant's **canonical
+GENERIC Guest Menu URL** changes to `https://{slug}.waytaapp.com/` after the explicitly approved
+opt-in production release. `/q/{slug}`, `/q/{old generic QR code}`, and former-slug URLs
+remain supported and redirect to the current canonical Restaurant menu. Physical **Table QRs**
+keep `/q/{43-character publicCode}` on the apex; Table QR capabilities, permissions and session
+semantics do not change. The public API refuses opaque QRs belonging to a different Restaurant
+when accessed through another Restaurant's hostname; the host label by itself grants no access.
+Reserved infrastructure labels include `control`, `cdn` and `mail`. All Restaurants continue
+sharing the same app, gateway and database (tenant isolation remains Backend-owned). Coolify
+wildcard ingress requires a separately approved manual production change; the existing Platform
+console stays at `control.waytaapp.com` and Staff stays on `waytaapp.com` for this release.
+Implementation/rollback checklist: `docs/02-technical/RESTAURANT_SUBDOMAIN_RELEASE.md`.
+
 ### DEC-067 — Meat Lovers exclusive menu design ("The Butcher's Edit") and per-kilo selling
 
 **Status:** Built, not merged or deployed; owner confirmation items in `MEAT_LOVERS_EXCLUSIVE_RENDERER_IMPLEMENTATION.md` section 7.

@@ -93,8 +93,8 @@ services:
       DATABASE_URL: postgresql://${POSTGRES_USER:-restaurant_qr_app}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB:-restaurant_qr_platform}
       # the two browser origins allowed to call the API with credentials (both are the public HTTPS origins)
       CORS_ORIGIN: https://${WEB_HOST:?Set WEB_HOST (for example menu.example.com)}
-      MENU_SUBDOMAIN_ORIGIN: ${MENU_SUBDOMAIN_ORIGIN:-}
       PLATFORM_ORIGIN: https://${PLATFORM_HOST:?Set PLATFORM_HOST (for example control.example.com)}
+      RESTAURANT_BASE_DOMAIN: ${RESTAURANT_BASE_DOMAIN:-}
       AUTH_COOKIE_SECURE: "true"
       AUTH_COOKIE_SAME_SITE: lax
       AUTH_SESSION_COOKIE_NAME: ${AUTH_SESSION_COOKIE_NAME:-restaurant_session}
@@ -158,13 +158,14 @@ services:
         # inlined into the browser bundle at build time: the PUBLIC origin of the restaurant app
         NEXT_PUBLIC_API_URL: https://${WEB_HOST:?Set WEB_HOST}
         NEXT_PUBLIC_API_BASE_PATH: /api/v1
+        NEXT_PUBLIC_RESTAURANT_BASE_DOMAIN: ${RESTAURANT_BASE_DOMAIN:-}
     environment:
       NODE_ENV: production
       # server-side calls stay on the private network
       API_INTERNAL_URL: http://api:4000
+      RESTAURANT_BASE_DOMAIN: ${RESTAURANT_BASE_DOMAIN:-}
       # the origin printed QR codes point to: ${WEB_URL}/q/{restaurant-slug} (Table QRs: /q/{publicCode})
       WEB_URL: https://${WEB_HOST}
-      MENU_SUBDOMAIN_ORIGIN: ${MENU_SUBDOMAIN_ORIGIN:-}
     depends_on:
       api:
         condition: service_healthy
@@ -214,6 +215,7 @@ services:
     environment:
       WEB_HOST: ${WEB_HOST}
       PLATFORM_HOST: ${PLATFORM_HOST}
+      RESTAURANT_WILDCARD_HOST: ${RESTAURANT_WILDCARD_HOST:-}
     depends_on:
       api:
         condition: service_healthy

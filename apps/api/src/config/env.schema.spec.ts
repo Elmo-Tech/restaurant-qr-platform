@@ -27,32 +27,6 @@ function omit(
 }
 
 describe('validateEnv', () => {
-  it('accepts only the intended production or local subdomain root', () => {
-    for (const value of ['https://waytaapp.com', 'http://localhost:3000']) {
-      expect(
-        validateEnv(validConfig({ MENU_SUBDOMAIN_ORIGIN: value }))
-          .MENU_SUBDOMAIN_ORIGIN,
-      ).toBe(value);
-    }
-    for (const value of [
-      'https://waytaapp.com.evil.test',
-      'http://waytaapp.com',
-      'https://waytaapp.com/path',
-    ]) {
-      expect(() =>
-        validateEnv(validConfig({ MENU_SUBDOMAIN_ORIGIN: value })),
-      ).toThrow(/MENU_SUBDOMAIN_ORIGIN/);
-    }
-    expect(() =>
-      validateEnv(
-        validConfig({
-          NODE_ENV: 'production',
-          AUTH_COOKIE_SECURE: 'true',
-          MENU_SUBDOMAIN_ORIGIN: 'http://localhost:3000',
-        }),
-      ),
-    ).toThrow(/MENU_SUBDOMAIN_ORIGIN/);
-  });
   it('accepts a valid configuration and coerces API_PORT to a number', () => {
     const result = validateEnv(validConfig());
 
@@ -251,6 +225,17 @@ describe('validateEnv', () => {
     expect(caught).toBeInstanceOf(Error);
     expect(caught?.message).toMatch(/DATABASE_URL/);
     expect(caught?.message).not.toContain('secret');
+  });
+
+  it('enables an exact restaurant base domain only when configured', () => {
+    expect(validateEnv(validConfig()).RESTAURANT_BASE_DOMAIN).toBeUndefined();
+    expect(
+      validateEnv(validConfig({ RESTAURANT_BASE_DOMAIN: 'waytaapp.com' }))
+        .RESTAURANT_BASE_DOMAIN,
+    ).toBe('waytaapp.com');
+    expect(() =>
+      validateEnv(validConfig({ RESTAURANT_BASE_DOMAIN: '*.waytaapp.com' })),
+    ).toThrow(/RESTAURANT_BASE_DOMAIN/);
   });
 
   it('rejects a missing CORS_ORIGIN', () => {

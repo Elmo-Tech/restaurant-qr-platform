@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  UseGuards,
   Get,
   HttpCode,
   HttpStatus,
@@ -10,6 +11,7 @@ import {
   Query,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { PublicRestaurantHostGuard } from './public-restaurant-host.guard';
 import { IsOptional, IsString, MaxLength } from 'class-validator';
 import {
   RATE_LIMIT_GROUPS,
@@ -47,6 +49,7 @@ const ORDER_NOT_FOUND = {
  *   (24 h) Pickup / Delivery orders placed with that phone number, same safe view, no ids.
  *   Counted by a strict per-IP rate limit.
  */
+@UseGuards(PublicRestaurantHostGuard)
 @Controller('public/qr')
 export class PublicOrderTrackingController {
   constructor(private readonly tracking: PublicOrderTrackingService) {}

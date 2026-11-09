@@ -23,7 +23,6 @@ const securityHeaders = [
 ];
 
 const nextConfig: NextConfig = {
-  ...(process.env.NODE_ENV !== "production" ? { allowedDevOrigins: ["*.localhost"] } : {}),
   // Production images (infra/docker/Dockerfile.web) build a self-contained server with
   // NEXT_OUTPUT=standalone. The monorepo root is the tracing root so the packages hoisted into the root
   // node_modules are included. Local `next dev` / `next start` are unaffected.
@@ -32,12 +31,6 @@ const nextConfig: NextConfig = {
     : {}),
   async headers() {
     return [{ source: "/:path*", headers: securityHeaders }];
-  },
-  // Production gateway handles these paths. Local subdomains need a same-origin Guest API too.
-  async rewrites() {
-    if (process.env.NODE_ENV === "production") return [];
-    const api = process.env.NEXT_PUBLIC_API_URL;
-    return api ? [{ source: "/api/v1/public/:path*", destination: `${api}/api/v1/public/:path*` }] : [];
   },
 };
 

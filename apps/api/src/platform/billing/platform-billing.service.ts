@@ -922,7 +922,7 @@ export class PlatformBillingService {
       ? restaurantMenuUrl(
           slug,
           this.config.get('CORS_ORIGIN', { infer: true }),
-          this.config.get('MENU_SUBDOMAIN_ORIGIN', { infer: true }),
+          this.config.get('RESTAURANT_BASE_DOMAIN', { infer: true }),
         )
       : null;
     const nextTerms = {
@@ -1175,7 +1175,7 @@ export class PlatformBillingService {
           ? restaurantMenuUrl(
               restaurant.slugs[0].slug,
               this.config.get('CORS_ORIGIN', { infer: true }),
-              this.config.get('MENU_SUBDOMAIN_ORIGIN', { infer: true }),
+              this.config.get('RESTAURANT_BASE_DOMAIN', { infer: true }),
             )
           : null,
       },

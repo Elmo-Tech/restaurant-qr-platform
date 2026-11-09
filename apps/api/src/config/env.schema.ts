@@ -82,31 +82,19 @@ export const envSchema = z
           'CORS_ORIGIN must not be a wildcard (SECURITY_SPEC.md #68: never combine credentials=true with origin=*)',
       }),
 
-    // Enable only after wildcard routing and TLS are ready; localhost supports local testing.
-    MENU_SUBDOMAIN_ORIGIN: z.preprocess(
+    // Opt-in Guest restaurant subdomains. Empty/unset keeps existing host-neutral QR behavior.
+    // Exact DNS suffix only; never turn this into credentialed wildcard CORS.
+    RESTAURANT_BASE_DOMAIN: z.preprocess(
       (value) =>
         typeof value === 'string' && value.trim() === '' ? undefined : value,
       z
         .string()
-        .url()
-        .refine((value) => {
-          try {
-            const url = new URL(value);
-            return (
-              url.pathname === '/' &&
-              !url.search &&
-              !url.hash &&
-              !url.username &&
-              !url.password &&
-              ((url.protocol === 'https:' &&
-                url.hostname === 'waytaapp.com' &&
-                !url.port) ||
-                (url.protocol === 'http:' && url.hostname === 'localhost'))
-            );
-          } catch {
-            return false;
-          }
-        }, 'Use https://waytaapp.com or a local http://localhost origin')
+        .trim()
+        .toLowerCase()
+        .regex(
+          /^(?:[a-z0-9]+(?:-[a-z0-9]+)*\.)+[a-z]{2,}$/,
+          'RESTAURANT_BASE_DOMAIN must be a DNS domain',
+        )
         .optional(),
     ),
 
@@ -327,16 +315,6 @@ export const envSchema = z
   // not silently stripped from what ConfigService can still read.
   .passthrough()
   .superRefine((config, ctx) => {
-    if (
-      config.NODE_ENV === 'production' &&
-      config.MENU_SUBDOMAIN_ORIGIN?.startsWith('http://localhost')
-    ) {
-      ctx.addIssue({
-        code: 'custom',
-        path: ['MENU_SUBDOMAIN_ORIGIN'],
-        message: 'Local menu subdomains cannot be used in production',
-      });
-    }
     // AUTH_TENANCY_SPEC.md #24, SECURITY_SPEC.md #23: this invariant is
     // enforced at startup rather than trusted from a possibly-stale .env.
     if (config.NODE_ENV === 'production' && !config.AUTH_COOKIE_SECURE) {

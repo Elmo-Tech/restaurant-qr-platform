@@ -63,6 +63,17 @@ jobs:
           offer-order.spec.ts
           offer-rules.spec.ts
           public-orders.controller.spec.ts
+          public-restaurant-host.guard.spec.ts
+      - name: Verify restaurant subdomain routing contracts
+        run: >-
+          node --test
+          apps/web/src/lib/public-menu/restaurant-subdomains.test.mjs
+          apps/web/src/lib/public-menu/restaurant-routing.contract.test.mjs
+          apps/web/src/lib/public-menu/readable-links.contract.test.mjs
+      - name: Verify HTTP Host/QR isolation (two test restaurants, no database)
+        run: >-
+          npm exec --workspace=apps/api -- jest --config ./test/jest-e2e.json
+          --runInBand restaurant-subdomains-http.e2e-spec.ts
       - name: Verify image-only production Compose preserves original services, volumes and healthchecks
         env:
           WEB_HOST: waytaapp.com
@@ -97,6 +108,32 @@ jobs:
               delete original.pull_policy;
               delete production.pull_policy;
             }
+            if (name === 'gateway') {
+              // Production-only Traefik routers are deliberately absent from Dev.
+              // They must remain on the SAME existing gateway service:8080.
+              const labels = production.labels || {};
+              const prefix = 'traefik.http.routers.wayta-tenants-';
+              const service = 'traefik.http.services.wayta-tenants-gateway.loadbalancer.server.port';
+              assert.equal(original.labels, undefined, 'Dev gateway must not claim production tenant hosts');
+              assert.equal(labels[service], '8080');
+              assert.equal(labels[prefix + 'https.entrypoints'], 'https');
+              assert.equal(labels[prefix + 'https.tls'], 'true');
+              assert.equal(labels[prefix + 'https.service'], 'wayta-tenants-gateway');
+              assert.equal(labels[prefix + 'https.priority'], '20');
+              assert.equal(labels[prefix + 'http.entrypoints'], 'http');
+              assert.equal(labels[prefix + 'http.priority'], '20');
+              assert.equal(labels[prefix + 'http.middlewares'], 'wayta-tenants-redirect-https');
+              assert.equal(labels[prefix + 'http.service'], 'wayta-tenants-gateway');
+              const rule = labels[prefix + 'https.rule'];
+              assert.equal(rule, labels[prefix + 'http.rule']);
+              assert.ok(rule.includes('HostRegexp(') && rule.includes('waytaapp') && rule.includes('\\z`'));
+              assert.ok(rule.includes('!Host(`control.waytaapp.com`)'));
+              assert.ok(rule.includes('!Host(`www.waytaapp.com`)'));
+              assert.equal(labels['traefik.http.middlewares.wayta-tenants-redirect-https.redirectscheme.scheme'], 'https');
+              assert.equal(labels['traefik.http.middlewares.wayta-tenants-redirect-https.redirectscheme.permanent'], 'true');
+              delete original.labels;
+              delete production.labels;
+            }
             assert.deepEqual(production, original, 'Unexpected runtime change for ' + name);
           }
           assert.equal(after.services.gateway.environment.WEB_HOST, process.env.WEB_HOST);
@@ -112,6 +149,11 @@ jobs:
           docker run --rm \
             -e WEB_HOST=waytaapp.com \
             -e PLATFORM_HOST=control.waytaapp.com \
+            wayta-gateway-config-ci nginx -t
+          docker run --rm \
+            -e WEB_HOST=waytaapp.com \
+            -e PLATFORM_HOST=control.waytaapp.com \
+            -e RESTAURANT_WILDCARD_HOST='*.waytaapp.com' \
             wayta-gateway-config-ci nginx -t
 
   publish:
@@ -181,6 +223,7 @@ jobs:
           build-args: |
             NEXT_PUBLIC_API_URL=https://${{ env.PROD_WEB_HOST }}
             NEXT_PUBLIC_API_BASE_PATH=/api/v1
+            NEXT_PUBLIC_RESTAURANT_BASE_DOMAIN=${{ env.PROD_WEB_HOST }}
           cache-from: type=gha,scope=wayta-prod-web
           cache-to: type=gha,mode=max,scope=wayta-prod-web
       - name: Publish Platform Console (production origin)

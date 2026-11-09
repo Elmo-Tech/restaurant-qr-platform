@@ -9,6 +9,7 @@ import { PublicMenuController } from '../../public/public-menu.controller';
 import { PublicOrdersController } from '../../public/public-orders.controller';
 import { PublicMenuService } from '../../public/public-menu.service';
 import { PublicOrdersService } from '../../public/public-orders.service';
+import { WhatsappTrackingService } from '../../whatsapp-tracking/whatsapp-tracking.service';
 import { LoginService } from '../../auth/login/login.service';
 import { PrismaService } from '../../database/prisma.service';
 import { ConfigService } from '@nestjs/config';
@@ -39,6 +40,7 @@ async function buildApp(settings: RateLimitSettings): Promise<INestApplication> 
         useValue: { login: jest.fn().mockResolvedValue({ outcome: 'invalidCredentials' }) },
       },
       { provide: ConfigService, useValue: { get: jest.fn() } },
+      { provide: WhatsappTrackingService, useValue: {} },
       {
         provide: PublicOrdersService,
         useValue: { createOrder: jest.fn().mockResolvedValue({ outcome: 'qrNotFound' }) },
