@@ -22,10 +22,10 @@ test('Browser Guest API is same-origin only for trusted tenant subdomains', () =
 });
 
 test('Gateway wildcard is opt-in and existing platform host remains exact', () => {
-  const gateway = read('../../infra/docker/nginx/gateway.conf.template');
+  const gateway = read('../../../infra/docker/nginx/gateway.conf.template');
   assert.ok(gateway.includes('server_name ${WEB_HOST} ${RESTAURANT_WILDCARD_HOST};'));
   assert.ok(gateway.includes('server_name ${PLATFORM_HOST};'));
-  const prod = read('../../infra/docker/compose.coolify.prod.prebuilt.yml');
+  const prod = read('../../../infra/docker/compose.coolify.prod.prebuilt.yml');
   assert.ok(prod.includes('RESTAURANT_BASE_DOMAIN: ${RESTAURANT_BASE_DOMAIN:-}'));
   assert.ok(prod.includes('RESTAURANT_WILDCARD_HOST: ${RESTAURANT_WILDCARD_HOST:-}'));
 });
