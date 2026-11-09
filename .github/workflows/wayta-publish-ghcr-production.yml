@@ -63,6 +63,13 @@ jobs:
           offer-order.spec.ts
           offer-rules.spec.ts
           public-orders.controller.spec.ts
+          public-restaurant-host.guard.spec.ts
+      - name: Verify restaurant subdomain routing contracts
+        run: >-
+          node --test
+          apps/web/src/lib/public-menu/restaurant-subdomains.test.mjs
+          apps/web/src/lib/public-menu/restaurant-routing.contract.test.mjs
+          apps/web/src/lib/public-menu/readable-links.contract.test.mjs
       - name: Verify image-only production Compose preserves original services, volumes and healthchecks
         env:
           WEB_HOST: waytaapp.com
