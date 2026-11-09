@@ -59,8 +59,9 @@ export function checkEnvs(items) {
   const publicUrlRows = rows.filter(e => e.key === 'WAYTA_API_PUBLIC_URL' && e.is_preview !== true);
   if (publicUrlRows.length > 1) throw new Error('Duplicate WAYTA_API_PUBLIC_URL variables.');
   if (publicUrlRows.length === 1 &&
-      publicUrlRows[0].value !== '' &&
-      publicUrlRows[0].value !== 'https://' + PROD.web) {
+      (typeof publicUrlRows[0].value !== 'string' ||
+       (publicUrlRows[0].value !== '' &&
+        publicUrlRows[0].value.replace(/\\/+$/, '') !== 'https://' + PROD.web))) {
     throw new Error('WAYTA_API_PUBLIC_URL must use the approved production Web origin.');
   }
   const current = envValue(items, KEY);
