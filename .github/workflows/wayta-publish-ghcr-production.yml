@@ -70,6 +70,10 @@ jobs:
           apps/web/src/lib/public-menu/restaurant-subdomains.test.mjs
           apps/web/src/lib/public-menu/restaurant-routing.contract.test.mjs
           apps/web/src/lib/public-menu/readable-links.contract.test.mjs
+      - name: Verify HTTP Host/QR isolation (two test restaurants, no database)
+        run: >-
+          npm exec --workspace=apps/api -- jest --config ./test/jest-e2e.json
+          --runInBand restaurant-subdomains-http.e2e-spec.ts
       - name: Verify image-only production Compose preserves original services, volumes and healthchecks
         env:
           WEB_HOST: waytaapp.com
