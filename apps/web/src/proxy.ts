@@ -10,8 +10,15 @@ import { restaurantSlugFromHost } from './lib/public-menu/restaurant-subdomains'
  */
 export function proxy(request: NextRequest) {
   const baseDomain = process.env.RESTAURANT_BASE_DOMAIN;
+  if (!baseDomain) return NextResponse.next(); // Dev/legacy deployments remain unchanged.
   const slug = restaurantSlugFromHost(request.headers.get('host'), baseDomain);
-  if (!slug || !baseDomain) return NextResponse.next();
+  if (!slug) {
+    // A reserved, nested or malformed subdomain must not accidentally render
+    // Staff or marketing content if its traffic reaches the Guest container.
+    const host = (request.headers.get('host') ?? '').toLowerCase().replace(/:\d+$/, '');
+    if (host.endsWith(`.${baseDomain}`)) return new NextResponse('Not Found', { status: 404 });
+    return NextResponse.next();
+  }
 
   const { pathname } = request.nextUrl;
   if (pathname === '/') {
