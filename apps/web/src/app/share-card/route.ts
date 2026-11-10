@@ -70,9 +70,19 @@ export async function GET(request: Request): Promise<Response> {
     return new Response('Not Found', { status: 404 });
   }
 
+  // The bundled Next 16 OG font renderer currently crashes on some Arabic
+  // GSUB context substitutions (lookupType 5/substFormat 3). Keep the
+  // canonical Arabic name and description in HTML OG/Twitter metadata; use
+  // the public ASCII slug in PNG only, with real restaurant cover and logo.
+  // This avoids failed image previews while retaining distinct branding.
+  const complexScript = /[\u0590-\u08ff]/.test(name + description);
+  const visualName = complexScript && slug ? slug.replaceAll('-', ' ') : name;
+  const visualDescription = complexScript
+    ? 'Explore the menu, dishes and prices on Wayta.'
+    : description;
   const [cover, logo] = await Promise.all([mediaDataUrl(coverPath), mediaDataUrl(logoPath)]);
   return new ImageResponse(
-    shareCardView({ name, description, cover, logo, label }),
+    shareCardView({ name: visualName, description: visualDescription, cover, logo, label }),
     { width: WIDTH, height: HEIGHT, headers: { 'Cache-Control': 'public, max-age=60, s-maxage=120' } },
   );
 }
