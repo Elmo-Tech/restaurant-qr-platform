@@ -21,7 +21,7 @@ export function shareCardView({ name, description, cover, logo, label }: ShareCa
       style={{
         width: '100%', height: '100%', display: 'flex', position: 'relative',
         backgroundColor: '#14232b', color: '#ffffff', padding: '56px',
-        fontFamily: 'Wayta Arabic, Wayta Latin, sans-serif', overflow: 'hidden',
+        fontFamily: 'sans-serif', overflow: 'hidden',
       }}
     >
       {cover ? (
