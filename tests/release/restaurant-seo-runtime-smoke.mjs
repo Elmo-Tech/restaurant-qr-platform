@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { setTimeout as delay } from 'node:timers/promises';
-import { createServer } from 'node:http';
+import { createServer, request as httpRequest } from 'node:http';
 
 const ROOT = fileURLToPath(new URL('../../', import.meta.url));
 const SITE = 'restaurant-a.waytaapp.com';
@@ -68,11 +68,36 @@ web.on('exit', (code, signal) => { webLogs += '\nNext process exit: code=' + cod
 for (const stream of [web.stdout, web.stderr]) {
   stream?.on('data', chunk => { webLogs = (webLogs + chunk.toString()).slice(-13000); });
 }
-const url = (path, host) => fetch('http://127.0.0.1:' + PORT + path, {
-  // Mirror the trusted Nginx gateway: it overwrites both Host and X-Forwarded-Host.
-  headers: { host, 'x-forwarded-host': host, 'x-forwarded-proto': 'https' },
-  signal: AbortSignal.timeout(30000),
-});
+// Undici fetch may replace a caller-provided Host with 127.0.0.1:PORT.
+// Use native HTTP to exercise the actual Nginx host-forwarding contract.
+function url(path, host) {
+  return new Promise((resolve, reject) => {
+    const req = httpRequest({
+      hostname: '127.0.0.1',
+      port: PORT,
+      path,
+      method: 'GET',
+      timeout: 30000,
+      headers: { Host: host, 'X-Forwarded-Host': host, 'X-Forwarded-Proto': 'https' },
+    }, res => {
+      const chunks = [];
+      res.on('data', chunk => chunks.push(Buffer.from(chunk)));
+      res.on('end', () => {
+        const responseHeaders = new Headers();
+        for (const [key, val] of Object.entries(res.headers)) {
+          if (typeof val === 'string') responseHeaders.set(key, val);
+        }
+        resolve(new Response(Buffer.concat(chunks), {
+          status: res.statusCode ?? 500, headers: responseHeaders,
+        }));
+      });
+      res.on('error', reject);
+    });
+    req.on('timeout', () => req.destroy(new Error('Next smoke request timed out')));
+    req.on('error', reject);
+    req.end();
+  });
+}
 
 try {
   let ready = false;
