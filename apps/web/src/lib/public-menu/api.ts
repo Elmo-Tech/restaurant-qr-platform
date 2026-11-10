@@ -3,6 +3,7 @@ import { SERVER_API_BASE_URL } from '../api/config';
 import { forwardedForHeader } from '../api/server-fetch';
 import type { PublicMenuData } from './types';
 import { restaurantSlugFromHost, validRestaurantHostSlug } from './restaurant-subdomains';
+import { fetchTenantPublicMenuWithHost } from './tenant-internal-http';
 
 /** What the "no menu yet" outcome carries for a Restaurant with an exclusive design (a branded page instead of an error). */
 export interface PublicMenuBranding {
@@ -70,18 +71,16 @@ export async function getPublicMenu(
   const query = lang ? `?lang=${encodeURIComponent(lang)}` : '';
   let response: Response;
   try {
-    response = await fetch(
-      `${SERVER_API_BASE_URL}/public/qr/${encodeURIComponent(publicCode)}/menu${query}`,
-      {
-        method: 'GET',
-        headers: {
-          ...(acceptLanguage ? { 'accept-language': acceptLanguage } : {}),
-          ...(tenantHost ? { host: tenantHost } : {}),
-          ...forwardedForHeader(incomingHeaders),
-        },
-        cache: 'no-store',
-      },
-    );
+    const url = `${SERVER_API_BASE_URL}/public/qr/${encodeURIComponent(publicCode)}/menu${query}`;
+    const safeHeaders = {
+      ...(acceptLanguage ? { 'accept-language': acceptLanguage } : {}),
+      ...forwardedForHeader(incomingHeaders),
+    };
+    // Node fetch can replace Host with the internal API URL. Preserve only
+    // the validated tenant Host so Nest PublicRestaurantHostGuard checks it.
+    response = tenantHost
+      ? await fetchTenantPublicMenuWithHost(url, tenantHost, safeHeaders)
+      : await fetch(url, { method: 'GET', headers: safeHeaders, cache: 'no-store' });
   } catch {
     return { outcome: 'notFound' };
   }
