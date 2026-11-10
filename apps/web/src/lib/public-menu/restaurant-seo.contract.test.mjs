@@ -51,7 +51,7 @@ test('A tenant can fetch only its own social card, robots and sitemap; inactive 
   assert.match(card, /seo.canonical !== 'https:\/\/' \+ slug/);
   assert.match(card, /MAX_MEDIA_BYTES/);
   assert.match(card, /SUPPORTED_IMAGES/);
-  assert.match(card, /result.outcome === 'found'/);
+  assert.match(card, /result.outcome !== 'found'/);
   assert.match(robots, /disallow: '\/'/);
   assert.match(robots, /sitemap: seo.canonical \+ 'sitemap.xml'/);
   assert.match(sitemap, /if \(!seo \|\| seo.canonical !==/);
