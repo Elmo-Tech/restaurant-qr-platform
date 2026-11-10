@@ -2,7 +2,7 @@ import { headers } from 'next/headers';
 import { SERVER_API_BASE_URL } from '../api/config';
 import { forwardedForHeader } from '../api/server-fetch';
 import type { PublicMenuData } from './types';
-import { restaurantSlugFromHost } from './restaurant-subdomains';
+import { restaurantSlugFromHost, validRestaurantHostSlug } from './restaurant-subdomains';
 
 /** What the "no menu yet" outcome carries for a Restaurant with an exclusive design (a branded page instead of an error). */
 export interface PublicMenuBranding {
@@ -105,4 +105,35 @@ export async function getPublicMenu(
   }
 
   return { outcome: 'found', data: body.data };
+}
+
+
+/**
+ * A former restaurant hostname should redirect to its CURRENT hostname, not
+ * serve a menu under an alias. The regular public menu fetch always forwards
+ * tenant Host and fails closed; this legacy-only lookup uses the established
+ * apex API path and returns ONLY a verified canonical slug, never menu data.
+ */
+export async function formerRestaurantCanonicalSlug(requestedSlug: string): Promise<string | null> {
+  const base = process.env.RESTAURANT_BASE_DOMAIN;
+  if (!base || !validRestaurantHostSlug(requestedSlug)) return null;
+  if (restaurantSlugFromHost((await headers()).get('host'), base) !== requestedSlug) return null;
+  try {
+    const response = await fetch(
+      SERVER_API_BASE_URL + '/public/qr/' + encodeURIComponent(requestedSlug) + '/menu',
+      { method: 'GET', headers: { host: base }, cache: 'no-store' },
+    );
+    if (!response.ok) return null;
+    const body = (await response.json()) as { data?: PublicMenuData };
+    const data = body.data;
+    const target = data?.context.restaurant.shareCode;
+    if (
+      data?.context.qrType !== 'GENERIC' ||
+      !target || !validRestaurantHostSlug(target) || target === requestedSlug ||
+      data.context.entry.redirectToSlug !== target
+    ) return null;
+    return target;
+  } catch {
+    return null;
+  }
 }
