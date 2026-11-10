@@ -57,6 +57,9 @@ test('A tenant can fetch only its own social card, robots and sitemap; inactive 
   assert.match(card, /MAX_MEDIA_BYTES/);
   assert.match(card, /SUPPORTED_IMAGES/);
   assert.match(card, /shareCardView/);
+  assert.match(card, /const complexScript =/);
+  assert.match(card, /slug.replaceAll\('-', ' '\)/);
+  assert.match(card, /name: visualName, description: visualDescription/);
   assert.match(view, /fontFamily: 'sans-serif'/);
   assert.match(card, /result.outcome !== 'found'/);
   assert.ok(robots.includes('Disallow: /'));
