@@ -53,6 +53,14 @@ jobs:
         run: npm run typecheck:api
       - name: Typecheck restaurant Web
         run: npm run typecheck:web
+      - name: Build standalone restaurant Web and SEO image routes off-server
+        env:
+          NEXT_PUBLIC_API_URL: https://waytaapp.com
+          NEXT_PUBLIC_API_BASE_PATH: /api/v1
+          NEXT_PUBLIC_RESTAURANT_BASE_DOMAIN: waytaapp.com
+          RESTAURANT_BASE_DOMAIN: waytaapp.com
+          NEXT_OUTPUT: standalone
+        run: npm run build:web
       - name: Typecheck Platform Console
         run: npm run typecheck:platform
       - name: Validate signed WhatsApp and Offers checkout
