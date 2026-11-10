@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getPublicMenu } from '../../../lib/public-menu/api';
+import { formerRestaurantCanonicalSlug, getPublicMenu } from '../../../lib/public-menu/api';
 import { API_ORIGIN } from '../../../lib/api/config';
 import { buildRestaurantSeo, restaurantJsonLd } from '../../../lib/public-menu/restaurant-seo';
 import { getPublicMenuCopy } from '../../../lib/public-menu/copy';
@@ -74,6 +74,17 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
   const { lang, template, designPreview } = await searchParams;
 
   const result = await getPublicMenu(segment, lang);
+
+  // A formerly valid restaurant hostname redirects to its current slug.
+  // Never render unguarded tenant content here; the legacy lookup returns a
+  // canonical slug only after the Backend confirms the old alias.
+  if (result.outcome === 'notFound') {
+    const currentSlug = await formerRestaurantCanonicalSlug(segment);
+    if (currentSlug) {
+      const suffix = lang ? '?lang=' + encodeURIComponent(lang) : '';
+      redirect('https://' + currentSlug + '.' + process.env.RESTAURANT_BASE_DOMAIN + '/' + suffix);
+    }
+  }
 
   // A Restaurant with an exclusive design whose menu is not published yet: a branded page, not a generic error.
   if (result.outcome === 'unavailable' && result.branding) {
