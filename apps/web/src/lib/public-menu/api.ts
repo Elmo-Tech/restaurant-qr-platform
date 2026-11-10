@@ -2,6 +2,7 @@ import { headers } from 'next/headers';
 import { SERVER_API_BASE_URL } from '../api/config';
 import { forwardedForHeader } from '../api/server-fetch';
 import type { PublicMenuData } from './types';
+import { restaurantSlugFromHost } from './restaurant-subdomains';
 
 /** What the "no menu yet" outcome carries for a Restaurant with an exclusive design (a branded page instead of an error). */
 export interface PublicMenuBranding {
@@ -57,6 +58,14 @@ export async function getPublicMenu(
 ): Promise<GetPublicMenuResult> {
   const incomingHeaders = await headers();
   const acceptLanguage = incomingHeaders.get('accept-language');
+  // The internal API normally sees Host: api:4000. For an actual restaurant
+  // hostname that would bypass PublicRestaurantHostGuard; forward only the
+  // validated single-label tenant host, not a raw caller-supplied value.
+  const baseDomain = process.env.RESTAURANT_BASE_DOMAIN;
+  const tenantSlug = restaurantSlugFromHost(incomingHeaders.get('host'), baseDomain);
+  const tenantHost = tenantSlug && baseDomain
+    ? `${tenantSlug}.${baseDomain.toLowerCase()}`
+    : null;
 
   const query = lang ? `?lang=${encodeURIComponent(lang)}` : '';
   let response: Response;
@@ -65,7 +74,11 @@ export async function getPublicMenu(
       `${SERVER_API_BASE_URL}/public/qr/${encodeURIComponent(publicCode)}/menu${query}`,
       {
         method: 'GET',
-        headers: { ...(acceptLanguage ? { 'accept-language': acceptLanguage } : {}), ...forwardedForHeader(incomingHeaders) },
+        headers: {
+          ...(acceptLanguage ? { 'accept-language': acceptLanguage } : {}),
+          ...(tenantHost ? { host: tenantHost } : {}),
+          ...forwardedForHeader(incomingHeaders),
+        },
         cache: 'no-store',
       },
     );
