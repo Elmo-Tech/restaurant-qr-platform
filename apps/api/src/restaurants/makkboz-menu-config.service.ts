@@ -113,6 +113,7 @@ export class MakkbozMenuConfigService {
     }
     const draft = normalizeMakkbozSettings({
       ...fields,
+      priceDisplay: fields.priceDisplay ?? saved.priceDisplay,
       categoryExtras,
       heroImageAssetPath: saved.heroImageAssetPath,
       heroSmallImageAssetPath: saved.heroSmallImageAssetPath,

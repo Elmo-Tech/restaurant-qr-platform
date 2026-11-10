@@ -1620,6 +1620,7 @@ export function PublicMenuView({
             canOrder={canOrder}
             showPhotos={showPhotos}
             onOpen={handleOpenOffer}
+            showNavigation={isMakkboz}
           />
         ),
         chipLabel: offersCopy.sectionTitle,
@@ -1640,10 +1641,10 @@ export function PublicMenuView({
       <AnnouncementBar announcements={data.context.announcements ?? []} publicCode={publicCode} copy={copy} />
     </div>
   );
-  // Pickup / delivery switch and the ordering notices sit under the hero and the ticker, right before the menu.
+  // Makkboz keeps fulfillment selection in the cart; important ordering notices remain visible here.
   const verdeOrdering = (
     <>
-      {showModeSwitch ? (
+      {showModeSwitch && !isMakkboz ? (
         <div className="flex min-w-0 gap-1 rounded-[26px] border border-g-line bg-g-surface p-1">
           <ModeSwitch variant="hero" value={fulfillment} pickupAvailable={pickupAvailable} deliveryAvailable={deliveryAvailable} onChange={handleFulfillmentChange} copy={copy} />
         </div>
