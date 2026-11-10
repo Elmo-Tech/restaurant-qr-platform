@@ -56,7 +56,7 @@ test('A tenant can fetch only its own social card, robots and sitemap; inactive 
   assert.match(view, /fontFamily: 'sans-serif'/);
   assert.match(card, /result.outcome !== 'found'/);
   assert.ok(robots.includes('Disallow: /'));
-  assert.match(robots, /seo.canonical \+ 'sitemap.xml'/);
+  assert.ok(robots.includes("seo.canonical + 'sitemap.xml"));
   assert.match(robots, /request.headers.get\('host'\)/);
   assert.match(sitemap, /seo\?\.canonical ===/);
   assert.match(sitemap, /return xml\('https:\/\/waytaapp.com\/'\)/);
