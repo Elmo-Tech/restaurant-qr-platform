@@ -16,10 +16,6 @@
       "rendererKey": "MAKKBOZ_HERITAGE_V1",
       "brandAr": "مخبوز",
       "brandEn": "MAKXBOZ",
-      "images": {
-        "hero": "hero-feteer.webp",
-        "heroSmall": "hero-small.webp"
-      },
       "categoryChapters": {
         "sharqi": {
           "tag": {

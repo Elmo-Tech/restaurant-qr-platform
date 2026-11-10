@@ -57,7 +57,7 @@ test('settings are editable with draft / publish and a private live preview', ()
   assert.ok(/heroImageAssetPath: _hero/.test(api.slice(api.indexOf('saveMakkbozMenuDraft'))));
 });
 
-test('light / dark: dashboard default, guest switch in the header, saved in the guest_theme cookie, no flash', () => {
+test('light / dark: stored default, guest switch in the header, saved in the guest_theme cookie, no flash', () => {
   const page = read('app/q/[publicCode]/page.tsx');
   const hook = read('app/q/[publicCode]/useExclusiveTheme.ts');
   // The server reads the cookie, so the first paint already has the guest's pick.
@@ -70,7 +70,8 @@ test('light / dark: dashboard default, guest switch in the header, saved in the 
   const system = /@media \(prefers-color-scheme:dark\)\{\s*\.makkboz-experience\[data-m-theme="system"\]\{([^}]*)\}/s.exec(css)?.[1] ?? '';
   assert.ok(dark.includes('--m-page:') && dark.includes('--g-accent:') && dark.includes('--g-on-accent:'));
   assert.equal(system.replace(/\s+/g, ''), dark.replace(/\s+/g, ''));
-  assert.ok(editor.includes("'DARK'") && editor.includes('allowThemeSwitch'));
+  const settings = read('lib/public-menu/makkboz-settings.ts');
+  assert.ok(settings.includes("theme: 'LIGHT'") && settings.includes('allowThemeSwitch: true'));
 });
 
 test('no unlayered colour / font resets (they hid the text of the shared cart, order bar and checkout), and a logo cannot become a huge block', () => {

@@ -252,10 +252,6 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
     rail.scrollLeft += pill.getBoundingClientRect().left - rail.getBoundingClientRect().left - (rail.clientWidth - pill.clientWidth) / 2;
   }, [activeId]);
 
-  // ---- photos: Restaurant upload -> menu data -> built-in artwork ----
-  const heroImage = resolveAssetUrl(settings.heroImageAssetPath);
-  const heroSmall = resolveAssetUrl(settings.heroSmallImageAssetPath);
-
   // ---- contact: only what is filled in ----
   const channels = buildChannels(contact, copy).filter((channel) => channel.key !== 'phone' && channel.key !== 'hotline');
   const phoneNumbers = [...locations.map((l) => l.phone), contact.phone, contact.hotline]
@@ -374,17 +370,21 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
         <div className="m-hero-grid">
           <svg className="m-cover-land" viewBox="0 0 1440 260" preserveAspectRatio="none" aria-hidden="true"><path d="M0 260V190c168-25 282-10 398 5 205 27 323-7 461-37 173-38 390-49 581-8v110z" /><path d="M0 260v-32c183-17 316 4 486-4 196-10 312-45 495-35 178 9 330 25 459-3v74z" /></svg>
           <div className="m-cover-village" aria-hidden="true">
-            {/* eslint-disable-next-line @next/next/no-img-element -- The local WebP artwork is already compressed; the upload can come from a runtime API origin. */}
-            <MakkbozImage src={heroSmall} className="m-cover-farm" fallback={<img className="m-cover-farm" src="/exclusive/makkboz/country-courtyard-hero.webp" alt="" />} eager />
-            {!heroSmall ? <svg className="m-cover-smoke" viewBox="0 0 60 100"><path d="M28 96c-9-17 7-23 2-38-3-9-10-12-6-23 3-8 11-12 9-23" /><path d="M37 98c-6-13 6-20 4-31" /></svg> : null}
+            {/* eslint-disable-next-line @next/next/no-img-element -- The approved local WebP artwork is already compressed. */}
+            <img className="m-cover-farm" src="/exclusive/makkboz/country-courtyard-hero.webp" alt="" />
+            <svg className="m-cover-smoke" viewBox="0 0 60 100"><path d="M28 96c-9-17 7-23 2-38-3-9-10-12-6-23 3-8 11-12 9-23" /><path d="M37 98c-6-13 6-20 4-31" /></svg>
           </div>
           {/* eslint-disable-next-line @next/next/no-img-element -- The local portrait is already compressed as AVIF. */}
-          <MakkbozImage src={heroImage} className="m-cover-portrait" fallback={<img className="m-cover-portrait" src="/exclusive/makkboz/granny.avif" alt="" />} eager />
+          <img className="m-cover-portrait" src="/exclusive/makkboz/granny.avif" alt="" />
           <div className="m-flock" aria-hidden="true">{[0, 1, 2].map((bird) => <span className="m-bird" key={bird}><svg viewBox="0 0 32 14"><path d="M1 7C6 1 11 2 16 7c4-5 9-6 15-3-5 1-9 4-14 9C12 8 7 6 1 7Z" /></svg></span>)}</div>
           <div className="m-hero-copy">
             <p className="m-hero-eyebrow">{text('heroEyebrow')}</p>
-            {/* eslint-disable-next-line @next/next/no-img-element -- SVG wordmark does not benefit from image optimization. */}
-            <img className="m-hero-logo" src="/exclusive/makkboz/logo.svg" alt={brand} />
+            <div role="img" aria-label={brand}>
+              <MakkbozImage src={logoUrl} className="m-hero-logo" eager fallback={
+                // eslint-disable-next-line @next/next/no-img-element -- Built-in wordmark is already an optimized SVG.
+                <img className="m-hero-logo" src="/exclusive/makkboz/logo.svg" alt="" />
+              } />
+            </div>
             {/* eslint-disable-next-line @next/next/no-img-element -- SVG lettering does not benefit from image optimization. */}
             <img className="m-hero-tagline" src="/exclusive/makkboz/tagline.svg" alt={isArabic ? 'عَ أصوله' : 'The original way'} />
             <h1 id="m-hero-title" dir="auto">{text('heroTitle')}</h1>
@@ -490,7 +490,7 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
             const extra = settings.categoryExtras[category.id];
             const tag = (isArabic ? extra?.tagAr : extra?.tagEn) || (isArabic ? `من منيو ${brand}` : `From ${brand}'s menu`);
             const intro = (isArabic ? extra?.introAr : extra?.introEn) || category.description || '';
-            const photo = resolveAssetUrl(extra?.imageAssetPath ?? null) ?? firstPhoto(category);
+            const photo = resolveAssetUrl(category.imageAssetPath) ?? resolveAssetUrl(extra?.imageAssetPath ?? null) ?? firstPhoto(category);
             return (
               <section className="m-section" id={`section-${category.id}`} data-section={category.id} key={category.id} aria-labelledby={`m-heading-${category.id}`}>
                 <div className="m-chapter">

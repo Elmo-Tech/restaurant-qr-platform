@@ -158,9 +158,10 @@ describe('seedMenu with the Makkboz seed', () => {
     const [[args]] = tx.restaurantExclusiveDesign.upsert.mock.calls as [[{ create: { status: string; rendererKey: string; publishedSettings: Record<string, unknown> } }]];
     expect(args.create).toMatchObject({ status: 'ACTIVE_CUSTOM', rendererKey: 'MAKKBOZ_HERITAGE_V1' });
     expect(args.create.publishedSettings).toMatchObject({ brandAr: 'مخبوز', brandEn: 'MAKXBOZ' });
-    expect(String(args.create.publishedSettings.heroImageAssetPath)).toMatch(/^\/media\//);
+    expect(args.create.publishedSettings.heroImageAssetPath).toBeNull();
+    expect(args.create.publishedSettings.heroSmallImageAssetPath).toBeNull();
     expect(Object.keys(args.create.publishedSettings.categoryExtras as object)).toHaveLength(11);
-    expect(store.stored).toContain('hero-feteer.webp');
+    expect(store.stored).not.toContain('hero-feteer.webp');
   });
 
   it('does not take the design from another Restaurant', async () => {
