@@ -1,4 +1,6 @@
 import { ImageResponse } from 'next/og';
+import { readFile } from 'node:fs/promises';
+import { basename, dirname, join } from 'node:path';
 import { API_ORIGIN, SERVER_API_BASE_URL } from '../../lib/api/config';
 import { getPublicMenu } from '../../lib/public-menu/api';
 import { buildRestaurantSeo } from '../../lib/public-menu/restaurant-seo';
@@ -12,6 +14,24 @@ const WIDTH = 1200;
 const HEIGHT = 630;
 const MAX_MEDIA_BYTES = 3_000_000;
 const SUPPORTED_IMAGES = new Set(['image/png', 'image/jpeg', 'image/webp']);
+
+/** Both the local workspace and standalone Docker image already ship these
+ * public font files. ImageResponse does not load ordinary CSS @font-face. */
+async function loadShareFonts() {
+  const cwd = process.cwd();
+  const webRoot = basename(cwd) === 'web' && basename(dirname(cwd)) === 'apps'
+    ? cwd
+    : join(cwd, 'apps', 'web');
+  const base = join(webRoot, 'public', 'fonts', 'stand');
+  const [arabic, latin] = await Promise.all([
+    readFile(join(base, 'plex-arabic-600-arabic.woff2')),
+    readFile(join(base, 'plex-arabic-600-latin.woff2')),
+  ]);
+  return [
+    { name: 'Wayta Arabic', data: arabic, weight: 600 as const, style: 'normal' as const },
+    { name: 'Wayta Latin', data: latin, weight: 600 as const, style: 'normal' as const },
+  ];
+}
 
 /** Read only small, already-public Wayta media from our private API network. */
 async function mediaDataUrl(path: string | null): Promise<string | null> {
@@ -73,6 +93,6 @@ export async function GET(request: Request): Promise<Response> {
   const [cover, logo] = await Promise.all([mediaDataUrl(coverPath), mediaDataUrl(logoPath)]);
   return new ImageResponse(
     shareCardView({ name, description, cover, logo, label }),
-    { width: WIDTH, height: HEIGHT, headers: { 'Cache-Control': 'public, max-age=60, s-maxage=120' } },
+    { width: WIDTH, height: HEIGHT, fonts: await loadShareFonts(), headers: { 'Cache-Control': 'public, max-age=60, s-maxage=120' } },
   );
 }
