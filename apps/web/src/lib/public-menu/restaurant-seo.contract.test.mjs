@@ -28,7 +28,11 @@ test('Restaurant metadata is server-side, tenant-specific, and never indexes tab
 test('Internal SSR API request forwards only validated tenant Host to enforce API QR ownership', () => {
   const api = read('lib/public-menu/api.ts');
   assert.match(api, /restaurantSlugFromHost\(incomingHeaders.get\('host'\), baseDomain\)/);
-  assert.match(api, /tenantHost \? \{ host: tenantHost \}/);
+  assert.match(api, /await fetchTenantPublicMenuWithHost\(url, tenantHost, safeHeaders\)/);
+  const client = read('lib/public-menu/tenant-internal-http.ts');
+  assert.match(client, /request as httpRequest/);
+  assert.match(client, /Host: tenantHost/);
+  assert.match(client, /MAX_PUBLIC_MENU_BYTES/);
   assert.match(api, /cache: 'no-store'/);
   assert.doesNotMatch(api, /cookie:\s*incomingHeaders/i);
   assert.match(api, /formerRestaurantCanonicalSlug/);
