@@ -14,13 +14,13 @@ const sample = {
     entry: { publicCode: 'opaque-public-code', redirectToSlug: null },
     restaurant: {
       shareCode: 'restaurant-a',
-      name: 'Restaurant A',
+      name: 'مطعم النيل',
       logoAssetPath: '/media/logo.png',
       coverAssetPath: '/media/cover.png',
     },
   },
-  locale: { resolved: 'en', default: 'en', available: ['en'] },
-  menu: { name: 'Menu A', description: 'A fresh menu description for Restaurant A.' },
+  locale: { resolved: 'ar', default: 'ar', available: ['ar'] },
+  menu: { name: 'Menu A', description: 'قائمة مطعم النيل مع وجبات طازجة وأسعار واضحة.' },
 };
 
 const requestHosts = [];
