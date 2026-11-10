@@ -70,6 +70,7 @@ jobs:
           apps/web/src/lib/public-menu/restaurant-subdomains.test.mjs
           apps/web/src/lib/public-menu/restaurant-routing.contract.test.mjs
           apps/web/src/lib/public-menu/readable-links.contract.test.mjs
+          apps/web/src/lib/public-menu/restaurant-seo.contract.test.mjs
       - name: Verify HTTP Host/QR isolation (two test restaurants, no database)
         run: >-
           npm exec --workspace=apps/api -- jest --config ./test/jest-e2e.json
