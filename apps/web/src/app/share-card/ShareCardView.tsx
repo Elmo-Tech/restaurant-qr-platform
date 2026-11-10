@@ -15,12 +15,13 @@ interface ShareCardInput {
 export function shareCardView({ name, description, cover, logo, label }: ShareCardInput) {
   const headline = seoText(name, 55);
   const subtitle = seoText(description, 125);
+  const rtl = /[\u0600-\u06ff]/.test(headline);
   return (
     <div
       style={{
         width: '100%', height: '100%', display: 'flex', position: 'relative',
         backgroundColor: '#14232b', color: '#ffffff', padding: '56px',
-        fontFamily: 'sans-serif', overflow: 'hidden',
+        fontFamily: 'Wayta Arabic, Wayta Latin, sans-serif', overflow: 'hidden',
       }}
     >
       {cover ? (
@@ -64,11 +65,13 @@ export function shareCardView({ name, description, cover, logo, label }: ShareCa
         <div style={{ display: 'flex', flexDirection: 'column', gap: 18, maxWidth: 1050 }}>
           <div style={{
             fontSize: headline.length > 34 ? 51 : 68, lineHeight: 1.19,
-            fontWeight: 750, whiteSpace: 'pre-wrap',
+            fontWeight: 600, whiteSpace: 'pre-wrap',
+            direction: rtl ? 'rtl' : 'ltr', textAlign: rtl ? 'right' : 'left',
           }}>{headline}</div>
           <div style={{
             fontSize: 28, lineHeight: 1.45, color: '#ecedf0',
             whiteSpace: 'pre-wrap',
+            direction: rtl ? 'rtl' : 'ltr', textAlign: rtl ? 'right' : 'left',
           }}>{subtitle}</div>
         </div>
       </div>
