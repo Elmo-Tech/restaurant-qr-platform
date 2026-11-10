@@ -31,6 +31,11 @@ test('Internal SSR API request forwards only validated tenant Host to enforce AP
   assert.match(api, /tenantHost \? \{ host: tenantHost \}/);
   assert.match(api, /cache: 'no-store'/);
   assert.doesNotMatch(api, /cookie:\s*incomingHeaders/i);
+  assert.match(api, /formerRestaurantCanonicalSlug/);
+  assert.match(api, /entry.redirectToSlug !== target/);
+  assert.match(api, /headers: \{ host: base \}/);
+  const page = read('app/q/[publicCode]/page.tsx');
+  assert.match(page, /await formerRestaurantCanonicalSlug\(segment\)/);
 });
 
 test('A tenant can fetch only its own social card, robots and sitemap; inactive tenants are not indexed', () => {
