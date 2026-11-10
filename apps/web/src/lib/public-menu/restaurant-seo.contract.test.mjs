@@ -42,8 +42,8 @@ test('A tenant can fetch only its own social card, robots and sitemap; inactive 
   const proxy = read('proxy.ts');
   const card = read('app/share-card/route.ts');
   const view = read('app/share-card/ShareCardView.tsx');
-  const robots = read('app/robots.ts');
-  const sitemap = read('app/sitemap.ts');
+  const robots = read('app/robots.txt/route.ts');
+  const sitemap = read('app/sitemap.xml/route.ts');
   for (const route of ['/share-card', '/robots.txt', '/sitemap.xml']) {
     assert.ok(proxy.includes("pathname === '" + route + "'"), route + ' must stay on the restaurant host');
   }
@@ -55,10 +55,13 @@ test('A tenant can fetch only its own social card, robots and sitemap; inactive 
   assert.match(card, /shareCardView/);
   assert.match(view, /fontFamily: 'sans-serif'/);
   assert.match(card, /result.outcome !== 'found'/);
-  assert.match(robots, /disallow: '\/'/);
-  assert.match(robots, /sitemap: seo.canonical \+ 'sitemap.xml'/);
-  assert.match(sitemap, /if \(!seo \|\| seo.canonical !==/);
-  assert.match(sitemap, /return \[\]/);
+  assert.match(robots, /Disallow: \\/\\n/);
+  assert.match(robots, /seo.canonical \+ 'sitemap.xml'/);
+  assert.match(robots, /request.headers.get\('host'\)/);
+  assert.match(sitemap, /seo\?\.canonical ===/);
+  assert.match(sitemap, /return xml\('https:\/\/waytaapp.com\/'\)/);
+  assert.match(sitemap, /request.headers.get\('host'\)/);
+  assert.match(sitemap, /Cache-Control': 'no-store'/);
 });
 
 test('Wayta landing keeps its own indexed identity and internal pages are noindex', () => {
