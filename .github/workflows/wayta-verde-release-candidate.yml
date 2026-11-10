@@ -37,6 +37,8 @@ jobs:
         run: npm run typecheck:api
       - name: Typecheck Staff + Guest Web
         run: npm run typecheck:web
+      - name: Verify tenant SEO, share preview and SSR Host protection
+        run: node --test apps/web/src/lib/public-menu/restaurant-seo.contract.test.mjs
       - name: Verify WhatsApp guest handoff transport regression
         run: node --test apps/web/src/lib/public-menu/whatsapp-handoff.contract.test.mjs
       - name: Typecheck Platform Console
