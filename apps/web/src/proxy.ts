@@ -9,7 +9,6 @@ import { restaurantSlugFromHost } from './lib/public-menu/restaurant-subdomains'
  * access here; the existing public QR resolver remains the only tenant lookup.
  */
 export function proxy(request: NextRequest) {
-  if (process.env.NODE_ENV === 'development') console.log('[seo-host-proxy]', JSON.stringify({host: request.headers.get('host'), forwarded: request.headers.get('x-forwarded-host'), base: process.env.RESTAURANT_BASE_DOMAIN, url: request.url}));
   const baseDomain = process.env.RESTAURANT_BASE_DOMAIN;
   if (!baseDomain) return NextResponse.next(); // Dev/legacy deployments remain unchanged.
   const slug = restaurantSlugFromHost(request.headers.get('host'), baseDomain);
