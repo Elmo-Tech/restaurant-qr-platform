@@ -60,6 +60,7 @@ const web = spawn('npm', ['run', 'dev', '--workspace=apps/web', '--', '--port', 
     API_INTERNAL_URL: 'http://127.0.0.1:' + apiPort,
     RESTAURANT_BASE_DOMAIN: 'waytaapp.com',
   },
+  detached: process.platform !== 'win32', // isolate Next and npm for reliable CI cleanup
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let webLogs = '';
@@ -122,6 +123,16 @@ try {
   console.error('Next dev logs:\n' + webLogs);
   process.exitCode = 1;
 } finally {
-  web.kill('SIGTERM');
-  await new Promise(resolve => api.close(resolve));
+  // npm spawns a Next child process; killing only npm leaves that child alive
+  // and can hang server.close() on an outstanding keepalive connection.
+  if (web.pid && process.platform !== 'win32') {
+    try { process.kill(-web.pid, 'SIGTERM'); } catch { /* already exited */ }
+  } else {
+    web.kill('SIGTERM');
+  }
+  api.closeAllConnections();
+  await Promise.race([
+    new Promise(resolve => api.close(resolve)),
+    delay(3000),
+  ]);
 }
