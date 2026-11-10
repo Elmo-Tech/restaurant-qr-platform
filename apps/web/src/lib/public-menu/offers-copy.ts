@@ -7,6 +7,8 @@ export interface OffersCopy {
   /** Strip heading and the first category chip. */
   sectionTitle: string;
   sectionHint: string;
+  previousOffers: string;
+  nextOffers: string;
   /** "3 offers". */
   offersCount: (count: number) => string;
   badge: { OFFER: string; GIFT: string; MOST_ORDERED: string };
@@ -49,6 +51,8 @@ const WEEKDAYS: Record<'ar' | 'en', string[]> = {
 const EN: OffersCopy = {
   sectionTitle: 'Offers',
   sectionHint: 'Swipe for more',
+  previousOffers: 'Previous offers',
+  nextOffers: 'Next offers',
   offersCount: (count) => (count === 1 ? '1 offer' : `${count} offers`),
   badge: { OFFER: 'Offer', GIFT: 'Gift', MOST_ORDERED: 'Most ordered' },
   notAvailableToday: 'Not available today',
@@ -83,6 +87,8 @@ const EN: OffersCopy = {
 const AR: OffersCopy = {
   sectionTitle: 'العروض',
   sectionHint: 'اسحب لمزيد من العروض',
+  previousOffers: 'العروض السابقة',
+  nextOffers: 'العروض التالية',
   offersCount: (count) => (count === 1 ? 'عرض واحد' : count === 2 ? 'عرضان' : `${count} عروض`),
   badge: { OFFER: 'عرض', GIFT: 'هدية', MOST_ORDERED: 'الأكثر طلبًا' },
   notAvailableToday: 'غير متاح اليوم',

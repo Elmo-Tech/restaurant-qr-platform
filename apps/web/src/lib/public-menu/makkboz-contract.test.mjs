@@ -7,6 +7,7 @@ const read = (path) => readFileSync(new URL(path, root), 'utf8');
 const menu = read('app/q/[publicCode]/makkboz/MakkbozMenu.tsx');
 const card = read('app/q/[publicCode]/makkboz/MakkbozCard.tsx');
 const css = read('app/q/[publicCode]/makkboz/makkboz.css');
+const approvedCss = read('app/q/[publicCode]/makkboz/makkboz-approved.css');
 const view = read('app/q/[publicCode]/PublicMenuView.tsx');
 const workspace = read('app/staff/restaurants/[restaurantId]/settings/design/DesignWorkspace.tsx');
 const editor = read('app/staff/restaurants/[restaurantId]/settings/design/MakkbozMenuEditor.tsx');
@@ -28,7 +29,7 @@ test('prices, sizes, discounts and sold-out state come from shared menu data; a 
   assert.ok(card.includes('DiscountedPrice') && card.includes('product.variants') && card.includes("'SOLD_OUT'"));
   assert.ok(!/toFixed|parseFloat|Number\(/.test(card), 'money is shown from exact decimal strings');
   assert.ok(card.includes('has-photo') && card.includes('m-card-ornament'));
-  assert.ok(!/DEMO|هذا عرض توضيحي|نموذج تصميم|WAYTA Backend/.test(menu + card + css));
+  assert.ok(!/DEMO|هذا عرض توضيحي|نموذج تصميم|WAYTA Backend/.test(menu + card + css + approvedCss));
 });
 
 test('contact, hours and social links render only when present', () => {
@@ -44,6 +45,7 @@ test('uses a non-colour display face and keeps RTL / LTR, accessibility and moti
   assert.ok(menu.includes("dir={isArabic ? 'rtl' : 'ltr'}") && menu.includes('<bdi>'));
   assert.ok(!/text-align:\s*(left|right)/.test(css));
   assert.ok(css.includes('prefers-reduced-motion') && /m-rise linear forwards/.test(css));
+  assert.ok(approvedCss.includes('prefers-reduced-motion'));
   assert.ok(menu.includes('aria-pressed') && menu.includes('aria-expanded') && menu.includes('m-skip'));
   assert.ok(/dir="auto"><bdi>/.test(card) === false, 'dir=auto ignores <bdi> and would pick the wrong side');
 });
@@ -72,7 +74,7 @@ test('light / dark: dashboard default, guest switch in the header, saved in the 
 });
 
 test('no unlayered colour / font resets (they hid the text of the shared cart, order bar and checkout), and a logo cannot become a huge block', () => {
-  assert.ok(!/\.makkboz-experience\s+(?:button|input|a)(?:\s*,[^{]*)?\{[^}]*(?:color|font)\s*:\s*inherit/.test(css));
+  assert.ok(!/\.makkboz-experience\s+(?:button|input|a)(?:\s*,[^{]*)?\{[^}]*(?:color|font)\s*:\s*inherit/.test(css + approvedCss));
   const heroLogo = /\.m-hero-logo\{([^}]*)\}/.exec(css)?.[1] ?? '';
   assert.ok(/max-height:\s*1\d\dpx/.test(heroLogo) && /max-width:/.test(heroLogo));
   assert.ok(css.includes('--m-logo-bg') && css.includes('--m-logo-pad'));

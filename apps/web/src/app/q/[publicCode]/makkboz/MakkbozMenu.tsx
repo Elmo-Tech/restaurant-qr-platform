@@ -4,7 +4,6 @@ import Link from 'next/link';
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore, type ReactNode } from 'react';
 import { GuestIconBag, GuestIconClose, GuestIconMoon, GuestIconPhone, GuestIconReceipt, GuestIconSearch, GuestIconSun } from '../../../../components/guest/icons';
 import type { RestaurantContact } from '../../../../lib/contact/types';
-import { genericMenuUrl } from '../../../../lib/public-menu/restaurant-subdomains';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../../lib/public-menu/copy';
 import type { DesignOffers } from '../guest-view-types';
@@ -20,13 +19,13 @@ import { hoursLabel } from '../HoursBadge';
 import { ShareButton } from '../ShareButton';
 import { VerdeImage as MakkbozImage } from '../verde/VerdeImage';
 import { MakkbozCard } from './MakkbozCard';
-import { MakkbozOrnament, MakkbozPieArt, MakkbozVillage, MakkbozWrapArt } from './MakkbozArt';
+import { MakkbozOrnament, MakkbozVillage } from './MakkbozArt';
 import { MAKKBOZ_FONT_CLASSES } from './makkboz-fonts';
 import { useExclusiveTheme } from '../useExclusiveTheme';
 import './makkboz.css';
+import './makkboz-approved.css';
 
 const FAVORITES_KEY = 'makkboz-favorites';
-const pad = (n: number): string => String(n).padStart(2, '0');
 
 // Favorites live in this browser only (never on the server). `useSyncExternalStore` keeps the server render and the
 // first client render empty, then adopts what this browser stored.
@@ -143,8 +142,6 @@ function Lines({ text, accent }: { text: string; accent?: 'line' | 'word' }) {
   );
 }
 
-const splitWords = (text: string): string[] => text.split('|').map((word) => word.trim()).filter(Boolean).slice(0, 6);
-
 const displayPhone = (number: string): string => number.replace(/^\+20(\d{9,10})$/, '0$1');
 
 const firstPhoto = (category: PublicMenuCategory | undefined): string | null =>
@@ -227,6 +224,8 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
     const update = () => {
       const line = window.innerWidth <= 740 ? 150 : 175;
       let current = 'all';
+      const offerSection = document.querySelector<HTMLElement>('.makkboz-experience [data-offers-strip]');
+      if (offerSection && offerSection.getBoundingClientRect().top <= line + 48) current = 'offers';
       for (const node of nodes) if (node.getBoundingClientRect().top <= line + 48) current = node.dataset.section ?? current;
       const menu = document.getElementById('menu');
       if (menu && window.scrollY < menu.offsetTop - 110) current = 'all';
@@ -254,25 +253,9 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
     rail.scrollLeft += pill.getBoundingClientRect().left - rail.getBoundingClientRect().left - (rail.clientWidth - pill.clientWidth) / 2;
   }, [activeId]);
 
-  const shareMenu = useCallback(async () => {
-    if (!shareCode) return;
-    const url = genericMenuUrl(window.location.origin, shareCode, process.env.NEXT_PUBLIC_RESTAURANT_BASE_DOMAIN);
-    try {
-      if (navigator.share) {
-        await navigator.share({ title: brand, url });
-      } else {
-        await navigator.clipboard.writeText(url);
-        say(copy.makkbozLinkCopied);
-      }
-    } catch {
-      /* cancelled */
-    }
-  }, [brand, copy.makkbozLinkCopied, say, shareCode]);
-
   // ---- photos: Restaurant upload -> menu data -> built-in artwork ----
   const heroImage = resolveAssetUrl(settings.heroImageAssetPath);
   const heroSmall = resolveAssetUrl(settings.heroSmallImageAssetPath);
-  const fineWords = splitWords(text('heroFine'));
 
   // ---- contact: only what is filled in ----
   const channels = buildChannels(contact, copy).filter((channel) => channel.key !== 'phone' && channel.key !== 'hotline');
@@ -315,7 +298,8 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
         <div className="m-announcement"><span aria-hidden="true">✦</span> {text('announcement')} <span aria-hidden="true">✦</span></div>
       ) : null}
 
-      <header className="m-header" id="top">
+      <div className="m-cover" id="top">
+      <header className="m-header">
         <div className="m-container m-header-inner">
           <a className="m-brand" href="#top" aria-label={`${brand} — ${copy.verdeBrandHome}`}>{brandMark}</a>
           <nav className="m-links" aria-label={copy.sherbinyPageLinks}>
@@ -389,62 +373,35 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
         </nav>
       </header>
 
-      {notices ? <div className="m-notices"><div className="m-container">{notices}</div></div> : null}
-
       <section className="m-hero m-paper" aria-labelledby="m-hero-title">
-        <div className="m-container m-hero-grid">
+        <div className="m-hero-grid">
+          <svg className="m-cover-land" viewBox="0 0 1440 260" preserveAspectRatio="none" aria-hidden="true"><path d="M0 260V190c168-25 282-10 398 5 205 27 323-7 461-37 173-38 390-49 581-8v110z" /><path d="M0 260v-32c183-17 316 4 486-4 196-10 312-45 495-35 178 9 330 25 459-3v74z" /></svg>
+          <div className="m-cover-village" aria-hidden="true">
+            <MakkbozImage src={heroSmall} className="m-cover-farm" fallback={<img className="m-cover-farm" src="/exclusive/makkboz/country-courtyard-hero.webp" alt="" />} eager />
+            {!heroSmall ? <svg className="m-cover-smoke" viewBox="0 0 60 100"><path d="M28 96c-9-17 7-23 2-38-3-9-10-12-6-23 3-8 11-12 9-23" /><path d="M37 98c-6-13 6-20 4-31" /></svg> : null}
+          </div>
+          <MakkbozImage src={heroImage} className="m-cover-portrait" fallback={<img className="m-cover-portrait" src="/exclusive/makkboz/granny.avif" alt="" />} eager />
+          <div className="m-flock" aria-hidden="true">{[0, 1, 2].map((bird) => <span className="m-bird" key={bird}><svg viewBox="0 0 32 14"><path d="M1 7C6 1 11 2 16 7c4-5 9-6 15-3-5 1-9 4-14 9C12 8 7 6 1 7Z" /></svg></span>)}</div>
           <div className="m-hero-copy">
-            <p className="m-hero-eyebrow"><span aria-hidden="true">✧</span> {text('heroEyebrow')} <span aria-hidden="true">✧</span></p>
-            {logoUrl ? (
-              // eslint-disable-next-line @next/next/no-img-element -- Restaurant logo from the runtime API origin.
-              <img className="m-hero-logo" src={logoUrl} alt={brand} />
-            ) : (
-              <p className="m-hero-brand" dir="auto">{brand}</p>
-            )}
-            <h1 id="m-hero-title" dir="auto"><Lines text={text('heroTitle')} accent="line" /></h1>
+            <p className="m-hero-eyebrow">{text('heroEyebrow')}</p>
+            <img className="m-hero-logo" src="/exclusive/makkboz/logo.svg" alt={brand} />
+            <img className="m-hero-tagline" src="/exclusive/makkboz/tagline.svg" alt={isArabic ? 'عَ أصوله' : 'The original way'} />
+            <h1 id="m-hero-title" dir="auto">{text('heroTitle')}</h1>
             <p className="m-hero-desc" dir="auto">{text('heroDesc')}</p>
             <div className="m-hero-cta">
               {hasMenu ? (
                 <a className="m-btn" href="#menu">
                   <span>{text('ctaPrimary')}</span>
-                  <svg className="m-arrow" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12h16m-6-6 6 6-6 6" /></svg>
+                  <span aria-hidden="true">↓</span>
                 </a>
               ) : null}
-              {shareCode ? (
-                <button type="button" className="m-text-action" onClick={() => void shareMenu()}>
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15V3m-5 5 5-5 5 5" /><path d="M5 13v7h14v-7" /></svg>
-                  {text('ctaShare')}
-                </button>
-              ) : null}
             </div>
-            {fineWords.length > 0 ? (
-              <p className="m-hero-fine" dir="auto">
-                <span className="m-fine-icon" aria-hidden="true">✳</span>
-                {fineWords.map((word, index) => (
-                  <Fragment key={`${word}-${index}`}>
-                    {index > 0 ? <span className="m-fine-dot" aria-hidden="true" /> : null}
-                    {word}
-                  </Fragment>
-                ))}
-              </p>
-            ) : null}
-          </div>
-          <div className="m-hero-showcase" aria-hidden="true">
-            <div className="m-hero-arch">
-              <div className="m-arch-texture" />
-              <span className="m-arch-label" dir="ltr">{text('archLabel')}</span>
-              <div className="m-photo-ring">
-                <MakkbozImage src={heroImage} fallback={<MakkbozPieArt className="m-ring-art" />} eager />
-              </div>
-              <span className="m-arch-caption" dir="auto">{text('archCaption')}</span>
-            </div>
-            <div className="m-stamp"><span>{text('stampTop')}</span><strong>{text('stampMain')}</strong><small>✦</small></div>
-            <div className="m-small-photo"><MakkbozImage src={heroSmall} fallback={<MakkbozWrapArt />} eager /></div>
-            <span className="m-scribble">✳</span>
           </div>
         </div>
-        <div className="m-hero-edge" aria-hidden="true">{Array.from({ length: 9 }, (_, i) => <span key={i}>✣</span>)}</div>
       </section>
+      </div>
+
+      {notices ? <div className="m-notices"><div className="m-container">{notices}</div></div> : null}
 
       {settings.showValues ? (
         <section className="m-values" aria-label={text('menuEyebrow')}>
@@ -467,23 +424,14 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
 
       {orderingBar ? <div className="m-ordering"><div className="m-container">{orderingBar}</div></div> : null}
 
-      {offers ? <div className="m-offers"><div className="m-container">{offers.strip}</div></div> : null}
-
-      <section className="m-intro m-paper" id="menu" aria-labelledby="m-menu-title">
-        <div className="m-container">
-          <p className="m-intro-eyebrow"><span className="m-rule" aria-hidden="true" /> {text('menuEyebrow')} <span className="m-rule" aria-hidden="true" /></p>
-          <h2 id="m-menu-title" dir="auto"><Lines text={text('menuTitle')} accent="word" /></h2>
-          <p className="m-intro-note" dir="auto">{text('menuNote')}</p>
-          <div className="m-intro-deco" aria-hidden="true"><span>✦</span><span>✧</span><span>✦</span></div>
-        </div>
-      </section>
-
       {hasMenu ? (
         <div className="m-tools" id="m-tools">
           <div className="m-container">
+            <div className="m-tools-inner">
+            <a className="m-rail-brand" href="#top" aria-label={`${brand} — ${copy.verdeBrandHome}`}>{brandMark}</a>
             <nav className="m-rail" aria-label={copy.verdeMenuSections}>
               {offers ? (
-                <button type="button" className="m-pill" data-offers-chip onClick={offers.onJump}>
+                <button type="button" className={`m-pill${activeId === 'offers' ? ' is-active' : ''}`} data-offers-chip aria-current={activeId === 'offers' ? 'true' : undefined} onClick={offers.onJump}>
                   <bdi>🎁 {offers.chipLabel}</bdi>
                 </button>
               ) : null}
@@ -496,6 +444,7 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
                 </button>
               ))}
             </nav>
+            </div>
             <div className="m-search-row" id="m-search-row" hidden={!searchOpen && !isSearching}>
               <GuestIconSearch className="size-[19px]" aria-hidden="true" />
               <input ref={searchInput} type="search" value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder={copy.searchPlaceholder} aria-label={copy.searchMenu} autoComplete="off" enterKeyHint="search" />
@@ -506,6 +455,17 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
           </div>
         </div>
       ) : null}
+
+      <div className="m-menu-surface">
+      <section className="m-intro" id="menu" aria-labelledby="m-menu-title">
+        <div className="m-container">
+          <p className="m-intro-eyebrow">{text('menuEyebrow')}</p>
+          <h2 id="m-menu-title" dir="auto">{text('menuTitle')}</h2>
+          <p className="m-intro-note" dir="auto">{text('menuNote')}</p>
+        </div>
+      </section>
+
+      {offers ? <div className="m-offers"><div className="m-container">{offers.strip}</div></div> : null}
 
       <main className="m-catalog m-paper" aria-label={copy.verdeMenuSections}>
         <div className="m-container">
@@ -524,17 +484,15 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
           </div>
 
           {sections.map((category) => {
-            const index = Math.max(0, categories.findIndex((c) => c.id === category.id));
             const extra = settings.categoryExtras[category.id];
-            const tag = (isArabic ? extra?.tagAr : extra?.tagEn) || `${pad(index + 1)} / ${category.name}`;
+            const tag = (isArabic ? extra?.tagAr : extra?.tagEn) || (isArabic ? `من منيو ${brand}` : `From ${brand}'s menu`);
             const intro = (isArabic ? extra?.introAr : extra?.introEn) || category.description || '';
             const photo = resolveAssetUrl(extra?.imageAssetPath ?? null) ?? firstPhoto(category);
             return (
               <section className="m-section" id={`section-${category.id}`} data-section={category.id} key={category.id} aria-labelledby={`m-heading-${category.id}`}>
                 <div className="m-chapter">
-                  <span className="m-chapter-number" aria-hidden="true">{pad(index + 1)}</span>
                   <div className="m-chapter-name">
-                    <small dir="ltr">{tag}</small>
+                    <small dir="auto">{tag}</small>
                     <h3 id={`m-heading-${category.id}`} dir="auto">{category.name}</h3>
                     {intro ? <p dir="auto">{intro}</p> : null}
                   </div>
@@ -553,6 +511,7 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
                       copy={copy}
                       canOrder={canOrder}
                       categoryLabel={isSearching || favoritesOnly ? (categoryName.get(category.id) ?? category.name) : null}
+                      priceDisplay={settings.priceDisplay}
                       isFavorite={favorites.has(product.id)}
                       simpleQuantity={simpleQuantityByProductId.get(product.id) ?? 0}
                       totalQuantity={totalQuantityByProductId.get(product.id) ?? 0}
@@ -578,6 +537,7 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
           ) : null}
         </div>
       </main>
+      </div>
 
       {settings.showStory ? (
         <section className="m-story" id="our-story" aria-labelledby="m-story-title">

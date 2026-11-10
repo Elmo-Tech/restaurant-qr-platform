@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { GuestIconGift } from '../../../components/guest/icons';
 import { Price } from '../../../components/guest/Price';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
@@ -41,7 +41,7 @@ function OfferCard({
   const content = (
     <>
       {showPhotos ? (
-        <span className="relative block h-[118px] w-full overflow-hidden bg-g-accent-soft">
+        <span data-offer-media className="relative block h-[118px] w-full overflow-hidden bg-g-accent-soft">
           {imageUrl && !failed ? (
             // eslint-disable-next-line @next/next/no-img-element -- a Staff-uploaded asset from a runtime-configured API origin, not a Next.js-optimizable image.
             <img
@@ -60,6 +60,7 @@ function OfferCard({
         </span>
       ) : null}
       <span
+        data-offer-badge
         className={`absolute start-2.5 top-2.5 inline-flex items-center gap-1 rounded-full px-2.5 py-[3px] text-xs font-extrabold ${
           offer.badge === 'GIFT'
             ? 'bg-g-text text-g-bg'
@@ -69,29 +70,30 @@ function OfferCard({
         <GuestIconGift className="size-3" />
         {offersCopy.badge[offer.badge]}
       </span>
-      <span className="block px-3 pb-3 pt-2.5 text-start">
-        <span className="g-display block text-[18px] leading-[1.25] text-g-text">
+      <span data-offer-content className="block px-3 pb-3 pt-2.5 text-start">
+        <span data-offer-title className="g-display block text-[18px] leading-[1.25] text-g-text">
           <bdi>{offer.name}</bdi>
         </span>
         {offer.description ? (
-          <span dir="auto" className="mt-0.5 line-clamp-2 block text-[13px] leading-[1.55] text-g-text-2">
+          <span data-offer-description dir="auto" className="mt-0.5 line-clamp-2 block text-[13px] leading-[1.55] text-g-text-2">
             {offer.description}
           </span>
         ) : null}
-        <span className="mt-2 flex items-end justify-between gap-2">
-          <span className="min-w-0">
+        <span data-offer-footer className="mt-2 flex items-end justify-between gap-2">
+          <span data-offer-price className="min-w-0">
             <Price
               amount={offer.price}
               currency={currency}
               className="g-num text-[19px] text-g-price [font-weight:900]"
               currencyClassName="text-[0.62em] font-semibold"
             />
-            <span className="mt-0.5 block text-[11.5px] leading-snug text-g-text-3">
+            <span data-offer-days className="mt-0.5 block text-[11.5px] leading-snug text-g-text-3">
               {available ? offersCopy.days(offer.daysOfWeek) : `${unavailableText} · ${offersCopy.days(offer.daysOfWeek)}`}
             </span>
           </span>
           {canOrder ? (
             <span
+              data-offer-action
               className={`shrink-0 rounded-full px-3.5 py-2 text-[13px] font-extrabold ${
                 available ? 'bg-g-accent text-g-on-accent' : 'bg-g-surface-2 text-g-text-3'
               }`}
@@ -142,6 +144,7 @@ export function OffersStrip({
   titleClassName = 'g-display',
   className = '',
   previewImageUrl,
+  showNavigation = false,
 }: {
   /** Staff preview only (see `OfferCard`). */
   previewImageUrl?: string | null;
@@ -153,7 +156,36 @@ export function OffersStrip({
   onOpen: (offer: PublicOffer) => void;
   titleClassName?: string;
   className?: string;
+  showNavigation?: boolean;
 }) {
+  const track = useRef<HTMLUListElement>(null);
+  const [bounds, setBounds] = useState({ overflow: false, previous: false, next: false });
+  useEffect(() => {
+    const node = track.current;
+    if (!node || !showNavigation) return undefined;
+    const update = () => {
+      const maximum = Math.max(0, node.scrollWidth - node.clientWidth);
+      const position = Math.abs(node.scrollLeft);
+      setBounds({ overflow: maximum > 2, previous: position > 2, next: position < maximum - 2 });
+    };
+    const frame = window.requestAnimationFrame(update);
+    node.addEventListener('scroll', update, { passive: true });
+    window.addEventListener('resize', update, { passive: true });
+    return () => {
+      window.cancelAnimationFrame(frame);
+      node.removeEventListener('scroll', update);
+      window.removeEventListener('resize', update);
+    };
+  }, [offers.length, showNavigation]);
+  const move = (next: boolean) => {
+    const node = track.current;
+    if (!node) return;
+    const card = node.querySelector<HTMLElement>('[data-offer-card]');
+    const gap = Number.parseFloat(window.getComputedStyle(node).columnGap) || 0;
+    const distance = (card?.getBoundingClientRect().width ?? node.clientWidth) + gap;
+    const direction = window.getComputedStyle(node).direction === 'rtl' ? -1 : 1;
+    node.scrollBy({ left: distance * direction * (next ? 1 : -1), behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  };
   if (offers.length === 0) return null;
   return (
     <section
@@ -170,11 +202,17 @@ export function OffersStrip({
           <GuestIconGift className="size-[22px] text-g-accent" />
           <span>{offersCopy.sectionTitle}</span>
         </h2>
-        <span className="text-[12.5px] text-g-text-3">
-          {offers.length > 1 ? offersCopy.sectionHint : offersCopy.offersCount(offers.length)}
-        </span>
+        {showNavigation && bounds.overflow ? (
+          <span className="m-offer-navigation" role="group" aria-label={offersCopy.sectionTitle}>
+            <button type="button" onClick={() => move(false)} disabled={!bounds.previous} aria-label={offersCopy.previousOffers}>→</button>
+            <button type="button" onClick={() => move(true)} disabled={!bounds.next} aria-label={offersCopy.nextOffers}>←</button>
+          </span>
+        ) : <span className="text-[12.5px] text-g-text-3">
+          {offers.length > 1 && !showNavigation ? offersCopy.sectionHint : offersCopy.offersCount(offers.length)}
+        </span>}
       </div>
       <ul
+        ref={track}
         tabIndex={0}
         aria-label={offersCopy.sectionTitle}
         className="guest-scrollbar-none -mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-2 outline-offset-4 lg:mx-0 lg:px-0"

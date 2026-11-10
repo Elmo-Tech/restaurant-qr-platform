@@ -2,10 +2,12 @@ import { IsBoolean, IsIn, IsObject, IsOptional, IsString, MaxLength } from 'clas
 import {
   MAKKBOZ_COPY_LIMITS,
   MAKKBOZ_MOTIONS,
+  MAKKBOZ_PRICE_DISPLAYS,
   MAKKBOZ_THEMES,
   MAKKBOZ_VIEWS,
   type MakkbozCopyField,
   type MakkbozMotion,
+  type MakkbozPriceDisplay,
   type MakkbozTheme,
   type MakkbozView,
 } from '../makkboz-menu-config';
@@ -21,6 +23,8 @@ export class MakkbozMenuSettingsDto {
   @IsBoolean() allowThemeSwitch!: boolean;
   @IsIn(MAKKBOZ_MOTIONS) motion!: MakkbozMotion;
   @IsIn(MAKKBOZ_VIEWS) defaultView!: MakkbozView;
+  /** Optional for clients that saved the design before size-price display was added. */
+  @IsOptional() @IsIn(MAKKBOZ_PRICE_DISPLAYS) priceDisplay?: MakkbozPriceDisplay;
   @IsBoolean() showAnnouncement!: boolean;
   @IsBoolean() showValues!: boolean;
   @IsBoolean() showStory!: boolean;

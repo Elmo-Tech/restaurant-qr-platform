@@ -36,7 +36,7 @@ import {
 type Lang = 'Ar' | 'En';
 
 const GROUPS: { id: 'hero' | 'values' | 'menu' | 'story' | 'contact'; keys: MakkbozCopyKey[] }[] = [
-  { id: 'hero', keys: ['brand', 'announcement', 'heroEyebrow', 'heroTitle', 'heroDesc', 'ctaPrimary', 'ctaShare', 'heroFine', 'archLabel', 'archCaption', 'stampTop', 'stampMain'] },
+  { id: 'hero', keys: ['brand', 'announcement', 'heroEyebrow', 'heroTitle', 'heroDesc', 'ctaPrimary'] },
   { id: 'values', keys: ['value1Title', 'value1Sub', 'value2Title', 'value2Sub', 'value3Title', 'value3Sub'] },
   { id: 'menu', keys: ['menuEyebrow', 'menuTitle', 'menuNote'] },
   { id: 'story', keys: ['storyKicker', 'storyTitle', 'storyText', 'storySignature', 'footerTagline'] },
@@ -199,6 +199,14 @@ export function MakkbozMenuEditor({
             <option value="CARDS">{t('makkboz.view.cards')}</option>
             <option value="LIST">{t('makkboz.view.list')}</option>
           </select>
+        </label>
+        <label className="block text-sm">
+          {t('makkboz.priceDisplay')}
+          <select className={FIELD_CLASS} value={draft.priceDisplay} onChange={(e) => update('priceDisplay', e.target.value === 'ALL_VARIANTS' ? 'ALL_VARIANTS' : 'STARTING_PRICE')}>
+            <option value="STARTING_PRICE">{t('makkboz.priceDisplay.starting')}</option>
+            <option value="ALL_VARIANTS">{t('makkboz.priceDisplay.sizes')}</option>
+          </select>
+          <span className="mt-1 block text-xs leading-relaxed text-muted-foreground">{t('makkboz.priceDisplay.hint')}</span>
         </label>
         <label className="block text-sm">
           {t('makkboz.theme')}

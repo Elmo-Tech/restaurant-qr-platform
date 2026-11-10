@@ -1566,6 +1566,8 @@ renderer ("Aref Ruqaa Ink" is a colour font and is not used). The seed (`seed-da
 variants; printed choices as required single-choice groups at no extra price; per-size extras as their own dishes because a modifier
 cannot depend on the chosen size; no invented offers. **Not in scope:** Platform-console editing, version history. (The dark theme of the original scope note was added by DEC-065.)
 
+**Approved redesign amendment (2026-11-10):** The user approved the new Makkboz concept and requested its implementation on the same exclusive renderer. It replaces the earlier opening and menu styling with the approved character-and-village hero, subtle optional motion, full-width green menu and shared, multi-offer presentation. The default is the compact list. A Restaurant setting selects either one starting price or all actual Variant names and prices; Variant and Modifier selection stays in the shared product sheet and Backend pricing is unchanged. The setting uses the existing draft / publish JSON without a schema migration. Untouched legacy defaults normalize to the new defaults, while customized settings are preserved. The existing hero image slots now supply the character and village images. The standalone prototype and cross-restaurant design playbook remain separate files. Implementation is local; deployment and live publication are not implied.
+
 ### DEC-065 — Light / dark mode for exclusive menus, applying a menu to an existing restaurant, branded "menu on its way" page
 
 **Status:** Accepted for implementation (2026-11-04); not deployed, not owner-approved. **Context:** the Makkboz and El Sherbiny owners asked

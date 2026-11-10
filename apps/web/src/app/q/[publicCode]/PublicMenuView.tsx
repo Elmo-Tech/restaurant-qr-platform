@@ -1620,6 +1620,7 @@ export function PublicMenuView({
             canOrder={canOrder}
             showPhotos={showPhotos}
             onOpen={handleOpenOffer}
+            showNavigation={isMakkboz}
           />
         ),
         chipLabel: offersCopy.sectionTitle,

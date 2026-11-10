@@ -5,13 +5,11 @@ import { DiscountedPrice } from '../../../../components/guest/DiscountedPrice';
 import { Price } from '../../../../components/guest/Price';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../../lib/public-menu/copy';
+import type { MakkbozPriceDisplay } from '../../../../lib/public-menu/makkboz-settings';
 import { toMinorUnits } from '../../../../lib/public-menu/money';
-import { formatAmount } from '../../../../lib/public-menu/price-format';
 import type { PublicMenuProduct } from '../../../../lib/public-menu/types';
 import { VerdeImage as MakkbozImage } from '../verde/VerdeImage';
 import { MakkbozOrnament } from './MakkbozArt';
-
-const MAX_SIZE_CHIPS = 4;
 
 /**
  * One dish of the Makkboz menu. A dish with a photo is a photo card; a dish without one (most of this menu) is a
@@ -25,6 +23,7 @@ function MakkbozCardImpl({
   copy,
   canOrder,
   categoryLabel,
+  priceDisplay,
   isFavorite,
   simpleQuantity,
   totalQuantity,
@@ -40,6 +39,7 @@ function MakkbozCardImpl({
   canOrder: boolean;
   /** Shown above the name only when results come from different sections (search, favorites). */
   categoryLabel: string | null;
+  priceDisplay: MakkbozPriceDisplay;
   isFavorite: boolean;
   simpleQuantity: number;
   totalQuantity: number;
@@ -99,15 +99,14 @@ function MakkbozCardImpl({
           )}
         </h4>
         {product.description ? <p className="m-card-desc" dir="auto">{product.description}</p> : null}
-        {hasSizes && sizes.length >= 2 ? (
+        {hasSizes && priceDisplay === 'ALL_VARIANTS' ? (
           <ul className="m-card-sizes">
-            {sizes.slice(0, MAX_SIZE_CHIPS).map((size) => (
+            {sizes.map((size) => (
               <li key={size.id}>
                 <bdi>{size.name}</bdi>
-                <bdi dir="ltr" className="m-size-price">{formatAmount(size.discountedPrice ?? size.price)}</bdi>
+                <Price amount={size.discountedPrice ?? size.price} currency={currency} className="m-size-price" currencyClassName="m-size-unit" />
               </li>
             ))}
-            {sizes.length > MAX_SIZE_CHIPS ? <li className="is-more">{copy.moreSizes(sizes.length - MAX_SIZE_CHIPS)}</li> : null}
           </ul>
         ) : null}
 
@@ -117,7 +116,7 @@ function MakkbozCardImpl({
               <span className="m-unavailable">{copy.unavailableNow}</span>
             ) : (
               <>
-                <span className="m-price-unit-label">{cheapest ? copy.fromPrice : ' '}</span>
+                <span className="m-price-unit-label">{sizes.length > 1 ? copy.fromPrice : ' '}</span>
                 {discounted ? (
                   <DiscountedPrice
                     original={cheapest ? cheapest.price : product.basePrice}

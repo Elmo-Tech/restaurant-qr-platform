@@ -1,5 +1,18 @@
 # Makkboz (مخبوز) — Exclusive Guest Menu Renderer ("Heritage")
 
+## Approved redesign (2026-11-10)
+
+The user approved the standalone concept in `docs/design/makkboz-simple-prototype.html` and requested its integration into the existing exclusive renderer. The original notes below describe the earlier concept and are retained as historical context; where they differ, this section supersedes them. The implementation is local and has not been deployed or published to the live Restaurant.
+
+- The opening is the approved full-width cream scene with the Makkboz wordmark, character, village, palm and understated birds / oven motion. `motion=OFF` and `prefers-reduced-motion` suppress the animation. The wordmark and tagline are Makkboz-specific built-in assets; the Restaurant's configured logo remains in the category rail when space permits.
+- The menu surface is full-width green with one content gutter, a sticky category rail, actual category photographs, the real shared offers strip and the existing product, cart, search and checkout components. Real offers are shown when present, and several can be scrolled with touch, keyboard or arrows. No illustrative offer is added to Restaurant data.
+- The default is the compact list with one price. `priceDisplay=STARTING_PRICE` displays one price, using the lowest effective Variant price and “from” when there are multiple Variants. `ALL_VARIANTS` displays all actual Variant names and effective prices, with no fixed two-size assumption. Both settings still use the shared product sheet for selection and modifiers; the Backend remains authoritative for pricing. Photo-card view and the guest's view switch remain available.
+- Settings remain in the existing draft / published JSON; no schema migration is needed. The dashboard offers both price displays, with the same save / preview / publish lifecycle. Older clients omitting the new optional field preserve the saved choice. A fully untouched legacy default settings object is normalized to the approved new defaults on read; customized legacy settings are preserved and no stored row is rewritten by this normalization.
+- The two existing hero image slots now override the character and the village scene respectively; blank slots use the approved built-in images. Category overrides fall back to the category's own image, then to a product image. This changes the visual role of any previously uploaded hero image without deleting it.
+- Reusable guidance for future restaurants and a separate prototype-first AI prompt live in `docs/design/RESTAURANT_MENU_DESIGN_PLAYBOOK.md`.
+
+## Earlier implementation notes (historical)
+
 **Branch:** `feat/sherbiny-exclusive-menu` (same branch as El Sherbiny, DEC-063, so both designs ship together).
 **Status:** renderer, settings API, dashboard editor, Platform-console assignment and a repeatable seed are implemented and were
 verified in a browser on a **scratch** database copy. **Not** merged, **not** applied to the real dev DB or any server, **not**

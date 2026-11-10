@@ -18,6 +18,9 @@ export type MakkbozMotion = (typeof MAKKBOZ_MOTIONS)[number];
 /** How the menu opens: photo cards or the compact list (the guest can switch). */
 export const MAKKBOZ_VIEWS = ['CARDS', 'LIST'] as const;
 export type MakkbozView = (typeof MAKKBOZ_VIEWS)[number];
+/** Display only a starting price, or show every size and its price on the menu. */
+export const MAKKBOZ_PRICE_DISPLAYS = ['STARTING_PRICE', 'ALL_VARIANTS'] as const;
+export type MakkbozPriceDisplay = (typeof MAKKBOZ_PRICE_DISPLAYS)[number];
 
 export const MAKKBOZ_BRAND_MAX = 24;
 
@@ -26,14 +29,14 @@ export const MAKKBOZ_COPY_FIELDS = {
   /** Brand text used when the Restaurant has no logo; empty = the Restaurant name. */
   brand: ['', '', MAKKBOZ_BRAND_MAX],
   announcement: ['حكاية طعم مصري.. معمولة من القلب', 'An Egyptian taste story… made from the heart', 70],
-  heroEyebrow: ['من قلب بلدنا.. لحد عندك', 'From the heart of our country… to your table', 60],
-  heroTitle: ['الطعم اللي اتربّينا عليه\nعلى أُصوله', 'The taste we grew up on,\nthe original way', 80],
+  heroEyebrow: ['أهلاً بيك في {name}', 'Welcome to {name}', 60],
+  heroTitle: ['من فرننا.. لسفرتك', 'From our oven to your table', 80],
   heroDesc: [
-    'فطير وبيتزا وكريب وكاليزوني وملفوف… اختار اللي نفسك فيه من منيو {name}.',
-    'Fiteer, pizza, crêpes, calzone and wraps… pick what you crave from the {name} menu.',
+    'فطير وبيتزا وكريب، اختار اللي نفسك فيه.',
+    'Fiteer, pizza and crêpes. Pick what you crave.',
     220,
   ],
-  ctaPrimary: ['اكتشف المنيو', 'Explore the menu', 30],
+  ctaPrimary: ['اتفضل على المنيو', 'Explore the menu', 30],
   ctaShare: ['شارك المنيو', 'Share the menu', 30],
   /** Words separated by `|`. */
   heroFine: ['فطير | بيتزا | كريب | ملفوف', 'Fiteer | Pizza | Crêpes | Wraps', 100],
@@ -47,9 +50,9 @@ export const MAKKBOZ_COPY_FIELDS = {
   value2Sub: ['في كل لقمة حكاية', 'A story in every bite', 40],
   value3Title: ['اختيارات كتير', 'Plenty to choose from', 30],
   value3Sub: ['على مزاجك', 'Whatever your mood', 40],
-  menuEyebrow: ['لذّة الاختيار', 'The joy of choosing', 40],
-  menuTitle: ['قائمة {name}', 'The {name} menu', 50],
-  menuNote: ['اختار اللي نفسك فيه.. واحنا نجهّزهولك بحب.', 'Pick what you crave… and we will prepare it with love.', 120],
+  menuEyebrow: ['أهلاً بيك في {name}', 'Welcome to {name}', 40],
+  menuTitle: ['اتفضل.. البيت بيتك', 'Make yourself at home', 50],
+  menuNote: ['اختار من أكلاتنا اللي على أصولها', 'Choose from our menu', 120],
   storyKicker: ['حِكاية {name}', 'The {name} story', 40],
   storyTitle: ['في كل لقمة..\nريحة البيت', 'In every bite…\nthe smell of home', 70],
   storyText: [
@@ -111,6 +114,7 @@ export interface MakkbozMenuSettings extends MakkbozTextSettings {
   allowThemeSwitch: boolean;
   motion: MakkbozMotion;
   defaultView: MakkbozView;
+  priceDisplay: MakkbozPriceDisplay;
   showAnnouncement: boolean;
   showValues: boolean;
   showStory: boolean;
@@ -125,10 +129,11 @@ export const DEFAULT_MAKKBOZ_SETTINGS: MakkbozMenuSettings = {
   theme: 'LIGHT',
   allowThemeSwitch: true,
   motion: 'SUBTLE',
-  defaultView: 'CARDS',
-  showAnnouncement: true,
-  showValues: true,
-  showStory: true,
+  defaultView: 'LIST',
+  priceDisplay: 'STARTING_PRICE',
+  showAnnouncement: false,
+  showValues: false,
+  showStory: false,
   heroImageAssetPath: null,
   heroSmallImageAssetPath: null,
   categoryExtras: {},
@@ -144,6 +149,24 @@ export const isMakkbozCategoryId = (value: unknown): value is string =>
 const cleanText = (value: unknown, max: number): string =>
   typeof value === 'string' ? value.replace(/\r\n?/g, '\n').trim().slice(0, max) : '';
 
+// A completely untouched old default is upgraded for the approved redesign. Any customized
+// settings remain intact; this is a read-time fallback, not a write to the Restaurant's data.
+const LEGACY_COPY_DEFAULTS: Partial<Record<MakkbozCopyField, string>> = {
+  heroEyebrowAr: 'من قلب بلدنا.. لحد عندك',
+  heroEyebrowEn: 'From the heart of our country… to your table',
+  heroTitleAr: 'الطعم اللي اتربّينا عليه\nعلى أُصوله',
+  heroTitleEn: 'The taste we grew up on,\nthe original way',
+  heroDescAr: 'فطير وبيتزا وكريب وكاليزوني وملفوف… اختار اللي نفسك فيه من منيو {name}.',
+  heroDescEn: 'Fiteer, pizza, crêpes, calzone and wraps… pick what you crave from the {name} menu.',
+  ctaPrimaryAr: 'اكتشف المنيو',
+  menuEyebrowAr: 'لذّة الاختيار',
+  menuEyebrowEn: 'The joy of choosing',
+  menuTitleAr: 'قائمة {name}',
+  menuTitleEn: 'The {name} menu',
+  menuNoteAr: 'اختار اللي نفسك فيه.. واحنا نجهّزهولك بحب.',
+  menuNoteEn: 'Pick what you crave… and we will prepare it with love.',
+};
+
 /**
  * Every unrecognized or invalid value falls back to the default; the result is always render-safe.
  * `brand` defaults to empty, which means "use the Restaurant name".
@@ -153,10 +176,17 @@ export function normalizeMakkbozSettings(value: unknown): MakkbozMenuSettings {
     value && typeof value === 'object' && !Array.isArray(value)
       ? (value as Record<string, unknown>)
       : {};
+  const extras = row.categoryExtras;
+  const emptyExtras = !extras || (typeof extras === 'object' && !Array.isArray(extras) && Object.keys(extras).length === 0);
+  const untouchedLegacy = row.priceDisplay === undefined && row.theme === 'LIGHT' && row.allowThemeSwitch === true &&
+    row.motion === 'SUBTLE' && row.defaultView === 'CARDS' && row.showAnnouncement === true && row.showValues === true &&
+    row.showStory === true && !row.heroImageAssetPath && !row.heroSmallImageAssetPath && emptyExtras &&
+    (Object.keys(MAKKBOZ_COPY_LIMITS) as MakkbozCopyField[]).every((key) =>
+      cleanText(row[key], MAKKBOZ_COPY_LIMITS[key]) === (LEGACY_COPY_DEFAULTS[key] ?? MAKKBOZ_COPY_DEFAULTS[key]));
   const text = {} as MakkbozTextSettings;
   for (const key of Object.keys(MAKKBOZ_COPY_LIMITS) as MakkbozCopyField[]) {
     const raw = cleanText(row[key], MAKKBOZ_COPY_LIMITS[key]);
-    text[key] = raw || MAKKBOZ_COPY_DEFAULTS[key];
+    text[key] = untouchedLegacy ? MAKKBOZ_COPY_DEFAULTS[key] : raw || MAKKBOZ_COPY_DEFAULTS[key];
   }
   const rawExtras =
     row.categoryExtras && typeof row.categoryExtras === 'object' && !Array.isArray(row.categoryExtras)
@@ -186,10 +216,11 @@ export function normalizeMakkbozSettings(value: unknown): MakkbozMenuSettings {
     theme: MAKKBOZ_THEMES.find((theme) => theme === row.theme) ?? 'LIGHT',
     allowThemeSwitch: bool('allowThemeSwitch', true),
     motion: MAKKBOZ_MOTIONS.find((motion) => motion === row.motion) ?? 'SUBTLE',
-    defaultView: MAKKBOZ_VIEWS.find((view) => view === row.defaultView) ?? 'CARDS',
-    showAnnouncement: bool('showAnnouncement', true),
-    showValues: bool('showValues', true),
-    showStory: bool('showStory', true),
+    defaultView: untouchedLegacy ? 'LIST' : MAKKBOZ_VIEWS.find((view) => view === row.defaultView) ?? 'LIST',
+    priceDisplay: MAKKBOZ_PRICE_DISPLAYS.find((display) => display === row.priceDisplay) ?? 'STARTING_PRICE',
+    showAnnouncement: untouchedLegacy ? false : bool('showAnnouncement', false),
+    showValues: untouchedLegacy ? false : bool('showValues', false),
+    showStory: untouchedLegacy ? false : bool('showStory', false),
     heroImageAssetPath: media('heroImageAssetPath'),
     heroSmallImageAssetPath: media('heroSmallImageAssetPath'),
     categoryExtras,
