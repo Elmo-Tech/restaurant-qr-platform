@@ -12,7 +12,16 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title,
     description,
-    openGraph: { title, description, type: 'website', locale: locale === 'ar' ? 'ar_EG' : 'en_US' },
+    alternates: { canonical: 'https://waytaapp.com/' },
+    openGraph: {
+      title, description, type: 'website', locale: locale === 'ar' ? 'ar_EG' : 'en_US',
+      siteName: 'Wayta', url: 'https://waytaapp.com/',
+      images: [{ url: 'https://waytaapp.com/share-card', width: 1200, height: 630, alt: 'Wayta' }],
+    },
+    twitter: {
+      card: 'summary_large_image', title, description,
+      images: ['https://waytaapp.com/share-card'],
+    },
   };
 }
 
