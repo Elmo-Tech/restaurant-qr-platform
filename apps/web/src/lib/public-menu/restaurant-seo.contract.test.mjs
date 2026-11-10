@@ -40,7 +40,8 @@ test('Internal SSR API request forwards only validated tenant Host to enforce AP
 
 test('A tenant can fetch only its own social card, robots and sitemap; inactive tenants are not indexed', () => {
   const proxy = read('proxy.ts');
-  const card = read('app/share-card/route.tsx');
+  const card = read('app/share-card/route.ts');
+  const view = read('app/share-card/ShareCardView.tsx');
   const robots = read('app/robots.ts');
   const sitemap = read('app/sitemap.ts');
   for (const route of ['/share-card', '/robots.txt', '/sitemap.xml']) {
@@ -51,6 +52,8 @@ test('A tenant can fetch only its own social card, robots and sitemap; inactive 
   assert.match(card, /seo.canonical !== 'https:\/\/' \+ slug/);
   assert.match(card, /MAX_MEDIA_BYTES/);
   assert.match(card, /SUPPORTED_IMAGES/);
+  assert.match(card, /shareCardView/);
+  assert.match(view, /fontFamily: 'Wayta Arabic, Wayta Latin/);
   assert.match(card, /result.outcome !== 'found'/);
   assert.match(robots, /disallow: '\/'/);
   assert.match(robots, /sitemap: seo.canonical \+ 'sitemap.xml'/);
