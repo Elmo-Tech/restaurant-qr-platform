@@ -20,7 +20,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
     return {
       rules: [{
         userAgent: '*', allow: '/',
-        disallow: ['/staff/', '/api/', '/socket.io/', '/q/', '/share-card'],
+        disallow: ['/staff/', '/api/', '/socket.io/', '/q/'],
       }],
       sitemap: seo.canonical + 'sitemap.xml',
     };
@@ -28,7 +28,7 @@ export default async function robots(): Promise<MetadataRoute.Robots> {
   return {
     rules: [{
       userAgent: '*', allow: '/',
-      disallow: ['/staff/', '/api/', '/socket.io/', '/share-card'],
+      disallow: ['/staff/', '/api/', '/socket.io/'],
     }],
     sitemap: 'https://waytaapp.com/sitemap.xml',
   };
