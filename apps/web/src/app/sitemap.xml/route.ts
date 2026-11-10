@@ -23,7 +23,6 @@ function xml(url: string | null): Response {
 /** Never enumerate cross-tenant restaurant URLs on the platform sitemap. */
 export async function GET(request: Request): Promise<Response> {
   const rawHost = (request.headers.get('host') ?? '').toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '');
-  if (process.env.NODE_ENV === 'development') console.log('[seo-host-route]', JSON.stringify({host: request.headers.get('host'), forwarded: request.headers.get('x-forwarded-host'), base, url: request.url}));
   const slug = restaurantSlugFromHost(rawHost, base);
   if (slug) {
     const result = await getPublicMenu(slug, undefined);
