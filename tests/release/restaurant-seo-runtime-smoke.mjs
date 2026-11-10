@@ -1,0 +1,127 @@
+import assert from 'node:assert/strict';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
+import { setTimeout as delay } from 'node:timers/promises';
+import { createServer } from 'node:http';
+
+const ROOT = fileURLToPath(new URL('../../', import.meta.url));
+const SITE = 'restaurant-a.waytaapp.com';
+const PORT = 3210;
+const LOGO = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+/1xkAAAAASUVORK5CYII=', 'base64');
+const sample = {
+  context: {
+    qrType: 'GENERIC',
+    entry: { publicCode: 'opaque-public-code', redirectToSlug: null },
+    restaurant: {
+      shareCode: 'restaurant-a',
+      name: 'Restaurant A',
+      logoAssetPath: '/media/logo.png',
+      coverAssetPath: '/media/cover.png',
+    },
+  },
+  locale: { resolved: 'en', default: 'en', available: ['en'] },
+  menu: { name: 'Menu A', description: 'A fresh menu description for Restaurant A.' },
+};
+
+const requestHosts = [];
+const api = createServer((req, res) => {
+  const path = new URL(req.url ?? '/', 'http://127.0.0.1').pathname;
+  if (path === '/media/logo.png' || path === '/media/cover.png') {
+    res.writeHead(200, { 'content-type': 'image/png' });
+    res.end(LOGO);
+    return;
+  }
+  if (path === '/api/v1/public/qr/restaurant-a/menu') {
+    requestHosts.push(req.headers.host);
+    if (req.headers.host !== SITE) {
+      res.writeHead(404, { 'content-type': 'application/json' });
+      res.end(JSON.stringify({ error: { code: 'QR_NOT_FOUND' } }));
+      return;
+    }
+    res.writeHead(200, { 'content-type': 'application/json' });
+    res.end(JSON.stringify({ data: sample }));
+    return;
+  }
+  res.writeHead(404, { 'content-type': 'application/json' });
+  res.end(JSON.stringify({ error: { code: 'QR_NOT_FOUND' } }));
+});
+await new Promise((resolve, reject) => {
+  api.once('error', reject);
+  api.listen(0, '127.0.0.1', resolve);
+});
+const apiPort = api.address().port;
+const web = spawn('npm', ['run', 'dev', '--workspace=apps/web', '--', '--port', String(PORT)], {
+  cwd: ROOT,
+  env: {
+    ...process.env,
+    NODE_ENV: 'development',
+    NEXT_PUBLIC_API_URL: 'http://127.0.0.1:' + apiPort,
+    NEXT_PUBLIC_API_BASE_PATH: '/api/v1',
+    API_INTERNAL_URL: 'http://127.0.0.1:' + apiPort,
+    RESTAURANT_BASE_DOMAIN: 'waytaapp.com',
+  },
+  stdio: ['ignore', 'pipe', 'pipe'],
+});
+let webLogs = '';
+for (const stream of [web.stdout, web.stderr]) {
+  stream?.on('data', chunk => { webLogs = (webLogs + chunk.toString()).slice(-13000); });
+}
+const url = (path, host) => fetch('http://127.0.0.1:' + PORT + path, {
+  headers: { host }, signal: AbortSignal.timeout(30000),
+});
+
+try {
+  let ready = false;
+  for (let i = 0; i < 90; i++) {
+    if (web.exitCode !== null) throw new Error('Next dev exited: ' + web.exitCode);
+    try {
+      const result = await url('/sitemap.xml', 'waytaapp.com');
+      if (result.status === 200) { await result.body?.cancel(); ready = true; break; }
+      await result.body?.cancel();
+    } catch { /* Server is starting */ }
+    await delay(1000);
+  }
+  assert.equal(ready, true, 'Next dev did not become ready');
+
+  const image = await url('/share-card', SITE);
+  assert.equal(image.status, 200, 'active restaurant share image should render');
+  assert.match(image.headers.get('content-type') ?? '', /image\/png/);
+  const png = Buffer.from(await image.arrayBuffer());
+  assert.ok(png.subarray(0, 8).equals(Buffer.from('89504e470d0a1a0a', 'hex')), 'valid PNG header');
+  assert.equal(png.readUInt32BE(16), 1200, 'share card width');
+  assert.equal(png.readUInt32BE(20), 630, 'share card height');
+
+  const sitemap = await url('/sitemap.xml', SITE);
+  assert.equal(sitemap.status, 200);
+  const sitemapText = await sitemap.text();
+  assert.match(sitemapText, /https:\/\/restaurant-a.waytaapp.com\//);
+  assert.doesNotMatch(sitemapText, /restaurant-b/);
+
+  const robots = await url('/robots.txt', SITE);
+  assert.equal(robots.status, 200);
+  const robotsText = await robots.text();
+  assert.match(robotsText, /restaurant-a.waytaapp.com\/sitemap.xml/);
+  assert.doesNotMatch(robotsText, /Disallow: \/share-card/);
+
+  const unknown = await url('/share-card', 'restaurant-b.waytaapp.com');
+  assert.equal(unknown.status, 404, 'unknown tenant cannot get a restaurant preview');
+  await unknown.body?.cancel();
+
+  const unknownRobots = await url('/robots.txt', 'restaurant-b.waytaapp.com');
+  assert.match(await unknownRobots.text(), /Disallow: \//);
+
+  const rootCard = await url('/share-card', 'waytaapp.com');
+  assert.equal(rootCard.status, 200, 'Wayta platform image remains independently available');
+  await rootCard.body?.cancel();
+
+  assert.ok(requestHosts.length >= 3, 'backend mock called for tenant menu resolution');
+  assert.ok(requestHosts.every(host => host === SITE), 'all real tenant calls carry the scoped Host');
+  console.log('SEO smoke: tenant 1200x630 PNG, scoped Host, per-host robots/sitemap, 404 unknown and Wayta image OK');
+} catch (error) {
+  console.error('SEO runtime smoke failed:', error);
+  console.error('Next dev logs:\n' + webLogs);
+  process.exitCode = 1;
+} finally {
+  web.kill('SIGTERM');
+  await new Promise(resolve => api.close(resolve));
+}
