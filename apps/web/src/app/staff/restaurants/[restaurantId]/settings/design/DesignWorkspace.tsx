@@ -269,7 +269,7 @@ export function DesignWorkspace({
   /** The templates the package allows (DEC-051); Classic is always in it. The others are shown locked. */
   allowedTemplates: readonly Template[];
 }) {
-  const { t } = useStaffI18n();
+  const { t, locale } = useStaffI18n();
   const [saved, setSaved] = useState<Template>(initialTemplate);
   const [selected, setSelected] = useState<Template>(initialTemplate);
   // Keep the selected template's settings beside its card, not below an ever-growing catalogue.
@@ -381,7 +381,7 @@ export function DesignWorkspace({
     }
   }
 
-  const previewLocale = meatLoversActive ? meatLoversPreviewLanguage : verdeActive ? verdePreviewLanguage : sherbinyActive ? sherbinyPreviewLanguage : makkbozActive ? makkbozPreviewLanguage : activePreview === 'EMBER' ? emberPreviewLanguage
+  const previewLocale = meatLoversActive ? meatLoversPreviewLanguage : verdeActive ? verdePreviewLanguage : sherbinyActive ? sherbinyPreviewLanguage : makkbozActive ? (makkbozPreviewLanguage ?? locale) : activePreview === 'EMBER' ? emberPreviewLanguage
     : activePreview === 'BLOOM' ? bloomPreviewLanguage : activePreview==='BREW'?brewPreviewLanguage:null;
   const designPreview = verdeActive || sherbinyActive || makkbozActive || meatLoversActive || activePreview === 'EMBER' || activePreview === 'BLOOM' || activePreview==='BREW' || activePreview==='EDITORIAL';
   const previewSrc = qrCode
@@ -449,7 +449,7 @@ export function DesignWorkspace({
                   <span aria-hidden="true" className="text-warning">★</span>
                   {t('design.exclusive.sectionHeading')}
                 </h3>
-                <p className="mt-0.5 text-xs text-muted-foreground">{t('design.exclusive.sectionHint')}</p>
+                <p className="mt-0.5 text-xs text-muted-foreground">{t(makkbozGranted ? 'makkboz.exclusive.sectionHint' : 'design.exclusive.sectionHint')}</p>
               </div>
               <button
                 type="button"
@@ -489,10 +489,12 @@ export function DesignWorkspace({
                     <VerdeMenuEditor restaurantId={restaurantId} canManage={canManage}
                       onDraftChange={setVerdePreviewDraft} onCopyLanguageChange={setVerdePreviewLanguage} />
                   )}
-                  <div className="flex flex-wrap items-center gap-2">
-                    <Button onClick={() => void save()} disabled={!dirty || isSaving}>{t('design.save')}</Button>
-                    {dirty ? <span className="text-xs text-muted-foreground">{t('design.unsaved')}</span> : null}
-                  </div>
+                  {!makkbozGranted || dirty ? (
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button onClick={() => void save()} disabled={!dirty || isSaving}>{t('design.save')}</Button>
+                      {dirty ? <span className="text-xs text-muted-foreground">{t('design.unsaved')}</span> : null}
+                    </div>
+                  ) : null}
                 </div>
               ) : null}
             </div>

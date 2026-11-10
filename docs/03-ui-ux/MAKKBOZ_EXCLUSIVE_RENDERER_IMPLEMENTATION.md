@@ -4,12 +4,12 @@
 
 The user approved the standalone concept in `docs/design/makkboz-simple-prototype.html` and requested its integration into the existing exclusive renderer. The original notes below describe the earlier concept and are retained as historical context; where they differ, this section supersedes them. The implementation is local and has not been deployed or published to the live Restaurant.
 
-- The opening is the approved full-width cream scene with the Makkboz wordmark, character, village, palm and understated birds / oven motion. The scene enters once; the birds, wing movement and oven smoke continue gently while motion is enabled. `motion=OFF` and `prefers-reduced-motion` suppress the animation. The wordmark and tagline are Makkboz-specific built-in assets; the Restaurant's configured logo remains in the category rail when space permits.
+- The opening is the approved full-width cream scene with the Restaurant's configured logo, character, village, palm and understated birds / oven motion. If the Restaurant has no logo or the image fails to load, the built-in Makkboz wordmark is shown. The tagline remains a Makkboz-specific built-in asset. The scene enters once; the birds, wing movement and oven smoke continue gently while motion is enabled. `motion=OFF` and `prefers-reduced-motion` suppress the animation. The same Restaurant logo appears in the category rail when space permits.
 - The menu surface is full-width green with one content gutter, a sticky category rail, actual category photographs, the real shared offers strip and the existing product, cart, search and checkout components. Real offers are shown when present, and several can be scrolled with touch, keyboard or arrows. No illustrative offer is added to Restaurant data.
 - The search field remains visible in the category rail on desktop and on its own row on tablets and phones, as in the approved prototype. The hero no longer shows the pickup / delivery selector; ordering notices remain visible and the shared cart still lets the Guest select an available fulfillment mode.
 - The default is the compact list with one price. `priceDisplay=STARTING_PRICE` displays one price, using the lowest effective Variant price and “from” when there are multiple Variants. `ALL_VARIANTS` displays all actual Variant names and effective prices, with no fixed two-size assumption. Both settings still use the shared product sheet for selection and modifiers; the Backend remains authoritative for pricing. Photo-card view and the guest's view switch remain available.
 - Settings remain in the existing draft / published JSON; no schema migration is needed. The dashboard offers both price displays, with the same save / preview / publish lifecycle. Older clients omitting the new optional field preserve the saved choice. A fully untouched legacy default settings object is normalized to the approved new defaults on read; customized legacy settings are preserved and no stored row is rewritten by this normalization.
-- The two existing hero image slots now override the character and the village scene respectively; blank slots use the approved built-in images. Category overrides fall back to the category's own image, then to a product image. This changes the visual role of any previously uploaded hero image without deleting it.
+- The character and countryside scene use the approved built-in artwork; previously uploaded hero images remain stored but no longer replace it. Section pictures use the category image managed in the menu, then any legacy design-specific image, then a product image.
 - Reusable guidance for future restaurants and a separate prototype-first AI prompt live in `docs/design/RESTAURANT_MENU_DESIGN_PLAYBOOK.md`.
 
 ## Earlier implementation notes (historical)
@@ -37,7 +37,7 @@ reused inside the themed root. Fonts (self-hosted, only with this renderer): Are
 Tajawal (body). Note: the concept's "Aref Ruqaa **Ink**" is a *colour* font that ignores the page colour (it renders red); the plain
 Aref Ruqaa is used instead.
 
-## 3. What the dashboard controls (Menu design → "Your exclusive design (Heritage)")
+## 3. Earlier dashboard controls (historical)
 
 Motion on/off, how the menu opens (photo cards or compact list; guests can switch), show/hide of the top message bar, the promises
 band and the story; every text of the page in Arabic and English with "restore default" (top bar, hero, buttons, keywords, arch
@@ -122,8 +122,14 @@ reader, Safari, an automated contrast audit, end-to-end ordering on this DB.
 
 ## Light / dark mode (DEC-065)
 
-- The dashboard default is `theme` (LIGHT / DARK / SYSTEM) and `allowThemeSwitch` in the draft / publish settings; the guest's own choice (header sun / moon button, shown when switching is allowed) is stored in the shared `guest_theme` cookie and wins over the default.
+- The stored default is `theme` (LIGHT / DARK / SYSTEM) and `allowThemeSwitch` in the draft / publish settings; the guest's own choice (header sun / moon button, shown when switching is allowed) is stored in the shared `guest_theme` cookie and wins over the default.
 - The server reads the cookie (`/q/[publicCode]/page.tsx`) and renders the first paint with it; SYSTEM is resolved by CSS (`prefers-color-scheme`) alone, so nothing flashes.
 - Both palettes are token sets that also remap the shared `--g-*` tokens, so the cart, order bar, product sheet and tracking follow the mode.
 - Never add unlayered colour / font resets to the skin stylesheet: they beat the Tailwind utilities of the shared components and make their text invisible (guarded by the contract test).
 - A restaurant with this design and no published menu shows the branded "menu on its way" page (`BrandedMenuPending`), not the generic error.
+
+## Staff controls and approved opening (2026-11-10)
+
+- The restaurant's Makhboz editor contains the initial product layout, price display, and exactly six editable messages: opening heading, opening description, menu button, menu heading, menu description, and footer tagline. Messages can be edited in Arabic and English; the preview follows the selected language. Products, section photos, offers, prices and contact details remain in their existing management screens.
+- The approved character and countryside images are fixed in the opening. Existing stored image and text settings are not deleted when the editor is simplified; saved category images continue to work, with the menu's category image taking priority.
+- Edits are previewed immediately, saved as a draft and made visible to guests only after publishing. The opening has animated birds and oven smoke when motion is enabled; reduced-motion preferences still apply.
