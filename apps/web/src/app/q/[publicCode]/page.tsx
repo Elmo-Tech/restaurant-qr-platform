@@ -1,6 +1,9 @@
+import type { Metadata } from 'next';
 import { cookies, headers } from 'next/headers';
 import { redirect } from 'next/navigation';
-import { getPublicMenu } from '../../../lib/public-menu/api';
+import { formerRestaurantCanonicalSlug, getPublicMenu } from '../../../lib/public-menu/api';
+import { API_ORIGIN } from '../../../lib/api/config';
+import { buildRestaurantSeo, restaurantJsonLd } from '../../../lib/public-menu/restaurant-seo';
 import { getPublicMenuCopy } from '../../../lib/public-menu/copy';
 import { parseMenuTemplate } from '../../../lib/public-menu/templates';
 import { validRestaurantHostSlug } from '../../../lib/public-menu/restaurant-subdomains';
@@ -12,6 +15,44 @@ import { PublicMenuView } from './PublicMenuView';
 interface PublicMenuPageProps {
   params: Promise<{ publicCode: string }>;
   searchParams: Promise<{ lang?: string; template?: string; designPreview?: string }>;
+}
+
+const noIndex: Metadata['robots'] = {
+  index: false,
+  follow: false,
+  googleBot: { index: false, follow: false },
+};
+
+/** Metadata is server-rendered per published tenant; crawlers do not run browser JS. */
+export async function generateMetadata({ params, searchParams }: PublicMenuPageProps): Promise<Metadata> {
+  const { publicCode } = await params;
+  const { lang, template, designPreview } = await searchParams;
+  if (designPreview || template) return { title: 'Menu preview | Wayta', robots: noIndex };
+  const result = await getPublicMenu(publicCode, lang);
+  if (result.outcome !== 'found') return { title: 'Menu unavailable | Wayta', robots: noIndex };
+  const seo = buildRestaurantSeo(result.data, process.env.RESTAURANT_BASE_DOMAIN, API_ORIGIN);
+  if (!seo) return { title: 'Menu | Wayta', robots: noIndex };
+  return {
+    title: seo.title,
+    description: seo.description,
+    alternates: { canonical: seo.canonical },
+    robots: { index: true, follow: true },
+    openGraph: {
+      type: 'website',
+      title: seo.title,
+      description: seo.description,
+      url: seo.canonical,
+      siteName: seo.name,
+      locale: seo.locale,
+      images: [{ url: seo.image, width: 1200, height: 630, alt: seo.name }],
+    },
+    twitter: {
+      card: 'summary_large_image',
+      title: seo.title,
+      description: seo.description,
+      images: [seo.image],
+    },
+  };
 }
 
 /**
@@ -33,6 +74,17 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
   const { lang, template, designPreview } = await searchParams;
 
   const result = await getPublicMenu(segment, lang);
+
+  // A formerly valid restaurant hostname redirects to its current slug.
+  // Never render unguarded tenant content here; the legacy lookup returns a
+  // canonical slug only after the Backend confirms the old alias.
+  if (result.outcome === 'notFound') {
+    const currentSlug = await formerRestaurantCanonicalSlug(segment);
+    if (currentSlug) {
+      const suffix = lang ? '?lang=' + encodeURIComponent(lang) : '';
+      redirect('https://' + currentSlug + '.' + process.env.RESTAURANT_BASE_DOMAIN + '/' + suffix);
+    }
+  }
 
   // A Restaurant with an exclusive design whose menu is not published yet: a branded page, not a generic error.
   if (result.outcome === 'unavailable' && result.branding) {
@@ -106,8 +158,16 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
   // The guest's own light / dark pick (null = never chose), so an exclusive design renders it on the first paint.
   const savedTheme = (await cookies()).get(GUEST_THEME_COOKIE)?.value;
   const guestTheme = savedTheme === 'light' || savedTheme === 'dark' ? savedTheme : null;
+  const seo = !designPreview && result.data.context.qrType === 'GENERIC'
+    ? buildRestaurantSeo(result.data, process.env.RESTAURANT_BASE_DOMAIN, API_ORIGIN)
+    : null;
+
   return (
-    <PublicMenuView
+    <>
+      {seo ? (
+        <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: restaurantJsonLd(seo) }} />
+      ) : null}
+      <PublicMenuView
       data={result.data}
       guestTheme={guestTheme}
       publicCode={publicCode}
@@ -121,6 +181,7 @@ export default async function PublicMenuPage({ params, searchParams }: PublicMen
           (previewAllowed &&
             (template?.toUpperCase() === 'EMBER' || template?.toUpperCase() === 'BLOOM' || template?.toUpperCase() === 'BREW' || template?.toUpperCase() === 'EDITORIAL')))
       )}
-    />
+      />
+    </>
   );
 }

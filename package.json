@@ -23,7 +23,7 @@
     "typecheck:web": "npm run typecheck --workspace=apps/web",
     "typecheck:api": "npm run typecheck --workspace=apps/api",
     "typecheck:platform": "npm run typecheck --workspace=apps/platform",
-    "test": "npm run test --workspaces --if-present && npm run test:contract-ui && node --test apps/web/src/lib/public-menu/restaurant-subdomains.test.mjs apps/web/src/lib/public-menu/restaurant-routing.contract.test.mjs",
+    "test": "npm run test --workspaces --if-present && npm run test:contract-ui && node --test apps/web/src/lib/public-menu/restaurant-subdomains.test.mjs apps/web/src/lib/public-menu/restaurant-routing.contract.test.mjs apps/web/src/lib/public-menu/restaurant-seo.contract.test.mjs",
     "test:contract-ui": "npm run test --workspace=apps/api -- --rootDir ../../tests/contract --runInBand",
     "db:validate": "npm run prisma:validate --workspace=apps/api",
     "db:generate": "npm run prisma:generate --workspace=apps/api"

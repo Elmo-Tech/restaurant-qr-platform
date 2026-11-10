@@ -1,9 +1,12 @@
+import type { Metadata } from 'next';
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../lib/auth/session';
 import { Alert } from '../../components/ui/Alert';
 import { StaffI18nProvider } from '../../lib/i18n/client';
 import { getStaffLocale } from '../../lib/i18n/server';
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 /**
  * Protected Staff auth gate (Section 7/14). This is a UX/navigation

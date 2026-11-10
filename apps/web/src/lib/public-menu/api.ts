@@ -2,6 +2,8 @@ import { headers } from 'next/headers';
 import { SERVER_API_BASE_URL } from '../api/config';
 import { forwardedForHeader } from '../api/server-fetch';
 import type { PublicMenuData } from './types';
+import { restaurantSlugFromHost, validRestaurantHostSlug } from './restaurant-subdomains';
+import { fetchTenantPublicMenuWithHost } from './tenant-internal-http';
 
 /** What the "no menu yet" outcome carries for a Restaurant with an exclusive design (a branded page instead of an error). */
 export interface PublicMenuBranding {
@@ -57,18 +59,28 @@ export async function getPublicMenu(
 ): Promise<GetPublicMenuResult> {
   const incomingHeaders = await headers();
   const acceptLanguage = incomingHeaders.get('accept-language');
+  // The internal API normally sees Host: api:4000. For an actual restaurant
+  // hostname that would bypass PublicRestaurantHostGuard; forward only the
+  // validated single-label tenant host, not a raw caller-supplied value.
+  const baseDomain = process.env.RESTAURANT_BASE_DOMAIN;
+  const tenantSlug = restaurantSlugFromHost(incomingHeaders.get('host'), baseDomain);
+  const tenantHost = tenantSlug && baseDomain
+    ? `${tenantSlug}.${baseDomain.toLowerCase()}`
+    : null;
 
   const query = lang ? `?lang=${encodeURIComponent(lang)}` : '';
   let response: Response;
   try {
-    response = await fetch(
-      `${SERVER_API_BASE_URL}/public/qr/${encodeURIComponent(publicCode)}/menu${query}`,
-      {
-        method: 'GET',
-        headers: { ...(acceptLanguage ? { 'accept-language': acceptLanguage } : {}), ...forwardedForHeader(incomingHeaders) },
-        cache: 'no-store',
-      },
-    );
+    const url = `${SERVER_API_BASE_URL}/public/qr/${encodeURIComponent(publicCode)}/menu${query}`;
+    const safeHeaders = {
+      ...(acceptLanguage ? { 'accept-language': acceptLanguage } : {}),
+      ...forwardedForHeader(incomingHeaders),
+    };
+    // Node fetch can replace Host with the internal API URL. Preserve only
+    // the validated tenant Host so Nest PublicRestaurantHostGuard checks it.
+    response = tenantHost
+      ? await fetchTenantPublicMenuWithHost(url, tenantHost, safeHeaders)
+      : await fetch(url, { method: 'GET', headers: safeHeaders, cache: 'no-store' });
   } catch {
     return { outcome: 'notFound' };
   }
@@ -92,4 +104,35 @@ export async function getPublicMenu(
   }
 
   return { outcome: 'found', data: body.data };
+}
+
+
+/**
+ * A former restaurant hostname should redirect to its CURRENT hostname, not
+ * serve a menu under an alias. The regular public menu fetch always forwards
+ * tenant Host and fails closed; this legacy-only lookup uses the established
+ * apex API path and returns ONLY a verified canonical slug, never menu data.
+ */
+export async function formerRestaurantCanonicalSlug(requestedSlug: string): Promise<string | null> {
+  const base = process.env.RESTAURANT_BASE_DOMAIN;
+  if (!base || !validRestaurantHostSlug(requestedSlug)) return null;
+  if (restaurantSlugFromHost((await headers()).get('host'), base) !== requestedSlug) return null;
+  try {
+    const response = await fetch(
+      SERVER_API_BASE_URL + '/public/qr/' + encodeURIComponent(requestedSlug) + '/menu',
+      { method: 'GET', headers: { host: base }, cache: 'no-store' },
+    );
+    if (!response.ok) return null;
+    const body = (await response.json()) as { data?: PublicMenuData };
+    const data = body.data;
+    const target = data?.context.restaurant.shareCode;
+    if (
+      data?.context.qrType !== 'GENERIC' ||
+      !target || !validRestaurantHostSlug(target) || target === requestedSlug ||
+      data.context.entry.redirectToSlug !== target
+    ) return null;
+    return target;
+  } catch {
+    return null;
+  }
 }

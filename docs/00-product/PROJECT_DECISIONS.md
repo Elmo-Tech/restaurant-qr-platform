@@ -1726,3 +1726,14 @@ If a decision changes:
 **Amends DEC-042 only for explicitly connected restaurants.** WhatsApp checkout still validates and prices with the same authoritative NestJS Backend and opens wa.me with a prefilled message. No order or pending checkout is stored merely because the customer requests a quote, presses Send, or opens WhatsApp. If a restaurant opts into verified tracking, the Backend adds a time-limited signed reference to the generated message. Only a verified inbound Evolution message to the connected, number-matched restaurant instance creates one small `WhatsappOrderReceipt` row (tenant, branch, reference, provider message id, amount, currency, order type, timestamp). Duplicate messages and replayed references never increase the count. Unrelated chats/media are not stored in Wayta. The regular `Order` table and app order lifecycle are unchanged. A received WhatsApp order is NOT considered accepted, fulfilled or paid.
 
 Provider session verification must fail closed; if disconnected, the original WhatsApp checkout remains available without a verified-count claim. Integration requires separate deployment configuration, provider-side privacy/retention review, isolated database migration test and explicit owner approval before merge/deploy. Visibility and actions must respect real package entitlements, restaurant settings, staff permissions and branch scope.
+
+
+---
+
+### DEC-071 — Restaurant-specific SEO and social share identity (2026-11-10)
+
+**Status:** Owner approved implementation on an isolated branch; merge and production release are separate gates.
+
+Each ACTIVE restaurant with a public GENERIC QR and current slug gets server-rendered title, localized description, canonical restaurant hostname, Open Graph/Twitter metadata, safe Restaurant JSON-LD, and a 1200×630 social share image using its published cover and logo when available. Published Menu description is the authoritative currently available description; a factual locale-specific fallback is used when it is empty. This is not permission to invent a new Restaurant SEO description field or alter existing product/ordering data.
+
+Each tenant hostname has its own robots/sitemap only for currently published menus. No inactive tenant or Table QR is indexed; no cross-tenant sitemap listing, Staff indexing, or mixing of tenants via internal Next.js API fetches. Wayta marketing SEO and legacy QR links remain intact. Production deployment is manual and requires separate owner approval. Full rollout checklist: docs/02-technical/RESTAURANT_SEO_RELEASE.md.

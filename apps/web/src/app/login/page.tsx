@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../lib/auth/session';
 import { StaffI18nProvider } from '../../lib/i18n/client';
@@ -8,6 +9,8 @@ import { LoginForm } from './LoginForm';
 interface LoginPageProps {
   searchParams: Promise<{ reset?: string }>;
 }
+
+export const metadata: Metadata = { robots: { index: false, follow: false } };
 
 /**
  * Server Component: deterministic on refresh/deep-link (Section 23) --
