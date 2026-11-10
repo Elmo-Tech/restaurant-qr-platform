@@ -54,9 +54,8 @@ export async function GET(request: Request): Promise<Response> {
 
   if (slug) {
     const result = await getPublicMenu(slug, undefined);
-    const seo = result.outcome === 'found'
-      ? buildRestaurantSeo(result.data, base, API_ORIGIN)
-      : null;
+    if (result.outcome !== 'found') return new Response('Not Found', { status: 404 });
+    const seo = buildRestaurantSeo(result.data, base, API_ORIGIN);
     // Never show another restaurant's branding under a different tenant host.
     if (!seo || seo.canonical !== 'https://' + slug + '.' + base + '/') {
       return new Response('Not Found', { status: 404 });
