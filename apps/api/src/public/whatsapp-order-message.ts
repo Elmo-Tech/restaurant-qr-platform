@@ -87,7 +87,7 @@ export function plain(value: string): string {
 
 /** How the Restaurant's own language writes a currency; any other code is shown as it is. */
 const CURRENCY_SYMBOLS: Record<MessageLanguage, Record<string, string>> = {
-  ar: { EGP: 'ج', SAR: 'ر.س', AED: 'د.إ', KWD: 'د.ك', QAR: 'ر.ق', USD: '$' },
+  ar: { EGP: 'ج.م', SAR: 'ر.س', AED: 'د.إ', KWD: 'د.ك', QAR: 'ر.ق', USD: '$' },
   en: {},
 };
 
@@ -104,12 +104,37 @@ function money(
   return `${amountText(amount)} ${CURRENCY_SYMBOLS[language][currency] ?? currency}`;
 }
 
-/** An extra's own price: " (+50)" for a paid one, " (-5)" for a reduction, nothing for a free one. */
-function extraPrice(amount: string): string {
-  if (/^-?0+(\.0+)?$/.test(amount)) return '';
-  return amount.startsWith('-')
-    ? ` (${amountText(amount)})`
-    : ` (+${amountText(amount)})`;
+/**
+ * Presentation-only fixed-point math. OrderQuote prices are 2-decimal strings
+ * issued by NestJS; never use JS floating-point or recalculate checkout truth.
+ */
+function amountCents(amount: string): bigint {
+  const match = /^(-?)(\d+)\.(\d{2})$/.exec(amount);
+  if (!match) throw new Error('Invalid priced amount in WhatsApp quote');
+  const cents = BigInt(match[2]) * 100n + BigInt(match[3]);
+  return match[1] ? -cents : cents;
+}
+
+function centsAmount(cents: bigint): string {
+  const abs = cents < 0n ? -cents : cents;
+  return (cents < 0n ? '-' : '') + (abs / 100n).toString() +
+    '.' + (abs % 100n).toString().padStart(2, '0');
+}
+
+function extendedAmount(amount: string, quantity: number): string {
+  return centsAmount(amountCents(amount) * BigInt(quantity));
+}
+
+/** A modifier's own extended price (including the cart quantity), or no price when free. */
+function extraPrice(
+  amount: string,
+  currency: string,
+  language: MessageLanguage,
+): string {
+  const cents = amountCents(amount);
+  if (cents === 0n) return '';
+  const absolute = centsAmount(cents < 0n ? -cents : cents);
+  return ' (' + (cents < 0n ? '-' : '+') + money(absolute, currency, language) + ')';
 }
 
 export function buildWhatsappMessage(quote: OrderQuote): string {
@@ -156,14 +181,15 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
   }
   groups.sort((a, b) => a.order - b.order);
 
-  let number = 0;
   const itemLine = (item: OrderQuote['items'][number]): string => {
-    number += 1;
     const variant = item.variantName ? ' (' + plain(item.variantName) + ')' : '';
-    return (
-      number + ') *' + plain(item.name) + variant + ' × ' +
-      item.quantity + ' — ' + cost(item.lineTotal) + '*'
-    );
+    // The unit price excludes modifiers. Product discounts are itemized below
+    // so the displayed product + extras + discount reconciles with the quote.
+    const baseTotal = extendedAmount(item.unitPrice, item.quantity);
+    // RTL mark before the leading star keeps mixed digits/Arabic aligned right.
+    return (language === 'ar' ? '\u200F' : '') +
+      '* ' + item.quantity + ' × *' + plain(item.name) + '*' +
+      variant + ' = ' + cost(baseTotal);
   };
 
   if (offerItems.length) {
@@ -171,11 +197,16 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
     for (const item of offerItems) {
       lines.push(itemLine(item));
       for (const slot of item.offerSlots ?? []) {
-        const picked = slot.choices.map(
-          (choice) =>
-            (choice.quantity > 1 ? choice.quantity + '× ' : '') +
-            plain(choice.name) + extraPrice(choice.priceAdjustment),
-        );
+        const picked = slot.choices.map((choice) => {
+          const totalQuantity = choice.quantity * item.quantity;
+          return (totalQuantity > 1 ? totalQuantity + '× ' : '') +
+            plain(choice.name) +
+            extraPrice(
+              extendedAmount(choice.priceAdjustment, totalQuantity),
+              quote.currencyCode,
+              language,
+            );
+        });
         if (picked.length)
           lines.push(
             '↳ ' + (slot.included ? '🎁 ' : '') +
@@ -191,22 +222,27 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
     for (const item of group.items) {
       lines.push(itemLine(item));
 
-      // Modifiers follow the *specific cart line* immediately, even when the
-      // same product is ordered with different extras or in other categories.
-      const byGroup = new Map<string, string[]>();
-      for (const modifier of item.modifiers) {
-        const label = plain(modifier.groupName) || t.extras;
-        const list = byGroup.get(label) ?? [];
-        list.push(
-          plain(modifier.optionName) + extraPrice(modifier.priceAdjustment),
-        );
-        byGroup.set(label, list);
-      }
-      for (const [label, options] of byGroup) {
-        lines.push(
-          '↳ ' + label + ': ' + options.join(separator) +
-          (item.quantity > 1 ? ' ' + t.perItem : ''),
-        );
+      // One plain-text line per cart item (even across several modifier groups).
+      // Preserve non-generic group names where they disambiguate chosen options.
+      if (item.modifiers.length > 0) {
+        const groups = [...new Set(item.modifiers.map(
+          (modifier) => plain(modifier.groupName) || t.extras,
+        ))];
+        const oneGroup = groups.length === 1;
+        const label = oneGroup ? groups[0] : t.extras;
+        const options = item.modifiers.map((modifier) => {
+          const group = plain(modifier.groupName) || t.extras;
+          const name = (oneGroup || group === t.extras ? '' : group + ': ') +
+            plain(modifier.optionName);
+          return name +
+            (item.quantity > 1 ? ' × ' + item.quantity : '') +
+            extraPrice(
+              extendedAmount(modifier.priceAdjustment, item.quantity),
+              quote.currencyCode,
+              language,
+            );
+        });
+        lines.push('↳ ' + label + ': ' + options.join(separator));
       }
     }
   }
@@ -245,7 +281,13 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
   const hasBreakdown =
     quote.deliveryFee !== '0.00' || quote.discountTotal !== '0.00';
   if (hasBreakdown) {
-    lines.push(t.subtotal + ': ' + cost(quote.subtotal));
+    // The backend subtotal is already NET of product discounts. Show the
+    // pre-discount items figure only when also showing the discount line,
+    // so the summary still reconciles: items - discount + delivery = total.
+    const itemsBeforeDiscount = centsAmount(
+      amountCents(quote.subtotal) + amountCents(quote.discountTotal),
+    );
+    lines.push(t.subtotal + ': ' + cost(itemsBeforeDiscount));
     if (quote.discountTotal !== '0.00')
       lines.push(t.discount + ': -' + cost(quote.discountTotal));
     if (quote.deliveryFee !== '0.00')
