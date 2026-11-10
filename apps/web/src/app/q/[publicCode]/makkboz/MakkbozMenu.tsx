@@ -379,8 +379,8 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
           <div className="m-flock" aria-hidden="true">{[0, 1, 2].map((bird) => <span className="m-bird" key={bird}><svg viewBox="0 0 32 14"><path d="M1 7C6 1 11 2 16 7c4-5 9-6 15-3-5 1-9 4-14 9C12 8 7 6 1 7Z" /></svg></span>)}</div>
           <div className="m-hero-copy">
             <p className="m-hero-eyebrow">{text('heroEyebrow')}</p>
-            <div role="img" aria-label={brand}>
-              <MakkbozImage src={logoUrl} className="m-hero-logo" eager fallback={
+            <div className="m-hero-logo-wrap" role="img" aria-label={brand}>
+              <MakkbozImage src={logoUrl} className="m-hero-logo m-hero-logo--uploaded" eager fallback={
                 // eslint-disable-next-line @next/next/no-img-element -- Built-in wordmark is already an optimized SVG.
                 <img className="m-hero-logo" src="/exclusive/makkboz/logo.svg" alt="" />
               } />

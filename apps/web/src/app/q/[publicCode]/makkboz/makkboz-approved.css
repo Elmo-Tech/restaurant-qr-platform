@@ -21,6 +21,10 @@
 .makkboz-experience .m-hero-copy{position:absolute;z-index:5;left:50%;right:auto;top:39%;width:min(39%,560px);max-width:none;transform:translate(-50%,-50%);padding:10px 0;text-align:center}
 .makkboz-experience .m-hero-eyebrow{display:block;margin:0 0 15px;color:var(--m-cover-eyebrow);font-size:13px;font-weight:700;text-align:center}
 .makkboz-experience .m-hero-logo{display:block;width:clamp(300px,27vw,390px);max-width:90%;height:auto;max-height:190px;object-fit:contain;object-position:center;margin:0 auto;border-radius:12px;box-shadow:none;background:var(--m-cover-logo-bg);padding:var(--m-cover-logo-pad)}
+.makkboz-experience .m-hero-logo--uploaded{background:transparent;padding:0;border-radius:0}
+.makkboz-experience .m-hero-logo-wrap{position:relative;isolation:isolate}
+.makkboz-experience[data-m-theme="dark"] .m-hero-logo-wrap:has(.m-hero-logo--uploaded)::before{content:'';position:absolute;inset:-24px 5%;z-index:-1;background:radial-gradient(ellipse,rgba(246,234,210,.66),transparent 70%);filter:blur(14px);pointer-events:none}
+@media(prefers-color-scheme:dark){.makkboz-experience[data-m-theme="system"] .m-hero-logo-wrap:has(.m-hero-logo--uploaded)::before{content:'';position:absolute;inset:-24px 5%;z-index:-1;background:radial-gradient(ellipse,rgba(246,234,210,.66),transparent 70%);filter:blur(14px);pointer-events:none}}
 .makkboz-experience .m-hero-tagline{display:block;width:clamp(112px,11vw,145px);height:auto;margin:10px auto 20px}
 .makkboz-experience .m-hero-copy h1{margin:0;color:var(--m-cover-ink);font:700 clamp(29px,3vw,42px)/1.45 var(--m-display)}
 .makkboz-experience .m-hero-desc{max-width:none;margin:7px auto 24px;color:var(--m-cover-muted);font-size:15px;line-height:1.8}
