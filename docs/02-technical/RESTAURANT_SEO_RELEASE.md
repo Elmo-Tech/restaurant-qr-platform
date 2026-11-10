@@ -10,7 +10,7 @@ A visitor shares a published GENERIC restaurant menu root such as https://{curre
 - Title, meta description and canonical URL (without a guest session or JavaScript).
 - Open Graph title/description/url/site name/image/locale, and Twitter summary_large_image metadata.
 - Restaurant schema.org JSON-LD (only published safe fields).
-- A same-host 1200×630 /share-card image using the public cover first, logo and name, falling back to a Wayta-branded gradient. Media is read read-only from the private API container, restricted to bounded public /media/ images.
+- A same-host 1200×630 /share-card image using the public cover and logo, falling back to a Wayta-branded gradient. Media is read read-only from the private API container, restricted to bounded public /media/ images. To avoid the current ImageResponse Arabic GSUB runtime crash, non-Latin name/description remain accurate in Arabic OG/Twitter HTML metadata while only the ASCII restaurant slug and English explanatory label are drawn inside the PNG.
 - Host-specific /robots.txt and /sitemap.xml, each containing only that restaurant if its menu is currently public.
 
 The Wayta marketing homepage keeps its own SEO metadata/canonical and a generic Wayta share image at https://waytaapp.com/share-card. Platform console already has noindex; Staff and login explicitly have noindex.
@@ -31,7 +31,7 @@ The published public Menu already has a localized, staff-maintained menu.descrip
 
 1. CI: Web typecheck, targeted SEO contracts, existing Guest and tenant-isolation regressions, production image-source validation and a Next production Web build.
 2. Two live ACTIVE test restaurants A and B: inspect initial HTML (not just hydrated JS) for different titles, descriptions, canonical, OG/Twitter cards and JSON-LD, and verify share-card returns 200 image/png 1200×630.
-3. Verify actual cover/logo and fallback, Arabic/RTL and English rendering, and public media images in PNG/JPEG/WebP.
+3. Verify actual cover/logo and fallback, the correct Arabic name/description in server-rendered OG/Twitter HTML, the ASCII slug in the PNG when the name contains unsupported complex-script glyphs, and public media images in PNG/JPEG/WebP. A separate font-shaping/TTF improvement would be needed to print Arabic name directly inside the PNG.
 4. On A host, B's public QR must be rejected with 404 QR_NOT_FOUND; A share-card/sitemap must never display B.
 5. Inactive, unknown and suspended hosts and design previews: noindex. Unknown tenant /share-card -> 404; tenant /api/v1/platform -> 404.
 6. Wayta marketing homepage SEO/share image, console login and Staff noindex remain unchanged.
@@ -46,4 +46,4 @@ Merge reviewed PR after CI only. Every main push builds prebuilt GHCR images off
 
 **Title:** Add tenant-scoped SEO and social share previews for Wayta restaurant menus
 
-**Description:** Server-render each restaurant's name, localized description, canonical URL, OG/Twitter card, cover/logo-based 1200x630 social preview, Restaurant JSON-LD, tenant sitemap/robots and noindex for inactive/preview/Table QR; preserve Wayta landing SEO, old QR compatibility and enforce tenant Host in SSR API reads. Validate two-restaurant isolation, crawlers, Arabic/English visuals and CI before separately approved production deployment.
+**Description:** Server-render each restaurant's name, localized description, canonical URL, OG/Twitter card, cover/logo-based 1200x630 social preview, Restaurant JSON-LD, tenant sitemap/robots and noindex for inactive/preview/Table QR; preserve Wayta landing SEO, old QR compatibility and enforce tenant Host in SSR API reads. Validate two-restaurant isolation, crawlers, Arabic/English HTML previews and PNG fallback, and CI before separately approved production deployment.
