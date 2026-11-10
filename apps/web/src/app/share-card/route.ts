@@ -44,6 +44,7 @@ async function mediaDataUrl(path: string | null): Promise<string | null> {
 export async function GET(request: Request): Promise<Response> {
   const base = process.env.RESTAURANT_BASE_DOMAIN;
   const host = (request.headers.get('host') ?? '').toLowerCase().replace(/:\d+$/, '').replace(/\.$/, '');
+  if (process.env.NODE_ENV === 'development') console.log('[seo-host-route]', JSON.stringify({host: request.headers.get('host'), forwarded: request.headers.get('x-forwarded-host'), base, url: request.url}));
   const slug = restaurantSlugFromHost(host, base);
   const primaryHost = new URL(API_ORIGIN).hostname;
 
