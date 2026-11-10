@@ -744,12 +744,14 @@ describeScratch('Offers (real PostgreSQL)', () => {
     expect(res.body.data.total).toBe('90.00');
     const message: string = res.body.data.message;
     const lines = message.split('\n');
-    expect(lines.indexOf('🎁 *القسم: العروض*')).toBeGreaterThan(-1);
-    expect(lines.indexOf('🎁 *القسم: العروض*')).toBeLessThan(lines.indexOf('🗂️ *القسم: السندوتشات*'));
-    expect(message).toContain('*1) وجبة الفطار* × 1');
-    expect(message).toContain('✅ اختار الساندويتش: كبدة (+10)');
-    expect(message).toContain('🎁 هدية العرض: بطاطس هدية');
-    expect(message).toContain('*2) كبدة إسكندراني* × 1');
+    // Keep the PostgreSQL HTTP coverage aligned with the compact, priced
+    // item/extras WhatsApp layout (the quote is still server-authoritative).
+    expect(lines.indexOf('*العروض*')).toBeGreaterThan(-1);
+    expect(lines.indexOf('*العروض*')).toBeLessThan(lines.indexOf('*السندوتشات*'));
+    expect(message).toContain('\u200F* 1 × *وجبة الفطار* = 35 ج.م');
+    expect(message).toContain('↳ اختار الساندويتش: كبدة (+10 ج.م)');
+    expect(message).toContain('↳ 🎁 هدية العرض: بطاطس هدية');
+    expect(message).toContain('\u200F* 1 × *كبدة إسكندراني* = 45 ج.م');
     expect(await prisma.order.count({ where: { restaurantId: world.restaurantId } })).toBe(0);
     // an unavailable offer is refused by the WhatsApp route too
     const bad = await whatsappOrder(world.genericQr, { ...customer, items: [{ offerId: randomUUID(), quantity: 1 }] });
