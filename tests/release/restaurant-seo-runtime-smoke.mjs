@@ -69,7 +69,9 @@ for (const stream of [web.stdout, web.stderr]) {
   stream?.on('data', chunk => { webLogs = (webLogs + chunk.toString()).slice(-13000); });
 }
 const url = (path, host) => fetch('http://127.0.0.1:' + PORT + path, {
-  headers: { host }, signal: AbortSignal.timeout(30000),
+  // Mirror the trusted Nginx gateway: it overwrites both Host and X-Forwarded-Host.
+  headers: { host, 'x-forwarded-host': host, 'x-forwarded-proto': 'https' },
+  signal: AbortSignal.timeout(30000),
 });
 
 try {
