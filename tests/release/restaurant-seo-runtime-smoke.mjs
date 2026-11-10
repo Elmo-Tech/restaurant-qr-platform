@@ -50,7 +50,7 @@ await new Promise((resolve, reject) => {
   api.listen(0, '127.0.0.1', resolve);
 });
 const apiPort = api.address().port;
-const web = spawn('npm', ['run', 'dev', '--workspace=apps/web', '--', '--port', String(PORT)], {
+const web = spawn('npm', ['run', 'dev', '--workspace=apps/web', '--', '--port', String(PORT), '--webpack'], {
   cwd: ROOT,
   env: {
     ...process.env,
@@ -64,6 +64,7 @@ const web = spawn('npm', ['run', 'dev', '--workspace=apps/web', '--', '--port', 
   stdio: ['ignore', 'pipe', 'pipe'],
 });
 let webLogs = '';
+web.on('exit', (code, signal) => { webLogs += '\nNext process exit: code=' + code + ' signal=' + signal + '\n'; });
 for (const stream of [web.stdout, web.stderr]) {
   stream?.on('data', chunk => { webLogs = (webLogs + chunk.toString()).slice(-13000); });
 }
@@ -84,7 +85,17 @@ try {
   }
   assert.equal(ready, true, 'Next dev did not become ready');
 
-  const image = await url('/share-card', SITE);
+  // Next dev may close a warm-up socket while compiling the image route.
+  // Retry connection failures twice; HTTP failures must still fail assertions.
+  let image;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { image = await url('/share-card', SITE); break; }
+    catch (error) {
+      if (attempt === 2 || web.exitCode !== null) throw error;
+      await delay(700);
+    }
+  }
+  if (!image) throw new Error('No share-card response');
   assert.equal(image.status, 200, 'active restaurant share image should render');
   assert.match(image.headers.get('content-type') ?? '', /image\/png/);
   const png = Buffer.from(await image.arrayBuffer());
