@@ -53,7 +53,7 @@ test('A tenant can fetch only its own social card, robots and sitemap; inactive 
   assert.match(card, /MAX_MEDIA_BYTES/);
   assert.match(card, /SUPPORTED_IMAGES/);
   assert.match(card, /shareCardView/);
-  assert.match(view, /fontFamily: 'Wayta Arabic, Wayta Latin/);
+  assert.match(view, /fontFamily: 'sans-serif'/);
   assert.match(card, /result.outcome !== 'found'/);
   assert.match(robots, /disallow: '\/'/);
   assert.match(robots, /sitemap: seo.canonical \+ 'sitemap.xml'/);
