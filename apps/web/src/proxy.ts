@@ -30,6 +30,9 @@ export function proxy(request: NextRequest) {
   // Assets and guest API requests must retain the visitor's host. The gateway
   // serves API/media/socket paths and the backend enforces the QR->host tenant.
   if (
+    pathname === '/share-card' ||
+    pathname === '/robots.txt' ||
+    pathname === '/sitemap.xml' ||
     pathname.startsWith('/_next/') ||
     pathname.startsWith('/api/v1/') ||
     pathname.startsWith('/media/') ||
