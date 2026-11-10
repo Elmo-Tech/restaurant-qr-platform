@@ -304,11 +304,11 @@
   stroke-width: 2.5;
   stroke-linecap: round;
   opacity: 0;
-  animation: oven-warmth 4.8s ease-out 2 .8s;
+  animation: oven-warmth 4.8s ease-out .8s infinite;
 }
 .cover-smoke path:last-child { opacity: .6; }
-.bird { animation: birds-drift 10s ease-in-out 2 alternate both; }
-.bird svg { animation: bird-wing 2.6s ease-in-out 8; }
+.bird { animation: birds-drift 10s ease-in-out infinite alternate; }
+.bird svg { animation: bird-wing 2.6s ease-in-out infinite; }
 @keyframes oven-warmth {
   0% { opacity: 0; transform: translateY(7px); }
   25%, 65% { opacity: .5; }

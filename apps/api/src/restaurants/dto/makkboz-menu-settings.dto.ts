@@ -24,7 +24,9 @@ export class MakkbozMenuSettingsDto {
   @IsIn(MAKKBOZ_MOTIONS) motion!: MakkbozMotion;
   @IsIn(MAKKBOZ_VIEWS) defaultView!: MakkbozView;
   /** Optional for clients that saved the design before size-price display was added. */
-  @IsOptional() @IsIn(MAKKBOZ_PRICE_DISPLAYS) priceDisplay?: MakkbozPriceDisplay;
+  @IsOptional()
+  @IsIn(MAKKBOZ_PRICE_DISPLAYS)
+  priceDisplay?: MakkbozPriceDisplay;
   @IsBoolean() showAnnouncement!: boolean;
   @IsBoolean() showValues!: boolean;
   @IsBoolean() showStory!: boolean;

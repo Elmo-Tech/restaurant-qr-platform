@@ -19,7 +19,10 @@ export type MakkbozMotion = (typeof MAKKBOZ_MOTIONS)[number];
 export const MAKKBOZ_VIEWS = ['CARDS', 'LIST'] as const;
 export type MakkbozView = (typeof MAKKBOZ_VIEWS)[number];
 /** Display only a starting price, or show every size and its price on the menu. */
-export const MAKKBOZ_PRICE_DISPLAYS = ['STARTING_PRICE', 'ALL_VARIANTS'] as const;
+export const MAKKBOZ_PRICE_DISPLAYS = [
+  'STARTING_PRICE',
+  'ALL_VARIANTS',
+] as const;
 export type MakkbozPriceDisplay = (typeof MAKKBOZ_PRICE_DISPLAYS)[number];
 
 export const MAKKBOZ_BRAND_MAX = 24;
@@ -156,8 +159,10 @@ const LEGACY_COPY_DEFAULTS: Partial<Record<MakkbozCopyField, string>> = {
   heroEyebrowEn: 'From the heart of our country… to your table',
   heroTitleAr: 'الطعم اللي اتربّينا عليه\nعلى أُصوله',
   heroTitleEn: 'The taste we grew up on,\nthe original way',
-  heroDescAr: 'فطير وبيتزا وكريب وكاليزوني وملفوف… اختار اللي نفسك فيه من منيو {name}.',
-  heroDescEn: 'Fiteer, pizza, crêpes, calzone and wraps… pick what you crave from the {name} menu.',
+  heroDescAr:
+    'فطير وبيتزا وكريب وكاليزوني وملفوف… اختار اللي نفسك فيه من منيو {name}.',
+  heroDescEn:
+    'Fiteer, pizza, crêpes, calzone and wraps… pick what you crave from the {name} menu.',
   ctaPrimaryAr: 'اكتشف المنيو',
   menuEyebrowAr: 'لذّة الاختيار',
   menuEyebrowEn: 'The joy of choosing',
@@ -177,16 +182,34 @@ export function normalizeMakkbozSettings(value: unknown): MakkbozMenuSettings {
       ? (value as Record<string, unknown>)
       : {};
   const extras = row.categoryExtras;
-  const emptyExtras = !extras || (typeof extras === 'object' && !Array.isArray(extras) && Object.keys(extras).length === 0);
-  const untouchedLegacy = row.priceDisplay === undefined && row.theme === 'LIGHT' && row.allowThemeSwitch === true &&
-    row.motion === 'SUBTLE' && row.defaultView === 'CARDS' && row.showAnnouncement === true && row.showValues === true &&
-    row.showStory === true && !row.heroImageAssetPath && !row.heroSmallImageAssetPath && emptyExtras &&
-    (Object.keys(MAKKBOZ_COPY_LIMITS) as MakkbozCopyField[]).every((key) =>
-      cleanText(row[key], MAKKBOZ_COPY_LIMITS[key]) === (LEGACY_COPY_DEFAULTS[key] ?? MAKKBOZ_COPY_DEFAULTS[key]));
+  const emptyExtras =
+    !extras ||
+    (typeof extras === 'object' &&
+      !Array.isArray(extras) &&
+      Object.keys(extras).length === 0);
+  const untouchedLegacy =
+    row.priceDisplay === undefined &&
+    row.theme === 'LIGHT' &&
+    row.allowThemeSwitch === true &&
+    row.motion === 'SUBTLE' &&
+    row.defaultView === 'CARDS' &&
+    row.showAnnouncement === true &&
+    row.showValues === true &&
+    row.showStory === true &&
+    !row.heroImageAssetPath &&
+    !row.heroSmallImageAssetPath &&
+    emptyExtras &&
+    (Object.keys(MAKKBOZ_COPY_LIMITS) as MakkbozCopyField[]).every(
+      (key) =>
+        cleanText(row[key], MAKKBOZ_COPY_LIMITS[key]) ===
+        (LEGACY_COPY_DEFAULTS[key] ?? MAKKBOZ_COPY_DEFAULTS[key]),
+    );
   const text = {} as MakkbozTextSettings;
   for (const key of Object.keys(MAKKBOZ_COPY_LIMITS) as MakkbozCopyField[]) {
     const raw = cleanText(row[key], MAKKBOZ_COPY_LIMITS[key]);
-    text[key] = untouchedLegacy ? MAKKBOZ_COPY_DEFAULTS[key] : raw || MAKKBOZ_COPY_DEFAULTS[key];
+    text[key] = untouchedLegacy
+      ? MAKKBOZ_COPY_DEFAULTS[key]
+      : raw || MAKKBOZ_COPY_DEFAULTS[key];
   }
   const rawExtras =
     row.categoryExtras && typeof row.categoryExtras === 'object' && !Array.isArray(row.categoryExtras)
@@ -216,8 +239,12 @@ export function normalizeMakkbozSettings(value: unknown): MakkbozMenuSettings {
     theme: MAKKBOZ_THEMES.find((theme) => theme === row.theme) ?? 'LIGHT',
     allowThemeSwitch: bool('allowThemeSwitch', true),
     motion: MAKKBOZ_MOTIONS.find((motion) => motion === row.motion) ?? 'SUBTLE',
-    defaultView: untouchedLegacy ? 'LIST' : MAKKBOZ_VIEWS.find((view) => view === row.defaultView) ?? 'LIST',
-    priceDisplay: MAKKBOZ_PRICE_DISPLAYS.find((display) => display === row.priceDisplay) ?? 'STARTING_PRICE',
+    defaultView: untouchedLegacy
+      ? 'LIST'
+      : (MAKKBOZ_VIEWS.find((view) => view === row.defaultView) ?? 'LIST'),
+    priceDisplay:
+      MAKKBOZ_PRICE_DISPLAYS.find((display) => display === row.priceDisplay) ??
+      'STARTING_PRICE',
     showAnnouncement: untouchedLegacy ? false : bool('showAnnouncement', false),
     showValues: untouchedLegacy ? false : bool('showValues', false),
     showStory: untouchedLegacy ? false : bool('showStory', false),

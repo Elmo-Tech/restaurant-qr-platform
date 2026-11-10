@@ -85,13 +85,25 @@ describe('MakkbozMenuConfigService tenant isolation', () => {
 describe('MakkbozMenuConfigService draft / publish', () => {
   it('saves the display preference as a draft and keeps it when an older client omits it', async () => {
     const edited = setup(makkbozRow({}, { priceDisplay: 'STARTING_PRICE' }));
-    const result = await edited.service.saveDraft(restaurantId, { priceDisplay: 'ALL_VARIANTS' });
+    const result = await edited.service.saveDraft(restaurantId, {
+      priceDisplay: 'ALL_VARIANTS',
+    });
     expect(result.draft.priceDisplay).toBe('ALL_VARIANTS');
     expect(result.published.priceDisplay).toBe('STARTING_PRICE');
     const olderClient = setup(makkbozRow({ priceDisplay: 'ALL_VARIANTS' }));
-    expect((await olderClient.service.saveDraft(restaurantId, { motion: 'OFF' })).draft.priceDisplay).toBe('ALL_VARIANTS');
-    const published = setup(makkbozRow({ priceDisplay: 'ALL_VARIANTS' }, { priceDisplay: 'STARTING_PRICE' }));
-    expect((await published.service.publish(restaurantId)).published.priceDisplay).toBe('ALL_VARIANTS');
+    expect(
+      (await olderClient.service.saveDraft(restaurantId, { motion: 'OFF' }))
+        .draft.priceDisplay,
+    ).toBe('ALL_VARIANTS');
+    const published = setup(
+      makkbozRow(
+        { priceDisplay: 'ALL_VARIANTS' },
+        { priceDisplay: 'STARTING_PRICE' },
+      ),
+    );
+    expect(
+      (await published.service.publish(restaurantId)).published.priceDisplay,
+    ).toBe('ALL_VARIANTS');
   });
 
   it('saving a draft never changes the published settings', async () => {

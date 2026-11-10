@@ -168,7 +168,6 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
   // The Restaurant's default view until the guest picks one.
   const [viewChoice, setView] = useState<MakkbozView | null>(null);
   const view: MakkbozView = viewChoice ?? settings.defaultView;
-  const [searchOpen, setSearchOpen] = useState(false);
   const [navOpen, setNavOpen] = useState(false);
   const [favoritesOnly, setFavoritesOnly] = useState(false);
   const favoritesRaw = useSyncExternalStore(subscribeFavorites, readFavorites, () => '');
@@ -321,13 +320,11 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
             {hasMenu ? (
               <button
                 type="button"
-                className={`m-icon-btn${searchOpen ? ' is-active' : ''}`}
+                className="m-icon-btn"
                 aria-label={copy.searchMenu}
-                aria-expanded={searchOpen}
                 aria-controls="m-search-row"
                 onClick={() => {
-                  setSearchOpen((open) => !open);
-                  window.setTimeout(() => searchInput.current?.focus(), 120);
+                  searchInput.current?.focus({ preventScroll: true });
                   scrollTo('m-tools');
                 }}
               >
@@ -377,14 +374,18 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
         <div className="m-hero-grid">
           <svg className="m-cover-land" viewBox="0 0 1440 260" preserveAspectRatio="none" aria-hidden="true"><path d="M0 260V190c168-25 282-10 398 5 205 27 323-7 461-37 173-38 390-49 581-8v110z" /><path d="M0 260v-32c183-17 316 4 486-4 196-10 312-45 495-35 178 9 330 25 459-3v74z" /></svg>
           <div className="m-cover-village" aria-hidden="true">
+            {/* eslint-disable-next-line @next/next/no-img-element -- The local WebP artwork is already compressed; the upload can come from a runtime API origin. */}
             <MakkbozImage src={heroSmall} className="m-cover-farm" fallback={<img className="m-cover-farm" src="/exclusive/makkboz/country-courtyard-hero.webp" alt="" />} eager />
             {!heroSmall ? <svg className="m-cover-smoke" viewBox="0 0 60 100"><path d="M28 96c-9-17 7-23 2-38-3-9-10-12-6-23 3-8 11-12 9-23" /><path d="M37 98c-6-13 6-20 4-31" /></svg> : null}
           </div>
+          {/* eslint-disable-next-line @next/next/no-img-element -- The local portrait is already compressed as AVIF. */}
           <MakkbozImage src={heroImage} className="m-cover-portrait" fallback={<img className="m-cover-portrait" src="/exclusive/makkboz/granny.avif" alt="" />} eager />
           <div className="m-flock" aria-hidden="true">{[0, 1, 2].map((bird) => <span className="m-bird" key={bird}><svg viewBox="0 0 32 14"><path d="M1 7C6 1 11 2 16 7c4-5 9-6 15-3-5 1-9 4-14 9C12 8 7 6 1 7Z" /></svg></span>)}</div>
           <div className="m-hero-copy">
             <p className="m-hero-eyebrow">{text('heroEyebrow')}</p>
+            {/* eslint-disable-next-line @next/next/no-img-element -- SVG wordmark does not benefit from image optimization. */}
             <img className="m-hero-logo" src="/exclusive/makkboz/logo.svg" alt={brand} />
+            {/* eslint-disable-next-line @next/next/no-img-element -- SVG lettering does not benefit from image optimization. */}
             <img className="m-hero-tagline" src="/exclusive/makkboz/tagline.svg" alt={isArabic ? 'عَ أصوله' : 'The original way'} />
             <h1 id="m-hero-title" dir="auto">{text('heroTitle')}</h1>
             <p className="m-hero-desc" dir="auto">{text('heroDesc')}</p>
@@ -444,13 +445,15 @@ export function MakkbozMenu(props: MakkbozMenuProps) {
                 </button>
               ))}
             </nav>
-            </div>
-            <div className="m-search-row" id="m-search-row" hidden={!searchOpen && !isSearching}>
+            <div className="m-search-row" id="m-search-row" role="search">
               <GuestIconSearch className="size-[19px]" aria-hidden="true" />
-              <input ref={searchInput} type="search" value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder={copy.searchPlaceholder} aria-label={copy.searchMenu} autoComplete="off" enterKeyHint="search" />
-              <button type="button" className="m-search-close" onClick={() => { onQueryChange(''); setSearchOpen(false); }} aria-label={copy.clearSearch}>
-                <GuestIconClose className="size-[18px]" />
-              </button>
+              <input ref={searchInput} type="search" value={query} onChange={(event) => onQueryChange(event.target.value)} placeholder={copy.makkbozSearchPlaceholder} aria-label={copy.searchMenu} autoComplete="off" enterKeyHint="search" />
+              {query.length > 0 ? (
+                <button type="button" className="m-search-close" onClick={() => { onQueryChange(''); searchInput.current?.focus(); }} aria-label={copy.clearSearch}>
+                  <GuestIconClose className="size-[18px]" />
+                </button>
+              ) : null}
+            </div>
             </div>
           </div>
         </div>

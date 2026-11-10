@@ -42,13 +42,13 @@
 @keyframes makkboz-bird-wing{0%,100%{transform:scaleY(1)}50%{transform:scaleY(.7)}}
 @keyframes makkboz-oven-warmth{0%{opacity:0;transform:translateY(7px)}25%,65%{opacity:.5}100%{opacity:0;transform:translateY(-10px)}}
 .makkboz-experience[data-m-motion="on"] .m-hero-copy,.makkboz-experience[data-m-motion="on"] .m-cover-village,.makkboz-experience[data-m-motion="on"] .m-cover-portrait{animation:makkboz-cover-enter .9s ease-out both}
-.makkboz-experience[data-m-motion="on"] .m-bird{animation:makkboz-birds-drift 10s ease-in-out 2 alternate both}
-.makkboz-experience[data-m-motion="on"] .m-bird svg{animation:makkboz-bird-wing 2.6s ease-in-out 8}
-.makkboz-experience[data-m-motion="on"] .m-cover-smoke{animation:makkboz-oven-warmth 4.8s ease-out 2 .8s}
+.makkboz-experience[data-m-motion="on"] .m-bird{animation:makkboz-birds-drift 10s ease-in-out infinite alternate}
+.makkboz-experience[data-m-motion="on"] .m-bird svg{animation:makkboz-bird-wing 2.6s ease-in-out infinite}
+.makkboz-experience[data-m-motion="on"] .m-cover-smoke{animation:makkboz-oven-warmth 4.8s ease-out .8s infinite}
 
 /* The green surface reaches the screen edges; its contents have one gutter. */
 .makkboz-experience .m-tools{top:0;background:var(--m-category-rail);color:var(--m-category-ink);box-shadow:0 4px 16px #3524070b}
-.makkboz-experience .m-tools-inner{display:flex;align-items:center;gap:24px;min-width:0}
+.makkboz-experience .m-tools-inner{display:flex;align-items:center;gap:18px;min-width:0}
 .makkboz-experience .m-rail-brand{display:flex;align-items:center;justify-content:center;flex:none;min-width:64px;max-width:76px;height:60px;overflow:hidden}
 .makkboz-experience .m-rail-brand img{max-width:64px;max-height:52px;width:auto;height:auto;object-fit:contain;border-radius:8px}
 .makkboz-experience .m-rail-brand .m-brand-text{color:var(--m-category-ink);font-size:22px}
@@ -56,10 +56,13 @@
 .makkboz-experience .m-pill{min-height:44px;padding:10px 13px;border:0;border-bottom:3px solid transparent;border-radius:0;background:transparent;color:var(--m-category-ink);font-size:14px}
 .makkboz-experience .m-pill:hover,.makkboz-experience .m-pill.is-active,.makkboz-experience .m-pill[aria-current="true"]{background:transparent;border-color:#c58b25;color:var(--m-category-active)}
 .makkboz-experience .m-pill-count{color:#6d7b69}
-.makkboz-experience .m-search-row{border-color:#eadbc2;color:#315543}
-.makkboz-experience .m-search-row input{background:#fffaf1;border-color:#e1cfad;color:#173f30}
-.makkboz-experience .m-search-row input::placeholder{color:#748472}
-.makkboz-experience .m-search-row input:focus{background:#fff;border-color:#bc8936}
+.makkboz-experience .m-search-row{display:flex;align-items:center;flex:0 0 clamp(190px,18vw,260px);gap:9px;min-width:0;min-height:44px;padding:0 12px;border:1px solid color-mix(in srgb,var(--m-category-ink) 23%,transparent);border-radius:999px;background:color-mix(in srgb,var(--m-category-rail) 91%,white);color:var(--m-category-ink)}
+.makkboz-experience .m-search-row:focus-within{border-color:#c58b25;box-shadow:0 0 0 3px #c58b252b}
+.makkboz-experience .m-search-row>svg{flex:none}
+.makkboz-experience .m-search-row input,.makkboz-experience .m-search-row input:focus{flex:1;min-width:0;min-height:42px;padding:0;border:0;border-radius:0;background:transparent;color:var(--m-category-ink);font-size:14px;outline:0}
+.makkboz-experience .m-search-row input::placeholder{color:color-mix(in srgb,var(--m-category-ink) 70%,transparent);opacity:1}
+.makkboz-experience .m-search-row input::-webkit-search-cancel-button{-webkit-appearance:none}
+.makkboz-experience .m-search-close{flex:none;width:38px;height:42px;margin-inline-end:-7px;color:var(--m-category-ink);border-radius:50%}
 .makkboz-experience .m-menu-surface{position:relative;isolation:isolate;background:var(--m-menu-green);color:#fff6e2}
 .makkboz-experience .m-menu-surface::before{content:'';position:absolute;inset:0;z-index:-1;pointer-events:none;background:url('/exclusive/makkboz/wheat-pattern.svg') 0 0/144px 144px repeat;opacity:.22}
 .makkboz-experience .m-intro,.makkboz-experience .m-catalog,.makkboz-experience .m-offers{background:transparent;background-image:none}
@@ -134,6 +137,13 @@
 .makkboz-experience [data-offer-action]{min-height:44px;display:inline-flex;align-items:center;padding:9px 15px;background:#174b38;color:#fff8e9;font-size:12px}
 .makkboz-experience [data-offer-card][aria-disabled="true"] [data-offer-action]{background:#e7dfce;color:#6d7868}
 
+@media(max-width:900px){
+  .makkboz-experience .m-tools-inner{flex-wrap:wrap;gap:0;padding-bottom:10px}
+  .makkboz-experience .m-rail{flex-basis:100%;min-height:58px}
+  .makkboz-experience .m-rail-brand{display:none}
+  .makkboz-experience .m-search-row{flex:0 0 100%;width:100%}
+  .makkboz-experience .m-section{scroll-margin-top:135px}
+}
 @media(min-width:701px) and (max-width:1100px){
   .makkboz-experience .m-hero-copy{left:auto;right:6%;top:35%;width:52%;transform:translateY(-50%)}
   .makkboz-experience .m-hero-logo{width:clamp(235px,24vw,355px)}

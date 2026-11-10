@@ -72,7 +72,12 @@ describe('Makkboz menu HTTP endpoints', () => {
   it('accepts a valid draft and strips unknown fields, including raw image paths', async () => {
     await request(app.getHttpServer())
       .patch(`${base}/draft`)
-      .send({ ...settings, priceDisplay: 'ALL_VARIANTS', heroImageAssetPath: 'https://evil.example/x.png', extra: 1 })
+      .send({
+        ...settings,
+        priceDisplay: 'ALL_VARIANTS',
+        heroImageAssetPath: 'https://evil.example/x.png',
+        extra: 1,
+      })
       .expect(200);
     const sent = (service.saveDraft.mock.calls as [string, Record<string, unknown>][])[0][1];
     expect(sent.heroTitleEn).toBe('Great mood');
@@ -83,7 +88,10 @@ describe('Makkboz menu HTTP endpoints', () => {
 
   it('rejects invalid enums and over-long copy', async () => {
     await request(app.getHttpServer()).patch(`${base}/draft`).send({ ...settings, motion: 'WILD' }).expect(400);
-    await request(app.getHttpServer()).patch(`${base}/draft`).send({ ...settings, priceDisplay: 'UNKNOWN' }).expect(400);
+    await request(app.getHttpServer())
+      .patch(`${base}/draft`)
+      .send({ ...settings, priceDisplay: 'UNKNOWN' })
+      .expect(400);
     await request(app.getHttpServer())
       .patch(`${base}/draft`)
       .send({ ...settings, ctaPrimaryEn: 'x'.repeat(31) })

@@ -50,8 +50,12 @@ describe('Makkboz menu settings normalization', () => {
       defaultView: 'LIST',
       showStory: false,
     });
-    expect(normalizeMakkbozSettings({ priceDisplay: 'ALL_VARIANTS' }).priceDisplay).toBe('ALL_VARIANTS');
-    expect(normalizeMakkbozSettings({ priceDisplay: 'INVALID' }).priceDisplay).toBe('STARTING_PRICE');
+    expect(
+      normalizeMakkbozSettings({ priceDisplay: 'ALL_VARIANTS' }).priceDisplay,
+    ).toBe('ALL_VARIANTS');
+    expect(
+      normalizeMakkbozSettings({ priceDisplay: 'INVALID' }).priceDisplay,
+    ).toBe('STARTING_PRICE');
   });
 
   it('accepts only server-owned media paths, never arbitrary URLs or paths', () => {
@@ -72,23 +76,41 @@ describe('Makkboz menu settings normalization', () => {
   it('upgrades only an untouched old default and preserves customized legacy settings', () => {
     const { priceDisplay: _newField, ...legacy } = {
       ...DEFAULT_MAKKBOZ_SETTINGS,
-      defaultView: 'CARDS', showAnnouncement: true, showValues: true, showStory: true,
-      heroEyebrowAr: 'من قلب بلدنا.. لحد عندك', heroEyebrowEn: 'From the heart of our country… to your table',
-      heroTitleAr: 'الطعم اللي اتربّينا عليه\nعلى أُصوله', heroTitleEn: 'The taste we grew up on,\nthe original way',
-      heroDescAr: 'فطير وبيتزا وكريب وكاليزوني وملفوف… اختار اللي نفسك فيه من منيو {name}.',
-      heroDescEn: 'Fiteer, pizza, crêpes, calzone and wraps… pick what you crave from the {name} menu.',
-      ctaPrimaryAr: 'اكتشف المنيو', menuEyebrowAr: 'لذّة الاختيار', menuEyebrowEn: 'The joy of choosing',
-      menuTitleAr: 'قائمة {name}', menuTitleEn: 'The {name} menu',
+      defaultView: 'CARDS',
+      showAnnouncement: true,
+      showValues: true,
+      showStory: true,
+      heroEyebrowAr: 'من قلب بلدنا.. لحد عندك',
+      heroEyebrowEn: 'From the heart of our country… to your table',
+      heroTitleAr: 'الطعم اللي اتربّينا عليه\nعلى أُصوله',
+      heroTitleEn: 'The taste we grew up on,\nthe original way',
+      heroDescAr:
+        'فطير وبيتزا وكريب وكاليزوني وملفوف… اختار اللي نفسك فيه من منيو {name}.',
+      heroDescEn:
+        'Fiteer, pizza, crêpes, calzone and wraps… pick what you crave from the {name} menu.',
+      ctaPrimaryAr: 'اكتشف المنيو',
+      menuEyebrowAr: 'لذّة الاختيار',
+      menuEyebrowEn: 'The joy of choosing',
+      menuTitleAr: 'قائمة {name}',
+      menuTitleEn: 'The {name} menu',
       menuNoteAr: 'اختار اللي نفسك فيه.. واحنا نجهّزهولك بحب.',
       menuNoteEn: 'Pick what you crave… and we will prepare it with love.',
     };
     void _newField;
     expect(normalizeMakkbozSettings(legacy)).toMatchObject({
-      defaultView: 'LIST', priceDisplay: 'STARTING_PRICE', showValues: false, showStory: false,
+      defaultView: 'LIST',
+      priceDisplay: 'STARTING_PRICE',
+      showValues: false,
+      showStory: false,
       heroTitleAr: 'من فرننا.. لسفرتك',
     });
-    expect(normalizeMakkbozSettings({ ...legacy, heroTitleAr: 'عنوان مخصص' })).toMatchObject({
-      defaultView: 'CARDS', showValues: true, showStory: true, heroTitleAr: 'عنوان مخصص',
+    expect(
+      normalizeMakkbozSettings({ ...legacy, heroTitleAr: 'عنوان مخصص' }),
+    ).toMatchObject({
+      defaultView: 'CARDS',
+      showValues: true,
+      showStory: true,
+      heroTitleAr: 'عنوان مخصص',
     });
   });
 

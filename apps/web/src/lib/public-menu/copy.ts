@@ -244,6 +244,7 @@ export interface PublicMenuCopy {
   makkbozNavMenu: string;
   makkbozNavStory: string;
   makkbozNavContact: string;
+  makkbozSearchPlaceholder: string;
   makkbozFavoritesShow: string;
   makkbozFavoritesHide: string;
   makkbozFavoriteAdd: (name: string) => string;
@@ -567,6 +568,7 @@ const EN_COPY: PublicMenuCopy = {
   makkbozNavMenu: 'Menu',
   makkbozNavStory: 'Our story',
   makkbozNavContact: 'Visit us',
+  makkbozSearchPlaceholder: 'Find a dish...',
   makkbozFavoritesShow: 'Show my favorites',
   makkbozFavoritesHide: 'Show the whole menu',
   makkbozFavoriteAdd: (name) => `Add ${name} to favorites`,
@@ -885,6 +887,7 @@ const AR_COPY: PublicMenuCopy = {
   makkbozNavMenu: 'المنيو',
   makkbozNavStory: 'حكايتنا',
   makkbozNavContact: 'زورنا',
+  makkbozSearchPlaceholder: 'دوّر على أكلة...',
   makkbozFavoritesShow: 'عرض أصنافي المفضلة',
   makkbozFavoritesHide: 'عرض كل المنيو',
   makkbozFavoriteAdd: (name) => `إضافة ${name} إلى المفضلة`,
