@@ -34,6 +34,8 @@ export interface CartLine {
   variantId: string | null;
   variantName: string | null;
   name: string;
+  /** Current public-menu category, for display-only Checkout recap grouping. Offers have no category. */
+  category: { id: string; name: string; order: number } | null;
   /** The product has Modifier Groups, so the cart row offers "Edit" (re-open the sheet with these selections). */
   hasModifierGroups: boolean;
   /** The product photo, or null (the cart row then shows the shared dish tile). */

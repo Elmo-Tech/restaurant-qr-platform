@@ -256,16 +256,13 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
   }
 
   const details: string[] = [];
-  if (quote.customerName || quote.customerPhone) {
-    details.push(
-      [
-        quote.customerName ? t.customer + ': ' + plain(quote.customerName) : null,
-        quote.customerPhone ? t.phone + ': ' + plain(quote.customerPhone) : null,
-      ]
-        .filter((part): part is string => part !== null)
-        .join(' | '),
-    );
-  }
+  // Keep contact details independently readable on narrow WhatsApp screens.
+  // Each visible Arabic line gets the existing RTL mark below; the signed
+  // Wayta-Ref footer is issued separately and must remain byte-for-byte intact.
+  if (quote.customerName)
+    details.push(t.customer + ': ' + plain(quote.customerName));
+  if (quote.customerPhone)
+    details.push(t.phone + ': ' + plain(quote.customerPhone));
   const address = [
     quote.deliveryAddress ? plain(quote.deliveryAddress) : null,
     quote.deliveryBuilding

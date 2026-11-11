@@ -97,6 +97,7 @@ jobs:
         run: >-
           node --test
           apps/web/src/lib/public-menu/checkout-validation.test.mjs
+          apps/web/src/lib/public-menu/checkout-recap-groups.test.mjs
           apps/web/src/lib/public-menu/checkout-form.contract.test.mjs
           apps/web/src/lib/public-menu/whatsapp-handoff.contract.test.mjs
           apps/web/src/lib/public-menu/offers.test.mjs

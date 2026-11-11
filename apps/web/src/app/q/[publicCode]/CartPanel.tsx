@@ -14,6 +14,7 @@ import {
 } from '../../../components/guest/icons';
 import { Price } from '../../../components/guest/Price';
 import { fromMinorUnits, toMinorUnits } from '../../../lib/public-menu/money';
+import { groupCheckoutRecapLines } from '../../../lib/public-menu/checkout-recap-groups';
 import { DiscountedPrice } from '../../../components/guest/DiscountedPrice';
 import { Sheet } from '../../../components/guest/Sheet';
 import { Stepper } from '../../../components/guest/Stepper';
@@ -243,39 +244,58 @@ function OrderRecap({
   lines,
   currency,
   copy,
+  offersTitle,
   onEdit,
   disabled,
 }: {
   lines: CartLine[];
   currency: string;
   copy: PublicMenuCopy;
+  offersTitle: string;
   onEdit: () => void;
   disabled: boolean;
 }) {
+  const groups = groupCheckoutRecapLines(lines, offersTitle, copy.yourItems);
   return (
     <CheckoutSection title={copy.yourItems} id="cart-recap-title">
       <div className="rounded-[22px] border border-g-line bg-g-surface p-3.5">
-        <ul className="flex flex-col gap-2">
-          {lines.map((line) => (
-            <li key={line.lineKey} className="flex items-baseline justify-between gap-3 text-sm">
-              <span className="min-w-0 text-g-text">
-                <span className="g-num text-g-accent-text">{line.quantity}×</span>{' '}
-                <bdi>{line.name}</bdi>
-              </span>
-              <DiscountedPrice
-                original={line.originalLineTotal}
-                current={line.lineTotal}
-                discounted={line.discounted}
-                currency={currency}
-                copy={copy}
-                direction="row"
-                className="g-num shrink-0 text-g-text-2"
-                currencyClassName="text-[0.7em] font-semibold"
-                originalClassName="g-num text-[12.5px] text-g-text-3"
-              />
-            </li>
+        <div className="flex flex-col gap-3">
+          {groups.map((group, index) => (
+            <section
+              key={group.key}
+              aria-label={group.title}
+              className={index === 0 ? '' : 'border-t border-g-line pt-3'}
+            >
+              <h3 className="mb-1.5 text-start text-[12px] font-bold leading-5 text-g-text-2">
+                <bdi>{group.title}</bdi>
+              </h3>
+              <ul className="flex flex-col gap-2">
+                {group.lines.map((line) => (
+                  <li key={line.lineKey} className="flex items-baseline justify-between gap-3 text-sm">
+                    <span className="min-w-0 flex-1 break-words text-start leading-5 text-g-text">
+                      <span className="g-num whitespace-nowrap text-g-accent-text">{line.quantity}×</span>{' '}
+                      <bdi>{line.name}</bdi>
+                      {line.variantName ? (
+                        <span className="text-g-text-3"> (<bdi>{line.variantName}</bdi>)</span>
+                      ) : null}
+                    </span>
+                    <DiscountedPrice
+                      original={line.originalLineTotal}
+                      current={line.lineTotal}
+                      discounted={line.discounted}
+                      currency={currency}
+                      copy={copy}
+                      direction="row"
+                      className="g-num shrink-0 text-g-text-2"
+                      currencyClassName="text-[0.7em] font-semibold"
+                      originalClassName="g-num text-[12.5px] text-g-text-3"
+                    />
+                  </li>
+                ))}
+              </ul>
+            </section>
           ))}
-        </ul>
+        </div>
         <button
           type="button"
           onClick={onEdit}
@@ -556,6 +576,7 @@ export function CartPanel({
               lines={lines}
               currency={currency}
               copy={copy}
+              offersTitle={offersCopy.sectionTitle}
               onEdit={() => setStep('review')}
               disabled={disabled}
             />
