@@ -82,7 +82,8 @@ describe('WhatsApp order message', () => {
       '*Drinks*',
       '* 1 × *Cola* = 20 EGP',
       '',
-      'Customer: Mona Hassan | Phone: 01012345678',
+      'Customer: Mona Hassan',
+      'Phone: 01012345678',
       'Address: 1 Nile St, Building 12, Floor 3, Apartment 8, Landmark Next to the pharmacy',
       'Order notes: No onions',
       'Items: 190 EGP',
@@ -195,7 +196,7 @@ describe('WhatsApp order message', () => {
       customerNotes: '*URGENT*\n\n\nplease', customerName: '_Mona_',
     }));
     expect(message).toContain('Order notes: URGENT please');
-    expect(message).toContain('Customer: Mona | Phone: 01012345678');
+    expect(message).toContain('Customer: Mona\nPhone: 01012345678');
   });
 
   it('lists offers first, with choices and gifts immediately below each offer', () => {
@@ -307,7 +308,8 @@ describe('WhatsApp order message', () => {
       '\u200F*فطير إسكندراني*',
       '\u200F* 1 × *فطير إسكندراني فراخ* (وسط) = 250 ج.م',
       '',
-      '\u200Fالعميل: Mona Hassan | الهاتف: 01012345678',
+      '\u200Fالعميل: Mona Hassan',
+      '\u200Fالهاتف: 01012345678',
       '\u200F*الإجمالي: 250 ج.م*',
     ].join('\n'));
     expect(message).not.toContain('التوصيل:');
@@ -335,7 +337,7 @@ describe('WhatsApp order message', () => {
       '\u200F* 1 × *بيتزا فراخ* (وسط) = 210 ج.م\n' +
       '\u200F↳ الإضافات: جبنة (+20 ج.م)، صوص رانش (+15 ج.م)',
     );
-    expect(message).toContain('\u200Fالعميل: أحمد محمد | الهاتف: 01012345678');
+    expect(message).toContain('\u200Fالعميل: أحمد محمد\n\u200Fالهاتف: 01012345678');
     expect(message).toContain('\u200Fالعنوان: مدينة نصر، شارع مصطفى النحاس');
     expect(message).toContain('\u200Fملاحظات الطلب: الاتصال قبل الوصول');
     expect(message).toContain(
@@ -345,6 +347,26 @@ describe('WhatsApp order message', () => {
     );
     expect(message).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
     expect(message).not.toContain('🎁');
+  });
+
+  it('omits missing contact fields without a dangling separator or empty contact lines', () => {
+    const base = {
+      defaultLocale: 'ar' as const, orderType: 'PICKUP' as const,
+      customerNotes: null, deliveryAddress: null, deliveryBuilding: null,
+      deliveryFloor: null, deliveryApartment: null, deliveryLandmark: null,
+    };
+    const phoneOnly = buildWhatsappMessage(quote({
+      ...base, customerName: null, customerPhone: '01012345678',
+    }));
+    expect(phoneOnly).toContain('\u200Fالهاتف: 01012345678');
+    expect(phoneOnly).not.toContain('العميل:');
+    const nameOnly = buildWhatsappMessage(quote({
+      ...base, customerName: 'أحمد', customerPhone: null,
+    }));
+    expect(nameOnly).toContain('\u200Fالعميل: أحمد');
+    expect(nameOnly).not.toContain('الهاتف:');
+    expect(nameOnly).not.toContain(' | ');
+    expect(nameOnly).not.toMatch(/\n{3,}/);
   });
 
   it('strips guest-supplied direction overrides without removing customer wording', () => {
@@ -367,6 +389,7 @@ describe('WhatsApp order message', () => {
     });
     expect(signed.message).toMatch(/\n\nWayta-Ref: WT1\.[^\s]+$/);
     expect(signed.message.split('\n').at(-1)).toBe('Wayta-Ref: ' + signed.reference);
+    expect(signed.message).toContain('\u200Fالعميل: Mona Hassan\n\u200Fالهاتف: 01012345678');
     expect(signed.message.split('\n').at(-1)?.startsWith('\u200F')).toBe(false);
     expect(verifyWhatsappReference({
       restaurantId: arabic.restaurantId, receivedMessage: signed.message, key, now,
