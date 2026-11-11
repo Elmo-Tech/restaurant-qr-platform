@@ -365,7 +365,9 @@ describe('WhatsApp order message', () => {
     }));
     expect(nameOnly).toContain('\u200Fالعميل: أحمد');
     expect(nameOnly).not.toContain('الهاتف:');
-    expect(nameOnly).not.toContain(' | ');
+    // The order context legitimately uses " | "; contact details must not.
+    expect(nameOnly.split('\n').filter((line) => line.includes('العميل:') || line.includes('الهاتف:')))
+      .toEqual(['\u200Fالعميل: أحمد']);
     expect(nameOnly).not.toMatch(/\n{3,}/);
   });
 
