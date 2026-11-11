@@ -15,6 +15,9 @@ const LABELS: Record<
   {
     newOrder: string;
     offers: string;
+    customer: string;
+    phone: string;
+    address: string;
     delivery: string;
     pickup: string;
     branch: string;
@@ -35,6 +38,9 @@ const LABELS: Record<
   en: {
     newOrder: 'New order',
     offers: 'Offers',
+    customer: 'Customer',
+    phone: 'Phone',
+    address: 'Address',
     delivery: 'Delivery',
     pickup: 'Pickup',
     branch: 'Branch',
@@ -54,6 +60,9 @@ const LABELS: Record<
   ar: {
     newOrder: 'طلب جديد',
     offers: 'العروض',
+    customer: 'العميل',
+    phone: 'الهاتف',
+    address: 'العنوان',
     delivery: 'توصيل',
     pickup: 'استلام',
     branch: 'فرع',
@@ -81,6 +90,8 @@ export function messageLanguage(locale: string): MessageLanguage {
 export function plain(value: string): string {
   return value
     .replace(/[*_~`]/g, ' ')
+    // Guest-controlled direction overrides must not defeat the message's RTL base.
+    .replace(/[\u200e\u200f\u202a-\u202e\u2066-\u2069]/gi, '')
     .replace(/\s+/g, ' ')
     .trim();
 }
@@ -143,10 +154,10 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
   const cost = (amount: string): string =>
     money(amount, quote.currencyCode, language);
   const separator = language === 'ar' ? '، ' : ', ';
-  const lines: string[] = ['🧾 *' + t.newOrder + '*'];
+  const lines: string[] = ['*' + t.newOrder + '*'];
 
   const orderType =
-    quote.orderType === 'DELIVERY' ? '🛵 ' + t.delivery : '🛍️ ' + t.pickup;
+    quote.orderType === 'DELIVERY' ? t.delivery : t.pickup;
   const context = [
     quote.branchName ? t.branch + ' ' + plain(quote.branchName) : null,
     quote.orderType === 'DELIVERY' && quote.deliveryZoneName
@@ -186,9 +197,7 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
     // The unit price excludes modifiers. Product discounts are itemized below
     // so the displayed product + extras + discount reconciles with the quote.
     const baseTotal = extendedAmount(item.unitPrice, item.quantity);
-    // RTL mark before the leading star keeps mixed digits/Arabic aligned right.
-    return (language === 'ar' ? '\u200F' : '') +
-      '* ' + item.quantity + ' × *' + plain(item.name) + '*' +
+    return '* ' + item.quantity + ' × *' + plain(item.name) + '*' +
       variant + ' = ' + cost(baseTotal);
   };
 
@@ -209,8 +218,7 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
         });
         if (picked.length)
           lines.push(
-            '↳ ' + (slot.included ? '🎁 ' : '') +
-            plain(slot.title) + ': ' + picked.join(separator),
+            '↳ ' + plain(slot.title) + ': ' + picked.join(separator),
           );
       }
     }
@@ -251,8 +259,8 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
   if (quote.customerName || quote.customerPhone) {
     details.push(
       [
-        quote.customerName ? '👤 ' + plain(quote.customerName) : null,
-        quote.customerPhone ? '📞 ' + plain(quote.customerPhone) : null,
+        quote.customerName ? t.customer + ': ' + plain(quote.customerName) : null,
+        quote.customerPhone ? t.phone + ': ' + plain(quote.customerPhone) : null,
       ]
         .filter((part): part is string => part !== null)
         .join(' | '),
@@ -271,11 +279,11 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
       ? t.landmark + ' ' + plain(quote.deliveryLandmark)
       : null,
   ].filter((part): part is string => part !== null);
-  if (address.length) details.push('📍 ' + address.join(separator));
+  if (address.length) details.push(t.address + ': ' + address.join(separator));
   // The current quote only contains ORDER-level notes, not item-specific notes.
   // Do not attribute these notes to an arbitrary product.
   if (quote.customerNotes)
-    details.push('📝 ' + t.notes + ': ' + plain(quote.customerNotes));
+    details.push(t.notes + ': ' + plain(quote.customerNotes));
   if (details.length) lines.push('', ...details);
 
   const hasBreakdown =
@@ -293,9 +301,18 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
     if (quote.deliveryFee !== '0.00')
       lines.push(t.deliveryFee + ': ' + cost(quote.deliveryFee));
   }
-  lines.push('💰 *' + t.total + ': ' + cost(quote.total) + '*');
+  lines.push('*' + t.total + ': ' + cost(quote.total) + '*');
 
-  return lines.join('\n').replace(/\n{3,}/g, '\n\n').trim();
+  // Direction is an attribute of EACH visible line, not just item lines.
+  // U+200F (RLM) anchors neutral punctuation, leading stars and mixed numerals
+  // to the right in Arabic WhatsApp messages. Keep blank lines untouched.
+  // The optional signed Wayta-Ref is appended AFTER this function by the
+  // tracking service, so its raw, ASCII-only footer is never modified.
+  return lines
+    .map((line) => (language === 'ar' && line ? '\u200F' + line : line))
+    .join('\n')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
 }
 
 /** The `wa.me` link that opens WhatsApp on the Restaurant's number with the message ready to send. */

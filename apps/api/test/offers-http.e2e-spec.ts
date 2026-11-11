@@ -746,11 +746,14 @@ describeScratch('Offers (real PostgreSQL)', () => {
     const lines = message.split('\n');
     // Keep the PostgreSQL HTTP coverage aligned with the compact, priced
     // item/extras WhatsApp layout (the quote is still server-authoritative).
-    expect(lines.indexOf('*العروض*')).toBeGreaterThan(-1);
-    expect(lines.indexOf('*العروض*')).toBeLessThan(lines.indexOf('*السندوتشات*'));
+    // Every Arabic line begins with RLM; the gift line must stay text-only.
+    expect(lines.every((line) => line === '' || line.startsWith('\u200F'))).toBe(true);
+    expect(lines.indexOf('\u200F*العروض*')).toBeGreaterThan(-1);
+    expect(lines.indexOf('\u200F*العروض*')).toBeLessThan(lines.indexOf('\u200F*السندوتشات*'));
+    expect(message).not.toMatch(/[\u{1F300}-\u{1FAFF}]/u);
     expect(message).toContain('\u200F* 1 × *وجبة الفطار* = 35 ج.م');
     expect(message).toContain('↳ اختار الساندويتش: كبدة (+10 ج.م)');
-    expect(message).toContain('↳ 🎁 هدية العرض: بطاطس هدية');
+    expect(message).toContain('\u200F↳ هدية العرض: بطاطس هدية');
     expect(message).toContain('\u200F* 1 × *كبدة إسكندراني* = 45 ج.م');
     expect(await prisma.order.count({ where: { restaurantId: world.restaurantId } })).toBe(0);
     // an unavailable offer is refused by the WhatsApp route too
