@@ -341,6 +341,18 @@ export function PublicMenuView({
     return products;
   }, [data.menu.categories]);
 
+  // Re-resolve category names and menu order from the CURRENT public payload,
+  // just like product names. Never persist or submit category metadata as cart truth.
+  const categoryByProductId = useMemo(() => {
+    const categories = new Map<string, { id: string; name: string; order: number }>();
+    data.menu.categories.forEach((category, order) => {
+      for (const product of category.products) {
+        categories.set(product.id, { id: category.id, name: category.name, order });
+      }
+    });
+    return categories;
+  }, [data.menu.categories]);
+
   // Offers / Bundles (DEC-069): fixed-price packages with choices. With at least one active offer the top strip shows
   // them INSTEAD of the featured products (which come back when there are none), and the first chip jumps there.
   const offers = useMemo(() => data.context.offers ?? [], [data.context.offers]);
@@ -969,6 +981,7 @@ export function PublicMenuView({
           variantId: null,
           variantName: null,
           name: resolved.offer.name,
+          category: null,
           hasModifierGroups: true,
           imageAssetPath: resolved.offer.imageAssetPath,
           unitPrice,
@@ -1039,6 +1052,7 @@ export function PublicMenuView({
         variantId: item.variantId ?? null,
         variantName: size ? size.name : null,
         name: product.name,
+        category: categoryByProductId.get(item.productId) ?? null,
         hasModifierGroups: product.modifierGroups.length > 0 || sizes.length > 0,
         imageAssetPath: product.primaryImageAssetPath,
         unitPrice,
