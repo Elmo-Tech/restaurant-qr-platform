@@ -1,5 +1,12 @@
 import { Type } from 'class-transformer';
-import { ArrayMaxSize, IsArray, IsBoolean, IsOptional, IsUUID, ValidateNested } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsOptional,
+  IsUUID,
+  ValidateNested,
+} from 'class-validator';
 import { IsMoneyDecimalString } from '../money-decimal';
 
 /** A complete size-specific snapshot for this Product's Modifier Group. */

@@ -571,7 +571,9 @@ function ModifierGroupCard({
             </div>
             <Button type="button" size="sm" variant="secondary"
               onClick={() => setShowSizeSettings(value => !value)}>
-              {showSizeSettings ? t('common.close') : (t('variants.title') + ' · ' + t('common.edit'))}
+              {showSizeSettings
+                ? (t('common.close'))
+                : (t('variants.title') + ' · ' + t('common.edit'))}
             </Button>
           </div>
           {showSizeSettings ? (
