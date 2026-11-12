@@ -2670,3 +2670,121 @@ model DemoAccessLink {
   @@index([restaurantId])
   @@map("demo_access_links")
 }
+
+
+// -----------------------------------------------------------------------------
+// Platform-only, shared Food Image Library. No restaurant/Product relations yet:
+// this first slice builds the approved library without altering Guest/Staff menus.
+// -----------------------------------------------------------------------------
+enum FoodImageStatus {
+  DRAFT
+  PUBLISHED
+  ARCHIVED
+
+  @@map("food_image_status")
+}
+
+enum FoodPresentation {
+  UNSPECIFIED
+  RAW
+  COOKED
+  READY_TO_SERVE
+
+  @@map("food_presentation")
+}
+
+enum FoodSector {
+  RESTAURANT
+  CAFE
+  SWEETS
+  BUTCHER
+  HOME_FOOD
+
+  @@map("food_sector")
+}
+
+model FoodTag {
+  id        String   @id @default(uuid()) @db.Uuid
+  code      String   @unique @db.VarChar(80)
+  nameAr    String   @map("name_ar") @db.VarChar(120)
+  nameEn    String   @map("name_en") @db.VarChar(120)
+  nameIt    String   @map("name_it") @db.VarChar(120)
+  group     String   @db.VarChar(32)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  aliases  FoodTagAlias[]
+  images   FoodImageTag[]
+  related  FoodTagRelation[] @relation("FoodRelationFrom")
+  relatedBy FoodTagRelation[] @relation("FoodRelationTo")
+
+  @@index([group])
+  @@map("food_tags")
+}
+
+// One normalized word/phrase in one locale belongs to exactly one canonical tag.
+// Different spellings/languages never create duplicate Tags.
+model FoodTagAlias {
+  id         String   @id @default(uuid()) @db.Uuid
+  tagId      String   @map("tag_id") @db.Uuid
+  locale     String   @db.VarChar(2)
+  term       String   @db.VarChar(150)
+  normalized String   @db.VarChar(150)
+
+  tag FoodTag @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@unique([locale, normalized])
+  @@index([tagId])
+  @@map("food_tag_aliases")
+}
+
+// Related is NOT a synonym and NEVER implicitly tags a photo.
+// It is a discovery aid only, not proof of ingredients or preparation.
+model FoodTagRelation {
+  fromId String @map("from_id") @db.Uuid
+  toId   String @map("to_id") @db.Uuid
+
+  from FoodTag @relation("FoodRelationFrom", fields: [fromId], references: [id], onDelete: Cascade)
+  to   FoodTag @relation("FoodRelationTo", fields: [toId], references: [id], onDelete: Cascade)
+
+  @@id([fromId, toId])
+  @@index([toId])
+  @@map("food_tag_relations")
+}
+
+model FoodImageAsset {
+  id                String           @id @default(uuid()) @db.Uuid
+  name              String           @db.VarChar(160)
+  originalFilename  String           @map("original_filename") @db.VarChar(255)
+  assetPath         String           @unique @map("asset_path")
+  sha256            String           @unique @db.VarChar(64)
+  mimeType          String           @map("mime_type") @db.VarChar(40)
+  sizeBytes         Int              @map("size_bytes")
+  status            FoodImageStatus  @default(DRAFT)
+  presentation      FoodPresentation @default(UNSPECIFIED)
+  sectors           FoodSector[]     @default([])
+  reviewedAt        DateTime?        @map("reviewed_at") @db.Timestamptz
+  reviewedByAdminId String?          @map("reviewed_by_admin_id") @db.Uuid
+  publishedAt       DateTime?        @map("published_at") @db.Timestamptz
+  createdAt         DateTime         @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime         @updatedAt @map("updated_at") @db.Timestamptz
+
+  tags FoodImageTag[]
+
+  @@index([status, createdAt])
+  @@index([presentation, status])
+  @@map("food_image_assets")
+}
+
+model FoodImageTag {
+  imageId String   @map("image_id") @db.Uuid
+  tagId   String   @map("tag_id") @db.Uuid
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  image FoodImageAsset @relation(fields: [imageId], references: [id], onDelete: Cascade)
+  tag FoodTag @relation(fields: [tagId], references: [id], onDelete: Restrict)
+
+  @@id([imageId, tagId])
+  @@index([tagId])
+  @@map("food_image_tags")
+}
