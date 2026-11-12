@@ -61,12 +61,12 @@ test('QR remains the default while phone-code pairing is operator-gated', () => 
   assert.match(card, /connectWhatsappByCode\(restaurantId\)/);
   assert.match(card, /setPairing\(null\)/);
   assert.match(card, /Link with phone number instead/);
-  assert.match(card, /'qrCode'/i);
+  assert.match(card, /qrCode: next.qrCode/);
 });
 
 test('One-time code is transient and API uses a dedicated guarded route', () => {
   const api = read('lib/whatsapp-tracking/api.ts');
-  const backend = readFileSync(resolve(sourceRoot, '../../../api/src/whatsapp-tracking/whatsapp-tracking.controller.ts'), 'utf8');
+  const backend = readFileSync(resolve(sourceRoot, '../../api/src/whatsapp-tracking/whatsapp-tracking.controller.ts'), 'utf8');
   assert.match(api, /whatsapp-tracking\/connect\/code'/);
   assert.match(backend, /@Post\('connect\/code'\)/);
   assert.match(backend, /@Header\('Cache-Control', 'no-store'\)/);
