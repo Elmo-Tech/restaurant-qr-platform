@@ -17,7 +17,7 @@ type TagGroup = "PROTEIN" | "CUT" | "DISH" | "HOME" | "DESSERT" | "DRINK" | "ING
 /** Format per row: CODE|Arabic|English|Italian|extra Arabic aliases (;)|English aliases (;)|Italian aliases (;) */
 const DATA: Record<TagGroup, string> = {
   PROTEIN: String.raw`
-BEEF|لحم بقري|Beef|Manzo|لحمة بقري;لحم عجل بقري||
+BEEF|لحم بقري|Beef|Manzo|لحمة بقري;لحمة بقري طازة||
 VEAL|لحم بتلو|Veal|Vitello|بتلو||
 LAMB|لحم حمل|Lamb|Agnello|لحمة حمل;ضاني صغير||
 MUTTON|لحم ضأن|Mutton|Carne ovina|لحمة ضاني;لحم خروف||
@@ -225,7 +225,7 @@ ESPRESSO|إسبريسو|Espresso|Espresso|اسبريسو||
 DOPPIO|دبل إسبريسو|Double espresso|Doppio espresso|دبل اسبريسو|Doppio|
 AMERICANO|أمريكانو|Americano|Caffè americano|||
 CAPPUCCINO|كابتشينو|Cappuccino|Cappuccino|||
-LATTE|لاتيه|Latte coffee|Caffellatte|كافيه لاتيه|Caffè latte|Latte macchiato
+LATTE|لاتيه|Latte coffee|Caffellatte|كافيه لاتيه|Caffè latte;Latte|Latte macchiato
 FLAT_WHITE|فلات وايت|Flat white|Flat white|||
 MACCHIATO|ماكياتو|Macchiato|Caffè macchiato|||
 MOCHA|موكا|Mocha coffee|Mocaccino|||
@@ -271,7 +271,7 @@ CUCUMBER|خيار|Cucumber|Cetriolo|||
 LETTUCE|خس|Lettuce|Lattuga|||
 ONION|بصل|Onion|Cipolla|||
 GARLIC|ثوم|Garlic|Aglio|||
-POTATO|بطاطس|Potato|Patata|بطاطا في مصر|Potatoes|Patate
+POTATO|بطاطس|Potato|Patata|بطاطس طازة|Potatoes|Patate
 SWEET_POTATO|بطاطا حلوة|Sweet potato|Patata dolce|||
 CARROT|جزر|Carrot|Carota|||
 BELL_PEPPER|فلفل رومي|Bell pepper|Peperone|فلفل حلو||
