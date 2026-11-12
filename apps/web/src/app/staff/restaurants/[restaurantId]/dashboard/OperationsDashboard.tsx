@@ -394,6 +394,7 @@ export function OperationsDashboard({
           Server-side entitlement, full-branch scope and member permissions determine visibility. */}
       {whatsappConnection.visible ? (
         <WhatsappConnectionCard
+          key={restaurantId}
           restaurantId={restaurantId}
           hasWhatsappNumber={whatsappConnection.hasWhatsappNumber}
           orderingEnabled={whatsappConnection.orderingEnabled}

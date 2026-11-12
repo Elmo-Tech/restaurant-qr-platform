@@ -33,7 +33,7 @@ describe('Evolution instance recovery without destructive reconnect', () => {
   const restaurant = { whatsappNumber: '+201000000000', whatsappOrderingEnabled: true };
   const key = Buffer.alloc(32, 42).toString('base64');
 
-  function createSubject() {
+  function createSubject(pairingCodeEnabled = false) {
     const db = {
       restaurant: { findUnique: jest.fn().mockResolvedValue(restaurant) },
       whatsappConnection: {
@@ -46,7 +46,8 @@ describe('Evolution instance recovery without destructive reconnect', () => {
       EVOLUTION_API_KEY: 'test-provider-key',
       WAYTA_API_PUBLIC_URL: 'https://menu.example.com',
       WHATSAPP_ORDER_SIGNING_KEY: key,
-    })[name as 'EVOLUTION_API_URL' | 'EVOLUTION_API_KEY' | 'WAYTA_API_PUBLIC_URL' | 'WHATSAPP_ORDER_SIGNING_KEY']) };
+      WHATSAPP_PAIRING_CODE_ENABLED: pairingCodeEnabled,
+    })[name as 'EVOLUTION_API_URL' | 'EVOLUTION_API_KEY' | 'WAYTA_API_PUBLIC_URL' | 'WHATSAPP_ORDER_SIGNING_KEY' | 'WHATSAPP_PAIRING_CODE_ENABLED']) };
     const entitlements = { isEnabled: jest.fn().mockResolvedValue(true) };
     const service = new WhatsappTrackingService(db as never, config as never, entitlements as never);
     const provider = jest.spyOn(service as unknown as {
@@ -214,6 +215,69 @@ describe('Evolution instance recovery without destructive reconnect', () => {
     const { provider, service, db } = createSubject();
     provider.mockResolvedValue([{ name: instanceName, ownerJid: '20999999999@s.whatsapp.net' }]);
     await expect(service.connect(restaurantId)).rejects.toBeInstanceOf(ConflictException);
+    expect(db.whatsappConnection.upsert).not.toHaveBeenCalled();
+  });
+
+  it('keeps pairing by code disabled by default without any provider side effects', async () => {
+    const { provider, service, db } = createSubject();
+    await expect(service.connect(restaurantId, 'CODE')).rejects.toThrow('WHATSAPP_PAIRING_CODE_DISABLED');
+    expect(provider).not.toHaveBeenCalled();
+    expect(db.whatsappConnection.upsert).not.toHaveBeenCalled();
+    expect((await service.state(restaurantId)).pairingCodeEnabled).toBe(false);
+  });
+
+  it('requests an ephemeral code for the stored restaurant number only when operator-enabled', async () => {
+    const { provider, service, db } = createSubject(true);
+    provider.mockImplementation((path: string) => {
+      if (path === '/instance/fetchInstances') return Promise.resolve([{ name: instanceName }]);
+      if (path.startsWith('/webhook/find')) return Promise.resolve(null);
+      if (path.startsWith('/webhook/set')) return Promise.resolve({});
+      if (path === '/instance/connect/' + instanceName + '?number=201000000000') {
+        return Promise.resolve({ qrcode: { pairingCode: 'a1b2c3d4', code: 'qr-is-private' } });
+      }
+      return Promise.reject(new Error('Unexpected provider call'));
+    });
+    const result = await service.connect(restaurantId, 'CODE');
+    expect(result).toMatchObject({
+      state: 'NOT_CONNECTED', pairingCode: 'A1B2C3D4', pairingCodeEnabled: true,
+      qrCode: null, qrText: null,
+    });
+    expect(provider).toHaveBeenCalledWith('/instance/connect/' + instanceName + '?number=201000000000');
+    expect(db.whatsappConnection.upsert).toHaveBeenCalledTimes(1);
+    const status = await service.state(restaurantId);
+    expect(status.pairingCodeEnabled).toBe(true);
+    expect(status).not.toHaveProperty('pairingCode');
+  });
+
+  it('fails closed when Evolution returns no valid pairing code and keeps QR flow available', async () => {
+    const { provider, service } = createSubject(true);
+    provider.mockImplementation((path: string) => {
+      if (path === '/instance/fetchInstances') return Promise.resolve([{ name: instanceName }]);
+      if (path.startsWith('/webhook/find')) return Promise.resolve(null);
+      if (path.startsWith('/webhook/set')) return Promise.resolve({});
+      if (path.includes('?number=')) return Promise.resolve({ pairingCode: null, code: 'still-a-qr' });
+      if (path === '/instance/connect/' + instanceName) return Promise.resolve({ qrcode: { code: 'qr-still-works' } });
+      return Promise.reject(new Error('Unexpected provider call'));
+    });
+    await expect(service.connect(restaurantId, 'CODE')).rejects.toThrow('WHATSAPP_PAIRING_CODE_UNAVAILABLE');
+    expect((await service.connect(restaurantId)).qrText).toBe('qr-still-works');
+  });
+
+  it('rejects an invalid stored phone before provider or webhook mutations', async () => {
+    const { provider, service, db } = createSubject(true);
+    db.restaurant.findUnique.mockResolvedValue({
+      whatsappNumber: 'bad', whatsappOrderingEnabled: true,
+    });
+    await expect(service.connect(restaurantId, 'CODE')).rejects.toThrow('WHATSAPP_PAIRING_NUMBER_INVALID');
+    expect(provider).not.toHaveBeenCalled();
+    expect(db.whatsappConnection.upsert).not.toHaveBeenCalled();
+  });
+
+  it('refuses provider pairing for a foreign linked device even when code is enabled', async () => {
+    const { provider, service, db } = createSubject(true);
+    provider.mockResolvedValue([{ name: instanceName, ownerJid: '20999999999@s.whatsapp.net' }]);
+    await expect(service.connect(restaurantId, 'CODE')).rejects.toBeInstanceOf(ConflictException);
+    expect(provider.mock.calls.some(([path]) => path.includes('?number='))).toBe(false);
     expect(db.whatsappConnection.upsert).not.toHaveBeenCalled();
   });
 

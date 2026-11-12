@@ -279,6 +279,7 @@ export default async function RestaurantLandingPage({
         <>
           {whatsappConnection.visible ? (
             <WhatsappConnectionCard
+              key={restaurantId}
               restaurantId={restaurantId}
               hasWhatsappNumber={whatsappConnection.hasWhatsappNumber}
               orderingEnabled={whatsappConnection.orderingEnabled}

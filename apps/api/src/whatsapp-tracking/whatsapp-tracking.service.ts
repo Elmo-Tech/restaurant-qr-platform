@@ -62,7 +62,17 @@ export function parseInboundEvolutionMessage(raw: unknown): { id: string; text: 
   const text = typeof message.conversation === 'string' ? message.conversation : record(message.extendedTextMessage).text;
   return typeof text === 'string' && text.length <= 12000 ? { id: key.id, text } : null;
 }
-export interface ConnectionView { connected: boolean; state: 'NOT_CONFIGURED' | 'NOT_CONNECTED' | 'CONNECTED' | 'UNAVAILABLE'; number: string | null; qrCode: string | null; qrText: string | null }
+export interface ConnectionView {
+  connected: boolean;
+  state: 'NOT_CONFIGURED' | 'NOT_CONNECTED' | 'CONNECTED' | 'UNAVAILABLE';
+  number: string | null;
+  qrCode: string | null;
+  qrText: string | null;
+  /** Server-controlled rollout gate; never inferred from a client or package tier. */
+  pairingCodeEnabled?: boolean;
+  /** Returned ONLY by a guarded pairing-code POST, never by GET /connection. */
+  pairingCode?: string;
+}
 @Injectable()
 export class WhatsappTrackingService {
   private readonly logger = new Logger(WhatsappTrackingService.name);
@@ -74,6 +84,11 @@ export class WhatsappTrackingService {
     const callback = String(this.cfg.get('WAYTA_API_PUBLIC_URL') ?? '').replace(/\/+$/, '');
     const signingKey = decodeSigningKey(this.cfg.get<string>('WHATSAPP_ORDER_SIGNING_KEY'));
     return safeBase(base) && safeBase(callback) && apiKey && signingKey ? { base, apiKey, callback, signingKey } : null;
+  }
+  private pairingCodeEnabled(): boolean {
+    // Off by default: Evolution 2.3.7 can produce a code that WhatsApp refuses.
+    // Only enable after an operator verifies a real device and provider build.
+    return this.cfg.get<boolean>('WHATSAPP_PAIRING_CODE_ENABLED') === true;
   }
   private async fetchProvider(path: string, method = 'GET', body?: JsonMap): Promise<unknown> {
     const s = this.settings();
@@ -133,16 +148,20 @@ export class WhatsappTrackingService {
     return { link, number };
   }
   async state(restaurantId: string): Promise<ConnectionView> {
-    if (!this.settings()) return { connected:false, state:'NOT_CONFIGURED', number:null, qrCode:null, qrText:null };
+    const pairingCodeEnabled = this.pairingCodeEnabled();
+    if (!this.settings()) return { connected:false, state:'NOT_CONFIGURED', number:null, qrCode:null, qrText:null, pairingCodeEnabled };
     const exists = await this.db.whatsappConnection.findUnique({ where: { restaurantId }, select:{ restaurantId:true } });
-    if (!exists) return { connected:false, state:'NOT_CONNECTED', number:null, qrCode:null, qrText:null };
+    if (!exists) return { connected:false, state:'NOT_CONNECTED', number:null, qrCode:null, qrText:null, pairingCodeEnabled };
     try {
       const ok = await this.verified(restaurantId);
-      return ok ? { connected:true, state:'CONNECTED', number:ok.number, qrCode:null, qrText:null } :
-        { connected:false, state:'NOT_CONNECTED', number:null, qrCode:null, qrText:null };
-    } catch { return { connected:false, state:'UNAVAILABLE', number:null, qrCode:null, qrText:null }; }
+      return ok ? { connected:true, state:'CONNECTED', number:ok.number, qrCode:null, qrText:null, pairingCodeEnabled } :
+        { connected:false, state:'NOT_CONNECTED', number:null, qrCode:null, qrText:null, pairingCodeEnabled };
+    } catch { return { connected:false, state:'UNAVAILABLE', number:null, qrCode:null, qrText:null, pairingCodeEnabled }; }
   }
-  async connect(restaurantId: string): Promise<ConnectionView> {
+  async connect(restaurantId: string, method: 'QR' | 'CODE' = 'QR'): Promise<ConnectionView> {
+    // Gate before any provider call, instance creation or webhook mutation.
+    if (method === 'CODE' && !this.pairingCodeEnabled())
+      throw new ServiceUnavailableException('WHATSAPP_PAIRING_CODE_DISABLED');
     const s = this.settings();
     if (!s) throw new ServiceUnavailableException('WHATSAPP_TRACKING_NOT_CONFIGURED');
     const restaurant = await this.db.restaurant.findUnique({ where:{ id: restaurantId },
@@ -150,6 +169,11 @@ export class WhatsappTrackingService {
     if (!restaurant?.whatsappNumber || !restaurant.whatsappOrderingEnabled ||
         !(await this.features.isEnabled(restaurantId,'WHATSAPP_ORDERING')))
       throw new ServiceUnavailableException('WHATSAPP_ORDERING_UNAVAILABLE');
+    // Reject invalid stored numbers before creating an instance or altering any webhook.
+    // Always derive the phone from the Restaurant, not from browser input.
+    const number = digits(restaurant.whatsappNumber);
+    if (method === 'CODE' && !/^\d{8,15}$/.test(number))
+      throw new ServiceUnavailableException('WHATSAPP_PAIRING_NUMBER_INVALID');
     const existing = await this.db.whatsappConnection.findUnique({ where:{ restaurantId } });
     const instanceName = existing?.instanceName ?? 'wayta-' + restaurantId.replace(/-/g, '');
     let providerInstance = await this.findExactInstance(instanceName);
@@ -212,8 +236,17 @@ export class WhatsappTrackingService {
     });
     const current = await this.state(restaurantId);
     if (current.connected) return current;
-    const payload = record(await this.fetchProvider('/instance/connect/' + encodeURIComponent(instanceName)));
+    // Do not log the phone, provider response or short-lived pairing credentials.
+    const connectPath = '/instance/connect/' + encodeURIComponent(instanceName) +
+      (method === 'CODE' ? '?number=' + encodeURIComponent(number) : '');
+    const payload = record(await this.fetchProvider(connectPath));
     const qr = record(payload.qrcode);
+    if (method === 'CODE') {
+      const candidate = payload.pairingCode ?? qr.pairingCode;
+      if (typeof candidate !== 'string' || !/^[a-zA-Z0-9]{8}$/.test(candidate))
+        throw new ServiceUnavailableException('WHATSAPP_PAIRING_CODE_UNAVAILABLE');
+      return { ...current, qrCode:null, qrText:null, pairingCode:candidate.toUpperCase() };
+    }
     const image = typeof payload.base64 === 'string' ? payload.base64 :
       typeof qr.base64 === 'string' ? qr.base64 : null;
     const qrCode = image?.startsWith('data:image/png;base64,') ? image :
