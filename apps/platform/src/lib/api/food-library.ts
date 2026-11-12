@@ -55,7 +55,10 @@ const queryString = (params: Record<string, string | number | undefined>) => {
 };
 
 export const listFoodImages = async (filters: ImageFilters = {}) => {
-  const qs = queryString(filters);
+  const qs = queryString({
+    search: filters.search, sector: filters.sector, presentation: filters.presentation,
+    status: filters.status, page: filters.page, pageSize: filters.pageSize,
+  });
   return (await platformFetch<{ data: ImagePage }>("/food-images" + (qs ? "?" + qs : ""))).data;
 };
 export const listFoodTags = async (search: string, limit = 25) =>
