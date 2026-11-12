@@ -12,6 +12,7 @@ import { ModifierPresetsController } from './modifier-presets.controller';
 import { ModifierPresetsService } from './modifier-presets.service';
 import { ModifiersController } from './modifiers.controller';
 import { ModifiersService } from './modifiers.service';
+import { ModifierSizeSettingsService } from './modifier-size-settings.service';
 import { ProductVariantsController } from './product-variants.controller';
 import { ProductVariantsService } from './product-variants.service';
 import { ProductsController } from './products.controller';
@@ -43,6 +44,7 @@ import { ProductsService } from './products.service';
     CategoriesService,
     ProductsService,
     ModifiersService,
+    ModifierSizeSettingsService,
     ModifierPresetsService,
     ProductVariantsService,
     GuestMenuLinkService,

@@ -4328,3 +4328,23 @@ Database architecture is acceptable when:
 
 
 
+
+---
+
+## Variant-specific Modifier Groups and Options — approved UI extension (2026-11-12)
+
+### Staff setup
+
+Within **Restaurant Dashboard → Menu → Edit Product → Add-ons**, a Group may be sourced from a reusable **Modifier Preset** or created custom, as before. When the Product has active **Sizes** (Product Variants), every Group offers **Customize by size**. Select Small, Medium or Large; switch off the Group for that size, or switch individual Options on/off and optionally enter their exact override prices. A blank price inherits the Group Option's current Product/linked-Preset price, including later Preset updates. **Reset to Product defaults** clears per-size overrides; no extra setup is required for unchanged sizes. Admin mutations require `menu.manage` and full-Branch scope, not an elevated access based on UI role text.
+
+### Domain and authority
+
+- Product-local Modifier Groups and Options stay the single semantic/selection authority. Presets remain reusable authoring inputs; per-Product price overrides remain above Preset defaults. Only the final per-size override, when present, supersedes the Product-local price for that Variant: **Variant-size override → Product Option price → current linked Preset-derived default**.
+- Additive tables `modifier_group_size_settings` (Group/Variant enabled) and `modifier_option_size_settings` (Option/Variant enabled + nullable money override). Missing rows mean **inherit**. No existing Product/Order row is rewritten. Group/Option inactive globally remains inactive across every size; size settings cannot reactivate it.
+- Staff PUT requires that Restaurant + Product own the Group, Variant and every Option; no duplicate, missing or foreign Option id may pass. An active, required Group may not be configured with fewer active Options than `minimumSelections`. A disabled Group may have any Option status and is omitted entirely for that Variant.
+- Public Menu returns only effective availability metadata for each Group/Option; the shared Guest ProductSheet selects Groups and prices for the chosen Size, clears hidden choices on a size switch, and keeps Cart estimates consistent. **NestJS independently re-resolves the chosen Variant and current live Group+Option+size settings when quoting and placing orders**. Hidden/foreign/inactive selections result in the existing guest-safe `itemsUnavailable`; `OrderItemModifier.priceAdjustmentSnapshot` keeps the exact effective price at order time, with Decimal arithmetic.
+- Product with no active Variants is unaffected. Existing unrelated Templates, Discounts, Offers, QR links and other Guest renderers continue using the same shared ordering flow.
+
+### Release gates
+
+This is an **additive migration** that must be applied only after a backup and compatibility check on a truly disposable PostgreSQL test database before any approved production release. Run Prisma validation, Node/TypeScript/lint, Guest size-selection/cart tests and real PostgreSQL quote E2E; verify AR/EN, 320px phones, keyboard, disabled required selections, switched sizes, linked Preset updates, exact decimal overrides, cross-Tenant tampering, history snapshots and the old no-size Product path. No production migration/merge/deploy from this PR without owner authorization.

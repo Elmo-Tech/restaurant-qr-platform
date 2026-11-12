@@ -9,6 +9,7 @@ import type {
   ModifierOption,
   ModifierOptionStatus,
   ModifierPreset,
+  ProductVariant,
 } from '../../../../../../lib/menu/types';
 import type { RestaurantLocalesResponse } from '../../../../../../lib/settings/types';
 import { localeDirection, localeLabel } from '../../../../../../lib/settings/locale-labels';
@@ -29,6 +30,7 @@ import { Select } from '../../../../../../components/ui/Select';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
 import { LanguageTabs, type LanguageTabOption } from '../../../../../../components/menu/LanguageTabs';
 import { TranslationFields } from '../../../../../../components/menu/TranslationFields';
+import { ModifierSizeSettingsEditor } from './ModifierSizeSettingsEditor';
 
 /** Mirrors the Backend's accepted decimal-string shape (money-decimal.ts) -- helpful client validation only, never authoritative (CLAUDE.md #27). */
 const MONEY_DECIMAL_PATTERN = /^(0|[1-9]\d{0,11})(\.\d{1,2})?$/;
@@ -38,6 +40,8 @@ export interface ModifiersSectionProps {
   productId: string;
   currencyCode: string;
   canManage: boolean;
+  /** Product sizes used to configure add-ons independently for each size. */
+  variants: ProductVariant[];
   /** Same Restaurant Languages response `ProductEditor` already fetches for its own `ProductTranslationSection` -- reused here rather than a second fetch. */
   locales: RestaurantLocalesResponse | null;
   /** Called with the current Groups whenever they load or change, so the Product Editor's guest preview can show them. */
@@ -65,6 +69,7 @@ export function ModifiersSection({
   currencyCode,
   canManage,
   locales,
+  variants,
   onGroupsChange,
 }: ModifiersSectionProps) {
   const { t } = useStaffI18n();
@@ -144,6 +149,7 @@ export function ModifiersSection({
             group={group}
             canManage={canManage}
             locales={locales}
+            variants={variants}
             onGroupChanged={(updated) =>
               setGroups((prev) => prev.map((g) => (g.id === updated.id ? { ...updated, options: g.options } : g)))
             }
@@ -371,6 +377,7 @@ function ModifierGroupCard({
   onOptionChanged,
   onGroupRemoved,
   onOptionRemoved,
+  variants,
 }: {
   restaurantId: string;
   productId: string;
@@ -378,15 +385,17 @@ function ModifierGroupCard({
   group: ModifierGroup;
   canManage: boolean;
   locales: RestaurantLocalesResponse | null;
+  variants: ProductVariant[];
   onGroupChanged: (group: ModifierGroup) => void;
   onOptionCreated: (groupId: string, option: ModifierOption) => void;
   onOptionChanged: (groupId: string, option: ModifierOption) => void;
   onGroupRemoved: (groupId: string) => void;
   onOptionRemoved: (groupId: string, optionId: string) => void;
 }) {
-  const { t } = useStaffI18n();
+  const { t, locale } = useStaffI18n();
   const [isEditing, setIsEditing] = useState(false);
   const [isAddingOption, setIsAddingOption] = useState(false);
+  const [showSizeSettings, setShowSizeSettings] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -543,6 +552,42 @@ function ModifierGroupCard({
             }}
             onCancel={() => setIsEditing(false)}
           />
+        </div>
+      ) : null}
+
+      {variants.some(size => size.status === 'ACTIVE') ? (
+        <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold text-foreground">
+                {t('mod.title')} · {variants.length} {t('variants.title')}
+              </p>
+              <p className="mt-1 text-xs leading-5 text-muted-foreground">
+                {t('mod.selectionRange', {
+                  kind: group.minimumSelections === 0 ? t('mod.optional') : t('mod.required'),
+                  min: group.minimumSelections, max: group.maximumSelections,
+                })}
+              </p>
+            </div>
+            <Button type="button" size="sm" variant="secondary"
+              onClick={() => setShowSizeSettings(value => !value)}>
+              {showSizeSettings
+                ? t('common.close')
+                : locale.startsWith('ar')
+                  ? 'تخصيص الإضافات حسب الحجم'
+                  : 'Customize add-ons by size'}
+            </Button>
+          </div>
+          {showSizeSettings ? (
+            <ModifierSizeSettingsEditor
+              restaurantId={restaurantId}
+              productId={productId}
+              group={group}
+              variants={variants.filter(size => size.status === 'ACTIVE')}
+              currencyCode={currencyCode}
+              canManage={canManage}
+            />
+          ) : null}
         </div>
       ) : null}
 

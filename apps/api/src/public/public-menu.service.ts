@@ -259,6 +259,8 @@ export interface PublicMenuModifierOption {
   id: string;
   name: string;
   priceAdjustment: string;
+  /** Only explicit per-size overrides. Null price inherits the current Product/Preset price. */
+  sizeOverrides?: { variantId: string; enabled: boolean; priceAdjustment: string | null }[];
 }
 
 export interface PublicMenuModifierGroup {
@@ -267,6 +269,8 @@ export interface PublicMenuModifierGroup {
   helperText: string | null;
   minimumSelections: number;
   maximumSelections: number;
+  /** A Group can be disabled for one size without affecting other sizes. */
+  disabledVariantIds?: string[];
   options: PublicMenuModifierOption[];
 }
 
@@ -820,6 +824,10 @@ export class PublicMenuService {
                 id: true,
                 minimumSelections: true,
                 maximumSelections: true,
+                sizeSettings: {
+                  where: { enabled: false },
+                  select: { variantId: true },
+                },
                 translations: {
                   where: { locale: { in: localesToLoad } },
                   select: { locale: true, name: true, helperText: true },
@@ -830,6 +838,9 @@ export class PublicMenuService {
                   select: {
                     id: true,
                     priceAdjustment: true,
+                    sizeSettings: {
+                      select: { variantId: true, enabled: true, priceAdjustment: true },
+                    },
                     translations: {
                       where: { locale: { in: localesToLoad } },
                       select: { locale: true, name: true },
@@ -893,6 +904,11 @@ export class PublicMenuService {
               id: option.id,
               name: optionFields.name,
               priceAdjustment: option.priceAdjustment.toFixed(2),
+              sizeOverrides: (option.sizeSettings ?? []).map(setting => ({
+                variantId: setting.variantId,
+                enabled: setting.enabled,
+                priceAdjustment: setting.priceAdjustment?.toFixed(2) ?? null,
+              })),
             });
           }
 
@@ -902,6 +918,7 @@ export class PublicMenuService {
             helperText: groupFields.description,
             minimumSelections: group.minimumSelections,
             maximumSelections: group.maximumSelections,
+            disabledVariantIds: (group.sizeSettings ?? []).map(setting => setting.variantId),
             options,
           });
         }

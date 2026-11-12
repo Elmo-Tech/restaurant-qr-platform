@@ -1097,6 +1097,7 @@ export function ProductEditor({
                 currencyCode={currencyCode}
                 locales={locales}
                 canManage={canManage}
+                variants={variants ?? []}
                 onGroupsChange={setModifierGroups}
               />
             ) : (

@@ -6,6 +6,7 @@ import { GuestIconInfo } from '../../../components/guest/icons';
 import { GuestLocaleProvider } from '../../../components/guest/GuestLocale';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import { getPublicMenuCopy } from '../../../lib/public-menu/copy';
+import { modifierGroupsForSize } from '../../../lib/public-menu/effective-modifiers';
 import {
   cartLineKey,
   loadCart,
@@ -1013,7 +1014,10 @@ export function PublicMenuView({
       // no longer valid -- Section: Cart remains intact on that error).
       const selections: { groupName: string; optionName: string; priceAdjustment: string }[] = [];
       let modifiersMinorUnits = ZERO_MINOR_UNITS;
-      for (const group of product.modifierGroups) {
+      const activeGroups = modifierGroupsForSize(
+        product.modifierGroups, item.variantId ?? null, (product.variants?.length ?? 0) > 0,
+      );
+      for (const group of activeGroups) {
         for (const option of group.options) {
           if (item.modifierOptionIds.includes(option.id)) {
             selections.push({

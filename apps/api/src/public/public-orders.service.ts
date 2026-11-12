@@ -819,6 +819,7 @@ export class PublicOrdersService {
                 minimumSelections: true,
                 maximumSelections: true,
                 displayOrder: true,
+                sizeSettings: { select: { variantId: true, enabled: true } },
                 translations: {
                   where: { locale: defaultLocale },
                   select: { name: true },
@@ -830,6 +831,9 @@ export class PublicOrdersService {
                     id: true,
                     priceAdjustment: true,
                     displayOrder: true,
+                    sizeSettings: {
+                      select: { variantId: true, enabled: true, priceAdjustment: true },
+                    },
                     translations: {
                       where: { locale: defaultLocale },
                       select: { name: true },
@@ -1048,6 +1052,26 @@ export class PublicOrdersService {
             throw new ItemsUnavailableError();
           }
 
+          // Resolve the chosen size first: it determines which modifier groups,
+          // options and override prices are authoritative for this line.
+          // A foreign, inactive or omitted size fails closed exactly as before.
+          let size: { id: string; nameSnapshot: string; price: Prisma.Decimal; discountApplies: boolean } | null = null;
+          if (product.variants.length > 0) {
+            const chosen = product.variants.find((variant) => variant.id === item.variantId);
+            const chosenName = chosen?.translations[0]?.name;
+            if (chosen === undefined || chosenName === undefined) throw new ItemsUnavailableError();
+            size = {
+              id: chosen.id, nameSnapshot: chosenName, price: chosen.price,
+              discountApplies: chosen.discountApplies,
+            };
+          } else if (item.variantId !== undefined) {
+            throw new ItemsUnavailableError();
+          }
+          const currentSizeId = size?.id ?? null;
+          const availableGroups = product.modifierGroups.filter(group =>
+            !currentSizeId || !(group.sizeSettings ?? []).some(setting =>
+              setting.variantId === currentSizeId && !setting.enabled));
+
           // FT-6A CRITICAL MONEY RULE: every selected modifierOptionId is
           // re-resolved against this Product's OWN currently-ACTIVE
           // Modifier Groups/Options -- an id that is unknown, belongs to a
@@ -1060,11 +1084,19 @@ export class PublicOrdersService {
             {
               group: (typeof product.modifierGroups)[number];
               option: (typeof product.modifierGroups)[number]['options'][number];
+              priceAdjustment: Prisma.Decimal;
             }
           >();
-          for (const group of product.modifierGroups) {
+          for (const group of availableGroups) {
             for (const option of group.options) {
-              optionLookup.set(option.id, { group, option });
+              const override = currentSizeId
+                ? (option.sizeSettings ?? []).find(setting => setting.variantId === currentSizeId)
+                : null;
+              if (override?.enabled === false) continue;
+              optionLookup.set(option.id, {
+                group, option,
+                priceAdjustment: override?.priceAdjustment ?? option.priceAdjustment,
+              });
             }
           }
 
@@ -1085,7 +1117,7 @@ export class PublicOrdersService {
             if (!found) {
               throw new ItemsUnavailableError();
             }
-            const { group, option } = found;
+            const { group, option, priceAdjustment } = found;
             const groupNameSnapshot = group.translations[0]?.name;
             const optionNameSnapshot = option.translations[0]?.name;
             if (groupNameSnapshot === undefined || optionNameSnapshot === undefined) {
@@ -1099,7 +1131,7 @@ export class PublicOrdersService {
               optionDisplayOrder: option.displayOrder,
               groupNameSnapshot,
               optionNameSnapshot,
-              priceAdjustment: option.priceAdjustment,
+              priceAdjustment,
             });
             selectedCountByGroup.set(group.id, (selectedCountByGroup.get(group.id) ?? 0) + 1);
           }
@@ -1108,7 +1140,7 @@ export class PublicOrdersService {
           // selection count within [minimumSelections, maximumSelections]
           // -- including a required Group (minimumSelections >= 1) with
           // ZERO selections, which must fail here, not silently pass.
-          for (const group of product.modifierGroups) {
+          for (const group of availableGroups) {
             const count = selectedCountByGroup.get(group.id) ?? 0;
             if (count < group.minimumSelections || count > group.maximumSelections) {
               throw new ItemsUnavailableError();
@@ -1132,22 +1164,7 @@ export class PublicOrdersService {
           // Guest chose, re-resolved here (never trusted from the request). The size is required;
           // an unknown, foreign or no-longer-active size, or a size sent for a Product that has
           // none, all converge on the same whole-order `itemsUnavailable` rejection.
-          let size: { id: string; nameSnapshot: string; price: Prisma.Decimal; discountApplies: boolean } | null = null;
-          if (product.variants.length > 0) {
-            const chosen = product.variants.find((variant) => variant.id === item.variantId);
-            const chosenName = chosen?.translations[0]?.name;
-            if (chosen === undefined || chosenName === undefined) {
-              throw new ItemsUnavailableError();
-            }
-            size = {
-              id: chosen.id,
-              nameSnapshot: chosenName,
-              price: chosen.price,
-              discountApplies: chosen.discountApplies,
-            };
-          } else if (item.variantId !== undefined) {
-            throw new ItemsUnavailableError();
-          }
+
           const unitPrice = size ? size.price : product.basePrice;
           const modifiersTotal = selections.reduce(
             (sum, selection) => sum.plus(selection.priceAdjustment),

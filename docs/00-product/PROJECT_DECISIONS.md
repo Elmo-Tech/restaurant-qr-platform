@@ -1739,3 +1739,10 @@ Provider session verification must fail closed; if disconnected, the original Wh
 Each ACTIVE restaurant with a public GENERIC QR and current slug gets server-rendered title, localized description, canonical restaurant hostname, Open Graph/Twitter metadata, safe Restaurant JSON-LD, and a 1200×630 social share image using its published cover and logo when available. Published Menu description is the authoritative currently available description; a factual locale-specific fallback is used when it is empty. This is not permission to invent a new Restaurant SEO description field or alter existing product/ordering data.
 
 Each tenant hostname has its own robots/sitemap only for currently published menus. No inactive tenant or Table QR is indexed; no cross-tenant sitemap listing, Staff indexing, or mixing of tenants via internal Next.js API fetches. Wayta marketing SEO and legacy QR links remain intact. Production deployment is manual and requires separate owner approval. Full rollout checklist: docs/02-technical/RESTAURANT_SEO_RELEASE.md.
+
+
+### DEC-072 — Add-ons per Size (2026-11-12)
+
+**Status:** Owner-requested implementation on isolated feature branch; staging QA, acceptance, merge and deployment remain distinct gates.
+
+Modifier Presets (reusable authoring templates) and Product-local Modifier Groups/Options remain unchanged as the defaults. A Product with sizes may further override **Group on/off, Option on/off and Option price** for one Product Variant through additive size-settings tables, controlled in the Restaurant Product Editor (no new global option entity). A missing override inherits the current Product setting including any linked Preset synchronization. Every Guest template and the authoritative NestJS order quote/acceptance process uses size-effective availability and Decimal prices; a disabled Group is not required for that size, and any hidden Option submitted manually fails closed. Historical order snapshots never change. Explicit staff `MENU_MANAGE` plus all-Branch scope, no automatic migration or production rollout. Details in `docs/01-domain/MENU_SPEC.md` and `docs/02-technical/DATABASE_SPEC.md` amendments.

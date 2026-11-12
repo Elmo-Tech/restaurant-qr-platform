@@ -749,6 +749,105 @@ describe('PublicOrdersService.createOrder -- Modifiers (FT-6A)', () => {
     expect(createArgs.data.totalAmount.toFixed(2)).toBe('290.00');
   });
 
+  it('recomputes a Variant add-on price from its size override and snapshots that exact Decimal', async () => {
+    const mock = buildPrismaMock();
+    const variantId = 'variant-medium';
+    mock.productFindMany.mockResolvedValue([{
+      ...PRODUCT_WITH_MODIFIERS_ROW,
+      variants: [{
+        id: variantId, price: decimal('200.00'),
+        discountApplies: true, translations: [{ name: 'Medium' }],
+      }],
+      modifierGroups: PRODUCT_WITH_MODIFIERS_ROW.modifierGroups.map((group) => ({
+        ...group,
+        sizeSettings: [],
+        options: group.options.map((option) => ({
+          ...option,
+          sizeSettings: option.id === EXTRAS_CHEESE_ID
+            ? [{ variantId, enabled: true, priceAdjustment: decimal('35.50') }]
+            : [],
+        })),
+      })),
+    }]);
+    const service = buildService(mock);
+    await service.createOrder({
+      ...VALID_INPUT,
+      items: [{
+        productId: 'product-1', variantId, quantity: 2,
+        modifierOptionIds: [SIZE_SMALL_ID, EXTRAS_CHEESE_ID],
+      }],
+    });
+    const args = mock.orderCreate.mock.calls[0][0] as {
+      data: { items: { create: {
+        lineTotal: Prisma.Decimal;
+        modifiers: { create: { modifierOptionId: string; priceAdjustmentSnapshot: Prisma.Decimal }[] };
+      }[] } };
+    };
+    const line = args.data.items.create[0];
+    expect(line.lineTotal.toFixed(2)).toBe('471.00');
+    const cheese = line.modifiers.create.find((row) => row.modifierOptionId === EXTRAS_CHEESE_ID);
+    expect(cheese?.priceAdjustmentSnapshot.toFixed(2)).toBe('35.50');
+  });
+
+  it('does not require a Group disabled for the chosen size', async () => {
+    const mock = buildPrismaMock();
+    const variantId = 'variant-small';
+    mock.productFindMany.mockResolvedValue([{
+      ...PRODUCT_WITH_MODIFIERS_ROW,
+      variants: [{
+        id: variantId, price: decimal('120.00'),
+        discountApplies: true, translations: [{ name: 'Small' }],
+      }],
+      modifierGroups: PRODUCT_WITH_MODIFIERS_ROW.modifierGroups.map((group) => ({
+        ...group,
+        sizeSettings: group.id === SIZE_GROUP_ID
+          ? [{ variantId, enabled: false }] : [],
+        options: group.options.map((option) => ({ ...option, sizeSettings: [] })),
+      })),
+    }]);
+    const service = buildService(mock);
+    await service.createOrder({
+      ...VALID_INPUT,
+      items: [{ productId: 'product-1', variantId, quantity: 1, modifierOptionIds: [] }],
+    });
+    const args = mock.orderCreate.mock.calls[0][0] as {
+      data: { items: { create: { lineTotal: Prisma.Decimal; modifiers: { create: unknown[] } }[] } };
+    };
+    expect(args.data.items.create[0].lineTotal.toFixed(2)).toBe('120.00');
+    expect(args.data.items.create[0].modifiers.create).toHaveLength(0);
+  });
+
+  it('rejects a submitted Option disabled for this Variant, even if the Product Option is ACTIVE', async () => {
+    const mock = buildPrismaMock();
+    const variantId = 'variant-small';
+    mock.productFindMany.mockResolvedValue([{
+      ...PRODUCT_WITH_MODIFIERS_ROW,
+      variants: [{
+        id: variantId, price: decimal('120.00'),
+        discountApplies: true, translations: [{ name: 'Small' }],
+      }],
+      modifierGroups: PRODUCT_WITH_MODIFIERS_ROW.modifierGroups.map((group) => ({
+        ...group,
+        sizeSettings: [],
+        options: group.options.map((option) => ({
+          ...option,
+          sizeSettings: option.id === EXTRAS_CHEESE_ID
+            ? [{ variantId, enabled: false, priceAdjustment: null }] : [],
+        })),
+      })),
+    }]);
+    const service = buildService(mock);
+    const result = await service.createOrder({
+      ...VALID_INPUT,
+      items: [{
+        productId: 'product-1', variantId, quantity: 1,
+        modifierOptionIds: [SIZE_SMALL_ID, EXTRAS_CHEESE_ID],
+      }],
+    });
+    expect(result).toEqual({ outcome: 'itemsUnavailable' });
+    expect(mock.orderCreate).not.toHaveBeenCalled();
+  });
+
   it('creates OrderItemModifier snapshot rows with resolved names/price, ordered by Group-then-Option displayOrder', async () => {
     const mock = buildPrismaMock();
     mock.productFindMany.mockResolvedValue([PRODUCT_WITH_MODIFIERS_ROW]);

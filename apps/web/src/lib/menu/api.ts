@@ -456,6 +456,41 @@ export async function listModifierGroups(
   return body.data;
 }
 
+export interface ModifierSizeOptionSettings {
+  optionId: string;
+  enabled: boolean;
+  /** null = inherit the Product / Preset price for this Option. */
+  priceAdjustment: string | null;
+}
+export interface ModifierSizeSettings {
+  enabled: boolean;
+  options: ModifierSizeOptionSettings[];
+}
+
+function modifierSizeSettingsPath(restaurantId: string, productId: string, groupId: string, variantId: string): string {
+  return `${modifierGroupsPath(restaurantId, productId)}/${encodeURIComponent(groupId)}/size-settings/${encodeURIComponent(variantId)}`;
+}
+
+export async function getModifierSizeSettings(
+  restaurantId: string, productId: string, groupId: string, variantId: string,
+): Promise<ModifierSizeSettings> {
+  const body = await apiFetch<{data: ModifierSizeSettings}>(
+    modifierSizeSettingsPath(restaurantId, productId, groupId, variantId),
+  );
+  return body.data;
+}
+
+export async function putModifierSizeSettings(
+  restaurantId: string, productId: string, groupId: string, variantId: string,
+  value: ModifierSizeSettings,
+): Promise<ModifierSizeSettings> {
+  const body = await apiFetch<{data: ModifierSizeSettings}>(
+    modifierSizeSettingsPath(restaurantId, productId, groupId, variantId),
+    {method: 'PUT', body: value},
+  );
+  return body.data;
+}
+
 export interface CreateModifierGroupInput {
   name: string;
   helperText?: string | null;
