@@ -404,6 +404,8 @@ model Restaurant {
   orders                Order[]
   modifierGroups        ModifierGroup[]
   modifierOptions       ModifierOption[]
+  modifierGroupSizeSettings ModifierGroupSizeSetting[]
+  modifierOptionSizeSettings ModifierOptionSizeSetting[]
   productVariants       ProductVariant[]
   modifierPresets       ModifierPreset[]
   modifierPresetOptions ModifierPresetOption[]
@@ -1399,6 +1401,8 @@ model ProductVariant {
   translations ProductVariantTranslation[]
   orderItems   OrderItem[]
   offerOptions OfferSlotOption[]
+  modifierGroupSizeSettings ModifierGroupSizeSetting[]
+  modifierOptionSizeSettings ModifierOptionSizeSetting[]
 
   @@index([restaurantId])
   @@index([productId])
@@ -1481,6 +1485,7 @@ model ModifierGroup {
   translations       ModifierGroupTranslation[]
   options            ModifierOption[]
   orderItemModifiers OrderItemModifier[]
+  sizeSettings ModifierGroupSizeSetting[]
 
   // Prevents accidentally attaching the SAME Preset twice to the SAME
   // Product (FT-6B, Section 2/4) -- Postgres treats each NULL
@@ -1543,11 +1548,50 @@ model ModifierOption {
   sourcePresetOption ModifierPresetOption?       @relation(fields: [sourcePresetOptionId], references: [id], onDelete: SetNull)
   translations       ModifierOptionTranslation[]
   orderItemModifiers OrderItemModifier[]
+  sizeSettings ModifierOptionSizeSetting[]
 
   @@index([restaurantId])
   @@index([modifierGroupId])
   @@index([sourcePresetOptionId])
   @@map("modifier_options")
+}
+
+// Variant-size overrides for a Product's EXISTING Group and Options. There
+// are no rows by default: all sizes inherit their Product-level / Preset rules.
+// A Size cannot edit Group names/selection counts, only availability and price.
+// These are subordinate authoring rows, not new public Modifier entities.
+model ModifierGroupSizeSetting {
+  id           String @id @default(uuid()) @db.Uuid
+  restaurantId String @map("restaurant_id") @db.Uuid
+  groupId      String @map("group_id") @db.Uuid
+  variantId    String @map("variant_id") @db.Uuid
+  enabled      Boolean @default(true)
+  restaurant   Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  group        ModifierGroup @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  variant      ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([groupId, variantId])
+  @@index([restaurantId])
+  @@index([variantId])
+  @@map("modifier_group_size_settings")
+}
+
+model ModifierOptionSizeSetting {
+  id              String @id @default(uuid()) @db.Uuid
+  restaurantId    String @map("restaurant_id") @db.Uuid
+  optionId        String @map("option_id") @db.Uuid
+  variantId       String @map("variant_id") @db.Uuid
+  enabled         Boolean @default(true)
+  // Null = inherit Product / Preset price dynamically; zero is an explicit override.
+  priceAdjustment Decimal? @map("price_adjustment") @db.Decimal(14, 2)
+  restaurant      Restaurant @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  option          ModifierOption @relation(fields: [optionId], references: [id], onDelete: Cascade)
+  variant         ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+
+  @@unique([optionId, variantId])
+  @@index([restaurantId])
+  @@index([variantId])
+  @@map("modifier_option_size_settings")
 }
 
 model ModifierOptionTranslation {
