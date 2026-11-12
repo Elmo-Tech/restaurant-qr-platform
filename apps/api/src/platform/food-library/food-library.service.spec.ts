@@ -16,14 +16,22 @@ function setup() {
       update: jest.fn(),
     },
     foodTag: { findMany: jest.fn(), count: jest.fn() },
-    $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({
-      foodImageAsset: { findMany, updateMany },
-      foodImageTag: { deleteMany: jest.fn(), createMany: jest.fn() },
-    })),
+    $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) =>
+      callback({
+        foodImageAsset: { findMany, updateMany },
+        foodImageTag: { deleteMany: jest.fn(), createMany: jest.fn() },
+      }),
+    ),
   };
   const storage = { saveImage: jest.fn(), deleteImageBestEffort: jest.fn() };
-  return { service: new FoodLibraryService(prisma as unknown as PrismaService, storage as unknown as ImageStorageService),
-    prisma, storage };
+  return {
+    service: new FoodLibraryService(
+      prisma as unknown as PrismaService,
+      storage as unknown as ImageStorageService,
+    ),
+    prisma,
+    storage,
+  };
 }
 
 const record = (patch: Record<string, unknown> = {}) => ({
@@ -41,26 +49,38 @@ describe('FoodLibraryService platform publishing safety', () => {
   it('refuses publishing an unreviewed photo despite correct tags/sector', async () => {
     const { service, prisma } = setup();
     prisma.foodImageAsset.findMany.mockResolvedValue([record()]);
-    await expect(service.publish([record().id])).rejects.toMatchObject({ status: 409 });
+    await expect(service.publish([record().id])).rejects.toMatchObject({
+      status: 409,
+    });
     expect(prisma.foodImageAsset.updateMany).not.toHaveBeenCalled();
   });
 
   it('refuses publishing a raw/sector mismatch as missing verified state', async () => {
     const { service, prisma } = setup();
-    prisma.foodImageAsset.findMany.mockResolvedValue([record({
-      reviewedAt: new Date(), presentation: 'UNSPECIFIED',
-    })]);
-    await expect(service.publish([record().id])).rejects.toMatchObject({ status: 409 });
+    prisma.foodImageAsset.findMany.mockResolvedValue([
+      record({
+        reviewedAt: new Date(),
+        presentation: 'UNSPECIFIED',
+      }),
+    ]);
+    await expect(service.publish([record().id])).rejects.toMatchObject({
+      status: 409,
+    });
     expect(prisma.foodImageAsset.updateMany).not.toHaveBeenCalled();
   });
 
   it('publishes only a complete manually reviewed batch', async () => {
     const { service, prisma } = setup();
-    prisma.foodImageAsset.findMany.mockResolvedValue([record({ reviewedAt: new Date() })]);
+    prisma.foodImageAsset.findMany.mockResolvedValue([
+      record({ reviewedAt: new Date() }),
+    ]);
     prisma.foodImageAsset.updateMany.mockResolvedValue({ count: 1 });
-    await expect(service.publish([record().id])).resolves.toEqual({ published: 1 });
+    await expect(service.publish([record().id])).resolves.toEqual({
+      published: 1,
+    });
     expect(prisma.foodImageAsset.updateMany).toHaveBeenCalledTimes(1);
-    const calledWith = (prisma.foodImageAsset.updateMany as jest.Mock).mock.calls[0]?.[0] as {
+    const calledWith = (prisma.foodImageAsset.updateMany as jest.Mock).mock
+      .calls[0]?.[0] as {
       where: { id: { in: string[] } };
       data: { status: string; publishedAt: Date };
     };
@@ -71,7 +91,9 @@ describe('FoodLibraryService platform publishing safety', () => {
 
   it('never writes files for missing or invalid image uploads', async () => {
     const { service, storage } = setup();
-    await expect(service.upload(undefined)).rejects.toMatchObject({ status: 400 });
+    await expect(service.upload(undefined)).rejects.toMatchObject({
+      status: 400,
+    });
     expect(storage.saveImage).not.toHaveBeenCalled();
   });
 
@@ -82,7 +104,12 @@ describe('FoodLibraryService platform publishing safety', () => {
     buffer.write('IHDR', 12, 'latin1');
     buffer.writeUInt32BE(1, 16);
     buffer.writeUInt32BE(1, 20);
-    const file = { originalname: 'beef.png', mimetype: 'image/png', buffer, size: buffer.length } satisfies UploadedImageFile;
+    const file = {
+      originalname: 'beef.png',
+      mimetype: 'image/png',
+      buffer,
+      size: buffer.length,
+    } satisfies UploadedImageFile;
     prisma.foodImageAsset.findUnique.mockResolvedValue({ id: record().id });
     await expect(service.upload(file)).rejects.toMatchObject({ status: 409 });
     expect(storage.saveImage).not.toHaveBeenCalled();
@@ -92,10 +119,18 @@ describe('FoodLibraryService platform publishing safety', () => {
     const { service, prisma } = setup();
     prisma.foodImageAsset.findUnique.mockResolvedValue(record());
     prisma.foodTag.count.mockResolvedValue(0);
-    await expect(service.review(record().id, {
-      name: 'Beef cut', presentation: 'RAW', sectors: ['BUTCHER'],
-      tagIds: ['22222222-2222-4222-8222-222222222222'],
-    }, '33333333-3333-4333-8333-333333333333')).rejects.toMatchObject({ status: 400 });
+    await expect(
+      service.review(
+        record().id,
+        {
+          name: 'Beef cut',
+          presentation: 'RAW',
+          sectors: ['BUTCHER'],
+          tagIds: ['22222222-2222-4222-8222-222222222222'],
+        },
+        '33333333-3333-4333-8333-333333333333',
+      ),
+    ).rejects.toMatchObject({ status: 400 });
   });
 
   it('keeps image file on archive, including previously published images', async () => {
@@ -104,7 +139,10 @@ describe('FoodLibraryService platform publishing safety', () => {
     prisma.foodImageAsset.updateMany.mockResolvedValue({ count: 1 });
     // Archive uses update (rather than unlink); simulate the DB method.
     prisma.foodImageAsset.update.mockResolvedValue({});
-    await expect(service.archive(record().id)).resolves.toEqual({ id: record().id, status: 'ARCHIVED' });
+    await expect(service.archive(record().id)).resolves.toEqual({
+      id: record().id,
+      status: 'ARCHIVED',
+    });
     expect(storage.deleteImageBestEffort).not.toHaveBeenCalled();
   });
 });

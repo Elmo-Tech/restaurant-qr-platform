@@ -3,7 +3,10 @@ import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
 import { StorageModule } from '../storage/storage.module';
 import { FoodLibraryService } from './food-library/food-library.service';
-import { PlatformFoodImagesController, PlatformFoodTagsController } from './food-library/food-library.controller';
+import {
+  PlatformFoodImagesController,
+  PlatformFoodTagsController,
+} from './food-library/food-library.controller';
 import { AiSettingsModule } from '../ai-settings/ai-settings.module';
 import { DemoModule } from '../demo/demo.module';
 import { PlatformAiController } from './platform-ai.controller';
@@ -34,7 +37,13 @@ import { PlatformController } from './platform.controller';
  * opaque-token primitive; Restaurant Staff authentication is never used here.
  */
 @Module({
-  imports: [DatabaseModule, AuthModule, AiSettingsModule, DemoModule, StorageModule],
+  imports: [
+    DatabaseModule,
+    AuthModule,
+    AiSettingsModule,
+    DemoModule,
+    StorageModule,
+  ],
   controllers: [
     PlatformController,
     PlatformFoodImagesController,

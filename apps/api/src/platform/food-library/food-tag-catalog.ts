@@ -12,7 +12,18 @@ export interface FoodTagSeed {
   nameIt: string;
   aliases: { ar: string[]; en: string[]; it: string[] };
 }
-type TagGroup = "PROTEIN" | "CUT" | "DISH" | "HOME" | "DESSERT" | "DRINK" | "INGREDIENT" | "PREPARATION" | "SAUCE" | "BAKERY" | "PORTION";
+type TagGroup =
+  | 'PROTEIN'
+  | 'CUT'
+  | 'DISH'
+  | 'HOME'
+  | 'DESSERT'
+  | 'DRINK'
+  | 'INGREDIENT'
+  | 'PREPARATION'
+  | 'SAUCE'
+  | 'BAKERY'
+  | 'PORTION';
 
 /** Format per row: CODE|Arabic|English|Italian|extra Arabic aliases (;)|English aliases (;)|Italian aliases (;) */
 const DATA: Record<TagGroup, string> = {
@@ -415,53 +426,119 @@ DESSERT_CUP|كوب حلوى|Dessert cup|Bicchierino dessert|||
 };
 
 const rows = (group: TagGroup, source: string): FoodTagSeed[] =>
-  source.trim().split("\n").map((line) => {
-    const [code, nameAr, nameEn, nameIt, ar = "", en = "", it = ""] = line.split("|");
-    if (!code || !nameAr || !nameEn || !nameIt || !/^[A-Z][A-Z_0-9]*$/.test(code)) {
-      throw new Error(`Invalid catalog row: ${line}`);
-    }
-    const split = (value: string) => value.split(";").map((part) => part.trim()).filter(Boolean);
-    return {
-      code, group, nameAr, nameEn, nameIt,
-      aliases: {
-        ar: [nameAr, ...split(ar)],
-        en: [nameEn, ...split(en)],
-        it: [nameIt, ...split(it)],
-      },
-    };
-  });
+  source
+    .trim()
+    .split('\n')
+    .map((line) => {
+      const [code, nameAr, nameEn, nameIt, ar = '', en = '', it = ''] =
+        line.split('|');
+      if (
+        !code ||
+        !nameAr ||
+        !nameEn ||
+        !nameIt ||
+        !/^[A-Z][A-Z_0-9]*$/.test(code)
+      ) {
+        throw new Error(`Invalid catalog row: ${line}`);
+      }
+      const split = (value: string) =>
+        value
+          .split(';')
+          .map((part) => part.trim())
+          .filter(Boolean);
+      return {
+        code,
+        group,
+        nameAr,
+        nameEn,
+        nameIt,
+        aliases: {
+          ar: [nameAr, ...split(ar)],
+          en: [nameEn, ...split(en)],
+          it: [nameIt, ...split(it)],
+        },
+      };
+    });
 
-export const FOOD_TAG_CATALOG: FoodTagSeed[] = Object.entries(DATA).flatMap(([group, value]) =>
-  rows(group as TagGroup, value),
+export const FOOD_TAG_CATALOG: FoodTagSeed[] = Object.entries(DATA).flatMap(
+  ([group, value]) => rows(group as TagGroup, value),
 );
 
 /** Discovery only; never a rule for automatically annotating a photo or setting RAW/COOKED. */
 export const FOOD_TAG_RELATIONS: ReadonlyArray<readonly [string, string]> = [
-  ["BEEF", "GROUND_BEEF"], ["BEEF", "BEEF_CUBES"], ["BEEF", "RIBEYE"], ["BEEF", "BRISKET"],
-  ["BEEF", "BEEF_LIVER"], ["BEEF", "BEEF_RIBS"], ["BEEF", "TENDERLOIN"],
-  ["LAMB", "LAMB_CHOPS"], ["LAMB", "LAMB_SHANK"], ["LAMB", "GROUND_LAMB"],
-  ["CHICKEN", "CHICKEN_BREAST"], ["CHICKEN", "CHICKEN_THIGH"], ["CHICKEN", "CHICKEN_WINGS"],
-  ["CHICKEN", "WHOLE_CHICKEN"], ["CHICKEN", "CHICKEN_FILLET"], ["CHICKEN", "CHICKEN_LIVER"],
-  ["SHRIMP", "PEELED_SHRIMP"], ["FISH", "FISH_FILLET"], ["FISH", "WHOLE_FISH"],
-  ["BURGER", "CHEESEBURGER"], ["BURGER", "BURGER_BUN"], ["PIZZA", "MARGHERITA_PIZZA"],
-  ["PIZZA", "PEPPERONI_PIZZA"], ["PIZZA", "QUATTRO_FORMAGGI"], ["PIZZA", "CALZONE"],
-  ["PASTA", "SPAGHETTI"], ["PASTA", "PENNE"], ["PASTA", "RAVIOLI"], ["PASTA", "LASAGNA"],
-  ["PASTA", "MACARONI_BESHAMEL"], ["CHEESE", "MOZZARELLA"], ["CHEESE", "CHEDDAR"],
-  ["CHEESE", "FETA"], ["CHEESE", "BURRATA"], ["CHEESE", "PARMESAN"],
-  ["CAKE", "CHOCOLATE_CAKE"], ["CAKE", "CARROT_CAKE"], ["CAKE", "RED_VELVET"],
-  ["CAKE", "CAKE_SLICE"], ["CAKE", "WHOLE_CAKE"], ["CHOCOLATE", "DARK_CHOCOLATE"],
-  ["CHOCOLATE", "WHITE_CHOCOLATE"], ["COFFEE", "ESPRESSO"], ["COFFEE", "AMERICANO"],
-  ["COFFEE", "CAPPUCCINO"], ["COFFEE", "LATTE"], ["COFFEE", "COLD_BREW"],
-  ["COFFEE", "ICED_COFFEE"], ["MILKSHAKE", "CHOCOLATE_MILKSHAKE"],
-  ["MILKSHAKE", "STRAWBERRY_MILKSHAKE"], ["MILKSHAKE", "VANILLA_MILKSHAKE"],
-  ["TEA", "BLACK_TEA"], ["TEA", "GREEN_TEA"], ["BREAD", "PITA"],
-  ["BREAD", "SOURDOUGH"], ["BREAD", "BAGUETTE"], ["BREAD", "BURGER_BUN"],
-  ["TOMATO", "TOMATO_SAUCE"], ["GARLIC", "GARLIC_SAUCE"], ["MUSTARD", "HONEY_MUSTARD"],
-  ["CHOCOLATE", "CHOCOLATE_SAUCE"], ["CARAMEL", "CARAMEL_SAUCE"],
-  ["BESHAMEL", "MACARONI_BESHAMEL"], ["MUSHROOM", "RISOTTO"],
-  ["STUFFED", "STUFFED_GRAPE_LEAVES"], ["STUFFED", "STUFFED_CABBAGE"],
-  ["STUFFED", "STUFFED_ZUCCHINI"], ["STUFFED", "STUFFED_PEPPER"],
-  ["RICE", "RICE_BOWL"], ["RICE", "RICE_PILAF"], ["RICE", "RICE_WITH_VERMICELLI"],
-  ["LENTIL", "LENTIL_SOUP"], ["CHICKPEA", "HUMMUS"],
-  ["BEEF", "BEEF_STEW"], ["CHICKEN", "CHICKEN_STEW"],
+  ['BEEF', 'GROUND_BEEF'],
+  ['BEEF', 'BEEF_CUBES'],
+  ['BEEF', 'RIBEYE'],
+  ['BEEF', 'BRISKET'],
+  ['BEEF', 'BEEF_LIVER'],
+  ['BEEF', 'BEEF_RIBS'],
+  ['BEEF', 'TENDERLOIN'],
+  ['LAMB', 'LAMB_CHOPS'],
+  ['LAMB', 'LAMB_SHANK'],
+  ['LAMB', 'GROUND_LAMB'],
+  ['CHICKEN', 'CHICKEN_BREAST'],
+  ['CHICKEN', 'CHICKEN_THIGH'],
+  ['CHICKEN', 'CHICKEN_WINGS'],
+  ['CHICKEN', 'WHOLE_CHICKEN'],
+  ['CHICKEN', 'CHICKEN_FILLET'],
+  ['CHICKEN', 'CHICKEN_LIVER'],
+  ['SHRIMP', 'PEELED_SHRIMP'],
+  ['FISH', 'FISH_FILLET'],
+  ['FISH', 'WHOLE_FISH'],
+  ['BURGER', 'CHEESEBURGER'],
+  ['BURGER', 'BURGER_BUN'],
+  ['PIZZA', 'MARGHERITA_PIZZA'],
+  ['PIZZA', 'PEPPERONI_PIZZA'],
+  ['PIZZA', 'QUATTRO_FORMAGGI'],
+  ['PIZZA', 'CALZONE'],
+  ['PASTA', 'SPAGHETTI'],
+  ['PASTA', 'PENNE'],
+  ['PASTA', 'RAVIOLI'],
+  ['PASTA', 'LASAGNA'],
+  ['PASTA', 'MACARONI_BESHAMEL'],
+  ['CHEESE', 'MOZZARELLA'],
+  ['CHEESE', 'CHEDDAR'],
+  ['CHEESE', 'FETA'],
+  ['CHEESE', 'BURRATA'],
+  ['CHEESE', 'PARMESAN'],
+  ['CAKE', 'CHOCOLATE_CAKE'],
+  ['CAKE', 'CARROT_CAKE'],
+  ['CAKE', 'RED_VELVET'],
+  ['CAKE', 'CAKE_SLICE'],
+  ['CAKE', 'WHOLE_CAKE'],
+  ['CHOCOLATE', 'DARK_CHOCOLATE'],
+  ['CHOCOLATE', 'WHITE_CHOCOLATE'],
+  ['COFFEE', 'ESPRESSO'],
+  ['COFFEE', 'AMERICANO'],
+  ['COFFEE', 'CAPPUCCINO'],
+  ['COFFEE', 'LATTE'],
+  ['COFFEE', 'COLD_BREW'],
+  ['COFFEE', 'ICED_COFFEE'],
+  ['MILKSHAKE', 'CHOCOLATE_MILKSHAKE'],
+  ['MILKSHAKE', 'STRAWBERRY_MILKSHAKE'],
+  ['MILKSHAKE', 'VANILLA_MILKSHAKE'],
+  ['TEA', 'BLACK_TEA'],
+  ['TEA', 'GREEN_TEA'],
+  ['BREAD', 'PITA'],
+  ['BREAD', 'SOURDOUGH'],
+  ['BREAD', 'BAGUETTE'],
+  ['BREAD', 'BURGER_BUN'],
+  ['TOMATO', 'TOMATO_SAUCE'],
+  ['GARLIC', 'GARLIC_SAUCE'],
+  ['MUSTARD', 'HONEY_MUSTARD'],
+  ['CHOCOLATE', 'CHOCOLATE_SAUCE'],
+  ['CARAMEL', 'CARAMEL_SAUCE'],
+  ['BESHAMEL', 'MACARONI_BESHAMEL'],
+  ['MUSHROOM', 'RISOTTO'],
+  ['STUFFED', 'STUFFED_GRAPE_LEAVES'],
+  ['STUFFED', 'STUFFED_CABBAGE'],
+  ['STUFFED', 'STUFFED_ZUCCHINI'],
+  ['STUFFED', 'STUFFED_PEPPER'],
+  ['RICE', 'RICE_BOWL'],
+  ['RICE', 'RICE_PILAF'],
+  ['RICE', 'RICE_WITH_VERMICELLI'],
+  ['LENTIL', 'LENTIL_SOUP'],
+  ['CHICKPEA', 'HUMMUS'],
+  ['BEEF', 'BEEF_STEW'],
+  ['CHICKEN', 'CHICKEN_STEW'],
 ];

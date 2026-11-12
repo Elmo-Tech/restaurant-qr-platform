@@ -30,7 +30,8 @@ export function suggestFoodTagCodes(
   originalName: string,
   tags: readonly MatchableTag[],
 ): string[] {
-  const haystack = ' ' + normalizeFoodText(originalName.replace(/\.[^.]+$/, '')) + ' ';
+  const haystack =
+    ' ' + normalizeFoodText(originalName.replace(/\.[^.]+$/, '')) + ' ';
   const byTerm = new Map<string, Set<string>>();
   for (const tag of tags) {
     for (const alias of tag.aliases) {

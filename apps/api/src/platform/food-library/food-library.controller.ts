@@ -1,16 +1,40 @@
 import {
-  Body, Controller, Get, Header, HttpCode, HttpStatus, Param, ParseUUIDPipe,
-  Post, Query, Req, Res, UploadedFile, UseGuards, UseInterceptors,
+  Body,
+  Controller,
+  Get,
+  Header,
+  HttpCode,
+  HttpStatus,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  Req,
+  Res,
+  UploadedFile,
+  UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
 import type { Response } from 'express';
-import { ImageStorageService, MAX_IMAGE_BYTES } from '../../storage/image-storage.service';
+import {
+  ImageStorageService,
+  MAX_IMAGE_BYTES,
+} from '../../storage/image-storage.service';
 import type { UploadedImageFile } from '../../storage/uploaded-image-file';
 import { PlatformAuditService } from '../platform-audit.service';
-import { PlatformAuthGuard, PlatformCsrfGuard, type PlatformRequest } from '../platform-guards';
 import {
-  BulkFoodImageDto, FoodImageIdsDto, FoodImageListQueryDto,
-  FoodTagListQueryDto, FoodTagSuggestQueryDto, ReviewFoodImageDto,
+  PlatformAuthGuard,
+  PlatformCsrfGuard,
+  type PlatformRequest,
+} from '../platform-guards';
+import {
+  BulkFoodImageDto,
+  FoodImageIdsDto,
+  FoodImageListQueryDto,
+  FoodTagListQueryDto,
+  FoodTagSuggestQueryDto,
+  ReviewFoodImageDto,
 } from './food-library.dto';
 import { FoodLibraryService } from './food-library.service';
 
@@ -39,7 +63,10 @@ export class PlatformFoodImagesController {
     // Stream through the authenticated platform API, never trust a client file path.
     const file = await this.library.fileForPreview(id);
     response.type(file.mimeType);
-    response.sendFile(file.filename, { root: this.storage.getUploadDir(), dotfiles: 'deny' });
+    response.sendFile(file.filename, {
+      root: this.storage.getUploadDir(),
+      dotfiles: 'deny',
+    });
   }
 
   @Get(':id')
@@ -48,7 +75,9 @@ export class PlatformFoodImagesController {
   }
 
   @Post('upload')
-  @UseInterceptors(FileInterceptor('image', { limits: { fileSize: MAX_IMAGE_BYTES * 2 } }))
+  @UseInterceptors(
+    FileInterceptor('image', { limits: { fileSize: MAX_IMAGE_BYTES * 2 } }),
+  )
   async upload(
     @UploadedFile() file: UploadedImageFile | undefined,
     @Req() request: PlatformRequest,
@@ -64,7 +93,10 @@ export class PlatformFoodImagesController {
 
   @Post('bulk-apply')
   @HttpCode(HttpStatus.OK)
-  async bulkApply(@Body() dto: BulkFoodImageDto, @Req() request: PlatformRequest) {
+  async bulkApply(
+    @Body() dto: BulkFoodImageDto,
+    @Req() request: PlatformRequest,
+  ) {
     const result = await this.library.bulkApply(dto);
     await this.audit.record({
       admin: request.platformAdmin,
@@ -93,28 +125,51 @@ export class PlatformFoodImagesController {
     @Body() dto: ReviewFoodImageDto,
     @Req() request: PlatformRequest,
   ) {
-    const result = await this.library.review(id, dto, request.platformAdmin.adminId);
+    const result = await this.library.review(
+      id,
+      dto,
+      request.platformAdmin.adminId,
+    );
     await this.audit.record({
       admin: request.platformAdmin,
       action: 'platform.food_image_reviewed',
-      details: { imageId: id, presentation: dto.presentation, sectors: dto.sectors, tagCount: dto.tagIds.length },
+      details: {
+        imageId: id,
+        presentation: dto.presentation,
+        sectors: dto.sectors,
+        tagCount: dto.tagIds.length,
+      },
     });
     return { data: result };
   }
 
   @Post(':id/archive')
   @HttpCode(HttpStatus.OK)
-  async archive(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Req() request: PlatformRequest) {
+  async archive(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Req() request: PlatformRequest,
+  ) {
     const result = await this.library.archive(id);
-    await this.audit.record({ admin: request.platformAdmin, action: 'platform.food_image_archived', details: { imageId: id } });
+    await this.audit.record({
+      admin: request.platformAdmin,
+      action: 'platform.food_image_archived',
+      details: { imageId: id },
+    });
     return { data: result };
   }
 
   @Post(':id/restore')
   @HttpCode(HttpStatus.OK)
-  async restore(@Param('id', new ParseUUIDPipe({ version: '4' })) id: string, @Req() request: PlatformRequest) {
+  async restore(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Req() request: PlatformRequest,
+  ) {
     const result = await this.library.restore(id);
-    await this.audit.record({ admin: request.platformAdmin, action: 'platform.food_image_restored', details: { imageId: id } });
+    await this.audit.record({
+      admin: request.platformAdmin,
+      action: 'platform.food_image_restored',
+      details: { imageId: id },
+    });
     return { data: result };
   }
 }
