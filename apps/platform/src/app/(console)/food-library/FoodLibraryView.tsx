@@ -318,7 +318,12 @@ export function FoodLibraryView() {
       <PageHeader
         title={t("food.title")}
         description={t("food.subtitle")}
-        actions={<Button variant="primary" onClick={() => pickRef.current?.click()}><IconPlus />{t("food.upload")}</Button>}
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <Link href="/food-library/tags" className="inline-flex h-10 items-center rounded-lg border border-border-strong bg-surface px-4 text-sm hover:bg-surface-2">{t("tag.title")}</Link>
+            <Button variant="primary" onClick={() => pickRef.current?.click()}><IconPlus />{t("food.upload")}</Button>
+          </div>
+        }
       />
       <input ref={pickRef} type="file" accept="image/jpeg,image/png,image/webp" multiple className="sr-only"
         aria-label={t("food.chooseFiles")} onChange={(e) => chooseFiles(e.target.files)} />

@@ -75,7 +75,7 @@ jobs:
           })().catch(e => { console.error(e); process.exitCode = 1; });
           NODE
       - name: Unit tests for matching, multi-sector safety, review and publication
-        run: npm exec --workspace=apps/api -- jest --runInBand food-tag-matcher.spec.ts food-library.service.spec.ts
+        run: npm exec --workspace=apps/api -- jest --runInBand food-tag-matcher.spec.ts food-library.service.spec.ts food-tag-dictionary.service.spec.ts
       - name: Backend TypeScript
         run: npm run typecheck --workspace=apps/api
       - name: Platform Console TypeScript

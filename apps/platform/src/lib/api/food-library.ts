@@ -99,3 +99,53 @@ export const archiveFoodImage = async (id: string) =>
   (await platformFetch<{ data: { id: string; status: "ARCHIVED" } }>("/food-images/" + encodeURIComponent(id) + "/archive", { method: "POST" })).data;
 export const restoreFoodImage = async (id: string) =>
   (await platformFetch<{ data: { id: string; status: "DRAFT" } }>("/food-images/" + encodeURIComponent(id) + "/restore", { method: "POST" })).data;
+
+export const FOOD_TAG_GROUPS = [
+  "PROTEIN", "CUT", "DISH", "HOME", "DESSERT", "DRINK",
+  "INGREDIENT", "PREPARATION", "SAUCE", "BAKERY", "PORTION",
+] as const;
+export type FoodTagGroup = (typeof FOOD_TAG_GROUPS)[number];
+export interface FoodTagRecord extends FoodTag {
+  group: FoodTagGroup;
+  imageCount: number;
+  updatedAt: string;
+  aliases: { ar: string[]; en: string[]; it: string[] };
+}
+export interface FoodTagWrite {
+  code: string;
+  group: FoodTagGroup;
+  nameAr: string;
+  nameEn: string;
+  nameIt: string;
+  aliasesAr: string[];
+  aliasesEn: string[];
+  aliasesIt: string[];
+}
+export interface FoodTagCatalog {
+  items: FoodTagRecord[];
+  total: number;
+  page: number;
+  pageSize: number;
+}
+export async function listTagCatalog(filters: {
+  search?: string;
+  group?: FoodTagGroup | "";
+  page?: number;
+  pageSize?: number;
+} = {}): Promise<FoodTagCatalog> {
+  const params = queryString({
+    search: filters.search,
+    group: filters.group,
+    page: filters.page,
+    pageSize: filters.pageSize,
+  });
+  return (await platformFetch<{ data: FoodTagCatalog }>("/food-tags/catalog?" + params)).data;
+}
+export const createFoodTag = async (input: FoodTagWrite): Promise<FoodTagRecord> =>
+  (await platformFetch<{ data: FoodTagRecord }>("/food-tags", {
+    method: "POST", body: input,
+  })).data;
+export const updateFoodTag = async (id: string, input: FoodTagWrite): Promise<FoodTagRecord> =>
+  (await platformFetch<{ data: FoodTagRecord }>("/food-tags/" + encodeURIComponent(id), {
+    method: "PATCH", body: input,
+  })).data;
