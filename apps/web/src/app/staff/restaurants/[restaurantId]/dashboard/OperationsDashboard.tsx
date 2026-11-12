@@ -32,6 +32,7 @@ import { Button } from '../../../../../components/ui/Button';
 import { IconOrders, IconQr, IconTable } from '../../../../../components/staff/icons';
 import { Analysis } from './Analysis';
 import { WhatsappOrdersPanel } from './WhatsappOrdersPanel';
+import { WhatsappConnectionCard } from '../settings/ordering/WhatsappConnectionCard';
 import { AttentionPanel, type AttentionItem } from './AttentionPanel';
 import { IconAlert, IconClock, IconRefresh } from './icons';
 import { LiveTables, sortActiveRows } from './LiveTables';
@@ -92,6 +93,7 @@ export function OperationsDashboard({
   access,
   setupEligible,
   setupRole,
+  whatsappConnection,
 }: {
   restaurantId: string;
   currencyCode: string;
@@ -106,6 +108,7 @@ export function OperationsDashboard({
   access: DashboardAccess;
   setupEligible: boolean;
   setupRole: string;
+  whatsappConnection: { visible: boolean; hasWhatsappNumber: boolean; orderingEnabled: boolean; canManage: boolean };
 }) {
   const { t, locale, formatTime } = useStaffI18n();
   const now = useNow(30_000);
@@ -386,6 +389,17 @@ export function OperationsDashboard({
       {toggleError ? <Alert variant="error">{toggleError}</Alert> : null}
 
       {showAttention ? <AttentionPanel items={attentionItems} loading={attentionLoading} /> : null}
+
+      {/* High-visibility self-service pairing, not buried under Ordering Settings.
+          Server-side entitlement, full-branch scope and member permissions determine visibility. */}
+      {whatsappConnection.visible ? (
+        <WhatsappConnectionCard
+          restaurantId={restaurantId}
+          hasWhatsappNumber={whatsappConnection.hasWhatsappNumber}
+          orderingEnabled={whatsappConnection.orderingEnabled}
+          canManage={whatsappConnection.canManage}
+        />
+      ) : null}
 
       {/* Only eligible enrolled restaurants receive this compact, verified
           guide, after urgent operational alerts. Never synthetic demo state. */}
