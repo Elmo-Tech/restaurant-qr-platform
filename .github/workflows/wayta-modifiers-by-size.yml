@@ -1,0 +1,75 @@
+name: Wayta Product Add-ons By Size QA
+
+on:
+  pull_request:
+    branches: [main, development]
+    paths:
+      - 'apps/api/src/menu/**'
+      - 'apps/api/src/public/**'
+      - 'apps/api/prisma/**'
+      - 'apps/web/src/app/staff/restaurants/**/menu/**'
+      - 'apps/web/src/app/q/**'
+      - 'apps/web/src/lib/menu/**'
+      - 'apps/web/src/lib/public-menu/**'
+      - '.github/workflows/wayta-modifiers-by-size.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: wayta_modifiers
+          POSTGRES_PASSWORD: test-only
+          POSTGRES_DB: wayta_modifiers
+        ports: ['5432:5432']
+        options: >-
+          --health-cmd "pg_isready -U wayta_modifiers -d wayta_modifiers"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      DATABASE_URL: postgresql://wayta_modifiers:test-only@127.0.0.1:5432/wayta_modifiers?schema=public
+      CORS_ORIGIN: http://localhost:3000
+      NODE_ENV: test
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run db:validate
+      - run: npm run db:generate
+      - name: Apply full additive migration chain to disposable PostgreSQL
+        run: npm exec --workspace=apps/api -- prisma migrate deploy
+      - name: Validate API and Web TypeScript
+        run: npm run typecheck:api && npm run typecheck:web
+      - name: Check new size override service and existing order regressions
+        run: >-
+          npm exec --workspace=apps/api -- jest --runInBand
+          modifier-size-settings.service.spec.ts
+          modifiers.service.spec.ts
+          modifier-presets.service.spec.ts
+          public-menu.service.spec.ts
+          public-orders.service.spec.ts
+      - name: Check Guest per-size display and selections
+        run: node --test apps/web/src/lib/public-menu/effective-modifiers.test.mjs
+      - name: Lint new Staff editor, service, controller and Guest selectors
+        run: >-
+          npm exec --workspace=apps/web -- eslint
+          src/app/staff/restaurants/\[restaurantId\]/menu/products/ModifierSizeSettingsEditor.tsx
+          src/app/staff/restaurants/\[restaurantId\]/menu/products/ModifiersSection.tsx
+          src/app/q/\[publicCode\]/ProductSheet.tsx
+          src/lib/public-menu/effective-modifiers.ts
+      - name: Lint new API size configuration service
+        run: >-
+          npm exec --workspace=apps/api -- eslint
+          src/menu/modifier-size-settings.service.ts
+          src/menu/dto/put-modifier-size-settings.dto.ts
