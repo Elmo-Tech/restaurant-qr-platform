@@ -59,10 +59,14 @@ describe('FoodLibraryService platform publishing safety', () => {
     prisma.foodImageAsset.findMany.mockResolvedValue([record({ reviewedAt: new Date() })]);
     prisma.foodImageAsset.updateMany.mockResolvedValue({ count: 1 });
     await expect(service.publish([record().id])).resolves.toEqual({ published: 1 });
-    expect(prisma.foodImageAsset.updateMany).toHaveBeenCalledWith({
-      where: { id: { in: [record().id] } },
-      data: expect.objectContaining({ status: 'PUBLISHED' }),
-    });
+    expect(prisma.foodImageAsset.updateMany).toHaveBeenCalledTimes(1);
+    const calledWith = (prisma.foodImageAsset.updateMany as jest.Mock).mock.calls[0]?.[0] as {
+      where: { id: { in: string[] } };
+      data: { status: string; publishedAt: Date };
+    };
+    expect(calledWith.where.id.in).toEqual([record().id]);
+    expect(calledWith.data.status).toBe('PUBLISHED');
+    expect(calledWith.data.publishedAt).toBeInstanceOf(Date);
   });
 
   it('never writes files for missing or invalid image uploads', async () => {
