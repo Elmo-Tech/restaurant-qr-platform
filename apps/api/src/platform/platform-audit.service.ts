@@ -37,6 +37,8 @@ export type PlatformAction =
   | 'platform.food_images_published'
   | 'platform.food_image_archived'
   | 'platform.food_image_restored'
+  | 'platform.food_tag_created'
+  | 'platform.food_tag_updated'
   | 'restaurant.country_changed'
   | 'subscription.created'
   | 'trial.created'

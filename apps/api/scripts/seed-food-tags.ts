@@ -146,12 +146,8 @@ async function main(): Promise<void> {
           nameIt: tag.nameIt,
           group: tag.group,
         },
-        update: {
-          nameAr: tag.nameAr,
-          nameEn: tag.nameEn,
-          nameIt: tag.nameIt,
-          group: tag.group,
-        },
+        // Catalog is a starting point. Never clobber human-curated Admin edits.
+        update: {},
       });
       ids.set(tag.code, saved.id);
     }
@@ -171,7 +167,8 @@ async function main(): Promise<void> {
           term: alias.term,
           normalized: alias.normalized,
         },
-        update: { term: alias.term },
+        // Preserve Admin-curated spelling instead of rewriting it on re-seed.
+        update: {},
       });
     }
 

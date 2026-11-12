@@ -3,6 +3,7 @@ import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
 import { StorageModule } from '../storage/storage.module';
 import { FoodLibraryService } from './food-library/food-library.service';
+import { FoodTagDictionaryService } from './food-library/food-tag-dictionary.service';
 import {
   PlatformFoodImagesController,
   PlatformFoodTagsController,
@@ -60,6 +61,7 @@ import { PlatformController } from './platform.controller';
     PlatformCsrfGuard,
     PlatformAuditService,
     FoodLibraryService,
+    FoodTagDictionaryService,
     PlatformAdminsService,
     PlatformRestaurantsService,
     PlatformRestaurantCreationService,

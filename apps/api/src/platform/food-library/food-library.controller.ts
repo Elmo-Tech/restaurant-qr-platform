@@ -6,6 +6,7 @@ import {
   HttpCode,
   HttpStatus,
   Param,
+  Patch,
   ParseUUIDPipe,
   Post,
   Query,
@@ -37,6 +38,8 @@ import {
   ReviewFoodImageDto,
 } from './food-library.dto';
 import { FoodLibraryService } from './food-library.service';
+import { FoodTagDictionaryService } from './food-tag-dictionary.service';
+import { FoodTagCatalogQueryDto, FoodTagWriteDto } from './food-tag-dictionary.dto';
 
 /** Separate Platform session/Origin; never a Restaurant Staff or Guest endpoint. */
 @Controller('platform/food-images')
@@ -178,7 +181,42 @@ export class PlatformFoodImagesController {
 @Controller('platform/food-tags')
 @UseGuards(PlatformCsrfGuard, PlatformAuthGuard)
 export class PlatformFoodTagsController {
-  constructor(private readonly library: FoodLibraryService) {}
+  constructor(
+    private readonly library: FoodLibraryService,
+    private readonly dictionary: FoodTagDictionaryService,
+    private readonly audit: PlatformAuditService,
+  ) {}
+
+  @Get('catalog')
+  async catalog(@Query() query: FoodTagCatalogQueryDto) {
+    return { data: await this.dictionary.catalog(query) };
+  }
+
+  @Post()
+  async create(@Body() dto: FoodTagWriteDto, @Req() request: PlatformRequest) {
+    const created = await this.dictionary.create(dto);
+    await this.audit.record({
+      admin: request.platformAdmin,
+      action: 'platform.food_tag_created',
+      details: { tagId: created.id, code: created.code },
+    });
+    return { data: created };
+  }
+
+  @Patch(':id')
+  async update(
+    @Param('id', new ParseUUIDPipe({ version: '4' })) id: string,
+    @Body() dto: FoodTagWriteDto,
+    @Req() request: PlatformRequest,
+  ) {
+    const changed = await this.dictionary.update(id, dto);
+    await this.audit.record({
+      admin: request.platformAdmin,
+      action: 'platform.food_tag_updated',
+      details: { tagId: changed.id, code: changed.code },
+    });
+    return { data: changed };
+  }
 
   @Get()
   async list(@Query() query: FoodTagListQueryDto) {
