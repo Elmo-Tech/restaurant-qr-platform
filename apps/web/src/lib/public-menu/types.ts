@@ -184,6 +184,7 @@ export interface PublicMenuModifierOption {
   id: string;
   name: string;
   priceAdjustment: string;
+  sizeOverrides?: { variantId: string; enabled: boolean; priceAdjustment: string | null }[];
 }
 
 export interface PublicMenuModifierGroup {
@@ -192,6 +193,7 @@ export interface PublicMenuModifierGroup {
   helperText: string | null;
   minimumSelections: number;
   maximumSelections: number;
+  disabledVariantIds?: string[];
   options: PublicMenuModifierOption[];
 }
 
