@@ -76,3 +76,13 @@ Keep the callback capability token secret. The staging operator must redeploy
 registration, that `GET /webhook/find/{instance}` is properly configured
 without printing its URL, and that a real-device QR scan and inbound receipt
 work. Never delete a provider instance to remedy registration validation.
+
+
+## 2026-11-12 — Pairing methods UX (operator-gated)
+
+- The existing Dashboard QR pairing flow stays the primary choice. A second **Link with phone number / Pairing Code** UI is shown as **unavailable** by default because Evolution API v2.3.7 has documented cases where it generates a valid-looking 8-character code but WhatsApp rejects device linking. Evidence: https://github.com/evolution-foundation/evolution-api/issues/2696 .
+- Only an operator may turn on `WHATSAPP_PAIRING_CODE_ENABLED=true` on an isolated provider/test stack, **after** real WhatsApp / WhatsApp Business device tests and webhook receipt checks. The default is `false`. Do **not** enable this on Production as part of a code-only merge or deployment.
+- `POST /restaurants/:restaurantId/whatsapp-tracking/connect/code` uses the exact same auth/CSRF, tenant, restaurant.manage, all-branches and entitlement gates as QR pairing. The server **derives the target number only from the saved Restaurant WhatsApp contact**, never from a client-supplied phone. It calls Evolution `GET /instance/connect/{instance}?number={E164-digits}`, after the existing exact-instance and webhook ownership checks.
+- The `pairingCode` is returned only by that authorized POST, never by connection status; QR/code responses and status set `Cache-Control: no-store`. The code is ephemeral in browser component memory only: no persistent database record, URL/clipboard auto-copy, logs or analytics.
+- Operator approval criteria: verify generated code links the **same** stored WhatsApp number; test QR fallback after code failure, wrong-number refusal, provider outage, client mobile/desktop AR/EN, CSRF, branch-restricted member, and true `state=open` followed by one verified order receipt. Feature flag is off on failure. Existing wa.me ordering continues regardless.
+- No database migration, Evolution image patch, deployment, or change to received-only counting is included in this UI rollout.

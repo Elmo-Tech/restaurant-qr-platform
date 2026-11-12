@@ -298,6 +298,12 @@ export const envSchema = z
     EVOLUTION_API_KEY: z.string().trim().optional(),
     WAYTA_API_PUBLIC_URL: z.string().trim().optional(),
     WHATSAPP_ORDER_SIGNING_KEY: z.string().trim().optional(),
+    // Optional operator-only gate. Disabled unless a specific provider version
+    // has passed device-linking and receipt QA. Never use z.coerce.boolean for env strings.
+    WHATSAPP_PAIRING_CODE_ENABLED: z
+      .enum(['true', 'false'])
+      .default('false')
+      .transform((value) => value === 'true'),
 
     // FT-9: how many reverse-proxy hops to trust for the client IP
     // (`X-Forwarded-For`). 0 = trust none (direct connection, the local-dev

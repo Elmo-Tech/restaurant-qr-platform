@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Post, Body, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
+import { Controller, Get, Header, Param, Post, Body, Req, UseGuards, HttpCode, HttpStatus } from '@nestjs/common';
 import { AuthGuard } from '../auth/guard/auth.guard';
 import { RestaurantAccessGuard } from '../auth/guard/restaurant-access.guard';
 import { PermissionGuard } from '../auth/guard/permission.guard';
@@ -13,17 +13,27 @@ import { WhatsappTrackingService } from './whatsapp-tracking.service';
 export class WhatsappTrackingController {
   constructor(private readonly tracking:WhatsappTrackingService) {}
   @Get('connection')
+  @Header('Cache-Control', 'no-store')
   @UseGuards(AuthGuard,RestaurantAccessGuard,PermissionGuard,AllBranchesRequiredGuard)
   @RequirePermission(PERMISSIONS.RESTAURANT_VIEW)
   async connection(@Req() req:RestaurantAuthorizedRequest) {
     return { data:await this.tracking.state(req.restaurantAccess.restaurantId) };
   }
   @Post('connect')
+  @Header('Cache-Control', 'no-store')
   @HttpCode(HttpStatus.OK)
   @UseGuards(AuthGuard,CsrfGuard,RestaurantAccessGuard,PermissionGuard,AllBranchesRequiredGuard)
   @RequirePermission(PERMISSIONS.RESTAURANT_MANAGE)
   async connect(@Req() req:RestaurantAuthorizedRequest) {
     return { data:await this.tracking.connect(req.restaurantAccess.restaurantId) };
+  }
+  @Post('connect/code')
+  @Header('Cache-Control', 'no-store')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard,CsrfGuard,RestaurantAccessGuard,PermissionGuard,AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.RESTAURANT_MANAGE)
+  async connectByCode(@Req() req:RestaurantAuthorizedRequest) {
+    return { data:await this.tracking.connect(req.restaurantAccess.restaurantId, 'CODE') };
   }
   @Get('today')
   @UseGuards(AuthGuard,RestaurantAccessGuard,PermissionGuard,AllBranchesRequiredGuard)
