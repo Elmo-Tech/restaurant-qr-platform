@@ -5,7 +5,7 @@ import type { UploadedImageFile } from '../../storage/uploaded-image-file';
 
 function setup() {
   const findMany = jest.fn();
-  const updateMany = jest.fn();
+  const updateMany = jest.fn(async (_input: unknown): Promise<{ count: number }> => ({ count: 1 }));
   const prisma = {
     foodImageAsset: {
       findUnique: jest.fn(),
