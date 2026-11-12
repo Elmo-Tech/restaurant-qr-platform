@@ -55,7 +55,13 @@ export function WhatsappConnectionCard({
     }
   }, [restaurantId, ar]);
 
-  useEffect(() => { void refresh(); }, [refresh]);
+  useEffect(() => {
+    // Schedule the first async status read after React finishes this effect.
+    // A synchronous state update in the effect body violates react-hooks/set-state-in-effect.
+    let active = true;
+    queueMicrotask(() => { if (active) void refresh(); });
+    return () => { active = false; };
+  }, [refresh]);
 
   useEffect(() => {
     if (!qrText) return;
