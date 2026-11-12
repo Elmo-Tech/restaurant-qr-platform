@@ -35,6 +35,7 @@ export function WhatsappConnectionCard({
   const [renderedQr, setRenderedQr] = useState<{ text: string; url: string } | null>(null);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [guideOpen, setGuideOpen] = useState(false);
   const [error, setError] = useState('');
 
   const base = '/staff/restaurants/' + encodeURIComponent(restaurantId);
@@ -90,6 +91,7 @@ export function WhatsappConnectionCard({
     try {
       const next = await connectWhatsapp(restaurantId);
       setConnection(next);
+      if (!next.connected) setGuideOpen(true);
       setPairing(next.connected ? null : (next.qrCode || next.qrText)
         ? { qrCode: next.qrCode, qrText: next.qrText } : null);
       if (!next.connected && !next.qrCode && !next.qrText) {
@@ -138,8 +140,8 @@ export function WhatsappConnectionCard({
     {
       title: ar ? 'امسح الرمز من واتساب' : 'Scan from inside WhatsApp',
       detail: ar
-        ? 'على تليفون المطعم: WhatsApp أو WhatsApp Business ← الأجهزة المرتبطة ← ربط جهاز، وبعدها امسح QR. متستخدمش كاميرا الموبايل العادية.'
-        : 'On the restaurant phone, open WhatsApp or WhatsApp Business > Linked devices > Link a device. Scan the QR there, not with the camera app.',
+        ? 'افتح لوحة تحكم Wayta على كمبيوتر أو تليفون تاني. من موبايل المطعم افتح WhatsApp أو WhatsApp Business ← الأجهزة المرتبطة ← ربط جهاز، وامسح QR من الشاشة التانية، مش بكاميرا الموبايل العادية.'
+        : 'Open the Wayta dashboard on a computer or another phone. On the restaurant phone, open WhatsApp or WhatsApp Business > Linked devices > Link a device, and scan the QR from the other screen.',
     },
     {
       title: ar ? 'اتأكد وجرب طلب' : 'Confirm and test an order',
@@ -248,21 +250,27 @@ export function WhatsappConnectionCard({
 
           <div className={pairing ? 'mt-5 grid gap-5 lg:grid-cols-[minmax(0,1fr)_290px]' : 'mt-5'}>
             <div className={pairing ? 'order-2 lg:order-1' : ''}>
-              <h3 className="text-sm font-bold text-foreground">
-                {ar ? 'دليل الربط في ٤ خطوات' : 'Pair in 4 simple steps'}
-              </h3>
-              <ol className="mt-3 grid gap-3 sm:grid-cols-2">
-                {steps.map((step, index) => (
-                  <li key={step.title} className="flex items-start gap-3 rounded-xl border border-border/80 bg-background p-3.5">
-                    <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary"
-                      aria-hidden="true">{index + 1}</span>
-                    <div className="min-w-0">
-                      <h4 className="text-sm font-semibold text-foreground">{step.title}</h4>
-                      <p className="mt-1 text-xs leading-5 text-muted-foreground">{step.detail}</p>
-                    </div>
-                  </li>
-                ))}
-              </ol>
+              <button type="button" aria-expanded={guideOpen}
+                aria-controls="whatsapp-connection-guide"
+                onClick={() => setGuideOpen(current => !current)}
+                className="flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-border bg-muted/40 px-4 py-3 text-start text-sm font-bold text-foreground transition-colors hover:bg-muted focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+                <span>{ar ? 'طريقة الربط · ٤ خطوات' : 'How to connect · 4 steps'}</span>
+                <span aria-hidden="true" className="text-primary">{guideOpen ? '−' : '+'}</span>
+              </button>
+              {guideOpen ? (
+                <ol id="whatsapp-connection-guide" className="mt-3 grid gap-3 sm:grid-cols-2">
+                  {steps.map((step, index) => (
+                    <li key={step.title} className="flex items-start gap-3 rounded-xl border border-border/80 bg-background p-3.5">
+                      <span className="grid size-8 shrink-0 place-items-center rounded-full bg-primary/10 text-xs font-bold text-primary"
+                        aria-hidden="true">{index + 1}</span>
+                      <div className="min-w-0">
+                        <h4 className="text-sm font-semibold text-foreground">{step.title}</h4>
+                        <p className="mt-1 text-xs leading-5 text-muted-foreground">{step.detail}</p>
+                      </div>
+                    </li>
+                  ))}
+                </ol>
+              ) : null}
             </div>
             {pairing ? (
               <div className="order-1 flex flex-col items-center justify-center rounded-2xl border border-primary/20 bg-background p-4 text-center lg:order-2">

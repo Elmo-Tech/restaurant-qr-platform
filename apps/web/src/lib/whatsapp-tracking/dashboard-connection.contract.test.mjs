@@ -38,9 +38,17 @@ test('Polling cannot erase the one-time QR before the connection is confirmed', 
   assert.match(card, /document\.visibilityState === 'visible'/);
 });
 
-test('Guide explains the actual linked-device flow and the received-only count', () => {
+test('Guide is compact by default on mobile, keyboard accessible, and opened during pairing', () => {
+  assert.match(card, /const \[guideOpen, setGuideOpen\] = useState\(false\)/);
+  assert.match(card, /aria-expanded=\{guideOpen\}/);
+  assert.match(card, /setGuideOpen\(true\)/);
+  assert.match(card, /aria-controls="whatsapp-connection-guide"/);
+});
+
+test('Guide explains the two-device linked-device scan and received-only count', () => {
   assert.match(card, /الأجهزة المرتبطة/);
   assert.match(card, /Linked devices/);
+  assert.match(card, /computer or another phone/);
   assert.match(card, /verified received messages count/);
   assert.match(card, /Wayta does not store chat text/);
 });
