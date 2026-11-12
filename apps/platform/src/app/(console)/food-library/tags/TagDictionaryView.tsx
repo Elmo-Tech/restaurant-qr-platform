@@ -83,7 +83,6 @@ export function TagDictionaryView() {
   const [draft, setDraft] = useState<FormValue>(NEW_TAG);
   const [saving, setSaving] = useState(false);
   const [feedback, setFeedback] = useState<{ danger: boolean; message: string } | null>(null);
-  const firstFieldRef = useRef<HTMLInputElement>(null);
   const modalRef = useRef<HTMLElement>(null);
   const triggerRef = useRef<HTMLElement | null>(null);
 
@@ -113,7 +112,7 @@ export function TagDictionaryView() {
     if (!editor) return;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    firstFieldRef.current?.focus();
+    modalRef.current?.querySelector<HTMLInputElement>("#tag-code")?.focus();
     return () => { document.body.style.overflow = overflow; };
   }, [editor]);
 
@@ -296,7 +295,7 @@ export function TagDictionaryView() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div>
                     <Label htmlFor="tag-code">{t("tag.code")}</Label>
-                    <Input id="tag-code" ref={firstFieldRef} value={draft.code} dir="ltr"
+                    <Input id="tag-code" value={draft.code} dir="ltr"
                       disabled={editor !== "new"} required maxLength={80}
                       placeholder="CHICKEN_BURGER"
                       onChange={(event) => change("code", event.target.value.toUpperCase().replace(/\s/g, "_"))} />
