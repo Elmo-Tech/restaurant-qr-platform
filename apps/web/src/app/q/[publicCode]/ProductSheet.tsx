@@ -91,7 +91,10 @@ export function ProductSheet({
   const showPhoto = showPhotos && imageUrl !== null && !imageFailed;
 
   function selectionsFor(groupId: string): string[] {
-    return selectedByGroup[groupId] ?? [];
+    const group = activeGroups.find(row => row.id === groupId);
+    if (!group) return [];
+    const allowed = new Set(group.options.map(option => option.id));
+    return (selectedByGroup[groupId] ?? []).filter(id => allowed.has(id));
   }
 
   function toggleOption(groupId: string, optionId: string, maximumSelections: number) {

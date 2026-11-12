@@ -904,7 +904,7 @@ export class PublicMenuService {
               id: option.id,
               name: optionFields.name,
               priceAdjustment: option.priceAdjustment.toFixed(2),
-              sizeOverrides: option.sizeSettings.map(setting => ({
+              sizeOverrides: (option.sizeSettings ?? []).map(setting => ({
                 variantId: setting.variantId,
                 enabled: setting.enabled,
                 priceAdjustment: setting.priceAdjustment?.toFixed(2) ?? null,
@@ -918,7 +918,7 @@ export class PublicMenuService {
             helperText: groupFields.description,
             minimumSelections: group.minimumSelections,
             maximumSelections: group.maximumSelections,
-            disabledVariantIds: group.sizeSettings.map(setting => setting.variantId),
+            disabledVariantIds: (group.sizeSettings ?? []).map(setting => setting.variantId),
             options,
           });
         }

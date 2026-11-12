@@ -1069,7 +1069,7 @@ export class PublicOrdersService {
           }
           const currentSizeId = size?.id ?? null;
           const availableGroups = product.modifierGroups.filter(group =>
-            !currentSizeId || !group.sizeSettings.some(setting =>
+            !currentSizeId || !(group.sizeSettings ?? []).some(setting =>
               setting.variantId === currentSizeId && !setting.enabled));
 
           // FT-6A CRITICAL MONEY RULE: every selected modifierOptionId is
@@ -1090,7 +1090,7 @@ export class PublicOrdersService {
           for (const group of availableGroups) {
             for (const option of group.options) {
               const override = currentSizeId
-                ? option.sizeSettings.find(setting => setting.variantId === currentSizeId)
+                ? (option.sizeSettings ?? []).find(setting => setting.variantId === currentSizeId)
                 : null;
               if (override?.enabled === false) continue;
               optionLookup.set(option.id, {
