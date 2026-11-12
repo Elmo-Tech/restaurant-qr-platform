@@ -1746,3 +1746,20 @@ Each tenant hostname has its own robots/sitemap only for currently published men
 **Status:** Owner-requested implementation on isolated feature branch; staging QA, acceptance, merge and deployment remain distinct gates.
 
 Modifier Presets (reusable authoring templates) and Product-local Modifier Groups/Options remain unchanged as the defaults. A Product with sizes may further override **Group on/off, Option on/off and Option price** for one Product Variant through additive size-settings tables, controlled in the Restaurant Product Editor (no new global option entity). A missing override inherits the current Product setting including any linked Preset synchronization. Every Guest template and the authoritative NestJS order quote/acceptance process uses size-effective availability and Decimal prices; a disabled Group is not required for that size, and any hidden Option submitted manually fails closed. Historical order snapshots never change. Explicit staff `MENU_MANAGE` plus all-Branch scope, no automatic migration or production rollout. Details in `docs/01-domain/MENU_SPEC.md` and `docs/02-technical/DATABASE_SPEC.md` amendments.
+
+---
+
+### DEC-073 — Central Food Image Library, Platform Admin First (2026-11-12)
+
+**Status:** Owner authorized implementation on isolated `feat/platform-food-image-library` branch; review, QA, merge, seeding of real databases and production deployment are separately gated.
+
+The Platform Admin alone creates and manages a **global product-image library** in `apps/platform`, with a NestJS Platform-authenticated Backend and additive Prisma/PostgreSQL tables. Image bytes go to the existing Docker persistent uploads volume; PostgreSQL stores the opaque asset path, file hash and descriptive data. Existing restaurant-uploaded product photos, Guest menus, menu-import flows and prices must remain unchanged in this phase; no Restaurant Product is linked to central images yet.
+
+Each asset has independent **canonical Food Tags** with curated Arabic/English/Italian labels and aliases, **Presentation State** (`RAW`, `COOKED`, `READY_TO_SERVE`) and **Suitable Sectors** (`RESTAURANT`, `CAFE`, `SWEETS`, `BUTCHER`, `HOME_FOOD`). A raw butcher beef photo must never be chosen for a cooked restaurant dish simply because both use `BEEF`. `Restaurant.demoKind` applies to temporary demo restaurants only, not real restaurant business classification.
+
+Admin experience: multi-image Draft upload, filename-based conservative suggestions, autocomplete of shared canonical tags, bulk apply, explicit visual review, publish, archive and restore. Filename matching never proves the food's ingredients, preparation state or sector. Unknown names stay unmatched; AI visual analysis and paid/external matching APIs are out of scope. Global tags are reused instead of duplicating Arabic, English and Italian variants; soft related links never imply synonyms.
+
+The owner explicitly removed source/copyright/usage-rights input fields from the Admin UI. This does **not** waive the operational requirement to use authorized assets; licensing checks remain a separate internal operational responsibility. The seed command is dry-run by default and must be explicitly applied only after migration and verified backups. No production-like tenant data may be wiped or modified as part of building the library.
+
+Implementation contract: `docs/01-domain/PLATFORM_FOOD_IMAGE_LIBRARY_SPEC.md`. Future restaurant image selection and menu-import integration require separate design/approval before implementation.
+
