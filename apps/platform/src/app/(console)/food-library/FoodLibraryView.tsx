@@ -2,6 +2,7 @@
 
 /* eslint-disable @next/next/no-img-element -- Cookie-authenticated API preview is not a Next image optimization resource. */
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Alert, Badge, Button, Card, Input, Label, PageHeader, Select } from "@/components/ui";
 import { IconCheck, IconPlus, IconSearch, IconX } from "@/components/icons";
 import { useI18n } from "@/lib/i18n/client";
