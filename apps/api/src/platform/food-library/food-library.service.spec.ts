@@ -4,23 +4,22 @@ import type { ImageStorageService } from '../../storage/image-storage.service';
 import type { UploadedImageFile } from '../../storage/uploaded-image-file';
 
 function setup() {
-  const transaction = jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({
-    foodImageAsset: {
-      findMany: prisma.foodImageAsset.findMany,
-      updateMany: prisma.foodImageAsset.updateMany,
-    },
-    foodImageTag: { deleteMany: jest.fn(), createMany: jest.fn() },
-  }));
+  const findMany = jest.fn();
+  const updateMany = jest.fn();
   const prisma = {
     foodImageAsset: {
       findUnique: jest.fn(),
-      findMany: jest.fn(),
-      updateMany: jest.fn(),
+      findMany,
+      updateMany,
       create: jest.fn(),
       count: jest.fn(),
+      update: jest.fn(),
     },
     foodTag: { findMany: jest.fn(), count: jest.fn() },
-    $transaction: transaction,
+    $transaction: jest.fn(async (callback: (tx: unknown) => Promise<unknown>) => callback({
+      foodImageAsset: { findMany, updateMany },
+      foodImageTag: { deleteMany: jest.fn(), createMany: jest.fn() },
+    })),
   };
   const storage = { saveImage: jest.fn(), deleteImageBestEffort: jest.fn() };
   return { service: new FoodLibraryService(prisma as unknown as PrismaService, storage as unknown as ImageStorageService),
@@ -100,7 +99,7 @@ describe('FoodLibraryService platform publishing safety', () => {
     prisma.foodImageAsset.findUnique.mockResolvedValue({ id: record().id });
     prisma.foodImageAsset.updateMany.mockResolvedValue({ count: 1 });
     // Archive uses update (rather than unlink); simulate the DB method.
-    (prisma.foodImageAsset as unknown as { update: jest.Mock }).update = jest.fn().mockResolvedValue({});
+    prisma.foodImageAsset.update.mockResolvedValue({});
     await expect(service.archive(record().id)).resolves.toEqual({ id: record().id, status: 'ARCHIVED' });
     expect(storage.deleteImageBestEffort).not.toHaveBeenCalled();
   });
