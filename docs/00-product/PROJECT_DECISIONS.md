@@ -1762,4 +1762,3 @@ Admin experience: multi-image Draft upload, filename-based conservative suggesti
 The owner explicitly removed source/copyright/usage-rights input fields from the Admin UI. This does **not** waive the operational requirement to use authorized assets; licensing checks remain a separate internal operational responsibility. The seed command is dry-run by default and must be explicitly applied only after migration and verified backups. No production-like tenant data may be wiped or modified as part of building the library.
 
 Implementation contract: `docs/01-domain/PLATFORM_FOOD_IMAGE_LIBRARY_SPEC.md`. Future restaurant image selection and menu-import integration require separate design/approval before implementation.
-
