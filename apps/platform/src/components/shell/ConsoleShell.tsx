@@ -15,6 +15,7 @@ const NAV: { href: string; label: MessageKey; icon: typeof IconOverview; match: 
   { href: "/", label: "nav.overview", icon: IconOverview, match: (path) => path === "/" },
   { href: "/restaurants", label: "nav.restaurants", icon: IconStore, match: (path) => path.startsWith("/restaurants") },
   { href: "/demos", label: "nav.demos", icon: IconPlay, match: (path) => path.startsWith("/demos") },
+  { href: "/food-library", label: "nav.foodLibrary", icon: IconStore, match: (path) => path.startsWith("/food-library") },
   { href: "/packages", label: "nav.packages", icon: IconPackage, match: (path) => path.startsWith("/packages") },
   { href: "/leads", label: "nav.leads", icon: IconUsers, match: (path) => path.startsWith("/leads") },
   { href: "/requests", label: "nav.requests", icon: IconInbox, match: (path) => path.startsWith("/requests") },
