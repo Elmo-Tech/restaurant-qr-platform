@@ -392,7 +392,7 @@ function ModifierGroupCard({
   onGroupRemoved: (groupId: string) => void;
   onOptionRemoved: (groupId: string, optionId: string) => void;
 }) {
-  const { t } = useStaffI18n();
+  const { t, locale } = useStaffI18n();
   const [isEditing, setIsEditing] = useState(false);
   const [isAddingOption, setIsAddingOption] = useState(false);
   const [showSizeSettings, setShowSizeSettings] = useState(false);
@@ -572,8 +572,10 @@ function ModifierGroupCard({
             <Button type="button" size="sm" variant="secondary"
               onClick={() => setShowSizeSettings(value => !value)}>
               {showSizeSettings
-                ? (t('common.close'))
-                : (t('variants.title') + ' · ' + t('common.edit'))}
+                ? t('common.close')
+                : locale.startsWith('ar')
+                  ? 'تخصيص الإضافات حسب الحجم'
+                  : 'Customize add-ons by size'}
             </Button>
           </div>
           {showSizeSettings ? (
