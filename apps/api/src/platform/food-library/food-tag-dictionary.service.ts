@@ -16,7 +16,7 @@ type Locale = 'ar' | 'en' | 'it';
 type PreparedAlias = { locale: Locale; term: string; normalized: string };
 
 const INCLUDE = {
-  aliases: { orderBy: [{ locale: 'asc' }, { term: 'asc' }] },
+  aliases: true,
   _count: { select: { images: true } },
 } as const;
 
