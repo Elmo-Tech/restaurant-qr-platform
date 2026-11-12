@@ -169,6 +169,11 @@ export class WhatsappTrackingService {
     if (!restaurant?.whatsappNumber || !restaurant.whatsappOrderingEnabled ||
         !(await this.features.isEnabled(restaurantId,'WHATSAPP_ORDERING')))
       throw new ServiceUnavailableException('WHATSAPP_ORDERING_UNAVAILABLE');
+    // Reject invalid stored numbers before creating an instance or altering any webhook.
+    // Always derive the phone from the Restaurant, not from browser input.
+    const number = digits(restaurant.whatsappNumber);
+    if (method === 'CODE' && !/^\d{8,15}$/.test(number))
+      throw new ServiceUnavailableException('WHATSAPP_PAIRING_NUMBER_INVALID');
     const existing = await this.db.whatsappConnection.findUnique({ where:{ restaurantId } });
     const instanceName = existing?.instanceName ?? 'wayta-' + restaurantId.replace(/-/g, '');
     let providerInstance = await this.findExactInstance(instanceName);
@@ -231,11 +236,7 @@ export class WhatsappTrackingService {
     });
     const current = await this.state(restaurantId);
     if (current.connected) return current;
-    // The phone comes ONLY from the authorized restaurant record, never from the request.
     // Do not log the phone, provider response or short-lived pairing credentials.
-    const number = digits(restaurant.whatsappNumber);
-    if (method === 'CODE' && !/^\d{8,15}$/.test(number))
-      throw new ServiceUnavailableException('WHATSAPP_PAIRING_NUMBER_INVALID');
     const connectPath = '/instance/connect/' + encodeURIComponent(instanceName) +
       (method === 'CODE' ? '?number=' + encodeURIComponent(number) : '');
     const payload = record(await this.fetchProvider(connectPath));

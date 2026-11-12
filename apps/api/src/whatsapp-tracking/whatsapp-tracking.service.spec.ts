@@ -263,6 +263,16 @@ describe('Evolution instance recovery without destructive reconnect', () => {
     expect((await service.connect(restaurantId)).qrText).toBe('qr-still-works');
   });
 
+  it('rejects an invalid stored phone before provider or webhook mutations', async () => {
+    const { provider, service, db } = createSubject(true);
+    db.restaurant.findUnique.mockResolvedValue({
+      whatsappNumber: 'bad', whatsappOrderingEnabled: true,
+    });
+    await expect(service.connect(restaurantId, 'CODE')).rejects.toThrow('WHATSAPP_PAIRING_NUMBER_INVALID');
+    expect(provider).not.toHaveBeenCalled();
+    expect(db.whatsappConnection.upsert).not.toHaveBeenCalled();
+  });
+
   it('refuses provider pairing for a foreign linked device even when code is enabled', async () => {
     const { provider, service, db } = createSubject(true);
     provider.mockResolvedValue([{ name: instanceName, ownerJid: '20999999999@s.whatsapp.net' }]);

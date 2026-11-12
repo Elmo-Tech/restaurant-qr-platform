@@ -4,6 +4,7 @@ import Link from 'next/link';
 import { useCallback, useEffect, useState } from 'react';
 import QRCode from 'qrcode';
 import { Button } from '../../../../../../components/ui/Button';
+import { IconQr, IconPhonePreview } from '../../../../../../components/staff/icons';
 import { getConnection, connectWhatsapp, connectWhatsappByCode, type ConnectionView } from '../../../../../../lib/whatsapp-tracking/api';
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 
@@ -279,7 +280,9 @@ export function WhatsappConnectionCard({
                   (pairMethod === 'QR'
                     ? 'border-primary bg-primary/5'
                     : 'border-border bg-background hover:border-primary/40')}>
-                <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-xl text-primary">▦</span>
+                <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-primary/10 text-primary">
+                  <IconQr className="size-6" />
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-bold text-foreground">
                     {ar ? 'مسح QR Code' : 'Scan QR code'}
@@ -299,7 +302,9 @@ export function WhatsappConnectionCard({
                     ? 'border-primary bg-primary/5'
                     : codeAvailable ? 'border-border bg-background hover:border-primary/40'
                       : 'border-border bg-muted/40 opacity-75')}>
-                <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-xl text-foreground">#</span>
+                <span aria-hidden="true" className="grid size-10 shrink-0 place-items-center rounded-xl bg-muted text-foreground">
+                  <IconPhonePreview className="size-6" />
+                </span>
                 <span className="min-w-0 flex-1">
                   <span className="block text-sm font-bold text-foreground">
                     {ar ? 'الربط برمز الهاتف' : 'Link with phone code'}
