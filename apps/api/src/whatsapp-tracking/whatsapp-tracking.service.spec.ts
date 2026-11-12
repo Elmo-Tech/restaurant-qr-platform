@@ -66,6 +66,99 @@ describe('Evolution instance recovery without destructive reconnect', () => {
     expect(evolutionInstances({ bogus: true })).toBeNull();
   });
 
+  it('creates a missing restaurant instance when another tenant instance exists', async () => {
+    const { provider, service, db } = createSubject();
+    let created = false;
+    provider.mockImplementation((path: string) => {
+      if (path === '/instance/fetchInstances') {
+        const foreign = { name: 'wayta-other-restaurant', ownerJid: '20999999999@s.whatsapp.net' };
+        return Promise.resolve(created ? [foreign, { name: instanceName }] : [foreign]);
+      }
+      if (path.startsWith('/instance/create')) {
+        created = true;
+        return Promise.resolve({ instance: { instanceName } });
+      }
+      if (path.startsWith('/webhook/find')) return Promise.resolve(null);
+      if (path.startsWith('/webhook/set')) return Promise.resolve({});
+      if (path.startsWith('/instance/connect')) return Promise.resolve({ qrcode: { code: 'new-qr' } });
+      return Promise.reject(new Error('Unexpected provider call: ' + path));
+    });
+
+    const result = await service.connect(restaurantId);
+    expect(result.qrText).toBe('new-qr');
+    expect(provider).toHaveBeenCalledWith('/instance/create', 'POST', {
+      instanceName, integration: 'WHATSAPP-BAILEYS', qrcode: true,
+    });
+    expect(provider.mock.calls.filter(([path]) => path === '/instance/create')).toHaveLength(1);
+    expect(provider.mock.calls.some(([path]) => path.includes('?instanceName='))).toBe(false);
+    expect(db.whatsappConnection.upsert).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not create an instance when the unfiltered list response is invalid', async () => {
+    const { provider, service, db } = createSubject();
+    provider.mockResolvedValue({ unexpected: true });
+    await expect(service.connect(restaurantId)).rejects.toThrow('WHATSAPP_INSTANCE_LOOKUP_UNEXPECTED');
+    expect(provider.mock.calls.some(([path]) => path === '/instance/create')).toBe(false);
+    expect(db.whatsappConnection.upsert).not.toHaveBeenCalled();
+  });
+
+  it('uses an exact matching instance in an unfiltered provider list', async () => {
+    const { provider, service } = createSubject();
+    provider.mockImplementation((path: string) => {
+      if (path === '/instance/fetchInstances') return Promise.resolve([
+        { name: 'wayta-' + restaurantId.replace(/-/g, '') + '-unrelated' },
+        { instance: { instanceName } },
+      ]);
+      if (path.startsWith('/webhook/find')) return Promise.resolve(null);
+      if (path.startsWith('/webhook/set')) return Promise.resolve({});
+      if (path.startsWith('/instance/connect')) return Promise.resolve({ code: 'paired-qr' });
+      return Promise.reject(new Error('Unexpected provider call: ' + path));
+    });
+    expect((await service.connect(restaurantId)).qrText).toBe('paired-qr');
+    expect(provider.mock.calls.some(([path]) => path === '/instance/create')).toBe(false);
+    expect(provider.mock.calls.some(([path]) => path.includes('?instanceName='))).toBe(false);
+  });
+
+  it('verifies the exact provider owner without a name-filtered lookup', async () => {
+    const { provider, service, db } = createSubject();
+    db.whatsappConnection.findUnique.mockResolvedValue({ restaurantId, instanceName });
+    db.restaurant.findUnique.mockResolvedValue({ ...restaurant, status: 'ACTIVE' });
+    provider.mockImplementation((path: string) => {
+      if (path.startsWith('/instance/connectionState')) {
+        return Promise.resolve({ instance: { state: 'open' } });
+      }
+      if (path === '/instance/fetchInstances') return Promise.resolve([
+        { name: 'wayta-foreign', ownerJid: '20999999999@s.whatsapp.net' },
+        { instance: { instanceName, ownerJid: '201000000000@s.whatsapp.net' } },
+      ]);
+      return Promise.reject(new Error('Unexpected provider call: ' + path));
+    });
+    const state = await service.state(restaurantId);
+    expect(state.state).toBe('CONNECTED');
+    expect(state.number).toBe('201000000000');
+    expect(provider.mock.calls.some(([path]) => path.includes('?instanceName='))).toBe(false);
+  });
+
+  it('does not verify a foreign owner or a missing linked instance', async () => {
+    const { provider, service, db } = createSubject();
+    db.whatsappConnection.findUnique.mockResolvedValue({ restaurantId, instanceName });
+    db.restaurant.findUnique.mockResolvedValue({ ...restaurant, status: 'ACTIVE' });
+    provider.mockImplementation((path: string) => {
+      if (path.startsWith('/instance/connectionState')) return Promise.resolve({ instance: { state: 'open' } });
+      if (path === '/instance/fetchInstances') return Promise.resolve([
+        { name: instanceName, ownerJid: '20999999999@s.whatsapp.net' },
+      ]);
+      return Promise.reject(new Error('Unexpected provider call: ' + path));
+    });
+    expect((await service.state(restaurantId)).state).toBe('NOT_CONNECTED');
+    provider.mockImplementation((path: string) => {
+      if (path.startsWith('/instance/connectionState')) return Promise.resolve({ instance: { state: 'open' } });
+      if (path === '/instance/fetchInstances') return Promise.resolve([{ name: 'wayta-foreign' }]);
+      return Promise.reject(new Error('Unexpected provider call: ' + path));
+    });
+    expect((await service.state(restaurantId)).state).toBe('NOT_CONNECTED');
+  });
+
   it('adopts the expected orphaned instance without creating or deleting it', async () => {
     const { provider, service, db } = createSubject();
     provider.mockImplementation((path: string) => {

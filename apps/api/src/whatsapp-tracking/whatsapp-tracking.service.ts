@@ -107,8 +107,9 @@ export class WhatsappTrackingService {
   }
 
   private async findExactInstance(instanceName: string): Promise<JsonMap | null> {
-    const payload = await this.fetchProvider(
-      '/instance/fetchInstances?instanceName=' + encodeURIComponent(instanceName));
+    // Evolution v2.3.7 returns HTTP 404 for a missing name-filtered instance.
+    // List the instances and match only the exact name; absence means "create".
+    const payload = await this.fetchProvider('/instance/fetchInstances');
     const instances = evolutionInstances(payload);
     if (!instances) throw new ServiceUnavailableException('WHATSAPP_INSTANCE_LOOKUP_UNEXPECTED');
     return instances.find(item => instanceNameOf(item) === instanceName) ?? null;
@@ -123,9 +124,9 @@ export class WhatsappTrackingService {
       !restaurant.whatsappNumber || !(await this.features.isEnabled(restaurantId,'WHATSAPP_ORDERING'))) return null;
     const state = record(await this.fetchProvider('/instance/connectionState/' + encodeURIComponent(link.instanceName)));
     if ((record(state.instance).state ?? state.state) !== 'open') return null;
-    const fetched = await this.fetchProvider('/instance/fetchInstances?instanceName=' + encodeURIComponent(link.instanceName));
-    const data = Array.isArray(fetched) ? record(fetched[0]) : record(fetched);
-    const owner = data.ownerJid ?? record(data.instance).ownerJid;
+    const providerInstance = await this.findExactInstance(link.instanceName);
+    if (!providerInstance) return null;
+    const owner = instanceOwnerOf(providerInstance);
     if (typeof owner !== 'string' || !owner.includes('@')) return null;
     const number = digits(owner.split('@')[0].split(':')[0]);
     if (!number || number !== digits(restaurant.whatsappNumber)) return null;
