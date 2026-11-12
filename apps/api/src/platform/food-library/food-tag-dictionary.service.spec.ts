@@ -1,6 +1,4 @@
-import {
-  prepareFoodTagAliases,
-} from './food-tag-dictionary.service';
+import { prepareFoodTagAliases } from './food-tag-dictionary.service';
 
 function sample() {
   return {
@@ -49,7 +47,8 @@ describe('food tag editor normalization', () => {
   });
 
   it('rejects alias terms with no searchable letters or numbers', () => {
-    expect(() => prepareFoodTagAliases({ ...sample(), aliasesAr: ['!!'] }))
-      .toThrow();
+    expect(() =>
+      prepareFoodTagAliases({ ...sample(), aliasesAr: ['!!'] }),
+    ).toThrow();
   });
 });

@@ -39,7 +39,10 @@ import {
 } from './food-library.dto';
 import { FoodLibraryService } from './food-library.service';
 import { FoodTagDictionaryService } from './food-tag-dictionary.service';
-import { FoodTagCatalogQueryDto, FoodTagWriteDto } from './food-tag-dictionary.dto';
+import {
+  FoodTagCatalogQueryDto,
+  FoodTagWriteDto,
+} from './food-tag-dictionary.dto';
 
 /** Separate Platform session/Origin; never a Restaurant Staff or Guest endpoint. */
 @Controller('platform/food-images')

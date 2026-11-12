@@ -37,12 +37,7 @@ const missing = () =>
 export function prepareFoodTagAliases(
   input: Pick<
     FoodTagWriteDto,
-    | 'nameAr'
-    | 'nameEn'
-    | 'nameIt'
-    | 'aliasesAr'
-    | 'aliasesEn'
-    | 'aliasesIt'
+    'nameAr' | 'nameEn' | 'nameIt' | 'aliasesAr' | 'aliasesEn' | 'aliasesIt'
   >,
 ): PreparedAlias[] {
   const values: Array<[Locale, string, string[]]> = [
@@ -81,9 +76,15 @@ function view(tag: DetailedTag) {
     imageCount: tag._count.images,
     updatedAt: tag.updatedAt.toISOString(),
     aliases: {
-      ar: tag.aliases.filter((alias) => alias.locale === 'ar').map((alias) => alias.term),
-      en: tag.aliases.filter((alias) => alias.locale === 'en').map((alias) => alias.term),
-      it: tag.aliases.filter((alias) => alias.locale === 'it').map((alias) => alias.term),
+      ar: tag.aliases
+        .filter((alias) => alias.locale === 'ar')
+        .map((alias) => alias.term),
+      en: tag.aliases
+        .filter((alias) => alias.locale === 'en')
+        .map((alias) => alias.term),
+      it: tag.aliases
+        .filter((alias) => alias.locale === 'it')
+        .map((alias) => alias.term),
     },
   };
 }
@@ -124,7 +125,10 @@ export class FoodTagDictionaryService {
   async create(dto: FoodTagWriteDto) {
     const code = dto.code?.trim();
     if (!code || !/^[A-Z][A-Z0-9_]{1,79}$/.test(code)) {
-      throw invalid('FOOD_TAG_CODE_INVALID', 'Enter a stable uppercase canonical code.');
+      throw invalid(
+        'FOOD_TAG_CODE_INVALID',
+        'Enter a stable uppercase canonical code.',
+      );
     }
     const prepared = prepareFoodTagAliases(dto);
     try {
@@ -157,7 +161,10 @@ export class FoodTagDictionaryService {
         });
         if (!old) throw missing();
         if (dto.code && dto.code !== old.code) {
-          throw conflict('FOOD_TAG_CODE_IMMUTABLE', 'Canonical IDs cannot be renamed.');
+          throw conflict(
+            'FOOD_TAG_CODE_IMMUTABLE',
+            'Canonical IDs cannot be renamed.',
+          );
         }
         await this.assertNoAliasConflict(prepared, id, tx);
         await tx.foodTagAlias.deleteMany({ where: { tagId: id } });
@@ -206,7 +213,12 @@ export class FoodTagDictionaryService {
   }
 
   private rethrowConflict(error: unknown): void {
-    if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
+    if (
+      error &&
+      typeof error === 'object' &&
+      'code' in error &&
+      error.code === 'P2002'
+    ) {
       throw conflict(
         'FOOD_TAG_CONFLICT',
         'That canonical code or language-specific alias is already in use.',
