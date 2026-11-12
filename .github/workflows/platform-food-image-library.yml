@@ -106,6 +106,14 @@ jobs:
         run: npm run typecheck --workspace=apps/api
       - name: Platform Console TypeScript
         run: npm run typecheck --workspace=apps/platform
+      - name: Build NestJS API for production
+        env:
+          NODE_ENV: production
+        run: npm run build --workspace=apps/api
+      - name: Build Platform Console for production
+        env:
+          NODE_ENV: production
+        run: npm run build --workspace=apps/platform
       - name: Lint Platform Console
         run: npm run lint --workspace=apps/platform
       - name: Lint new Backend module
