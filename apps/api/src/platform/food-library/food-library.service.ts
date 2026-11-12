@@ -12,7 +12,7 @@ import { normalizeFoodText, suggestFoodTagCodes } from './food-tag-matcher';
 
 const INCLUDE = { tags: { include: { tag: true } } } as const;
 type Asset = Prisma.FoodImageAssetGetPayload<{ include: typeof INCLUDE }>;
-type Tag = Prisma.FoodTagGetPayload<object>;
+type Tag = { id: string; code: string; group: string; nameAr: string; nameEn: string; nameIt: string };
 const bad = (code: string, message: string) => new BadRequestException({ error: { code, message } });
 const notFound = () => new NotFoundException({ error: { code: 'FOOD_IMAGE_NOT_FOUND', message: 'Image not found.' } });
 const blocked = (code: string, message: string) => new ConflictException({ error: { code, message } });
@@ -27,7 +27,7 @@ function view(asset: Asset) {
     presentation: asset.presentation,
     sectors: asset.sectors,
     tags: asset.tags.map(({ tag }) => ({
-      id: tag.id, code: tag.code, nameAr: tag.nameAr, nameEn: tag.nameEn, nameIt: tag.nameIt,
+      id: tag.id, code: tag.code, group: tag.group, nameAr: tag.nameAr, nameEn: tag.nameEn, nameIt: tag.nameIt,
     })),
     reviewedAt: asset.reviewedAt?.toISOString() ?? null,
     publishedAt: asset.publishedAt?.toISOString() ?? null,
@@ -130,6 +130,7 @@ export class FoodLibraryService {
     // Filename is only metadata and the initial review title; storage always creates a UUID path.
     const originalFilename = basename(file.originalname.replace(/\\/g, '/')).slice(0, 255);
     const name = originalFilename.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim().slice(0, 160) || 'Untitled image';
+    const suggestions = await this.suggestedTags(name);
     const saved = await this.storage.saveImage(file.buffer, file.mimetype);
     try {
       const image = await this.prisma.foodImageAsset.create({
@@ -137,7 +138,7 @@ export class FoodLibraryService {
           mimeType: file.mimetype, sizeBytes: file.size },
         include: INCLUDE,
       });
-      return { image: view(image), suggestions: await this.suggestedTags(name) };
+      return { image: view(image), suggestions };
     } catch (error: unknown) {
       await this.storage.deleteImageBestEffort(saved.assetPath);
       if (error && typeof error === 'object' && 'code' in error && error.code === 'P2002') {
