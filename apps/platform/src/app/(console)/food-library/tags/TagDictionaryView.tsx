@@ -112,7 +112,7 @@ export function TagDictionaryView() {
     if (!editor) return;
     const overflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    modalRef.current?.querySelector<HTMLInputElement>("#tag-code")?.focus();
+    modalRef.current?.querySelector<HTMLInputElement>(editor === "new" ? "#tag-code" : "#tag-ar")?.focus();
     return () => { document.body.style.overflow = overflow; };
   }, [editor]);
 

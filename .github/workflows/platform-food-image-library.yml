@@ -53,10 +53,36 @@ jobs:
         run: npm exec --workspace=apps/api -- prisma migrate deploy
       - name: Validate large trilingual seed without writing
         run: npm run seed:food-tags --workspace=apps/api
-      - name: Seed twice (idempotence) on temporary database
+      - name: Seed twice and protect Platform Admin edits on temporary database
         run: |
           npm run seed:food-tags --workspace=apps/api -- --apply
+          node <<'NODE'
+          const { Client } = require('pg');
+          (async () => {
+            const db = new Client({ connectionString: process.env.DATABASE_URL });
+            await db.connect();
+            await db.query("UPDATE food_tags SET name_en = 'Admin-reviewed chicken' WHERE code = 'CHICKEN'");
+            await db.query("DELETE FROM food_tag_aliases WHERE locale = 'ar' AND normalized = 'فراخ'");
+            await db.end();
+          })().catch(err => { console.error(err); process.exitCode = 1; });
+          NODE
           npm run seed:food-tags --workspace=apps/api -- --apply
+      - name: Verify Admin edits were not overwritten by re-seeding
+        run: |
+          node <<'NODE'
+          const { Client } = require('pg');
+          (async () => {
+            const db = new Client({ connectionString: process.env.DATABASE_URL });
+            await db.connect();
+            const tag = await db.query("SELECT name_en FROM food_tags WHERE code = 'CHICKEN'");
+            const alias = await db.query("SELECT count(*)::int AS n FROM food_tag_aliases WHERE locale = 'ar' AND normalized = 'فراخ'");
+            if (tag.rows[0]?.name_en !== 'Admin-reviewed chicken' || alias.rows[0]?.n !== 0) {
+              throw new Error('Seeder reverted a human-edited label or restored a deliberately removed alias');
+            }
+            console.log('PASS: Admin-edited labels and alias removals survive seed rerun');
+            await db.end();
+          })().catch(err => { console.error(err); process.exitCode = 1; });
+          NODE
       - name: Assert persisted seed counts and no repeated aliases
         run: |
           node <<'NODE'

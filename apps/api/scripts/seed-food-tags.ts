@@ -107,7 +107,20 @@ async function main(): Promise<void> {
     adapter: new PrismaPg({ connectionString }),
   });
   try {
-    // Preflight ALL existing aliases before writing, so a custom tag cannot be silently reassigned.
+    // A seeded tag is a bootstrap only. Once it exists, the Platform Admin owns
+    // its labels AND its alias set, including alias removals. Re-running the CLI
+    // must never silently restore a deleted alias or overwrite a correction.
+    const existingTags = await prisma.foodTag.findMany({
+      where: { code: { in: FOOD_TAG_CATALOG.map((tag) => tag.code) } },
+      select: { id: true, code: true },
+    });
+    const ids = new Map(existingTags.map((tag) => [tag.code, tag.id]));
+    const newTags = FOOD_TAG_CATALOG.filter((tag) => !ids.has(tag.code));
+    const aliasesToCreate = plan.aliases.filter(
+      (alias) => !ids.has(alias.code),
+    );
+
+    // Preflight only NEW aliases. Edits on existing tags are authoritative.
     const current = await prisma.foodTagAlias.findMany({
       select: {
         locale: true,
@@ -116,60 +129,50 @@ async function main(): Promise<void> {
       },
     });
     const owners = new Map(
-      current.map((a) => [a.locale + ':' + a.normalized, a.tag.code]),
+      current.map((alias) => [
+        alias.locale + ':' + alias.normalized,
+        alias.tag.code,
+      ]),
     );
-    for (const a of plan.aliases) {
-      const currentOwner = owners.get(a.locale + ':' + a.normalized);
-      if (currentOwner && currentOwner !== a.code) {
+    for (const alias of aliasesToCreate) {
+      const currentOwner = owners.get(alias.locale + ':' + alias.normalized);
+      if (currentOwner && currentOwner !== alias.code) {
         throw new Error(
           'Database alias conflict for ' +
-            a.locale +
+            alias.locale +
             ':' +
-            a.normalized +
+            alias.normalized +
             ' (' +
             currentOwner +
             ' vs ' +
-            a.code +
+            alias.code +
             '). Nothing was written.',
         );
       }
     }
 
-    const ids = new Map<string, string>();
-    for (const tag of FOOD_TAG_CATALOG) {
-      const saved = await prisma.foodTag.upsert({
-        where: { code: tag.code },
-        create: {
+    // Create each NEW tag and its aliases atomically. A partially interrupted
+    // seed cannot leave a tag without aliases on the next run.
+    for (const tag of newTags) {
+      const aliases = plan.aliases
+        .filter((alias) => alias.code === tag.code)
+        .map(({ locale, term, normalized }) => ({
+          locale,
+          term,
+          normalized,
+        }));
+      const created = await prisma.foodTag.create({
+        data: {
           code: tag.code,
           nameAr: tag.nameAr,
           nameEn: tag.nameEn,
           nameIt: tag.nameIt,
           group: tag.group,
+          aliases: { create: aliases },
         },
-        // Catalog is a starting point. Never clobber human-curated Admin edits.
-        update: {},
+        select: { id: true },
       });
-      ids.set(tag.code, saved.id);
-    }
-
-    for (const alias of plan.aliases) {
-      const tagId = ids.get(alias.code)!;
-      await prisma.foodTagAlias.upsert({
-        where: {
-          locale_normalized: {
-            locale: alias.locale,
-            normalized: alias.normalized,
-          },
-        },
-        create: {
-          tagId,
-          locale: alias.locale,
-          term: alias.term,
-          normalized: alias.normalized,
-        },
-        // Preserve Admin-curated spelling instead of rewriting it on re-seed.
-        update: {},
-      });
+      ids.set(tag.code, created.id);
     }
 
     for (const [from, to] of FOOD_TAG_RELATIONS) {

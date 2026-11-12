@@ -36,4 +36,4 @@ Restaurant business-type field (the current demoKind applies to temporary demos 
 
 The Platform Admin can browse, create and edit canonical Tags without changing their stable codes. A Tag has exactly one authoritative AR / EN / IT label plus curated aliases per language. Edited labels remain searchable via the alias index, and existing image-to-Tag references remain valid. A conflicting normalized alias in the same language is rejected; never silently reassign an alias to another Tag. There is no destructive delete operation.
 
-The initial seed is a bootstrap dataset only: re-running it must not overwrite Admin-curated labels or alias spellings. Existing custom tags and relations are retained.
+The initial seed is a bootstrap dataset only: re-running it must not overwrite Admin-curated labels or aliases, nor restore deliberately deleted aliases. New Tags and their initial aliases are created atomically. Existing custom tags and relations are retained.
