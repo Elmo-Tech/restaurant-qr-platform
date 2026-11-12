@@ -16,6 +16,7 @@ import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import { fromMinorUnits, toMinorUnits, ZERO_MINOR_UNITS } from '../../../lib/public-menu/money';
 import type { PublicMenuModifierGroup, PublicMenuProduct } from '../../../lib/public-menu/types';
+import { allowedModifierSelection, modifierGroupsForSize } from '../../../lib/public-menu/effective-modifiers';
 
 const MAX_QUANTITY = 99;
 
@@ -84,6 +85,7 @@ export function ProductSheet({
   const [quantity, setQuantity] = useState(initial?.quantity ?? 1);
   const [showValidation, setShowValidation] = useState(false);
   const [imageFailed, setImageFailed] = useState(false);
+  const activeGroups = modifierGroupsForSize(product.modifierGroups, variantId, hasSizes);
 
   const imageUrl = previewImageUrl ?? resolveAssetUrl(product.primaryImageAssetPath);
   const showPhoto = showPhotos && imageUrl !== null && !imageFailed;
@@ -109,7 +111,7 @@ export function ProductSheet({
   }
 
   const invalidGroupIds = new Set(
-    product.modifierGroups
+    activeGroups
       .filter((group) => {
         const count = selectionsFor(group.id).length;
         return count < group.minimumSelections || count > group.maximumSelections;
@@ -132,7 +134,7 @@ export function ProductSheet({
       : product.basePrice;
   const isDiscounted = shownSize ? shownSize.discountedPrice !== null : product.discount !== null;
 
-  const unitMinorUnits = product.modifierGroups.reduce((sum, group) => {
+  const unitMinorUnits = activeGroups.reduce((sum, group) => {
     const selectedIds = new Set(selectionsFor(group.id));
     const groupSum = group.options
       .filter((option) => selectedIds.has(option.id))
@@ -151,7 +153,7 @@ export function ProductSheet({
         });
         return;
       }
-      const firstInvalid = product.modifierGroups.find((group) => invalidGroupIds.has(group.id));
+      const firstInvalid = activeGroups.find((group) => invalidGroupIds.has(group.id));
       if (firstInvalid) {
         document.getElementById(`modgroup-${firstInvalid.id}`)?.scrollIntoView({
           block: 'center',
@@ -162,7 +164,7 @@ export function ProductSheet({
       }
       return;
     }
-    const selectedOptionIds = product.modifierGroups.flatMap((group) => selectionsFor(group.id));
+    const selectedOptionIds = activeGroups.flatMap((group) => selectionsFor(group.id));
     onConfirm(selectedOptionIds, quantity, hasSizes ? variantId : null);
   }
 
@@ -299,7 +301,12 @@ export function ProductSheet({
                       type="radio"
                       name="product-size"
                       checked={isChecked}
-                      onChange={() => setVariantId(size.id)}
+                      onChange={() => {
+                        const nextGroups = modifierGroupsForSize(product.modifierGroups, size.id, true);
+                        setVariantId(size.id);
+                        setSelectedByGroup(current => allowedModifierSelection(nextGroups, current));
+                        setShowValidation(false);
+                      }}
                       className="peer sr-only"
                     />
                     <span
@@ -326,7 +333,7 @@ export function ProductSheet({
           </fieldset>
         ) : null}
 
-        {product.modifierGroups.map((group) => {
+        {activeGroups.map((group) => {
           const selected = selectionsFor(group.id);
           const isInvalid = showValidation && invalidGroupIds.has(group.id);
           const isSingleSelect = group.maximumSelections === 1;
