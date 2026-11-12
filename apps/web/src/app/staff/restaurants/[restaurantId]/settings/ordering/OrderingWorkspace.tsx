@@ -7,7 +7,6 @@ import { PageHeader } from '../../../../../../components/ui/PageHeader';
 import { Alert } from '../../../../../../components/ui/Alert';
 import { SettingsBackLink } from '../../../../../../components/staff/SettingsBackLink';
 import { OrderingOptionsCard } from '../guest-qr/OrderingOptionsCard';
-import { WhatsappConnectionCard } from './WhatsappConnectionCard';
 
 /** Only relocation of existing switches; all API writes, states and entitlements remain identical. */
 export function OrderingWorkspace({
@@ -44,7 +43,17 @@ export function OrderingWorkspace({
           </Link>
         </Alert>
       ) : null}
-      {features.WHATSAPP_ORDERING && hasWhatsappNumber ? <WhatsappConnectionCard restaurantId={restaurantId} canManage={canManage} /> : null}
+      {features.WHATSAPP_ORDERING && canManage ? (
+        <div className="flex flex-col gap-2 rounded-2xl border border-border bg-card p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
+          <p className="text-sm leading-6 text-muted-foreground">
+            {t('settingsHub.ordering')} · {t('nav.dashboard')}
+          </p>
+          <Link href={base + '#whatsapp-connection'}
+            className="inline-flex min-h-11 shrink-0 items-center justify-center rounded-lg bg-primary px-4 py-2 text-sm font-bold text-primary-foreground hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary">
+            {t('nav.dashboard')}
+          </Link>
+        </div>
+      ) : null}
       <OrderingOptionsCard
         restaurantId={restaurantId}
         initialPickupEnabled={initialPickupEnabled}

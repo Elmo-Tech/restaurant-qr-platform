@@ -24,6 +24,7 @@ import {
 } from '../../../../lib/entitlements/access';
 import { canViewAnalytics } from '../../../../lib/dashboard/capabilities';
 import { OperationsDashboard, type DashboardAccess } from './dashboard/OperationsDashboard';
+import { WhatsappConnectionCard } from './settings/ordering/WhatsappConnectionCard';
 import type { RestaurantStatus } from '../../../../lib/auth/types';
 import { Alert } from '../../../../components/ui/Alert';
 import { PageHeader } from '../../../../components/ui/PageHeader';
@@ -219,6 +220,12 @@ export default async function RestaurantLandingPage({
     analytics: canViewAnalytics(membership),
     money: membership.permissions.includes('orders.accept'),
   };
+  const whatsappConnection = {
+    visible: restaurant.features.WHATSAPP_ORDERING && membership.allBranches && access.settings,
+    hasWhatsappNumber: Boolean(restaurant.contact.whatsapp),
+    orderingEnabled: restaurant.whatsappOrderingEnabled,
+    canManage: access.manageRestaurant,
+  };
   const showOperations =
     restaurant.status === 'ACTIVE' && (access.orders || access.sessions || access.analytics);
   const setupEligible = (membership.role === 'OWNER' || membership.role === 'MANAGER')
@@ -266,9 +273,18 @@ export default async function RestaurantLandingPage({
           access={access}
           setupEligible={setupEligible}
           setupRole={membership.role}
+          whatsappConnection={whatsappConnection}
         />
       ) : (
         <>
+          {whatsappConnection.visible ? (
+            <WhatsappConnectionCard
+              restaurantId={restaurantId}
+              hasWhatsappNumber={whatsappConnection.hasWhatsappNumber}
+              orderingEnabled={whatsappConnection.orderingEnabled}
+              canManage={whatsappConnection.canManage}
+            />
+          ) : null}
           {setupEligible ? (
             <RestaurantSetupPanel restaurantId={restaurantId} mode="dashboard"
               memberRole={membership.role} fullRestaurantScope={membership.allBranches} />

@@ -1,0 +1,36 @@
+name: WhatsApp Dashboard Connection UX
+
+on:
+  pull_request:
+    branches: [main, development]
+    paths:
+      - 'apps/web/src/app/staff/restaurants/**'
+      - 'apps/web/src/lib/whatsapp-tracking/**'
+      - '.github/workflows/whatsapp-connection-dashboard.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  web-pairing:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: WhatsApp Dashboard pairing contracts
+        run: node --test apps/web/src/lib/whatsapp-tracking/dashboard-connection.contract.test.mjs
+      - name: Web TypeScript
+        run: npm run typecheck:web
+      - name: Targeted ESLint
+        run: >-
+          npm exec --workspace=apps/web -- eslint
+          src/app/staff/restaurants/\[restaurantId\]/page.tsx
+          src/app/staff/restaurants/\[restaurantId\]/dashboard/OperationsDashboard.tsx
+          src/app/staff/restaurants/\[restaurantId\]/settings/ordering/OrderingWorkspace.tsx
+          src/app/staff/restaurants/\[restaurantId\]/settings/ordering/WhatsappConnectionCard.tsx
