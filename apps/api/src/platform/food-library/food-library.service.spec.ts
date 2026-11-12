@@ -81,8 +81,7 @@ describe('FoodLibraryService platform publishing safety', () => {
       published: 1,
     });
     expect(prisma.foodImageAsset.updateMany).toHaveBeenCalledTimes(1);
-    const calledWith = (prisma.foodImageAsset.updateMany as jest.Mock).mock
-      .calls[0]?.[0] as {
+    const calledWith = prisma.foodImageAsset.updateMany.mock.calls[0]?.[0] as {
       where: { id: { in: string[] } };
       data: { status: string; publishedAt: Date };
     };
