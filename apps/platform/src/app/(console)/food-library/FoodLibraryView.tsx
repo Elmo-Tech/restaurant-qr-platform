@@ -147,13 +147,11 @@ export function FoodLibraryView() {
     setFeedback(null);
     setUploadProgress({ done: 0, total: files.length });
     let cursor = 0, done = 0, failed = 0;
-    const created: string[] = [];
     const workers = Array.from({ length: Math.min(3, files.length) }, async () => {
       while (cursor < files.length) {
         const file = files[cursor++];
         try {
-          const result = await uploadFoodImage(file);
-          created.push(result.image.id);
+          await uploadFoodImage(file);
         } catch {
           failed++;
         } finally {
@@ -167,7 +165,7 @@ export function FoodLibraryView() {
     setUploadOpen(false);
     setFiles([]);
     setFilters({ ...EMPTY_FILTERS, status: "DRAFT" });
-    setSelected(created);
+    setSelected([]);
     setPage(1);
     setFeedback(failed > 0
       ? { tone: "danger", text: t("food.uploadErrors", { count: failed }) }
@@ -410,9 +408,9 @@ export function FoodLibraryView() {
         )}
         {total > 24 && (
           <div className="flex items-center justify-center gap-3 border-t border-border p-4">
-            <Button size="sm" disabled={page <= 1 || loading} onClick={() => setPage((p) => p - 1)}>{t("common.previous")}</Button>
+            <Button size="sm" disabled={page <= 1 || loading} onClick={() => { setSelected([]); setPage((p) => p - 1); }}>{t("common.previous")}</Button>
             <span className="text-xs text-muted-foreground">{page} / {Math.ceil(total / 24)}</span>
-            <Button size="sm" disabled={page >= Math.ceil(total / 24) || loading} onClick={() => setPage((p) => p + 1)}>{t("common.next")}</Button>
+            <Button size="sm" disabled={page >= Math.ceil(total / 24) || loading} onClick={() => { setSelected([]); setPage((p) => p + 1); }}>{t("common.next")}</Button>
           </div>
         )}
       </Card>
