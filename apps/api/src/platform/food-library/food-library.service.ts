@@ -2,7 +2,7 @@ import { BadRequestException, ConflictException, Injectable, NotFoundException }
 import { createHash } from 'node:crypto';
 import { basename } from 'node:path';
 import { PrismaService } from '../../database/prisma.service';
-import type { FoodPresentation, FoodSector, Prisma } from '../../generated/prisma/client';
+import type { Prisma } from '../../generated/prisma/client';
 import { readImageDimensions } from '../../storage/image-dimensions';
 import { assertValidImageUpload } from '../../storage/image-file-validator';
 import { ImageStorageService } from '../../storage/image-storage.service';
@@ -163,8 +163,8 @@ export class FoodLibraryService {
       await tx.foodImageTag.createMany({ data: tagIds.map((tagId) => ({ imageId: id, tagId })) });
       return tx.foodImageAsset.update({
         where: { id },
-        data: { name: dto.name.trim(), presentation: dto.presentation as FoodPresentation,
-          sectors: sectors as FoodSector[],
+        data: { name: dto.name.trim(), presentation: dto.presentation,
+          sectors,
           reviewedAt: new Date(), reviewedByAdminId: adminId,
           status: 'DRAFT', publishedAt: null },
         include: INCLUDE,
@@ -194,8 +194,8 @@ export class FoodLibraryService {
       await tx.foodImageAsset.updateMany({
         where: { id: { in: ids } },
         data: {
-          ...(dto.presentation ? { presentation: dto.presentation as FoodPresentation } : {}),
-          ...(dto.sectors ? { sectors: [...new Set(dto.sectors)] as FoodSector[] } : {}),
+          ...(dto.presentation ? { presentation: dto.presentation } : {}),
+          ...(dto.sectors ? { sectors: [...new Set(dto.sectors)] } : {}),
           status: 'DRAFT', reviewedAt: null, reviewedByAdminId: null, publishedAt: null,
         },
       });
