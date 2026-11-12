@@ -32,6 +32,9 @@ import { PutModifierGroupTranslationDto } from './dto/put-modifier-group-transla
 import { PutModifierOptionTranslationDto } from './dto/put-modifier-option-translation.dto';
 import { UpdateModifierGroupDto } from './dto/update-modifier-group.dto';
 import { UpdateModifierOptionDto } from './dto/update-modifier-option.dto';
+import { PutModifierSizeSettingsDto } from './dto/put-modifier-size-settings.dto';
+import { ModifierSizeSettingsService } from './modifier-size-settings.service';
+import type { ModifierSizeSettingsView } from './modifier-size-settings.service';
 import {
   DEFAULT_TRANSLATION_REQUIRED_RESPONSE,
   LOCALE_NOT_ACTIVE_RESPONSE,
@@ -109,7 +112,10 @@ interface ModifierOptionTranslationResponseBody {
  */
 @Controller('restaurants/:restaurantId/products/:productId/modifier-groups')
 export class ModifiersController {
-  constructor(private readonly modifiersService: ModifiersService) {}
+  constructor(
+    private readonly modifiersService: ModifiersService,
+    private readonly sizeSettings: ModifierSizeSettingsService,
+  ) {}
 
   @Get()
   @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
@@ -188,6 +194,37 @@ export class ModifiersController {
       throw new ConflictException(PRESET_ALREADY_APPLIED_RESPONSE);
     }
     return { data: result.data };
+  }
+
+  /** Effective size settings inherit from Product/Presets when no override exists. */
+  @Get(':groupId/size-settings/:variantId')
+  @UseGuards(AuthGuard, RestaurantAccessGuard, PermissionGuard)
+  @RequirePermission(PERMISSIONS.MENU_VIEW)
+  async getModifierSizeSettings(
+    @Param('productId') productId: string,
+    @Param('groupId') groupId: string,
+    @Param('variantId') variantId: string,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: ModifierSizeSettingsView }> {
+    return { data: await this.sizeSettings.get({
+      restaurantId: request.restaurantAccess.restaurantId, productId, groupId, variantId,
+    }) };
+  }
+
+  @Put(':groupId/size-settings/:variantId')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(AuthGuard, CsrfGuard, RestaurantAccessGuard, PermissionGuard, AllBranchesRequiredGuard)
+  @RequirePermission(PERMISSIONS.MENU_MANAGE)
+  async putModifierSizeSettings(
+    @Param('productId') productId: string,
+    @Param('groupId') groupId: string,
+    @Param('variantId') variantId: string,
+    @Body() dto: PutModifierSizeSettingsDto,
+    @Req() request: RestaurantAuthorizedRequest,
+  ): Promise<{ data: ModifierSizeSettingsView }> {
+    return { data: await this.sizeSettings.put({
+      restaurantId: request.restaurantAccess.restaurantId, productId, groupId, variantId,
+    }, dto) };
   }
 
   @Patch(':groupId')
