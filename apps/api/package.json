@@ -34,7 +34,8 @@
     "backfill:restaurant-slugs": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/backfill-restaurant-slugs.ts",
     "dev:attach-demo-images": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/dev-attach-demo-images.ts",
     "dev:set-feature": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/dev-set-feature.ts",
-    "provision:platform-admin": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/provision-platform-admin.ts"
+    "provision:platform-admin": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/provision-platform-admin.ts",
+    "seed:food-tags": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/seed-food-tags.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

@@ -1,6 +1,13 @@
 import { Module } from '@nestjs/common';
 import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
+import { StorageModule } from '../storage/storage.module';
+import { FoodLibraryService } from './food-library/food-library.service';
+import { FoodTagDictionaryService } from './food-library/food-tag-dictionary.service';
+import {
+  PlatformFoodImagesController,
+  PlatformFoodTagsController,
+} from './food-library/food-library.controller';
 import { AiSettingsModule } from '../ai-settings/ai-settings.module';
 import { DemoModule } from '../demo/demo.module';
 import { PlatformAiController } from './platform-ai.controller';
@@ -31,9 +38,17 @@ import { PlatformController } from './platform.controller';
  * opaque-token primitive; Restaurant Staff authentication is never used here.
  */
 @Module({
-  imports: [DatabaseModule, AuthModule, AiSettingsModule, DemoModule],
+  imports: [
+    DatabaseModule,
+    AuthModule,
+    AiSettingsModule,
+    DemoModule,
+    StorageModule,
+  ],
   controllers: [
     PlatformController,
+    PlatformFoodImagesController,
+    PlatformFoodTagsController,
     PlatformAiController,
     PlatformDemoController,
     PlatformBillingController,
@@ -45,6 +60,8 @@ import { PlatformController } from './platform.controller';
     PlatformAuthGuard,
     PlatformCsrfGuard,
     PlatformAuditService,
+    FoodLibraryService,
+    FoodTagDictionaryService,
     PlatformAdminsService,
     PlatformRestaurantsService,
     PlatformRestaurantCreationService,
