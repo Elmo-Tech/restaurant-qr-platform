@@ -35,7 +35,8 @@
     "dev:attach-demo-images": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/dev-attach-demo-images.ts",
     "dev:set-feature": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/dev-set-feature.ts",
     "provision:platform-admin": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/provision-platform-admin.ts",
-    "seed:food-tags": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/seed-food-tags.ts"
+    "seed:food-tags": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/seed-food-tags.ts",
+    "import:food-images": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/import-food-images.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
@@ -55,6 +56,7 @@
     "read-excel-file": "^9.3.12",
     "reflect-metadata": "^0.2.2",
     "rxjs": "^7.8.1",
+    "sharp": "^0.35.5",
     "zod": "^4.5.4"
   },
   "devDependencies": {
