@@ -127,7 +127,7 @@ async function main(): Promise<void> {
         }
 
         const result = await library.upload({
-          originalname: item.id + '.webp',
+          originalname: item.name + '.webp',
           mimetype: 'image/webp',
           size: prepared.buffer.length,
           buffer: prepared.buffer,
