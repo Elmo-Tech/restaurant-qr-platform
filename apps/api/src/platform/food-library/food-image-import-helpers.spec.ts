@@ -5,11 +5,12 @@ import {
   parseFoodImageImportManifest,
   prepareFoodImage,
   validateImageSourceUrl,
+  type FoodImageImportManifest,
 } from './food-image-import-helpers';
 
 const CC0 = 'https://creativecommons.org/publicdomain/zero/1.0/';
 const source = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/example.jpg';
-const base = () => ({
+const base = (): FoodImageImportManifest => ({
   version: 1,
   images: [{
     id: 'pizza-01',
