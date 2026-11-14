@@ -39,7 +39,7 @@ npm run import:food-images --workspace=apps/api -- --manifest docs/01-domain/foo
 npm run import:food-images --workspace=apps/api -- --manifest docs/01-domain/reviewed-food-images.json --apply
 ```
 
-From `apps/api` omit `--workspace=apps/api`. **The manifest path is resolved relative to the current shell directory.** For Docker/Coolify, mount an approved manifest file read-only into the one-shot `migrate/tools` container, and use that **container path**. The manifest is *not* shipped with the Docker image by default. Do not paste a production database connection string into chat or the CLI. Coolify's Docker Compose file is `docker-compose.yaml`, and production image tools should have the shared uploads volume mounted.
+From `apps/api` omit `--workspace=apps/api`. **Relative manifest paths are resolved from the monorepo root** (including when launched through npm workspaces). Absolute paths work for mounted production files. For Docker/Coolify, mount an approved manifest file read-only into the one-shot `migrate/tools` container, and use that **container path**. The manifest is *not* shipped with the Docker image by default. Do not paste a production database connection string into chat or the CLI. Coolify's Docker Compose file is `docker-compose.yaml`, and production image tools should have the shared uploads volume mounted.
 
 ## Guarantees and limitations
 
