@@ -5,12 +5,11 @@ import {
   parseFoodImageImportManifest,
   prepareFoodImage,
   validateImageSourceUrl,
-  type FoodImageImportManifest,
 } from './food-image-import-helpers';
 
 const CC0 = 'https://creativecommons.org/publicdomain/zero/1.0/';
 const source = 'https://upload.wikimedia.org/wikipedia/commons/a/ab/example.jpg';
-const base = (): FoodImageImportManifest => ({
+const base = () => ({
   version: 1,
   images: [{
     id: 'pizza-01',
@@ -19,9 +18,9 @@ const base = (): FoodImageImportManifest => ({
     sourcePageUrl: 'https://commons.wikimedia.org/wiki/File:Example.jpg',
     licenseProofUrl: CC0,
     license: 'CC0',
-    licenseReviewedAt: null,
+    licenseReviewedAt: null as string | null,
     approved: false,
-    expectedSha256: null,
+    expectedSha256: null as string | null,
     tagCodes: ['PIZZA', 'MARGHERITA_PIZZA'],
     sectors: ['RESTAURANT'],
     presentation: 'READY_TO_SERVE',
