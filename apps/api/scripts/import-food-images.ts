@@ -41,7 +41,11 @@ function argumentsFromCommandLine(): { manifest: string; inspect: boolean; apply
         index !== manifestIndex + 1)) {
     throw new Error('Usage: npm run import:food-images -- --manifest <approved.json> [--inspect | --apply]');
   }
-  return { manifest: path.resolve(args[manifestIndex + 1]), inspect, apply };
+  return {
+    manifest: path.resolve(__dirname, '..', '..', '..', args[manifestIndex + 1]),
+    inspect,
+    apply,
+  };
 }
 
 async function main(): Promise<void> {
