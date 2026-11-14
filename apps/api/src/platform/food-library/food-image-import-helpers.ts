@@ -219,7 +219,7 @@ export function parseFoodImageImportManifest(
         sourcePageUrl: requiredString(value, 'sourcePageUrl', 1500),
         licenseProofUrl: requiredString(value, 'licenseProofUrl', 1500),
         license: 'CC0',
-        licenseReviewedAt: licenseReviewedAt as string | null,
+        licenseReviewedAt,
         approved: value.approved,
         expectedSha256,
         tagCodes: value.tagCodes as string[],
