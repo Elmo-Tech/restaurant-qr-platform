@@ -1,0 +1,19 @@
+{
+  "version": 1,
+  "images": [
+    {
+      "id": "pizza-margherita-001",
+      "name": "Margherita Pizza",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/a/ab/REPLACE_WITH_VERIFIED_CC0_PHOTO.jpg",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:REPLACE_WITH_VERIFIED_CC0_PHOTO.jpg",
+      "licenseProofUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "license": "CC0",
+      "licenseReviewedAt": null,
+      "approved": false,
+      "expectedSha256": null,
+      "tagCodes": ["PIZZA", "MARGHERITA_PIZZA"],
+      "sectors": ["RESTAURANT"],
+      "presentation": "READY_TO_SERVE"
+    }
+  ]
+}
