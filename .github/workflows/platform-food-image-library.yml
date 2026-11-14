@@ -51,23 +51,6 @@ jobs:
           node-version: '24'
           cache: npm
       - run: npm ci
-      - name: Temporary formatting export for reviewed importer patch
-        run: |
-          node <<'NODE'
-          const fs = require('fs');
-          const { execFileSync } = require('child_process');
-          const paths = [
-            'apps/api/src/platform/food-library/food-image-import-helpers.ts',
-            'apps/api/src/platform/food-library/food-image-import-helpers.spec.ts',
-            'apps/api/scripts/import-food-images.ts',
-          ];
-          execFileSync('npx', ['prettier', '--write', ...paths], { stdio: 'inherit' });
-          for (const path of paths) {
-            console.log('FORMAT_BEGIN:' + path);
-            console.log(fs.readFileSync(path).toString('base64'));
-            console.log('FORMAT_END:' + path);
-          }
-          NODE
       - run: npm run db:validate
       - run: npm run db:generate
       - name: Apply forward-only migration chain to disposable PostgreSQL 18
