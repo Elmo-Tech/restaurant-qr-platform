@@ -32,6 +32,7 @@ export type PlatformAction =
   | 'platform.demo_link_regenerated'
   | 'platform.demo_removed'
   | 'platform.food_image_uploaded'
+  | 'platform.food_image_imported'
   | 'platform.food_image_reviewed'
   | 'platform.food_images_bulk_updated'
   | 'platform.food_images_published'
