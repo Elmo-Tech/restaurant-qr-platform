@@ -69,11 +69,17 @@ const quote = (overrides: Partial<OrderQuote> = {}): OrderQuote => ({
 });
 
 describe('WhatsApp order message', () => {
-  it('renders a compact, fully priced message without restaurant name or redundant labels', () => {
+  it('renders a compact, fully priced message with the customer and delivery area above the items', () => {
     const message = buildWhatsappMessage(quote());
     expect(message).toBe([
       '*New order*',
-      'Delivery | Branch Zamalek | Area Zone A',
+      'Delivery | Branch Zamalek',
+      '',
+      'Customer: Mona Hassan',
+      'Phone: 01012345678',
+      'Delivery area: Zone A',
+      'Address: 1 Nile St, Building 12, Floor 3, Apartment 8, Landmark Next to the pharmacy',
+      'Order notes: No onions',
       '',
       '*Burgers*',
       '* 2 × *Burger* (Large) = 120 EGP',
@@ -82,10 +88,6 @@ describe('WhatsApp order message', () => {
       '*Drinks*',
       '* 1 × *Cola* = 20 EGP',
       '',
-      'Customer: Mona Hassan',
-      'Phone: 01012345678',
-      'Address: 1 Nile St, Building 12, Floor 3, Apartment 8, Landmark Next to the pharmacy',
-      'Order notes: No onions',
       'Items: 190 EGP',
       'Delivery fee: 25 EGP',
       '*Total: 215 EGP*',
@@ -164,7 +166,10 @@ describe('WhatsApp order message', () => {
       subtotal: '590.00', deliveryFee: '25.00', total: '615.00',
     }));
     expect(message.split('\n')[0]).toBe('\u200F*طلب جديد*');
-    expect(message).toContain('\u200Fتوصيل | فرع وسط البلد | منطقة الدقي');
+    expect(message).toContain('\u200Fتوصيل | فرع وسط البلد\n');
+    expect(message).toContain('\u200Fالمنطقة: الدقي');
+    // the customer block comes before the first category
+    expect(message.indexOf('المنطقة: الدقي')).toBeLessThan(message.indexOf('*الفطير الحلو*'));
     expect(message.indexOf('*الفطير الحلو*')).toBeLessThan(message.indexOf('*البيتزا*'));
     expect(message).toContain(
       '\u200F* 2 × *بيتزا سجق* (كبير) = 320 ج.م\n' +
@@ -186,8 +191,15 @@ describe('WhatsApp order message', () => {
       deliveryFloor: null, deliveryApartment: null, deliveryLandmark: null,
     }));
     expect(message).toBe(
-      '*New order*\nPickup\n\n* 1 × *Burger* = 60 EGP\n*Total: 60 EGP*',
+      '*New order*\nPickup\n\n* 1 × *Burger* = 60 EGP\n\n*Total: 60 EGP*',
     );
+  });
+
+  it('does not label a branch twice when its name already says branch', () => {
+    const ar = buildWhatsappMessage(quote({ defaultLocale: 'ar', branchName: 'فرع التجربة' }));
+    expect(ar.split('\n')[1]).toBe('\u200Fتوصيل | فرع التجربة');
+    const en = buildWhatsappMessage(quote({ branchName: 'Downtown Branch' }));
+    expect(en.split('\n')[1]).toBe('Delivery | Downtown Branch');
   });
 
   it('neutralizes WhatsApp markup and excess whitespace in guest text', () => {
@@ -305,11 +317,12 @@ describe('WhatsApp order message', () => {
       '\u200F*طلب جديد*',
       '\u200Fاستلام | فرع القاهرة',
       '',
+      '\u200Fالعميل: Mona Hassan',
+      '\u200Fالهاتف: 01012345678',
+      '',
       '\u200F*فطير إسكندراني*',
       '\u200F* 1 × *فطير إسكندراني فراخ* (وسط) = 250 ج.م',
       '',
-      '\u200Fالعميل: Mona Hassan',
-      '\u200Fالهاتف: 01012345678',
       '\u200F*الإجمالي: 250 ج.م*',
     ].join('\n'));
     expect(message).not.toContain('التوصيل:');

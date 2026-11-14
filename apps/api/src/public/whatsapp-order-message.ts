@@ -21,7 +21,7 @@ const LABELS: Record<
     delivery: string;
     pickup: string;
     branch: string;
-    area: string;
+    zone: string;
     subtotal: string;
     discount: string;
     deliveryFee: string;
@@ -44,7 +44,7 @@ const LABELS: Record<
     delivery: 'Delivery',
     pickup: 'Pickup',
     branch: 'Branch',
-    area: 'Area',
+    zone: 'Delivery area',
     subtotal: 'Items',
     discount: 'Discount',
     deliveryFee: 'Delivery fee',
@@ -66,7 +66,7 @@ const LABELS: Record<
     delivery: 'توصيل',
     pickup: 'استلام',
     branch: 'فرع',
-    area: 'منطقة',
+    zone: 'المنطقة',
     subtotal: 'الأصناف',
     discount: 'الخصم',
     deliveryFee: 'التوصيل',
@@ -158,13 +158,46 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
 
   const orderType =
     quote.orderType === 'DELIVERY' ? t.delivery : t.pickup;
-  const context = [
-    quote.branchName ? t.branch + ' ' + plain(quote.branchName) : null,
-    quote.orderType === 'DELIVERY' && quote.deliveryZoneName
-      ? t.area + ' ' + plain(quote.deliveryZoneName)
+  // The header carries the Restaurant side only (order type and branch); the
+  // delivery area belongs to the customer and is shown with the address below.
+  // A branch already named "فرع ..." / "... Branch" is not labelled twice.
+  const branchName = quote.branchName ? plain(quote.branchName) : '';
+  const branchLabel = branchName.toLowerCase().includes(t.branch.toLowerCase())
+    ? branchName
+    : t.branch + ' ' + branchName;
+  lines.push(orderType + (branchName ? ' | ' + branchLabel : ''));
+
+  // Customer details come right after the header, before the items, so the
+  // Restaurant sees who and where first.
+  const details: string[] = [];
+  // Keep contact details independently readable on narrow WhatsApp screens.
+  // Each visible Arabic line gets the existing RTL mark below; the signed
+  // Wayta-Ref footer is issued separately and must remain byte-for-byte intact.
+  if (quote.customerName)
+    details.push(t.customer + ': ' + plain(quote.customerName));
+  if (quote.customerPhone)
+    details.push(t.phone + ': ' + plain(quote.customerPhone));
+  if (quote.orderType === 'DELIVERY' && quote.deliveryZoneName)
+    details.push(t.zone + ': ' + plain(quote.deliveryZoneName));
+  const address = [
+    quote.deliveryAddress ? plain(quote.deliveryAddress) : null,
+    quote.deliveryBuilding
+      ? t.building + ' ' + plain(quote.deliveryBuilding)
+      : null,
+    quote.deliveryFloor ? t.floor + ' ' + plain(quote.deliveryFloor) : null,
+    quote.deliveryApartment
+      ? t.apartment + ' ' + plain(quote.deliveryApartment)
+      : null,
+    quote.deliveryLandmark
+      ? t.landmark + ' ' + plain(quote.deliveryLandmark)
       : null,
   ].filter((part): part is string => part !== null);
-  lines.push(orderType + (context.length ? ' | ' + context.join(' | ') : ''));
+  if (address.length) details.push(t.address + ': ' + address.join(separator));
+  // The current quote only contains ORDER-level notes, not item-specific notes.
+  // Do not attribute these notes to an arbitrary product.
+  if (quote.customerNotes)
+    details.push(t.notes + ': ' + plain(quote.customerNotes));
+  if (details.length) lines.push('', ...details);
 
   // Offers are first; product categories remain in menu order to distinguish
   // otherwise identical product names. No icons or lengthy category labels.
@@ -255,34 +288,8 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
     }
   }
 
-  const details: string[] = [];
-  // Keep contact details independently readable on narrow WhatsApp screens.
-  // Each visible Arabic line gets the existing RTL mark below; the signed
-  // Wayta-Ref footer is issued separately and must remain byte-for-byte intact.
-  if (quote.customerName)
-    details.push(t.customer + ': ' + plain(quote.customerName));
-  if (quote.customerPhone)
-    details.push(t.phone + ': ' + plain(quote.customerPhone));
-  const address = [
-    quote.deliveryAddress ? plain(quote.deliveryAddress) : null,
-    quote.deliveryBuilding
-      ? t.building + ' ' + plain(quote.deliveryBuilding)
-      : null,
-    quote.deliveryFloor ? t.floor + ' ' + plain(quote.deliveryFloor) : null,
-    quote.deliveryApartment
-      ? t.apartment + ' ' + plain(quote.deliveryApartment)
-      : null,
-    quote.deliveryLandmark
-      ? t.landmark + ' ' + plain(quote.deliveryLandmark)
-      : null,
-  ].filter((part): part is string => part !== null);
-  if (address.length) details.push(t.address + ': ' + address.join(separator));
-  // The current quote only contains ORDER-level notes, not item-specific notes.
-  // Do not attribute these notes to an arbitrary product.
-  if (quote.customerNotes)
-    details.push(t.notes + ': ' + plain(quote.customerNotes));
-  if (details.length) lines.push('', ...details);
 
+  lines.push('');
   const hasBreakdown =
     quote.deliveryFee !== '0.00' || quote.discountTotal !== '0.00';
   if (hasBreakdown) {

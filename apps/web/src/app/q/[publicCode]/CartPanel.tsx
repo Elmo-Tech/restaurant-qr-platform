@@ -270,28 +270,86 @@ function OrderRecap({
                 <bdi>{group.title}</bdi>
               </h3>
               <ul className="flex flex-col gap-2">
-                {group.lines.map((line) => (
-                  <li key={line.lineKey} className="flex items-baseline justify-between gap-3 text-sm">
-                    <span className="min-w-0 flex-1 break-words text-start leading-5 text-g-text">
-                      <span className="g-num whitespace-nowrap text-g-accent-text">{line.quantity}×</span>{' '}
-                      <bdi>{line.name}</bdi>
-                      {line.variantName ? (
-                        <span className="text-g-text-3"> (<bdi>{line.variantName}</bdi>)</span>
-                      ) : null}
-                    </span>
-                    <DiscountedPrice
-                      original={line.originalLineTotal}
-                      current={line.lineTotal}
-                      discounted={line.discounted}
-                      currency={currency}
-                      copy={copy}
-                      direction="row"
-                      className="g-num shrink-0 text-g-text-2"
-                      currencyClassName="text-[0.7em] font-semibold"
-                      originalClassName="g-num text-[12.5px] text-g-text-3"
-                    />
-                  </li>
-                ))}
+                {group.lines.map((line) => {
+                  // Like the WhatsApp message: the product (or size) price on the item row, and every
+                  // extra on its own row with its own price (times the quantity). Display only.
+                  const quantity = BigInt(line.quantity);
+                  const extrasMinor = line.selections.reduce(
+                    (sum, selection) => sum + toMinorUnits(selection.priceAdjustment),
+                    BigInt(0),
+                  ) * quantity;
+                  const baseCurrent = fromMinorUnits(toMinorUnits(line.lineTotal) - extrasMinor);
+                  const baseOriginal = fromMinorUnits(toMinorUnits(line.originalLineTotal) - extrasMinor);
+                  return (
+                    <li key={line.lineKey} className="flex flex-col gap-1 text-sm">
+                      <div className="flex items-baseline justify-between gap-3">
+                        <span className="min-w-0 flex-1 break-words text-start leading-5 text-g-text">
+                          <span className="g-num whitespace-nowrap text-g-accent-text">{line.quantity}×</span>{' '}
+                          <bdi>{line.name}</bdi>
+                          {line.variantName ? (
+                            <span className="text-g-text-3"> (<bdi>{line.variantName}</bdi>)</span>
+                          ) : null}
+                        </span>
+                        <DiscountedPrice
+                          original={baseOriginal}
+                          current={baseCurrent}
+                          discounted={line.discounted}
+                          currency={currency}
+                          copy={copy}
+                          direction="row"
+                          className="g-num shrink-0 text-g-text-2"
+                          currencyClassName="text-[0.7em] font-semibold"
+                          originalClassName="g-num text-[12.5px] text-g-text-3"
+                        />
+                      </div>
+                      {line.selections.map((selection, index) => {
+                        const extraMinor = toMinorUnits(selection.priceAdjustment) * quantity;
+                        return (
+                          <div
+                            key={`${selection.groupName}-${selection.optionName}-${index}`}
+                            className="flex items-baseline justify-between gap-3 ps-4 text-[12.5px] leading-5 text-g-text-2"
+                          >
+                            <span className="min-w-0 flex-1 break-words text-start">
+                              <span aria-hidden="true" className="text-g-text-3">↳ </span>
+                              {/* the group name once, on its first extra (like the WhatsApp line) */}
+                              {selection.groupName &&
+                              line.selections[index - 1]?.groupName !== selection.groupName ? (
+                                <span className="text-g-text-3"><bdi>{selection.groupName}</bdi>: </span>
+                              ) : null}
+                              <bdi>{selection.optionName}</bdi>
+                              {line.quantity > 1 ? (
+                                <span className="g-num whitespace-nowrap text-g-text-3"> × {line.quantity}</span>
+                              ) : null}
+                            </span>
+                            {extraMinor !== BigInt(0) ? (
+                              <span className="g-num flex shrink-0 items-baseline gap-0.5">
+                                <span aria-hidden="true">{extraMinor > BigInt(0) ? '+' : '-'}</span>
+                                <Price
+                                  amount={fromMinorUnits(extraMinor > BigInt(0) ? extraMinor : -extraMinor)}
+                                  currency={currency}
+                                  className="g-num"
+                                  currencyClassName="text-[0.7em] font-semibold"
+                                />
+                              </span>
+                            ) : null}
+                          </div>
+                        );
+                      })}
+                      {line.offerRows?.map((row) => (
+                        <div
+                          key={row.slotId}
+                          className="ps-4 text-start text-[12.5px] leading-5 text-g-text-2"
+                        >
+                          <span aria-hidden="true" className="text-g-text-3">↳ </span>
+                          <span className={row.included ? 'text-g-accent-text' : 'text-g-text-3'}>
+                            <bdi>{row.title}</bdi>:{' '}
+                          </span>
+                          <bdi>{row.value}</bdi>
+                        </div>
+                      ))}
+                    </li>
+                  );
+                })}
               </ul>
             </section>
           ))}
