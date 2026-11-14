@@ -202,7 +202,7 @@ function publicIp(address: string): boolean {
 
 export async function downloadApprovedPhoto(sourceUrl: string): Promise<Buffer> {
   const url = validateImageSourceUrl(sourceUrl);
-  const resolved = await lookup(url.hostname, { all: true });
+  const resolved = await lookup(url.hostname, { family: 4, all: true });
   if (!resolved.length || resolved.some((entry) => !publicIp(entry.address))) {
     throw new Error('Source DNS is not publicly routable: ' + url.hostname);
   }
