@@ -1,6 +1,6 @@
 # WAYTA — Licensed Food Photo Importer
 
-**Status:** Feature-branch implementation / QA pending. No production import or automatic publication.
+**Status:** Source-integrity/ISO Republic extension under review in feature branch. Production import and publication require explicit separate checks.
 
 ## Purpose and boundaries
 
@@ -14,6 +14,7 @@ Search sources manually (or use a *separate* candidate-discovery tool). Only *co
 
 - **WordPress Photo Directory:** `https://wordpress.org/photos/photo/...` + a direct `https://pd.w.org/...jpg|png|webp` photo URL; rights reference `https://wordpress.org/photos/license/`.
 - **Wikimedia Commons:** an individual `https://commons.wikimedia.org/wiki/File:...` page confirmed CC0, direct `https://upload.wikimedia.org/wikipedia/commons/...jpg|png|webp` file URL, and `https://creativecommons.org/publicdomain/zero/1.0/` as the license reference.
+- **ISO Republic (new):** individual `https://isorepublic.com/photo/<slug>/` page stating CC0, a **direct** `https://isorepublic.com/wp-content/uploads/YYYY/MM/<filename>.jpg|png|webp` file URL, and exactly `https://isorepublic.com/license/` as the license reference. The importer rejects arbitrary WordPress endpoints, query-string download proxies, redirects and different hostnames. Use only genuine photos from individual licensed pages; site-wide branding does not substitute per-photo visual and rights review.
 
 **Neither host, Openverse search metadata, nor a manifest `license: "CC0"` proves the photo actually has CC0 rights.** A human must verify each individual file page, author, license statement, source consistency, any depicted brands/people restrictions, and premium image suitability before `approved: true`. Never confuse Creative Commons generic deed link with evidence for a particular photo. Retain page URL and verification date for audit. Wikimedia may contain photos under *other* licenses, so check each page individually.
 
