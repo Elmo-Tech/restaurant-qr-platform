@@ -1,0 +1,26 @@
+name: Premium Food Photo Reference Intake QA
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/01-domain/food-image-pexels-reference-intake-b01.json'
+      - 'docs/01-domain/FOOD_IMAGE_PREMIUM_PEXELS_INTAKE_B01.md'
+      - 'scripts/check-food-image-reference-intake.mjs'
+      - '.github/workflows/food-image-premium-intake-qa.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  rights-gate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify 8 external reference photos remain non-importable
+        run: node scripts/check-food-image-reference-intake.mjs
