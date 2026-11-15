@@ -10,6 +10,8 @@ on:
       - 'apps/api/scripts/import-food-images.ts'
       - 'docs/01-domain/FOOD_IMAGE_IMPORTER_RUNBOOK.md'
       - 'docs/01-domain/food-image-import.example.json'
+      - 'docs/01-domain/food-image-isorepublic-latte-pilot-UNAPPROVED.json'
+      - 'docs/01-domain/FOOD_IMAGE_ISOREPUBLIC_PREMIUM_PILOT.md'
       - 'apps/platform/**'
       - 'docs/01-domain/PLATFORM_FOOD_IMAGE_LIBRARY_SPEC.md'
       - 'apps/api/package.json'
@@ -108,6 +110,8 @@ jobs:
         run: npm exec --workspace=apps/api -- jest --runInBand food-tag-matcher.spec.ts food-library.service.spec.ts food-tag-dictionary.service.spec.ts
       - name: Validate Food Image Importer offline DRY RUN
         run: npm run import:food-images --workspace=apps/api -- --manifest docs/01-domain/food-image-import.example.json
+      - name: ISO Republic Latte pilot manifest offline DRY RUN (unapproved)
+        run: npm run import:food-images --workspace=apps/api -- --manifest docs/01-domain/food-image-isorepublic-latte-pilot-UNAPPROVED.json
       - name: Unit tests for licensed import validation and optimization
         run: npm exec --workspace=apps/api -- jest --runInBand food-image-import-helpers.spec.ts
       - name: Backend TypeScript
