@@ -5,7 +5,11 @@ import { isIP } from 'node:net';
 import sharp from 'sharp';
 import { MAX_IMAGE_BYTES } from '../../storage/image-storage.service';
 
-const IMAGE_HOSTS = new Set(['pd.w.org', 'upload.wikimedia.org', 'isorepublic.com']);
+const IMAGE_HOSTS = new Set([
+  'pd.w.org',
+  'upload.wikimedia.org',
+  'isorepublic.com',
+]);
 const SECTORS = new Set([
   'RESTAURANT',
   'CAFE',
@@ -83,7 +87,9 @@ export function validateImageSourceUrl(value: string): URL {
     (url.hostname === 'upload.wikimedia.org' &&
       !url.pathname.startsWith('/wikipedia/commons/')) ||
     (url.hostname === 'isorepublic.com' &&
-      (!/^\/wp-content\/uploads\/\d{4}\/\d{2}\/[a-zA-Z0-9_-]+\.(jpe?g|png|webp)$/i.test(url.pathname) ||
+      (!/^\/wp-content\/uploads\/\d{4}\/\d{2}\/[a-zA-Z0-9_-]+\.(jpe?g|png|webp)$/i.test(
+          url.pathname,
+        ) ||
         url.search !== ''))
   ) {
     throw new Error('Source must be a direct supported photo file: ' + value);
@@ -113,10 +119,14 @@ function validateRights(item: FoodImageImportItem): void {
     if (
       !/^\/photo\/[a-z0-9-]+\/$/.test(page.pathname) ||
       page.search !== '' ||
-      !item.sourceUrl.startsWith('https://isorepublic.com/wp-content/uploads/') ||
+      !item.sourceUrl.startsWith(
+        'https://isorepublic.com/wp-content/uploads/',
+      ) ||
       proof.href !== 'https://isorepublic.com/license/'
     )
-      throw new Error('ISO Republic source and CC0 evidence do not match: ' + item.id);
+      throw new Error(
+        'ISO Republic source and CC0 evidence do not match: ' + item.id,
+      );
   } else {
     if (
       !page.pathname.startsWith('/wiki/File:') ||
