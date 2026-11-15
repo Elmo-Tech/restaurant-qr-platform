@@ -49,6 +49,44 @@ describe('food image batch import input safety', () => {
     }
   });
 
+
+  it('allows ISO Republic CC0 originals only with matching rights evidence', () => {
+    const photo =
+      'https://isorepublic.com/wp-content/uploads/2020/12/iso-republic-coffee-art-latte-brown.jpg';
+    expect(validateImageSourceUrl(photo).hostname).toBe('isorepublic.com');
+    const sample = base();
+    sample.images[0].sourceUrl = photo;
+    sample.images[0].sourcePageUrl =
+      'https://isorepublic.com/photo/barista-latte-art/';
+    sample.images[0].licenseProofUrl = 'https://isorepublic.com/license/';
+    sample.images[0].tagCodes = ['COFFEE'];
+    sample.images[0].sectors = ['CAFE'];
+    expect(() => parseFoodImageImportManifest(sample)).not.toThrow();
+
+    for (const url of [
+      'https://www.isorepublic.com/wp-content/uploads/2020/12/image.jpg',
+      'https://isorepublic.com/wp-json/wp/v2/users.json',
+      'https://isorepublic.com/wp-content/uploads/image.jpg',
+      'https://isorepublic.com/wp-content/uploads/2020/12/../../secret.jpg',
+      'https://isorepublic.com/wp-content/uploads/2020/12/photo.svg',
+      'https://isorepublic.com/wp-content/uploads/2020/12/photo.jpg?token=abc',
+      'https://isorepublic.com/wp-content/uploads/2020/12/photo.jpg#frag',
+    ]) {
+      expect(() => validateImageSourceUrl(url)).toThrow();
+    }
+    const badProof = base();
+    badProof.images[0] = { ...sample.images[0], licenseProofUrl: CC0 };
+    expect(() => parseFoodImageImportManifest(badProof)).toThrow(
+      'ISO Republic source and CC0 evidence do not match',
+    );
+    const badPage = base();
+    badPage.images[0] = {
+      ...sample.images[0],
+      sourcePageUrl: 'https://isorepublic.com/blog/random-post/',
+    };
+    expect(() => parseFoodImageImportManifest(badPage)).toThrow();
+  });
+
   it('does not accept approval without a checked license date and pinned source hash', () => {
     const manifest = parseFoodImageImportManifest(base());
     expect(() => assertApprovedForImport(manifest)).toThrow(
