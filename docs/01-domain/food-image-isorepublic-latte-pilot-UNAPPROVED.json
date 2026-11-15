@@ -1,0 +1,23 @@
+{
+  "version": 1,
+  "images": [
+    {
+      "id": "isorepublic-latte-art-kristin-2020",
+      "name": "Latte Art Coffee",
+      "sourceUrl": "https://isorepublic.com/wp-content/uploads/2020/12/iso-republic-coffee-art-latte-brown.jpg",
+      "sourcePageUrl": "https://isorepublic.com/photo/barista-latte-art/",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "license": "CC0",
+      "licenseReviewedAt": null,
+      "approved": false,
+      "expectedSha256": "d6cf08f5831a53f459dc7db7717cf58aa3354fa101bbd4d8cf1407cae26570a4",
+      "tagCodes": [
+        "COFFEE"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE"
+    }
+  ]
+}
