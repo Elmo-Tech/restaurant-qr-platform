@@ -4,7 +4,6 @@
 No WAYTA database access, no auto-approval. Individual CC0 rights still need
 independent checks; this script does not validate authorship or image relevance.
 """
-import base64
 import hashlib
 import io
 import json
@@ -130,11 +129,11 @@ def main():
         json.dumps(report, indent=2, ensure_ascii=False) + "\n", "utf8")
     print("WAYTA_SUMMARY", json.dumps({"previewed": len(manifest["images"]),
           "failed": len(images) - len(manifest["images"])}), flush=True)
-    print("WAYTA_MANIFEST_JSON", json.dumps(manifest, separators=(",", ":")), flush=True)
-    print("WAYTA_CONTACT_SHEET_JPEG_BASE64",
-          base64.b64encode((output / "contact-sheet.jpg").read_bytes()).decode(), flush=True)
-    if len(manifest["images"]) != len(images):
-        sys.exit(2)
+    if len(manifest["images"]) < 10:
+        raise RuntimeError("Fewer than 10 previews from 20 candidates; source batch needs replacement")
+    if len(manifest["images"]) < len(images):
+        print("REVIEW PARTIAL: failed photo IDs are logged in review-report.json; "
+              "they are excluded from the import manifest.", flush=True)
 
 
 if __name__ == "__main__":
