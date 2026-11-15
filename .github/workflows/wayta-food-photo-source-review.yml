@@ -1,0 +1,38 @@
+name: WAYTA Food Photo Source Review (No Production Writes)
+
+on:
+  pull_request:
+    branches: [main]
+    paths:
+      - 'docs/01-domain/food-image-candidates-batch-01.json'
+      - 'scripts/food-photo-source-review.py'
+      - '.github/workflows/wayta-food-photo-source-review.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  source-review:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install photo preview tools
+        run: python -m pip install --disable-pip-version-check pillow requests
+      - name: Retrieve shortlisted CC0 sources and build review contact sheet
+        run: |
+          python scripts/food-photo-source-review.py \
+            docs/01-domain/food-image-candidates-batch-01.json \
+            food-photo-review-batch-01
+      - name: Archive review bundle (no auto-approval)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wayta-cc0-food-photos-review-batch-01
+          path: food-photo-review-batch-01/
+          retention-days: 14
+          if-no-files-found: warn
