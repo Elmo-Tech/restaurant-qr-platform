@@ -1,7 +1,7 @@
 # WAYTA — CC0 Food Photography: Visual Screening Report (Batch 01 + Batch 02)
 
 **Date:** 2026-11-15
-**Status:** **Review candidates only**. No licensed photo final approval, no Production import, no review/publish on platform.
+**Status:** **REJECTED — 0 premium-grade photos approved**. The 8-photo visual shortlist was subsequently rejected by the strict advertising-quality gate in `FOOD_IMAGE_PREMIUM_PHOTOGRAPHY_GATE.md`. No Production import, no review/publish on platform.
 
 ## Results
 
@@ -10,7 +10,7 @@
 - 8 files were rejected as unsupported image encodings. They were **not** included in importer manifests.
 - After manual visual examination of both 20-photo contact sheets, **8 source images** were retained as the strongest *candidates*. This is a quality shortlist, not a claim that all 8 meet a premium commercial photography bar.
 - The remaining 24 visually examined previews were not selected: product obscured, distracting restaurant backgrounds, amateur framing, weak lighting, or uncertain dish identification.
-- A SHA-256-pinned, but **unapproved** manifest lives in `docs/01-domain/food-image-shortlist-review-manifest.json`. Every entry retains `approved: false` and `licenseReviewedAt: null`. It **cannot** be imported with `--apply`.
+- The provisional SHA-256-pinned import manifest was **deleted** after all 8 failed the mandatory ≥9/10 photography gate. The source candidate lists remain solely as research evidence. Do not reconstruct or import rejected photos.
 
 ## Candidates selected for owner/Platform Admin visual review
 
