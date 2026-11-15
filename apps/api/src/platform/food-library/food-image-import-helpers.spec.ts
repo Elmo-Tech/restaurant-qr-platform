@@ -49,7 +49,6 @@ describe('food image batch import input safety', () => {
     }
   });
 
-
   it('allows ISO Republic CC0 originals only with matching rights evidence', () => {
     const photo =
       'https://isorepublic.com/wp-content/uploads/2020/12/iso-republic-coffee-art-latte-brown.jpg';
