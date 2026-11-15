@@ -1,0 +1,157 @@
+{
+  "version": 1,
+  "images": [
+    {
+      "id": "picanha-cutting-board",
+      "name": "Sliced picanha beef steak",
+      "sourceUrl": "https://pd.w.org/2024/04/979662e91a056d891.29853817-rotated.jpeg",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/979662e91a/",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "license": "CC0",
+      "licenseReviewedAt": null,
+      "approved": false,
+      "expectedSha256": "2454940959df95122f1a2895141414989415f36d44b98914dc13c2ebe498c173",
+      "tagCodes": [
+        "STEAK",
+        "BEEF"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE"
+    },
+    {
+      "id": "grilled-beef-steak-slate",
+      "name": "Grilled beef steak on slate",
+      "sourceUrl": "https://pd.w.org/2026/10/2336ac62a64ac0186.54993519.jpg",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/2336ac62a6/",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "license": "CC0",
+      "licenseReviewedAt": null,
+      "approved": false,
+      "expectedSha256": "a78d176677239e6560682b7557cb445182c326272140b2175a1dd855af9d5ddd",
+      "tagCodes": [
+        "STEAK",
+        "BEEF"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE"
+    },
+    {
+      "id": "grilled-steak-herbs",
+      "name": "Grilled beef steak with herbs",
+      "sourceUrl": "https://pd.w.org/2026/11/8626af0e805041c47.08859315.jpg",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/8626af0e80/",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "license": "CC0",
+      "licenseReviewedAt": null,
+      "approved": false,
+      "expectedSha256": "5a629bd83da9d266b8c19098273760da921d30f5e5dd54b33bed78b6aea49b8a",
+      "tagCodes": [
+        "STEAK",
+        "BEEF"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE"
+    },
+    {
+      "id": "spaghetti-carbonara",
+      "name": "Spaghetti carbonara",
+      "sourceUrl": "https://pd.w.org/2025/01/480677d1272174f53.55239039.jpg",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/480677d127/",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "license": "CC0",
+      "licenseReviewedAt": null,
+      "approved": false,
+      "expectedSha256": "306c0ba4239149af56be2128a44ec6bfda4b0f741cca78065cd929a6d8e1cd01",
+      "tagCodes": [
+        "PASTA",
+        "SPAGHETTI"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE"
+    },
+    {
+      "id": "heart-latte-white-cup",
+      "name": "Heart latte in white cup",
+      "sourceUrl": "https://pd.w.org/2026/04/91669d92591ad7d26.60709726.jpg",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/91669d9259/",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "license": "CC0",
+      "licenseReviewedAt": null,
+      "approved": false,
+      "expectedSha256": "5773f18e832db0836579c1974ac65dd5e48c827db6228c895b3798960522bf28",
+      "tagCodes": [
+        "LATTE",
+        "COFFEE"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE"
+    },
+    {
+      "id": "heart-latte-glass",
+      "name": "Heart latte in glass",
+      "sourceUrl": "https://pd.w.org/2026/05/81269f89dfeacca36.30008339.jpg",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/81269f89df/",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "license": "CC0",
+      "licenseReviewedAt": null,
+      "approved": false,
+      "expectedSha256": "767b0ac69f8478ec1c1ee808f37bd5968984794fcb23465191ace54594642130",
+      "tagCodes": [
+        "LATTE",
+        "COFFEE"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE"
+    },
+    {
+      "id": "tiramisu-classic-tray",
+      "name": "Classic tiramisu",
+      "sourceUrl": "https://pd.w.org/2022/09/514632a8d03222554.67030706.jpg",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/514632a8d0/",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "license": "CC0",
+      "licenseReviewedAt": null,
+      "approved": false,
+      "expectedSha256": "aca594fc9cdbf3e9d05d1d60d0f3946516ed1aa0b0af5f579ee0d5c1355df463",
+      "tagCodes": [
+        "TIRAMISU"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE"
+    },
+    {
+      "id": "layered-chocolate-cake",
+      "name": "Layered chocolate cake",
+      "sourceUrl": "https://pd.w.org/2026/04/74669d77e90a86de5.76641907.jpg",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/74669d77e9/",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "license": "CC0",
+      "licenseReviewedAt": null,
+      "approved": false,
+      "expectedSha256": "5ce3ed5dd940850fd7f32c892a91e363456e2cc2681b3e1915540cec19a94922",
+      "tagCodes": [
+        "CHOCOLATE_CAKE"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE"
+    }
+  ]
+}
