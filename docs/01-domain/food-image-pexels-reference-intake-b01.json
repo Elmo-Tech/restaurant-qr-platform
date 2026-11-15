@@ -1,0 +1,235 @@
+{
+  "schemaVersion": 1,
+  "batchId": "wayta-premium-pexels-reference-b01",
+  "createdAt": "2026-11-15",
+  "purpose": "External photography references and rights intake; NOT a Food Image Importer manifest",
+  "status": "RIGHTS_REVIEW_REQUIRED",
+  "notImportable": true,
+  "licensePolicy": "Do not store, redistribute, ingest, publish, or offer these files in WAYTA's shared tenant image library without separately confirmed rights for the specific use, or verified individual CC0 rights.",
+  "ownerPhotoStyleStandard": "Premium product-only advertising photography; no people or hands; sharp food focus, controlled lighting, restrained props, high-end 1:1 and 4:5 crops; all six quality dimensions must score >=9/10.",
+  "qualityApproval": "PENDING_ORIGINAL_IMAGE_REVIEW",
+  "entries": [
+    {
+      "pexelsId": "12034622",
+      "name": "Gourmet Cheeseburger — Dark Studio",
+      "credit": "Israel Albornoz",
+      "sourcePageUrl": "https://www.pexels.com/photo/close-up-of-a-hamburger-on-black-background-12034622/",
+      "tagCodesProposed": [
+        "BURGER",
+        "CHEESEBURGER"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualScore": {
+        "lighting": null,
+        "foodStyling": null,
+        "composition": null,
+        "background": null,
+        "advertisingSuitability": null,
+        "productAccuracy": null
+      },
+      "visualApproval": "PENDING_ORIGINAL_REVIEW",
+      "licenseLabel": "PEXELS_LICENSE_OR_CC0_UNCONFIRMED_PER_PHOTO",
+      "individualCC0Confirmed": false,
+      "sharedLibraryDistributionApproved": false,
+      "sourceHashSha256": null,
+      "importStatus": "BLOCKED_RIGHTS"
+    },
+    {
+      "pexelsId": "19247581",
+      "name": "Premium Cheeseburger",
+      "credit": "Jonathan Borba",
+      "sourcePageUrl": "https://www.pexels.com/photo/close-up-of-a-burger-with-cheese-and-vegetables-19247581/",
+      "tagCodesProposed": [
+        "BURGER",
+        "CHEESEBURGER"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualScore": {
+        "lighting": null,
+        "foodStyling": null,
+        "composition": null,
+        "background": null,
+        "advertisingSuitability": null,
+        "productAccuracy": null
+      },
+      "visualApproval": "PENDING_ORIGINAL_REVIEW",
+      "licenseLabel": "PEXELS_LICENSE_OR_CC0_UNCONFIRMED_PER_PHOTO",
+      "individualCC0Confirmed": false,
+      "sharedLibraryDistributionApproved": false,
+      "sourceHashSha256": null,
+      "importStatus": "BLOCKED_RIGHTS"
+    },
+    {
+      "pexelsId": "8753745",
+      "name": "Grilled Ribeye Steak",
+      "credit": "Team Picsfast",
+      "sourcePageUrl": "https://www.pexels.com/photo/grilled-steak-on-a-ceramic-plate-8753745/",
+      "tagCodesProposed": [
+        "STEAK",
+        "BEEF"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualScore": {
+        "lighting": null,
+        "foodStyling": null,
+        "composition": null,
+        "background": null,
+        "advertisingSuitability": null,
+        "productAccuracy": null
+      },
+      "visualApproval": "PENDING_ORIGINAL_REVIEW",
+      "licenseLabel": "PEXELS_LICENSE_OR_CC0_UNCONFIRMED_PER_PHOTO",
+      "individualCC0Confirmed": false,
+      "sharedLibraryDistributionApproved": false,
+      "sourceHashSha256": null,
+      "importStatus": "BLOCKED_RIGHTS"
+    },
+    {
+      "pexelsId": "35759994",
+      "name": "Margherita Pizza",
+      "credit": "Willians Huerta",
+      "sourcePageUrl": "https://www.pexels.com/photo/close-up-of-margherita-pizza-with-fresh-basil-35759994/",
+      "tagCodesProposed": [
+        "PIZZA",
+        "MARGHERITA_PIZZA"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualScore": {
+        "lighting": null,
+        "foodStyling": null,
+        "composition": null,
+        "background": null,
+        "advertisingSuitability": null,
+        "productAccuracy": null
+      },
+      "visualApproval": "PENDING_ORIGINAL_REVIEW",
+      "licenseLabel": "PEXELS_LICENSE_OR_CC0_UNCONFIRMED_PER_PHOTO",
+      "individualCC0Confirmed": false,
+      "sharedLibraryDistributionApproved": false,
+      "sourceHashSha256": null,
+      "importStatus": "BLOCKED_RIGHTS"
+    },
+    {
+      "pexelsId": "5211210",
+      "name": "Penne Pasta with Tomato Sauce",
+      "credit": "Jiferson Mondragon",
+      "sourcePageUrl": "https://www.pexels.com/photo/penne-pasta-dish-in-black-plate-5211210/",
+      "tagCodesProposed": [
+        "PASTA",
+        "PENNE"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualScore": {
+        "lighting": null,
+        "foodStyling": null,
+        "composition": null,
+        "background": null,
+        "advertisingSuitability": null,
+        "productAccuracy": null
+      },
+      "visualApproval": "PENDING_ORIGINAL_REVIEW",
+      "licenseLabel": "PEXELS_LICENSE_OR_CC0_UNCONFIRMED_PER_PHOTO",
+      "individualCC0Confirmed": false,
+      "sharedLibraryDistributionApproved": false,
+      "sourceHashSha256": null,
+      "importStatus": "BLOCKED_RIGHTS"
+    },
+    {
+      "pexelsId": "312418",
+      "name": "Coffee with Latte Art",
+      "credit": "Chevanon Photography",
+      "sourcePageUrl": "https://www.pexels.com/photo/close-up-of-coffee-cup-on-table-312418/",
+      "tagCodesProposed": [
+        "COFFEE"
+      ],
+      "sectorsProposed": [
+        "CAFE"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "classificationNote": "Do not assert CAPPUCCINO or LATTE from foam art alone.",
+      "visualScore": {
+        "lighting": null,
+        "foodStyling": null,
+        "composition": null,
+        "background": null,
+        "advertisingSuitability": null,
+        "productAccuracy": null
+      },
+      "visualApproval": "PENDING_ORIGINAL_REVIEW",
+      "licenseLabel": "PEXELS_LICENSE_OR_CC0_UNCONFIRMED_PER_PHOTO",
+      "individualCC0Confirmed": false,
+      "sharedLibraryDistributionApproved": false,
+      "sourceHashSha256": null,
+      "importStatus": "BLOCKED_RIGHTS"
+    },
+    {
+      "pexelsId": "34073605",
+      "name": "Chocolate Layer Cake",
+      "credit": "Anhelina Vasylyk",
+      "sourcePageUrl": "https://www.pexels.com/photo/close-up-of-a-chocolate-layer-cake-slice-34073605/",
+      "tagCodesProposed": [
+        "CHOCOLATE_CAKE"
+      ],
+      "sectorsProposed": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualScore": {
+        "lighting": null,
+        "foodStyling": null,
+        "composition": null,
+        "background": null,
+        "advertisingSuitability": null,
+        "productAccuracy": null
+      },
+      "visualApproval": "PENDING_ORIGINAL_REVIEW",
+      "licenseLabel": "PEXELS_LICENSE_OR_CC0_UNCONFIRMED_PER_PHOTO",
+      "individualCC0Confirmed": false,
+      "sharedLibraryDistributionApproved": false,
+      "sourceHashSha256": null,
+      "importStatus": "BLOCKED_RIGHTS"
+    },
+    {
+      "pexelsId": "8493274",
+      "name": "Berry Cocktail Splash — Dark Studio",
+      "credit": "Vilnis Husko",
+      "sourcePageUrl": "https://www.pexels.com/photo/glass-with-cocktail-on-black-background-8493274/",
+      "tagCodesProposed": [],
+      "sectorsProposed": [
+        "CAFE"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "classificationNote": "Alcohol-free content NOT verified. Do not use as a mocktail/non-alcoholic menu image or assign a drink-specific tag.",
+      "visualScore": {
+        "lighting": null,
+        "foodStyling": null,
+        "composition": null,
+        "background": null,
+        "advertisingSuitability": null,
+        "productAccuracy": null
+      },
+      "visualApproval": "PENDING_ORIGINAL_REVIEW",
+      "licenseLabel": "PEXELS_LICENSE_OR_CC0_UNCONFIRMED_PER_PHOTO",
+      "individualCC0Confirmed": false,
+      "sharedLibraryDistributionApproved": false,
+      "sourceHashSha256": null,
+      "importStatus": "BLOCKED_RIGHTS"
+    }
+  ]
+}
