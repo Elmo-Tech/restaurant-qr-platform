@@ -5,6 +5,7 @@ on:
     branches: [main]
     paths:
       - 'docs/01-domain/food-image-candidates-batch-01.json'
+      - 'docs/01-domain/food-image-candidates-batch-02.json'
       - 'scripts/food-photo-source-review.py'
       - '.github/workflows/wayta-food-photo-source-review.yml'
   workflow_dispatch:
@@ -26,13 +27,13 @@ jobs:
       - name: Retrieve shortlisted CC0 sources and build review contact sheet
         run: |
           python scripts/food-photo-source-review.py \
-            docs/01-domain/food-image-candidates-batch-01.json \
-            food-photo-review-batch-01
+            docs/01-domain/food-image-candidates-batch-02.json \
+            food-photo-review-batch-02
       - name: Archive review bundle (no auto-approval)
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: wayta-cc0-food-photos-review-batch-01
-          path: food-photo-review-batch-01/
+          name: wayta-cc0-food-photos-review-batch-02
+          path: food-photo-review-batch-02/
           retention-days: 14
           if-no-files-found: warn
