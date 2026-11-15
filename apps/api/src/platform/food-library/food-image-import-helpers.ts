@@ -88,8 +88,8 @@ export function validateImageSourceUrl(value: string): URL {
       !url.pathname.startsWith('/wikipedia/commons/')) ||
     (url.hostname === 'isorepublic.com' &&
       (!/^\/wp-content\/uploads\/\d{4}\/\d{2}\/[a-zA-Z0-9_-]+\.(jpe?g|png|webp)$/i.test(
-          url.pathname,
-        ) ||
+        url.pathname,
+      ) ||
         url.search !== ''))
   ) {
     throw new Error('Source must be a direct supported photo file: ' + value);
