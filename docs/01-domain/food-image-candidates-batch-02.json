@@ -1,0 +1,402 @@
+{
+  "batchId": "wayta-cc0-food-photos-2026-11-b02",
+  "version": 1,
+  "discoveredAt": "2026-11-15",
+  "status": "CANDIDATES_NOT_APPROVED",
+  "sourcePolicy": "WordPress Photo Directory CC0 claims; individual verification of source/license, image content and visual quality needed",
+  "images": [
+    {
+      "id": "tiramisu-slice-on-plate",
+      "name": "Tiramisu slice",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/27569f2114/",
+      "wpPhotoId": "27569f2114",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "TIRAMISU"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Single plated tiramisu slice"
+    },
+    {
+      "id": "tiramisu-classic-tray",
+      "name": "Classic tiramisu",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/514632a8d0/",
+      "wpPhotoId": "514632a8d0",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "TIRAMISU"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Check finish and framing"
+    },
+    {
+      "id": "tiramisu-restaurant-serving",
+      "name": "Tiramisu plated dessert",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/9176a28f64/",
+      "wpPhotoId": "9176a28f64",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "TIRAMISU"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Plated slice for visual QA"
+    },
+    {
+      "id": "matcha-tiramisu",
+      "name": "Matcha tiramisu",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/93269d7ef4/",
+      "wpPhotoId": "93269d7ef4",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "TIRAMISU"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Non-classic green dessert; keep distinct presentation"
+    },
+    {
+      "id": "tiramisu-dark-plate",
+      "name": "Tiramisu dark plate",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/136ac0a5c8/",
+      "wpPhotoId": "136ac0a5c8",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "TIRAMISU"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Check color, isolation and presentation"
+    },
+    {
+      "id": "chocolate-cake-plated",
+      "name": "Chocolate cake slice",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/68269c69b8/",
+      "wpPhotoId": "68269c69b8",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "CHOCOLATE_CAKE"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Dark chocolate slice, review clarity"
+    },
+    {
+      "id": "coffee-and-croissant",
+      "name": "Coffee and croissant",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/28068b0a11/",
+      "wpPhotoId": "28068b0a11",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "COFFEE"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Two products visible, may fail product-card criteria"
+    },
+    {
+      "id": "heart-latte-dark-saucer",
+      "name": "Heart latte dark saucer",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/8906a10393/",
+      "wpPhotoId": "8906a10393",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "LATTE",
+        "COFFEE"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Overhead latte-art composition"
+    },
+    {
+      "id": "heart-latte-white-cup",
+      "name": "Heart latte in white cup",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/91669d9259/",
+      "wpPhotoId": "91669d9259",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "LATTE",
+        "COFFEE"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Inspect cup and background"
+    },
+    {
+      "id": "heart-latte-glass",
+      "name": "Heart latte in glass",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/81269f89df/",
+      "wpPhotoId": "81269f89df",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "LATTE",
+        "COFFEE"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Transparent cup, clean framing"
+    },
+    {
+      "id": "virgin-mojito-lime",
+      "name": "Virgin mojito with mint and lime",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/309651c2cf/",
+      "wpPhotoId": "309651c2cf",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "VIRGIN_MOJITO"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Verify nonalcoholic evidence; otherwise remove tag"
+    },
+    {
+      "id": "iced-coffee-beverage",
+      "name": "Iced coffee drink",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/56960642e0/",
+      "wpPhotoId": "56960642e0",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "ICED_COFFEE"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Single drink intended"
+    },
+    {
+      "id": "picanha-cutting-board",
+      "name": "Sliced picanha beef steak",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/979662e91a/",
+      "wpPhotoId": "979662e91a",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "STEAK",
+        "BEEF"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Steak on board, hand visible"
+    },
+    {
+      "id": "grilled-steak-herbs",
+      "name": "Grilled beef steak with herbs",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/8626af0e80/",
+      "wpPhotoId": "8626af0e80",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "STEAK",
+        "BEEF"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Check meat readiness and background"
+    },
+    {
+      "id": "beef-steak-with-eggs",
+      "name": "Beef steak and eggs",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/5746ad2194/",
+      "wpPhotoId": "5746ad2194",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "STEAK",
+        "BEEF"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Mixed main and egg, may fail product-card criteria"
+    },
+    {
+      "id": "burger-with-chips-hero",
+      "name": "Burger and chips",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/6926aaa451/",
+      "wpPhotoId": "6926aaa451",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "BURGER"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Check burger frontal composition"
+    },
+    {
+      "id": "burger-single-plate",
+      "name": "Single burger",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/3446374e66/",
+      "wpPhotoId": "3446374e66",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "BURGER"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Check cropping and plating"
+    },
+    {
+      "id": "burger-with-fries-knife",
+      "name": "Burger with fries",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/4776a0753a/",
+      "wpPhotoId": "4776a0753a",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "BURGER"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Knife and fries composition"
+    },
+    {
+      "id": "pizza-meat-toppings",
+      "name": "Pizza with meat toppings",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/529698bf22/",
+      "wpPhotoId": "529698bf22",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "PIZZA"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Check toppings and pizza visibility"
+    },
+    {
+      "id": "pizza-chicken-filling",
+      "name": "Chicken pizza",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/869662cc72/",
+      "wpPhotoId": "869662cc72",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "PIZZA",
+        "CHICKEN"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Chicken identification may need human correction"
+    }
+  ]
+}
