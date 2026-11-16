@@ -340,8 +340,11 @@ export async function downloadApprovedPhoto(
         lookup: (_host, options, callback) => {
           // Node 24 can ask for all addresses. Return ONLY the DNS-checked pinned
           // IPv4 in the required callback shape; do not resolve DNS a second time.
-          if (options.all) callback(null, [{ address: ip.address, family: ip.family }]);
-          else callback(null, ip.address, ip.family);
+          if (options.all) {
+            callback(null, [{ address: ip.address, family: ip.family }]);
+          } else {
+            callback(null, ip.address, ip.family);
+          }
         },
       },
       (res) => {
