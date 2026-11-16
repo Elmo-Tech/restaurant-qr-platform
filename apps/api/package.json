@@ -37,7 +37,8 @@
     "provision:platform-admin": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/provision-platform-admin.ts",
     "seed:food-tags": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/seed-food-tags.ts",
     "import:food-images": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/import-food-images.ts",
-    "import:reviewed-local-food-images": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/import-reviewed-local-food-images.ts"
+    "import:reviewed-local-food-images": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/import-reviewed-local-food-images.ts",
+    "prepare:owner-food-images": "node -r ts-node/register -r ./scripts/nodenext-require-shim.js scripts/prepare-owner-approved-food-images.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",
