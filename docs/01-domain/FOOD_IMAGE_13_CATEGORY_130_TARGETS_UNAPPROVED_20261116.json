@@ -1,0 +1,324 @@
+{
+  "kind": "WAYTA_13_CATEGORIES_130_TARGET_NOT_IMPORT_MANIFEST",
+  "date": "2026-11-16",
+  "mainSha": "280b2c182f2d838823970233296e8439cc549178",
+  "totalTarget": 130,
+  "localReviewPhotos": 13,
+  "approvedPhotos": 0,
+  "remainingToSource": 117,
+  "productionImports": 0,
+  "licensePolicy": "Pexels License cannot be recorded as CC0; shared-tenant/stock-gallery use unapproved",
+  "sourceImageStatus": "Unapproved existing local Pexels examples, not 13 new licensed photos",
+  "folders": [
+    {
+      "folder": "01_BURGERS",
+      "ar": "برجر",
+      "tags": [
+        "BURGER",
+        "CHEESEBURGER"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 2,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 8,
+      "localSourceIds": [
+        {
+          "id": 34407507,
+          "tagCode": "BURGER",
+          "sourcePageUrl": "https://www.pexels.com/photo/juicy-gourmet-burger-on-dark-background-34407507/",
+          "originalSha256": "0c493491751cbb2bf768ba4ebbe23fb2679f2aa53274992b3bb2ee343b900e62",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        },
+        {
+          "id": 12034622,
+          "tagCode": "CHEESEBURGER",
+          "sourcePageUrl": "https://www.pexels.com/photo/close-up-of-a-hamburger-on-black-background-12034622/",
+          "originalSha256": "28befaaea2c16f2a1b6f4edbb08644c42ca4a84ddd661428883d047842089f07",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        }
+      ]
+    },
+    {
+      "folder": "02_PASTA",
+      "ar": "مكرونة",
+      "tags": [
+        "PASTA",
+        "SPAGHETTI",
+        "PENNE",
+        "LASAGNA",
+        "MACARONI_BESHAMEL"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 1,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 9,
+      "localSourceIds": [
+        {
+          "id": 37180954,
+          "tagCode": "PASTA",
+          "sourcePageUrl": "https://www.pexels.com/photo/delicious-rigatoni-pasta-with-parmesan-cheese-37180954/",
+          "originalSha256": "de72531abeed39b22341ea5ebb3880e38d233b7dc53b8f7161797f7aba6cb78b",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        }
+      ]
+    },
+    {
+      "folder": "03_PIZZA",
+      "ar": "بيتزا",
+      "tags": [
+        "PIZZA",
+        "MARGHERITA_PIZZA",
+        "PEPPERONI_PIZZA",
+        "QUATTRO_FORMAGGI"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 2,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 8,
+      "localSourceIds": [
+        {
+          "id": 37417637,
+          "tagCode": "PEPPERONI_PIZZA",
+          "sourcePageUrl": "https://www.pexels.com/photo/delicious-pepperoni-pizza-with-melted-cheese-37417637/",
+          "originalSha256": "761b328e886895d7a708534549ea18b7d0aeea00d622a3e8c002808df6daffbc",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        },
+        {
+          "id": 31300965,
+          "tagCode": "PIZZA",
+          "sourcePageUrl": "https://www.pexels.com/photo/delicious-pepperoni-pizza-with-fresh-ingredients-31300965/",
+          "originalSha256": "3fb307bc317b5ca97ee83ca67dd26afbcc3b6b2d49131c31d7d474ca27e7b6f3",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        }
+      ]
+    },
+    {
+      "folder": "04_SHAWARMA",
+      "ar": "شاورما",
+      "tags": [
+        "SHAWARMA"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 0,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 10,
+      "localSourceIds": []
+    },
+    {
+      "folder": "05_FATEER",
+      "ar": "فطير مشلتت",
+      "tags": [
+        "FATEER"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 0,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 10,
+      "localSourceIds": []
+    },
+    {
+      "folder": "06_FUL_MEDAMES",
+      "ar": "فول مدمس",
+      "tags": [
+        "FUL_MEDAMES"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 0,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 10,
+      "localSourceIds": []
+    },
+    {
+      "folder": "07_FALAFEL",
+      "ar": "طعمية",
+      "tags": [
+        "FALAFEL"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 0,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 10,
+      "localSourceIds": []
+    },
+    {
+      "folder": "08_POTATOES",
+      "ar": "بطاطس",
+      "tags": [
+        "FRIES",
+        "BAKED_POTATO",
+        "MASHED_POTATO"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 0,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 10,
+      "localSourceIds": []
+    },
+    {
+      "folder": "09_KOSHARI",
+      "ar": "كشري",
+      "tags": [
+        "KOSHARI"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 0,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 10,
+      "localSourceIds": []
+    },
+    {
+      "folder": "10_ORIENTAL_SWEETS",
+      "ar": "حلويات شرقية",
+      "tags": [
+        "BAKLAVA",
+        "BASBOUSA",
+        "KUNAFA",
+        "QATAYEF",
+        "MAAMOUL",
+        "RICE_PUDDING"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 0,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 10,
+      "localSourceIds": []
+    },
+    {
+      "folder": "11_GATEAU_CAKES",
+      "ar": "جاتوه وتورت",
+      "tags": [
+        "CAKE",
+        "CHOCOLATE_CAKE",
+        "CHEESECAKE",
+        "CARROT_CAKE",
+        "RED_VELVET",
+        "TIRAMISU",
+        "WHOLE_CAKE",
+        "CAKE_SLICE",
+        "CUPCAKE"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 2,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 8,
+      "localSourceIds": [
+        {
+          "id": 18692571,
+          "tagCode": "CHEESECAKE",
+          "sourcePageUrl": "https://www.pexels.com/photo/biscuit-on-a-cheesecake-18692571/",
+          "originalSha256": "5a0c3e956eeb1cdf09b59bab4a0fdf1f8039347242d084c9c7f7ce5ecb74e86f",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        },
+        {
+          "id": 8387113,
+          "tagCode": "CHOCOLATE_CAKE",
+          "sourcePageUrl": "https://www.pexels.com/photo/delicious-chocolate-cake-bars-in-close-up-shot-8387113/",
+          "originalSha256": "62cbc57e404351a2ddd97932fa97f18523ad443ca9224587982fffd24ce6c2b4",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        }
+      ]
+    },
+    {
+      "folder": "12_GRILLS",
+      "ar": "مشويات",
+      "tags": [
+        "KEBAB",
+        "KOFTA",
+        "STEAK",
+        "GRILLED_CHICKEN_DISH",
+        "MIXED_GRILL",
+        "LAMB_CHOPS"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 2,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 8,
+      "localSourceIds": [
+        {
+          "id": 27643031,
+          "tagCode": "STEAK",
+          "sourcePageUrl": "https://www.pexels.com/photo/a-steak-and-fries-on-a-plate-27643031/",
+          "originalSha256": "b5ad4730e88123ed465e381a9b1e4fc79ce172b462185fcc47d3092d63d4083e",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        },
+        {
+          "id": 37336823,
+          "tagCode": "GRILLED_CHICKEN_DISH",
+          "sourcePageUrl": "https://www.pexels.com/photo/grilled-chicken-with-leafy-greens-and-vegetables-37336823/",
+          "originalSha256": "1a83e7b0de8db22e5c4ba7246da3542a6974b394635fda8673b8f99e22fcb117",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        }
+      ]
+    },
+    {
+      "folder": "13_DRINKS",
+      "ar": "مشروبات",
+      "tags": [
+        "COFFEE",
+        "ESPRESSO",
+        "CAPPUCCINO",
+        "LATTE",
+        "ICED_COFFEE",
+        "ICED_LATTE",
+        "MILKSHAKE",
+        "SMOOTHIE",
+        "ORANGE_JUICE",
+        "MANGO_JUICE",
+        "STRAWBERRY_JUICE",
+        "LEMON_MINT",
+        "VIRGIN_MOJITO",
+        "LEMONADE",
+        "HOT_CHOCOLATE",
+        "TEA",
+        "HIBISCUS"
+      ],
+      "target": 10,
+      "localReviewPhotoCount": 4,
+      "approvedPhotoCount": 0,
+      "remainingToSource": 6,
+      "localSourceIds": [
+        {
+          "id": 18075768,
+          "tagCode": "CAPPUCCINO",
+          "sourcePageUrl": "https://www.pexels.com/photo/black-cup-of-cappuccino-on-table-18075768/",
+          "originalSha256": "e021392528b95474dc275b498c6a79987247c7987f63703f6efbc4a925d75f74",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        },
+        {
+          "id": 13959547,
+          "tagCode": "ESPRESSO",
+          "sourcePageUrl": "https://www.pexels.com/photo/a-black-coffee-on-a-clear-drinking-glass-13959547/",
+          "originalSha256": "3001fcf4a1e94de1ba76f3a8208ef13e8f77d8375300cf03c9cb49cce99466da",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        },
+        {
+          "id": 4214381,
+          "tagCode": "SMOOTHIE",
+          "sourcePageUrl": "https://www.pexels.com/photo/strawberry-smoothie-on-clear-drinking-glass-4214381/",
+          "originalSha256": "5575081535cf6cce89fc8bfc141cd3b31f30097598b9c5c82a926ed65965f928",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        },
+        {
+          "id": 35544718,
+          "tagCode": "ICED_COFFEE",
+          "sourcePageUrl": "https://www.pexels.com/photo/refreshing-iced-coffee-with-straw-in-glass-35544718/",
+          "originalSha256": "844b187dd701daa16690356899200f0256a58f52d10ca9fa20fd8d451892ba43",
+          "license": "Pexels License",
+          "status": "NOT_APPROVED_LOCAL_REVIEW_ONLY"
+        }
+      ]
+    }
+  ]
+}
