@@ -117,7 +117,7 @@ jobs:
       - name: Unit tests for licensed import validation and optimization
         run: npm exec --workspace=apps/api -- jest --runInBand food-image-import-helpers.spec.ts
       - name: Unit tests for reviewed local image import and owner manifest preparation
-        run: npm exec --workspace=apps/api -- jest --runInBand local-food-image-import.spec.ts prepare-owner-approved-food-images.spec.ts
+        run: npm exec --workspace=apps/api -- jest --runInBand local-food-image-import.spec.ts prepare-owner-approved-food-images.spec.ts local-food-image-import-write-gate.spec.ts
       - name: Backend TypeScript
         run: npm run typecheck --workspace=apps/api
       - name: Platform Console TypeScript
