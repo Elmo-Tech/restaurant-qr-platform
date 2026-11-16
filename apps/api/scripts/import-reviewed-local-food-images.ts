@@ -207,7 +207,8 @@ async function main(): Promise<void> {
       }
     }
     console.log(
-      options.target.toUpperCase() + ' IMPORT RESULT: created=' +
+      options.target.toUpperCase() +
+        ' IMPORT RESULT: created=' +
         created +
         ', duplicates=' +
         duplicate +
