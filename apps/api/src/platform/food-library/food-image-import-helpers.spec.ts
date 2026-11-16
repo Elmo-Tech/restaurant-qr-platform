@@ -93,9 +93,9 @@ describe('food image batch import input safety', () => {
     sample.images[0].id = 'foodiefactor-tacos';
     sample.images[0].name = 'Tacos';
     sample.images[0].sourceUrl = photo;
-    sample.images[0].sourcePageUrl = 'https://foodiefactor.com/tacos-street-food/';
-    sample.images[0].licenseProofUrl =
-      'https://foodiefactor.com/license/';
+    sample.images[0].sourcePageUrl =
+      'https://foodiefactor.com/tacos-street-food/';
+    sample.images[0].licenseProofUrl = 'https://foodiefactor.com/license/';
     sample.images[0].tagCodes = ['TACOS'];
     expect(validateImageSourceUrl(photo).hostname).toBe('foodiefactor.com');
     const parsed = parseFoodImageImportManifest(sample);
