@@ -1,0 +1,135 @@
+{
+  "kind": "WAYTA_SHOTSTASH_120_CONTACT_SHEET_AND_5_ORIGINAL_QA_ONLY",
+  "date": "2026-11-16",
+  "referenceStyle": "User burger photo: real premium advertising hero, dark clean art-directed background, food fills frame",
+  "source": "https://shotstash.com/media-category/food/",
+  "licensePage": "https://shotstash.com/license/",
+  "qualityRule": "Every one of six categories >=9/10, no people/hands, verified tag, square and portrait composition",
+  "counts": {
+    "categoryPagesInspected": 2,
+    "thumbnailCandidatesInspected": 120,
+    "originalsDownloadedAndSha256Checked": 5,
+    "originalsRejected": 5,
+    "finalApproved": 0,
+    "imported": 0,
+    "published": 0
+  },
+  "originalQa": [
+    {
+      "index": 80,
+      "name": "Sushi on Slate",
+      "page": "https://shotstash.com/photo/sushi-on-slate/",
+      "sourceUrl": "https://shotstash.com/wp-content/uploads/2018/11/shot-stash-maki-sushi-1.jpg",
+      "file": "080-sushi-on-slate.jpg",
+      "bytes": 1634772,
+      "sha256": "a0745f199d63840d7e4f8a76ff0464e29675e815c30ae98798153f08b6fa3e99",
+      "dimensions": [
+        5000,
+        3333
+      ],
+      "visualStatus": "REJECT_FULL_ORIGINAL_REVIEW",
+      "rightsStatus": "CC0_SITE_CLAIM_ONLY",
+      "visualReason": "REJECT — Crowded table/plates, prominent Chinese writing on slate, sushi too small for advertising product-card hero, extra props distract.",
+      "cropSafe": false,
+      "licenseVerified": false,
+      "importApproved": false,
+      "tagCodes": [
+        "SUSHI"
+      ]
+    },
+    {
+      "index": 87,
+      "name": "Beef Steak",
+      "page": "https://shotstash.com/photo/beef-steak-food/",
+      "sourceUrl": "https://shotstash.com/wp-content/uploads/2018/11/steak-dinner.jpg",
+      "file": "087-beef-steak.jpg",
+      "bytes": 3503457,
+      "sha256": "23f695d5bfcef5e2fb68800eac2d397082b0bb2972fb09819b3a82873d2b8409",
+      "dimensions": [
+        5000,
+        3333
+      ],
+      "visualStatus": "REJECT_FULL_ORIGINAL_REVIEW",
+      "rightsStatus": "CC0_SITE_CLAIM_ONLY",
+      "visualReason": "REJECT — Flat overhead outdoor/table shot; steak overlaps sides/potatoes, lighting and styling below premium advertising reference.",
+      "cropSafe": false,
+      "licenseVerified": false,
+      "importApproved": false,
+      "tagCodes": [
+        "STEAK"
+      ]
+    },
+    {
+      "index": 90,
+      "name": "Cappuccino Coffee Cup in Cafe",
+      "page": "https://shotstash.com/photo/coffee-cup-cafe/",
+      "sourceUrl": "https://shotstash.com/wp-content/uploads/2018/11/shot-stash-coffee-cup-cafe-1.jpg",
+      "file": "090-cappuccino-coffee-cup-in-cafe.jpg",
+      "bytes": 1861876,
+      "sha256": "496089b52c9613d73896023ac5e0b55127eda27eb605c0ac0d1dcefcfa7d1cfb",
+      "dimensions": [
+        4516,
+        3010
+      ],
+      "visualStatus": "REJECT_FULL_ORIGINAL_REVIEW",
+      "rightsStatus": "CC0_SITE_CLAIM_ONLY",
+      "visualReason": "REJECT — Moody coffee image but cup is relatively small and blend/foam does not securely establish CAPPUCCINO; off-center frame unsuitable for tight square/portrait crops.",
+      "cropSafe": false,
+      "licenseVerified": false,
+      "importApproved": false,
+      "tagCodes": [
+        "COFFEE"
+      ]
+    },
+    {
+      "index": 95,
+      "name": "Muesli Fruit Breakfast",
+      "page": "https://shotstash.com/photo/muesli-fruit-breakfast/",
+      "sourceUrl": "https://shotstash.com/wp-content/uploads/2018/11/shot-stash-muesli-fruit-1.jpg",
+      "file": "095-muesli-fruit-breakfast.jpg",
+      "bytes": 6253430,
+      "sha256": "1a2b5780a4b971e9d7217e605bce4a930836b35833e7cd5c10dbdb167b116e95",
+      "dimensions": [
+        5000,
+        3333
+      ],
+      "visualStatus": "REJECT_FULL_ORIGINAL_REVIEW",
+      "rightsStatus": "CC0_SITE_CLAIM_ONLY",
+      "visualReason": "REJECT — Visible hand holding milk in lower-left corner violates owner's no-hands condition; multiple bowls/no single hero.",
+      "cropSafe": false,
+      "licenseVerified": false,
+      "importApproved": false,
+      "tagCodes": []
+    },
+    {
+      "index": 109,
+      "name": "Steak & Foie Gras",
+      "page": "https://shotstash.com/photo/steak-foie-gras/",
+      "sourceUrl": "https://shotstash.com/wp-content/uploads/2018/11/shot-stash-steak-foie-gras-1.jpg",
+      "file": "109-steak-and-foie-gras.jpg",
+      "bytes": 2050824,
+      "sha256": "e013a5db97de5823b0a0da3620fe1b72420c28e7834c6fcfbd303ea0d7afae30",
+      "dimensions": [
+        5000,
+        3333
+      ],
+      "visualStatus": "REJECT_FULL_ORIGINAL_REVIEW",
+      "rightsStatus": "CC0_SITE_CLAIM_ONLY",
+      "visualReason": "REJECT — Large empty white plate dominates the image; steak is tiny; unclear commercial suitability and exact STEAK cut label.",
+      "cropSafe": false,
+      "licenseVerified": false,
+      "importApproved": false,
+      "tagCodes": [
+        "STEAK"
+      ]
+    }
+  ],
+  "releaseBlockers": [
+    "Remaining 115 thumbnail scans not full-resolution approvals",
+    "Five visually reviewed originals rejected for concrete quality criteria",
+    "Site CC0 claim still requires asset authorship rights verification",
+    "Current CC0 importer host allowlist excludes shotstash.com",
+    "No staged database/media backup validation or approved import manifest"
+  ],
+  "localReviewPath": "%USERPROFILE%\\Downloads\\WAYTA-20-PREMIUM-NEW-20261116"
+}
