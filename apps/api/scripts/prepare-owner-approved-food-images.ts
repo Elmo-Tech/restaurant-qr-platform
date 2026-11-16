@@ -25,15 +25,25 @@ async function saveWithoutOverwrite(
   const target = path.join(directory, name);
   const content = JSON.stringify(manifest, null, 2) + '\n';
   try {
-    await writeFile(target, content, { encoding: 'utf8', flag: 'wx', mode: 0o600 });
+    await writeFile(target, content, {
+      encoding: 'utf8',
+      flag: 'wx',
+      mode: 0o600,
+    });
     console.log('CREATED ' + target);
   } catch (error: unknown) {
-    if (!(error instanceof Error) || !('code' in error) || error.code !== 'EEXIST') {
+    if (
+      !(error instanceof Error) ||
+      !('code' in error) ||
+      error.code !== 'EEXIST'
+    ) {
       throw error;
     }
     const existing = await readFile(target, 'utf8');
     if (existing !== content) {
-      throw new Error('Refusing to overwrite changed owner manifest: ' + target);
+      throw new Error(
+        'Refusing to overwrite changed owner manifest: ' + target,
+      );
     }
     console.log('UNCHANGED ' + target);
   }
