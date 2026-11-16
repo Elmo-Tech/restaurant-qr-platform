@@ -21,21 +21,44 @@ STAGING `DATABASE_URL` / `UPLOAD_LOCAL_DIR` configured. These declarations
 do not themselves prove the operator performed backups; independently verify
 both DB and uploads volume.
 
-## License and creative gates — required before any apply
+## Updated owner decision — 2026-11-16
+
+The owner explicitly accepts the **quality and usage rights** of the current
+**69 local candidate images** for WAYTA and asked not to repeat the independent
+creative/legal sign-off process. See
+`FOOD_IMAGE_OWNER_DECISION_20261116.md`.
+
+The importer now has an explicitly differentiated
+`ownerAttestation` option for this owner's internal business acceptance:
+`decisionRef`, `acceptedAt`, `approvedBy: WAYTA_OWNER`,
+`scope: WAYTA_SHARED_FOOD_LIBRARY`,
+`acceptsQualityWithoutScores: true` and
+`acceptsUsageRightsResponsibility: true`.
+The owner acceptance can replace **internal evidence and numeric QA gates for
+this batch**, but it does **not** represent a copyright holder's license grant.
+`licenseKind` remains the original true value (`PEXELS_UNCLEARED` or
+`CC0_CLAIMED`) and audit records show
+`OWNER_ACCEPTED_NOT_INDEPENDENTLY_VERIFIED`, never `CC0_VERIFIED`.
+
+This exception is not approval to merge, deploy, or publish, and does not cover
+photos sourced in future. The technical import gates, staging isolation,
+backups, and DRAFT-only behavior still apply.
+
+## License and creative gates — independent-review alternative
 
 - **Never** relabel Pexels License as CC0; the ordinary Pexels free license may
   cover a displayed restaurant menu but does not establish permission for
   systematic copying or a shared stock-like photo library.
 - `licenseKind` options:
-  - `PEXELS_UNCLEARED` — never importable, until actual special written multi-tenant terms exist.
-  - `CC0_CLAIMED` — never importable: site-wide claims are insufficient.
+  - `PEXELS_UNCLEARED` — not independently verified; cannot use the independent-review approval route. The separate owner-attestation route retains this unverified status.
+  - `CC0_CLAIMED` — a site-wide claim is insufficient for the independent-review route; the owner-attestation route retains this claim status without asserting verification.
   - `CC0_VERIFIED` — *human-confirmed per-image CC0 provenance*, retained evidence reference and reviewer/date.
   - `CUSTOM_MULTI_TENANT_GRANT` — independent signed agreement explicitly covering in-WAYTA selection/re-use across current and future independent restaurants. A Pexels-specific exception **must be separately obtained** before claiming this.
-- `sharedLibraryAuthorized: true` is permitted **only** when the relevant
+- On the **independent-review route**, `sharedLibraryAuthorized: true` is permitted **only** when the relevant
   signed grant or verified copyright ownership demonstrably covers that exact use.
 - Record evidence **reference only**, not any confidential contract/PII inside
   a Git-tracked JSON. Securely store the actual signed agreements separately.
-- Human inspection of original photo + 1:1 and 4:5 crops, six **individual**
+- On the **independent-review route**, human inspection of original photo + 1:1 and 4:5 crops, six **individual**
   photographic scores ≥9/10: lighting, foodStyling, composition, background,
   advertisingSuitability, tagAccuracy. An average never substitutes for one failed score.
 - All photo IDs, canonical tag codes, sector/state, source URLs and WebP files
