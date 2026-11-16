@@ -196,17 +196,18 @@ function parseOwnerAttestation(raw: unknown): OwnerPhotoAttestation | null {
   checkedDate(acceptedAt, 'ownerAttestation.acceptedAt');
   const approvedBy = str(raw, 'approvedBy', 40);
   const scope = str(raw, 'scope', 64);
-  if (
-    approvedBy !== 'WAYTA_OWNER' ||
-    scope !== 'WAYTA_SHARED_FOOD_LIBRARY'
-  ) throw new Error('Invalid ownerAttestation role or scope');
+  if (approvedBy !== 'WAYTA_OWNER' || scope !== 'WAYTA_SHARED_FOOD_LIBRARY')
+    throw new Error('Invalid ownerAttestation role or scope');
   return {
     decisionRef,
     acceptedAt,
     approvedBy: 'WAYTA_OWNER',
     scope: 'WAYTA_SHARED_FOOD_LIBRARY',
     acceptsQualityWithoutScores: flag(raw, 'acceptsQualityWithoutScores'),
-    acceptsUsageRightsResponsibility: flag(raw, 'acceptsUsageRightsResponsibility'),
+    acceptsUsageRightsResponsibility: flag(
+      raw,
+      'acceptsUsageRightsResponsibility',
+    ),
   };
 }
 
