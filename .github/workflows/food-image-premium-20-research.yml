@@ -1,0 +1,73 @@
+name: WAYTA Premium 20 - Source Research Only
+
+on:
+  pull_request:
+    paths:
+      - 'docs/01-domain/food-image-premium-20-foodiefactor-UNAPPROVED.json'
+      - 'apps/api/src/platform/food-library/food-image-import-helpers.ts'
+      - 'apps/api/scripts/inspect-food-image-batch-to-files.ts'
+      - '.github/workflows/food-image-premium-20-research.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: food-image-20-research-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  download-preview-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - name: Confirm source robots rules permit research downloads (fail closed)
+        env:
+          SOURCE_AGENT: 'WAYTA-licensed-image-import/1.0'
+        run: |
+          python3 - <<'PY'
+          import json, sys, urllib.request, urllib.robotparser
+          from urllib.error import HTTPError, URLError
+          from pathlib import Path
+
+          manifest = json.loads(Path('docs/01-domain/food-image-premium-20-foodiefactor-UNAPPROVED.json').read_text())
+          items = manifest['images']
+          if len(items) != 20 or any(x.get('approved') is not False for x in items):
+              sys.exit('Blocked: expected exactly 20 unapproved source entries.')
+          target = 'https://foodiefactor.com/robots.txt'
+          try:
+              req = urllib.request.Request(target, headers={'User-Agent': 'WAYTA-food-library-research/1.0'})
+              with urllib.request.urlopen(req, timeout=15) as response:
+                  if response.status != 200:
+                      sys.exit(f'Blocked: cannot verify robots policy ({response.status}).')
+                  data = response.read(128 * 1024 + 1)
+              if len(data) > 128 * 1024: sys.exit('Blocked: excessive robots.txt size.')
+              rules = data.decode('utf-8').splitlines()
+          except (HTTPError, URLError, TimeoutError, UnicodeError) as e:
+              sys.exit(f'Blocked: cannot verify robots policy: {type(e).__name__}')
+          robots = urllib.robotparser.RobotFileParser()
+          robots.parse(rules)
+          for item in items:
+              if not robots.can_fetch('WAYTA-licensed-image-import/1.0', item['sourceUrl']):
+                  sys.exit('Blocked: robots policy does not permit one or more image downloads.')
+          print('Robots preflight allowed the 20 direct image URLs. No legal or visual approval inferred.')
+          PY
+      - name: Fetch originals and build QA-only contact sheet outside repository
+        run: |
+          npm run inspect:food-images:pack --workspace=apps/api -- \
+            --manifest docs/01-domain/food-image-premium-20-foodiefactor-UNAPPROVED.json \
+            --out "$RUNNER_TEMP/WAYTA-New20-Review"
+      - name: Archive research files for human visual and legal QA (not published)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: wayta-new20-review-only
+          path: ${{ runner.temp }}/WAYTA-New20-Review/
+          if-no-files-found: ignore
+          retention-days: 7
