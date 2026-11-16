@@ -80,21 +80,26 @@ export function parseLocalImageImportArguments(
     uploadsBackupRef: values.get('--uploads-backup-ref') ?? null,
     expectedDatabaseName: values.get('--expected-database-name') ?? null,
   };
-  if (!apply &&
-      (options.stagingBackupAcknowledged ||
-       options.productionBackupsAcknowledged ||
-       options.confirmProduction ||
-       options.databaseBackupRef ||
-       options.uploadsBackupRef ||
-       options.expectedDatabaseName)) {
+  if (
+    !apply &&
+    (options.stagingBackupAcknowledged ||
+      options.productionBackupsAcknowledged ||
+      options.confirmProduction ||
+      options.databaseBackupRef ||
+      options.uploadsBackupRef ||
+      options.expectedDatabaseName)
+  ) {
     throw new Error('Approval and backup flags require --apply');
   }
-  if (apply && target === 'staging' &&
-      (options.productionBackupsAcknowledged ||
-       options.confirmProduction ||
-       options.databaseBackupRef ||
-       options.uploadsBackupRef ||
-       options.expectedDatabaseName)) {
+  if (
+    apply &&
+    target === 'staging' &&
+    (options.productionBackupsAcknowledged ||
+      options.confirmProduction ||
+      options.databaseBackupRef ||
+      options.uploadsBackupRef ||
+      options.expectedDatabaseName)
+  ) {
     throw new Error('Production approval flags cannot be used on staging');
   }
   if (apply && target === 'production' && options.stagingBackupAcknowledged) {
@@ -110,44 +115,51 @@ export function assertLocalImageImportWriteGate(
   if (!options.apply) return;
 
   if (options.target === 'staging') {
-    if (!options.stagingBackupAcknowledged ||
-        env.WAYTA_LOCAL_IMPORT_ENV !== 'staging' ||
-        env.NODE_ENV === 'production' ||
-        !env.DATABASE_URL ||
-        !env.UPLOAD_LOCAL_DIR) {
+    if (
+      !options.stagingBackupAcknowledged ||
+      env.WAYTA_LOCAL_IMPORT_ENV !== 'staging' ||
+      env.NODE_ENV === 'production' ||
+      !env.DATABASE_URL ||
+      !env.UPLOAD_LOCAL_DIR
+    ) {
       throw new Error(
         'STAGING import blocked: verify an isolated staging database, media ' +
-        'and both backups; provide --ack-staging-backup and staging env.',
+          'and both backups; provide --ack-staging-backup and staging env.',
       );
     }
     return;
   }
 
-  if (!options.productionBackupsAcknowledged ||
-      options.confirmProduction !== CONFIRM ||
-      !options.databaseBackupRef ||
-      !REF.test(options.databaseBackupRef) ||
-      !options.uploadsBackupRef ||
-      !REF.test(options.uploadsBackupRef) ||
-      options.databaseBackupRef === options.uploadsBackupRef ||
-      !options.expectedDatabaseName ||
-      !NAME.test(options.expectedDatabaseName)) {
+  if (
+    !options.productionBackupsAcknowledged ||
+    options.confirmProduction !== CONFIRM ||
+    !options.databaseBackupRef ||
+    !REF.test(options.databaseBackupRef) ||
+    !options.uploadsBackupRef ||
+    !REF.test(options.uploadsBackupRef) ||
+    options.databaseBackupRef === options.uploadsBackupRef ||
+    !options.expectedDatabaseName ||
+    !NAME.test(options.expectedDatabaseName)
+  ) {
     throw new Error(
       'PRODUCTION import blocked: require --ack-production-backups, ' +
-      '--confirm-production ' + CONFIRM +
-      ', distinct database/uploads backup references and expected DB name.',
+        '--confirm-production ' +
+        CONFIRM +
+        ', distinct database/uploads backup references and expected DB name.',
     );
   }
 
-  if (env.NODE_ENV !== 'production' ||
-      env.WAYTA_LOCAL_IMPORT_ENV !== 'production' ||
-      env.WAYTA_PRODUCTION_IMAGE_IMPORT_ALLOW !== 'DRAFT_ONLY' ||
-      env.UPLOAD_LOCAL_DIR !== UPLOAD_VOLUME_DIR ||
-      !env.DATABASE_URL) {
+  if (
+    env.NODE_ENV !== 'production' ||
+    env.WAYTA_LOCAL_IMPORT_ENV !== 'production' ||
+    env.WAYTA_PRODUCTION_IMAGE_IMPORT_ALLOW !== 'DRAFT_ONLY' ||
+    env.UPLOAD_LOCAL_DIR !== UPLOAD_VOLUME_DIR ||
+    !env.DATABASE_URL
+  ) {
     throw new Error(
       'PRODUCTION import blocked: require production NODE_ENV, explicit ' +
-      'WAYTA_LOCAL_IMPORT_ENV=production and WAYTA_PRODUCTION_IMAGE_IMPORT_ALLOW=DRAFT_ONLY, ' +
-      'configured PostgreSQL and shared persistent uploads mount.',
+        'WAYTA_LOCAL_IMPORT_ENV=production and WAYTA_PRODUCTION_IMAGE_IMPORT_ALLOW=DRAFT_ONLY, ' +
+        'configured PostgreSQL and shared persistent uploads mount.',
     );
   }
 
@@ -158,15 +170,17 @@ export function assertLocalImageImportWriteGate(
     throw new Error('PRODUCTION import blocked: DATABASE_URL is malformed');
   }
   const databaseName = decodeURIComponent(database.pathname.slice(1));
-  if (!['postgres:', 'postgresql:'].includes(database.protocol) ||
-      database.hostname !== 'postgres' ||
-      (database.port !== '' && database.port !== '5432') ||
-      databaseName !== options.expectedDatabaseName ||
-      databaseName === 'template0' ||
-      databaseName === 'template1') {
+  if (
+    !['postgres:', 'postgresql:'].includes(database.protocol) ||
+    database.hostname !== 'postgres' ||
+    (database.port !== '' && database.port !== '5432') ||
+    databaseName !== options.expectedDatabaseName ||
+    databaseName === 'template0' ||
+    databaseName === 'template1'
+  ) {
     throw new Error(
       'PRODUCTION import blocked: database host/name does not match ' +
-      'the expected private Coolify Postgres service.',
+        'the expected private Coolify Postgres service.',
     );
   }
 }
