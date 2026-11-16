@@ -56,6 +56,19 @@ export type LocalLicenseKind =
 
 export type QualityScores = Record<(typeof FIELDS)[number], number>;
 
+/**
+ * Owner accepts use of the photos and quality as a business decision.
+ * This does NOT establish independent copyright verification or scored QA.
+ */
+export interface OwnerPhotoAttestation {
+  decisionRef: string;
+  acceptedAt: string;
+  approvedBy: 'WAYTA_OWNER';
+  scope: 'WAYTA_SHARED_FOOD_LIBRARY';
+  acceptsQualityWithoutScores: boolean;
+  acceptsUsageRightsResponsibility: boolean;
+}
+
 export interface LocalFoodImageItem {
   id: string;
   name: string;
@@ -71,6 +84,7 @@ export interface LocalFoodImageItem {
   visualReviewedBy: string | null;
   visualReviewedAt: string | null;
   qualityScores: QualityScores | null;
+  ownerAttestation: OwnerPhotoAttestation | null;
   squareCropApproved: boolean;
   portraitCropApproved: boolean;
   approved: boolean;
@@ -172,6 +186,28 @@ function quality(raw: unknown): QualityScores | null {
     result[field] = value;
   }
   return result as QualityScores;
+}
+
+function parseOwnerAttestation(raw: unknown): OwnerPhotoAttestation | null {
+  if (raw === null || raw === undefined) return null;
+  if (!record(raw)) throw new Error('Invalid ownerAttestation');
+  const decisionRef = str(raw, 'decisionRef', 180);
+  const acceptedAt = str(raw, 'acceptedAt', 10);
+  checkedDate(acceptedAt, 'ownerAttestation.acceptedAt');
+  const approvedBy = str(raw, 'approvedBy', 40);
+  const scope = str(raw, 'scope', 64);
+  if (
+    approvedBy !== 'WAYTA_OWNER' ||
+    scope !== 'WAYTA_SHARED_FOOD_LIBRARY'
+  ) throw new Error('Invalid ownerAttestation role or scope');
+  return {
+    decisionRef,
+    acceptedAt,
+    approvedBy: 'WAYTA_OWNER',
+    scope: 'WAYTA_SHARED_FOOD_LIBRARY',
+    acceptsQualityWithoutScores: flag(raw, 'acceptsQualityWithoutScores'),
+    acceptsUsageRightsResponsibility: flag(raw, 'acceptsUsageRightsResponsibility'),
+  };
 }
 
 function checkedSourcePage(value: string): string {
@@ -280,6 +316,7 @@ export function parseLocalFoodImageManifest(
       visualReviewedBy: optionalString(value, 'visualReviewedBy', 160),
       visualReviewedAt,
       qualityScores: quality(value.qualityScores),
+      ownerAttestation: parseOwnerAttestation(value.ownerAttestation),
       squareCropApproved: flag(value, 'squareCropApproved'),
       portraitCropApproved: flag(value, 'portraitCropApproved'),
       approved: flag(value, 'approved'),
@@ -292,14 +329,25 @@ export function parseLocalFoodImageManifest(
 }
 
 /**
- * Apply cannot be justified by a generic commercial-use or claimed-CC0 license.
- * This only checks that reviewers recorded their findings: human/legal verification
- * of the evidence itself remains mandatory outside this CLI.
+ * Two distinct approval bases: independently reviewed evidence/scores, or an
+ * explicit business owner acceptance. Neither invents a source license.
  */
 export function assertLocalManifestApproved(
   manifest: LocalFoodImageManifest,
 ): void {
   for (const item of manifest.images) {
+    if (item.ownerAttestation) {
+      if (
+        !item.approved ||
+        !item.ownerAttestation.acceptsQualityWithoutScores ||
+        !item.ownerAttestation.acceptsUsageRightsResponsibility
+      ) {
+        throw new Error('Incomplete owner acceptance: ' + item.id);
+      }
+      // Business owner acceptance is NOT proof of a third-party grant.
+      // Keep PEXELS_UNCLEARED or CC0_CLAIMED truthful in the audit.
+      continue;
+    }
     const licensed =
       item.licenseKind === 'CC0_VERIFIED' ||
       item.licenseKind === 'CUSTOM_MULTI_TENANT_GRANT';
