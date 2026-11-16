@@ -60,7 +60,8 @@ function toLocalItem(raw: unknown, index: number): LocalFoodImageItem {
 
   let licenseKind: 'PEXELS_UNCLEARED' | 'CC0_CLAIMED';
   if (provider === 'Pexels') {
-    if (!new URL(page).hostname.endsWith('pexels.com')) {
+    const hostname = new URL(page).hostname.toLowerCase();
+    if (hostname !== 'pexels.com' && !hostname.endsWith('.pexels.com')) {
       throw new Error('Provider and source page disagree for ' + file);
     }
     licenseKind = 'PEXELS_UNCLEARED';
