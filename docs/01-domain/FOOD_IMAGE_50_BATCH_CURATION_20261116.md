@@ -14,6 +14,16 @@ Target roughly 50 *real*, advertising-grade product images across the five exist
 | `BUTCHER` | 5 | `RAW` | `RIBEYE`, `TENDERLOIN`, `LAMB_CHOPS`, `CHICKEN_BREAST`, `GROUND_BEEF` |
 | `HOME_FOOD` | 5 | `READY_TO_SERVE` | `KOSHARI`, `MOLOKHIA`, `STUFFED_GRAPE_LEAVES`, `FUL_MEDAMES`, `MACARONI_BESHAMEL` |
 
+## Approved 2026-11-16 sourcing decision
+
+The owner now authorizes *either* original commissioned professional food photography *or* paid premium photography **only when the per-photo written agreement expressly permits re-use across multiple current and future WAYTA restaurant tenants** (including the internal curated asset selector). CC0 remains an optional source, not a required license type. This is an approved procurement direction, **not** blanket approval of a stock provider or photo.
+
+**Important implementation discrepancy:** The current `apps/api/src/platform/food-library/food-image-import-helpers.ts` and `import:food-images` manifest accept only `license: "CC0"` and source URLs under three tightly allowlisted hosts. A paid / bespoke-license photo cannot legitimately pass this importer by pretending to be CC0. A **separate reviewed source/rights-aware import mechanism or authorized Admin upload with retained provenance** is required before non-CC0 photo import. Do not weaken the URL allowlist, forge CC0, or casually change the license discriminator. Existing Platform Admin upload and publication permissions remain unchanged.
+
+**Acquisition priority:** Commission `BUTCHER` (5) and `HOME_FOOD` (5) for accurate recipes/cuts; negotiate direct multi-tenant licensing or commission the 40 restaurant/café/sweets targets. Batch goal 50 photos; delivery is contingent on legal clearance and six 9/10 photography criteria. **0 photos approved for import today.**
+
+See `FOOD_IMAGE_LICENSED_SOURCING_POLICY_20261116.md` for the contract checklist, provider restrictions and staged procurement / QA.
+
 ## Current evidence and blockers
 
 - The owner's connected Windows machine already contains a **30-photo CC0-claimed, SHA-pinned, unapproved QA pack** with WebP variants and a local review gallery. All 30 are `PENDING_STRICT_9_OF_10_QA`; visual contact-sheet review confirms several ordinary café/restaurant snapshots do **not** meet strict premium requirements. **0 of these are approved.**
