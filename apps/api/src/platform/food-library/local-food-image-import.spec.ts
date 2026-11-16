@@ -30,6 +30,14 @@ const base = () => ({
       visualReviewedBy: null as string | null,
       visualReviewedAt: null as string | null,
       qualityScores: null as null | Record<string, number>,
+      ownerAttestation: null as null | {
+        decisionRef: string;
+        acceptedAt: string;
+        approvedBy: string;
+        scope: string;
+        acceptsQualityWithoutScores: boolean;
+        acceptsUsageRightsResponsibility: boolean;
+      },
       squareCropApproved: false,
       portraitCropApproved: false,
       approved: false,
@@ -62,6 +70,63 @@ function markApproved(data: ReturnType<typeof base>) {
   item.portraitCropApproved = true;
   return data;
 }
+
+describe('owner acceptance as separate business approval basis', () => {
+  const ownerDecision = () => {
+    const input = base();
+    input.images[0].approved = true;
+    input.images[0].ownerAttestation = {
+      decisionRef: 'wayta-owner-2026-11-16-69-image-acceptance',
+      acceptedAt: '2026-11-16',
+      approvedBy: 'WAYTA_OWNER',
+      scope: 'WAYTA_SHARED_FOOD_LIBRARY',
+      acceptsQualityWithoutScores: true,
+      acceptsUsageRightsResponsibility: true,
+    };
+    return input;
+  };
+
+  it('permits explicit owner acceptance without inventing a source license or scores', () => {
+    const parsed = parseLocalFoodImageManifest(ownerDecision());
+    expect(parsed.images[0].licenseKind).toBe('PEXELS_UNCLEARED');
+    expect(parsed.images[0].qualityScores).toBeNull();
+    expect(parsed.images[0].ownerAttestation?.decisionRef).toBe(
+      'wayta-owner-2026-11-16-69-image-acceptance',
+    );
+    expect(() => assertLocalManifestApproved(parsed)).not.toThrow();
+  });
+
+  it('rejects missing owner acceptance of rights or photo quality', () => {
+    for (const property of [
+      'acceptsQualityWithoutScores',
+      'acceptsUsageRightsResponsibility',
+    ] as const) {
+      const input = ownerDecision();
+      input.images[0].ownerAttestation![property] = false;
+      expect(() =>
+        assertLocalManifestApproved(parseLocalFoodImageManifest(input)),
+      ).toThrow('Incomplete owner acceptance');
+    }
+  });
+
+  it('rejects an invalid approver, scope or future decision date', () => {
+    const invalidRole = ownerDecision();
+    invalidRole.images[0].ownerAttestation!.approvedBy = 'THIRD_PARTY';
+    expect(() => parseLocalFoodImageManifest(invalidRole)).toThrow(
+      'Invalid ownerAttestation role or scope',
+    );
+    const invalidScope = ownerDecision();
+    invalidScope.images[0].ownerAttestation!.scope = 'PUBLIC_STOCK_RESALE';
+    expect(() => parseLocalFoodImageManifest(invalidScope)).toThrow(
+      'Invalid ownerAttestation role or scope',
+    );
+    const invalidDate = ownerDecision();
+    invalidDate.images[0].ownerAttestation!.acceptedAt = '2999-01-01';
+    expect(() => parseLocalFoodImageManifest(invalidDate)).toThrow(
+      'Invalid ownerAttestation.acceptedAt',
+    );
+  });
+});
 
 describe('local food photo batch import manifest safety', () => {
   it('accepts unapproved known-tag candidates for offline DRY RUN only', () => {
