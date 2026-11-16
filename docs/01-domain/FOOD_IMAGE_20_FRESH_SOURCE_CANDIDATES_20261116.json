@@ -27,11 +27,11 @@
     },
     {
       "id": "iso-new-20-02",
-      "sourcePageUrl": "https://isorepublic.com/photo/cheeseburger/",
+      "sourcePageUrl": "https://isorepublic.com/photo/mexican-tacos/",
       "licenseClaim": "CC0 on individual source page",
       "licenseProofUrl": "https://isorepublic.com/license/",
       "tagCodes": [
-        "CHEESEBURGER"
+        "TACOS"
       ],
       "sectors": [
         "RESTAURANT"
@@ -44,7 +44,7 @@
       "visualScores": null,
       "originalDownloaded": false,
       "draftImported": false,
-      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+      "notes": "Different ISO Republic taco photo from previous candidate batch. Title-level metadata only; original/QA and rights chain unverified."
     },
     {
       "id": "iso-new-20-03",
