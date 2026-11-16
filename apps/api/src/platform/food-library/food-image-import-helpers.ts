@@ -9,6 +9,7 @@ const IMAGE_HOSTS = new Set([
   'pd.w.org',
   'upload.wikimedia.org',
   'isorepublic.com',
+  'foodiefactor.com',
 ]);
 const SECTORS = new Set([
   'RESTAURANT',
@@ -90,6 +91,11 @@ export function validateImageSourceUrl(value: string): URL {
       (!/^\/wp-content\/uploads\/\d{4}\/\d{2}\/[a-zA-Z0-9_-]+\.(jpe?g|png|webp)$/i.test(
         url.pathname,
       ) ||
+        url.search !== '')) ||
+    (url.hostname === 'foodiefactor.com' &&
+      (!/^\/wp-content\/uploads\/foodie-factor-[a-z0-9-]+\.jpe?g$/.test(
+        url.pathname,
+      ) ||
         url.search !== ''))
   ) {
     throw new Error('Source must be a direct supported photo file: ' + value);
@@ -100,11 +106,21 @@ export function validateImageSourceUrl(value: string): URL {
 function validateRights(item: FoodImageImportItem): void {
   const page = checkedHttpsUrl(
     item.sourcePageUrl,
-    new Set(['wordpress.org', 'commons.wikimedia.org', 'isorepublic.com']),
+    new Set([
+      'wordpress.org',
+      'commons.wikimedia.org',
+      'isorepublic.com',
+      'foodiefactor.com',
+    ]),
   );
   const proof = checkedHttpsUrl(
     item.licenseProofUrl,
-    new Set(['wordpress.org', 'creativecommons.org', 'isorepublic.com']),
+    new Set([
+      'wordpress.org',
+      'creativecommons.org',
+      'isorepublic.com',
+      'foodiefactor.com',
+    ]),
   );
   if (page.hostname === 'wordpress.org') {
     if (
@@ -126,6 +142,18 @@ function validateRights(item: FoodImageImportItem): void {
     )
       throw new Error(
         'ISO Republic source and CC0 evidence do not match: ' + item.id,
+      );
+  } else if (page.hostname === 'foodiefactor.com') {
+    if (
+      !/^\/[a-z0-9-]+\/$/.test(page.pathname) ||
+      page.search !== '' ||
+      !item.sourceUrl.startsWith(
+        'https://foodiefactor.com/wp-content/uploads/foodie-factor-',
+      ) ||
+      proof.href !== 'https://foodiefactor.com/license/'
+    )
+      throw new Error(
+        'Foodie Factor source and CC0 evidence do not match: ' + item.id,
       );
   } else {
     if (
@@ -303,13 +331,21 @@ export async function downloadApprovedPhoto(
       {
         method: 'GET',
         timeout: 20000,
+        family: 4,
         headers: {
           Accept: 'image/jpeg,image/png,image/webp',
           'User-Agent': 'WAYTA-licensed-image-import/1.0',
         },
         // Pin the checked address so a DNS change between lookup and connect cannot reach a private host.
-        lookup: (_host, _options, callback) =>
-          callback(null, ip.address, ip.family),
+        lookup: (_host, options, callback) => {
+          // Node 24 can ask for all addresses. Return ONLY the DNS-checked pinned
+          // IPv4 in the required callback shape; do not resolve DNS a second time.
+          if (options.all) {
+            callback(null, [{ address: ip.address, family: ip.family }]);
+          } else {
+            callback(null, ip.address, ip.family);
+          }
+        },
       },
       (res) => {
         if (res.statusCode !== 200) {

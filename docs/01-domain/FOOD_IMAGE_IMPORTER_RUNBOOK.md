@@ -1,6 +1,6 @@
 # WAYTA — Licensed Food Photo Importer
 
-**Status:** Source-integrity/ISO Republic extension under review in feature branch. Production import and publication require explicit separate checks.
+**Status:** ISO Republic code merged in main (PR #48). Foodie Factor source research + allowlist extension is a SEPARATE DRAFT branch and not deployed; Production import and publication require explicit separate checks.
 
 ## Purpose and boundaries
 
@@ -15,6 +15,8 @@ Search sources manually (or use a *separate* candidate-discovery tool). Only *co
 - **WordPress Photo Directory:** `https://wordpress.org/photos/photo/...` + a direct `https://pd.w.org/...jpg|png|webp` photo URL; rights reference `https://wordpress.org/photos/license/`.
 - **Wikimedia Commons:** an individual `https://commons.wikimedia.org/wiki/File:...` page confirmed CC0, direct `https://upload.wikimedia.org/wikipedia/commons/...jpg|png|webp` file URL, and `https://creativecommons.org/publicdomain/zero/1.0/` as the license reference.
 - **ISO Republic (new):** individual `https://isorepublic.com/photo/<slug>/` page stating CC0, a **direct** `https://isorepublic.com/wp-content/uploads/YYYY/MM/<filename>.jpg|png|webp` file URL, and exactly `https://isorepublic.com/license/` as the license reference. The importer rejects arbitrary WordPress endpoints, query-string download proxies, redirects and different hostnames. Use only genuine photos from individual licensed pages; site-wide branding does not substitute per-photo visual and rights review.
+
+- **Foodie Factor (NEW; draft PR only):** individual `https://foodiefactor.com/<slug>/` photo page; direct `https://foodiefactor.com/wp-content/uploads/foodie-factor-<filename>.jpg` original; exact `https://foodiefactor.com/license/` reference. This host is supported **only within the new feature branch until reviewed and merged/deployed**. Its own website explicitly disclaims copyright guarantees. Human per-photo ownership, CC0 evidence, originality (non-AI), and premium >=9/10 original/crop review remain essential. Never import based only on a site-wide CC0 statement. See `FOOD_IMAGE_NEW_20_BATCH_QA_20261116.md`.
 
 **Neither host, Openverse search metadata, nor a manifest `license: "CC0"` proves the photo actually has CC0 rights.** A human must verify each individual file page, author, license statement, source consistency, any depicted brands/people restrictions, and premium image suitability before `approved: true`. Never confuse Creative Commons generic deed link with evidence for a particular photo. Retain page URL and verification date for audit. Wikimedia may contain photos under *other* licenses, so check each page individually.
 
@@ -39,6 +41,14 @@ npm run import:food-images --workspace=apps/api -- --manifest docs/01-domain/foo
 npm run import:food-images --workspace=apps/api -- --manifest docs/01-domain/food-image-import.example.json --inspect
 npm run import:food-images --workspace=apps/api -- --manifest docs/01-domain/reviewed-food-images.json --apply
 ```
+
+For the **unapproved** 20-photo research set, a separate local-only preview tool can prepare a contact sheet and SHA evidence without DB or uploads:
+
+```powershell
+npm run inspect:food-images:pack --workspace=apps/api -- --manifest docs/01-domain/food-image-premium-20-foodiefactor-UNAPPROVED.json --out C:\\Temp\\WAYTA-New20-Review
+```
+
+This is *not* an approval or an `--apply` operation. It cannot score photographic quality, confirm copyright ownership, or publish anything. Do not trigger repeated downloads after source blocks; respect source terms and robots instructions. Originals and WebP previews must stay outside Git.
 
 From `apps/api` omit `--workspace=apps/api`. **Relative manifest paths are resolved from the monorepo root** (including when launched through npm workspaces). Absolute paths work for mounted production files. For Docker/Coolify, mount an approved manifest file read-only into the one-shot `migrate/tools` container, and use that **container path**. The manifest is *not* shipped with the Docker image by default. Do not paste a production database connection string into chat or the CLI. Coolify's Docker Compose file is `docker-compose.yaml`, and production image tools should have the shared uploads volume mounted.
 

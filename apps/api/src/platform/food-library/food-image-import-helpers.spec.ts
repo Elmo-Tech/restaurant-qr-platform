@@ -86,6 +86,53 @@ describe('food image batch import input safety', () => {
     expect(() => parseFoodImageImportManifest(badPage)).toThrow();
   });
 
+  it('supports only direct Foodie Factor CC0 photo originals with exact source and license proof', () => {
+    const photo =
+      'https://foodiefactor.com/wp-content/uploads/foodie-factor-taco-dish.jpg';
+    const sample = base();
+    sample.images[0].id = 'foodiefactor-tacos';
+    sample.images[0].name = 'Tacos';
+    sample.images[0].sourceUrl = photo;
+    sample.images[0].sourcePageUrl =
+      'https://foodiefactor.com/tacos-street-food/';
+    sample.images[0].licenseProofUrl = 'https://foodiefactor.com/license/';
+    sample.images[0].tagCodes = ['TACOS'];
+    expect(validateImageSourceUrl(photo).hostname).toBe('foodiefactor.com');
+    const parsed = parseFoodImageImportManifest(sample);
+    expect(parsed.images[0].approved).toBe(false);
+    expect(() => assertApprovedForImport(parsed)).toThrow(
+      'needs photo/rights approval',
+    );
+
+    for (const url of [
+      'http://foodiefactor.com/wp-content/uploads/foodie-factor-taco-dish.jpg',
+      'https://www.foodiefactor.com/wp-content/uploads/foodie-factor-taco-dish.jpg',
+      'https://foodiefactor.com/wp-json/wp/v2/users.jpg',
+      'https://foodiefactor.com/wp-content/uploads/other-image.jpg',
+      'https://foodiefactor.com/wp-content/uploads/foodie-factor-pizza.png',
+      'https://foodiefactor.com/wp-content/uploads/foodie-factor-pizza.jpg?download=1',
+      'https://foodiefactor.com/wp-content/uploads/foodie-factor-pizza.jpg#hash',
+      'https://foodiefactor.com/wp-content/uploads/2026/11/foodie-factor-pizza.jpg',
+      'https://foodiefactor.com/wp-content/uploads/foodie-factor-../secrets.jpg',
+    ]) {
+      expect(() => validateImageSourceUrl(url)).toThrow();
+    }
+    const badProof = base();
+    badProof.images[0] = {
+      ...sample.images[0],
+      licenseProofUrl: CC0,
+    };
+    expect(() => parseFoodImageImportManifest(badProof)).toThrow(
+      'Foodie Factor source and CC0 evidence do not match',
+    );
+    const badPage = base();
+    badPage.images[0] = {
+      ...sample.images[0],
+      sourcePageUrl: 'https://foodiefactor.com/blog/random/',
+    };
+    expect(() => parseFoodImageImportManifest(badPage)).toThrow();
+  });
+
   it('does not accept approval without a checked license date and pinned source hash', () => {
     const manifest = parseFoodImageImportManifest(base());
     expect(() => assertApprovedForImport(manifest)).toThrow(

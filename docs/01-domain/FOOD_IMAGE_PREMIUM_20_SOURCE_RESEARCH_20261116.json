@@ -1,0 +1,434 @@
+{
+  "kind": "WAYTA_FOOD_IMAGE_RESEARCH_ONLY_NOT_APPROVED",
+  "date": "2026-11-16",
+  "licenseStatus": "SITE_CLAIM_ONLY_INDIVIDUAL_RIGHTS_NOT_VERIFIED",
+  "qualityStatus": "NOT_VISUALLY_APPROVED",
+  "photosDownloaded": 0,
+  "photosVerified": 0,
+  "photosApproved": 0,
+  "photosUploaded": 0,
+  "source": "https://foodiefactor.com/",
+  "legalWarning": "CC0 site claim is not per-file authorship verification and does not guarantee a right to shared WAYTA multi-tenant use. Never approve based on this file alone.",
+  "entries": [
+    {
+      "id": "foodiefactor-tacos-street-food",
+      "title": "Tacos Street Food",
+      "sourcePageUrl": "https://foodiefactor.com/tacos-street-food/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-taco-dish.jpg",
+      "reportedDimensions": "2000x3008",
+      "reportedOriginalSize": "3.41 MB",
+      "tagCodesProposed": [
+        "TACOS"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-chocolate-cake-slice",
+      "title": "Chocolate Cake Slice",
+      "sourcePageUrl": "https://foodiefactor.com/chocolate-cake-slice/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-chocolate-cake-slice.jpg",
+      "reportedDimensions": "2000x3008",
+      "reportedOriginalSize": "2.36 MB",
+      "tagCodesProposed": [
+        "CHOCOLATE_CAKE"
+      ],
+      "sectorsProposed": [
+        "SWEETS"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-fried-fish-dinner",
+      "title": "Fried Fish Dinner",
+      "sourcePageUrl": "https://foodiefactor.com/fried-fish-dinner/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-fried-fish-dinner-02.jpg",
+      "reportedDimensions": "4928x3264",
+      "reportedOriginalSize": "1.08 MB",
+      "tagCodesProposed": [
+        "FISH"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-grilled-fish-dinner",
+      "title": "Grilled Fish Dinner",
+      "sourcePageUrl": "https://foodiefactor.com/grilled-fish-dinner/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-restaurant-gourmet-fish.jpg",
+      "reportedDimensions": "2000x3008",
+      "reportedOriginalSize": "2.39 MB",
+      "tagCodesProposed": [
+        "FISH"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-roasted-chicken-dinner",
+      "title": "Roasted Chicken Dinner",
+      "sourcePageUrl": "https://foodiefactor.com/roasted-chicken-dinner/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-roasted-chicken-thighs-1.jpg",
+      "reportedDimensions": "4928x3264",
+      "reportedOriginalSize": "13.57 MB",
+      "tagCodesProposed": [
+        "CHICKEN"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-gourmet-pasta-dish",
+      "title": "Gourmet Pasta Dish",
+      "sourcePageUrl": "https://foodiefactor.com/gourmet-pasta-dish/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-pasta-cherry-tomatoes.jpg",
+      "reportedDimensions": "4928x3264",
+      "reportedOriginalSize": "8.29 MB",
+      "tagCodesProposed": [
+        "PASTA"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-gourmet-salmon-dish",
+      "title": "Gourmet Salmon Dish",
+      "sourcePageUrl": "https://foodiefactor.com/gourmet-salmon-dish/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-gourmet-salmon-dish.jpg",
+      "reportedDimensions": "2000x3008",
+      "reportedOriginalSize": "4.85 MB",
+      "tagCodesProposed": [
+        "SALMON"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-beef-dinner-dish",
+      "title": "Beef Dinner Dish",
+      "sourcePageUrl": "https://foodiefactor.com/beef-dinner-dish/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-beef-tenderloin-beer-02.jpg",
+      "reportedDimensions": "3264x4928",
+      "reportedOriginalSize": "1.48 MB",
+      "tagCodesProposed": [
+        "STEAK"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-mushroom-ravioli-dish",
+      "title": "Mushroom Ravioli Dish",
+      "sourcePageUrl": "https://foodiefactor.com/mushroom-ravioli-dish/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-wild-mushroom-ravioli.jpg",
+      "reportedDimensions": "3264x4928",
+      "reportedOriginalSize": "5.67 MB",
+      "tagCodesProposed": [
+        "RAVIOLI"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-rack-of-lamb",
+      "title": "Rack of Lamb",
+      "sourcePageUrl": "https://foodiefactor.com/rack-of-lamb/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-rack-of-lamb.jpg",
+      "reportedDimensions": "3872x2592",
+      "reportedOriginalSize": "7.71 MB",
+      "tagCodesProposed": [
+        "LAMB"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-seafood-thai-noodles",
+      "title": "Seafood Thai Noodles",
+      "sourcePageUrl": "https://foodiefactor.com/seafood-thai-noodles/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-asian-noodles-shrimp.jpg",
+      "reportedDimensions": "3872x2592",
+      "reportedOriginalSize": "4.36 MB",
+      "tagCodesProposed": [
+        "NOODLES"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-fresh-chocolate-cake",
+      "title": "Fresh Chocolate Cake",
+      "sourcePageUrl": "https://foodiefactor.com/fresh-chocolate-cake/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-powdered-chocolate-cake.jpg",
+      "reportedDimensions": "3264x4928",
+      "reportedOriginalSize": "9.77 MB",
+      "tagCodesProposed": [
+        "CHOCOLATE_CAKE"
+      ],
+      "sectorsProposed": [
+        "SWEETS"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-gourmet-beef-dish",
+      "title": "Gourmet Beef Dish",
+      "sourcePageUrl": "https://foodiefactor.com/gourmet-beef-dish/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-roasted-beef-dish.jpg",
+      "reportedDimensions": "4928x3264",
+      "reportedOriginalSize": "11.44 MB",
+      "tagCodesProposed": [
+        "STEAK"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-gourmet-duck-dish",
+      "title": "Gourmet Duck Dish",
+      "sourcePageUrl": "https://foodiefactor.com/gourmet-duck-dish/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-roasted-duck-dish.jpg",
+      "reportedDimensions": "3264x4928",
+      "reportedOriginalSize": "9.72 MB",
+      "tagCodesProposed": [
+        "DUCK"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-gourmet-fish-plate",
+      "title": "Gourmet Fish Plate",
+      "sourcePageUrl": "https://foodiefactor.com/gourmet-fish-plate/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-fried-fish-dinner-01.jpg",
+      "reportedDimensions": "3264x4928",
+      "reportedOriginalSize": "4.29 MB",
+      "tagCodesProposed": [
+        "FISH"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-pasta-mac-and-cheese",
+      "title": "Pasta Mac and Cheese",
+      "sourcePageUrl": "https://foodiefactor.com/pasta-mac-and-cheese/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-mac-cheese.jpg",
+      "reportedDimensions": "3264x4928",
+      "reportedOriginalSize": "10.41 MB",
+      "tagCodesProposed": [
+        "PASTA"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-gourmet-soup",
+      "title": "Gourmet Soup",
+      "sourcePageUrl": "https://foodiefactor.com/gourmet-soup/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-gourmet-soup.jpg",
+      "reportedDimensions": "3264x4928",
+      "reportedOriginalSize": "11.03 MB",
+      "tagCodesProposed": [
+        "SOUP"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-fried-cheese-balls",
+      "title": "Fried Cheese Balls",
+      "sourcePageUrl": "https://foodiefactor.com/fried-cheese-balls/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-fried-appetizer.jpg",
+      "reportedDimensions": "3264x4928",
+      "reportedOriginalSize": "7.57 MB",
+      "tagCodesProposed": [
+        "CHEESE"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-hummus-plate",
+      "title": "Hummus Plate",
+      "sourcePageUrl": "https://foodiefactor.com/hummus-plate/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-homemade-hummus.jpg",
+      "reportedDimensions": "3264x4928",
+      "reportedOriginalSize": "10.15 MB",
+      "tagCodesProposed": [
+        "HUMMUS"
+      ],
+      "sectorsProposed": [
+        "HOME_FOOD"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    },
+    {
+      "id": "foodiefactor-roasted-chicken-thighs",
+      "title": "Roasted Chicken Thighs",
+      "sourcePageUrl": "https://foodiefactor.com/roasted-chicken-thighs/",
+      "reportedOriginalUrl": "https://foodiefactor.com/wp-content/uploads/foodie-factor-roasted-chicken-thighs.jpg",
+      "reportedDimensions": "3264x4928",
+      "reportedOriginalSize": "10.78 MB",
+      "tagCodesProposed": [
+        "CHICKEN_THIGH"
+      ],
+      "sectorsProposed": [
+        "RESTAURANT"
+      ],
+      "presentationProposed": "READY_TO_SERVE",
+      "visualQaScores": null,
+      "cropQa": null,
+      "originalSha256": null,
+      "perImageRightsVerified": false,
+      "approved": false,
+      "imported": false
+    }
+  ]
+}
