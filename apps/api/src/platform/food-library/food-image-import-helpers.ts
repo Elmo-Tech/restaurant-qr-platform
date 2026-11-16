@@ -331,6 +331,10 @@ export async function downloadApprovedPhoto(
       {
         method: 'GET',
         timeout: 20000,
+        family: 4,
+        // Node 24 defaults to address-family autoselection (lookup all=true).
+        // We already validated and pinned a single safe IPv4, so force single-address lookup.
+        autoSelectFamily: false,
         headers: {
           Accept: 'image/jpeg,image/png,image/webp',
           'User-Agent': 'WAYTA-licensed-image-import/1.0',
