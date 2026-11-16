@@ -125,7 +125,11 @@ async function main(): Promise<void> {
         String(image.width) + 'x' + String(image.height),
         String(Math.round(image.buffer.length / 1024)) + ' KiB',
         item.tagCodes.join(','),
-        item.ownerAttestation ? 'OWNER_ACCEPTED' : item.approved ? 'REVIEWED' : 'HOLD',
+        item.ownerAttestation
+          ? 'OWNER_ACCEPTED'
+          : item.approved
+            ? 'REVIEWED'
+            : 'HOLD',
       ].join(' | '),
     );
   }

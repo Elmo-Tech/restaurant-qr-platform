@@ -8,6 +8,8 @@ on:
       - 'apps/api/src/platform/**'
       - 'apps/api/scripts/seed-food-tags.ts'
       - 'apps/api/scripts/import-food-images.ts'
+      - 'apps/api/scripts/prepare-owner-approved-food-images.ts'
+      - 'apps/api/scripts/import-reviewed-local-food-images.ts'
       - 'docs/01-domain/FOOD_IMAGE_IMPORTER_RUNBOOK.md'
       - 'docs/01-domain/food-image-import.example.json'
       - 'docs/01-domain/food-image-isorepublic-latte-pilot-UNAPPROVED.json'
@@ -114,6 +116,8 @@ jobs:
         run: npm run import:food-images --workspace=apps/api -- --manifest docs/01-domain/food-image-isorepublic-latte-pilot-UNAPPROVED.json
       - name: Unit tests for licensed import validation and optimization
         run: npm exec --workspace=apps/api -- jest --runInBand food-image-import-helpers.spec.ts
+      - name: Unit tests for reviewed local image import and owner manifest preparation
+        run: npm exec --workspace=apps/api -- jest --runInBand local-food-image-import.spec.ts prepare-owner-approved-food-images.spec.ts
       - name: Backend TypeScript
         run: npm run typecheck --workspace=apps/api
       - name: Platform Console TypeScript
@@ -130,3 +134,5 @@ jobs:
         run: npm run lint --workspace=apps/platform
       - name: Lint new Backend module
         run: npm exec --workspace=apps/api -- eslint 'src/platform/food-library/**/*.ts'
+      - name: Lint reviewed photo preparation scripts
+        run: npm exec --workspace=apps/api -- eslint scripts/prepare-owner-approved-food-images.ts scripts/import-reviewed-local-food-images.ts
