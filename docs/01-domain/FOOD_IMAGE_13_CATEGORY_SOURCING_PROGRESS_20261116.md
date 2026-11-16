@@ -1,5 +1,7 @@
 # WAYTA — 13 Category Photo Sourcing: Update (2026-11-16 afternoon)
 
+> **2026-11-16 upload preflight update:** The 76 entries are separate WebP files, **not 76 different photos**. Seven entries reuse the same original source, detected via source SHA/page and identical dHash. The separate 69-photo deduplicated review pack is the current upload candidate baseline; see `FOOD_IMAGE_69_DISTINCT_UPLOAD_READINESS_20261116.md`. All 69 still require visual 9/10 + licensing approval. 0 uploaded.
+
 **Scope:** 13 food-category directories, target **10 distinct real advertising-quality images each**. **No release or approval.**
 
 ## Confirmed owner-Windows snapshot
