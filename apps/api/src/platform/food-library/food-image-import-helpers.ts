@@ -332,16 +332,17 @@ export async function downloadApprovedPhoto(
         method: 'GET',
         timeout: 20000,
         family: 4,
-        // Node 24 defaults to address-family autoselection (lookup all=true).
-        // We already validated and pinned a single safe IPv4, so force single-address lookup.
-        autoSelectFamily: false,
         headers: {
           Accept: 'image/jpeg,image/png,image/webp',
           'User-Agent': 'WAYTA-licensed-image-import/1.0',
         },
         // Pin the checked address so a DNS change between lookup and connect cannot reach a private host.
-        lookup: (_host, _options, callback) =>
-          callback(null, ip.address, ip.family),
+        lookup: (_host, options, callback) => {
+          // Node 24 can ask for all addresses. Return ONLY the DNS-checked pinned
+          // IPv4 in the required callback shape; do not resolve DNS a second time.
+          if (options.all) callback(null, [{ address: ip.address, family: ip.family }]);
+          else callback(null, ip.address, ip.family);
+        },
       },
       (res) => {
         if (res.statusCode !== 200) {
