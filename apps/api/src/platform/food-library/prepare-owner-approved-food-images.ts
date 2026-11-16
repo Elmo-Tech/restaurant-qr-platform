@@ -12,8 +12,7 @@ import {
   type LocalFoodImageManifest,
 } from './local-food-image-import';
 
-export const OWNER_DECISION_REF =
-  'wayta-owner-2026-11-16-69-image-acceptance';
+export const OWNER_DECISION_REF = 'wayta-owner-2026-11-16-69-image-acceptance';
 
 export const PILOT_10_FILES = [
   '01_BURGERS/BURGER_001.webp',
@@ -71,11 +70,17 @@ function toLocalItem(raw: unknown, index: number): LocalFoodImageItem {
     }
     licenseKind = 'CC0_CLAIMED';
   } else {
-    throw new Error('Unexpected source provider for owner-approved pack: ' + provider);
+    throw new Error(
+      'Unexpected source provider for owner-approved pack: ' + provider,
+    );
   }
 
   return {
-    id: 'owner69-' + String(index + 1).padStart(3, '0') + '-' + originalSha.slice(0, 8),
+    id:
+      'owner69-' +
+      String(index + 1).padStart(3, '0') +
+      '-' +
+      originalSha.slice(0, 8),
     name: String(tagCodes[0]).replace(/_/g, ' '),
     file,
     sourcePageUrl: page,
@@ -121,7 +126,9 @@ export function prepareOwnerAcceptedFoodImageManifest(
     !Array.isArray(source.photos) ||
     source.photos.length !== 69
   ) {
-    throw new Error('Source is not the owner-accepted 69-photo deduplicated pack');
+    throw new Error(
+      'Source is not the owner-accepted 69-photo deduplicated pack',
+    );
   }
   const images = source.photos.map((row: unknown, index: number) =>
     toLocalItem(row, index),
