@@ -40,7 +40,10 @@ function makeSourcePack() {
 
 describe('owner-accepted 69-image manifest preparation', () => {
   it('converts exactly 69 images without inventing verified licenses or numerical QA', () => {
-    const manifest = prepareOwnerAcceptedFoodImageManifest(makeSourcePack(), 'all');
+    const manifest = prepareOwnerAcceptedFoodImageManifest(
+      makeSourcePack(),
+      'all',
+    );
     expect(manifest.images).toHaveLength(69);
     expect(
       manifest.images.filter((item) => item.licenseKind === 'PEXELS_UNCLEARED'),
@@ -62,8 +65,13 @@ describe('owner-accepted 69-image manifest preparation', () => {
   });
 
   it('selects the exact ten established pilot photos after checking all 69 sources', () => {
-    const manifest = prepareOwnerAcceptedFoodImageManifest(makeSourcePack(), 'pilot');
-    expect(manifest.images.map((item) => item.file)).toEqual([...PILOT_10_FILES]);
+    const manifest = prepareOwnerAcceptedFoodImageManifest(
+      makeSourcePack(),
+      'pilot',
+    );
+    expect(manifest.images.map((item) => item.file)).toEqual([
+      ...PILOT_10_FILES,
+    ]);
     expect(() => assertLocalManifestApproved(manifest)).not.toThrow();
   });
 
@@ -83,15 +91,17 @@ describe('owner-accepted 69-image manifest preparation', () => {
   it('rejects duplicates in the original source hash even with unique WebP bytes', () => {
     const source = makeSourcePack();
     source.photos[1].originalSha256 = source.photos[0].originalSha256;
-    expect(() => prepareOwnerAcceptedFoodImageManifest(source, 'pilot')).toThrow();
+    expect(() =>
+      prepareOwnerAcceptedFoodImageManifest(source, 'pilot'),
+    ).toThrow();
   });
 
   it('rejects provider mismatch and unexpected license sources', () => {
     const mismatch = makeSourcePack();
     mismatch.photos[0].sourcePageUrl = 'https://shotstash.com/photo/fake/';
-    expect(() => prepareOwnerAcceptedFoodImageManifest(mismatch, 'all')).toThrow(
-      'Provider and source page disagree',
-    );
+    expect(() =>
+      prepareOwnerAcceptedFoodImageManifest(mismatch, 'all'),
+    ).toThrow('Provider and source page disagree');
     const unknown = makeSourcePack();
     unknown.photos[0].sourceProvider = 'UnknownStockVendor';
     expect(() => prepareOwnerAcceptedFoodImageManifest(unknown, 'all')).toThrow(
@@ -102,7 +112,9 @@ describe('owner-accepted 69-image manifest preparation', () => {
   it('rejects broken canonical tags and missing pilot image instead of guessing', () => {
     const wrongTag = makeSourcePack();
     wrongTag.photos[1].tagCodes = ['NOT_A_REAL_FOOD_CODE'];
-    expect(() => prepareOwnerAcceptedFoodImageManifest(wrongTag, 'all')).toThrow();
+    expect(() =>
+      prepareOwnerAcceptedFoodImageManifest(wrongTag, 'all'),
+    ).toThrow();
     const missingPilot = makeSourcePack();
     missingPilot.photos[0].file = '01_BURGERS/BURGER_099.webp';
     expect(() =>
