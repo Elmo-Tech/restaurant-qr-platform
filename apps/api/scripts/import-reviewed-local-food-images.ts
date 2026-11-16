@@ -125,7 +125,7 @@ async function main(): Promise<void> {
         String(image.width) + 'x' + String(image.height),
         String(Math.round(image.buffer.length / 1024)) + ' KiB',
         item.tagCodes.join(','),
-        item.approved ? 'REVIEWED' : 'HOLD',
+        item.ownerAttestation ? 'OWNER_ACCEPTED' : item.approved ? 'REVIEWED' : 'HOLD',
       ].join(' | '),
     );
   }
@@ -217,6 +217,15 @@ async function main(): Promise<void> {
             originalSha256: item.sourceOriginalSha256,
             optimizedSha256: item.optimizedSha256,
             qualityScores: item.qualityScores,
+            approvalBasis: item.ownerAttestation
+              ? 'OWNER_ACCEPTED_NOT_INDEPENDENTLY_VERIFIED'
+              : 'INDEPENDENT_REVIEW',
+            ownerDecisionRef: item.ownerAttestation?.decisionRef ?? null,
+            ownerAcceptedAt: item.ownerAttestation?.acceptedAt ?? null,
+            ownerAcceptsQualityWithoutScores:
+              item.ownerAttestation?.acceptsQualityWithoutScores ?? false,
+            ownerAcceptsUsageRightsResponsibility:
+              item.ownerAttestation?.acceptsUsageRightsResponsibility ?? false,
             tagCodes: item.tagCodes,
             sectors: item.sectors,
             presentation: item.presentation,
