@@ -1,11 +1,12 @@
 /**
- * STAGING-ONLY, operator-driven import of individually human-approved local
- * food photos. The separate remote CC0 importer remains unchanged.
+ * Explicit, operator-driven import of reviewed local WebP food photos.
+ * Default: offline read-only DRY RUN; no network/DB/storage writes.
+ * STAGING and PRODUCTION require different explicit write gates.
  *
- * Default DRY RUN reads the local WebP files (no network/DB/storage writes).
- * --apply requires explicitly verified staging backups, every image fully
- * rights/visual approved and a separate WAYTA_LOCAL_IMPORT_ENV=staging flag.
- * Production is intentionally unsupported in this first implementation.
+ * Production: run only in the one-shot GHCR api-tools container sharing the
+ * existing production PostgreSQL network and persistent uploads volume.
+ * Backups must be independently verified off-server before applying.
+ * This command imports DRAFT images only. Never Review/Publish automatically.
  */
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -23,78 +24,24 @@ import {
   parseLocalFoodImageManifest,
   type LocalFoodImageItem,
 } from '../src/platform/food-library/local-food-image-import';
+import {
+  assertLocalImageImportWriteGate,
+  parseLocalImageImportArguments,
+} from '../src/platform/food-library/local-food-image-import-write-gate';
 
 const ROOT = path.resolve(__dirname, '..', '..', '..');
-const USAGE =
-  'Usage: npm run import:reviewed-local-food-images --workspace=apps/api -- ' +
-  '--manifest <approved-manifest.json> --base-dir <local-photo-root> ' +
-  '[--apply --ack-staging-backup]';
-
-function flagsFromArgs() {
-  const args = process.argv.slice(2);
-  const allowed = new Set([
-    '--manifest',
-    '--base-dir',
-    '--apply',
-    '--ack-staging-backup',
-  ]);
-  const occurrences = (flag: string) =>
-    args.filter((value) => value === flag).length;
-  const manifestAt = args.indexOf('--manifest');
-  const dirAt = args.indexOf('--base-dir');
-  const apply = args.includes('--apply');
-  const backupAcknowledged = args.includes('--ack-staging-backup');
-  if (
-    occurrences('--manifest') !== 1 ||
-    occurrences('--base-dir') !== 1 ||
-    occurrences('--apply') > 1 ||
-    occurrences('--ack-staging-backup') > 1 ||
-    manifestAt < 0 ||
-    dirAt < 0 ||
-    !args[manifestAt + 1] ||
-    !args[dirAt + 1] ||
-    args[manifestAt + 1].startsWith('--') ||
-    args[dirAt + 1].startsWith('--') ||
-    (backupAcknowledged && !apply) ||
-    args.some(
-      (v, index) =>
-        !allowed.has(v) && index !== manifestAt + 1 && index !== dirAt + 1,
-    )
-  )
-    throw new Error(USAGE);
-  return {
-    manifest: path.resolve(ROOT, args[manifestAt + 1]),
-    baseDir: path.resolve(ROOT, args[dirAt + 1]),
-    apply,
-    backupAcknowledged,
-  };
-}
-
-function assertStagingWriteGate(acknowledged: boolean): void {
-  if (
-    !acknowledged ||
-    process.env.WAYTA_LOCAL_IMPORT_ENV !== 'staging' ||
-    process.env.NODE_ENV === 'production' ||
-    !process.env.DATABASE_URL ||
-    !process.env.UPLOAD_LOCAL_DIR
-  ) {
-    throw new Error(
-      'Apply blocked: only a separately authorized STAGING run is supported. ' +
-        'Require --ack-staging-backup, WAYTA_LOCAL_IMPORT_ENV=staging, ' +
-        'non-production NODE_ENV and staging DATABASE_URL / UPLOAD_LOCAL_DIR.',
-    );
-  }
-  // These environment flags only acknowledge operator checks; they do not
-  // independently prove the database or uploads volume was backed up.
-}
-
 async function checkedBuffer(item: LocalFoodImageItem, baseDir: string) {
   const checked = await inspectLocalFoodImage(baseDir, item);
   return checked.buffer;
 }
 
 async function main(): Promise<void> {
-  const flags = flagsFromArgs();
+  const options = parseLocalImageImportArguments(process.argv.slice(2));
+  const flags = {
+    manifest: path.resolve(ROOT, options.manifest),
+    baseDir: path.resolve(ROOT, options.baseDir),
+    apply: options.apply,
+  };
   const raw = await readFile(flags.manifest, 'utf8');
   if (Buffer.byteLength(raw, 'utf8') > 1024 * 1024)
     throw new Error('Manifest exceeds 1 MiB.');
@@ -104,13 +51,15 @@ async function main(): Promise<void> {
     'Local food image import: ' +
       manifest.images.length +
       ' candidates, mode=' +
-      (flags.apply ? 'STAGING APPLY' : 'OFFLINE DRY RUN'),
+      (flags.apply
+        ? options.target.toUpperCase() + ' APPLY'
+        : 'OFFLINE DRY RUN'),
   );
   if (flags.apply) {
     assertLocalManifestApproved(manifest);
-    // Load secrets ONLY when the operator explicitly selected staging APPLY.
+    // Load secrets only for an explicitly authorized write.
     dotenv.config({ path: path.resolve(ROOT, '.env') });
-    assertStagingWriteGate(flags.backupAcknowledged);
+    assertLocalImageImportWriteGate(options, process.env);
   }
 
   // Always validate every file before any database mutation.
@@ -233,6 +182,13 @@ async function main(): Promise<void> {
             tagCodes: item.tagCodes,
             sectors: item.sectors,
             presentation: item.presentation,
+            targetEnvironment: options.target,
+            ...(options.target === 'production'
+              ? {
+                  databaseBackupReference: options.databaseBackupRef,
+                  uploadsBackupReference: options.uploadsBackupRef,
+                }
+              : {}),
             status: 'DRAFT',
           },
         });
@@ -251,7 +207,7 @@ async function main(): Promise<void> {
       }
     }
     console.log(
-      'STAGING IMPORT RESULT: created=' +
+      options.target.toUpperCase() + ' IMPORT RESULT: created=' +
         created +
         ', duplicates=' +
         duplicate +
