@@ -93,7 +93,9 @@ export function validateImageSourceUrl(value: string): URL {
       ) ||
         url.search !== '')) ||
     (url.hostname === 'foodiefactor.com' &&
-      (!/^\/wp-content\/uploads\/foodie-factor-[a-z0-9-]+\.jpe?g$/.test(url.pathname) ||
+      (!/^\/wp-content\/uploads\/foodie-factor-[a-z0-9-]+\.jpe?g$/.test(
+        url.pathname,
+      ) ||
         url.search !== ''))
   ) {
     throw new Error('Source must be a direct supported photo file: ' + value);
@@ -104,11 +106,21 @@ export function validateImageSourceUrl(value: string): URL {
 function validateRights(item: FoodImageImportItem): void {
   const page = checkedHttpsUrl(
     item.sourcePageUrl,
-    new Set(['wordpress.org', 'commons.wikimedia.org', 'isorepublic.com', 'foodiefactor.com']),
+    new Set([
+      'wordpress.org',
+      'commons.wikimedia.org',
+      'isorepublic.com',
+      'foodiefactor.com',
+    ]),
   );
   const proof = checkedHttpsUrl(
     item.licenseProofUrl,
-    new Set(['wordpress.org', 'creativecommons.org', 'isorepublic.com', 'foodiefactor.com']),
+    new Set([
+      'wordpress.org',
+      'creativecommons.org',
+      'isorepublic.com',
+      'foodiefactor.com',
+    ]),
   );
   if (page.hostname === 'wordpress.org') {
     if (
@@ -135,10 +147,14 @@ function validateRights(item: FoodImageImportItem): void {
     if (
       !/^\/[a-z0-9-]+\/$/.test(page.pathname) ||
       page.search !== '' ||
-      !item.sourceUrl.startsWith('https://foodiefactor.com/wp-content/uploads/foodie-factor-') ||
+      !item.sourceUrl.startsWith(
+        'https://foodiefactor.com/wp-content/uploads/foodie-factor-',
+      ) ||
       proof.href !== 'https://foodiefactor.com/license/'
     )
-      throw new Error('Foodie Factor source and CC0 evidence do not match: ' + item.id);
+      throw new Error(
+        'Foodie Factor source and CC0 evidence do not match: ' + item.id,
+      );
   } else {
     if (
       !page.pathname.startsWith('/wiki/File:') ||
