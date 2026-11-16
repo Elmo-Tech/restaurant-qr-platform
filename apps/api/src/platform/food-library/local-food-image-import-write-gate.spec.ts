@@ -159,15 +159,18 @@ describe('production food image importer write-gate', () => {
 
   it('rejects staging approval mixed with production mode', () => {
     expect(() =>
-      parseLocalImageImportArguments([...productionArgs(), '--ack-staging-backup']),
+      parseLocalImageImportArguments([
+        ...productionArgs(),
+        '--ack-staging-backup',
+      ]),
     ).toThrow('Staging backup acknowledgement');
   });
 
   it('rejects unexpected, duplicate or incomplete command flags', () => {
     const args = productionArgs();
-    expect(() =>
-      parseLocalImageImportArguments([...args, '--apply']),
-    ).toThrow('Duplicate option');
+    expect(() => parseLocalImageImportArguments([...args, '--apply'])).toThrow(
+      'Duplicate option',
+    );
     expect(() =>
       parseLocalImageImportArguments([...args, '--no-logs']),
     ).toThrow('Unknown or duplicate option');
@@ -175,7 +178,12 @@ describe('production food image importer write-gate', () => {
       parseLocalImageImportArguments(['--manifest', '/import/a']),
     ).toThrow('--manifest and --base-dir');
     expect(() =>
-      parseLocalImageImportArguments(['--manifest', '--apply', '--base-dir', '/import']),
+      parseLocalImageImportArguments([
+        '--manifest',
+        '--apply',
+        '--base-dir',
+        '/import',
+      ]),
     ).toThrow('Missing value');
   });
 
