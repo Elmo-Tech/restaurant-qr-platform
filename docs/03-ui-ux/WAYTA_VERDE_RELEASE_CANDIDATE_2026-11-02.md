@@ -35,7 +35,7 @@
 
 ## Code CI
 
-`.github/workflows/wayta-verde-release-candidate.yml` runs on this branch:
+`.github/workflows/wayta-verde-release-candidate.yml` ran on this branch (2026-11-18: the merged branch trigger was removed; it now runs on `development` pushes and pull requests to `main`/`development`):
 - `npm ci`, Prisma schema validation without DB changes;
 - API / Web / Platform typechecks;
 - focused Backend Jest: tenant-specific exclusive design and public menu, menu archive/restore boundary, provisioning, acquisition/contact and import;

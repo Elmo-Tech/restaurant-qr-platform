@@ -53,7 +53,7 @@
 
 ## CI and verification
 
-- `.github/workflows/restaurant-setup-checklist-preview.yml` runs Web and API typechecks, Prisma schema validation, isolated Jest setup+provisioning tests, source contracts and targeted lint. This workflow does **not** connect to Postgres or apply migrations.
+- `.github/workflows/restaurant-setup-checklist-preview.yml` runs Web and API typechecks, Prisma schema validation, isolated Jest setup+provisioning tests, source contracts and targeted lint. This workflow does **not** connect to Postgres or apply migrations. (2026-11-18: consolidated into `.github/workflows/wayta-feature-regression.yml`, which runs on pull requests to `main`/`development`.)
 - A green workflow is a **code-level gate only**. The feature is not production-ready until owner visual QA and isolated database integration/security QA are completed.
 
 ## Company task

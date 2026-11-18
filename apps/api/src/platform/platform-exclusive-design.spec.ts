@@ -126,7 +126,7 @@ describe('Platform Admin: tenant-owned exclusive design assignment', () => {
     expect(t.prisma.restaurantExclusiveDesign.upsert).toHaveBeenCalledWith(
       expect.objectContaining({
         where: { restaurantId: RESTAURANT_ID },
-        create: expect.objectContaining({ rendererKey: 'VERDE_NAPOLI_V1' }),
+        create: expect.objectContaining({ rendererKey: 'VERDE_NAPOLI_V1' }) as unknown,
       }),
     );
     expect(t.audit.record).toHaveBeenCalled();
@@ -174,7 +174,7 @@ describe('Platform Admin: tenant-owned exclusive design assignment', () => {
     expect(await t.service.setExclusiveDesign(ADMIN, RESTAURANT_ID, custom))
       .toEqual({ outcome: 'ok', data: custom });
     expect(t.prisma.restaurantExclusiveDesign.upsert).toHaveBeenCalledWith(
-      expect.objectContaining({ create: expect.objectContaining({ rendererKey: 'SHERBINY_FIRE_DOUGH_V1' }) }),
+      expect.objectContaining({ create: expect.objectContaining({ rendererKey: 'SHERBINY_FIRE_DOUGH_V1' }) as unknown }),
     );
 
     const taken = setup();

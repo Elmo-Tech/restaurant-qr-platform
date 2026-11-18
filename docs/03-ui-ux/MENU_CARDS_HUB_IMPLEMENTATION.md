@@ -41,7 +41,7 @@ All changes are visual/presentation only; **no new Backend API, data shape or mi
 
 ## Automated QA (branch-only)
 
-`.github/workflows/menu-cards-hub.yml` is scoped to `feat/menu-cards-hub-navigation` and runs Node 24, `npm ci`, Web TypeScript typecheck, narrow eslint, existing mobile tests and new source-contract tests.
+`.github/workflows/menu-cards-hub.yml` is scoped to `feat/menu-cards-hub-navigation` and runs Node 24, `npm ci`, Web TypeScript typecheck, narrow eslint, existing mobile tests and new source-contract tests. (2026-11-18: consolidated into `.github/workflows/wayta-feature-regression.yml`, which runs on pull requests to `main`/`development`.)
 
 **Do not mark CI green without a finished passing run.** The final visual, functionality and role/package QA must be done against the real running app before merging.
 
