@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {existsSync,readFileSync} from 'node:fs';
 const root=new URL('../../',import.meta.url);
 const read=p=>readFileSync(new URL(p,root),'utf8');
 const studio=read('app/staff/restaurants/[restaurantId]/settings/design/DesignWorkspace.tsx');
@@ -8,7 +8,6 @@ const guest=read('app/q/[publicCode]/PublicMenuView.tsx');
 const chips=read('app/q/[publicCode]/CategoryChips.tsx');
 const qr=read('app/staff/restaurants/[restaurantId]/settings/guest-qr/RestaurantQrPanel.tsx');
 const nav=read('components/ui/Tabs.tsx');
-const settings=read('app/staff/restaurants/[restaurantId]/settings/SettingsTabs.tsx');
 const subscriptions=read('app/staff/restaurants/[restaurantId]/subscription/SubscriptionWorkspace.tsx');
 const backend=read('../../api/src/my-subscription/my-subscription.service.ts');
 
@@ -47,7 +46,9 @@ test('QR preview and its live customization remain visible together on phones',(
  assert.ok(qr.includes('max-w-[300px] rounded-lg object-contain'));
  assert.ok(qr.includes('grid min-w-0 gap-5 lg:grid-cols-'), 'stack on mobile; two columns on desktop');
  assert.ok(qr.includes('xl:grid-cols-2'));
- assert.ok(settings.includes('scrollable'));
+ // The legacy horizontal SettingsTabs bar was retired for the Settings Hub; the shared nav keeps its scrollable mobile mode.
+ assert.ok(!existsSync(new URL('app/staff/restaurants/[restaurantId]/settings/SettingsTabs.tsx',root)));
+ assert.ok(nav.includes('scrollable'));
  assert.ok(nav.includes('flex-nowrap overflow-x-auto'));
 });
 

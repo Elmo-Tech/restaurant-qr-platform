@@ -59,9 +59,11 @@ function build(
       }),
     },
     restaurantSlug: {
-      findMany: jest.fn().mockResolvedValue(
-        (options.takenSlugs ?? []).map((slug) => ({ slug })),
-      ),
+      findMany: jest
+        .fn()
+        .mockResolvedValue(
+          (options.takenSlugs ?? []).map((slug) => ({ slug })),
+        ),
       create: jest.fn().mockImplementation(() => {
         calls.push('slug');
         return Promise.resolve({});
@@ -235,9 +237,13 @@ describe('provisionRestaurant', () => {
     expect(m.tx.restaurantOwnerContact.create).toHaveBeenCalledWith({
       data: { restaurantId: 'restaurant-1', ...ownerContact },
     });
-    expect(m.calls.indexOf('ownerContact')).toBeGreaterThan(m.calls.indexOf('restaurant'));
+    expect(m.calls.indexOf('ownerContact')).toBeGreaterThan(
+      m.calls.indexOf('restaurant'),
+    );
     expect(m.tx.user.create.mock.calls[0][0].data).not.toHaveProperty('phone');
-    expect(m.tx.restaurant.create.mock.calls[0][0].data).not.toHaveProperty('contactPhone');
+    expect(m.tx.restaurant.create.mock.calls[0][0].data).not.toHaveProperty(
+      'contactPhone',
+    );
   });
 
   it('seeds the five starter Roles for the new Restaurant (Owner first), and the Owner holds the Owner Role', async () => {
@@ -298,17 +304,30 @@ describe('provisionRestaurant', () => {
     await provisionRestaurant(m.prisma as never, m.hasher, INPUT);
 
     expect(m.tx.restaurantSlug.create).toHaveBeenCalledWith({
-      data: { slug: 'elmo-bistro', restaurantId: 'restaurant-1', isCurrent: true },
+      data: {
+        slug: 'elmo-bistro',
+        restaurantId: 'restaurant-1',
+        isCurrent: true,
+      },
     });
   });
 
   it('adds a number to the link when another Restaurant already has that name', async () => {
     const m = build({ takenSlugs: ['elmo-bistro', 'elmo-bistro-2'] });
 
-    const result = await provisionRestaurant(m.prisma as never, m.hasher, INPUT);
+    const result = await provisionRestaurant(
+      m.prisma as never,
+      m.hasher,
+      INPUT,
+    );
 
-    expect(result).toMatchObject({ outcome: 'provisioned', menuSlug: 'elmo-bistro-3' });
-    expect(m.tx.restaurantSlug.create.mock.calls[0][0].data.slug).toBe('elmo-bistro-3');
+    expect(result).toMatchObject({
+      outcome: 'provisioned',
+      menuSlug: 'elmo-bistro-3',
+    });
+    expect(m.tx.restaurantSlug.create.mock.calls[0][0].data.slug).toBe(
+      'elmo-bistro-3',
+    );
   });
 
   it('writes the Arabic name as a readable Latin link', async () => {
@@ -320,7 +339,9 @@ describe('provisionRestaurant', () => {
     });
 
     expect(result).toMatchObject({ outcome: 'provisioned' });
-    expect(m.tx.restaurantSlug.create.mock.calls[0][0].data.slug).toMatch(/^[a-z0-9]+(-[a-z0-9]+)*$/);
+    expect(m.tx.restaurantSlug.create.mock.calls[0][0].data.slug).toMatch(
+      /^[a-z0-9]+(-[a-z0-9]+)*$/,
+    );
   });
 
   it('creates no Menu, Product or other demo data', async () => {

@@ -21,7 +21,7 @@ Integration PRs #17/#18 brought the menu features; PR #16 brought acquisition + 
 
 ## Code-level CI
 
-`.github/workflows/wayta-pre-release-integration.yml` runs against this Integration branch only:
+`.github/workflows/wayta-pre-release-integration.yml` ran against this Integration branch only (2026-11-18: removed after the branch merged into `main`; these checks are covered by the retained integration and release workflows):
 - locked dependency installation and Prisma schema validation (no DB changes),
 - API/Staff Web/Platform Console Typechecks,
 - focused Backend tests for setup-related provisioning, owner contact, acquisition, exclusive assignment/public menu, menus start-fresh and menu controllers,

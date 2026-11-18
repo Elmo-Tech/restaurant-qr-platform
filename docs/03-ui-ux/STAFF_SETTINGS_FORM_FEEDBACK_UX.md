@@ -40,6 +40,6 @@ Branch: `feat/staff-settings-form-feedback`, based on Menu Cards Hub PR #10. The
 
 ## Validation notes
 
-This branch adds a branch-only CI workflow (`.github/workflows/staff-settings-form-feedback.yml`).
+This branch adds a branch-only CI workflow (`.github/workflows/staff-settings-form-feedback.yml`). (2026-11-18: consolidated into `.github/workflows/wayta-feature-regression.yml`, which runs on pull requests to `main`/`development`.)
 **Don't claim full UI/browser QA without real visual testing.**
 There are no migrations, new API keys, external services, or production changes.

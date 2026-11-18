@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 
 const source = (relative) => readFileSync(new URL(relative, import.meta.url), 'utf8');
 const root = '../../app/staff/restaurants/[restaurantId]';
@@ -10,7 +10,6 @@ const shell = source('../../components/staff/StaffShell.tsx');
 const sidebar = source('../../components/staff/RestaurantSidebar.tsx');
 const back = source('../../components/staff/MenuHubBackLink.tsx');
 const mobile = source('./mobile-navigation.ts');
-const tabs = source(root + '/settings/SettingsTabs.tsx');
 const qr = source(root + '/settings/guest-qr/GuestQrWorkspace.tsx');
 const design = source(root + '/settings/design/DesignWorkspace.tsx');
 const announcements = source(root + '/settings/announcements/AnnouncementsWorkspace.tsx');
@@ -63,9 +62,10 @@ test('legacy settings URLs are treated as menu, with stable sidebar and real QR 
   assert.match(design, /<MenuHubBackLink/);
   assert.match(design, /menuHub\.design/);
   assert.doesNotMatch(design, /<SettingsTabs/);
-  assert.doesNotMatch(tabs, /key: 'design',/);
-  assert.doesNotMatch(tabs, /key: 'announcements',/);
-  assert.doesNotMatch(tabs, /key: 'suggestions',/);
+  // The legacy SettingsTabs bar (which once listed design/announcements/suggestions) is retired.
+  assert.ok(!existsSync(new URL(root + '/settings/SettingsTabs.tsx', import.meta.url)));
+  assert.doesNotMatch(announcements, /<SettingsTabs/);
+  assert.doesNotMatch(suggestions, /<SettingsTabs/);
   assert.match(qr, /settings\/ordering/); // Existing bookmarked QR links point staff to ordering.
   assert.match(back, /parent === 'guest'/);
   assert.match(back, /menuHub\.backGuest/);

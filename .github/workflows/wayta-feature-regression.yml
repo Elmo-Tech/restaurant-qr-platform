@@ -1,0 +1,254 @@
+name: Wayta Feature Regression QA
+
+# Consolidates the targeted checks of the retired per-feature workflows
+# (BLOOM/BREW/EMBER/Editorial templates, exclusive menu design, Menu Cards Hub,
+# menu start-fresh, mobile UX polish, platform owner contact, acquisition source,
+# restaurant mobile UX, setup checklist, staff settings form feedback, VERDE
+# exclusive menu). No database, secrets, image publishing or deployment.
+
+on:
+  pull_request:
+    branches: [main, development]
+    paths:
+      - 'apps/**'
+      - 'scripts/dev-session-doctor.mjs'
+      - 'start-dev.ps1'
+      - 'stop-dev.ps1'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/wayta-feature-regression.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: wayta-feature-regression-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  regression:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+
+      - name: Validate Prisma schema (no database connection)
+        run: npm run db:validate
+      # The API `pretypecheck` hook runs `prisma generate`; the Jest and ESLint steps below
+      # call the tools directly and rely on this generated client (no database, no migrations).
+      - name: Typecheck API (generates Prisma Client)
+        run: npm run typecheck:api
+      - name: Typecheck Staff + Guest Web
+        run: npm run typecheck:web
+      - name: Typecheck Platform Console
+        run: npm run typecheck:platform
+
+      - name: Guest menu template, pricing and mobile UX contracts
+        run: >-
+          node --experimental-strip-types --test
+          apps/web/src/lib/public-menu/bloom-settings.contract.test.mjs
+          apps/web/src/lib/public-menu/bloom-typography.contract.test.mjs
+          apps/web/src/lib/public-menu/ember-settings.contract.test.mjs
+          apps/web/src/lib/public-menu/ember-light-theme.contract.test.mjs
+          apps/web/src/lib/public-menu/brew-contract.test.mjs
+          apps/web/src/lib/public-menu/editorial-price-display.contract.test.mjs
+          apps/web/src/lib/public-menu/mobile-ux.contract.test.mjs
+          apps/web/src/lib/public-menu/subscription-plans.contract.test.mjs
+
+      - name: Staff hubs, navigation, setup checklist and form feedback
+        run: >-
+          node --experimental-strip-types --test
+          apps/web/src/lib/staff/menu-hub.contract.test.mjs
+          apps/web/src/lib/staff/mobile-navigation.test.mjs
+          apps/web/src/lib/staff/mobile-navigation.contract.test.mjs
+          apps/web/src/lib/staff/restaurant-setup.test.mjs
+          apps/web/src/lib/staff/restaurant-setup-preview.contract.test.mjs
+          apps/web/src/lib/staff/restaurant-setup-live.contract.test.mjs
+          apps/web/src/lib/staff/restaurant-settings-hub.contract.test.mjs
+          apps/web/src/lib/staff/focus-invalid-field.test.mjs
+          apps/web/src/lib/staff/staff-form-feedback.contract.test.mjs
+          apps/web/src/lib/contact/international-phone.test.mjs
+
+      - name: API templates, entitlements, menus, tenant public menu and provisioning
+        run: >-
+          npm exec --workspace=apps/api -- jest --runInBand
+          bloom-template-config.spec.ts
+          bloom-template-config.service.spec.ts
+          bloom-template-config.controller.spec.ts
+          ember-template-config.spec.ts
+          ember-template-config.service.spec.ts
+          ember-template-config.controller.spec.ts
+          brew-template-config.spec.ts
+          editorial-template-config.spec.ts
+          templates.spec.ts
+          catalog-pricing.spec.ts
+          plan-options.spec.ts
+          my-subscription.view.spec.ts
+          public-menu.service.spec.ts
+          public-menu.controller.spec.ts
+          platform-exclusive-design.spec.ts
+          menus-start-fresh.spec.ts
+          menus.service.spec.ts
+          menus.controller.spec.ts
+          restaurant-owner-contact.spec.ts
+          restaurant-acquisition.spec.ts
+          provision-restaurant.spec.ts
+          restaurant-setup.service.spec.ts
+          restaurant-setup.controller.spec.ts
+
+      - name: Lint API feature files (strict, including Prettier rule)
+        run: >-
+          npm exec --workspace=apps/api -- eslint
+          src/menu/dto/start-fresh-menu.dto.ts
+          src/menu/menus.service.ts
+          src/menu/menus.controller.ts
+          src/menu/menus-start-fresh.spec.ts
+          src/platform/restaurant-acquisition.ts
+          src/platform/restaurant-acquisition.spec.ts
+          src/platform/dto/create-restaurant.dto.ts
+          src/platform/platform-restaurant-creation.service.ts
+          src/platform/platform-restaurants.service.ts
+          src/provisioning/provision-restaurant.ts
+          src/restaurants/restaurant-setup.service.ts
+          src/restaurants/restaurant-setup.controller.ts
+          src/restaurants/restaurant-setup.service.spec.ts
+          src/restaurants/restaurant-setup.controller.spec.ts
+
+      # These files carry unrelated legacy Prettier violations; semantic lint still applies.
+      - name: Lint API feature files (semantic, Prettier rule off)
+        run: >-
+          npm exec --workspace=apps/api -- eslint --rule 'prettier/prettier: off'
+          src/platform/dto/exclusive-design.dto.ts
+          src/platform/platform-exclusive-design.spec.ts
+          src/platform/platform.controller.ts
+          src/platform/platform-audit.service.ts
+          src/public/public-menu.service.ts
+          src/restaurants/restaurant-profile.service.ts
+          src/restaurants/restaurant-profile.controller.ts
+          src/platform/restaurant-owner-contact.ts
+          src/platform/restaurant-owner-contact.spec.ts
+
+      - name: Check Prettier on API feature files
+        run: >-
+          npm exec --workspace=apps/api -- prettier --check
+          src/menu/dto/start-fresh-menu.dto.ts
+          src/menu/menus.service.ts
+          src/menu/menus.controller.ts
+          src/menu/menus-start-fresh.spec.ts
+          src/platform/restaurant-owner-contact.ts
+          src/platform/restaurant-owner-contact.spec.ts
+          src/platform/restaurant-acquisition.ts
+          src/platform/restaurant-acquisition.spec.ts
+          src/platform/dto/create-restaurant.dto.ts
+          src/platform/platform-restaurant-creation.service.ts
+          src/platform/platform-restaurants.service.ts
+          src/provisioning/provision-restaurant.ts
+          src/provisioning/provision-restaurant.spec.ts
+
+      - name: Lint Platform Console feature files (strict)
+        run: >-
+          npm exec --workspace=apps/platform -- eslint
+          src/lib/api/platform.ts
+          src/lib/i18n/messages.ts
+          'src/app/(console)/restaurants/new/AcquisitionSourceFields.tsx'
+          'src/app/(console)/restaurants/new/NewRestaurantForm.tsx'
+          'src/app/(console)/restaurants/[restaurantId]/RestaurantDetailView.tsx'
+          'src/app/(console)/restaurants/[restaurantId]/ExclusiveDesignAdminCard.tsx'
+
+      - name: Lint Platform Console feature files (semantic, Prettier rule off)
+        run: >-
+          npm exec --workspace=apps/platform -- eslint --rule 'prettier/prettier: off'
+          'src/app/(console)/restaurants/[restaurantId]/OwnerContactCard.tsx'
+          'src/app/(console)/restaurants/RestaurantsView.tsx'
+
+      - name: Lint Staff Web feature files
+        run: >-
+          npm exec --workspace=apps/web -- eslint
+          src/lib/settings/api.ts
+          src/lib/menu/api.ts
+          src/lib/i18n/messages/design.ts
+          src/lib/i18n/messages/menu.ts
+          src/lib/i18n/messages/menuHub.ts
+          src/lib/i18n/messages/common.ts
+          src/lib/i18n/messages/contact.ts
+          src/lib/i18n/messages/settingsHub.ts
+          src/lib/i18n/messages/restaurantSetup.ts
+          src/lib/i18n/messages/index.ts
+          src/lib/staff/mobile-navigation.ts
+          src/lib/staff/restaurant-setup.ts
+          src/lib/staff/restaurant-setup-api.ts
+          src/lib/staff/focus-invalid-field.ts
+          src/lib/contact/international-phone.ts
+          src/components/staff/MenuHubBackLink.tsx
+          src/components/staff/RestaurantSidebar.tsx
+          src/components/staff/StaffShell.tsx
+          src/components/staff/StaffTopbar.tsx
+          src/components/staff/MobileNavigation.tsx
+          src/components/staff/RestaurantSetupChecklistCard.tsx
+          src/components/staff/RestaurantSetupPanel.tsx
+          src/components/staff/StaffFeedbackToast.tsx
+          src/components/staff/InternationalPhoneField.tsx
+          src/components/staff/SettingsBackLink.tsx
+          src/components/ui/FormField.tsx
+          'src/app/staff/restaurants/[restaurantId]/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/dashboard/OperationsDashboard.tsx'
+          'src/app/staff/restaurants/[restaurantId]/setup/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/setup-preview/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/setup-preview/SetupPreviewWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/menu/overview/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/menu/guest-experience/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/menu/MenuWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/menu/StartFreshMenuAction.tsx'
+          'src/app/staff/restaurants/[restaurantId]/menu/import/MenuImportWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/menu/products/ProductEditor.tsx'
+          'src/app/staff/restaurants/[restaurantId]/menu/modifier-presets/ModifierPresetsWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/overview/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/announcements/AnnouncementsWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/design/DesignWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/guest-qr/GuestQrWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/guest-qr/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/suggestions/SuggestionsWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/profile/ContactCard.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/profile/ProfileWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/ordering/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/ordering/OrderingWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/branches/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/branches/BranchesWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/hours/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/hours/HoursWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/delivery/page.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/delivery/DeliveryWorkspace.tsx'
+          'src/app/staff/restaurants/[restaurantId]/settings/languages/LanguagesWorkspace.tsx'
+
+  dev-launchers:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+      - name: Verify dev session doctor script
+        run: node --check scripts/dev-session-doctor.mjs
+      # PowerShell 7 (pwsh) is preinstalled on GitHub's ubuntu-latest runners; parsing is syntax-only.
+      - name: Parse Windows PowerShell launchers
+        shell: pwsh
+        run: |
+          foreach ($file in @('start-dev.ps1', 'stop-dev.ps1')) {
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $file).Path, [ref]$null, [ref]$errors
+            ) | Out-Null
+            if ($errors.Count -gt 0) {
+              $errors | ForEach-Object { Write-Error $_.Message }
+              exit 1
+            }
+            Write-Host "PowerShell syntax OK: $file"
+          }
