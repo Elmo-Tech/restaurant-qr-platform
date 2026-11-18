@@ -1,0 +1,47 @@
+{
+  "schemaVersion": 1,
+  "project": "WAYTA",
+  "purpose": "Premium CC0 photo visual and source preflight only. NO Production import.",
+  "status": "UNAPPROVED",
+  "candidates": [
+    {
+      "id": "burger-robin-stickel-cc0",
+      "name": "Gourmet Burger",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Gros_hamburger.jpg",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/6/6b/Gros_hamburger.jpg",
+      "legacySourceUrl": "https://www.pexels.com/photo/fries-and-burger-on-plate-70497/",
+      "author": "Robin Stickel",
+      "license": "CC0",
+      "licenseProofUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseReviewEvidence": "Wikimedia Commons license review by Achim55 on 2017-07-28",
+      "tagCodes": [
+        "BURGER"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "approved": false
+    },
+    {
+      "id": "chocolate-cake-blueberry-cc0",
+      "name": "Chocolate Layer Cake with Blueberry Topping",
+      "sourcePageUrl": "https://commons.wikimedia.org/wiki/File:Sliced_chocolate_cake.jpg",
+      "sourceUrl": "https://upload.wikimedia.org/wikipedia/commons/d/dd/Sliced_chocolate_cake.jpg",
+      "legacySourceUrl": "https://www.pexels.com/photo/blueberries-cake-chocolate-chocolate-cake-291528/",
+      "author": "Abhinav Goswami",
+      "license": "CC0",
+      "licenseProofUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "licenseReviewEvidence": "Wikimedia Commons license review by Leoboudv on 2017-11-30",
+      "tagCodes": [
+        "CHOCOLATE_CAKE"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "approved": false
+    }
+  ]
+}
