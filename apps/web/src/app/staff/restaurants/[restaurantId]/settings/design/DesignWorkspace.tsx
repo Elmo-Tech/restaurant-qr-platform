@@ -384,10 +384,11 @@ export function DesignWorkspace({
   const previewLocale = meatLoversActive ? meatLoversPreviewLanguage : verdeActive ? verdePreviewLanguage : sherbinyActive ? sherbinyPreviewLanguage : makkbozActive ? (makkbozPreviewLanguage ?? locale) : activePreview === 'EMBER' ? emberPreviewLanguage
     : activePreview === 'BLOOM' ? bloomPreviewLanguage : activePreview==='BREW'?brewPreviewLanguage:null;
   const designPreview = verdeActive || sherbinyActive || makkbozActive || meatLoversActive || activePreview === 'EMBER' || activePreview === 'BLOOM' || activePreview==='BREW' || activePreview==='EDITORIAL';
+  // Every Staff preview carries `designPreview=1`: without it the Guest page canonicalises a Generic menu to
+  // the restaurant subdomain, a cross-origin redirect that `X-Frame-Options: SAMEORIGIN` blocks in the iframe.
+  // The Guest page only enables live-draft mode for the templates that support it.
   const previewSrc = qrCode
-    ? `/q/${qrCode}?${verdeActive || sherbinyActive || makkbozActive || meatLoversActive ? 'template=exclusive' : `template=${activePreview.toLowerCase()}`}${designPreview
-        ? `&designPreview=1${previewLocale ? `&lang=${previewLocale}` : ''}`
-        : ''}`
+    ? `/q/${qrCode}?${verdeActive || sherbinyActive || makkbozActive || meatLoversActive ? 'template=exclusive' : `template=${activePreview.toLowerCase()}`}&designPreview=1${designPreview && previewLocale ? `&lang=${previewLocale}` : ''}`
     : null;
 
   return (
