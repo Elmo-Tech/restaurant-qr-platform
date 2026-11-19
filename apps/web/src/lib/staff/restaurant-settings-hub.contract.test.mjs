@@ -20,6 +20,7 @@ const languages = read(root + '/languages/LanguagesWorkspace.tsx');
 const sidebar = read('../../components/staff/RestaurantSidebar.tsx');
 const shell = read('../../components/staff/StaffShell.tsx');
 const mobile = read('./mobile-navigation.ts');
+const desktop = read('./desktop-navigation.ts');
 const back = read('../../components/staff/SettingsBackLink.tsx');
 const copy = read('../i18n/messages/settingsHub.ts');
 
@@ -77,7 +78,8 @@ test('branch cards link to the exact branch for hours and delivery without privi
 });
 
 test('new Settings root and mobile/desktop navigation open the Hub; legacy paths stay valid', () => {
-  assert.match(sidebar, /settings\/overview/);
+  assert.match(sidebar, /buildDesktopNavigation\(/);
+  assert.match(desktop, /settings: \{[^\n]*\/settings\/overview/);
   assert.match(mobile, /settings: \{[^\n]*\/settings\/overview/);
   assert.match(shell, /settingsHub\.order(?:ing)?/);
   assert.match(shell, /settingsHub\.branches/);
