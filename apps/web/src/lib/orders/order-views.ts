@@ -23,8 +23,98 @@ export function isCompletedStatus(status: OrderStatus): boolean {
   return COMPLETED_STATUSES.includes(status);
 }
 
-/** Newest first is the working default; oldest first answers "which one has been waiting longest / what came in first". */
-export type OrdersSort = 'newest' | 'oldest';
+/**
+ * Newest first is the Completed/All default; oldest first answers "which one
+ * has been waiting longest / what came in first". Phase 1: `priority` (Active
+ * view only, and its default) groups Orders by what they need next -- see
+ * `ORDER_PRIORITY_GROUPS`.
+ */
+export type OrdersSort = 'newest' | 'oldest' | 'priority';
+
+export const ORDERS_SORTS: readonly OrdersSort[] = ['priority', 'newest', 'oldest'];
+
+/** Sorts a view offers: `priority` only makes sense for Active Orders. */
+export function sortsForView(view: OrdersView): readonly OrdersSort[] {
+  return view === 'active' ? ORDERS_SORTS : ['newest', 'oldest'];
+}
+
+/**
+ * The sort actually applied. An explicit choice (picked in the UI or from a
+ * `?sort=` deep link) wins while the view offers it; otherwise Active uses
+ * `priority` and Completed/All keep their existing `newest` default.
+ */
+export function effectiveSort(view: OrdersView, explicit: OrdersSort | null): OrdersSort {
+  if (explicit !== null && sortsForView(view).includes(explicit)) return explicit;
+  return view === 'active' ? 'priority' : 'newest';
+}
+
+/**
+ * Phase 1 priority groups, in display order. Purely status-based (no score,
+ * no SLA): what decision or handoff the Order is waiting on.
+ * OUT_FOR_DELIVERY is its own last group -- it has already left the
+ * restaurant, so it is never shown as waiting for a kitchen handoff.
+ */
+export type OrderPriorityGroup = 'needsDecision' | 'readyForHandoff' | 'inProgress' | 'inDelivery';
+
+export const ORDER_PRIORITY_GROUPS: readonly OrderPriorityGroup[] = [
+  'needsDecision',
+  'readyForHandoff',
+  'inProgress',
+  'inDelivery',
+];
+
+const PRIORITY_GROUP_BY_STATUS: Record<OrderStatus, OrderPriorityGroup | null> = {
+  PENDING: 'needsDecision',
+  READY: 'readyForHandoff',
+  ACCEPTED: 'inProgress',
+  PREPARING: 'inProgress',
+  OUT_FOR_DELIVERY: 'inDelivery',
+  SERVED: null,
+  REJECTED: null,
+  CANCELLED: null,
+};
+
+/** `null` for completed statuses: they are never part of the Active priority queue. */
+export function priorityGroupOf(status: OrderStatus): OrderPriorityGroup | null {
+  return PRIORITY_GROUP_BY_STATUS[status];
+}
+
+function priorityRank(status: OrderStatus): number {
+  const group = priorityGroupOf(status);
+  return group === null ? ORDER_PRIORITY_GROUPS.length : ORDER_PRIORITY_GROUPS.indexOf(group);
+}
+
+function createdAtMs(order: OrderListItem): number {
+  const ms = Date.parse(order.createdAt);
+  return Number.isFinite(ms) ? ms : 0;
+}
+
+/** Group rank, then oldest first, then Order id -- a total order, so the queue never reshuffles between polls. */
+function comparePriority(a: OrderListItem, b: OrderListItem): number {
+  return (
+    priorityRank(a.status) - priorityRank(b.status) ||
+    createdAtMs(a) - createdAtMs(b) ||
+    (a.id < b.id ? -1 : a.id > b.id ? 1 : 0)
+  );
+}
+
+export interface OrderPrioritySection {
+  group: OrderPriorityGroup;
+  orders: OrderListItem[];
+}
+
+/**
+ * Splits already filtered Active Orders into the non-empty priority groups,
+ * in `ORDER_PRIORITY_GROUPS` order, each oldest first. Completed Orders have
+ * no group and are left out (the Active view never contains them).
+ */
+export function groupOrdersByPriority(orders: OrderListItem[]): OrderPrioritySection[] {
+  const sorted = [...orders].sort(comparePriority);
+  return ORDER_PRIORITY_GROUPS.map((group) => ({
+    group,
+    orders: sorted.filter((order) => priorityGroupOf(order.status) === group),
+  })).filter((section) => section.orders.length > 0);
+}
 
 /**
  * When the Dashboard's "needs attention" flags an order: a PENDING order
@@ -65,15 +155,16 @@ function matchesSearch(order: OrderListItem, rawSearch: string): boolean {
 
 export function filterOrders(orders: OrderListItem[], filters: OrdersFilters): OrderListItem[] {
   const viewStatuses = statusesForView(filters.view);
-  const direction = filters.sort === 'oldest' ? 1 : -1;
-  return orders
+  const filtered = orders
     .filter((order) => viewStatuses.includes(order.status))
     .filter((order) => filters.status === null || order.status === filters.status)
     .filter((order) => filters.type === null || order.type === filters.type)
-    .filter((order) => matchesSearch(order, filters.search))
-    .sort(
-      (a, b) => direction * (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
-    );
+    .filter((order) => matchesSearch(order, filters.search));
+  if (filters.sort === 'priority') return filtered.sort(comparePriority);
+  const direction = filters.sort === 'oldest' ? 1 : -1;
+  return filtered.sort(
+    (a, b) => direction * (new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime()),
+  );
 }
 
 

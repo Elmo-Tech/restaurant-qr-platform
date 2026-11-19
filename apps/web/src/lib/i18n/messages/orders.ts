@@ -29,6 +29,7 @@ export const ordersMessages = defineMessages({
     'orders.filter.sort': 'Sort',
     'orders.sort.newest': 'Newest first',
     'orders.sort.oldest': 'Oldest first',
+    'orders.sort.priority': 'Priority',
     'orders.summary': 'Orders: {count} · from {first} to {last}',
 
     'orders.type.DINE_IN': 'Dine in',
@@ -56,6 +57,19 @@ export const ordersMessages = defineMessages({
     'orders.card.table': 'Table {number}',
     'orders.card.pickup': 'Pickup',
     'orders.card.view': 'View order',
+    /** Phase 1 priority queue: group headings (Active view, Priority sort). */
+    'orders.queue.label': 'Active orders by priority',
+    'orders.queue.group.needsDecision': 'Needs decision',
+    'orders.queue.group.readyForHandoff': 'Ready for handoff',
+    'orders.queue.group.inProgress': 'In progress',
+    'orders.queue.group.inDelivery': 'In delivery',
+    /** Informational only (never a button): the viewer's next permitted step, or neutral status copy. */
+    'orders.card.nextStep': 'Next: {action}',
+    'orders.card.waiting.PENDING': 'Awaiting acceptance',
+    'orders.card.waiting.ACCEPTED': 'Waiting for the kitchen to start',
+    'orders.card.waiting.PREPARING': 'Being prepared',
+    'orders.card.waiting.READY': 'Ready, awaiting handoff',
+    'orders.card.waiting.OUT_FOR_DELIVERY': 'On the way to the customer',
 
     'orders.empty.filteredType': 'No {type} orders match these filters',
     'orders.empty.filtered': 'No orders match these filters',
@@ -151,6 +165,7 @@ export const ordersMessages = defineMessages({
     'orders.filter.sort': 'الترتيب',
     'orders.sort.newest': 'الأحدث أولًا',
     'orders.sort.oldest': 'الأقدم أولًا',
+    'orders.sort.priority': 'حسب الأولوية',
     'orders.summary': 'عدد الطلبات: {count} · من {first} إلى {last}',
 
     'orders.type.DINE_IN': 'داخل المطعم',
@@ -177,6 +192,17 @@ export const ordersMessages = defineMessages({
     'orders.card.table': 'طاولة {number}',
     'orders.card.pickup': 'استلام',
     'orders.card.view': 'عرض الطلب',
+    'orders.queue.label': 'الطلبات النشطة حسب الأولوية',
+    'orders.queue.group.needsDecision': 'بانتظار القرار',
+    'orders.queue.group.readyForHandoff': 'جاهز للتسليم',
+    'orders.queue.group.inProgress': 'قيد التنفيذ',
+    'orders.queue.group.inDelivery': 'قيد التوصيل',
+    'orders.card.nextStep': 'الخطوة التالية: {action}',
+    'orders.card.waiting.PENDING': 'بانتظار القبول',
+    'orders.card.waiting.ACCEPTED': 'بانتظار بدء المطبخ',
+    'orders.card.waiting.PREPARING': 'قيد التحضير',
+    'orders.card.waiting.READY': 'جاهز، بانتظار التسليم',
+    'orders.card.waiting.OUT_FOR_DELIVERY': 'في الطريق إلى العميل',
 
     'orders.empty.filteredType': 'لا توجد طلبات ({type}) تطابق هذه التصفية',
     'orders.empty.filtered': 'لا توجد طلبات تطابق هذه التصفية',

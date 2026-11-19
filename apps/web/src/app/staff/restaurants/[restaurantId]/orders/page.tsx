@@ -23,7 +23,8 @@ const single = (value: string | string[] | undefined): string | null =>
   typeof value === 'string' && value !== '' ? value : null;
 
 /**
- * Deep-link filters (`?status=PENDING&sort=oldest`):
+ * Deep-link filters (`?status=PENDING&sort=oldest`). No `sort` means the
+ * view's own default (Active: priority; Completed/All: newest).
  * every value is checked against its allow-list here, so a hand-edited URL
  * can only ever fall back to the default view, never put the workspace in an
  * impossible state.
@@ -41,7 +42,7 @@ function parseInitialFilters(raw: Awaited<OrdersPageProps['searchParams']>): Ord
     }
   }
   const sort = single(raw.sort);
-  if (sort === 'newest' || sort === 'oldest') filters.sort = sort;
+  if (sort === 'newest' || sort === 'oldest' || sort === 'priority') filters.sort = sort;
   return filters;
 }
 
