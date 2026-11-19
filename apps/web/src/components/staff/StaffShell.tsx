@@ -9,6 +9,7 @@ import { DemoBanner } from './DemoBanner';
 import { MobileNavigation } from './MobileNavigation';
 import { Breadcrumbs } from './Breadcrumbs';
 import { useStaffI18n } from '../../lib/i18n/client';
+import { isMenuOwnedSettingsPath, resolveStaffSection } from '../../lib/staff/staff-sections';
 import { GuestMenuLinkProvider } from '../menu/GuestMenuLink';
 import { GuestMenuFab } from '../menu/GuestMenuFab';
 
@@ -29,56 +30,6 @@ interface StaffShellProps {
   /** Set only for a temporary demo restaurant (DEC-060): when it ends. */
   demoExpiresAt?: string | null;
   children: ReactNode;
-}
-
-function resolveSection(pathname: string, restaurantId: string): StaffSection {
-  const dashboardPath = `/staff/restaurants/${restaurantId}`;
-  const menuPath = `${dashboardPath}/menu`;
-  const tablesPath = `${dashboardPath}/tables`;
-  const ordersPath = `${dashboardPath}/orders`;
-  const kitchenPath = `${dashboardPath}/kitchen`;
-  const staffPath = `${dashboardPath}/staff`;
-  const accountPath = `${dashboardPath}/account`;
-  const subscriptionPath = `${dashboardPath}/subscription`;
-  const settingsPath = `${dashboardPath}/settings`;
-
-  // These existing URLs live under /settings for compatibility, but belong
-  // to the Electronic Menu workspace. Sidebar and mobile nav must agree.
-  if (['design', 'announcements', 'suggestions', 'guest-qr'].some((part) => {
-    const path = `${settingsPath}/${part}`;
-    return pathname === path || pathname.startsWith(`${path}/`);
-  })) {
-    return 'menu';
-  }
-
-  if (pathname === menuPath || pathname.startsWith(`${menuPath}/`)) {
-    return 'menu';
-  }
-  if (pathname === tablesPath || pathname.startsWith(`${tablesPath}/`)) {
-    return 'tables';
-  }
-  if (pathname === ordersPath || pathname.startsWith(`${ordersPath}/`)) {
-    return 'orders';
-  }
-  if (pathname === kitchenPath || pathname.startsWith(`${kitchenPath}/`)) {
-    return 'kitchen';
-  }
-  if (pathname === staffPath || pathname.startsWith(`${staffPath}/`)) {
-    return 'staff';
-  }
-  if (pathname === accountPath) {
-    return 'account';
-  }
-  if (pathname === subscriptionPath) {
-    return 'subscription';
-  }
-  if (pathname === settingsPath || pathname.startsWith(`${settingsPath}/`)) {
-    return 'settings';
-  }
-  if (pathname === dashboardPath) {
-    return 'dashboard';
-  }
-  return null;
 }
 
 /**
@@ -108,16 +59,18 @@ export function StaffShell({
 }: StaffShellProps) {
   const pathname = usePathname();
   const { t } = useStaffI18n();
-  const section = resolveSection(pathname, restaurantId);
-
+  // Raw restaurant id here (the mobile nav compares its encoded href); unchanged behavior.
   const base = `/staff/restaurants/${restaurantId}`;
+  // Sidebar, breadcrumbs and mobile nav share one resolver (lib/staff/staff-sections.ts),
+  // including the Menu-owned routes that still live under /settings.
+  const section: StaffSection = resolveStaffSection(pathname, base);
   const hubPath = `${base}/menu/overview`;
   const guestPath = `${base}/menu/guest-experience`;
   const menuRoot = `${base}/menu`;
   const menuSettingPath = (part: string) => `${base}/settings/${part}`;
   const isAtOrUnder = (root: string) => pathname === root || pathname.startsWith(`${root}/`);
   const isGuestSetting = ['announcements', 'suggestions'].some(part => isAtOrUnder(menuSettingPath(part)));
-  const isMenuSetting = ['announcements', 'suggestions', 'design', 'guest-qr'].some(part => isAtOrUnder(menuSettingPath(part)));
+  const isMenuSetting = isMenuOwnedSettingsPath(pathname, base);
 
   const menuCrumbs = [{ label: restaurantName, href: base }, { label: t('menuHub.title'), href: hubPath }];
   const menuContentCrumbs = [...menuCrumbs, { label: t('menuHub.menus'), href: menuRoot }];

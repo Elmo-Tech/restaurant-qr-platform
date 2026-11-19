@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { buildMobileNavigation, isMobileNavActive } from './mobile-navigation.ts';
+import { MENU_OWNED_SETTINGS_SLUGS, isMenuOwnedSettingsPath, resolveStaffSection } from './staff-sections.ts';
 
 const base = {
   canViewOrders: true, canViewMenu: true, canViewTables: true,
@@ -79,4 +80,70 @@ test('settings-only staff retains a Menu Hub entry without acquiring menu permis
   assert.ok([...nav.dock,...nav.more].some(item => item.key === 'menu'));
   assert.equal([...nav.dock,...nav.more].find(item => item.key === 'menu')?.href,
     '/staff/restaurants/r/menu/overview');
+});
+
+/**
+ * Behaviour lock for active-section resolution: every path maps to exactly
+ * the one nav item the Staff shell highlights today (or none at all).
+ */
+const ACTIVE_SECTION_CASES = [
+  ['', 'dashboard'],
+  ['/', null],
+  ['/orders', 'orders'], ['/orders/abc', 'orders'], ['/orders-archive', null],
+  ['/tables', 'tables'], ['/tables/abc', 'tables'],
+  ['/kitchen', 'kitchen'], ['/kitchen/abc', 'kitchen'],
+  ['/staff', 'staff'], ['/staff/roles', 'staff'],
+  ['/account', 'account'], ['/account/extra', null],
+  ['/subscription', 'subscription'], ['/subscription/extra', null],
+  ['/settings', 'settings'], ['/settings/overview', 'settings'], ['/settings/profile', 'settings'],
+  ['/settings/ordering', 'settings'], ['/settings/hours', 'settings'], ['/settings/delivery', 'settings'],
+  ['/settings/branches', 'settings'], ['/settings/languages', 'settings'], ['/settings/design-other', 'settings'],
+  ['/settings-other', null],
+  ['/settings/design', 'menu'], ['/settings/design/x', 'menu'], ['/settings/announcements', 'menu'],
+  ['/settings/suggestions', 'menu'], ['/settings/guest-qr', 'menu'], ['/settings/guest-qr/x', 'menu'],
+  ['/menu', 'menu'], ['/menu/overview', 'menu'], ['/menu/guest-experience', 'menu'], ['/menu/offers', 'menu'],
+  ['/menu/import', 'menu'], ['/menu/modifier-presets', 'menu'], ['/menu/products/new', 'menu'],
+  ['/menu-other', null],
+  ['/setup', null], ['/setup-preview', null],
+];
+
+function activeKeys(nav, pathname) {
+  return [...nav.dock, ...nav.more].filter(item => isMobileNavActive(pathname, item)).map(item => item.key);
+}
+
+test('every staff path highlights exactly the expected section', () => {
+  const nav = buildMobileNavigation('r', base);
+  for (const [suffix, expected] of ACTIVE_SECTION_CASES) {
+    const pathname = '/staff/restaurants/r' + suffix;
+    assert.deepEqual(activeKeys(nav, pathname), expected ? [expected] : [], pathname);
+  }
+  assert.deepEqual(activeKeys(nav, '/staff/restaurants/other/orders'), []);
+});
+
+test('active matching uses the encoded restaurant id from the nav href', () => {
+  const nav = buildMobileNavigation('a b', base);
+  assert.deepEqual(activeKeys(nav, '/staff/restaurants/a%20b/orders'), ['orders']);
+  assert.deepEqual(activeKeys(nav, '/staff/restaurants/a%20b/settings/design'), ['menu']);
+  assert.deepEqual(activeKeys(nav, '/staff/restaurants/a%20b'), ['dashboard']);
+  assert.deepEqual(activeKeys(nav, '/staff/restaurants/a b/orders'), []);
+});
+
+test('shared resolver used by the desktop shell returns the same section for every path', () => {
+  for (const [suffix, expected] of ACTIVE_SECTION_CASES) {
+    const pathname = '/staff/restaurants/r' + suffix;
+    assert.equal(resolveStaffSection(pathname, '/staff/restaurants/r'), expected, pathname);
+  }
+  assert.equal(resolveStaffSection('/staff/restaurants/other/orders', '/staff/restaurants/r'), null);
+  // The shell passes the raw restaurant id; it must keep matching raw pathnames.
+  assert.equal(resolveStaffSection('/staff/restaurants/a b/orders', '/staff/restaurants/a b'), 'orders');
+});
+
+test('exactly the four Menu-owned /settings routes are treated as Menu', () => {
+  assert.deepEqual([...MENU_OWNED_SETTINGS_SLUGS], ['design', 'announcements', 'suggestions', 'guest-qr']);
+  for (const slug of MENU_OWNED_SETTINGS_SLUGS) {
+    assert.equal(isMenuOwnedSettingsPath(`/staff/restaurants/r/settings/${slug}`, '/staff/restaurants/r'), true);
+  }
+  for (const slug of ['profile', 'overview', 'hours', 'delivery', 'ordering', 'branches', 'languages', 'design-other']) {
+    assert.equal(isMenuOwnedSettingsPath(`/staff/restaurants/r/settings/${slug}`, '/staff/restaurants/r'), false);
+  }
 });

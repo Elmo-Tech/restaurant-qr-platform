@@ -9,6 +9,8 @@ const sidebar = read('../../components/staff/RestaurantSidebar.tsx');
 const layout = read('../../app/staff/restaurants/[restaurantId]/layout.tsx');
 const topbar = read('../../components/staff/StaffTopbar.tsx');
 const copy = read('../i18n/messages/common.ts');
+const sections = read('./staff-sections.ts');
+const mobileNav = read('./mobile-navigation.ts');
 
 test('dock links, More actions and mobile shell have working focus semantics', () => {
   assert.match(bottom, /<nav aria-label=/);
@@ -32,7 +34,11 @@ test('shell reserves phone bottom safe area; desktop sidebar stays intact', () =
   assert.match(sidebar, /hidden w-64 flex-shrink-0 lg:sticky lg:top-0 lg:flex/);
   assert.match(sidebar, /lg:h-screen lg:h-dvh lg:self-start/);
   assert.match(sidebar, /min-h-0 flex-1 overflow-y-auto/);
-  assert.match(shell, /\['design', 'announcements', 'suggestions', 'guest-qr'\]/);
+  assert.match(sections, /MENU_OWNED_SETTINGS_SLUGS = \['design', 'announcements', 'suggestions', 'guest-qr'\]/);
+  assert.match(shell, /resolveStaffSection\(pathname, base\)/);
+  assert.match(shell, /isMenuOwnedSettingsPath\(pathname, base\)/);
+  assert.match(mobileNav, /resolveStaffSection\(pathname, base\) === item\.key/);
+  assert.doesNotMatch(shell, /function resolveSection/);
   assert.doesNotMatch(sidebar, /isMobileOpen/);
   assert.match(bottom, /lg:hidden print:hidden/);
   assert.match(topbar, /lg:block/);
