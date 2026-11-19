@@ -8,6 +8,11 @@ export const ordersMessages = defineMessages({
     'orders.updating': 'Updating…',
     'orders.loading': 'Loading Orders…',
     'orders.loadingOne': 'Loading order…',
+    'orders.loadFailed': 'Could not load orders.',
+    'orders.refreshFailed': 'Could not refresh orders. Showing the last loaded list, which may be out of date.',
+    'orders.detailLoadFailed': 'Could not load this order.',
+    'orders.transitionStaleUnverified':
+      'This order was already updated, but its latest state could not be loaded. Close it and open it again before taking action.',
     'orders.viewsLabel': 'Order views',
     'orders.view.active': 'Active',
     'orders.view.completed': 'Completed',
@@ -125,6 +130,11 @@ export const ordersMessages = defineMessages({
     'orders.updating': 'جارٍ التحديث…',
     'orders.loading': 'جارٍ تحميل الطلبات…',
     'orders.loadingOne': 'جارٍ تحميل الطلب…',
+    'orders.loadFailed': 'تعذّر تحميل الطلبات.',
+    'orders.refreshFailed': 'تعذّر تحديث الطلبات. نعرض آخر قائمة تم تحميلها، وقد لا تكون محدّثة.',
+    'orders.detailLoadFailed': 'تعذّر تحميل هذا الطلب.',
+    'orders.transitionStaleUnverified':
+      'تم تحديث هذا الطلب بالفعل، لكن تعذّر تحميل أحدث حالة له. أغلقه وافتحه مجددًا قبل اتخاذ أي إجراء.',
     'orders.viewsLabel': 'عرض الطلبات',
     'orders.view.active': 'النشطة',
     'orders.view.completed': 'المكتملة',
