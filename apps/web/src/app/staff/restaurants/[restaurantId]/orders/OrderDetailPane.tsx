@@ -2,12 +2,10 @@
 
 import { useEffect, useLayoutEffect, useRef, type KeyboardEvent } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
-import { IconClose, IconOrders } from '../../../../../components/staff/icons';
-import { ReadErrorAlert } from '../../../../../components/staff/ReadErrorAlert';
-import { Button } from '../../../../../components/ui/Button';
-import { LoadingState } from '../../../../../components/ui/LoadingState';
+import { IconOrders } from '../../../../../components/staff/icons';
 import type { OrderDetail } from '../../../../../lib/orders/types';
 import { OrderDetailContent, type OrderDetailContentProps } from './OrderDetailContent';
+import { OrderDetailCloseButton, OrderDetailLoading, OrderDetailReadError } from './OrderDetailStates';
 
 const PANE_TITLE_ID = 'order-detail-pane-title';
 const PANE_ERROR_TITLE_ID = 'order-detail-pane-error-title';
@@ -96,14 +94,7 @@ export function OrderDetailPane({
   }
 
   const closeButton = (
-    <button
-      type="button"
-      onClick={onClose}
-      aria-label={t('orders.split.closeDetail')}
-      className="inline-flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
-    >
-      <IconClose className="h-4 w-4" />
-    </button>
+    <OrderDetailCloseButton label={t('orders.split.closeDetail')} onClose={onClose} />
   );
 
   const labelledBy =
@@ -147,38 +138,14 @@ export function OrderDetailPane({
           headerAction={closeButton}
         />
       ) : detailError ? (
-        <div className="flex flex-1 flex-col gap-4 px-5 py-5">
-          <ReadErrorAlert
-            titleId={PANE_ERROR_TITLE_ID}
-            title={t('orders.detailLoadFailed')}
-            detail={detailError}
-            onRetry={onRetryRead}
-          />
-          <Button variant="secondary" className="self-start" onClick={onClose}>
-            {t('common.close')}
-          </Button>
-        </div>
+        <OrderDetailReadError
+          titleId={PANE_ERROR_TITLE_ID}
+          error={detailError}
+          onRetry={onRetryRead}
+          onClose={onClose}
+        />
       ) : (
-        <div className="flex flex-1 flex-col">
-          <div className="flex items-start justify-between gap-4 border-b border-border px-5 py-4">
-            <div className="flex min-w-0 flex-1 flex-col gap-3" aria-hidden="true">
-              <div className="flex gap-2">
-                <span className="h-6 w-20 animate-pulse rounded-full bg-muted motion-reduce:animate-none" />
-                <span className="h-6 w-16 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
-              </div>
-              <span className="h-6 w-40 animate-pulse rounded-md bg-muted motion-reduce:animate-none" />
-            </div>
-            {closeButton}
-          </div>
-          <div className="flex flex-1 flex-col gap-4 px-5 py-5">
-            <LoadingState label={t('orders.loadingOne')} />
-            <div className="flex flex-col gap-3" aria-hidden="true">
-              <span className="h-14 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
-              <span className="h-14 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
-              <span className="h-20 animate-pulse rounded-lg bg-muted motion-reduce:animate-none" />
-            </div>
-          </div>
-        </div>
+        <OrderDetailLoading key={selectedOrderId} closeButton={closeButton} />
       )}
     </section>
   );

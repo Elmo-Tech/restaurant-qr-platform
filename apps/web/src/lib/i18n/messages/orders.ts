@@ -63,6 +63,7 @@ export const ordersMessages = defineMessages({
     'orders.split.emptyTitle': 'Select an order',
     'orders.split.emptyHint': 'Choose an order from the queue to see its items and take the next step.',
     'orders.split.closeDetail': 'Close order details',
+    'orders.detail.slowRead': 'This is taking longer than usual. You can close it and try again.',
     'orders.detail.syncing': 'Checking the latest status…',
     'orders.detail.noActionForYou': 'No status change is available to you at this stage.',
     'orders.detailReconcileUnverified':
@@ -207,6 +208,7 @@ export const ordersMessages = defineMessages({
     'orders.split.emptyTitle': 'اختر طلبًا',
     'orders.split.emptyHint': 'اختر طلبًا من القائمة لعرض أصنافه واتخاذ الخطوة التالية.',
     'orders.split.closeDetail': 'إغلاق تفاصيل الطلب',
+    'orders.detail.slowRead': 'يستغرق التحميل وقتًا أطول من المعتاد. يمكنك الإغلاق والمحاولة مرة أخرى.',
     'orders.detail.syncing': 'جارٍ التحقق من أحدث حالة…',
     'orders.detail.noActionForYou': 'لا يتوفر لك تغيير حالة هذا الطلب في هذه المرحلة.',
     'orders.detailReconcileUnverified':

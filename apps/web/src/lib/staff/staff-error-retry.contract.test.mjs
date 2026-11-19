@@ -6,7 +6,10 @@ import { readFileSync } from 'node:fs';
 const read = (file) => readFileSync(new URL(file, import.meta.url), 'utf8');
 const alertSource = read('../../components/staff/ReadErrorAlert.tsx');
 const orders = read('../../app/staff/restaurants/[restaurantId]/orders/OrdersWorkspace.tsx');
-const errorDialog = read('../../app/staff/restaurants/[restaurantId]/orders/OrderDetailErrorDialog.tsx');
+// Phase 1 PR 3: the read-failure state lives inside the one focused Order
+// dialog (shared with the split pane), no longer a separate error overlay.
+const errorDialog = read('../../app/staff/restaurants/[restaurantId]/orders/OrderDetailDialog.tsx');
+const detailStates = read('../../app/staff/restaurants/[restaurantId]/orders/OrderDetailStates.tsx');
 const orderCard = read('../../app/staff/restaurants/[restaurantId]/orders/OrderCard.tsx');
 const tables = read('../../app/staff/restaurants/[restaurantId]/tables/TablesWorkspace.tsx');
 const ordersCopy = read('../i18n/messages/orders.ts');
@@ -57,16 +60,19 @@ test('Orders branch change clears the previous scope error so loading is visible
 });
 
 test('Order detail read failure offers Retry (a read) inside an accessible dialog', () => {
-  assert.match(orders, /<OrderDetailErrorDialog\s+error=\{detailError\}\s+onRetry=\{\(\) => void openOrder\(selectedOrderId\)\}\s+onClose=\{closeDetail\}/);
-  assert.match(errorDialog, /role="dialog"\s+aria-modal="true"\s+aria-labelledby="order-detail-error-title"/);
-  assert.match(errorDialog, /titleId="order-detail-error-title"\s+title=\{t\('orders\.detailLoadFailed'\)\}/);
-  assert.doesNotMatch(errorDialog, /updateOrderStatus|onTransition/);
+  assert.match(orders, /detailError,\s*onRetryRead: \(\) => \{\s*if \(selectedOrderId\) void openOrder\(selectedOrderId\);\s*\},/);
+  assert.match(orders, /onClose: closeDetail,/);
+  assert.match(errorDialog, /role="dialog"\s+aria-modal="true"/);
+  assert.match(errorDialog, /phase === 'error' \? DIALOG_ERROR_TITLE_ID/);
+  assert.match(errorDialog, /<OrderDetailReadError\s+titleId=\{DIALOG_ERROR_TITLE_ID\}\s+error=\{detailError\}\s+onRetry=\{onRetryRead\}\s+onClose=\{onClose\}/);
+  assert.match(detailStates, /titleId=\{titleId\}\s+title=\{t\('orders\.detailLoadFailed'\)\}/);
+  assert.doesNotMatch(detailStates, /updateOrderStatus|onTransition/);
 });
 
-test('detail-error dialog: focus moves in, Tab/Shift+Tab are trapped, Escape closes', () => {
-  // Mount focus on the first focusable (Retry), once, like OrderDetailDialog.
-  assert.match(errorDialog, /focusables\(\)\[0\]\?\.focus\(\);/);
-  assert.match(errorDialog, /\}, \[\]\);/);
+test('detail dialog: focus moves in, Tab/Shift+Tab are trapped, Escape closes', () => {
+  // Initial focus once per state (Close; the first focusable -- Retry -- on a read failure).
+  assert.match(errorDialog, /panel\.querySelector<HTMLElement>\('\[data-initial-focus\]'\) \?\? focusablesIn\(panel\)\[0\] \?\? panel/);
+  assert.match(errorDialog, /\}, \[phase\]\);/);
   // Escape goes through a stable ref so parent polls never re-bind the listener.
   assert.match(errorDialog, /event\.key === 'Escape'[\s\S]*?onCloseRef\.current\(\);/);
   // Wrap at both ends, and pull focus back in if it is somehow outside.
@@ -79,7 +85,9 @@ test('closing the detail returns focus to the Order card that opened it', () => 
   assert.match(orderCard, /onClick=\{\(event\) => onOpen\(event\.currentTarget\)\}/);
   assert.match(orders, /detailTriggerRef\.current = trigger;\s*void openOrder\(order\.id\);/);
   const close = block(orders, /function closeDetail/);
-  assert.match(close, /if \(trigger\?\.isConnected\) trigger\.focus\(\);/);
+  assert.match(close, /focusReturnRef\.current = \{ trigger: detailTriggerRef\.current, orderId: selectedOrderId \};/);
+  // Focus moves after the detail unmounted, to the trigger while it is still in the page.
+  assert.match(orders, /if \(pending\.trigger\?\.isConnected\) \{\s*pending\.trigger\.focus\(\);/);
   // Retry must not overwrite the trigger with the dialog's own button.
   const open = block(orders, /async function openOrder/);
   assert.doesNotMatch(open, /detailTriggerRef/);
@@ -102,7 +110,7 @@ test('ORDER_STATUS_CHANGED keeps its explanation and re-reads without repeating 
   assert.match(refresh, /getOrderDetail\(/);
   assert.match(refresh, /setOrderDetail\(detail\);\s*setDetailSync\('current'\);/);
   assert.doesNotMatch(refresh, /updateOrderStatus|setTransitionError\(null\)|setOrderDetail\(null\)/);
-  assert.match(orders, /isTransitioning=\{isTransitioning \|\| detailSync !== 'current'\}/);
+  assert.match(orders, /isTransitioning: isTransitioning \|\| detailSync !== 'current',/);
 });
 
 test('a failed conflict re-read keeps stale mutating actions disabled', () => {

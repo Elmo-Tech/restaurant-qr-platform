@@ -104,12 +104,14 @@ export function OrderDetailContent({
               <StatusBadge status={order.status} type={order.type} />
               <OrderTypeBadge type={order.type} />
             </div>
+            {/* The heading keeps the page direction (so it aligns to the
+                page's start); only the name is isolated, so an Arabic name in
+                the English UI -- or a Latin one in Arabic -- still reads right. */}
             <h2
               id={titleId}
-              dir="auto"
               className="mt-2 truncate text-start text-xl font-semibold text-foreground"
             >
-              {identity}
+              <bdi dir="auto">{identity}</bdi>
             </h2>
             <p className="mt-0.5 text-sm text-muted-foreground">
               <bdi dir="auto">{order.branch.name}</bdi> ·{' '}
@@ -119,13 +121,15 @@ export function OrderDetailContent({
                 formatTime,
                 formatDayMonth,
               })}{' '}
-              · <bdi dir="ltr">{formatDateTime(order.createdAt)}</bdi>
+              {/* `auto`, not `ltr`: the Arabic UI formats this date in Arabic
+                  ("19 نوفمبر 2026، 11:25 م"), which an LTR isolate scrambles. */}
+              · <bdi dir="auto">{formatDateTime(order.createdAt)}</bdi>
             </p>
           </div>
           {headerAction}
         </div>
 
-        <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5">
+        <div className="flex flex-1 flex-col gap-5 overflow-y-auto px-5 py-5 max-sm:overscroll-contain">
           {sync === 'refreshing' ? (
             <p role="status" className="flex items-center gap-2 text-sm text-muted-foreground">
               <span
@@ -259,8 +263,10 @@ export function OrderDetailContent({
                       {item.quantity}×
                     </span>
                     <div className="min-w-0">
-                      <p dir="auto" className="text-start text-sm font-semibold text-foreground">
-                        {item.productNameSnapshot}{item.variantName ? ` · ${item.variantName}` : ''}
+                      <p className="text-start text-sm font-semibold text-foreground">
+                        <bdi dir="auto">
+                          {item.productNameSnapshot}{item.variantName ? ` · ${item.variantName}` : ''}
+                        </bdi>
                       </p>
                       {/* FT-6A, ORDER_LIFECYCLE_SPEC.md #41: the exact
                           Modifier selections snapshotted at submission
@@ -350,7 +356,12 @@ export function OrderDetailContent({
           </div>
         </div>
 
-        <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4">
+        {/* Phones (< sm, the full-screen dialog): utilities and destructive
+            actions on their own row, the next action full-width below them --
+            closest to the thumb and last in tab order, as it is visually.
+            `max-sm:` only, so the split pane and the tablet dialog keep the
+            approved single-row footer. */}
+        <div className="flex flex-shrink-0 flex-wrap items-center justify-between gap-3 border-t border-border px-5 py-4 max-sm:flex-col max-sm:flex-nowrap max-sm:items-stretch max-sm:px-4 max-sm:py-3">
           <div className="flex flex-wrap items-center gap-2">
             {/* Secondary utility, always available: every type and status, no lifecycle permission needed. Only opens the browser print dialog -- never closes the detail or touches the Order. */}
             <Button type="button" variant="secondary" onClick={() => window.print()}>
@@ -370,13 +381,13 @@ export function OrderDetailContent({
             ))}
           </div>
           {forwardTransitions.length > 0 ? (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="flex flex-wrap items-center gap-2 max-sm:flex-col max-sm:items-stretch">
               {forwardTransitions.map((transition) => (
                 <Button
                   key={transition.to}
                   type="button"
                   variant="primary"
-                  className="px-6 py-2.5 text-base"
+                  className="px-6 py-2.5 text-base max-sm:h-12 max-sm:w-full"
                   disabled={isTransitioning}
                   onClick={() => onTransition(transition.to)}
                 >
@@ -385,7 +396,7 @@ export function OrderDetailContent({
               ))}
             </div>
           ) : waitingStep ? (
-            <div className="min-w-0 text-end">
+            <div className="min-w-0 text-end max-sm:text-start">
               <p className="text-sm font-medium text-foreground">{t(waitingStep.labelKey)}</p>
               <p className="text-xs text-muted-foreground">{t('orders.detail.noActionForYou')}</p>
             </div>
