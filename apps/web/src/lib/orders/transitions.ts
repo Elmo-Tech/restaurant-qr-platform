@@ -73,3 +73,46 @@ export function getAvailableTransitions(
 ): OrderTransitionOption[] {
   return transitionsFor(status, type).filter((option) => permissions.includes(option.permission));
 }
+
+/** The action wording for a target status, type-aware like the Order detail: Pickup "Mark picked up", Delivery "Mark delivered". */
+export function transitionLabelKey(to: OrderStatus, type: OrderType): MessageKey {
+  if (to === 'SERVED' && type === 'PICKUP') return 'orders.action.markPickedUp';
+  if (to === 'SERVED' && type === 'DELIVERY') return 'orders.action.markDelivered';
+  return TRANSITION_LABEL_KEYS[to];
+}
+
+/** Neutral "where is this Order" copy for active statuses when the viewer has no next step of their own. */
+const WAITING_LABEL_KEYS = {
+  PENDING: 'orders.card.waiting.PENDING',
+  ACCEPTED: 'orders.card.waiting.ACCEPTED',
+  PREPARING: 'orders.card.waiting.PREPARING',
+  READY: 'orders.card.waiting.READY',
+  OUT_FOR_DELIVERY: 'orders.card.waiting.OUT_FOR_DELIVERY',
+} as const satisfies Partial<Record<OrderStatus, MessageKey>>;
+
+/**
+ * Phase 1: the Order card's informational next-step hint -- text only, never
+ * a button. `action` names the first non-destructive transition this
+ * Membership's own permissions allow (Reject/Cancel are never suggested);
+ * otherwise `status` gives neutral copy for where the Order is. `null` for
+ * completed Orders. Same UX-only mirror as `getAvailableTransitions`: the
+ * Backend still authorizes every real transition.
+ */
+export type OrderNextStep =
+  | { kind: 'action'; to: OrderStatus; labelKey: MessageKey }
+  | { kind: 'status'; labelKey: MessageKey };
+
+export function nextStepFor(
+  status: OrderStatus,
+  type: OrderType,
+  permissions: string[],
+): OrderNextStep | null {
+  const forward = getAvailableTransitions(status, permissions, type).find(
+    (option) => !isDestructiveTransition(option.to),
+  );
+  if (forward) return { kind: 'action', to: forward.to, labelKey: transitionLabelKey(forward.to, type) };
+  if (status in WAITING_LABEL_KEYS) {
+    return { kind: 'status', labelKey: WAITING_LABEL_KEYS[status as keyof typeof WAITING_LABEL_KEYS] };
+  }
+  return null;
+}

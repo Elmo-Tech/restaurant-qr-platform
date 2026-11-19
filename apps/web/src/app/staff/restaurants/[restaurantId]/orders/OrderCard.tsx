@@ -1,5 +1,6 @@
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import type { OrderListItem } from '../../../../../lib/orders/types';
+import type { OrderNextStep } from '../../../../../lib/orders/transitions';
 import { elapsedMinutes, formatElapsedAge, isCompletedStatus } from '../../../../../lib/orders/order-views';
 import { OrderTypeBadge } from './OrderTypeBadge';
 import { StatusBadge, statusAccentClass } from './StatusBadge';
@@ -16,9 +17,12 @@ const STALE_PENDING_MINUTES = 10;
  */
 export function OrderCard({
   order,
+  nextStep = null,
   onOpen,
 }: {
   order: OrderListItem;
+  /** Phase 1: informational hint only (see `nextStepFor`) -- never rendered as a control. */
+  nextStep?: OrderNextStep | null;
   /** Receives the button that opened the detail, so focus can return to it on close. */
   onOpen: (trigger: HTMLButtonElement) => void;
 }) {
@@ -68,6 +72,17 @@ export function OrderCard({
           <bdi dir="auto">{order.branch.name}</bdi> ·{' '}
           <span className={isStalePending ? 'font-semibold text-warning' : undefined}>{age}</span>
         </p>
+        {nextStep ? (
+          <p
+            className={`mt-1.5 text-sm ${
+              nextStep.kind === 'action' ? 'font-medium text-foreground' : 'text-muted-foreground'
+            }`}
+          >
+            {nextStep.kind === 'action'
+              ? t('orders.card.nextStep', { action: t(nextStep.labelKey) })
+              : t(nextStep.labelKey)}
+          </p>
+        ) : null}
       </div>
 
       <div className="flex items-center justify-between border-t border-border pt-3 text-sm">

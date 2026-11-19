@@ -15,7 +15,9 @@ import {
   countByStatus,
   countByType,
   countByView,
+  effectiveSort,
   filterOrders,
+  sortsForView,
   statusesForView,
   type OrdersSort,
   type OrdersView,
@@ -33,11 +35,11 @@ import { Card } from '../../../../../components/ui/Card';
 import { ChipGroup, type ChipOption } from '../../../../../components/ui/ChipGroup';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../components/ui/PageHeader';
-import { OrderCard } from './OrderCard';
 import { OrderDetailDialog } from './OrderDetailDialog';
 import { OrderDetailErrorDialog } from './OrderDetailErrorDialog';
 import { ALL_BRANCHES, OrdersFilterBar } from './OrdersFilterBar';
 import { orderTypeLabel } from './OrderTypeBadge';
+import { OrdersQueue } from './OrdersQueue';
 
 const POLL_INTERVAL_MS = 10_000;
 const VIEWS: readonly OrdersView[] = ['active', 'completed', 'all'];
@@ -105,7 +107,11 @@ export function OrdersWorkspace({
     initialFilters.status ?? null,
   );
   const [search, setSearch] = useState('');
-  const [sort, setSort] = useState<OrdersSort>(initialFilters.sort ?? 'newest');
+  // `null` = no explicit choice: the view's own default applies (Active ->
+  // priority, Completed/All -> newest). An explicit pick or `?sort=` deep
+  // link wins wherever the view offers it -- see `effectiveSort`.
+  const [sort, setSort] = useState<OrdersSort | null>(initialFilters.sort ?? null);
+  const appliedSort = effectiveSort(view, sort);
 
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null);
   const [orderDetail, setOrderDetail] = useState<OrderDetail | null>(null);
@@ -331,9 +337,9 @@ export function OrdersWorkspace({
         type: typeFilter,
         status: statusFilter,
         search,
-        sort,
+        sort: appliedSort,
       }),
-    [orders, view, typeFilter, statusFilter, search, sort],
+    [orders, view, typeFilter, statusFilter, search, appliedSort],
   );
   const span = useMemo(() => {
     if (visibleOrders.length === 0) return null;
@@ -387,7 +393,8 @@ export function OrdersWorkspace({
         typeCounts={typeCounts}
         statusCounts={statusCounts}
         search={search}
-        sort={sort}
+        sort={appliedSort}
+        sortOptions={sortsForView(view)}
         branchId={branchFilter}
         branches={branches}
         hasActiveFilters={hasActiveFilters}
@@ -434,18 +441,15 @@ export function OrdersWorkspace({
       ) : null}
 
       {visibleOrders.length > 0 ? (
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {visibleOrders.map((order) => (
-            <OrderCard
-              key={order.id}
-              order={withBranchLabel(order)}
-              onOpen={(trigger) => {
-                detailTriggerRef.current = trigger;
-                void openOrder(order.id);
-              }}
-            />
-          ))}
-        </div>
+        <OrdersQueue
+          orders={visibleOrders.map(withBranchLabel)}
+          grouped={view === 'active' && appliedSort === 'priority'}
+          permissions={permissions}
+          onOpen={(order, trigger) => {
+            detailTriggerRef.current = trigger;
+            void openOrder(order.id);
+          }}
+        />
       ) : null}
 
       {selectedOrderId ? (

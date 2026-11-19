@@ -28,7 +28,10 @@ export interface OrdersFilterBarProps {
   /** Same, scoped to the current view's statuses, for the Status chips. */
   statusCounts: Partial<Record<OrderStatus, number>>;
   search: string;
+  /** The sort actually applied (an explicit choice or the view's default). */
   sort: OrdersSort;
+  /** Sorts the current view offers (Priority is Active-only). */
+  sortOptions: readonly OrdersSort[];
   branchId: string;
   /** Already scoped to this Membership's authorized Branches; the Branch control only renders for more than one. */
   branches: AuthContextBranch[];
@@ -57,6 +60,7 @@ export function OrdersFilterBar({
   statusCounts,
   search,
   sort,
+  sortOptions,
   branchId,
   branches,
   hasActiveFilters,
@@ -113,8 +117,11 @@ export function OrdersFilterBar({
             onChange={(event) => onSortChange(event.target.value as OrdersSort)}
             className="h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring"
           >
-            <option value="newest">{t('orders.sort.newest')}</option>
-            <option value="oldest">{t('orders.sort.oldest')}</option>
+            {sortOptions.map((option) => (
+              <option key={option} value={option}>
+                {t(`orders.sort.${option}`)}
+              </option>
+            ))}
           </select>
         </label>
 
