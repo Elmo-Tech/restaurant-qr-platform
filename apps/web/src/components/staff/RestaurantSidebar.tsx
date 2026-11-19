@@ -15,8 +15,9 @@ import { useStaffI18n } from '../../lib/i18n/client';
 import { LogoutButton } from '../../app/staff/LogoutButton';
 import { WaytaLockup } from '../brand/Wayta';
 import { StaffLanguageSwitcher } from './StaffLanguageSwitcher';
+import { buildDesktopNavigation, type DesktopNavSection } from '../../lib/staff/desktop-navigation';
 
-/** Pages the platform package does not include: not shown at all (not even as "no access"). */
+/** Pages the platform package does not include: not shown at all. */
 export interface PackageHides {
   tables: boolean;
   orders: boolean;
@@ -41,13 +42,6 @@ interface ActiveNavItem {
   icon: ReactNode;
   /** Optional live count pill (e.g. open Orders) -- rendering support only; no screen wires real data through it yet. */
   count?: number;
-}
-
-interface DisabledNavItem {
-  key: string;
-  label: string;
-  icon: ReactNode;
-  badge: string;
 }
 
 /** Who is signed in: shown at the bottom of the sidebar with the language switch and sign-out. */
@@ -75,6 +69,17 @@ interface RestaurantSidebarProps {
 }
 
 const ICON_CLASS = 'h-[18px] w-[18px]';
+
+const NAV_ICONS: Record<DesktopNavSection, ReactNode> = {
+  dashboard: <IconDashboard className={ICON_CLASS} />,
+  orders: <IconOrders className={ICON_CLASS} />,
+  tables: <IconQr className={ICON_CLASS} />,
+  kitchen: <IconKitchen className={ICON_CLASS} />,
+  menu: <IconMenu className={ICON_CLASS} />,
+  staff: <IconStaff className={ICON_CLASS} />,
+  settings: <IconSettings className={ICON_CLASS} />,
+  subscription: <IconSubscription className={ICON_CLASS} />,
+};
 
 /**
  * design-system-v2 visual direction: the Sidebar is a permanently dark rail
@@ -118,23 +123,6 @@ function ActiveLink({
           </span>
         ) : null}
       </Link>
-    </li>
-  );
-}
-
-function DisabledRow({ item }: { item: DisabledNavItem }) {
-  return (
-    <li>
-      <div
-        aria-disabled="true"
-        className="flex cursor-not-allowed items-center gap-3 rounded-md px-3 py-2 text-sm text-sidebar-muted-foreground"
-      >
-        <span>{item.icon}</span>
-        <span className="flex-1">{item.label}</span>
-        <span className="rounded-full bg-sidebar-surface px-2 py-0.5 text-xs font-medium uppercase tracking-wide text-sidebar-muted-foreground">
-          {item.badge}
-        </span>
-      </div>
     </li>
   );
 }
@@ -208,6 +196,16 @@ function SidebarContent({
   onNavigate?: () => void;
 }) {
   const { t } = useStaffI18n();
+  const navigation = buildDesktopNavigation(restaurantId, {
+    canViewMenu,
+    canViewTables,
+    canViewOrders,
+    canViewKitchen,
+    canViewStaff,
+    canViewRestaurantSettings,
+    canViewSubscription,
+    packageHides,
+  });
   return (
     <div className="flex h-full min-h-0 flex-col bg-sidebar">
       <div className="px-5 py-5">
@@ -238,153 +236,38 @@ function SidebarContent({
         ) : null}
       </div>
 
-      <nav className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4">
-        <ul className="flex flex-col gap-0.5">
-          <ActiveLink
-            item={{
-              key: 'dashboard',
-              label: t('nav.dashboard'),
-              href: `/staff/restaurants/${restaurantId}`,
-              icon: <IconDashboard className={ICON_CLASS} />,
-            }}
-            isActive={currentSection === 'dashboard'}
-            onNavigate={onNavigate}
-          />
-          {canViewMenu || canViewRestaurantSettings ? (
-            <ActiveLink
-              item={{
-                key: 'menu',
-                label: t('menuHub.title'),
-                href: `/staff/restaurants/${restaurantId}/menu/overview`,
-                icon: <IconMenu className={ICON_CLASS} />,
-              }}
-              isActive={currentSection === 'menu'}
-              onNavigate={onNavigate}
-            />
-          ) : (
-            <DisabledRow
-              item={{
-                key: 'menu',
-                label: t('menuHub.title'),
-                icon: <IconMenu className={ICON_CLASS} />,
-                badge: t('common.noAccess'),
-              }}
-            />
-          )}
-          {packageHides?.tables ? null : canViewTables ? (
-            <ActiveLink
-              item={{
-                key: 'tables',
-                label: t('nav.tables'),
-                href: `/staff/restaurants/${restaurantId}/tables`,
-                icon: <IconQr className={ICON_CLASS} />,
-              }}
-              isActive={currentSection === 'tables'}
-              onNavigate={onNavigate}
-            />
-          ) : (
-            <DisabledRow
-              item={{
-                key: 'tables',
-                label: t('nav.tables'),
-                icon: <IconQr className={ICON_CLASS} />,
-                badge: t('common.noAccess'),
-              }}
-            />
-          )}
-          {packageHides?.orders ? null : canViewOrders ? (
-            <ActiveLink
-              item={{
-                key: 'orders',
-                label: t('nav.orders'),
-                href: `/staff/restaurants/${restaurantId}/orders`,
-                icon: <IconOrders className={ICON_CLASS} />,
-              }}
-              isActive={currentSection === 'orders'}
-              onNavigate={onNavigate}
-            />
-          ) : (
-            <DisabledRow
-              item={{
-                key: 'orders',
-                label: t('nav.orders'),
-                icon: <IconOrders className={ICON_CLASS} />,
-                badge: t('common.noAccess'),
-              }}
-            />
-          )}
-          {canViewKitchen ? (
-            <ActiveLink
-              item={{
-                key: 'kitchen',
-                label: t('nav.kitchen'),
-                href: `/staff/restaurants/${restaurantId}/kitchen`,
-                icon: <IconKitchen className={ICON_CLASS} />,
-              }}
-              isActive={currentSection === 'kitchen'}
-              onNavigate={onNavigate}
-            />
-          ) : null}
-          {canViewStaff ? (
-            <ActiveLink
-              item={{
-                key: 'staff',
-                label: t('nav.staff'),
-                href: `/staff/restaurants/${restaurantId}/staff`,
-                icon: <IconStaff className={ICON_CLASS} />,
-              }}
-              isActive={currentSection === 'staff'}
-              onNavigate={onNavigate}
-            />
-          ) : (
-            <DisabledRow
-              item={{
-                key: 'staff',
-                label: t('nav.staff'),
-                icon: <IconStaff className={ICON_CLASS} />,
-                badge: t('common.noAccess'),
-              }}
-            />
-          )}
-        </ul>
-
-        <div className="mt-5 border-t border-sidebar-border pt-3">
-          <ul>
-            {canViewSubscription ? (
-              <ActiveLink
-                item={{
-                  key: 'subscription',
-                  label: t('nav.subscription'),
-                  href: `/staff/restaurants/${restaurantId}/subscription`,
-                  icon: <IconSubscription className={ICON_CLASS} />,
-                }}
-                isActive={currentSection === 'subscription'}
-                onNavigate={onNavigate}
-              />
-            ) : null}
-            {canViewRestaurantSettings ? (
-              <ActiveLink
-                item={{
-                  key: 'settings',
-                  label: t('nav.settings'),
-                  href: `/staff/restaurants/${restaurantId}/settings/overview`,
-                  icon: <IconSettings className={ICON_CLASS} />,
-                }}
-                isActive={currentSection === 'settings'}
-                onNavigate={onNavigate}
-              />
-            ) : (
-              <DisabledRow
-                item={{
-                  key: 'settings',
-                  label: t('nav.settings'),
-                  icon: <IconSettings className={ICON_CLASS} />,
-                  badge: t('common.noAccess'),
-                }}
-              />
-            )}
-          </ul>
-        </div>
+      <nav
+        aria-label={t('shell.navigationAria')}
+        className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-3 pb-4"
+      >
+        {navigation.map((group, index) => {
+          const headingId = `staff-nav-group-${group.key}`;
+          return (
+            <div key={group.key} className={index === 0 ? '' : 'mt-5'}>
+              <p
+                id={headingId}
+                className="px-3 pb-1.5 text-[11px] font-medium uppercase tracking-wide text-sidebar-muted-foreground"
+              >
+                {t(group.heading)}
+              </p>
+              <ul aria-labelledby={headingId} className="flex flex-col gap-0.5">
+                {group.items.map(item => (
+                  <ActiveLink
+                    key={item.key}
+                    item={{
+                      key: item.key,
+                      label: t(item.label),
+                      href: item.href,
+                      icon: NAV_ICONS[item.key],
+                    }}
+                    isActive={currentSection === item.key}
+                    onNavigate={onNavigate}
+                  />
+                ))}
+              </ul>
+            </div>
+          );
+        })}
       </nav>
       <SidebarFooter user={user} onNavigate={onNavigate} />
     </div>
@@ -397,10 +280,13 @@ function SidebarContent({
  * now that the Languages route exists; FT-4: Tables & QR converted the same
  * way; FT-5: Orders converted the same way now that
  * `/staff/restaurants/[restaurantId]/orders` exists; FT-12: Staff & Access
- * converted the same way). Every item links somewhere real, or is a visibly
- * disabled "No access" row -- never a link to a route that does not exist
- * (Section 2). Account is deliberately NOT a Restaurant nav item: it is
- * reached from the top bar's user area. `canViewMenu`/
+ * converted the same way). Every item links somewhere real -- never a link
+ * to a route that does not exist (Section 2). Wayta Phase 0.2 groups items
+ * into Daily operations / Restaurant management / Account and hides items
+ * the membership cannot open instead of showing disabled "No access" rows;
+ * empty groups are omitted (`lib/staff/desktop-navigation.ts`). Account is
+ * deliberately NOT a Restaurant nav item: it is reached from the sidebar
+ * footer's user area. `canViewMenu`/
  * `canViewTables`/`canViewOrders`/`canViewStaff`/`canViewRestaurantSettings` are UX-only
  * navigation visibility, derived from the same Backend-authorized
  * `permissions` each page itself already checks (`lib/menu/capabilities.ts`,

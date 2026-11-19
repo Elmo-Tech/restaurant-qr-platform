@@ -54,8 +54,8 @@ All colors are Tailwind v4 `@theme` tokens defined once in `apps/web/src/app/glo
 |---|---|---|
 | `sidebar` | `#14171c` | Sidebar root background |
 | `sidebar-foreground` | `#ffffff` | Sidebar text |
-| `sidebar-muted-foreground` | `#98a2b3` | Inactive nav icon/text, disabled rows |
-| `sidebar-surface` | `#1b1f26` | Restaurant-identity block, hover state, disabled-row pill background |
+| `sidebar-muted-foreground` | `#98a2b3` | Inactive nav icon/text, nav group headings |
+| `sidebar-surface` | `#1b1f26` | Restaurant-identity block, hover state, footer user block |
 | `sidebar-border` | `#262b33` | Divider inside sidebar |
 
 The sidebar's **active nav item** and **brand mark** reuse `primary`/`primary-foreground` directly rather than a duplicate "sidebar-accent" token — the same orange fill is legible on both the light workspace and the dark rail.
@@ -99,9 +99,9 @@ Shadows (`--shadow-sm/md/lg/xl`) are neutral-graphite-tinted (`rgb(23 26 31 / �
 
 ### 4.1 Sidebar (`components/staff/RestaurantSidebar.tsx`)
 
-Fixed-width (`w-64`) dark rail, `bg-sidebar`. Contains: brand mark, a restaurant-identity block (`bg-sidebar-surface`, rounded), primary nav (Dashboard/Menu/Tables/Orders), a "Coming soon" section (Staff & Access — visibly disabled, never a dead link), and Restaurant Settings below a divider. Active item: solid `bg-primary` fill with white text and icon. Inactive item: `text-sidebar-foreground/80`, hovers to `bg-sidebar-surface`. Disabled item: `text-sidebar-muted-foreground` with a `bg-sidebar-surface` badge ("Soon" / "No access") — never a link to a route that doesn't exist or that the current membership can't reach.
+Fixed-width (`w-64`) dark rail, `bg-sidebar`, shown from `lg` up. Contains: brand mark, a restaurant-identity block (`bg-sidebar-surface`, rounded), the grouped primary nav, and a footer with the language switch, the signed-in user (which links to My Account) and sign-out. The nav has three groups, each introduced by a subtle localized heading (small `text-sidebar-muted-foreground` label, not a page heading): **Daily operations** (Dashboard, Orders, Tables & QR, Kitchen), **Restaurant management** (one Menu hub entry, Staff & Access, Restaurant Settings) and **Account** (My subscription, when permitted). My Account is not a nav item; it stays in the footer. Groups and items come from `lib/staff/desktop-navigation.ts`, using the same membership-derived capabilities and package entitlements as the pages. Items the membership cannot open are **hidden**, not shown as disabled "No access" rows, and a group with no visible items is omitted. View-only access still shows the item, because the user can open the page. Navigation visibility is presentation only; page and API guards remain authoritative. Active item: solid `bg-primary` fill with white text and icon; menu-owned `/settings/*` pages (design, announcements, suggestions, guest QR) highlight Menu. Inactive item: `text-sidebar-foreground/80`, hovers to `bg-sidebar-surface`. Never link to a route that doesn't exist.
 
-Below `lg`, the sidebar becomes an off-canvas drawer (still `bg-sidebar`), opened by a hamburger button in the topbar, closing on backdrop click or its own close button. In RTL it slides from the visual right (`inset-y-0 start-0` with the document's own `dir="rtl"` — no manual `left`/`right` override needed).
+Below `lg`, the sidebar is hidden and Staff use the Mobile bottom navigation (`components/staff/MobileNavigation.tsx`, `lib/staff/mobile-navigation.ts`): four bottom tabs plus **More**. By default the tabs are Home, Orders, Menu and Tables; Kitchen is promoted by capability for kitchen-focused users. More opens a focus-trapped dialog listing the remaining authorized modules, My Account, the language switch and sign-out. The shell reserves the bottom safe area. There is no off-canvas sidebar drawer or topbar hamburger. In RTL the desktop rail mirrors to the visual right through the document's own `dir="rtl"`, with no manual `left`/`right` override.
 
 `ActiveNavItem` supports an optional `count` badge, rendered when present — but **no screen currently wires real data into it**. Adding a live Orders count here would mean adding a new data-fetching path to the shared Shell (a product-behavior change, not a style change) and was deliberately left undone this pass.
 
@@ -177,7 +177,7 @@ One `Card` per independent conceptual group — Image, Content languages, Pricin
 ## 8. Responsive Rules
 
 - Desktop (≥1280px): full density — Menu's Products `Table`, Orders' 3-up card grid, side-by-side form groups.
-- Tablet (~768–1024px): 2-up card grids; paired form `Card`s stack to one column below `lg`; sidebar collapses to an off-canvas drawer.
+- Tablet (~768–1024px): 2-up card grids; paired form `Card`s stack to one column below `lg`; the desktop sidebar is replaced by the Mobile bottom navigation (four tabs plus More).
 - Mobile (~375px): 1-up everything; filter/status chips wrap onto additional rows rather than causing horizontal scroll; no screen may produce horizontal page overflow at this width. Verify with `document.documentElement.scrollWidth === window.innerWidth`, not screenshots alone — the browser-pane screenshot tool's capture region can be narrower than the emulated viewport at some widths, which can make a correctly-laid-out wide element look "cut off" when it isn't.
 - A desktop-density table (Menu's Products list) is not forced onto narrow widths — Menu Management already reorganizes into cards below its own breakpoint.
 
