@@ -1,8 +1,8 @@
 # WAYTA — Production Food Image DRAFT Batch Import (operator runbook)
 
-**Status:** Production import mode proposed in a feature PR. Do **not** execute
-until CI passes, the feature is separately approved/merged, the tools image
-built and independent backups verified. No automatic Publish.
+**Status:** One-off Production DRAFT import completed and verified on 2026-11-16.
+The original pre-execution requirements and repeatable operator runbook below
+remain mandatory for any future import. No automatic Publish.
 
 ## Decision and scope
 
@@ -19,6 +19,23 @@ are invented.
 
 This feature changes **only an operator CLI**, not public API/Guest menu
 permissions, database schema, restaurant products, or auto-publishing.
+
+## Production execution record — 2026-11-16
+
+**Observed operational outcome (completed; not a new design approval):**
+
+- PR #54 was merged to `main` at `96e0acdf9b5aab91bc511c6ff0906e028dd09e65`; the corresponding versioned Production `api-tools` image was used as a one-off container. Existing Web/API/Gateway containers were not redeployed for this import.
+- Owner-accepted local files passed SHA-256 archive checks, unpacking and offline, networkless DRY RUN for both the 10-photo pilot and the full 69-photo manifest. The batch required 29 canonical Food Tags; the Production read-only preflight found 0 missing Tags and 0 pre-existing hashes from the manifest (2 unrelated Food Image Assets existed before the import).
+- Before the Production apply, a PostgreSQL custom-format dump and persistent uploads archive were copied off-server to an authorized Windows workstation; SHA-256 checks matched. A PostgreSQL restore into an isolated, networkless temporary container passed with 89 public tables; off-server uploads extraction passed with 166 files. Do not commit backup content or credentials.
+- The 10-photo pilot imported as `created=10, duplicates=0, failed=0`. Its read-only independent QA confirmed all 10 assets had exact Tags, sectors and presentation, `DRAFT` status, import audit entries and matching on-disk SHA-256.
+- The full 69-photo manifest was then applied idempotently: `created=59, duplicates=10, failed=0`. Final independent read-only QA completed with `WAYTA_FOOD_LIBRARY_FINAL_QA_PASSED` and `ALL_MEDIA_HASHES_PASS=69`; the QA gate required all 69 records to match `DRAFT`, presentation, Tags, sectors, upload path format, import audit details and no Product primary-image assignments.
+- Temporary SFTP transfer users were removed from Production and transfer SSH keys were deleted from the Windows workstation. Backup retention and any cleanup of temporary server-side staging/log files are separate operator actions.
+
+**Scope boundary:** This verifies the technical DRAFT import, **not** independent
+copyright/licensing clearance, visual publishing approval, product linking or
+automated photo matching. Source evidence still distinguishes
+`PEXELS_UNCLEARED` from `CC0_CLAIMED`. Future Publish or automated
+Restaurant Product integration requires separate owner authorization.
 
 ## What is allowed
 
