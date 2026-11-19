@@ -14,7 +14,14 @@ const STALE_PENDING_MINUTES = 10;
  * is per-status (READY is deliberately the loudest), and Completed Orders
  * are visually quieter than Active ones.
  */
-export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () => void }) {
+export function OrderCard({
+  order,
+  onOpen,
+}: {
+  order: OrderListItem;
+  /** Receives the button that opened the detail, so focus can return to it on close. */
+  onOpen: (trigger: HTMLButtonElement) => void;
+}) {
   const { t, tp } = useStaffI18n();
   const completed = isCompletedStatus(order.status);
   const isReady = order.status === 'READY';
@@ -76,7 +83,7 @@ export function OrderCard({ order, onOpen }: { order: OrderListItem; onOpen: () 
 
       <button
         type="button"
-        onClick={onOpen}
+        onClick={(event) => onOpen(event.currentTarget)}
         className={`w-full rounded-md px-4 py-2 text-sm font-medium transition-colors ${
           isReady
             ? 'bg-success text-success-foreground hover:bg-success/90'

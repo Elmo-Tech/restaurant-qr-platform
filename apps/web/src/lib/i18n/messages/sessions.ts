@@ -18,6 +18,7 @@ export const sessionsMessages = defineMessages({
     'sessions.view.past': 'Session history',
     'sessions.refresh': 'Refresh',
     'sessions.boardError': 'Could not load table sessions.',
+    'sessions.boardStale': 'Could not refresh table sessions. Showing the last loaded state, which may be out of date.',
 
     // ordering availability (table) and session lifecycle: separate concepts
     'sessions.availability.AVAILABLE': 'Open for ordering',
@@ -160,6 +161,7 @@ export const sessionsMessages = defineMessages({
     'sessions.view.past': 'سجل الجلسات',
     'sessions.refresh': 'تحديث',
     'sessions.boardError': 'تعذر تحميل جلسات الطاولات.',
+    'sessions.boardStale': 'تعذّر تحديث جلسات الطاولات. نعرض آخر حالة تم تحميلها، وقد لا تكون محدّثة.',
 
     'sessions.availability.AVAILABLE': 'الطلب متاح',
     'sessions.availability.CLOSED_BY_STAFF': 'الطلب مغلق',

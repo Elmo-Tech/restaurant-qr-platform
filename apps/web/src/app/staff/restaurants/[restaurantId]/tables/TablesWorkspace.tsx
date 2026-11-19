@@ -14,6 +14,7 @@ import {
   redirectToLogin,
 } from '../../../../../lib/menu/error-message';
 import { Alert } from '../../../../../components/ui/Alert';
+import { ReadErrorAlert } from '../../../../../components/staff/ReadErrorAlert';
 import { Button } from '../../../../../components/ui/Button';
 import { ChipGroup, type ChipOption } from '../../../../../components/ui/ChipGroup';
 import { EmptyState } from '../../../../../components/ui/EmptyState';
@@ -137,6 +138,7 @@ export function TablesWorkspace({
   const [statusFilter, setStatusFilter] = useState<TableFilter>('all');
   const [board, setBoard] = useState<TableBoardRow[] | null>(null);
   const [boardError, setBoardError] = useState<string | null>(null);
+  const [isBoardLoading, setIsBoardLoading] = useState(false);
   const [drawerTarget, setDrawerTarget] = useState<{
     id: string;
     intent?: SessionDrawerIntent;
@@ -236,14 +238,19 @@ export function TablesWorkspace({
     async (branchId: string, options: { silent?: boolean } = {}) => {
       if (!sessionCaps.canView) return;
       const requestId = ++boardRequestRef.current;
+      setIsBoardLoading(true);
       if (!options.silent) {
+        // A new Branch scope: drop the previous board and its error.
         setBoard(null);
+        setBoardError(null);
       }
-      setBoardError(null);
+      // A silent refresh keeps the last loaded board AND any "out of date"
+      // error on screen until a refresh actually succeeds.
       try {
         const rows = await sessionsApi.getBoard(restaurantId, branchId);
         if (boardRequestRef.current !== requestId) return;
         setBoard(rows);
+        setBoardError(null);
       } catch (error) {
         if (boardRequestRef.current !== requestId) return;
         if (isUnauthenticatedError(error)) {
@@ -251,6 +258,8 @@ export function TablesWorkspace({
           return;
         }
         setBoardError(describeError(error));
+      } finally {
+        if (boardRequestRef.current === requestId) setIsBoardLoading(false);
       }
     },
     [restaurantId, sessionCaps.canView],
@@ -566,8 +575,16 @@ export function TablesWorkspace({
             />
           ) : null}
 
-          {sessionCaps.canView && boardError && showTables ? (
-            <Alert variant="error">{boardError}</Alert>
+          {sessionCaps.canView && boardError && showTables && selectedBranchId ? (
+            // Initial failure (no session data at all) vs. a failed background
+            // refresh (the last loaded board stays on the cards, flagged as
+            // possibly out of date). Retry is a read only.
+            <ReadErrorAlert
+              title={board === null ? t('sessions.boardError') : t('sessions.boardStale')}
+              detail={boardError}
+              isRetrying={isBoardLoading}
+              onRetry={() => void loadBoard(selectedBranchId, { silent: true })}
+            />
           ) : null}
 
           {showTables && qrError ? <Alert variant="error">{qrError}</Alert> : null}
@@ -584,19 +601,14 @@ export function TablesWorkspace({
             />
           ) : null}
 
-          {showTables && tablesError ? (
-            <Alert variant="error">
-              <div className="flex items-center justify-between gap-4">
-                <span>{tablesError}</span>
-                <Button
-                  variant="secondary"
-                  className="px-2 py-1 text-xs"
-                  onClick={() => selectedBranchId && void loadTables(selectedBranchId)}
-                >
-                  {t('common.retry')}
-                </Button>
-              </div>
-            </Alert>
+          {showTables && tablesError && selectedBranchId ? (
+            // `loadTables` clears this error as it starts, so the alert (and its
+            // Retry) is gone while the read is in flight -- no duplicate request.
+            <ReadErrorAlert
+              title={t('tables.loadFailed')}
+              detail={tablesError}
+              onRetry={() => void loadTables(selectedBranchId)}
+            />
           ) : null}
 
           {showTables && tables === null && !tablesError ? (

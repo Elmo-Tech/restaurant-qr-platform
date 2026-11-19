@@ -27,7 +27,7 @@ import {
   redirectToLogin,
 } from '../../../../../lib/menu/error-message';
 import { ApiError } from '../../../../../lib/api/errors';
-import { Alert } from '../../../../../components/ui/Alert';
+import { ReadErrorAlert } from '../../../../../components/staff/ReadErrorAlert';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
 import { ChipGroup, type ChipOption } from '../../../../../components/ui/ChipGroup';
@@ -35,6 +35,7 @@ import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../components/ui/PageHeader';
 import { OrderCard } from './OrderCard';
 import { OrderDetailDialog } from './OrderDetailDialog';
+import { OrderDetailErrorDialog } from './OrderDetailErrorDialog';
 import { ALL_BRANCHES, OrdersFilterBar } from './OrdersFilterBar';
 import { orderTypeLabel } from './OrderTypeBadge';
 
@@ -111,8 +112,18 @@ export function OrdersWorkspace({
   const [detailError, setDetailError] = useState<string | null>(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
   const [transitionError, setTransitionError] = useState<string | null>(null);
+  // Whether the detail on screen is the authoritative latest state. After an
+  // ORDER_STATUS_CHANGED conflict it is 'refreshing' until the re-read lands,
+  // and 'unverified' if that re-read failed: in both cases mutating actions
+  // stay disabled until the Order is opened (read) again.
+  const [detailSync, setDetailSync] = useState<'current' | 'refreshing' | 'unverified'>('current');
+  // Focus returns here (the Order card that opened the detail) when it closes.
+  const detailTriggerRef = useRef<HTMLElement | null>(null);
 
   const requestRef = useRef(0);
+  // Drops a detail response that lands after the Staff member closed or
+  // switched to another Order (same pattern as `requestRef` for the list).
+  const detailRequestRef = useRef(0);
 
   const loadOrders = useCallback(async () => {
     const requestId = ++requestRef.current;
@@ -138,7 +149,10 @@ export function OrdersWorkspace({
 
   useEffect(() => {
     queueMicrotask(() => {
+      // A new Branch scope starts clean: the previous scope's error must not
+      // hide this scope's loading state.
       setOrders(null);
+      setOrdersError(null);
       void loadOrders();
     });
   }, [loadOrders]);
@@ -156,15 +170,16 @@ export function OrdersWorkspace({
   useEffect(() => {
     if (!initialOrderId) return;
     let cancelled = false;
+    const requestId = ++detailRequestRef.current;
     ordersApi
       .getOrderDetail(restaurantId, initialOrderId)
       .then((detail) => {
-        if (cancelled) return;
+        if (cancelled || detailRequestRef.current !== requestId) return;
         setSelectedOrderId(initialOrderId);
         setOrderDetail(detail);
       })
       .catch((error: unknown) => {
-        if (cancelled) return;
+        if (cancelled || detailRequestRef.current !== requestId) return;
         if (isUnauthenticatedError(error)) {
           redirectToLogin();
           return;
@@ -178,14 +193,18 @@ export function OrdersWorkspace({
   }, [initialOrderId, restaurantId]);
 
   async function openOrder(orderId: string) {
+    const requestId = ++detailRequestRef.current;
     setSelectedOrderId(orderId);
     setOrderDetail(null);
     setDetailError(null);
     setTransitionError(null);
+    setDetailSync('current');
     try {
       const detail = await ordersApi.getOrderDetail(restaurantId, orderId);
+      if (detailRequestRef.current !== requestId) return;
       setOrderDetail(detail);
     } catch (error) {
+      if (detailRequestRef.current !== requestId) return;
       if (isUnauthenticatedError(error)) {
         redirectToLogin();
         return;
@@ -194,15 +213,52 @@ export function OrdersWorkspace({
     }
   }
 
+  /**
+   * After `ORDER_STATUS_CHANGED`: re-READ the Order while the current detail
+   * and the stale-status explanation stay on screen. Actions stay disabled
+   * until the real status arrives, and the transition itself is never
+   * repeated -- the Staff member decides again against the fresh state.
+   */
+  async function refreshOrderAfterConflict(orderId: string) {
+    const requestId = ++detailRequestRef.current;
+    setDetailSync('refreshing');
+    try {
+      const detail = await ordersApi.getOrderDetail(restaurantId, orderId);
+      if (detailRequestRef.current !== requestId) return;
+      setOrderDetail(detail);
+      setDetailSync('current');
+    } catch (error) {
+      if (detailRequestRef.current !== requestId) return;
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      // The detail on screen is now known to be outdated: say so instead of
+      // claiming "showing the latest state", and keep its actions disabled.
+      setDetailSync('unverified');
+      setTransitionError(t('orders.transitionStaleUnverified'));
+    }
+  }
+
   function closeDetail() {
+    detailRequestRef.current += 1;
+    setDetailSync('current');
     setSelectedOrderId(null);
     setOrderDetail(null);
     setDetailError(null);
     setTransitionError(null);
+    const trigger = detailTriggerRef.current;
+    detailTriggerRef.current = null;
+    if (trigger?.isConnected) trigger.focus();
   }
 
   async function handleTransition(to: OrderStatus) {
-    if (!orderDetail || isTransitioning) return;
+    if (!orderDetail || isTransitioning || detailSync !== 'current') return;
+    // The detail this transition belongs to: if the Staff member closes it or
+    // opens another Order before the response lands, the response must not
+    // replace (or re-open) whatever is on screen by then.
+    const detailRequestId = detailRequestRef.current;
+    const isSameDetail = () => detailRequestRef.current === detailRequestId;
     setIsTransitioning(true);
     setTransitionError(null);
     try {
@@ -210,7 +266,7 @@ export function OrdersWorkspace({
         expectedStatus: orderDetail.status,
         status: to,
       });
-      setOrderDetail(updated);
+      if (isSameDetail()) setOrderDetail(updated);
       setOrders((prev) =>
         (prev ?? []).map((order) =>
           order.id === updated.id ? { ...order, status: updated.status } : order,
@@ -225,12 +281,13 @@ export function OrdersWorkspace({
         // Section 14: someone else already changed it -- refresh the
         // detail + list so the Staff member sees the real current state
         // rather than retrying blindly against stale data.
-        setTransitionError(t('orders.transitionStale'));
-        void openOrder(orderDetail.id);
         void loadOrders();
+        if (!isSameDetail()) return;
+        setTransitionError(t('orders.transitionStale'));
+        void refreshOrderAfterConflict(orderDetail.id);
         return;
       }
-      setTransitionError(describeError(error));
+      if (isSameDetail()) setTransitionError(describeError(error));
     } finally {
       setIsTransitioning(false);
     }
@@ -343,14 +400,15 @@ export function OrdersWorkspace({
       />
 
       {ordersError ? (
-        <Alert variant="error">
-          <div className="flex items-center justify-between gap-4">
-            <span>{ordersError}</span>
-            <Button variant="secondary" className="px-2 py-1 text-xs" onClick={() => void loadOrders()}>
-              {t('common.retry')}
-            </Button>
-          </div>
-        </Alert>
+        // Initial failure (nothing loaded) vs. a failed refresh: the
+        // previously loaded Orders stay visible and are labelled as possibly
+        // out of date rather than presented as live.
+        <ReadErrorAlert
+          title={orders === null ? t('orders.loadFailed') : t('orders.refreshFailed')}
+          detail={ordersError}
+          isRetrying={isRefreshing}
+          onRetry={() => void loadOrders()}
+        />
       ) : null}
 
       {orders === null && !ordersError ? <LoadingState label={t('orders.loading')} /> : null}
@@ -381,7 +439,10 @@ export function OrdersWorkspace({
             <OrderCard
               key={order.id}
               order={withBranchLabel(order)}
-              onOpen={() => void openOrder(order.id)}
+              onOpen={(trigger) => {
+                detailTriggerRef.current = trigger;
+                void openOrder(order.id);
+              }}
             />
           ))}
         </div>
@@ -389,20 +450,17 @@ export function OrdersWorkspace({
 
       {selectedOrderId ? (
         detailError ? (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40 p-6">
-            <div className="w-full max-w-sm rounded-lg bg-card p-5 shadow-xl">
-              <Alert variant="error">{detailError}</Alert>
-              <Button variant="secondary" className="mt-4" onClick={closeDetail}>
-                {t('common.close')}
-              </Button>
-            </div>
-          </div>
+          <OrderDetailErrorDialog
+            error={detailError}
+            onRetry={() => void openOrder(selectedOrderId)}
+            onClose={closeDetail}
+          />
         ) : orderDetail ? (
           <OrderDetailDialog
             order={withBranchLabel(orderDetail)}
             restaurantLogoUrl={restaurantLogoUrl}
             availableTransitions={getAvailableTransitions(orderDetail.status, permissions, orderDetail.type)}
-            isTransitioning={isTransitioning}
+            isTransitioning={isTransitioning || detailSync !== 'current'}
             transitionError={transitionError}
             onTransition={(to) => void handleTransition(to)}
             onClose={closeDetail}
