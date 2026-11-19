@@ -7,6 +7,7 @@ const root = '../../app/staff/restaurants/[restaurantId]';
 const hub = source(root + '/menu/overview/page.tsx');
 const guest = source(root + '/menu/guest-experience/page.tsx');
 const shell = source('../../components/staff/StaffShell.tsx');
+const sections = source('./staff-sections.ts');
 const sidebar = source('../../components/staff/RestaurantSidebar.tsx');
 const back = source('../../components/staff/MenuHubBackLink.tsx');
 const mobile = source('./mobile-navigation.ts');
@@ -49,11 +50,12 @@ test('guest experience opens the ORIGINAL management screens with their capabili
 
 test('legacy settings URLs are treated as menu, with stable sidebar and real QR functionality', () => {
   for (const slug of ['design', 'announcements', 'suggestions', 'guest-qr']) {
-    assert.ok(shell.includes("'" + slug + "'"));
+    assert.ok(sections.includes("'" + slug + "'"));
   }
+  assert.match(shell, /from '\.\.\/\.\.\/lib\/staff\/staff-sections'/);
   assert.match(sidebar, /lg:sticky lg:top-0/);
   assert.match(sidebar, /lg:h-screen lg:h-dvh/);
-  assert.match(mobile, /menuSettings/);
+  assert.match(mobile, /resolveStaffSection\(pathname, base\) === item\.key/);
   assert.match(qr, /<RestaurantQrPanel/);
   assert.doesNotMatch(qr, /<OrderingOptionsCard/); // relocated to Settings > Ordering
   const ordering = source(root + '/settings/ordering/OrderingWorkspace.tsx');

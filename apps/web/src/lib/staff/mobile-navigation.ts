@@ -1,4 +1,5 @@
 import type { MessageKey } from '../i18n/messages';
+import { resolveStaffSection } from './staff-sections.ts';
 
 /**
  * Navigation is presentation ONLY. StaffShell passes capabilities computed
@@ -91,23 +92,12 @@ export function buildMobileNavigation(
   return { dock, more };
 }
 
-/** Exact dashboard path; nested routes count as the same section. */
+/**
+ * Exact Dashboard/Account/Subscription paths; nested routes count as the same
+ * section (see `resolveStaffSection`). The workspace root is taken from the
+ * item's own href, so the encoded restaurant id is compared exactly as before.
+ */
 export function isMobileNavActive(pathname: string, item: MobileNavigationItem): boolean {
-  if (item.key === 'dashboard' || item.key === 'account' || item.key === 'subscription') {
-    return pathname === item.href;
-  }
   const base = item.href.split('/').slice(0, 4).join('/');
-  const menuSettings = ['design', 'announcements', 'suggestions', 'guest-qr'].some((part) => {
-    const url = `${base}/settings/${part}`;
-    return pathname === url || pathname.startsWith(url + '/');
-  });
-  if (item.key === 'settings') {
-    const root = item.href.slice(0, -('/overview'.length));
-    return !menuSettings && (pathname === root || pathname.startsWith(root + '/'));
-  }
-  if (item.key === 'menu') {
-    const root = item.href.slice(0, -('/overview'.length));
-    return menuSettings || pathname === root || pathname.startsWith(root + '/');
-  }
-  return pathname === item.href || pathname.startsWith(item.href + '/');
+  return resolveStaffSection(pathname, base) === item.key;
 }
