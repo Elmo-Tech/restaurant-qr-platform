@@ -18,11 +18,14 @@ const STALE_PENDING_MINUTES = 10;
 export function OrderCard({
   order,
   nextStep = null,
+  selected = false,
   onOpen,
 }: {
   order: OrderListItem;
   /** Phase 1: informational hint only (see `nextStepFor`) -- never rendered as a control. */
   nextStep?: OrderNextStep | null;
+  /** Phase 1 PR 2: this Order is the one shown in the desktop split pane. */
+  selected?: boolean;
   /** Receives the button that opened the detail, so focus can return to it on close. */
   onOpen: (trigger: HTMLButtonElement) => void;
 }) {
@@ -43,8 +46,8 @@ export function OrderCard({
   return (
     <article
       className={`flex flex-col gap-3 rounded-lg border border-s-4 border-border p-4 shadow-sm ${statusAccentClass(order.status)} ${
-        completed ? 'opacity-80' : ''
-      }`}
+        completed && !selected ? 'opacity-80' : ''
+      } ${selected ? 'outline-2 outline-offset-2 outline-primary' : ''}`}
     >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <StatusBadge status={order.status} type={order.type} />
@@ -99,13 +102,16 @@ export function OrderCard({
       <button
         type="button"
         onClick={(event) => onOpen(event.currentTarget)}
+        aria-current={selected ? 'true' : undefined}
         className={`w-full rounded-md px-4 py-2 text-sm font-medium transition-colors ${
-          isReady
-            ? 'bg-success text-success-foreground hover:bg-success/90'
-            : 'border border-border bg-card text-foreground hover:bg-muted'
+          selected
+            ? 'border border-primary/40 bg-accent text-accent-foreground'
+            : isReady
+              ? 'bg-success text-success-foreground hover:bg-success/90'
+              : 'border border-border bg-card text-foreground hover:bg-muted'
         }`}
       >
-        {t('orders.card.view')}
+        {selected ? t('orders.card.viewing') : t('orders.card.view')}
       </button>
     </article>
   );
