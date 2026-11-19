@@ -314,6 +314,10 @@ Follow:
 - `docs/03-ui-ux/STAFF_DASHBOARD_UX_SPEC.md`
 - `docs/03-ui-ux/MOTION_ACCESSIBILITY_SPEC.md`
 
+## Wayta Restaurant Staff UX - Approved Decisions
+
+For restaurant Staff workspace UI tasks (`apps/web/src/app/staff/**`), read `docs/03-ui-ux/wayta-approved/README.md` and only the relevant page-specific record. These documents contain the latest approved Restaurant Staff UX decisions. `docs/design/DESIGN_SYSTEM.md` remains authoritative for Staff visual styling. Approved UX directions do not authorize implementation, API changes or deployment by themselves; report conflicts with domain/API/authorization rules instead of silently overriding them.
+
 ---
 
 # 16. RTL Is Not Optional
