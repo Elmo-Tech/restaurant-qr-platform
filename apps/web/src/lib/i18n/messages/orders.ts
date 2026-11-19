@@ -4,7 +4,7 @@ import { defineMessages } from './define';
 export const ordersMessages = defineMessages({
   en: {
     'orders.title': 'Orders',
-    'orders.subtitle': 'Incoming orders, newest first.',
+    'orders.subtitle': 'Track orders and take the next action.',
     'orders.updating': 'Updating…',
     'orders.loading': 'Loading Orders…',
     'orders.loadingOne': 'Loading order…',
@@ -12,7 +12,7 @@ export const ordersMessages = defineMessages({
     'orders.refreshFailed': 'Could not refresh orders. Showing the last loaded list, which may be out of date.',
     'orders.detailLoadFailed': 'Could not load this order.',
     'orders.transitionStaleUnverified':
-      'This order was already updated, but its latest state could not be loaded. Close it and open it again before taking action.',
+      'This order was already updated, but its latest state could not be loaded. Retry before taking action.',
     'orders.viewsLabel': 'Order views',
     'orders.view.active': 'Active',
     'orders.view.completed': 'Completed',
@@ -57,6 +57,16 @@ export const ordersMessages = defineMessages({
     'orders.card.table': 'Table {number}',
     'orders.card.pickup': 'Pickup',
     'orders.card.view': 'View order',
+    /** Phase 1 PR 2: desktop split workspace (queue + non-modal detail pane). */
+    'orders.card.viewing': 'Viewing',
+    'orders.split.detailLabel': 'Order details',
+    'orders.split.emptyTitle': 'Select an order',
+    'orders.split.emptyHint': 'Choose an order from the queue to see its items and take the next step.',
+    'orders.split.closeDetail': 'Close order details',
+    'orders.detail.syncing': 'Checking the latest status…',
+    'orders.detail.noActionForYou': 'No status change is available to you at this stage.',
+    'orders.detailReconcileUnverified':
+      'This order changed, but its latest details could not be loaded. Retry before taking action.',
     /** Phase 1 priority queue: group headings (Active view, Priority sort). */
     'orders.queue.label': 'Active orders by priority',
     'orders.queue.group.needsDecision': 'Needs decision',
@@ -140,7 +150,7 @@ export const ordersMessages = defineMessages({
   },
   ar: {
     'orders.title': 'الطلبات',
-    'orders.subtitle': 'الطلبات الواردة، الأحدث أولًا.',
+    'orders.subtitle': 'تابع الطلبات واتخذ الإجراء التالي.',
     'orders.updating': 'جارٍ التحديث…',
     'orders.loading': 'جارٍ تحميل الطلبات…',
     'orders.loadingOne': 'جارٍ تحميل الطلب…',
@@ -148,7 +158,7 @@ export const ordersMessages = defineMessages({
     'orders.refreshFailed': 'تعذّر تحديث الطلبات. نعرض آخر قائمة تم تحميلها، وقد لا تكون محدّثة.',
     'orders.detailLoadFailed': 'تعذّر تحميل هذا الطلب.',
     'orders.transitionStaleUnverified':
-      'تم تحديث هذا الطلب بالفعل، لكن تعذّر تحميل أحدث حالة له. أغلقه وافتحه مجددًا قبل اتخاذ أي إجراء.',
+      'تم تحديث هذا الطلب بالفعل، لكن تعذّر تحميل أحدث حالة له. أعد المحاولة قبل اتخاذ أي إجراء.',
     'orders.viewsLabel': 'عرض الطلبات',
     'orders.view.active': 'النشطة',
     'orders.view.completed': 'المكتملة',
@@ -192,6 +202,15 @@ export const ordersMessages = defineMessages({
     'orders.card.table': 'طاولة {number}',
     'orders.card.pickup': 'استلام',
     'orders.card.view': 'عرض الطلب',
+    'orders.card.viewing': 'قيد العرض',
+    'orders.split.detailLabel': 'تفاصيل الطلب',
+    'orders.split.emptyTitle': 'اختر طلبًا',
+    'orders.split.emptyHint': 'اختر طلبًا من القائمة لعرض أصنافه واتخاذ الخطوة التالية.',
+    'orders.split.closeDetail': 'إغلاق تفاصيل الطلب',
+    'orders.detail.syncing': 'جارٍ التحقق من أحدث حالة…',
+    'orders.detail.noActionForYou': 'لا يتوفر لك تغيير حالة هذا الطلب في هذه المرحلة.',
+    'orders.detailReconcileUnverified':
+      'تغيّر هذا الطلب، لكن تعذّر تحميل أحدث تفاصيله. أعد المحاولة قبل اتخاذ أي إجراء.',
     'orders.queue.label': 'الطلبات النشطة حسب الأولوية',
     'orders.queue.group.needsDecision': 'بانتظار القرار',
     'orders.queue.group.readyForHandoff': 'جاهز للتسليم',

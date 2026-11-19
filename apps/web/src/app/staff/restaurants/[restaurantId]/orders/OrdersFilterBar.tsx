@@ -16,7 +16,9 @@ export const ALL_BRANCHES = '__all__';
 const TYPE_OPTIONS: readonly OrderType[] = ['DINE_IN', 'PICKUP', 'DELIVERY'];
 
 const INPUT_CLASS =
-  'h-10 w-full rounded-md border border-border bg-card ps-9 pe-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-ring';
+  'w-full rounded-md border border-border bg-card ps-9 pe-3 text-sm text-foreground outline-none placeholder:text-muted-foreground focus:border-primary focus:ring-1 focus:ring-ring';
+const SELECT_CLASS =
+  'rounded-md border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring';
 
 export interface OrdersFilterBarProps {
   type: OrderType | null;
@@ -42,6 +44,12 @@ export interface OrdersFilterBarProps {
   onSortChange: (sort: OrdersSort) => void;
   onBranchChange: (branchId: string) => void;
   onClear: () => void;
+  /**
+   * Desktop Split Mode only: the same controls in a tighter panel (one-line
+   * search/sort/branch row, inline labels, 36px controls) so the queue and
+   * detail pane start higher. Every control and its accessible label stays.
+   */
+  compact?: boolean;
 }
 
 /**
@@ -70,6 +78,7 @@ export function OrdersFilterBar({
   onSortChange,
   onBranchChange,
   onClear,
+  compact = false,
 }: OrdersFilterBarProps) {
   const { t, locale } = useStaffI18n();
 
@@ -93,11 +102,21 @@ export function OrdersFilterBar({
     })),
   ];
 
+  const controlHeight = compact ? 'h-9' : 'h-10';
+  // Compact: Sort / Branch labels sit beside their select instead of above it.
+  const selectLabelClass = compact
+    ? 'flex items-center gap-2 text-xs font-medium text-muted-foreground'
+    : 'flex flex-col gap-1 text-xs font-medium text-muted-foreground';
+
   return (
-    <div role="search" className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3">
-      <div className="flex flex-wrap items-end gap-3">
+    <div
+      role="search"
+      className={`flex flex-col rounded-lg border border-border bg-card ${compact ? 'gap-2 px-3 py-2.5' : 'gap-3 p-3'}`}
+    >
+      <div className={`flex flex-wrap gap-3 ${compact ? 'items-center' : 'items-end'}`}>
         <label className="flex min-w-[220px] flex-1 flex-col gap-1 text-xs font-medium text-muted-foreground">
-          <span>{t('orders.filter.search')}</span>
+          {/* Compact: the visible placeholder + search icon carry the meaning; the label stays for assistive tech. */}
+          <span className={compact ? 'sr-only' : undefined}>{t('orders.filter.search')}</span>
           <span className="relative">
             <IconSearch className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <input
@@ -105,17 +124,17 @@ export function OrdersFilterBar({
               value={search}
               onChange={(event) => onSearchChange(event.target.value)}
               placeholder={t('orders.filter.searchPlaceholder')}
-              className={INPUT_CLASS}
+              className={`${controlHeight} ${INPUT_CLASS}`}
             />
           </span>
         </label>
 
-        <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+        <label className={selectLabelClass}>
           <span>{t('orders.filter.sort')}</span>
           <select
             value={sort}
             onChange={(event) => onSortChange(event.target.value as OrdersSort)}
-            className="h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring"
+            className={`${controlHeight} ${SELECT_CLASS}`}
           >
             {sortOptions.map((option) => (
               <option key={option} value={option}>
@@ -126,12 +145,12 @@ export function OrdersFilterBar({
         </label>
 
         {branches.length > 1 ? (
-          <label className="flex flex-col gap-1 text-xs font-medium text-muted-foreground">
+          <label className={selectLabelClass}>
             <span>{t('orders.filter.branch')}</span>
             <select
               value={branchId}
               onChange={(event) => onBranchChange(event.target.value)}
-              className="h-10 rounded-md border border-border bg-card px-3 text-sm text-foreground outline-none focus:border-primary focus:ring-1 focus:ring-ring"
+              className={`${controlHeight} ${SELECT_CLASS}`}
             >
               <option value={ALL_BRANCHES}>{t('orders.filter.allBranches')}</option>
               {branches.map((branch) => (
@@ -147,14 +166,14 @@ export function OrdersFilterBar({
           <button
             type="button"
             onClick={onClear}
-            className="h-10 rounded-md px-2 text-sm font-medium text-primary hover:underline"
+            className={`${controlHeight} rounded-md px-2 text-sm font-medium text-primary hover:underline`}
           >
             {t('orders.filter.clear')}
           </button>
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-2">
+      <div className={`flex flex-col ${compact ? 'gap-1.5' : 'gap-2'}`}>
         <div className="flex flex-wrap items-center gap-2">
           <span className="text-xs font-medium text-muted-foreground">{t('orders.filter.type')}</span>
           <ChipGroup

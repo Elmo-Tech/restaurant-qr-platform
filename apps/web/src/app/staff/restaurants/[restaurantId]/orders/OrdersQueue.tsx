@@ -7,6 +7,8 @@ import { nextStepFor } from '../../../../../lib/orders/transitions';
 import { OrderCard } from './OrderCard';
 
 const GRID_CLASS = 'grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3';
+/** Desktop split: the queue is one narrow column beside the detail pane. */
+const COLUMN_CLASS = 'grid grid-cols-1 gap-3';
 
 export interface OrdersQueueProps {
   /** Already filtered and sorted by the workspace. */
@@ -15,6 +17,10 @@ export interface OrdersQueueProps {
   grouped: boolean;
   /** The Membership's own permissions -- used only for the cards' informational next-step hint. */
   permissions: string[];
+  /** Phase 1 PR 2: `column` when the queue sits beside the split detail pane. */
+  layout?: 'grid' | 'column';
+  /** The Order shown in the split pane (only passed in split mode). */
+  selectedOrderId?: string | null;
   onOpen: (order: OrderListItem, trigger: HTMLButtonElement) => void;
 }
 
@@ -25,17 +31,25 @@ export interface OrdersQueueProps {
  * the same flat card grid as before. Cards stay read-only: the only control
  * is "View order", which opens the existing detail dialog.
  */
-export function OrdersQueue({ orders, grouped, permissions, onOpen }: OrdersQueueProps) {
+export function OrdersQueue({
+  orders,
+  grouped,
+  permissions,
+  layout = 'grid',
+  selectedOrderId = null,
+  onOpen,
+}: OrdersQueueProps) {
   const { t } = useStaffI18n();
 
   function renderList(list: OrderListItem[]) {
     return (
-      <ul role="list" className={GRID_CLASS}>
+      <ul role="list" className={layout === 'column' ? COLUMN_CLASS : GRID_CLASS}>
         {list.map((order) => (
           <li key={order.id} className="min-w-0">
             <OrderCard
               order={order}
               nextStep={nextStepFor(order.status, order.type, permissions)}
+              selected={order.id === selectedOrderId}
               onOpen={(trigger) => onOpen(order, trigger)}
             />
           </li>
@@ -47,7 +61,7 @@ export function OrdersQueue({ orders, grouped, permissions, onOpen }: OrdersQueu
   if (!grouped) return renderList(orders);
 
   return (
-    <div role="region" aria-label={t('orders.queue.label')} className="flex flex-col gap-6">
+    <div role="region" aria-label={t('orders.queue.label')} className={layout === 'column' ? 'flex flex-col gap-5' : 'flex flex-col gap-6'}>
       {groupOrdersByPriority(orders).map((section) => {
         const headingId = `orders-queue-${section.group}`;
         return (

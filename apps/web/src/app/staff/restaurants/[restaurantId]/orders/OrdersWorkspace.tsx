@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { localizedName } from '../../../../../lib/i18n/localized-name';
 import * as ordersApi from '../../../../../lib/orders/api';
@@ -11,6 +11,7 @@ import type {
   OrderType,
 } from '../../../../../lib/orders/types';
 import { getAvailableTransitions } from '../../../../../lib/orders/transitions';
+import { canShowSplit } from '../../../../../lib/orders/split-layout';
 import {
   countByStatus,
   countByType,
@@ -35,7 +36,9 @@ import { Card } from '../../../../../components/ui/Card';
 import { ChipGroup, type ChipOption } from '../../../../../components/ui/ChipGroup';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../components/ui/PageHeader';
+import type { OrderDetailSync } from './OrderDetailContent';
 import { OrderDetailDialog } from './OrderDetailDialog';
+import { OrderDetailPane } from './OrderDetailPane';
 import { OrderDetailErrorDialog } from './OrderDetailErrorDialog';
 import { ALL_BRANCHES, OrdersFilterBar } from './OrdersFilterBar';
 import { orderTypeLabel } from './OrderTypeBadge';
@@ -122,7 +125,7 @@ export function OrdersWorkspace({
   // ORDER_STATUS_CHANGED conflict it is 'refreshing' until the re-read lands,
   // and 'unverified' if that re-read failed: in both cases mutating actions
   // stay disabled until the Order is opened (read) again.
-  const [detailSync, setDetailSync] = useState<'current' | 'refreshing' | 'unverified'>('current');
+  const [detailSync, setDetailSync] = useState<OrderDetailSync>('current');
   // Focus returns here (the Order card that opened the detail) when it closes.
   const detailTriggerRef = useRef<HTMLElement | null>(null);
 
@@ -130,6 +133,22 @@ export function OrdersWorkspace({
   // Drops a detail response that lands after the Staff member closed or
   // switched to another Order (same pattern as `requestRef` for the list).
   const detailRequestRef = useRef(0);
+
+  // Phase 1 PR 2: split (queue + non-modal detail pane) only when THIS
+  // workspace's measured width -- what is left beside the sidebar and page
+  // gutters -- fits both panels; otherwise the focused dialog as before.
+  // Measured before paint so a deep-linked Order never flashes as a dialog.
+  const workspaceRef = useRef<HTMLDivElement>(null);
+  const [isSplit, setIsSplit] = useState(false);
+  useLayoutEffect(() => {
+    const element = workspaceRef.current;
+    if (!element || typeof ResizeObserver === 'undefined') return;
+    const measure = (width: number) => setIsSplit(canShowSplit(width));
+    measure(element.getBoundingClientRect().width);
+    const observer = new ResizeObserver(([entry]) => measure(entry.contentRect.width));
+    observer.observe(element);
+    return () => observer.disconnect();
+  }, []);
 
   const loadOrders = useCallback(async () => {
     const requestId = ++requestRef.current;
@@ -246,6 +265,62 @@ export function OrdersWorkspace({
     }
   }
 
+  /**
+   * Phase 1 PR 2: a list poll showed the selected Order in a different status
+   * than its detail. The list row is not a detail, so it never replaces the
+   * one on screen: re-READ the Order instead, keeping the current detail
+   * visible with its actions disabled until the authoritative state lands.
+   * Also the pane's read-only Retry while the latest state is unverified.
+   * Never repeats a status change.
+   */
+  async function reconcileSelectedOrder(orderId: string) {
+    const requestId = ++detailRequestRef.current;
+    const conflictUnverified = t('orders.transitionStaleUnverified');
+    const reconcileUnverified = t('orders.detailReconcileUnverified');
+    setDetailSync('refreshing');
+    try {
+      const detail = await ordersApi.getOrderDetail(restaurantId, orderId);
+      if (detailRequestRef.current !== requestId) return;
+      setOrderDetail(detail);
+      setDetailSync('current');
+      // The "could not load the latest state" warnings are now untrue.
+      setTransitionError((current) =>
+        current === conflictUnverified
+          ? t('orders.transitionStale')
+          : current === reconcileUnverified
+            ? null
+            : current,
+      );
+    } catch (error) {
+      if (detailRequestRef.current !== requestId) return;
+      if (isUnauthenticatedError(error)) {
+        redirectToLogin();
+        return;
+      }
+      setDetailSync('unverified');
+      setTransitionError((current) =>
+        current === conflictUnverified ? current : reconcileUnverified,
+      );
+    }
+  }
+
+  // Compare each NEW list (poll, refresh, post-write reload) once against the
+  // open detail. Skipped while a write or a re-read is in flight: those land
+  // their own authoritative state, and the comparison runs once they settle.
+  const reconciledOrdersRef = useRef<OrderListItem[] | null>(null);
+  useEffect(() => {
+    if (!orders || !orderDetail || orderDetail.id !== selectedOrderId) return;
+    if (isTransitioning || detailSync === 'refreshing') return;
+    if (reconciledOrdersRef.current === orders) return;
+    reconciledOrdersRef.current = orders;
+    const listed = orders.find((order) => order.id === orderDetail.id);
+    if (!listed || listed.status === orderDetail.status) return;
+    const orderId = orderDetail.id;
+    queueMicrotask(() => void reconcileSelectedOrder(orderId));
+    // reconcileSelectedOrder is re-created every render; the data deps decide when this runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orders, orderDetail, selectedOrderId, isTransitioning, detailSync]);
+
   function closeDetail() {
     detailRequestRef.current += 1;
     setDetailSync('current');
@@ -358,18 +433,81 @@ export function OrdersWorkspace({
     count: orders !== null ? counts[option] : undefined,
   }));
 
+  // The list side: identical in both layouts, only the card arrangement differs.
+  const queueContent = (
+    <>
+      {orders === null && !ordersError ? <LoadingState label={t('orders.loading')} /> : null}
+
+      {orders !== null && visibleOrders.length === 0 ? (
+        <EmptyState
+          view={view}
+          typeFilter={typeFilter}
+          hasActiveFilters={hasActiveFilters}
+          hasAnyOrders={orders.length > 0}
+          onClear={clearFilters}
+        />
+      ) : null}
+
+      {span ? (
+        <p className="text-sm text-muted-foreground">
+          {t('orders.summary', {
+            count: visibleOrders.length,
+            first: formatDateTime(span.first),
+            last: formatDateTime(span.last),
+          })}
+        </p>
+      ) : null}
+
+      {visibleOrders.length > 0 ? (
+        <OrdersQueue
+          orders={visibleOrders.map(withBranchLabel)}
+          grouped={view === 'active' && appliedSort === 'priority'}
+          permissions={permissions}
+          layout={isSplit ? 'column' : 'grid'}
+          selectedOrderId={isSplit ? selectedOrderId : null}
+          onOpen={(order, trigger) => {
+            detailTriggerRef.current = trigger;
+            void openOrder(order.id);
+          }}
+        />
+      ) : null}
+    </>
+  );
+
+  const viewTabs = (
+    <ChipGroup
+      variant="segmented"
+      size={isSplit ? 'md' : 'lg'}
+      ariaLabel={t('orders.viewsLabel')}
+      options={viewChipOptions}
+      value={view}
+      onChange={changeView}
+    />
+  );
+
   return (
-    <div className="flex flex-col gap-5">
+    // Desktop Split Mode is compact: the view tabs join the header row, gaps
+    // tighten and the filter panel slims down, so the queue and the detail
+    // pane (with its action bar) start well above the fold. Outside split
+    // mode the layout is unchanged, except the lg+ bottom clearance that keeps
+    // the last cards scrollable out from under the shell's floating
+    // guest-menu button (fixed 48px at `bottom-6`).
+    <div
+      ref={workspaceRef}
+      className={`flex min-w-0 flex-col ${isSplit ? 'gap-3' : 'gap-5 lg:pb-16'}`}
+    >
       <PageHeader
         title={t('orders.title')}
         description={t('orders.subtitle')}
         actions={
           <>
+            {/* The poll status comes first so it never shifts the tabs or Refresh when it appears. */}
             {isRefreshing && orders !== null ? (
               <span role="status" className="text-xs text-muted-foreground">
                 {t('orders.updating')}
               </span>
             ) : null}
+            {isSplit ? viewTabs : null}
             <Button variant="secondary" disabled={isRefreshing} onClick={() => void loadOrders()}>
               {t('common.refresh')}
             </Button>
@@ -377,16 +515,10 @@ export function OrdersWorkspace({
         }
       />
 
-      <ChipGroup
-        variant="segmented"
-        size="lg"
-        ariaLabel={t('orders.viewsLabel')}
-        options={viewChipOptions}
-        value={view}
-        onChange={changeView}
-      />
+      {isSplit ? null : viewTabs}
 
       <OrdersFilterBar
+        compact={isSplit}
         type={typeFilter}
         status={statusFilter}
         statusOptions={statusesForView(view)}
@@ -418,41 +550,35 @@ export function OrdersWorkspace({
         />
       ) : null}
 
-      {orders === null && !ordersError ? <LoadingState label={t('orders.loading')} /> : null}
+      {isSplit ? (
+        <div className="grid grid-cols-[minmax(340px,2fr)_minmax(480px,3fr)] items-start gap-6">
+          <div className="flex min-w-0 flex-col gap-4">{queueContent}</div>
+          <OrderDetailPane
+            selectedOrderId={selectedOrderId}
+            order={orderDetail ? withBranchLabel(orderDetail) : null}
+            detailError={detailError}
+            onRetryRead={() => {
+              if (selectedOrderId) void openOrder(selectedOrderId);
+            }}
+            restaurantLogoUrl={restaurantLogoUrl}
+            availableTransitions={
+              orderDetail ? getAvailableTransitions(orderDetail.status, permissions, orderDetail.type) : []
+            }
+            isTransitioning={isTransitioning || detailSync !== 'current'}
+            transitionError={transitionError}
+            sync={detailSync}
+            onReloadDetail={() => {
+              if (orderDetail) void reconcileSelectedOrder(orderDetail.id);
+            }}
+            onTransition={(to) => void handleTransition(to)}
+            onClose={closeDetail}
+          />
+        </div>
+      ) : (
+        queueContent
+      )}
 
-      {orders !== null && visibleOrders.length === 0 ? (
-        <EmptyState
-          view={view}
-          typeFilter={typeFilter}
-          hasActiveFilters={hasActiveFilters}
-          hasAnyOrders={orders.length > 0}
-          onClear={clearFilters}
-        />
-      ) : null}
-
-      {span ? (
-        <p className="text-sm text-muted-foreground">
-          {t('orders.summary', {
-            count: visibleOrders.length,
-            first: formatDateTime(span.first),
-            last: formatDateTime(span.last),
-          })}
-        </p>
-      ) : null}
-
-      {visibleOrders.length > 0 ? (
-        <OrdersQueue
-          orders={visibleOrders.map(withBranchLabel)}
-          grouped={view === 'active' && appliedSort === 'priority'}
-          permissions={permissions}
-          onOpen={(order, trigger) => {
-            detailTriggerRef.current = trigger;
-            void openOrder(order.id);
-          }}
-        />
-      ) : null}
-
-      {selectedOrderId ? (
+      {!isSplit && selectedOrderId ? (
         detailError ? (
           <OrderDetailErrorDialog
             error={detailError}
@@ -466,6 +592,8 @@ export function OrdersWorkspace({
             availableTransitions={getAvailableTransitions(orderDetail.status, permissions, orderDetail.type)}
             isTransitioning={isTransitioning || detailSync !== 'current'}
             transitionError={transitionError}
+            sync={detailSync}
+            onReloadDetail={() => void reconcileSelectedOrder(orderDetail.id)}
             onTransition={(to) => void handleTransition(to)}
             onClose={closeDetail}
           />
