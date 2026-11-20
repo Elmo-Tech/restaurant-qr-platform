@@ -191,7 +191,8 @@ test('split mode is compact; the non-split (tablet/mobile) layout keeps its filt
   assert.match(workspace, /isSplit \? 'gap-3' : 'gap-5 lg:pb-16'/);
   // Compact keeps every control and its accessible label: search label is screen-reader only, never removed.
   assert.match(filterBar, /compact = false/);
-  assert.match(filterBar, /<span className=\{compact \? 'sr-only' : undefined\}>\{t\('orders\.filter\.search'\)\}<\/span>/);
+  // (PR 4: below `md` the non-split label is also screen-reader only -- the placeholder + icon carry it visually.)
+  assert.match(filterBar, /<span className=\{compact \? 'sr-only' : 'max-md:sr-only'\}>\{t\('orders\.filter\.search'\)\}<\/span>/);
   assert.match(filterBar, /<span>\{t\('orders\.filter\.sort'\)\}<\/span>/);
   assert.match(filterBar, /<span>\{t\('orders\.filter\.branch'\)\}<\/span>/);
 });

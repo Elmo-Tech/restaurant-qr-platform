@@ -55,15 +55,21 @@ export function OrderCard({
       </div>
 
       <div className="min-w-0">
+        {/*
+          Phase 1 PR 4: the block keeps the Staff UI direction (so it aligns
+          with the rest of the card); only the customer-entered text is
+          isolated. A mixed Arabic/Latin name gets its own direction from its
+          first strong character without moving to the opposite edge, and the
+          phone number always reads left-to-right.
+        */}
         <h3
-          dir="auto"
           className={`truncate text-start text-lg font-semibold ${completed ? 'text-muted-foreground' : 'text-foreground'}`}
         >
-          {identity}
+          {order.customer ? <bdi dir="auto">{identity}</bdi> : identity}
         </h3>
         {order.customer ? (
-          <p dir="ltr" className="truncate text-start text-sm text-muted-foreground">
-            {order.customer.phone}
+          <p className="truncate text-start text-sm text-muted-foreground">
+            <bdi dir="ltr">{order.customer.phone}</bdi>
           </p>
         ) : null}
         <p className="mt-0.5 text-xs text-muted-foreground">
