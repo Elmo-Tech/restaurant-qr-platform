@@ -576,6 +576,7 @@ export function OrdersWorkspace({
         statusCounts={statusCounts}
         search={search}
         sort={appliedSort}
+        defaultSort={effectiveSort(view, null)}
         sortOptions={sortsForView(view)}
         branchId={branchFilter}
         branches={branches}
@@ -586,6 +587,7 @@ export function OrdersWorkspace({
         onSortChange={setSort}
         onBranchChange={setBranchFilter}
         onClear={clearFilters}
+        onSortReset={() => setSort(null)}
       />
 
       {ordersError ? (
