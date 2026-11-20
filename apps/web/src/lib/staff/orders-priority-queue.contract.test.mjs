@@ -64,7 +64,7 @@ test('late-warning thresholds are untouched in this PR (5 vs 10 min recorded sep
 
 test('focus return and Phase 0.3 detail wiring are preserved', () => {
   assert.match(workspace, /detailTriggerRef\.current = trigger;\s*void openOrder\(order\.id\);/);
-  assert.match(workspace, /isTransitioning=\{isTransitioning \|\| detailSync !== 'current'\}/);
+  assert.match(workspace, /isTransitioning: isTransitioning \|\| detailSync !== 'current',/);
 });
 
 test('queue copy exists in English and Arabic, and differs', () => {

@@ -102,6 +102,9 @@ export function OrderCard({
       <button
         type="button"
         onClick={(event) => onOpen(event.currentTarget)}
+        // Lets the workspace return focus to this Order's card even after a
+        // poll or a status change re-mounted it (a new element, same Order).
+        data-order-id={order.id}
         aria-current={selected ? 'true' : undefined}
         className={`w-full rounded-md px-4 py-2 text-sm font-medium transition-colors ${
           selected

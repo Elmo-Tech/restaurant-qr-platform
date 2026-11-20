@@ -21,6 +21,7 @@ const content = read(`${dir}OrderDetailContent.tsx`);
 const filterBar = read(`${dir}OrdersFilterBar.tsx`);
 const ordersMessages = read('../i18n/messages/orders.ts');
 const dialog = read(`${dir}OrderDetailDialog.tsx`);
+const states = read(`${dir}OrderDetailStates.tsx`);
 const copySource = read('../i18n/messages/orders.ts');
 
 function block(source, startPattern) {
@@ -64,26 +65,30 @@ test('split mode is measured on the workspace element, not a viewport breakpoint
   assert.match(workspace, /grid-cols-\[minmax\(340px,2fr\)_minmax\(480px,3fr\)\]/);
 });
 
-test('wide: non-modal pane; narrow: the existing focused dialogs only', () => {
+test('wide: non-modal pane; narrow: the focused dialog only', () => {
   assert.match(workspace, /\{isSplit \? \([\s\S]*?<OrderDetailPane[\s\S]*?\) : \(\s*queueContent\s*\)\}/);
   assert.match(workspace, /layout=\{isSplit \? 'column' : 'grid'\}/);
-  assert.match(workspace, /\{!isSplit && selectedOrderId \? \(/);
+  assert.match(workspace, /\{!isSplit && selectedOrderId \? <OrderDetailDialog \{\.\.\.detailProps\} \/> : null\}/);
   // The pane is not a dialog: no modal role, no backdrop, no fixed overlay, no trap.
   assert.doesNotMatch(pane, /role="dialog"|aria-modal|fixed inset-0|bg-foreground\/40/);
   assert.match(pane, /<OrderDetailContent/);
   assert.match(dialog, /<OrderDetailContent/);
   assert.match(dialog, /role="dialog"\s+aria-modal="true"/);
-  // Both modes share the same disabled-while-unverified wiring.
-  assert.equal(workspace.match(/isTransitioning=\{isTransitioning \|\| detailSync !== 'current'\}/g)?.length, 2);
-  assert.equal(workspace.match(/sync=\{detailSync\}/g)?.length, 2);
+  // Both modes share ONE prop set: the same disabled-while-unverified wiring.
+  assert.match(workspace, /<OrderDetailPane selectedOrderId=\{selectedOrderId\} \{\.\.\.detailProps\} \/>/);
+  assert.equal(workspace.match(/isTransitioning: isTransitioning \|\| detailSync !== 'current',/g)?.length, 1);
+  assert.equal(workspace.match(/sync: detailSync,/g)?.length, 1);
 });
 
 test('pane states: empty, loading, read failure with read-only Retry, detail', () => {
   assert.match(pane, /selectedOrderId === null \?[\s\S]*?t\('orders\.split\.emptyTitle'\)/);
-  assert.match(pane, /<LoadingState label=\{t\('orders\.loadingOne'\)\} \/>/);
+  // Loading and read-failure states are shared with the focused dialog (PR 3).
+  assert.match(pane, /<OrderDetailLoading key=\{selectedOrderId\} closeButton=\{closeButton\} \/>/);
+  assert.match(states, /<LoadingState label=\{t\('orders\.loadingOne'\)\} \/>/);
   assert.match(pane, /aria-busy=/);
-  assert.match(pane, /<ReadErrorAlert[\s\S]*?title=\{t\('orders\.detailLoadFailed'\)\}[\s\S]*?onRetry=\{onRetryRead\}/);
-  assert.match(workspace, /onRetryRead=\{\(\) => \{\s*if \(selectedOrderId\) void openOrder\(selectedOrderId\);/);
+  assert.match(pane, /<OrderDetailReadError[\s\S]*?onRetry=\{onRetryRead\}/);
+  assert.match(states, /<ReadErrorAlert[\s\S]*?title=\{t\('orders\.detailLoadFailed'\)\}[\s\S]*?onRetry=\{onRetry\}/);
+  assert.match(workspace, /onRetryRead: \(\) => \{\s*if \(selectedOrderId\) void openOrder\(selectedOrderId\);/);
   assert.doesNotMatch(pane, /updateOrderStatus|ordersApi/);
 });
 
@@ -91,13 +96,15 @@ test('pane focus moves only on a new selection; Escape and Close clear it', () =
   assert.match(pane, /useEffect\(\(\) => \{\s*if \(selectedOrderId !== null\) paneRef\.current\?\.focus\(\{ preventScroll: true \}\);\s*\}, \[selectedOrderId\]\);/);
   assert.match(pane, /event\.key === 'Escape' && selectedOrderId !== null[\s\S]*?onClose\(\);/);
   assert.match(pane, /tabIndex=\{-1\}/);
-  assert.match(workspace, /onClose=\{closeDetail\}/);
+  assert.match(workspace, /onClose: closeDetail,/);
 });
 
 test('no automatic selection: only a click, a deep link or Retry selects an Order', () => {
   assert.match(workspace, /useState<string \| null>\(null\);/);
   const setters = [...workspace.matchAll(/setSelectedOrderId\(([^)]*)\)/g)].map((m) => m[1]);
-  assert.deepEqual(setters.sort(), ['initialOrderId', 'initialOrderId', 'null', 'orderId'].sort());
+  assert.deepEqual(setters.sort(), ['null', 'orderId'].sort());
+  // The deep link opens through the same read as a card click.
+  assert.match(workspace, /queueMicrotask\(\(\) => void openOrder\(initialOrderId\)\);/);
   // Filters never touch the selection.
   for (const name of [/function changeView/, /function clearFilters/]) {
     assert.doesNotMatch(block(workspace, name), /setSelectedOrderId|setOrderDetail/);

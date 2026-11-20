@@ -37,9 +37,8 @@ import { ChipGroup, type ChipOption } from '../../../../../components/ui/ChipGro
 import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../components/ui/PageHeader';
 import type { OrderDetailSync } from './OrderDetailContent';
-import { OrderDetailDialog } from './OrderDetailDialog';
+import { OrderDetailDialog, type OrderDetailDialogProps } from './OrderDetailDialog';
 import { OrderDetailPane } from './OrderDetailPane';
-import { OrderDetailErrorDialog } from './OrderDetailErrorDialog';
 import { ALL_BRANCHES, OrdersFilterBar } from './OrdersFilterBar';
 import { orderTypeLabel } from './OrderTypeBadge';
 import { OrdersQueue } from './OrdersQueue';
@@ -128,11 +127,20 @@ export function OrdersWorkspace({
   const [detailSync, setDetailSync] = useState<OrderDetailSync>('current');
   // Focus returns here (the Order card that opened the detail) when it closes.
   const detailTriggerRef = useRef<HTMLElement | null>(null);
+  // Set by `closeDetail`, consumed once the detail has unmounted (see the
+  // focus-return effect below).
+  const focusReturnRef = useRef<{ trigger: HTMLElement | null; orderId: string } | null>(null);
+  // Fallback focus target (the page title) when the opening card is gone.
+  const pageTitleRef = useRef<HTMLSpanElement>(null);
 
   const requestRef = useRef(0);
   // Drops a detail response that lands after the Staff member closed or
   // switched to another Order (same pattern as `requestRef` for the list).
   const detailRequestRef = useRef(0);
+  // The Order whose detail READ is in flight from `openOrder`: a second
+  // open/Retry for it (double click, StrictMode, a re-sent deep link) joins
+  // that read instead of starting a duplicate.
+  const pendingDetailReadRef = useRef<string | null>(null);
 
   // Phase 1 PR 2: split (queue + non-modal detail pane) only when THIS
   // workspace's measured width -- what is left beside the sidebar and page
@@ -192,32 +200,18 @@ export function OrdersWorkspace({
     return () => window.clearInterval(interval);
   }, [loadOrders]);
 
+  // Dashboard deep link (`?order=`): open the detail at once -- the same
+  // focused loading / error / detail flow (and the same Close) as a card.
   useEffect(() => {
     if (!initialOrderId) return;
-    let cancelled = false;
-    const requestId = ++detailRequestRef.current;
-    ordersApi
-      .getOrderDetail(restaurantId, initialOrderId)
-      .then((detail) => {
-        if (cancelled || detailRequestRef.current !== requestId) return;
-        setSelectedOrderId(initialOrderId);
-        setOrderDetail(detail);
-      })
-      .catch((error: unknown) => {
-        if (cancelled || detailRequestRef.current !== requestId) return;
-        if (isUnauthenticatedError(error)) {
-          redirectToLogin();
-          return;
-        }
-        setSelectedOrderId(initialOrderId);
-        setDetailError(describeError(error));
-      });
-    return () => {
-      cancelled = true;
-    };
+    queueMicrotask(() => void openOrder(initialOrderId));
+    // openOrder is re-created every render; only the deep link decides when this runs.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [initialOrderId, restaurantId]);
 
   async function openOrder(orderId: string) {
+    if (pendingDetailReadRef.current === orderId) return;
+    pendingDetailReadRef.current = orderId;
     const requestId = ++detailRequestRef.current;
     setSelectedOrderId(orderId);
     setOrderDetail(null);
@@ -235,6 +229,9 @@ export function OrdersWorkspace({
         return;
       }
       setDetailError(describeError(error));
+    } finally {
+      // Only this read's own completion releases the guard (a newer open owns it otherwise).
+      if (detailRequestRef.current === requestId) pendingDetailReadRef.current = null;
     }
   }
 
@@ -321,17 +318,42 @@ export function OrdersWorkspace({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orders, orderDetail, selectedOrderId, isTransitioning, detailSync]);
 
+  /**
+   * Closing invalidates any outstanding detail READ (its response is dropped
+   * by `detailRequestRef`), so a slow read can never reopen the detail.
+   */
   function closeDetail() {
     detailRequestRef.current += 1;
+    pendingDetailReadRef.current = null;
+    if (selectedOrderId !== null) {
+      focusReturnRef.current = { trigger: detailTriggerRef.current, orderId: selectedOrderId };
+    }
+    detailTriggerRef.current = null;
     setDetailSync('current');
     setSelectedOrderId(null);
     setOrderDetail(null);
     setDetailError(null);
     setTransitionError(null);
-    const trigger = detailTriggerRef.current;
-    detailTriggerRef.current = null;
-    if (trigger?.isConnected) trigger.focus();
   }
+
+  // Focus return runs after the detail has unmounted (and the dialog released
+  // its focus guard): the card that opened it; else the same Order's card if a
+  // poll or a status change re-mounted it; else -- the card was filtered out,
+  // or a Dashboard deep link opened the detail with no card -- the page title.
+  useEffect(() => {
+    if (selectedOrderId !== null) return;
+    const pending = focusReturnRef.current;
+    if (!pending) return;
+    focusReturnRef.current = null;
+    if (pending.trigger?.isConnected) {
+      pending.trigger.focus();
+      return;
+    }
+    const card = workspaceRef.current?.querySelector<HTMLElement>(
+      `[data-order-id="${CSS.escape(pending.orderId)}"]`,
+    );
+    (card ?? pageTitleRef.current)?.focus();
+  }, [selectedOrderId]);
 
   async function handleTransition(to: OrderStatus) {
     if (!orderDetail || isTransitioning || detailSync !== 'current') return;
@@ -474,6 +496,30 @@ export function OrdersWorkspace({
     </>
   );
 
+  // ONE set of detail props for both surfaces (split pane / focused dialog):
+  // same selection, authoritative detail, sync state, permissions-derived
+  // transitions and the single `handleTransition` mutation path -- so
+  // switching layout while an Order is open changes only the presentation.
+  const detailProps: OrderDetailDialogProps = {
+    order: orderDetail ? withBranchLabel(orderDetail) : null,
+    detailError,
+    onRetryRead: () => {
+      if (selectedOrderId) void openOrder(selectedOrderId);
+    },
+    restaurantLogoUrl,
+    availableTransitions: orderDetail
+      ? getAvailableTransitions(orderDetail.status, permissions, orderDetail.type)
+      : [],
+    isTransitioning: isTransitioning || detailSync !== 'current',
+    transitionError,
+    sync: detailSync,
+    onReloadDetail: () => {
+      if (orderDetail) void reconcileSelectedOrder(orderDetail.id);
+    },
+    onTransition: (to) => void handleTransition(to),
+    onClose: closeDetail,
+  };
+
   const viewTabs = (
     <ChipGroup
       variant="segmented"
@@ -497,7 +543,11 @@ export function OrdersWorkspace({
       className={`flex min-w-0 flex-col ${isSplit ? 'gap-3' : 'gap-5 lg:pb-16'}`}
     >
       <PageHeader
-        title={t('orders.title')}
+        title={
+          <span ref={pageTitleRef} tabIndex={-1} className="outline-none">
+            {t('orders.title')}
+          </span>
+        }
         description={t('orders.subtitle')}
         actions={
           <>
@@ -553,56 +603,13 @@ export function OrdersWorkspace({
       {isSplit ? (
         <div className="grid grid-cols-[minmax(340px,2fr)_minmax(480px,3fr)] items-start gap-6">
           <div className="flex min-w-0 flex-col gap-4">{queueContent}</div>
-          <OrderDetailPane
-            selectedOrderId={selectedOrderId}
-            order={orderDetail ? withBranchLabel(orderDetail) : null}
-            detailError={detailError}
-            onRetryRead={() => {
-              if (selectedOrderId) void openOrder(selectedOrderId);
-            }}
-            restaurantLogoUrl={restaurantLogoUrl}
-            availableTransitions={
-              orderDetail ? getAvailableTransitions(orderDetail.status, permissions, orderDetail.type) : []
-            }
-            isTransitioning={isTransitioning || detailSync !== 'current'}
-            transitionError={transitionError}
-            sync={detailSync}
-            onReloadDetail={() => {
-              if (orderDetail) void reconcileSelectedOrder(orderDetail.id);
-            }}
-            onTransition={(to) => void handleTransition(to)}
-            onClose={closeDetail}
-          />
+          <OrderDetailPane selectedOrderId={selectedOrderId} {...detailProps} />
         </div>
       ) : (
         queueContent
       )}
 
-      {!isSplit && selectedOrderId ? (
-        detailError ? (
-          <OrderDetailErrorDialog
-            error={detailError}
-            onRetry={() => void openOrder(selectedOrderId)}
-            onClose={closeDetail}
-          />
-        ) : orderDetail ? (
-          <OrderDetailDialog
-            order={withBranchLabel(orderDetail)}
-            restaurantLogoUrl={restaurantLogoUrl}
-            availableTransitions={getAvailableTransitions(orderDetail.status, permissions, orderDetail.type)}
-            isTransitioning={isTransitioning || detailSync !== 'current'}
-            transitionError={transitionError}
-            sync={detailSync}
-            onReloadDetail={() => void reconcileSelectedOrder(orderDetail.id)}
-            onTransition={(to) => void handleTransition(to)}
-            onClose={closeDetail}
-          />
-        ) : (
-          <div className="fixed inset-0 z-50 flex items-center justify-center bg-foreground/40">
-            <LoadingState label={t('orders.loadingOne')} />
-          </div>
-        )
-      ) : null}
+      {!isSplit && selectedOrderId ? <OrderDetailDialog {...detailProps} /> : null}
     </div>
   );
 }
