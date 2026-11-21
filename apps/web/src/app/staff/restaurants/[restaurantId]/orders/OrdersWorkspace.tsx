@@ -33,6 +33,7 @@ import { ApiError } from '../../../../../lib/api/errors';
 import { ReadErrorAlert } from '../../../../../components/staff/ReadErrorAlert';
 import { Button } from '../../../../../components/ui/Button';
 import { Card } from '../../../../../components/ui/Card';
+import { OpenGuestMenuButton } from '../../../../../components/menu/OpenGuestMenuButton';
 import { ChipGroup, type ChipOption } from '../../../../../components/ui/ChipGroup';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../components/ui/PageHeader';
@@ -535,12 +536,11 @@ export function OrdersWorkspace({
     // Desktop Split Mode is compact: the view tabs join the header row, gaps
     // tighten and the filter panel slims down, so the queue and the detail
     // pane (with its action bar) start well above the fold. Outside split
-    // mode the layout is unchanged, except the lg+ bottom clearance that keeps
-    // the last cards scrollable out from under the shell's floating
-    // guest-menu button (fixed 48px at `bottom-6`).
+    // mode the layout is unchanged. (No bottom clearance for a floating
+    // button: the shell does not render one on Orders -- see GuestMenuFab.)
     <div
       ref={workspaceRef}
-      className={`flex min-w-0 flex-col ${isSplit ? 'gap-3' : 'gap-5 lg:pb-16'}`}
+      className={`flex min-w-0 flex-col ${isSplit ? 'gap-3' : 'gap-5'}`}
     >
       <PageHeader
         title={
@@ -561,6 +561,14 @@ export function OrdersWorkspace({
             <Button variant="secondary" disabled={isRefreshing} onClick={() => void loadOrders()}>
               {t('common.refresh')}
             </Button>
+            {/*
+              The guest-menu entry lives in the header on Orders (the shell's
+              floating button is not rendered here -- it covered Order totals
+              and actions). After Refresh, so its end-aligned dropdown stays
+              on screen at 320px; icon-only on phones so the header does not
+              grow a row and push the queue down.
+            */}
+            <OpenGuestMenuButton variant="secondary" hideWhenUnavailable compactOnPhone />
           </>
         }
       />

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState, type ReactNode, type RefObject } from 'react';
 import { useStaffI18n } from '../../lib/i18n/client';
 import { IconCopy, IconGlobeOpen, IconPhonePreview, IconQr } from '../staff/icons';
 import { useGuestMenuLink } from './GuestMenuLink';
@@ -10,7 +10,10 @@ import { useGuestMenuLink } from './GuestMenuLink';
  * button: open in a new tab, copy the link, show the QR, quick preview.
  * `role="menu"`; Arrow Up/Down, Home/End move, Enter activates, Escape closes
  * and hands focus back to the trigger, Tab closes, a press outside closes.
- * Logical placement only (`end-0`), so it mirrors in RTL.
+ * Logical placement only (`end-0`), so it mirrors in RTL. If that would put
+ * it past a viewport edge (a trigger near the start edge, e.g. a wrapped
+ * header row on a phone), it aligns to the trigger's start instead -- measured
+ * once before paint, so callers that already fit never change.
  */
 export function GuestMenuMenu({
   id,
@@ -27,6 +30,12 @@ export function GuestMenuMenu({
   const link = useGuestMenuLink();
   const rootRef = useRef<HTMLDivElement>(null);
   const [copied, setCopied] = useState(false);
+  const [align, setAlign] = useState<'end' | 'start'>('end');
+
+  useLayoutEffect(() => {
+    const rect = rootRef.current?.getBoundingClientRect();
+    if (rect && (rect.left < 0 || rect.right > document.documentElement.clientWidth)) setAlign('start');
+  }, []);
 
   useEffect(() => {
     rootRef.current?.querySelector<HTMLElement>('[role="menuitem"]')?.focus();
@@ -102,7 +111,7 @@ export function GuestMenuMenu({
       id={id}
       role="menu"
       aria-label={t('guestMenu.moreActions')}
-      className={`absolute end-0 z-[65] min-w-52 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg ${
+      className={`absolute ${align === 'end' ? 'end-0' : 'start-0'} z-[65] min-w-52 overflow-hidden rounded-lg border border-border bg-card py-1 shadow-lg ${
         placement === 'up' ? 'bottom-full mb-2' : 'top-full mt-1.5'
       }`}
     >

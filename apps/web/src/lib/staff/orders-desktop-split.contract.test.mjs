@@ -188,7 +188,8 @@ test('split mode is compact; the non-split (tablet/mobile) layout keeps its filt
   assert.match(workspace, /\{isSplit \? viewTabs : null\}/);
   assert.match(workspace, /\{isSplit \? null : viewTabs\}/);
   assert.match(workspace, /compact=\{isSplit\}/);
-  assert.match(workspace, /isSplit \? 'gap-3' : 'gap-5 lg:pb-16'/);
+  // (The former `lg:pb-16` clearance for the floating guest-menu button was removed with that button on Orders.)
+  assert.match(workspace, /isSplit \? 'gap-3' : 'gap-5'\}/);
   // Compact keeps every control and its accessible label: search label is screen-reader only, never removed.
   assert.match(filterBar, /compact = false/);
   // (PR 4: below `md` the non-split label is also screen-reader only -- the placeholder + icon carry it visually.)

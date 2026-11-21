@@ -20,6 +20,10 @@ import { GuestMenuMenu } from './GuestMenuMenu';
  * - Not shown while the restaurant has no active generic QR (it never creates one),
  *   inside the kitchen screen, while the on-screen keyboard is up, or -- on a
  *   phone only -- on pages with a sticky save bar (menu import, product editor).
+ * - Not shown on Orders, at any width: a fixed button there sits on top of
+ *   Order totals, "View order" and status actions at every scroll position.
+ *   Orders offers the same entry in-flow in its page header instead
+ *   (`OpenGuestMenuButton`, same link, same dropdown).
  */
 export function GuestMenuFab({ restaurantId }: { restaurantId: string }) {
   const { t } = useStaffI18n();
@@ -55,10 +59,11 @@ export function GuestMenuFab({ restaurantId }: { restaurantId: string }) {
 
   const base = `/staff/restaurants/${restaurantId}`;
   const inKitchen = pathname === `${base}/kitchen` || pathname.startsWith(`${base}/kitchen/`);
+  const inOrders = pathname === `${base}/orders` || pathname.startsWith(`${base}/orders/`);
   const stickySave =
     pathname.startsWith(`${base}/menu/import`) || pathname.startsWith(`${base}/menu/products/`);
 
-  if (link.status !== 'ready' || inKitchen) return null;
+  if (link.status !== 'ready' || inKitchen || inOrders) return null;
 
   return (
     <div
