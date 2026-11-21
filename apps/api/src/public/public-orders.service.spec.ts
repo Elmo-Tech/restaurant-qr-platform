@@ -5,6 +5,7 @@ import {
   TableOrderingUnavailableError,
 } from '../table-sessions/table-session-ordering';
 import { PublicOrdersService } from './public-orders.service';
+import { orderRequestFingerprint } from './order-request-fingerprint';
 import { ALL_FEATURES } from '../entitlements/features';
 
 // Table Sessions: the session/round logic is covered by its own unit spec and by
@@ -491,6 +492,111 @@ describe('PublicOrdersService.createOrder', () => {
           },
         }),
       );
+    });
+
+    describe('key reuse with a different request (API_CONVENTIONS.md #80)', () => {
+      const sameRequestFingerprint = orderRequestFingerprint({
+        qrCodeId: TABLE_QR_ROW.id,
+        branchId: 'branch-1',
+        orderType: 'DINE_IN',
+        channel: 'APP',
+        items: VALID_INPUT.items,
+        customerName: null,
+        customerPhone: null,
+        customerNotes: null,
+        deliveryZoneId: null,
+        deliveryAddress: null,
+        deliveryBuilding: null,
+        deliveryFloor: null,
+        deliveryApartment: null,
+        deliveryLandmark: null,
+      });
+      const otherFingerprint = 'f'.repeat(64);
+
+      function clientRequestConflict() {
+        const conflict = Object.create(
+          Prisma.PrismaClientKnownRequestError.prototype,
+        ) as Error & {
+          code: string;
+          meta: unknown;
+        };
+        conflict.code = 'P2002';
+        conflict.meta = {
+          driverAdapterError: {
+            cause: {
+              constraint: {
+                index: 'orders_qr_code_id_branch_id_client_request_id_key',
+              },
+            },
+          },
+        };
+        return conflict;
+      }
+
+      it('stores the request fingerprint on the created Order', async () => {
+        const mock = buildPrismaMock();
+        const service = buildService(mock);
+
+        await service.createOrder(VALID_INPUT);
+
+        const [createArgs] = mock.orderCreate.mock.calls[0] as [
+          { data: { clientRequestFingerprint: string | null } },
+        ];
+        expect(createArgs.data.clientRequestFingerprint).toBe(
+          sameRequestFingerprint,
+        );
+      });
+
+      it('fast path: an existing Order with the same fingerprint is replayed', async () => {
+        const mock = buildPrismaMock();
+        mock.orderFindFirst.mockResolvedValue({
+          ...CREATED_ORDER_ROW,
+          clientRequestFingerprint: sameRequestFingerprint,
+        });
+        const result = await buildService(mock).createOrder(VALID_INPUT);
+
+        expect(result.outcome).toBe('created');
+        expect(result.outcome === 'created' && result.data.id).toBe('order-1');
+        expect(mock.transaction).not.toHaveBeenCalled();
+      });
+
+      it('fast path: an existing Order with a different fingerprint is refused, nothing created', async () => {
+        const mock = buildPrismaMock();
+        mock.orderFindFirst.mockResolvedValue({
+          ...CREATED_ORDER_ROW,
+          clientRequestFingerprint: otherFingerprint,
+        });
+        const result = await buildService(mock).createOrder(VALID_INPUT);
+
+        expect(result).toEqual({ outcome: 'idempotencyKeyReused' });
+        expect(mock.transaction).not.toHaveBeenCalled();
+        expect(mock.orderCreate).not.toHaveBeenCalled();
+      });
+
+      it('P2002 race: a winner with a different fingerprint is refused, never returned', async () => {
+        const mock = buildPrismaMock();
+        mock.transaction.mockRejectedValue(clientRequestConflict());
+        mock.orderFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+          ...CREATED_ORDER_ROW,
+          clientRequestFingerprint: otherFingerprint,
+        });
+        const result = await buildService(mock).createOrder(VALID_INPUT);
+
+        expect(result).toEqual({ outcome: 'idempotencyKeyReused' });
+      });
+
+      it('P2002 race: a winner with the same fingerprint is returned', async () => {
+        const mock = buildPrismaMock();
+        mock.transaction.mockRejectedValue(clientRequestConflict());
+        mock.orderFindFirst.mockResolvedValueOnce(null).mockResolvedValueOnce({
+          ...CREATED_ORDER_ROW,
+          clientRequestFingerprint: sameRequestFingerprint,
+        });
+        const result = await buildService(mock).createOrder(VALID_INPUT);
+
+        expect(result.outcome).toBe('created');
+        expect(result.outcome === 'created' && result.data.id).toBe('order-1');
+      });
     });
 
     it('does NOT treat a P2002 on an unrelated constraint as an idempotency conflict', async () => {

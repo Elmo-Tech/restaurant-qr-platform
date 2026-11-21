@@ -154,6 +154,15 @@ const DELIVERY_ZONE_INVALID_RESPONSE = {
   },
 };
 
+/** API_CONVENTIONS.md #80: the same `clientRequestId` was already used for a materially different order. Nothing was created. */
+const IDEMPOTENCY_KEY_REUSED_RESPONSE = {
+  error: {
+    code: 'IDEMPOTENCY_KEY_REUSED',
+    message:
+      'This request id was already used for a different order. Submit the order again as a new request.',
+  },
+};
+
 function minimumOrderNotMetResponse(zoneName: string, minimumOrder: string) {
   return {
     error: {
@@ -328,6 +337,9 @@ export class PublicOrdersController {
           details: { pricing: result.pricing },
         },
       });
+    }
+    if (result.outcome === 'idempotencyKeyReused') {
+      throw new ConflictException(IDEMPOTENCY_KEY_REUSED_RESPONSE);
     }
     if (result.outcome === 'whatsappOnly') {
       throw new ConflictException(WHATSAPP_ONLY_RESPONSE);

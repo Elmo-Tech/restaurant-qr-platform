@@ -72,6 +72,8 @@ export type SubmitGuestOrderResult =
   | { outcome: 'offerUnavailable'; offerIds: string[] }
   /** DEC-069: an offer's slots or options changed since the Guest chose (409 OFFER_CHANGED). Nothing was created. */
   | { outcome: 'offerChanged'; offerIds: string[] }
+  /** API_CONVENTIONS.md #80: this request id already belongs to a different order (409 IDEMPOTENCY_KEY_REUSED). Nothing was created; the caller must drop the pending attempt so the next submit gets a fresh id. */
+  | { outcome: 'idempotencyKeyReused' }
   | { outcome: 'networkError' };
 
 /**
@@ -254,6 +256,9 @@ async function sendOrder(
       }
       if (error.code === 'QR_NOT_FOUND') {
         return { outcome: 'notFound' };
+      }
+      if (error.code === 'IDEMPOTENCY_KEY_REUSED') {
+        return { outcome: 'idempotencyKeyReused' };
       }
     }
     // Section 23: any other failure (network failure, unexpected 5xx,

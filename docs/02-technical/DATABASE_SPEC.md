@@ -1,4 +1,4 @@
-﻿# Database Specification
+# Database Specification
 
 ## Document Purpose
 
@@ -2544,6 +2544,8 @@ It should be:
 - Unique within defined scope
 
 Retries return the existing Order.
+
+> **Amended 2026-11-21:** as implemented, the key is `orders.client_request_id` (UUID), unique per `(qr_code_id, branch_id, client_request_id)`. `orders.client_request_fingerprint CHAR(64) NULL` (migration `20261127120000_order_client_request_fingerprint`) stores the SHA-256 hex of the versioned canonical material request, so the same key with a materially different request is refused (`409 IDEMPOTENCY_KEY_REUSED`, API_CONVENTIONS.md #81 clarification). Only the hash is stored. The column is additive, with no backfill and no index: lookups stay on the unique key. Rows created before the migration keep `NULL` and keep the previous lenient replay.
 
 ---
 
