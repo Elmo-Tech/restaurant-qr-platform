@@ -1861,6 +1861,14 @@ model Order {
   // id) apart -- for a TABLE QR, `branchId` is already fixed by the Table,
   // so this is a pure extension, never a behavior change for DINE_IN.
   clientRequestId           String      @map("client_request_id") @db.Uuid
+  // API_CONVENTIONS.md #80/#81: SHA-256 hex of the versioned canonical
+  // material request (see `public/order-request-fingerprint.ts`), so a reused
+  // `clientRequestId` with a materially different payload is refused (409
+  // IDEMPOTENCY_KEY_REUSED) instead of replaying an unrelated Order. Only the
+  // hash is stored, never raw request data. NULL for Orders created before
+  // this column existed: those keep the old lenient replay. No index: the
+  // lookup stays on the unique key above.
+  clientRequestFingerprint  String?     @map("client_request_fingerprint") @db.Char(64)
   // FT-7: DINE_IN (TABLE QR, existing behavior) or PICKUP (GENERIC QR).
   status                    OrderStatus
   type                      OrderType

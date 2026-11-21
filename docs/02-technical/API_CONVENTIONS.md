@@ -1,4 +1,4 @@
-﻿# API Conventions
+# API Conventions
 
 ## Document Purpose
 
@@ -1479,6 +1479,17 @@ Do not silently return unrelated Order.
 Backend may store a safe request fingerprint / hash to detect incompatible reuse.
 
 Do not store unnecessary sensitive raw request data solely for idempotency.
+
+> **Clarified 2026-11-21 (public Orders, #76-#81 as implemented):**
+>
+> - **Key carrier.** `POST /public/qr/{publicCode}/orders` carries the idempotency key in the JSON body as `clientRequestId` (UUID), not in an `Idempotency-Key` header. Semantics are those of #77-#80. Scope (#78) is the resolved QR + Branch: unique `(qr_code_id, branch_id, client_request_id)` on `orders`.
+> - **Canonical request identity (material fields).** Resolved QR and Branch; resolved Order type (DINE_IN / PICKUP / DELIVERY, so `fulfillment` counts only where the QR honors it); channel; every line's `productId` / `offerId`, `variantId`, `modifierOptionIds` (set, order-insensitive), `offerChoices` (slot, option, quantity; order-insensitive) and `quantity`, with line order ignored; customer name, phone and notes and delivery zone and address fields, all after the Backend's own normalization (trimmed, phone as E.164). Duplicate lines are refused before the check (`VALIDATION_ERROR`) and are never merged.
+> - **Excluded (a genuine retry may change them):** all prices and totals, `expectedTotal` (a retry after `PRICE_CHANGED` reconfirmation replays the original Order), `locale`, the WhatsApp dry run, and the key itself. A retry of the same cart after a catalog price or discount change therefore replays the original Order, never `409` and never `PRICE_CHANGED`.
+> - **Storage (#81).** Only `orders.client_request_fingerprint` is stored: `CHAR(64)` lowercase SHA-256 hex of a versioned canonical string (`v1:` + canonical JSON). No raw request copy is kept for idempotency.
+> - **Versioning.** A later identity change adds a new version while keeping the old canonicalizers, so a retry that spans a deploy still matches. A request is compared against the stored hash under every known version.
+> - **Legacy rows.** Orders created before the column existed have `NULL` and keep the previous lenient behavior (replay the original Order).
+> - **Mismatch.** `409` with `error.code = IDEMPOTENCY_KEY_REUSED` in the shared error envelope. Nothing is created and the original Order is untouched. The same check runs on the concurrent unique-violation path, so two racing requests with one key and different payloads produce one Order and one `409`.
+> - **WhatsApp ordering** (`POST /public/qr/{publicCode}/whatsapp-order`) stores nothing and takes no part in idempotency.
 
 ---
 

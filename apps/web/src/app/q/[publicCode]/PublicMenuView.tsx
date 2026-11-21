@@ -1293,6 +1293,13 @@ export function PublicMenuView({
       setSubmitError(copy.orderNotFoundError);
       return;
     }
+    if (result.outcome === 'idempotencyKeyReused') {
+      // The stored request id belongs to a different order. Nothing was created: drop the
+      // pending attempt so the next tap sends a fresh id instead of repeating this refusal.
+      clearPendingAttempt(publicCode);
+      setSubmitError(copy.orderRequestReusedError);
+      return;
+    }
     if (result.outcome === 'invalidFields') {
       // The API refused specific fields: show each one under its field (stable codes, our words).
       if (!validation.applyServerIssues(result.fields)) {

@@ -25,6 +25,11 @@ import {
   type StoredOfferChoice,
 } from '../offers/offer-order';
 import { itemName, itemOrderable, optionItemSelect } from '../offers/offer-items';
+import {
+  matchesStoredOrderRequestFingerprint,
+  orderRequestFingerprint,
+  type OrderRequestIdentity,
+} from './order-request-fingerprint';
 import { offerAvailability } from '../offers/offer-rules';
 import {
   isClosedSessionTriggerViolation,
@@ -235,7 +240,9 @@ export type CreateGuestOrderResult =
   /** Table Sessions: a TABLE QR whose table is locked by staff (no OPEN session and a staff open is required). Never produced for Pickup/Delivery. */
   | { outcome: 'tableOrderingUnavailable' }
   /** DEC-038: the Restaurant switched Table ordering off (view-only Table channel). */
-  | { outcome: 'tableOrderingDisabled' };
+  | { outcome: 'tableOrderingDisabled' }
+  /** API_CONVENTIONS.md #80: this `clientRequestId` already belongs to a materially different request in this QR + Branch scope. Nothing was created; the original Order is untouched. */
+  | { outcome: 'idempotencyKeyReused' };
 
 interface OrderViewRow {
   id: string;
@@ -311,6 +318,12 @@ const ORDER_VIEW_SELECT = {
       },
     },
   },
+} satisfies Prisma.OrderSelect;
+
+/** The idempotent replay lookups also read the stored request fingerprint (never exposed in the view). */
+const IDEMPOTENT_ORDER_SELECT = {
+  ...ORDER_VIEW_SELECT,
+  clientRequestFingerprint: true,
 } satisfies Prisma.OrderSelect;
 
 function toGuestOrderView(order: OrderViewRow, locale?: string): GuestOrderView {
@@ -694,13 +707,45 @@ export class PublicOrdersService {
     // every Pickup Branch, so the same client id for two different Branches
     // must stay two different Orders. For a TABLE QR, `branchId` is fixed by
     // the Table, so this changes nothing there.
-    const existing = input.dryRun
+    // API_CONVENTIONS.md #80/#81: the same key with a materially different
+    // request is refused (409 IDEMPOTENCY_KEY_REUSED), never answered with the
+    // unrelated original Order. The identity uses the resolved/normalized values
+    // above and excludes prices, `expectedTotal` and `locale`, so a genuine retry
+    // after a price change or a language switch still replays. A dry run stores
+    // nothing and never takes part in idempotency.
+    const requestIdentity: OrderRequestIdentity | null = input.dryRun
       ? null
-      : await this.prisma.order.findFirst({
+      : {
+          qrCodeId: qr.id,
+          branchId,
+          orderType,
+          channel: input.channel ?? 'APP',
+          items: input.items,
+          customerName,
+          customerPhone,
+          customerNotes,
+          deliveryZoneId: orderType === 'DELIVERY' ? deliveryZoneId : null,
+          deliveryAddress,
+          deliveryBuilding,
+          deliveryFloor,
+          deliveryApartment,
+          deliveryLandmark,
+        };
+    const existing = requestIdentity
+      ? await this.prisma.order.findFirst({
           where: { qrCodeId: qr.id, branchId, clientRequestId: input.clientRequestId },
-          select: ORDER_VIEW_SELECT,
-        });
-    if (existing) {
+          select: IDEMPOTENT_ORDER_SELECT,
+        })
+      : null;
+    if (existing && requestIdentity) {
+      if (
+        !matchesStoredOrderRequestFingerprint(
+          existing.clientRequestFingerprint,
+          requestIdentity,
+        )
+      ) {
+        return { outcome: 'idempotencyKeyReused' };
+      }
       return { outcome: 'created', data: toGuestOrderView(existing, input.locale) };
     }
 
@@ -1346,6 +1391,9 @@ export class PublicOrdersService {
               : {}),
             qrCodeId: qr.id,
             clientRequestId: input.clientRequestId,
+            clientRequestFingerprint: requestIdentity
+              ? orderRequestFingerprint(requestIdentity)
+              : null,
             status: 'PENDING',
             type: orderType,
             customerNameSnapshot: customerName,
@@ -1428,11 +1476,23 @@ export class PublicOrdersService {
         // fetch and return ITS Order as success, never a duplicate-create
         // error. Scoped by `qrCodeId` (same rationale as the fast path
         // above) -- never returns a different Table's winning Order.
+        // The winner is compared exactly like the fast path: a concurrent
+        // request with the same key but a different payload gets 409, not
+        // the winner's Order.
         const winner = await this.prisma.order.findFirst({
           where: { qrCodeId: qr.id, branchId, clientRequestId: input.clientRequestId },
-          select: ORDER_VIEW_SELECT,
+          select: IDEMPOTENT_ORDER_SELECT,
         });
         if (winner) {
+          if (
+            requestIdentity &&
+            !matchesStoredOrderRequestFingerprint(
+              winner.clientRequestFingerprint,
+              requestIdentity,
+            )
+          ) {
+            return { outcome: 'idempotencyKeyReused' };
+          }
           return { outcome: 'created', data: toGuestOrderView(winner, input.locale) };
         }
       }

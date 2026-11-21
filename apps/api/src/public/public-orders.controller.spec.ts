@@ -95,6 +95,19 @@ describe('PublicOrdersController', () => {
     });
   });
 
+  it('maps idempotencyKeyReused to 409 IDEMPOTENCY_KEY_REUSED (API_CONVENTIONS.md #80)', async () => {
+    publicOrdersService.createOrder.mockResolvedValue({
+      outcome: 'idempotencyKeyReused',
+    });
+
+    await expect(
+      controller.createOrder('code-1', { clientRequestId: 'req-1', items: [] }),
+    ).rejects.toMatchObject({
+      status: 409,
+      response: { error: { code: 'IDEMPOTENCY_KEY_REUSED' } },
+    });
+  });
+
   it('maps priceChanged to 422 PRICE_CHANGED with the refreshed pricing', async () => {
     const pricing = {
       subtotal: '100.00',

@@ -35,6 +35,8 @@ export interface PublicMenuCopy {
   itemsUnavailableError: string;
   orderNetworkError: string;
   orderNotFoundError: string;
+  /** 409 IDEMPOTENCY_KEY_REUSED: nothing was created; the next tap sends the order as a new request. */
+  orderRequestReusedError: string;
   close: string;
   backToMenu: string;
   required: string;
@@ -331,6 +333,8 @@ const EN_COPY: PublicMenuCopy = {
   orderNetworkError:
     "Couldn't send your order. Check your connection and try again — your items and details are still here.",
   orderNotFoundError: 'This QR code is no longer active. Please ask a member of staff for help.',
+  orderRequestReusedError:
+    'Your order was not sent because it changed while it was being submitted. Please review it and tap Send order again.',
   close: 'Close',
   backToMenu: 'Back to menu',
   required: 'Required',
@@ -649,6 +653,8 @@ const AR_COPY: PublicMenuCopy = {
   itemsUnavailableError: 'بعض الأصناف في سلتك لم تعد متاحة. يرجى مراجعة سلتك.',
   orderNetworkError: 'تعذر إرسال طلبك. تحقق من اتصالك وحاول مرة أخرى — أصنافك وبياناتك ما زالت محفوظة.',
   orderNotFoundError: 'رمز QR هذا غير متاح حاليًا. يرجى التواصل مع أحد أفراد طاقم المطعم للمساعدة.',
+  orderRequestReusedError:
+    'لم يُرسَل طلبك لأنه تغيّر أثناء الإرسال. يرجى مراجعته ثم الضغط على «إرسال الطلب» مرة أخرى.',
   close: 'إغلاق',
   backToMenu: 'العودة إلى القائمة',
   required: 'مطلوب',
