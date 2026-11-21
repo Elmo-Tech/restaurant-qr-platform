@@ -6,7 +6,7 @@
 const SLUG = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 const RESERVED = new Set([
   'admin', 'api', 'app', 'auth', 'cdn', 'control', 'dashboard', 'demo',
-  'kitchen', 'login', 'logout', 'mail', 'menu', 'new', 'null', 'platform', 'q',
+  'kitchen', 'landing', 'login', 'logout', 'mail', 'menu', 'new', 'null', 'platform', 'q',
   'qr', 'restaurant', 'restaurants', 'staff', 'static', 'support', 'test',
   'undefined', 'wayta', 'www',
 ]);

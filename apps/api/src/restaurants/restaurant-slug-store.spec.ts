@@ -317,6 +317,17 @@ describe('changeRestaurantSlug (Platform edit)', () => {
     expect(m.transaction).not.toHaveBeenCalled();
   });
 
+  it('a Platform rename can never claim `landing` (any casing / spacing)', async () => {
+    const m = build(restaurants, seeded());
+
+    for (const requested of ['landing', ' Landing ', 'LANDING']) {
+      await expect(
+        changeRestaurantSlug(m.db, 'r1', requested),
+      ).resolves.toEqual({ outcome: 'invalid', problem: 'reserved' });
+    }
+    expect(m.transaction).not.toHaveBeenCalled();
+  });
+
   it('reports notFound for an unknown restaurant', async () => {
     const m = build(restaurants, seeded());
 

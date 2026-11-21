@@ -104,6 +104,14 @@ describe('slug validity', () => {
     expect(slugProblem('el-sherbiny')).toBeNull();
   });
 
+  it('reserves `landing`: landing.waytaapp.com is the separate marketing site, never a menu', () => {
+    expect(RESERVED_SLUGS.has('landing')).toBe(true);
+    expect(slugProblem('landing')).toBe('reserved');
+    // Only the exact word: ordinary names that merely contain it stay available.
+    expect(slugProblem('landing-cafe')).toBeNull();
+    expect(slugProblem('the-landing')).toBeNull();
+  });
+
   it('can never be confused with a generated 43-character QR public code', () => {
     for (let i = 0; i < 200; i += 1) {
       expect(isValidSlug(createQrPublicCode())).toBe(false);
@@ -158,6 +166,15 @@ describe('allocateRestaurantSlug', () => {
   it('never hands out a reserved word', async () => {
     await expect(allocateRestaurantSlug(lookup([]), 'Admin')).resolves.toBe(
       'admin-2',
+    );
+  });
+
+  it('never hands out `landing` to a new restaurant named "Landing"', async () => {
+    await expect(allocateRestaurantSlug(lookup([]), 'Landing')).resolves.toBe(
+      'landing-2',
+    );
+    await expect(allocateRestaurantSlug(lookup([]), ' LANDING ')).resolves.toBe(
+      'landing-2',
     );
   });
 

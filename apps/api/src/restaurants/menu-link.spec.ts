@@ -20,4 +20,10 @@ describe('restaurant menu URL', () => {
       restaurantMenuUrl('bad.slug', 'https://waytaapp.com', 'waytaapp.com'),
     ).toBe('https://waytaapp.com/q/bad.slug');
   });
+
+  it('never generates the landing site host as a menu link', () => {
+    expect(
+      restaurantMenuUrl('landing', 'https://waytaapp.com', 'waytaapp.com'),
+    ).toBe('https://waytaapp.com/q/landing');
+  });
 });

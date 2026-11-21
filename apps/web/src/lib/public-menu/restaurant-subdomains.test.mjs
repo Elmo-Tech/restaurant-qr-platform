@@ -22,3 +22,13 @@ test('generic menus get a subdomain, table code continues on /q/{code}', () => {
   assert.equal(genericMenuUrl('https://dev.example', 'pizza-house', undefined),
     'https://dev.example/q/pizza-house');
 });
+
+test('landing is reserved: the marketing site host is never a tenant and never a menu link', () => {
+  assert.equal(validRestaurantHostSlug('landing'), false);
+  for (const host of ['landing.waytaapp.com', 'LANDING.waytaapp.com:443', 'landing.waytaapp.com.']) {
+    assert.equal(restaurantSlugFromHost(host, 'waytaapp.com'), null, host);
+  }
+  assert.equal(genericMenuUrl('https://waytaapp.com', 'landing', 'waytaapp.com'), 'https://waytaapp.com/q/landing');
+  // Only the exact word is reserved.
+  assert.equal(restaurantSlugFromHost('landing-cafe.waytaapp.com', 'waytaapp.com'), 'landing-cafe');
+});

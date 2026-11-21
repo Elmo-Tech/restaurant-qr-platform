@@ -4,6 +4,7 @@
 # CORS stays strict, CSRF's Origin check is untouched).
 #
 #   $RESTAURANT_WILDCARD_HOST  same Guest routes as $WEB_HOST; Platform exact host takes precedence.
+#   waytaapp.com    exactly /              -> 302 https://landing.waytaapp.com/ (literal apex host only)
 #   $WEB_HOST       /                      -> web       (Next.js, restaurant app)
 #                   /api/v1/*, /media/*    -> api       (NestJS)
 #                   /socket.io/*           -> api       (Socket.IO / WebSocket transport)
@@ -48,6 +49,15 @@ map $fwd_proto $hsts {
 log_format gateway '$remote_addr $host "$request_method $uri" $status $body_bytes_sent ${request_time}s req=$req_id';
 access_log /dev/stdout gateway;
 error_log  /dev/stderr warn;
+
+# Apex homepage -> landing site (see `location = /` in the restaurant app server). Only a query made
+# entirely of standard UTM campaign parameters with plain URL-safe values is carried over; anything
+# else (unknown keys, tokens, `next=` style values) is dropped as a whole, so nothing private reaches
+# the landing origin. `$args` is the raw, still-percent-encoded query string.
+map $args $apex_landing_query {
+    default "";
+    "~^utm_(?:source|medium|campaign|term|content)=[A-Za-z0-9._~%+-]{0,200}(?:&utm_(?:source|medium|campaign|term|content)=[A-Za-z0-9._~%+-]{0,200}){0,4}$" "?$args";
+}
 
 # Variables in proxy_pass make nginx resolve the names at request time (see `resolver`).
 map $host $web_upstream      { default http://web:3000; }
@@ -163,6 +173,18 @@ server {
         proxy_read_timeout 75s;
         proxy_send_timeout 75s;
         proxy_pass $api_upstream;
+    }
+
+    # The apex homepage moved to the separate landing site. Only the literal production apex host and
+    # only the exact path `/` redirect; every other path on the apex (/staff, /login, /q/*, /_next/*,
+    # ...) and every restaurant subdomain root (rewritten to its Guest Menu by Next.js) is proxied
+    # exactly as before. Hard-coded rather than ${WEB_HOST} so Development/preview hosts never
+    # redirect to Production. Temporary (302, no cache headers) while the move is reversible.
+    location = / {
+        if ($host = waytaapp.com) {
+            return 302 https://landing.waytaapp.com/$apex_landing_query;
+        }
+        proxy_pass $web_upstream;
     }
 
     location / {
