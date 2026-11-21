@@ -24,6 +24,7 @@ import { Input } from '../../../../../components/ui/Input';
 import { Select } from '../../../../../components/ui/Select';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../components/ui/PageHeader';
+import { OpenGuestMenuButton } from '../../../../../components/menu/OpenGuestMenuButton';
 import { IconPlus, IconSearch, IconTable } from '../../../../../components/staff/icons';
 import { QrPreviewDialog } from './QrPreviewDialog';
 import { AllTablesStandDialog } from './AllTablesStandDialog';
@@ -493,6 +494,13 @@ export function TablesWorkspace({
                 <IconPlus className="me-1.5 h-4 w-4" /> {t('tables.new')}
               </Button>
             ) : null}
+            {/*
+              The guest-menu entry lives in the header on Tables (the shell's
+              floating button is not rendered here -- it covered the table
+              cards' "More actions"). Last, so its end-aligned dropdown stays
+              on screen; icon-only on phones so the header does not grow a row.
+            */}
+            <OpenGuestMenuButton variant="secondary" hideWhenUnavailable compactOnPhone />
           </div>
         }
       />
