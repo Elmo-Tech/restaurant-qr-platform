@@ -269,7 +269,10 @@ export interface PublicMenuModifierGroup {
   helperText: string | null;
   minimumSelections: number;
   maximumSelections: number;
-  /** A Group can be disabled for one size without affecting other sizes. */
+  /**
+   * Sizes this Group is NOT offered with: a size switched off for it, and
+   * (DEC-074) for a Size Group every other size of the Product.
+   */
   disabledVariantIds?: string[];
   options: PublicMenuModifierOption[];
 }
@@ -822,6 +825,7 @@ export class PublicMenuService {
               orderBy: [{ displayOrder: 'asc' }, { id: 'asc' }],
               select: {
                 id: true,
+                variantId: true,
                 minimumSelections: true,
                 maximumSelections: true,
                 sizeSettings: {
@@ -872,8 +876,13 @@ export class PublicMenuService {
           productDefault,
         );
 
+        const activeVariantIds = product.variants.map((variant) => variant.id);
         const modifierGroups: PublicMenuModifierGroup[] = [];
         for (const group of product.modifierGroups) {
+          // DEC-074: a Size Group exists only for its own ACTIVE size; for an
+          // inactive size it is not offered at all.
+          if (group.variantId && !activeVariantIds.includes(group.variantId))
+            continue;
           // `resolvePublicField`/`pickRow` are typed against the
           // Menu/Category/Product `{locale, name, description}` shape --
           // ModifierGroupTranslation's third field is `helperText`, so it is
@@ -918,7 +927,11 @@ export class PublicMenuService {
             helperText: groupFields.description,
             minimumSelections: group.minimumSelections,
             maximumSelections: group.maximumSelections,
-            disabledVariantIds: (group.sizeSettings ?? []).map(setting => setting.variantId),
+            disabledVariantIds: group.variantId
+              ? activeVariantIds.filter(
+                  (variantId) => variantId !== group.variantId,
+                )
+              : (group.sizeSettings ?? []).map((setting) => setting.variantId),
             options,
           });
         }

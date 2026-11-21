@@ -7,6 +7,7 @@ import type {
   ModifierPreset,
   ModifierPresetOption,
   ModifierPresetOptionStatus,
+  ModifierPresetScope,
   ModifierPresetStatus,
 } from '../../../../../../lib/menu/types';
 import * as settingsApi from '../../../../../../lib/settings/api';
@@ -32,6 +33,9 @@ import { TranslationFields } from '../../../../../../components/menu/Translation
 import { MenuSectionTabs } from '../MenuSectionTabs';
 
 const MONEY_DECIMAL_PATTERN = /^(0|[1-9]\d{0,11})(\.\d{1,2})?$/;
+
+/** DEC-074: the library lists Product presets and Size presets separately. */
+const PRESET_SCOPES: readonly ModifierPresetScope[] = ['PRODUCT', 'SIZE'];
 
 export interface ModifierPresetsWorkspaceProps {
   restaurantId: string;
@@ -126,27 +130,41 @@ export function ModifierPresetsWorkspace({
             {presets.length === 0 ? (
               <p className="text-sm text-muted-foreground">{t('presets.none')}</p>
             ) : (
-              <ul className="flex flex-col gap-1">
-                {presets.map((preset) => (
-                  <li key={preset.id}>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setSelectedPresetId(preset.id);
-                        setIsCreating(false);
-                      }}
-                      className={`w-full rounded-md px-3 py-2 text-start text-sm ${
-                        selectedPresetId === preset.id
-                          ? 'bg-primary text-primary-foreground'
-                          : 'text-foreground hover:bg-muted'
-                      }`}
+              PRESET_SCOPES.map((scope) => {
+                const scoped = presets.filter((preset) => preset.scope === scope);
+                if (scoped.length === 0) return null;
+                return (
+                  <section key={scope} aria-labelledby={`preset-group-${scope}`} className="flex flex-col gap-1">
+                    <h2
+                      id={`preset-group-${scope}`}
+                      className="px-3 pt-2 text-xs font-semibold text-muted-foreground"
                     >
-                      <bdi dir="auto">{preset.name}</bdi>
-                      {preset.status === 'INACTIVE' ? t('presets.inactiveSuffix') : ''}
-                    </button>
-                  </li>
-                ))}
-              </ul>
+                      {t(`presets.group.${scope}`)}
+                    </h2>
+                    <ul className="flex flex-col gap-1">
+                      {scoped.map((preset) => (
+                        <li key={preset.id}>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setSelectedPresetId(preset.id);
+                              setIsCreating(false);
+                            }}
+                            className={`w-full rounded-md px-3 py-2 text-start text-sm ${
+                              selectedPresetId === preset.id
+                                ? 'bg-primary text-primary-foreground'
+                                : 'text-foreground hover:bg-muted'
+                            }`}
+                          >
+                            <bdi dir="auto">{preset.name}</bdi>
+                            {preset.status === 'INACTIVE' ? t('presets.inactiveSuffix') : ''}
+                          </button>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                );
+              })
             )}
             <Button
               type="button"
@@ -246,6 +264,7 @@ function NewPresetForm({
   const [helperText, setHelperText] = useState('');
   const [minimumSelections, setMinimumSelections] = useState('0');
   const [maximumSelections, setMaximumSelections] = useState('1');
+  const [scope, setScope] = useState<ModifierPresetScope>('PRODUCT');
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -276,6 +295,7 @@ function NewPresetForm({
         name: name.trim(),
         helperText: helperText.trim() === '' ? null : helperText.trim(),
         status: 'ACTIVE',
+        scope,
         minimumSelections: minimum,
         maximumSelections: maximum,
         displayOrder: nextDisplayOrder,
@@ -296,6 +316,33 @@ function NewPresetForm({
     <div className="flex flex-col gap-3">
       <h2 className="text-sm font-semibold text-foreground">{t('presets.newTitle')}</h2>
       {error ? <Alert variant="error">{error}</Alert> : null}
+      <fieldset className="flex flex-col gap-2" disabled={isSubmitting}>
+        <legend className="mb-1 text-sm font-medium text-foreground">{t('presets.scope.label')}</legend>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {PRESET_SCOPES.map((option) => (
+            <label
+              key={option}
+              className={`flex cursor-pointer items-start gap-3 rounded-md border p-3 text-start ${
+                scope === option ? 'border-primary bg-primary/5' : 'border-border'
+              }`}
+            >
+              <input
+                type="radio"
+                name="new-preset-scope"
+                value={option}
+                checked={scope === option}
+                onChange={() => setScope(option)}
+                className="mt-1 h-4 w-4 accent-primary"
+              />
+              <span className="flex flex-col gap-0.5">
+                <span className="text-sm font-semibold text-foreground">{t(`presets.scope.${option}`)}</span>
+                <span className="text-xs leading-5 text-muted-foreground">{t(`presets.scope.${option}.hint`)}</span>
+              </span>
+            </label>
+          ))}
+        </div>
+        <p className="text-xs text-muted-foreground">{t('presets.scope.fixed')}</p>
+      </fieldset>
       <FormField label={t('menu.tr.name')} htmlFor="new-preset-name">
         <Input id="new-preset-name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSubmitting} />
       </FormField>
@@ -510,9 +557,12 @@ function PresetDetail({
   return (
     <div className="flex flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
-        <h2 dir="auto" className="text-start text-sm font-semibold text-foreground">
-          {preset.name}
-        </h2>
+        <div className="flex flex-wrap items-center gap-2">
+          <h2 dir="auto" className="text-start text-sm font-semibold text-foreground">
+            {preset.name}
+          </h2>
+          <Badge variant="neutral">{t(`presets.scope.${preset.scope}`)}</Badge>
+        </div>
         <div className="flex shrink-0 gap-2">
           <Button
             type="button"

@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  IsUUID,
   Min,
 } from 'class-validator';
 
@@ -62,4 +63,12 @@ export class CreateModifierGroupDto {
   @IsInt({ message: 'displayOrder must be an integer' })
   @Min(0, { message: 'displayOrder must not be negative' })
   displayOrder!: number;
+
+  /**
+   * DEC-074: omitted/null = a Product Group (every size); a size of this
+   * Product = a Size Group offered only with that size. Fixed at creation.
+   */
+  @IsOptional()
+  @IsUUID('all', { message: 'variantId must be a well-formed UUID' })
+  variantId?: string | null;
 }

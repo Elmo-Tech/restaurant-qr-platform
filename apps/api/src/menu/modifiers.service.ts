@@ -47,6 +47,9 @@ export interface ModifierGroupView {
   // FT-6B: null for a Group created via "Create Custom" -- present when
   // created via "Use Preset", identifying the source ModifierPreset.
   sourcePresetId: string | null;
+  // DEC-074: null for a Product Group (offered with every size); the size
+  // id for a Size Group (offered only with that size).
+  variantId: string | null;
   // FT-6B closeout, Section 4 (historical safety): true only when NEITHER
   // this Group NOR any of its Options has ever been snapshotted into a
   // historical OrderItemModifier row. Staff UI's "Delete"/"Remove from
@@ -80,11 +83,14 @@ export interface CreateModifierGroupInput extends AuthorizedProductScope {
   minimumSelections: number;
   maximumSelections: number;
   displayOrder: number;
+  /** DEC-074: null = Product Group; a size of this Product = Size Group. */
+  variantId: string | null;
 }
 
 export type CreateModifierGroupResult =
   | { outcome: 'created'; data: ModifierGroupView }
   | { outcome: 'productNotFound' }
+  | { outcome: 'variantNotFound' }
   | { outcome: 'invalidSelectionRange' };
 
 export interface UpdateModifierGroupInput extends AuthorizedGroupScope {
@@ -129,12 +135,16 @@ export type UpdateModifierOptionResult =
 
 export interface ApplyPresetToProductInput extends AuthorizedProductScope {
   presetId: string;
+  /** DEC-074: required for a SIZE Preset, forbidden for a PRODUCT Preset. */
+  variantId: string | null;
 }
 
 export type ApplyPresetToProductResult =
   | { outcome: 'created'; data: ModifierGroupView }
   | { outcome: 'productNotFound' }
   | { outcome: 'presetNotFound' }
+  | { outcome: 'variantNotFound' }
+  | { outcome: 'scopeMismatch' }
   | { outcome: 'alreadyApplied' };
 
 /**
@@ -260,6 +270,7 @@ const GROUP_SAFE_SELECT = {
   maximumSelections: true,
   displayOrder: true,
   sourcePresetId: true,
+  variantId: true,
 } as const;
 
 /**
@@ -320,6 +331,25 @@ export class ModifiersService {
     }
     return this.prisma.product.findFirst({
       where: { id: scope.productId, restaurantId: scope.restaurantId },
+      select: { id: true },
+    });
+  }
+
+  /**
+   * DEC-074: a size a Group may be scoped to -- only a Variant of THIS
+   * Product in THIS Restaurant (cross-row Tenant invariant; a foreign or
+   * unknown id is indistinguishable from a missing one).
+   */
+  private async findVariant(
+    restaurantId: string,
+    productId: string,
+    variantId: string,
+  ): Promise<{ id: string } | null> {
+    if (!isWellFormedUuid(variantId)) {
+      return null;
+    }
+    return this.prisma.productVariant.findFirst({
+      where: { id: variantId, productId, restaurantId },
       select: { id: true },
     });
   }
@@ -391,6 +421,18 @@ export class ModifiersService {
     if (!product) {
       return { outcome: 'productNotFound' };
     }
+    let variantId: string | null = null;
+    if (input.variantId !== null) {
+      const variant = await this.findVariant(
+        input.restaurantId,
+        product.id,
+        input.variantId,
+      );
+      if (!variant) {
+        return { outcome: 'variantNotFound' };
+      }
+      variantId = variant.id;
+    }
 
     const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
       where: { id: input.restaurantId },
@@ -402,6 +444,7 @@ export class ModifiersService {
         data: {
           restaurantId: input.restaurantId,
           productId: product.id,
+          variantId,
           status: input.status,
           minimumSelections: input.minimumSelections,
           maximumSelections: input.maximumSelections,
@@ -1039,6 +1082,7 @@ export class ModifiersService {
     maximumSelections: number;
     displayOrder: number;
     sourcePresetId: string | null;
+    variantId: string | null;
     canDelete: boolean;
     translations: { name: string; helperText: string | null }[];
     options: {
@@ -1062,6 +1106,7 @@ export class ModifiersService {
       displayOrder: group.displayOrder,
       options: group.options.map((option) => this.toOptionView(option)),
       sourcePresetId: group.sourcePresetId,
+      variantId: group.variantId,
       canDelete: group.canDelete,
     };
   }
@@ -1071,9 +1116,14 @@ export class ModifiersService {
    * Product by COPYING its current Group/Option/translation values into
    * real, independent `ModifierGroup`/`ModifierOption` rows (Section 3 --
    * Presets are never read directly by Public Menu/Cart/PublicOrdersService).
-   * The `@@unique([productId, sourcePresetId])` constraint is the true
+   * The unique indexes on (productId, variantId, sourcePresetId) and the
+   * partial (productId, sourcePresetId) WHERE variantId IS NULL are the true
    * concurrency-safe guard against double-attachment; the pre-check here is
    * just a fast, friendly path.
+   *
+   * DEC-074: a PRODUCT Preset becomes a Product Group (every size) and must
+   * not name a size; a SIZE Preset becomes a Size Group and must name a size
+   * of this Product.
    */
   async applyPresetToProduct(
     input: ApplyPresetToProductInput,
@@ -1090,6 +1140,7 @@ export class ModifiersService {
       where: { id: input.presetId, restaurantId: input.restaurantId },
       select: {
         id: true,
+        scope: true,
         minimumSelections: true,
         maximumSelections: true,
         translations: { select: { locale: true, name: true, helperText: true } },
@@ -1109,8 +1160,24 @@ export class ModifiersService {
       return { outcome: 'presetNotFound' };
     }
 
+    if ((preset.scope === 'SIZE') !== (input.variantId !== null)) {
+      return { outcome: 'scopeMismatch' };
+    }
+    let variantId: string | null = null;
+    if (input.variantId !== null) {
+      const variant = await this.findVariant(
+        input.restaurantId,
+        product.id,
+        input.variantId,
+      );
+      if (!variant) {
+        return { outcome: 'variantNotFound' };
+      }
+      variantId = variant.id;
+    }
+
     const alreadyApplied = await this.prisma.modifierGroup.findFirst({
-      where: { productId: product.id, sourcePresetId: preset.id },
+      where: { productId: product.id, variantId, sourcePresetId: preset.id },
       select: { id: true },
     });
     if (alreadyApplied) {
@@ -1127,6 +1194,7 @@ export class ModifiersService {
           data: {
             restaurantId: input.restaurantId,
             productId: product.id,
+            variantId,
             status: 'ACTIVE',
             minimumSelections: preset.minimumSelections,
             maximumSelections: preset.maximumSelections,
@@ -1192,7 +1260,7 @@ export class ModifiersService {
       return { outcome: 'created', data: this.toGroupView(group) };
     } catch (error) {
       // A genuine race (two concurrent "Use Preset" clicks) hits the
-      // `@@unique([productId, sourcePresetId])` constraint the pre-check
+      // unique indexes the pre-check
       // above could not fully rule out -- converges to the same friendly
       // outcome rather than a raw 500.
       if (

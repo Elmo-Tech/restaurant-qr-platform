@@ -1762,3 +1762,13 @@ Admin experience: multi-image Draft upload, filename-based conservative suggesti
 The owner explicitly removed source/copyright/usage-rights input fields from the Admin UI. This does **not** waive the operational requirement to use authorized assets; licensing checks remain a separate internal operational responsibility. The seed command is dry-run by default and must be explicitly applied only after migration and verified backups. No production-like tenant data may be wiped or modified as part of building the library.
 
 Implementation contract: `docs/01-domain/PLATFORM_FOOD_IMAGE_LIBRARY_SPEC.md`. Future restaurant image selection and menu-import integration require separate design/approval before implementation.
+
+---
+
+### DEC-074 — Product Add-ons and Size Add-ons, with separate Product / Size presets (2026-11-21)
+
+**Status:** Owner-requested implementation on isolated `feat/modifier-scope-product-size` branch; migration on a disposable database, staging QA, merge and deployment remain separate gates.
+
+Supersedes the Staff authoring part of DEC-072. Every Modifier Group now has a scope: a **Product Group** (no size, offered with every size and with a Product that has no sizes) or a **Size Group** (one size of the Product, offered only when the Guest chooses that size). The Modifier Library holds two kinds of presets, chosen when the preset is created and never changed afterwards: **Product presets** attach only to a whole Product, **Size presets** attach only to one size of a Product (for example "Large pizza extras" on the Large size). The same Size preset may be attached to several sizes, but at most once per size; a Product preset at most once per Product.
+
+The Product Editor shows "Add-ons for every size" and one area per size, each with its own "Use preset" and "Create custom". The DEC-072 "Customize add-ons by size" screen is hidden from Staff; overrides already saved keep working for Guests and orders, and their endpoints remain for compatibility. Backend stays authoritative: a Size Group of another size, or of an inactive size, is never offered nor accepted, and is never required for another size. Historical order snapshots are unchanged. Details in `docs/01-domain/MENU_SPEC.md` and `docs/02-technical/DATABASE_SPEC.md` amendments.

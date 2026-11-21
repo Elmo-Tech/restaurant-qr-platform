@@ -424,6 +424,22 @@ export class ProductVariantsService {
           ) {
             return { outcome: 'hasHistoricalReferences' };
           }
+          // DEC-074: this size's own Size Groups go with it. They can only
+          // have been ordered with this size, which the check above rules
+          // out; OrderItemModifier's Restrict FKs remain the backstop (P2003).
+          const sizeGroups = await tx.modifierGroup.findMany({
+            where: { variantId: existing.id, productId: product.id },
+            select: { id: true },
+          });
+          if (sizeGroups.length > 0) {
+            const groupIds = sizeGroups.map((group) => group.id);
+            await tx.modifierOption.deleteMany({
+              where: { modifierGroupId: { in: groupIds } },
+            });
+            await tx.modifierGroup.deleteMany({
+              where: { id: { in: groupIds } },
+            });
+          }
           await tx.productVariant.delete({ where: { id: existing.id } });
           await syncProductBasePrice(tx, product.id);
           return { outcome: 'deleted' };

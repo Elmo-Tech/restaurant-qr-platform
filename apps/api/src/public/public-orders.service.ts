@@ -816,6 +816,7 @@ export class PublicOrdersService {
               where: { status: 'ACTIVE' },
               select: {
                 id: true,
+                variantId: true,
                 minimumSelections: true,
                 maximumSelections: true,
                 displayOrder: true,
@@ -1068,9 +1069,17 @@ export class PublicOrdersService {
             throw new ItemsUnavailableError();
           }
           const currentSizeId = size?.id ?? null;
-          const availableGroups = product.modifierGroups.filter(group =>
-            !currentSizeId || !(group.sizeSettings ?? []).some(setting =>
-              setting.variantId === currentSizeId && !setting.enabled));
+          // DEC-074: a Size Group belongs only to its own size (and never to a
+          // line without a size); a Product Group may be switched off per size.
+          const availableGroups = product.modifierGroups.filter(
+            (group) =>
+              (!group.variantId || group.variantId === currentSizeId) &&
+              (!currentSizeId ||
+                !(group.sizeSettings ?? []).some(
+                  (setting) =>
+                    setting.variantId === currentSizeId && !setting.enabled,
+                )),
+          );
 
           // FT-6A CRITICAL MONEY RULE: every selected modifierOptionId is
           // re-resolved against this Product's OWN currently-ACTIVE

@@ -121,6 +121,8 @@ export class ModifierPresetsController {
       name: dto.name,
       helperText: dto.helperText ?? null,
       status: dto.status,
+      // DEC-074: omitted by older clients = PRODUCT (the only earlier behavior).
+      scope: dto.scope ?? 'PRODUCT',
       minimumSelections: dto.minimumSelections,
       maximumSelections: dto.maximumSelections,
       displayOrder: dto.displayOrder,

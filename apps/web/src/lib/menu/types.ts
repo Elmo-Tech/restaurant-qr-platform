@@ -109,6 +109,8 @@ export interface ModifierGroup {
   options: ModifierOption[];
   /** FT-6B: null for a Group created via "Create Custom"; identifies the source `ModifierPreset` when created via "Use Preset". */
   sourcePresetId: string | null;
+  /** DEC-074: null = a Product Group offered with every size; a size id = a Size Group offered only with that size. */
+  variantId: string | null;
   /** FT-6B closeout: true only when NEITHER this Group NOR any of its Options has ever been snapshotted into a historical Order -- "Delete"/"Remove from Product" are offered only when true. */
   canDelete: boolean;
 }
@@ -116,6 +118,8 @@ export interface ModifierGroup {
 /** FT-6B: mirrors `apps/api/src/menu/modifier-presets.service.ts`'s safe response shapes -- a Restaurant-scoped reusable Modifier Group TEMPLATE. Never read by the Guest Menu/Cart/Orders (Staff authoring convenience only). */
 export type ModifierPresetStatus = 'ACTIVE' | 'INACTIVE';
 export type ModifierPresetOptionStatus = 'ACTIVE' | 'INACTIVE';
+/** DEC-074: PRODUCT presets attach to a whole Product, SIZE presets to one size. Fixed at creation. */
+export type ModifierPresetScope = 'PRODUCT' | 'SIZE';
 
 export interface ModifierPresetOption {
   id: string;
@@ -130,6 +134,7 @@ export interface ModifierPresetOption {
 export interface ModifierPreset {
   id: string;
   status: ModifierPresetStatus;
+  scope: ModifierPresetScope;
   name: string;
   helperText: string | null;
   minimumSelections: number;

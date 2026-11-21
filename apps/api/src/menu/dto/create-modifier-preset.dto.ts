@@ -26,6 +26,9 @@ function trimToNull(value: unknown): unknown {
 export const MODIFIER_PRESET_STATUSES = ['ACTIVE', 'INACTIVE'] as const;
 export type ModifierPresetStatusInput = (typeof MODIFIER_PRESET_STATUSES)[number];
 
+export const MODIFIER_PRESET_SCOPES = ['PRODUCT', 'SIZE'] as const;
+export type ModifierPresetScopeInput = (typeof MODIFIER_PRESET_SCOPES)[number];
+
 /**
  * FT-6B: client-writable fields for Modifier Preset creation -- a
  * Restaurant-scoped reusable Group TEMPLATE, mirroring
@@ -49,6 +52,18 @@ export class CreateModifierPresetDto {
     message: `status must be one of: ${MODIFIER_PRESET_STATUSES.join(', ')}`,
   })
   status!: ModifierPresetStatusInput;
+
+  /**
+   * DEC-074: PRODUCT = attached to a whole Product (every size); SIZE =
+   * attached to one size of a Product. Fixed at creation (not in the update
+   * DTO). Optional for older clients: omitted means PRODUCT, the only
+   * behavior that existed before.
+   */
+  @IsOptional()
+  @IsIn(MODIFIER_PRESET_SCOPES, {
+    message: `scope must be one of: ${MODIFIER_PRESET_SCOPES.join(', ')}`,
+  })
+  scope?: ModifierPresetScopeInput;
 
   @IsInt({ message: 'minimumSelections must be an integer' })
   @Min(0, { message: 'minimumSelections must not be negative' })
