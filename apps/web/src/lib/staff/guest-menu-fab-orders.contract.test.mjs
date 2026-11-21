@@ -15,7 +15,8 @@ const workspace = read('../../app/staff/restaurants/[restaurantId]/orders/Orders
 
 test('the floating button is route-aware: not rendered on Orders, at any width', () => {
   assert.match(fab, /const inOrders = pathname === `\$\{base\}\/orders` \|\| pathname\.startsWith\(`\$\{base\}\/orders\/`\);/);
-  assert.match(fab, /if \(link\.status !== 'ready' \|\| inKitchen \|\| inOrders\) return null;/);
+  assert.match(fab, /const headerEntryPage = inOrders \|\|/);
+  assert.match(fab, /if \(link\.status !== 'ready' \|\| inKitchen \|\| headerEntryPage\) return null;/);
   // Not a CSS-only hide (it must not sit on top of content at lg+ either).
   assert.doesNotMatch(fab, /inOrders \? '(?:max-|lg:)/);
 });
