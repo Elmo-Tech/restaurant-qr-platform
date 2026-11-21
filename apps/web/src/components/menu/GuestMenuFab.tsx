@@ -20,12 +20,14 @@ import { GuestMenuMenu } from './GuestMenuMenu';
  * - Not shown while the restaurant has no active generic QR (it never creates one),
  *   inside the kitchen screen, while the on-screen keyboard is up, or -- on a
  *   phone only -- on pages with a sticky save bar (menu import, product editor).
- * - Not shown on Orders, the Dashboard (the workspace root only) or Tables, at
- *   any width: a fixed button there sits on top of actionable content (Order
- *   totals and status actions; the Dashboard's setup / WhatsApp controls;
- *   each table card's "More actions"). Those pages offer the same entry
- *   in-flow in their page header instead (`OpenGuestMenuButton`, same link,
- *   same dropdown), shown in every case the floating button would be.
+ * - Not shown on Orders, the Dashboard (the workspace root only), Tables or
+ *   Settings -> Profile (that route only), at any width: a fixed button there
+ *   sits on top of actionable content (Order totals and status actions; the
+ *   Dashboard's setup / WhatsApp controls; each table card's "More actions";
+ *   the Profile form inputs, WhatsApp country picker and Save buttons). Those
+ *   pages offer the same entry in-flow in their page header instead
+ *   (`OpenGuestMenuButton`, same link, same dropdown), shown in every case the
+ *   floating button would be.
  */
 export function GuestMenuFab({ restaurantId }: { restaurantId: string }) {
   const { t } = useStaffI18n();
@@ -64,11 +66,13 @@ export function GuestMenuFab({ restaurantId }: { restaurantId: string }) {
   const inOrders = pathname === `${base}/orders` || pathname.startsWith(`${base}/orders/`);
   const onDashboard = pathname === base;
   const inTables = pathname === `${base}/tables` || pathname.startsWith(`${base}/tables/`);
+  // Settings -> Profile only (exact route): other Settings pages keep the floating button.
+  const onSettingsProfile = pathname === `${base}/settings/profile`;
   const stickySave =
     pathname.startsWith(`${base}/menu/import`) || pathname.startsWith(`${base}/menu/products/`);
 
   // Pages whose header carries the same guest-menu entry instead.
-  const headerEntryPage = inOrders || onDashboard || inTables;
+  const headerEntryPage = inOrders || onDashboard || inTables || onSettingsProfile;
   if (link.status !== 'ready' || inKitchen || headerEntryPage) return null;
 
   return (

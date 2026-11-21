@@ -18,7 +18,7 @@ test('the floating button is not rendered on the Dashboard root or on Tables, at
   // Dashboard is the workspace root only: nested routes (setup, menu, settings...) are unaffected.
   assert.match(fab, /const onDashboard = pathname === base;/);
   assert.match(fab, /const inTables = pathname === `\$\{base\}\/tables` \|\| pathname\.startsWith\(`\$\{base\}\/tables\/`\);/);
-  assert.match(fab, /const headerEntryPage = inOrders \|\| onDashboard \|\| inTables;/);
+  assert.match(fab, /const headerEntryPage = inOrders \|\| onDashboard \|\| inTables\b/);
   assert.match(fab, /if \(link\.status !== 'ready' \|\| inKitchen \|\| headerEntryPage\) return null;/);
   // Not a CSS-only hide: no fixed overlay may remain in the DOM on these pages.
   assert.doesNotMatch(fab, /(?:onDashboard|inTables|headerEntryPage) \? '(?:max-|lg:|hidden)/);
