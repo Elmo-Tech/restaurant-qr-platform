@@ -138,6 +138,7 @@ jobs:
               assert.ok(rule.includes('HostRegexp(') && rule.includes('waytaapp') && rule.includes('\\z`'));
               assert.ok(rule.includes('!Host(`control.waytaapp.com`)'));
               assert.ok(rule.includes('!Host(`www.waytaapp.com`)'));
+              assert.ok(rule.includes('!Host(`landing.waytaapp.com`)'), 'landing site must never be a tenant');
               assert.equal(labels['traefik.http.middlewares.wayta-tenants-redirect-https.redirectscheme.scheme'], 'https');
               assert.equal(labels['traefik.http.middlewares.wayta-tenants-redirect-https.redirectscheme.permanent'], 'true');
               delete original.labels;

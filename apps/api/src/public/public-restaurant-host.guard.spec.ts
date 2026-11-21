@@ -57,6 +57,14 @@ describe('PublicRestaurantHostGuard', () => {
     await expect(guard.canActivate(context('control.waytaapp.com', 'pizza-house') as never)).rejects.toMatchObject({
       response: { error: { code: 'QR_NOT_FOUND' } },
     });
+    // The marketing site's host is never a tenant, even if its traffic reaches the API.
+    await expect(
+      guard.canActivate(
+        context('landing.waytaapp.com', 'pizza-house') as never,
+      ),
+    ).rejects.toMatchObject({
+      response: { error: { code: 'QR_NOT_FOUND' } },
+    });
     const unknown = setup();
     unknown.db.qrCode.findUnique.mockResolvedValue(null);
     await expect(unknown.guard.canActivate(context('pizza-house.waytaapp.com', 'X'.repeat(43)) as never))

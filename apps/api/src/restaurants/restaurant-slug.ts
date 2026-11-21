@@ -24,6 +24,8 @@ export const RESERVED_SLUGS: ReadonlySet<string> = new Set([
   'control',
   'demo',
   'kitchen',
+  // landing.{base} is the separate marketing site (the apex homepage redirects there), not a menu.
+  'landing',
   'login',
   'logout',
   'mail',
