@@ -661,6 +661,69 @@ describe('PublicMenuService.getPublicMenu', () => {
     ]);
   });
 
+  it('offers a Size Group only with its own ACTIVE size (DEC-074)', async () => {
+    const mock = buildPrismaMock();
+    const variant = (id: string, name: string) => ({
+      id,
+      price: decimal('50.00'),
+      isDefault: id === 'small',
+      discountApplies: true,
+      translations: [{ locale: 'en', name }],
+    });
+    const group = (id: string, variantId: string | null) => ({
+      id,
+      variantId,
+      minimumSelections: 0,
+      maximumSelections: 2,
+      sizeSettings: [],
+      translations: [{ locale: 'en', name: id, helperText: null }],
+      options: [
+        {
+          id: `${id}-option`,
+          priceAdjustment: decimal('5.00'),
+          sizeSettings: [],
+          translations: [{ locale: 'en', name: 'Cheese' }],
+        },
+      ],
+    });
+    mock.categoryFindMany.mockResolvedValue([
+      buildCategoryRow({
+        products: [
+          {
+            id: 'pizza',
+            basePrice: decimal('50.00'),
+            primaryImageAssetPath: null,
+            availability: 'AVAILABLE',
+            featured: false,
+            translations: [{ locale: 'en', name: 'Pizza', description: null }],
+            // Only ACTIVE sizes are loaded; `inactive-size` is not among them.
+            variants: [variant('small', 'Small'), variant('large', 'Large')],
+            modifierGroups: [
+              group('all-sizes', null),
+              group('large-extras', 'large'),
+              group('inactive-size-extras', 'inactive-size'),
+            ],
+          },
+        ],
+      }),
+    ]);
+    const service = buildService(mock);
+
+    const result = await service.getPublicMenu({
+      publicCode: 'generic-qr',
+      explicitLang: null,
+      acceptLanguageHeader: null,
+    });
+
+    expect(result.outcome).toBe('found');
+    if (result.outcome !== 'found') return;
+    const groups = result.data.menu.categories[0].products[0].modifierGroups;
+    expect(groups.map((row) => [row.id, row.disabledVariantIds])).toEqual([
+      ['all-sizes', []],
+      ['large-extras', ['small']],
+    ]);
+  });
+
   it('resolves an explicit, currently-active Arabic locale', async () => {
     const mock = buildPrismaMock();
     const service = buildService(mock);

@@ -20,6 +20,10 @@ interface TranslatedNames {
  * holds; for another language the saved translations are read (group by group)
  * only while the "Product page" preview is open, and a missing translation falls
  * back to the default-language name -- exactly the guest fallback.
+ *
+ * DEC-074: a Size Group is shown only with its own size (as the Guest Menu
+ * does through `disabledVariantIds`), and not at all when that size is not
+ * an active one.
  */
 export function useAddonsPreview({
   restaurantId,
@@ -28,6 +32,7 @@ export function useAddonsPreview({
   locale,
   defaultLocale,
   enabled,
+  sizeIdsKey,
 }: {
   restaurantId: string;
   productId: string | null;
@@ -36,13 +41,17 @@ export function useAddonsPreview({
   defaultLocale: string;
   /** Only fetch translations while the add-ons are actually on screen. */
   enabled: boolean;
+  /** The active sizes shown in the preview, as a comma-joined id list (a stable primitive). */
+  sizeIdsKey: string;
 }): PublicMenuModifierGroup[] {
   const [translated, setTranslated] = useState<TranslatedNames | null>(null);
 
+  const sizeIds = useMemo(() => (sizeIdsKey === '' ? [] : sizeIdsKey.split(',')), [sizeIdsKey]);
   const activeGroups = useMemo(
     () =>
       (groups ?? [])
         .filter((group) => group.status === 'ACTIVE')
+        .filter((group) => group.variantId === null || sizeIds.includes(group.variantId))
         .map((group) => ({
           ...group,
           options: group.options
@@ -51,7 +60,7 @@ export function useAddonsPreview({
         }))
         .filter((group) => group.options.length > 0)
         .sort((a, b) => a.displayOrder - b.displayOrder),
-    [groups],
+    [groups, sizeIds],
   );
 
   useEffect(() => {
@@ -95,11 +104,13 @@ export function useAddonsPreview({
         names?.groups[group.id] !== undefined ? names.groups[group.id].helperText : group.helperText,
       minimumSelections: group.minimumSelections,
       maximumSelections: group.maximumSelections,
+      disabledVariantIds:
+        group.variantId === null ? [] : sizeIds.filter((sizeId) => sizeId !== group.variantId),
       options: group.options.map((option) => ({
         id: option.id,
         name: names?.options[option.id] ?? option.name,
         priceAdjustment: option.priceAdjustment,
       })),
     }));
-  }, [activeGroups, translated, locale]);
+  }, [activeGroups, translated, locale, sizeIds]);
 }

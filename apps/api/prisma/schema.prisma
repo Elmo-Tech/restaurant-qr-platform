@@ -1403,6 +1403,8 @@ model ProductVariant {
   offerOptions OfferSlotOption[]
   modifierGroupSizeSettings ModifierGroupSizeSetting[]
   modifierOptionSizeSettings ModifierOptionSizeSetting[]
+  // DEC-074: Modifier Groups offered ONLY with this size.
+  modifierGroups ModifierGroup[]
 
   @@index([restaurantId])
   @@index([productId])
@@ -1473,6 +1475,12 @@ model ModifierGroup {
   // soft link -- if the source Preset were ever removed, the linked Group
   // simply detaches and keeps its last-synced values, never blocked.
   sourcePresetId    String?             @map("source_preset_id") @db.Uuid
+  // DEC-074: null = a Product Group offered with every size (and with a
+  // Product that has no sizes); set = a Size Group offered ONLY when the
+  // Guest chooses that size. Variant.productId == Group.productId is a
+  // cross-row invariant enforced by application write logic. Never changed
+  // after creation.
+  variantId         String?             @map("variant_id") @db.Uuid
 
   // Restrict, not Cascade -- a Modifier Group is a substantive business
   // entity (like Product itself), never a pure translation row. It must
@@ -1482,19 +1490,24 @@ model ModifierGroup {
   restaurant         Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
   product            Product                    @relation(fields: [productId], references: [id], onDelete: Restrict)
   sourcePreset       ModifierPreset?            @relation(fields: [sourcePresetId], references: [id], onDelete: SetNull)
+  // Restrict: deleting a never-ordered size removes its Size Groups
+  // explicitly first (ProductVariantsService.deleteVariant).
+  variant            ProductVariant?            @relation(fields: [variantId], references: [id], onDelete: Restrict)
   translations       ModifierGroupTranslation[]
   options            ModifierOption[]
   orderItemModifiers OrderItemModifier[]
   sizeSettings ModifierGroupSizeSetting[]
 
   // Prevents accidentally attaching the SAME Preset twice to the SAME
-  // Product (FT-6B, Section 2/4) -- Postgres treats each NULL
-  // `sourcePresetId` as distinct, so any number of Custom (non-Preset)
-  // Groups on one Product remain unaffected by this constraint.
-  @@unique([productId, sourcePresetId])
+  // size of the SAME Product (FT-6B, DEC-074). Postgres treats NULL as
+  // distinct, so Custom (non-Preset) Groups are unaffected, and Product
+  // Groups (variantId NULL) are covered by the partial unique index
+  // "modifier_groups_product_preset_key" (custom migration SQL).
+  @@unique([productId, variantId, sourcePresetId])
   @@index([restaurantId])
   @@index([productId])
   @@index([sourcePresetId])
+  @@index([variantId])
   @@map("modifier_groups")
 }
 
@@ -1635,11 +1648,23 @@ enum ModifierPresetOptionStatus {
   @@map("modifier_preset_option_status")
 }
 
+// DEC-074: what a Preset is for. A PRODUCT Preset is attached to a whole
+// Product (every size); a SIZE Preset is attached to one size of a Product.
+enum ModifierPresetScope {
+  PRODUCT
+  SIZE
+
+  @@map("modifier_preset_scope")
+}
+
 model ModifierPreset {
   id                String               @id @default(uuid()) @db.Uuid
   restaurantId      String               @map("restaurant_id") @db.Uuid
   // No database default, mirrors ModifierGroup.status.
   status            ModifierPresetStatus
+  // DEC-074: chosen at creation and never changed afterwards, so every
+  // linked Group always matches it (PRODUCT -> variantId NULL, SIZE -> set).
+  scope             ModifierPresetScope
   minimumSelections Int                  @map("minimum_selections")
   maximumSelections Int                  @map("maximum_selections")
   displayOrder      Int                  @map("display_order")

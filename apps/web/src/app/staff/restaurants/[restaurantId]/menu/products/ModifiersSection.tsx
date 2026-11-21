@@ -9,6 +9,7 @@ import type {
   ModifierOption,
   ModifierOptionStatus,
   ModifierPreset,
+  ModifierPresetScope,
   ProductVariant,
 } from '../../../../../../lib/menu/types';
 import type { RestaurantLocalesResponse } from '../../../../../../lib/settings/types';
@@ -30,7 +31,6 @@ import { Select } from '../../../../../../components/ui/Select';
 import { LoadingState } from '../../../../../../components/ui/LoadingState';
 import { LanguageTabs, type LanguageTabOption } from '../../../../../../components/menu/LanguageTabs';
 import { TranslationFields } from '../../../../../../components/menu/TranslationFields';
-import { ModifierSizeSettingsEditor } from './ModifierSizeSettingsEditor';
 
 /** Mirrors the Backend's accepted decimal-string shape (money-decimal.ts) -- helpful client validation only, never authoritative (CLAUDE.md #27). */
 const MONEY_DECIMAL_PATTERN = /^(0|[1-9]\d{0,11})(\.\d{1,2})?$/;
@@ -40,7 +40,7 @@ export interface ModifiersSectionProps {
   productId: string;
   currencyCode: string;
   canManage: boolean;
-  /** Product sizes used to configure add-ons independently for each size. */
+  /** Product sizes: each one gets its own add-ons area (DEC-074). */
   variants: ProductVariant[];
   /** Same Restaurant Languages response `ProductEditor` already fetches for its own `ProductTranslationSection` -- reused here rather than a second fetch. */
   locales: RestaurantLocalesResponse | null;
@@ -55,6 +55,11 @@ export interface ModifiersSectionProps {
  * Options, deactivate rather than hard-delete (DATABASE_SPEC.md #58:
  * history must never break). Only rendered in Edit mode (Groups nest under
  * an existing `productId`, exactly like `ProductTranslationSection`).
+ *
+ * DEC-074: the add-ons are split by scope. "For every size" holds Product
+ * Groups (from Product presets or custom); every size then has its own area
+ * holding Size Groups (from Size presets or custom) that the Guest sees only
+ * with that size. A Product without sizes shows only the first area.
  *
  * IMPORTANT: this whole section renders INSIDE `ProductEditor`'s own outer
  * `<form onSubmit={handleSubmit}>` (Section 1) -- every interactive element
@@ -76,7 +81,6 @@ export function ModifiersSection({
   const [status, setStatus] = useState<'loading' | 'loaded' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [groups, setGroups] = useState<ModifierGroup[]>([]);
-  const [addMode, setAddMode] = useState<'none' | 'choose' | 'preset' | 'custom'>('none');
 
   const load = useCallback(async () => {
     setStatus('loading');
@@ -104,9 +108,16 @@ export function ModifiersSection({
     });
   }, [load]);
 
+  // A deleted size takes its Size Groups with it on the Backend; drop them
+  // here too so neither this list nor the preview shows stale rows.
+  const visibleGroups = useMemo(() => {
+    const sizeIds = new Set(variants.map((variant) => variant.id));
+    return groups.filter((group) => group.variantId === null || sizeIds.has(group.variantId));
+  }, [groups, variants]);
+
   useEffect(() => {
-    if (status === 'loaded') onGroupsChange?.(groups);
-  }, [groups, status, onGroupsChange]);
+    if (status === 'loaded') onGroupsChange?.(visibleGroups);
+  }, [visibleGroups, status, onGroupsChange]);
 
   if (status === 'loading') {
     return (
@@ -127,68 +138,173 @@ export function ModifiersSection({
     );
   }
 
-  const alreadyAppliedPresetIds = new Set(
-    groups.map((group) => group.sourcePresetId).filter((id): id is string => id !== null),
-  );
+  const hasSizes = variants.length > 0;
+  const groupHandlers = {
+    onGroupCreated: (group: ModifierGroup) => setGroups((prev) => [...prev, group]),
+    onGroupChanged: (updated: ModifierGroup) =>
+      setGroups((prev) => prev.map((g) => (g.id === updated.id ? { ...updated, options: g.options } : g))),
+    onOptionCreated: (groupId: string, option: ModifierOption) =>
+      setGroups((prev) =>
+        prev.map((g) => (g.id === groupId ? { ...g, options: [...g.options, option] } : g)),
+      ),
+    onOptionChanged: (groupId: string, option: ModifierOption) =>
+      setGroups((prev) =>
+        prev.map((g) =>
+          g.id === groupId ? { ...g, options: g.options.map((o) => (o.id === option.id ? option : o)) } : g,
+        ),
+      ),
+    onGroupRemoved: (groupId: string) => setGroups((prev) => prev.filter((g) => g.id !== groupId)),
+    onOptionRemoved: (groupId: string, optionId: string) =>
+      setGroups((prev) =>
+        prev.map((g) => (g.id === groupId ? { ...g, options: g.options.filter((o) => o.id !== optionId) } : g)),
+      ),
+  };
 
   return (
     <FormSection title={t('mod.title')}>
       <p className="text-xs text-muted-foreground">{t('mod.intro')}</p>
 
+      <div className="flex flex-col gap-5">
+        <ModifierScopeArea
+          restaurantId={restaurantId}
+          productId={productId}
+          currencyCode={currencyCode}
+          canManage={canManage}
+          locales={locales}
+          title={hasSizes ? t('mod.scope.allSizesTitle') : t('mod.scope.productTitle')}
+          hint={hasSizes ? t('mod.scope.allSizesHint') : null}
+          badge={null}
+          variantId={null}
+          groups={visibleGroups.filter((group) => group.variantId === null)}
+          nextDisplayOrder={visibleGroups.length}
+          {...groupHandlers}
+        />
+
+        {variants.map((variant) => (
+          <ModifierScopeArea
+            key={variant.id}
+            restaurantId={restaurantId}
+            productId={productId}
+            currencyCode={currencyCode}
+            canManage={canManage}
+            locales={locales}
+            title={t('mod.scope.sizeTitle', { size: variant.name })}
+            hint={t('mod.scope.sizeHint')}
+            badge={variant.status === 'INACTIVE' ? t('common.inactive') : null}
+            variantId={variant.id}
+            groups={visibleGroups.filter((group) => group.variantId === variant.id)}
+            nextDisplayOrder={visibleGroups.length}
+            {...groupHandlers}
+          />
+        ))}
+      </div>
+    </FormSection>
+  );
+}
+
+/**
+ * DEC-074: one add-ons area -- the whole Product (`variantId` null) or one
+ * size. Offers only the presets of the matching kind (Product presets here
+ * for the whole Product, Size presets for a size) plus "Create Custom".
+ */
+function ModifierScopeArea({
+  restaurantId,
+  productId,
+  currencyCode,
+  canManage,
+  locales,
+  title,
+  hint,
+  badge,
+  variantId,
+  groups,
+  nextDisplayOrder,
+  onGroupCreated,
+  onGroupChanged,
+  onOptionCreated,
+  onOptionChanged,
+  onGroupRemoved,
+  onOptionRemoved,
+}: {
+  restaurantId: string;
+  productId: string;
+  currencyCode: string;
+  canManage: boolean;
+  locales: RestaurantLocalesResponse | null;
+  title: string;
+  hint: string | null;
+  badge: string | null;
+  variantId: string | null;
+  groups: ModifierGroup[];
+  nextDisplayOrder: number;
+  onGroupCreated: (group: ModifierGroup) => void;
+  onGroupChanged: (group: ModifierGroup) => void;
+  onOptionCreated: (groupId: string, option: ModifierOption) => void;
+  onOptionChanged: (groupId: string, option: ModifierOption) => void;
+  onGroupRemoved: (groupId: string) => void;
+  onOptionRemoved: (groupId: string, optionId: string) => void;
+}) {
+  const { t } = useStaffI18n();
+  const [addMode, setAddMode] = useState<'none' | 'choose' | 'preset' | 'custom'>('none');
+  const areaKey = variantId ?? 'product';
+  const headingId = `modifier-area-${areaKey}`;
+
+  const alreadyAppliedPresetIds = new Set(
+    groups.map((group) => group.sourcePresetId).filter((id): id is string => id !== null),
+  );
+
+  return (
+    <section
+      aria-labelledby={headingId}
+      className="flex flex-col gap-3 rounded-lg border border-border bg-muted/30 p-3"
+    >
+      <div>
+        <div className="flex flex-wrap items-center gap-2">
+          <h3 id={headingId} dir="auto" className="text-start text-sm font-semibold text-foreground">
+            {title}
+          </h3>
+          {badge ? <Badge variant="neutral">{badge}</Badge> : null}
+        </div>
+        {hint ? <p className="mt-1 text-xs leading-5 text-muted-foreground">{hint}</p> : null}
+      </div>
+
       {groups.length === 0 && addMode === 'none' ? (
         <p className="text-sm text-muted-foreground">{t('mod.noGroups')}</p>
       ) : null}
 
-      <div className="flex flex-col gap-4">
-        {groups.map((group) => (
-          <ModifierGroupCard
-            key={group.id}
-            restaurantId={restaurantId}
-            productId={productId}
-            currencyCode={currencyCode}
-            group={group}
-            canManage={canManage}
-            locales={locales}
-            variants={variants}
-            onGroupChanged={(updated) =>
-              setGroups((prev) => prev.map((g) => (g.id === updated.id ? { ...updated, options: g.options } : g)))
-            }
-            onOptionCreated={(groupId, option) =>
-              setGroups((prev) =>
-                prev.map((g) => (g.id === groupId ? { ...g, options: [...g.options, option] } : g)),
-              )
-            }
-            onOptionChanged={(groupId, option) =>
-              setGroups((prev) =>
-                prev.map((g) =>
-                  g.id === groupId
-                    ? { ...g, options: g.options.map((o) => (o.id === option.id ? option : o)) }
-                    : g,
-                ),
-              )
-            }
-            onGroupRemoved={(groupId) => setGroups((prev) => prev.filter((g) => g.id !== groupId))}
-            onOptionRemoved={(groupId, optionId) =>
-              setGroups((prev) =>
-                prev.map((g) =>
-                  g.id === groupId ? { ...g, options: g.options.filter((o) => o.id !== optionId) } : g,
-                ),
-              )
-            }
-          />
-        ))}
-      </div>
+      {groups.length > 0 ? (
+        <div className="flex flex-col gap-3">
+          {groups.map((group) => (
+            <ModifierGroupCard
+              key={group.id}
+              restaurantId={restaurantId}
+              productId={productId}
+              currencyCode={currencyCode}
+              group={group}
+              canManage={canManage}
+              locales={locales}
+              onGroupChanged={onGroupChanged}
+              onOptionCreated={onOptionCreated}
+              onOptionChanged={onOptionChanged}
+              onGroupRemoved={onGroupRemoved}
+              onOptionRemoved={onOptionRemoved}
+            />
+          ))}
+        </div>
+      ) : null}
 
       {addMode === 'none' ? (
-        <Button type="button" variant="secondary" disabled={!canManage} onClick={() => setAddMode('choose')}>
-          {t('mod.add')}
-        </Button>
+        <div>
+          <Button type="button" variant="secondary" disabled={!canManage} onClick={() => setAddMode('choose')}>
+            {t('mod.add')}
+          </Button>
+        </div>
       ) : null}
 
       {addMode === 'choose' ? (
-        <div className="flex flex-wrap gap-2 rounded-md border border-border p-3">
+        <div className="flex flex-wrap gap-2 rounded-md border border-border bg-card p-3">
           <Button type="button" variant="secondary" onClick={() => setAddMode('preset')}>
-            {t('mod.usePreset')}
+            {variantId === null ? t('mod.useProductPreset') : t('mod.useSizePreset')}
           </Button>
           <Button type="button" variant="secondary" onClick={() => setAddMode('custom')}>
             {t('mod.createCustom')}
@@ -203,10 +319,11 @@ export function ModifiersSection({
         <UsePresetPicker
           restaurantId={restaurantId}
           productId={productId}
+          variantId={variantId}
           alreadyAppliedPresetIds={alreadyAppliedPresetIds}
           onCancel={() => setAddMode('none')}
           onApplied={(group) => {
-            setGroups((prev) => [...prev, group]);
+            onGroupCreated(group);
             setAddMode('none');
           }}
         />
@@ -216,34 +333,38 @@ export function ModifiersSection({
         <NewModifierGroupForm
           restaurantId={restaurantId}
           productId={productId}
-          nextDisplayOrder={groups.length}
+          variantId={variantId}
+          nextDisplayOrder={nextDisplayOrder}
           onCancel={() => setAddMode('none')}
           onCreated={(group) => {
-            setGroups((prev) => [...prev, group]);
+            onGroupCreated(group);
             setAddMode('none');
           }}
         />
       ) : null}
-    </FormSection>
+    </section>
   );
 }
 
 /**
- * FT-6B, Section 2/4 "Use Preset": lists the Restaurant's own active
- * Presets, letting Staff attach one to this Product. A Preset already
- * attached to this Product is disabled in the list rather than hidden --
- * Staff can see AT A GLANCE which presets are already in use here (Section
- * 4: "Prevent accidentally attaching the same Preset twice").
+ * FT-6B, Section 2/4 "Use Preset": lists the Restaurant's own Presets of the
+ * kind this area takes (DEC-074: Product presets for the whole Product, Size
+ * presets for one size), letting Staff attach one here. A Preset already
+ * attached here is disabled in the list rather than hidden -- Staff can see
+ * AT A GLANCE which presets are already in use (Section 4: "Prevent
+ * accidentally attaching the same Preset twice").
  */
 function UsePresetPicker({
   restaurantId,
   productId,
+  variantId,
   alreadyAppliedPresetIds,
   onCancel,
   onApplied,
 }: {
   restaurantId: string;
   productId: string;
+  variantId: string | null;
   alreadyAppliedPresetIds: Set<string>;
   onCancel: () => void;
   onApplied: (group: ModifierGroup) => void;
@@ -254,6 +375,8 @@ function UsePresetPicker({
   const [presets, setPresets] = useState<ModifierPreset[]>([]);
   const [selectedPresetId, setSelectedPresetId] = useState('');
   const [isApplying, setIsApplying] = useState(false);
+  const scope: ModifierPresetScope = variantId === null ? 'PRODUCT' : 'SIZE';
+  const selectId = `use-preset-select-${variantId ?? 'product'}`;
 
   useEffect(() => {
     queueMicrotask(() => {
@@ -261,7 +384,9 @@ function UsePresetPicker({
         setStatus('loading');
         setError(null);
         try {
-          const data = await menuApi.listModifierPresets(restaurantId);
+          const data = (await menuApi.listModifierPresets(restaurantId)).filter(
+            (preset) => preset.scope === scope,
+          );
           setPresets(data);
           const firstAvailable = data.find((preset) => !alreadyAppliedPresetIds.has(preset.id));
           setSelectedPresetId(firstAvailable?.id ?? '');
@@ -277,14 +402,14 @@ function UsePresetPicker({
       })();
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentionally only on mount; alreadyAppliedPresetIds identity changes every parent render.
-  }, [restaurantId]);
+  }, [restaurantId, scope]);
 
   async function handleApply() {
     if (selectedPresetId === '') return;
     setIsApplying(true);
     setError(null);
     try {
-      const group = await menuApi.applyModifierPreset(restaurantId, productId, selectedPresetId);
+      const group = await menuApi.applyModifierPreset(restaurantId, productId, selectedPresetId, variantId);
       onApplied(group);
     } catch (err) {
       if (isUnauthenticatedError(err)) {
@@ -292,7 +417,7 @@ function UsePresetPicker({
         return;
       }
       if (err instanceof ApiError && err.code === 'MODIFIER_PRESET_ALREADY_APPLIED') {
-        setError(t('mod.preset.alreadyAttached'));
+        setError(variantId === null ? t('mod.preset.alreadyAttached') : t('mod.preset.alreadyAttachedSize'));
         return;
       }
       setError(describeError(err));
@@ -303,7 +428,7 @@ function UsePresetPicker({
 
   if (status === 'loading') {
     return (
-      <div className="rounded-md border border-border p-4">
+      <div className="rounded-md border border-border bg-card p-4">
         <LoadingState label={t('mod.preset.loading')} />
       </div>
     );
@@ -311,7 +436,7 @@ function UsePresetPicker({
 
   if (status === 'error') {
     return (
-      <div className="rounded-md border border-border p-4">
+      <div className="rounded-md border border-border bg-card p-4">
         <Alert variant="error">{error}</Alert>
         <Button type="button" variant="secondary" onClick={onCancel}>
           {t('common.close')}
@@ -322,21 +447,28 @@ function UsePresetPicker({
 
   if (presets.length === 0) {
     return (
-      <div className="flex flex-col gap-3 rounded-md border border-border p-4">
-        <p className="text-sm text-muted-foreground">{t('mod.preset.none')}</p>
-        <Button type="button" variant="secondary" onClick={onCancel}>
-          {t('common.close')}
-        </Button>
+      <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-4">
+        <p className="text-sm text-muted-foreground">
+          {scope === 'PRODUCT' ? t('mod.preset.noneProduct') : t('mod.preset.noneSize')}
+        </p>
+        <div>
+          <Button type="button" variant="secondary" onClick={onCancel}>
+            {t('common.close')}
+          </Button>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex flex-col gap-3 rounded-md border border-border p-4">
+    <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-4">
       {error ? <Alert variant="error">{error}</Alert> : null}
-      <FormField label={t('mod.preset.label')} htmlFor="use-preset-select">
+      <FormField
+        label={scope === 'PRODUCT' ? t('mod.preset.labelProduct') : t('mod.preset.labelSize')}
+        htmlFor={selectId}
+      >
         <Select
-          id="use-preset-select"
+          id={selectId}
           value={selectedPresetId}
           onChange={(e) => setSelectedPresetId(e.target.value)}
           disabled={isApplying}
@@ -344,6 +476,7 @@ function UsePresetPicker({
           {presets.map((preset) => (
             <option key={preset.id} value={preset.id} disabled={alreadyAppliedPresetIds.has(preset.id)}>
               {preset.name}
+              {preset.status === 'INACTIVE' ? t('presets.inactiveSuffix') : ''}
               {alreadyAppliedPresetIds.has(preset.id) ? t('mod.preset.attachedSuffix') : ''}
             </option>
           ))}
@@ -377,7 +510,6 @@ function ModifierGroupCard({
   onOptionChanged,
   onGroupRemoved,
   onOptionRemoved,
-  variants,
 }: {
   restaurantId: string;
   productId: string;
@@ -385,17 +517,15 @@ function ModifierGroupCard({
   group: ModifierGroup;
   canManage: boolean;
   locales: RestaurantLocalesResponse | null;
-  variants: ProductVariant[];
   onGroupChanged: (group: ModifierGroup) => void;
   onOptionCreated: (groupId: string, option: ModifierOption) => void;
   onOptionChanged: (groupId: string, option: ModifierOption) => void;
   onGroupRemoved: (groupId: string) => void;
   onOptionRemoved: (groupId: string, optionId: string) => void;
 }) {
-  const { t, locale } = useStaffI18n();
+  const { t } = useStaffI18n();
   const [isEditing, setIsEditing] = useState(false);
   const [isAddingOption, setIsAddingOption] = useState(false);
-  const [showSizeSettings, setShowSizeSettings] = useState(false);
   const [isBusy, setIsBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -463,13 +593,13 @@ function ModifierGroupCard({
   }
 
   return (
-    <div className="rounded-md border border-border p-4">
+    <div className="rounded-md border border-border bg-card p-4">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="flex items-center gap-2">
-            <h3 dir="auto" className="text-start text-sm font-semibold text-foreground">
+            <h4 dir="auto" className="text-start text-sm font-semibold text-foreground">
               {group.name}
-            </h3>
+            </h4>
             {group.sourcePresetId ? <Badge variant="success">{t('mod.basedOnPreset')}</Badge> : null}
             {group.status === 'INACTIVE' ? <Badge variant="neutral">{t('common.inactive')}</Badge> : null}
           </div>
@@ -552,42 +682,6 @@ function ModifierGroupCard({
             }}
             onCancel={() => setIsEditing(false)}
           />
-        </div>
-      ) : null}
-
-      {variants.some(size => size.status === 'ACTIVE') ? (
-        <div className="mt-4 rounded-lg border border-border bg-muted/30 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <p className="text-sm font-semibold text-foreground">
-                {t('mod.title')} · {variants.length} {t('variants.title')}
-              </p>
-              <p className="mt-1 text-xs leading-5 text-muted-foreground">
-                {t('mod.selectionRange', {
-                  kind: group.minimumSelections === 0 ? t('mod.optional') : t('mod.required'),
-                  min: group.minimumSelections, max: group.maximumSelections,
-                })}
-              </p>
-            </div>
-            <Button type="button" size="sm" variant="secondary"
-              onClick={() => setShowSizeSettings(value => !value)}>
-              {showSizeSettings
-                ? t('common.close')
-                : locale.startsWith('ar')
-                  ? 'تخصيص الإضافات حسب الحجم'
-                  : 'Customize add-ons by size'}
-            </Button>
-          </div>
-          {showSizeSettings ? (
-            <ModifierSizeSettingsEditor
-              restaurantId={restaurantId}
-              productId={productId}
-              group={group}
-              variants={variants.filter(size => size.status === 'ACTIVE')}
-              currencyCode={currencyCode}
-              canManage={canManage}
-            />
-          ) : null}
         </div>
       ) : null}
 
@@ -811,12 +905,15 @@ function ModifierOptionRow({
 function NewModifierGroupForm({
   restaurantId,
   productId,
+  variantId,
   nextDisplayOrder,
   onCancel,
   onCreated,
 }: {
   restaurantId: string;
   productId: string;
+  /** DEC-074: null = a Product Group; a size id = a Size Group. */
+  variantId: string | null;
   nextDisplayOrder: number;
   onCancel: () => void;
   onCreated: (group: ModifierGroup) => void;
@@ -859,6 +956,7 @@ function NewModifierGroupForm({
         minimumSelections: minimum,
         maximumSelections: maximum,
         displayOrder: nextDisplayOrder,
+        variantId,
       });
       onCreated(created);
     } catch (err) {
@@ -873,23 +971,23 @@ function NewModifierGroupForm({
   }
 
   return (
-    <div className="rounded-md border border-border p-4 flex flex-col gap-3">
+    <div className="flex flex-col gap-3 rounded-md border border-border bg-card p-4">
       {error ? <Alert variant="error">{error}</Alert> : null}
-      <FormField label={t('menu.tr.name')} htmlFor="new-group-name">
-        <Input id="new-group-name" value={name} onChange={(e) => setName(e.target.value)} disabled={isSubmitting} />
+      <FormField label={t('menu.tr.name')} htmlFor={`new-group-name-${variantId ?? 'product'}`}>
+        <Input id={`new-group-name-${variantId ?? 'product'}`} value={name} onChange={(e) => setName(e.target.value)} disabled={isSubmitting} />
       </FormField>
-      <FormField label={t('mod.helperOptional')} htmlFor="new-group-helper">
+      <FormField label={t('mod.helperOptional')} htmlFor={`new-group-helper-${variantId ?? 'product'}`}>
         <Input
-          id="new-group-helper"
+          id={`new-group-helper-${variantId ?? 'product'}`}
           value={helperText}
           onChange={(e) => setHelperText(e.target.value)}
           disabled={isSubmitting}
         />
       </FormField>
       <div className="grid grid-cols-2 gap-3">
-        <FormField label={t('mod.minSelections')} htmlFor="new-group-min">
+        <FormField label={t('mod.minSelections')} htmlFor={`new-group-min-${variantId ?? 'product'}`}>
           <Input
-            id="new-group-min"
+            id={`new-group-min-${variantId ?? 'product'}`}
             type="number"
             min={0}
             step={1}
@@ -898,9 +996,9 @@ function NewModifierGroupForm({
             disabled={isSubmitting}
           />
         </FormField>
-        <FormField label={t('mod.maxSelections')} htmlFor="new-group-max">
+        <FormField label={t('mod.maxSelections')} htmlFor={`new-group-max-${variantId ?? 'product'}`}>
           <Input
-            id="new-group-max"
+            id={`new-group-max-${variantId ?? 'product'}`}
             type="number"
             min={1}
             step={1}

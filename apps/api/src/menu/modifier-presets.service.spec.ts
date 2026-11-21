@@ -352,3 +352,48 @@ describe('ModifierPresetsService.deletePresetOption (FT-6B closeout, Section 5)'
     expect(modifierPresetOptionDelete).not.toHaveBeenCalled();
   });
 });
+
+describe('ModifierPresetsService.createPreset -- Product vs Size presets (DEC-074)', () => {
+  it('stores and returns the chosen scope', async () => {
+    const mock = buildPrismaMock();
+    const modifierPresetCreate = jest.fn().mockResolvedValue({
+      id: 'preset-new',
+      status: 'ACTIVE',
+      scope: 'SIZE',
+      minimumSelections: 0,
+      maximumSelections: 3,
+      displayOrder: 0,
+    });
+    const modifierPresetTranslationCreate = jest
+      .fn()
+      .mockResolvedValue({ name: 'Large extras', helperText: null });
+    mock.$transaction.mockImplementation((callback: (tx: never) => unknown) =>
+      Promise.resolve(
+        callback({
+          modifierPreset: { create: modifierPresetCreate },
+          modifierPresetTranslation: {
+            create: modifierPresetTranslationCreate,
+          },
+        } as never),
+      ),
+    );
+    const service = buildService(mock);
+
+    const result = await service.createPreset({
+      restaurantId: RESTAURANT_ID,
+      name: 'Large extras',
+      helperText: null,
+      status: 'ACTIVE',
+      scope: 'SIZE',
+      minimumSelections: 0,
+      maximumSelections: 3,
+      displayOrder: 0,
+    });
+
+    expect(modifierPresetCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ scope: 'SIZE' }) as unknown,
+      select: expect.anything() as unknown,
+    });
+    expect(result.outcome === 'created' && result.data.scope).toBe('SIZE');
+  });
+});

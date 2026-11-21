@@ -848,6 +848,107 @@ describe('PublicOrdersService.createOrder -- Modifiers (FT-6A)', () => {
     expect(mock.orderCreate).not.toHaveBeenCalled();
   });
 
+  describe('Size Groups (DEC-074)', () => {
+    // The required SIZE_GROUP becomes a Size Group of `variant-large` only.
+    function sizeGroupProduct(chosenVariantId: string) {
+      return {
+        ...PRODUCT_WITH_MODIFIERS_ROW,
+        variants: [
+          {
+            id: chosenVariantId,
+            price: decimal('120.00'),
+            discountApplies: true,
+            translations: [{ name: 'Size' }],
+          },
+        ],
+        modifierGroups: PRODUCT_WITH_MODIFIERS_ROW.modifierGroups.map(
+          (group) => ({
+            ...group,
+            variantId: group.id === SIZE_GROUP_ID ? 'variant-large' : null,
+            sizeSettings: [],
+            options: group.options.map((option) => ({
+              ...option,
+              sizeSettings: [],
+            })),
+          }),
+        ),
+      };
+    }
+
+    it("another size's Group is neither required nor selectable", async () => {
+      const mock = buildPrismaMock();
+      mock.productFindMany.mockResolvedValue([
+        sizeGroupProduct('variant-small'),
+      ]);
+      const service = buildService(mock);
+
+      await service.createOrder({
+        ...VALID_INPUT,
+        items: [
+          {
+            productId: 'product-1',
+            variantId: 'variant-small',
+            quantity: 1,
+            modifierOptionIds: [],
+          },
+        ],
+      });
+      expect(mock.orderCreate).toHaveBeenCalledTimes(1);
+
+      const rejected = await service.createOrder({
+        ...VALID_INPUT,
+        items: [
+          {
+            productId: 'product-1',
+            variantId: 'variant-small',
+            quantity: 1,
+            modifierOptionIds: [SIZE_SMALL_ID],
+          },
+        ],
+      });
+      expect(rejected).toEqual({ outcome: 'itemsUnavailable' });
+      expect(mock.orderCreate).toHaveBeenCalledTimes(1);
+    });
+
+    it("the chosen size's own Group stays authoritative (required, priced)", async () => {
+      const mock = buildPrismaMock();
+      mock.productFindMany.mockResolvedValue([
+        sizeGroupProduct('variant-large'),
+      ]);
+      const service = buildService(mock);
+
+      const missing = await service.createOrder({
+        ...VALID_INPUT,
+        items: [
+          {
+            productId: 'product-1',
+            variantId: 'variant-large',
+            quantity: 1,
+            modifierOptionIds: [],
+          },
+        ],
+      });
+      expect(missing).toEqual({ outcome: 'itemsUnavailable' });
+
+      await service.createOrder({
+        ...VALID_INPUT,
+        items: [
+          {
+            productId: 'product-1',
+            variantId: 'variant-large',
+            quantity: 1,
+            modifierOptionIds: [SIZE_LARGE_ID],
+          },
+        ],
+      });
+      const args = mock.orderCreate.mock.calls[0][0] as {
+        data: { items: { create: { lineTotal: Prisma.Decimal }[] } };
+      };
+      // 120.00 size + 20.00 Large
+      expect(args.data.items.create[0].lineTotal.toFixed(2)).toBe('140.00');
+    });
+  });
+
   it('creates OrderItemModifier snapshot rows with resolved names/price, ordered by Group-then-Option displayOrder', async () => {
     const mock = buildPrismaMock();
     mock.productFindMany.mockResolvedValue([PRODUCT_WITH_MODIFIERS_ROW]);

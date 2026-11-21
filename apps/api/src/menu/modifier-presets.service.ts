@@ -4,6 +4,7 @@ import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import type {
   ModifierPresetOptionStatus,
+  ModifierPresetScope,
   ModifierPresetStatus,
 } from '../generated/prisma/client';
 import { isRestaurantLocaleActive } from './menu-translation.helper';
@@ -30,6 +31,9 @@ export interface ModifierPresetOptionView {
 export interface ModifierPresetView {
   id: string;
   status: ModifierPresetStatus;
+  // DEC-074: PRODUCT presets attach to a whole Product, SIZE presets to one
+  // size of a Product. Fixed at creation.
+  scope: ModifierPresetScope;
   name: string;
   helperText: string | null;
   minimumSelections: number;
@@ -59,6 +63,7 @@ export interface CreateModifierPresetInput extends AuthorizedRestaurantScope {
   name: string;
   helperText: string | null;
   status: ModifierPresetStatus;
+  scope: ModifierPresetScope;
   minimumSelections: number;
   maximumSelections: number;
   displayOrder: number;
@@ -190,6 +195,7 @@ const PRESET_OPTION_SAFE_SELECT = {
 const PRESET_SAFE_SELECT = {
   id: true,
   status: true,
+  scope: true,
   minimumSelections: true,
   maximumSelections: true,
   displayOrder: true,
@@ -280,6 +286,7 @@ export class ModifierPresetsService {
         data: {
           restaurantId: input.restaurantId,
           status: input.status,
+          scope: input.scope,
           minimumSelections: input.minimumSelections,
           maximumSelections: input.maximumSelections,
           displayOrder: input.displayOrder,
@@ -909,6 +916,7 @@ export class ModifierPresetsService {
   private toPresetView(preset: {
     id: string;
     status: ModifierPresetStatus;
+    scope: ModifierPresetScope;
     minimumSelections: number;
     maximumSelections: number;
     displayOrder: number;
@@ -926,6 +934,7 @@ export class ModifierPresetsService {
     return {
       id: preset.id,
       status: preset.status,
+      scope: preset.scope,
       name: preset.translations[0]?.name ?? '',
       helperText: preset.translations[0]?.helperText ?? null,
       minimumSelections: preset.minimumSelections,

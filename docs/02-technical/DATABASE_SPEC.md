@@ -4348,3 +4348,23 @@ Within **Restaurant Dashboard → Menu → Edit Product → Add-ons**, a Group m
 ### Release gates
 
 This is an **additive migration** that must be applied only after a backup and compatibility check on a truly disposable PostgreSQL test database before any approved production release. Run Prisma validation, Node/TypeScript/lint, Guest size-selection/cart tests and real PostgreSQL quote E2E; verify AR/EN, 320px phones, keyboard, disabled required selections, switched sizes, linked Preset updates, exact decimal overrides, cross-Tenant tampering, history snapshots and the old no-size Product path. No production migration/merge/deploy from this PR without owner authorization.
+
+---
+
+## Product Add-ons and Size Add-ons (DEC-074, 2026-11-21)
+
+### Staff setup
+
+**Restaurant Dashboard → Menu → Edit Product → Add-ons** is split into "Add-ons for every size" and one area per size of the Product (a Product without sizes shows only "Product add-ons"). Each area offers **Use preset** and **Create custom**: the whole-Product area lists only **Product presets**, a size area lists only **Size presets**. **Menu Management → Modifier Library** asks for the preset type ("For the whole product" / "For one size") when creating a preset and lists the two kinds separately; the type cannot be changed afterwards. The DEC-072 per-size override screen is no longer shown.
+
+### Domain and authority
+
+- `modifier_presets.scope` (`PRODUCT` | `SIZE`, enum `modifier_preset_scope`) is fixed at creation; existing presets were backfilled as `PRODUCT`.
+- `modifier_groups.variant_id` (nullable FK to `product_variants`, `ON DELETE RESTRICT`): NULL = Product Group, set = Size Group of that size of the same Product (cross-row invariant checked by the API; a foreign or unknown size is `404 VARIANT_NOT_FOUND`). It never changes after creation.
+- `POST .../modifier-groups` accepts an optional `variantId`; `POST .../modifier-groups/apply-preset` accepts `{ presetId, variantId? }`. A Product preset with a size, or a Size preset without one, is `422 MODIFIER_PRESET_SCOPE_MISMATCH`. Duplicates are `409 MODIFIER_PRESET_ALREADY_APPLIED`, guarded by the unique index (`product_id`, `variant_id`, `source_preset_id`) and the partial unique index `modifier_groups_product_preset_key` (`product_id`, `source_preset_id`) WHERE `variant_id` IS NULL. `POST .../modifier-presets` accepts `scope` (omitted = `PRODUCT`). Group and preset views return `variantId` / `scope`.
+- Public Menu omits a Size Group whose size is not active and lists every other active size in its `disabledVariantIds`, so every Guest renderer, Cart estimate and the shared `modifierGroupsForSize` need no change. NestJS re-resolves the chosen size when quoting and placing orders: only Product Groups and the chosen size's own Size Groups are selectable or required; anything else is the existing guest-safe `itemsUnavailable`. Snapshots keep the price at order time.
+- Deleting a never-ordered size deletes its Size Groups and their Options in the same transaction. DEC-072 size overrides already saved remain authoritative for Product Groups.
+
+### Release gates
+
+Additive migration `20261127090000_modifier_product_size_scope` (existing rows keep their behavior). Apply it first on a disposable PostgreSQL database after a backup and compatibility check; production rollout is a separate approval.

@@ -262,6 +262,11 @@ export function ProductEditor({
     locale: activeLocale === '__default__' ? (locales?.defaultLocale ?? 'en') : activeLocale,
     defaultLocale: locales?.defaultLocale ?? 'en',
     enabled: previewView === 'page',
+    // Add-ons exist only in edit mode, so the saved sizes are the ones that matter.
+    sizeIdsKey: (variants ?? [])
+      .filter((variant) => variant.status === 'ACTIVE')
+      .map((variant) => variant.id)
+      .join(','),
   });
 
   const requestRef = useRef(0);

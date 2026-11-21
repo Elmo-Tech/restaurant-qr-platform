@@ -61,11 +61,13 @@ jobs:
           public-orders.service.spec.ts
       - name: Check Guest per-size display and selections
         run: node --test apps/web/src/lib/public-menu/effective-modifiers.test.mjs
-      - name: Lint new Staff editor, service, controller and Guest selectors
+      # DEC-074 replaced the per-size override editor with Product/Size add-on areas.
+      - name: Lint Staff add-ons editor, Modifier Library and Guest selectors
         run: >-
           npm exec --workspace=apps/web -- eslint
-          src/app/staff/restaurants/\[restaurantId\]/menu/products/ModifierSizeSettingsEditor.tsx
           src/app/staff/restaurants/\[restaurantId\]/menu/products/ModifiersSection.tsx
+          src/app/staff/restaurants/\[restaurantId\]/menu/products/use-addons-preview.ts
+          src/app/staff/restaurants/\[restaurantId\]/menu/modifier-presets/ModifierPresetsWorkspace.tsx
           src/app/q/\[publicCode\]/ProductSheet.tsx
           src/lib/public-menu/effective-modifiers.ts
       - name: Lint new API size configuration service

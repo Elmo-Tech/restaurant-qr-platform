@@ -416,9 +416,11 @@ describe('ModifiersService -- localization closeout (FT-6A)', () => {
 
 const PRESET_ID = '44444444-4444-4444-8444-444444444444';
 const PRESET_OPTION_ID = '55555555-5555-4555-8555-555555555555';
+const VARIANT_ID = '66666666-6666-4666-8666-666666666666';
 
 const PRESET_ROW = {
   id: PRESET_ID,
+  scope: 'PRODUCT' as 'PRODUCT' | 'SIZE',
   minimumSelections: 1,
   maximumSelections: 1,
   translations: [{ locale: 'en', name: 'Standard Size', helperText: 'Choose one' }],
@@ -438,6 +440,9 @@ function buildApplyPresetMock() {
   const modifierGroupFindFirst = jest.fn().mockResolvedValue(null); // not yet applied
   const modifierGroupCount = jest.fn().mockResolvedValue(0);
   const modifierPresetFindFirst = jest.fn().mockResolvedValue(PRESET_ROW);
+  const productVariantFindFirst = jest
+    .fn()
+    .mockResolvedValue({ id: VARIANT_ID });
 
   const modifierGroupCreate = jest.fn().mockResolvedValue({
     id: 'group-new',
@@ -446,6 +451,7 @@ function buildApplyPresetMock() {
     maximumSelections: 1,
     displayOrder: 0,
     sourcePresetId: PRESET_ID,
+    variantId: null,
   });
   const modifierGroupTranslationCreateMany = jest.fn().mockResolvedValue({ count: 1 });
   const modifierGroupTranslationFindMany = jest
@@ -483,9 +489,11 @@ function buildApplyPresetMock() {
       product: { findFirst: productFindFirst },
       modifierGroup: { findFirst: modifierGroupFindFirst, count: modifierGroupCount },
       modifierPreset: { findFirst: modifierPresetFindFirst },
+      productVariant: { findFirst: productVariantFindFirst },
       $transaction,
     },
     productFindFirst,
+    productVariantFindFirst,
     modifierGroupFindFirst,
     modifierGroupCount,
     modifierPresetFindFirst,
@@ -507,6 +515,7 @@ describe('ModifiersService.applyPresetToProduct (FT-6B)', () => {
       restaurantId: RESTAURANT_ID,
       productId: WELL_FORMED_UUID,
       presetId: PRESET_ID,
+      variantId: null,
     });
 
     expect(result).toEqual({ outcome: 'productNotFound' });
@@ -521,6 +530,7 @@ describe('ModifiersService.applyPresetToProduct (FT-6B)', () => {
       restaurantId: RESTAURANT_ID,
       productId: WELL_FORMED_UUID,
       presetId: PRESET_ID,
+      variantId: null,
     });
 
     expect(result).toEqual({ outcome: 'presetNotFound' });
@@ -538,6 +548,7 @@ describe('ModifiersService.applyPresetToProduct (FT-6B)', () => {
       restaurantId: RESTAURANT_ID,
       productId: WELL_FORMED_UUID,
       presetId: PRESET_ID,
+      variantId: null,
     });
 
     expect(result.outcome).toBe('created');
@@ -573,6 +584,7 @@ describe('ModifiersService.applyPresetToProduct (FT-6B)', () => {
       restaurantId: RESTAURANT_ID,
       productId: WELL_FORMED_UUID,
       presetId: PRESET_ID,
+      variantId: null,
     });
 
     expect(result).toEqual({ outcome: 'alreadyApplied' });
@@ -592,9 +604,151 @@ describe('ModifiersService.applyPresetToProduct (FT-6B)', () => {
       restaurantId: RESTAURANT_ID,
       productId: WELL_FORMED_UUID,
       presetId: PRESET_ID,
+      variantId: null,
     });
 
     expect(result).toEqual({ outcome: 'alreadyApplied' });
+  });
+});
+
+describe('ModifiersService -- Product vs Size scope (DEC-074)', () => {
+  const SIZE_PRESET_ROW = { ...PRESET_ROW, scope: 'SIZE' as const };
+
+  it('a PRODUCT Preset given a size -> scopeMismatch, zero writes', async () => {
+    const mock = buildApplyPresetMock();
+    const service = new ModifiersService(mock.prisma as never);
+
+    const result = await service.applyPresetToProduct({
+      restaurantId: RESTAURANT_ID,
+      productId: WELL_FORMED_UUID,
+      presetId: PRESET_ID,
+      variantId: VARIANT_ID,
+    });
+
+    expect(result).toEqual({ outcome: 'scopeMismatch' });
+    expect(mock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('a SIZE Preset without a size -> scopeMismatch, zero writes', async () => {
+    const mock = buildApplyPresetMock();
+    mock.modifierPresetFindFirst.mockResolvedValue(SIZE_PRESET_ROW);
+    const service = new ModifiersService(mock.prisma as never);
+
+    const result = await service.applyPresetToProduct({
+      restaurantId: RESTAURANT_ID,
+      productId: WELL_FORMED_UUID,
+      presetId: PRESET_ID,
+      variantId: null,
+    });
+
+    expect(result).toEqual({ outcome: 'scopeMismatch' });
+    expect(mock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('a SIZE Preset given a size of ANOTHER Product/Restaurant -> variantNotFound', async () => {
+    const mock = buildApplyPresetMock();
+    mock.modifierPresetFindFirst.mockResolvedValue(SIZE_PRESET_ROW);
+    mock.productVariantFindFirst.mockResolvedValue(null);
+    const service = new ModifiersService(mock.prisma as never);
+
+    const result = await service.applyPresetToProduct({
+      restaurantId: RESTAURANT_ID,
+      productId: WELL_FORMED_UUID,
+      presetId: PRESET_ID,
+      variantId: VARIANT_ID,
+    });
+
+    expect(result).toEqual({ outcome: 'variantNotFound' });
+    expect(mock.productVariantFindFirst).toHaveBeenCalledWith({
+      where: {
+        id: VARIANT_ID,
+        productId: 'product-1',
+        restaurantId: RESTAURANT_ID,
+      },
+      select: { id: true },
+    });
+    expect(mock.$transaction).not.toHaveBeenCalled();
+  });
+
+  it('a SIZE Preset on its size creates a Size Group; duplicates are checked per size', async () => {
+    const mock = buildApplyPresetMock();
+    mock.modifierPresetFindFirst.mockResolvedValue(SIZE_PRESET_ROW);
+    mock.modifierGroupCreate.mockResolvedValue({
+      id: 'group-new',
+      status: 'ACTIVE',
+      minimumSelections: 1,
+      maximumSelections: 1,
+      displayOrder: 0,
+      sourcePresetId: PRESET_ID,
+      variantId: VARIANT_ID,
+    });
+    const service = new ModifiersService(mock.prisma as never);
+
+    const result = await service.applyPresetToProduct({
+      restaurantId: RESTAURANT_ID,
+      productId: WELL_FORMED_UUID,
+      presetId: PRESET_ID,
+      variantId: VARIANT_ID,
+    });
+
+    expect(result.outcome).toBe('created');
+    expect(result.outcome === 'created' && result.data.variantId).toBe(
+      VARIANT_ID,
+    );
+    expect(mock.modifierGroupFindFirst).toHaveBeenCalledWith({
+      where: {
+        productId: 'product-1',
+        variantId: VARIANT_ID,
+        sourcePresetId: PRESET_ID,
+      },
+      select: { id: true },
+    });
+    expect(mock.modifierGroupCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({
+        variantId: VARIANT_ID,
+        sourcePresetId: PRESET_ID,
+      }) as unknown,
+      select: expect.anything() as unknown,
+    });
+  });
+
+  it('a PRODUCT Preset creates a Product Group (no size)', async () => {
+    const mock = buildApplyPresetMock();
+    const service = new ModifiersService(mock.prisma as never);
+
+    await service.applyPresetToProduct({
+      restaurantId: RESTAURANT_ID,
+      productId: WELL_FORMED_UUID,
+      presetId: PRESET_ID,
+      variantId: null,
+    });
+
+    expect(mock.productVariantFindFirst).not.toHaveBeenCalled();
+    expect(mock.modifierGroupCreate).toHaveBeenCalledWith({
+      data: expect.objectContaining({ variantId: null }) as unknown,
+      select: expect.anything() as unknown,
+    });
+  });
+
+  it('a custom Group for a size of ANOTHER Product -> variantNotFound, zero writes', async () => {
+    const mock = buildApplyPresetMock();
+    mock.productVariantFindFirst.mockResolvedValue(null);
+    const service = new ModifiersService(mock.prisma as never);
+
+    const result = await service.createModifierGroup({
+      restaurantId: RESTAURANT_ID,
+      productId: WELL_FORMED_UUID,
+      name: 'Large extras',
+      helperText: null,
+      status: 'ACTIVE',
+      minimumSelections: 0,
+      maximumSelections: 3,
+      displayOrder: 0,
+      variantId: VARIANT_ID,
+    });
+
+    expect(result).toEqual({ outcome: 'variantNotFound' });
+    expect(mock.$transaction).not.toHaveBeenCalled();
   });
 });
 

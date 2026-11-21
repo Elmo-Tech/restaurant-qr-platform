@@ -13,6 +13,7 @@ import {
   Post,
   Put,
   Req,
+  UnprocessableEntityException,
   UseGuards,
 } from '@nestjs/common';
 import { AllBranchesRequiredGuard } from '../auth/guard/all-branches-required.guard';
@@ -69,6 +70,17 @@ const PRESET_ALREADY_APPLIED_RESPONSE = {
   error: {
     code: 'MODIFIER_PRESET_ALREADY_APPLIED',
     message: 'This preset is already attached to this Product.',
+  },
+};
+// DEC-074: same code/message as ProductVariantsController's own response.
+const VARIANT_NOT_FOUND_RESPONSE = {
+  error: { code: 'VARIANT_NOT_FOUND', message: 'Product variant not found.' },
+};
+const PRESET_SCOPE_MISMATCH_RESPONSE = {
+  error: {
+    code: 'MODIFIER_PRESET_SCOPE_MISMATCH',
+    message:
+      'A product preset applies to the whole Product; a size preset needs a size of this Product.',
   },
 };
 const HAS_HISTORICAL_REFERENCES_RESPONSE = {
@@ -152,9 +164,13 @@ export class ModifiersController {
       minimumSelections: dto.minimumSelections,
       maximumSelections: dto.maximumSelections,
       displayOrder: dto.displayOrder,
+      variantId: dto.variantId ?? null,
     });
     if (result.outcome === 'productNotFound') {
       throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'variantNotFound') {
+      throw new NotFoundException(VARIANT_NOT_FOUND_RESPONSE);
     }
     if (result.outcome === 'invalidSelectionRange') {
       throw new BadRequestException(INVALID_SELECTION_RANGE_RESPONSE);
@@ -183,12 +199,19 @@ export class ModifiersController {
       restaurantId: request.restaurantAccess.restaurantId,
       productId,
       presetId: dto.presetId,
+      variantId: dto.variantId ?? null,
     });
     if (result.outcome === 'productNotFound') {
       throw new NotFoundException(PRODUCT_NOT_FOUND_RESPONSE);
     }
     if (result.outcome === 'presetNotFound') {
       throw new NotFoundException(PRESET_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'variantNotFound') {
+      throw new NotFoundException(VARIANT_NOT_FOUND_RESPONSE);
+    }
+    if (result.outcome === 'scopeMismatch') {
+      throw new UnprocessableEntityException(PRESET_SCOPE_MISMATCH_RESPONSE);
     }
     if (result.outcome === 'alreadyApplied') {
       throw new ConflictException(PRESET_ALREADY_APPLIED_RESPONSE);
