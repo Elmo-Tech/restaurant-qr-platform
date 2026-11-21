@@ -19,6 +19,7 @@ import { ConfirmDialog } from '../../../../../../components/ui/ConfirmDialog';
 import { FormField } from '../../../../../../components/ui/FormField';
 import { Input } from '../../../../../../components/ui/Input';
 import { PageHeader } from '../../../../../../components/ui/PageHeader';
+import { OpenGuestMenuButton } from '../../../../../../components/menu/OpenGuestMenuButton';
 import { SectionCard } from '../../../../../../components/ui/SectionCard';
 import { StaffFeedbackToast, type StaffFeedbackVariant } from '../../../../../../components/staff/StaffFeedbackToast';
 import { focusInvalidFormField } from '../../../../../../lib/staff/focus-invalid-field';
@@ -233,7 +234,17 @@ export function ProfileWorkspace({
   return (
     <div className="flex flex-col gap-6">
       <SettingsBackLink restaurantId={restaurantId} />
-      <PageHeader title={t('settingsHub.profile')} description={t('settingsHub.profile.description')} />
+      {/*
+        The guest-menu entry lives in the header on Profile (the shell's floating
+        button is not rendered here -- it covered the form inputs, the WhatsApp
+        country picker and Save buttons). Same shared link and dropdown; hidden in
+        the same cases the floating button was; icon-only on phones.
+      */}
+      <PageHeader
+        title={t('settingsHub.profile')}
+        description={t('settingsHub.profile.description')}
+        actions={<OpenGuestMenuButton variant="secondary" hideWhenUnavailable compactOnPhone />}
+      />
 
       {!canManage && hasRestaurantManagePermission ? (
         <Alert variant="info">{t('profile.needsFullScope')}</Alert>
