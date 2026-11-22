@@ -104,7 +104,32 @@ export interface PasswordHasher {
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-function isValidTimezone(value: string): boolean {
+/**
+ * The provisioning input rules, exported so a draft (the onboarding wizard) can check its fields with
+ * exactly the rules provisioning will apply later, instead of a second copy of them.
+ */
+export const PROVISION_LIMITS = {
+  restaurantNameMin: 2,
+  restaurantNameMax: 100,
+  branchNameMin: 1,
+  branchNameMax: 100,
+  ownerEmailMax: 254,
+} as const;
+
+/** A trimmed, lower-cased e-mail as provisioning accepts it. */
+export function isValidOwnerEmail(normalizedEmail: string): boolean {
+  return (
+    EMAIL_PATTERN.test(normalizedEmail) &&
+    normalizedEmail.length <= PROVISION_LIMITS.ownerEmailMax
+  );
+}
+
+/** A 3-letter ISO currency code (already upper-cased). */
+export function isValidCurrencyCode(value: string): boolean {
+  return /^[A-Z]{3}$/.test(value);
+}
+
+export function isValidTimezone(value: string): boolean {
   try {
     new Intl.DateTimeFormat('en-US', { timeZone: value });
     return true;
@@ -130,16 +155,22 @@ export function validateProvisionInput(input: ProvisionRestaurantInput):
   const timezone = input.timezone.trim();
   const defaultLocale = normalizePlatformLocale(input.defaultLocale);
 
-  if (restaurantName.length < 2 || restaurantName.length > 100) {
+  if (
+    restaurantName.length < PROVISION_LIMITS.restaurantNameMin ||
+    restaurantName.length > PROVISION_LIMITS.restaurantNameMax
+  ) {
     problems.push('restaurant name must be 2-100 characters');
   }
-  if (branchName.length < 1 || branchName.length > 100) {
+  if (
+    branchName.length < PROVISION_LIMITS.branchNameMin ||
+    branchName.length > PROVISION_LIMITS.branchNameMax
+  ) {
     problems.push('branch name must be 1-100 characters');
   }
-  if (!EMAIL_PATTERN.test(ownerEmail) || ownerEmail.length > 254) {
+  if (!isValidOwnerEmail(ownerEmail)) {
     problems.push('owner email is not a valid email address');
   }
-  if (!/^[A-Z]{3}$/.test(currencyCode)) {
+  if (!isValidCurrencyCode(currencyCode)) {
     problems.push('currency must be a 3-letter ISO code such as EGP');
   }
   if (defaultLocale === null) {
