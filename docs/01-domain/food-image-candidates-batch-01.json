@@ -1,0 +1,406 @@
+{
+  "batchId": "wayta-cc0-food-photos-2026-11-b01",
+  "version": 1,
+  "discoveredAt": "2026-11-15",
+  "status": "CANDIDATES_NOT_APPROVED",
+  "sourcePolicy": "Only individual WordPress Photo Directory CC0 claims; independent source/visual rights review is required before approval",
+  "images": [
+    {
+      "id": "beef-cheeseburger-closeup",
+      "name": "Cheeseburger close-up",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/9146aa2d8f/",
+      "wpPhotoId": "9146aa2d8f",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "BURGER",
+        "CHEESEBURGER"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Golden sesame bun, melted cheese and a visible meat patty"
+    },
+    {
+      "id": "grilled-chicken-burger",
+      "name": "Grilled chicken burger",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/1156ac4e93/",
+      "wpPhotoId": "1156ac4e93",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "BURGER",
+        "CHICKEN"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Chicken burger with cheese and barbecue sauce"
+    },
+    {
+      "id": "vegetable-pizza-closeup",
+      "name": "Vegetable pizza",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/542696f2b5/",
+      "wpPhotoId": "542696f2b5",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "PIZZA"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Close-up vegetable pizza; do not tag as Margherita"
+    },
+    {
+      "id": "chicken-pizza-olives",
+      "name": "Chicken and olive pizza",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/13697c1e7c/",
+      "wpPhotoId": "13697c1e7c",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "PIZZA",
+        "CHICKEN"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Chicken pizza with black olives"
+    },
+    {
+      "id": "pepperoni-ham-pizza",
+      "name": "Meat-topped pizza",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/4316aeac22/",
+      "wpPhotoId": "4316aeac22",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "PIZZA"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Pepperoni and ham pizza; no single-meat product specificity"
+    },
+    {
+      "id": "grilled-beef-steak-slate",
+      "name": "Grilled beef steak on slate",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/2336ac62a6/",
+      "wpPhotoId": "2336ac62a6",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "STEAK",
+        "BEEF"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Dark slate composition with fries; tag the steak, not the side"
+    },
+    {
+      "id": "beef-steak-vegetables",
+      "name": "Beef steak plated with vegetables",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/3516aa96a9/",
+      "wpPhotoId": "3516aa96a9",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "STEAK",
+        "BEEF"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Beef steak plate with sides"
+    },
+    {
+      "id": "grilled-chicken-skewers",
+      "name": "Grilled chicken skewers",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/2846ae9912/",
+      "wpPhotoId": "2846ae9912",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "CHICKEN",
+        "GRILLED_CHICKEN_DISH"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Chargrilled chicken kebab skewers and pita triangles"
+    },
+    {
+      "id": "grilled-chicken-plate",
+      "name": "Grilled chicken plate",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/266a844568/",
+      "wpPhotoId": "266a844568",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "CHICKEN",
+        "GRILLED_CHICKEN_DISH"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Charred grilled chicken pieces"
+    },
+    {
+      "id": "spaghetti-bolognese",
+      "name": "Spaghetti with ground beef and cheese",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/9466a0873f/",
+      "wpPhotoId": "9466a0873f",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "PASTA",
+        "SPAGHETTI",
+        "BEEF"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Spaghetti beef sauce; avoid a generic BEEF photo suggestion"
+    },
+    {
+      "id": "spaghetti-carbonara",
+      "name": "Spaghetti carbonara",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/480677d127/",
+      "wpPhotoId": "480677d127",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "PASTA",
+        "SPAGHETTI"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Carbonara close-up; visibly includes guanciale"
+    },
+    {
+      "id": "leaf-art-latte",
+      "name": "Leaf-art latte",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/896698dfef/",
+      "wpPhotoId": "896698dfef",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "COFFEE",
+        "LATTE"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Top-down latte with leaf-patterned art"
+    },
+    {
+      "id": "iced-latte-layers",
+      "name": "Layered iced latte",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/843696866c/",
+      "wpPhotoId": "843696866c",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "ICED_LATTE",
+        "COFFEE"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Iced milk and espresso layers"
+    },
+    {
+      "id": "iced-coffee-cafe",
+      "name": "Iced coffee in cafe",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/89169f61d9/",
+      "wpPhotoId": "89169f61d9",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "ICED_COFFEE"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Iced coffee with foam and ambient café lighting"
+    },
+    {
+      "id": "virgin-mojito-mint-lime",
+      "name": "Virgin mojito with mint and lime",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/463697a13b/",
+      "wpPhotoId": "463697a13b",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "VIRGIN_MOJITO"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Non-alcoholic mint and lime drink"
+    },
+    {
+      "id": "chocolate-cake-portrait",
+      "name": "Chocolate cake dessert",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/1616aa9622/",
+      "wpPhotoId": "1616aa9622",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "CHOCOLATE_CAKE"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Individual dessert, chocolate cake"
+    },
+    {
+      "id": "berry-cheesecake",
+      "name": "Berry-glazed cheesecake",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/43169917aa/",
+      "wpPhotoId": "43169917aa",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "CHEESECAKE"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Decorated round cheesecake with berry glaze"
+    },
+    {
+      "id": "chocolate-filled-donut",
+      "name": "Chocolate-filled donut",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/52068c293b/",
+      "wpPhotoId": "52068c293b",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "DONUT"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Close-up chocolate-filled donut"
+    },
+    {
+      "id": "layered-chocolate-cake",
+      "name": "Layered chocolate cake",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/74669d77e9/",
+      "wpPhotoId": "74669d77e9",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "CHOCOLATE_CAKE"
+      ],
+      "sectors": [
+        "SWEETS",
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Layered cake slice with white frosting and caramel"
+    },
+    {
+      "id": "chicken-qorma-home-meal",
+      "name": "Chicken qorma with roti",
+      "sourcePageUrl": "https://wordpress.org/photos/photo/3056a3cf91/",
+      "wpPhotoId": "3056a3cf91",
+      "licenseClaim": "CC0",
+      "licenseProofUrl": "https://wordpress.org/photos/license/",
+      "approved": false,
+      "licenseReviewedAt": null,
+      "expectedSha256": null,
+      "tagCodes": [
+        "CHICKEN",
+        "CHICKEN_STEW"
+      ],
+      "sectors": [
+        "HOME_FOOD"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "notes": "Chicken curry/stew plate with traditional flatbread; review exact dish match"
+    }
+  ]
+}
