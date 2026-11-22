@@ -11,7 +11,7 @@ import {
   todayInCairo,
 } from './billing/subscription-dates';
 import {
-  CUSTOMER_FEATURE_KEYS,
+  DEFAULT_ON_CUSTOMER_FEATURE_KEYS,
   resolveFeatures,
 } from '../entitlements/features';
 import {
@@ -285,7 +285,7 @@ export class PlatformOverviewService {
         row.features,
         row.package?.features.map((f) => f.feature),
       );
-      return CUSTOMER_FEATURE_KEYS.some((key) => !effective[key]);
+      return DEFAULT_ON_CUSTOMER_FEATURE_KEYS.some((key) => !effective[key]);
     }).length;
   }
 }

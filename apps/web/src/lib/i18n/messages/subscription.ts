@@ -65,6 +65,8 @@ export const subscriptionMessages = defineMessages({
     'subscription.feature.KITCHEN.hint': 'Accepted orders appear as tickets for the kitchen to prepare.',
     'subscription.feature.OFFERS': 'Offers and bundles',
     'subscription.feature.OFFERS.hint': 'Fixed-price offers with choices, shown first in your guest menu.',
+    'subscription.feature.PROMOTIONS': 'Advanced promotions',
+    'subscription.feature.PROMOTIONS.hint': 'Category, menu, cart, quantity and delivery promotions; guests always get the single best saving.',
 
     'subscription.upgrade.noPrice': 'Price on request',
     'subscription.upgrade.offer': '{percent}% off',
@@ -162,6 +164,8 @@ export const subscriptionMessages = defineMessages({
     'subscription.feature.KITCHEN.hint': 'الطلبات المقبولة تظهر كتذاكر ليحضّرها المطبخ.',
     'subscription.feature.OFFERS': 'العروض والباندل',
     'subscription.feature.OFFERS.hint': 'عروض بسعر ثابت مع اختيارات، تظهر أولًا في منيو الضيف.',
+    'subscription.feature.PROMOTIONS': 'العروض الترويجية المتقدمة',
+    'subscription.feature.PROMOTIONS.hint': 'خصومات على قسم أو منيو أو السلة أو الكمية أو التوصيل، ويحصل الضيف دائمًا على أكبر توفير واحد.',
 
     'subscription.upgrade.noPrice': 'السعر عند الطلب',
     'subscription.upgrade.offer': 'خصم {percent}%',

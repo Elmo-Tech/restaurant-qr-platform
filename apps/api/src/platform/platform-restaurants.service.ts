@@ -9,7 +9,7 @@ import {
 } from './billing/subscription-brief';
 import { todayInCairo } from './billing/subscription-dates';
 import {
-  CUSTOMER_FEATURE_KEYS,
+  DEFAULT_ON_CUSTOMER_FEATURE_KEYS,
   FEATURE_KEYS,
   resolveFeatures,
   type FeatureKey,
@@ -736,5 +736,5 @@ function disabledFeatures(
     overrides,
     pkg?.features.map((f) => f.feature),
   );
-  return CUSTOMER_FEATURE_KEYS.filter((key) => !effective[key]);
+  return DEFAULT_ON_CUSTOMER_FEATURE_KEYS.filter((key) => !effective[key]);
 }

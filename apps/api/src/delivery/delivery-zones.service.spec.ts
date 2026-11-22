@@ -17,7 +17,7 @@ const ZONE_ROW = {
   minimumOrder: decimal('150'),
   status: 'ACTIVE' as const,
   displayOrder: 0,
-  _count: { orders: 0 },
+  _count: { orders: 0, promotionLinks: 0 },
 };
 
 function build() {
@@ -31,7 +31,7 @@ function build() {
   const zoneFindFirst = jest.fn().mockResolvedValue({
     id: ZONE_ID,
     restaurant: { defaultLocale: 'en' },
-    _count: { orders: 0 },
+    _count: { orders: 0, promotionLinks: 0 },
   });
   const zoneTranslationUpsert = jest.fn().mockResolvedValue({});
   const zoneTranslationDeleteMany = jest.fn().mockResolvedValue({ count: 0 });
@@ -115,7 +115,32 @@ describe('DeliveryZonesService', () => {
         name: 'Main',
         translations: [],
         status: 'ACTIVE',
-        deliveryZones: [{ ...ZONE_ROW, _count: { orders: 3 } }],
+        deliveryZones: [
+          { ...ZONE_ROW, _count: { orders: 3, promotionLinks: 0 } },
+        ],
+      },
+    ]);
+
+    const result = await m.service.listDeliveryBranches({
+      restaurantId: RESTAURANT_ID,
+      membershipId: 'm',
+      allBranches: true,
+    });
+
+    expect(result[0].zones[0].canDelete).toBe(false);
+  });
+
+  it('a zone targeted by a promotion (no Orders) reports canDelete=false', async () => {
+    const m = build();
+    m.branchFindMany.mockResolvedValue([
+      {
+        id: BRANCH_ID,
+        name: 'Main',
+        translations: [],
+        status: 'ACTIVE',
+        deliveryZones: [
+          { ...ZONE_ROW, _count: { orders: 0, promotionLinks: 1 } },
+        ],
       },
     ]);
 
@@ -279,7 +304,10 @@ describe('DeliveryZonesService', () => {
 
   it('delete is refused when the zone has Orders (deactivate instead)', async () => {
     const m = build();
-    m.zoneFindFirst.mockResolvedValue({ id: ZONE_ID, _count: { orders: 2 } });
+    m.zoneFindFirst.mockResolvedValue({
+      id: ZONE_ID,
+      _count: { orders: 2, promotionLinks: 0 },
+    });
 
     const result = await m.service.deleteZone({ restaurantId: RESTAURANT_ID, zoneId: ZONE_ID });
 
@@ -305,5 +333,89 @@ describe('DeliveryZonesService', () => {
     const result = await m.service.deleteZone({ restaurantId: RESTAURANT_ID, zoneId: ZONE_ID });
 
     expect(result).toEqual({ outcome: 'hasOrders' });
+  });
+
+  it('delete is refused with usedByPromotions (not hasOrders) when only a promotion targets the zone', async () => {
+    const m = build();
+    m.zoneFindFirst.mockResolvedValue({
+      id: ZONE_ID,
+      _count: { orders: 0, promotionLinks: 1 },
+    });
+
+    const result = await m.service.deleteZone({
+      restaurantId: RESTAURANT_ID,
+      zoneId: ZONE_ID,
+    });
+
+    expect(result).toEqual({ outcome: 'usedByPromotions' });
+    expect(m.zoneDelete).not.toHaveBeenCalled();
+  });
+
+  it('a zone with Orders AND promotion targets is reported as hasOrders (Orders take precedence)', async () => {
+    const m = build();
+    m.zoneFindFirst.mockResolvedValue({
+      id: ZONE_ID,
+      _count: { orders: 1, promotionLinks: 2 },
+    });
+
+    const result = await m.service.deleteZone({
+      restaurantId: RESTAURANT_ID,
+      zoneId: ZONE_ID,
+    });
+
+    expect(result).toEqual({ outcome: 'hasOrders' });
+    expect(m.zoneDelete).not.toHaveBeenCalled();
+  });
+
+  function foreignKeyError(constraint: string): Error {
+    const fk = Object.create(
+      Prisma.PrismaClientKnownRequestError.prototype,
+    ) as Error & {
+      code: string;
+      meta: unknown;
+    };
+    fk.code = 'P2003';
+    fk.meta = {
+      driverAdapterError: { cause: { constraint: { index: constraint } } },
+    };
+    return fk;
+  }
+
+  it('a race where a promotion targets the zone mid-delete is mapped by constraint name to usedByPromotions', async () => {
+    const m = build();
+    m.zoneDelete.mockRejectedValue(
+      foreignKeyError('promotion_delivery_zones_zone_scope_fkey'),
+    );
+
+    const result = await m.service.deleteZone({
+      restaurantId: RESTAURANT_ID,
+      zoneId: ZONE_ID,
+    });
+
+    expect(result).toEqual({ outcome: 'usedByPromotions' });
+  });
+
+  it('a race on the Order foreign key (by constraint name) stays hasOrders', async () => {
+    const m = build();
+    m.zoneDelete.mockRejectedValue(
+      foreignKeyError('orders_delivery_zone_id_fkey'),
+    );
+
+    const result = await m.service.deleteZone({
+      restaurantId: RESTAURANT_ID,
+      zoneId: ZONE_ID,
+    });
+
+    expect(result).toEqual({ outcome: 'hasOrders' });
+  });
+
+  it('a non-foreign-key failure during delete is rethrown, never mapped', async () => {
+    const m = build();
+    const boom = new Error('connection lost');
+    m.zoneDelete.mockRejectedValue(boom);
+
+    await expect(
+      m.service.deleteZone({ restaurantId: RESTAURANT_ID, zoneId: ZONE_ID }),
+    ).rejects.toBe(boom);
   });
 });

@@ -2179,6 +2179,8 @@ Never returned: a raw `RestaurantLocale` `id`/`restaurantId`. The default locale
 
 **Bilingual names.** `POST /restaurants/{id}/branches`, `PATCH /restaurants/{id}/branches/{branchId}`, `POST /restaurants/{id}/branches/{branchId}/delivery-zones` and `PATCH /restaurants/{id}/delivery-zones/{zoneId}` accept an optional `translations: [{ locale, name }]` (locales `en` / `ar`, no repeats, name up to 100 characters). `name` remains the default-locale name; an empty translation name removes that locale; the default locale cannot be removed (`400 DEFAULT_TRANSLATION_REQUIRED`). Branch list/detail, `/auth/me` branches, and the Delivery overview return `translations`. The public menu returns already-resolved names (requested locale, then default locale, then `name`). `POST /public/qr/{publicCode}/orders` accepts an optional display-only `locale` (`en` | `ar`) used to localize Branch and zone names in the confirmation; it never affects pricing, validation or the stored snapshot.
 
+**Delivery zone delete (amended 2026-11-22, Unified Promotions B1).** `DELETE /restaurants/{id}/delivery-zones/{zoneId}` (`restaurant.manage`, all-Branches scope, CSRF) answers `204` when nothing references the zone; `404 DELIVERY_ZONE_NOT_FOUND` for a malformed / unknown / foreign id; `409 DELIVERY_ZONE_HAS_ORDERS` when Orders reference it (deactivate instead); `409 DELIVERY_ZONE_USED_BY_PROMOTIONS` when a Promotion targets it (change the Promotion or deactivate the zone). When both apply, `DELIVERY_ZONE_HAS_ORDERS` is returned. The Delivery overview's `canDelete` is `false` in both conflict cases.
+
 ---
 
 # 108E. Menu/Category/Product Translations (Settled, LOC-2B)

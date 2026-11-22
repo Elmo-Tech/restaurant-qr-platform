@@ -435,6 +435,13 @@ Delivery is deferred.
 
 Do not add Delivery behavior to V1 without approval.
 
+> **Superseded note (added 2026-11-21).** The lines above are kept as the original rule. Delivery was approved for
+> V1 by DEC-034 (zone-based Delivery, `VERSION_ROADMAP.md` "Order types — updated") and implemented as the `DELIVERY`
+> order type (`OrderType` in `apps/api/prisma/schema.prisma`; Delivery Zones with fee and minimum, minimum on the net
+> payable per DEC-036). Delivery-fee promotions (`DELIVERY` scope, one independent winner on the zone fee) were
+> approved by the DEC-075 amendment of 2026-11-21 (B-D2). `TAKEAWAY` from the list above is not an implemented order
+> type (the code has `DINE_IN`, `PICKUP`, `DELIVERY`).
+
 ---
 
 # 20. Order Sources
@@ -677,6 +684,14 @@ Targets:
 
 Category + Fixed Amount is invalid in V1.
 
+> **Amended by DEC-075 (2026-11-21, Product Owner decision B-D2).** The lines above are kept as the original rule.
+> The Promotion domain is extended with `MENU`, `QUANTITY` and `DELIVERY` scopes. Mapping to the Unified Promotions
+> engine (`apps/api/src/promotions/promotion-engine.ts`): `ORDER` → `CART`; `PRODUCT` → the existing Product
+> discount (`products.discount_*`, no Promotion row); `CATEGORY` → `CATEGORY`; new: `MENU`, `QUANTITY` (unit or
+> distinct-product threshold), `DELIVERY` (delivery fee). Types stay `PERCENTAGE` / `FIXED_AMOUNT`; Fixed Amount stays
+> invalid for `CATEGORY` and is also invalid for `MENU`. Availability is gated by the opt-in `PROMOTIONS` feature key.
+> Details: `docs/01-domain/PROMOTIONS_SPEC.md` "Implementation Amendment: Unified Promotions".
+
 ---
 
 # 36. Promotion Conflict
@@ -697,6 +712,17 @@ Do not reproduce it in:
 - n8n
 - AI prompt
 - SQL shortcuts
+
+> **Amended by DEC-075 (2026-11-21, Product Owner) for the Unified Promotions engine.** The lines above are kept as
+> the original rule. For the Unified Promotions engine (`apps/api/src/promotions/promotion-engine.ts`) the rule is
+> **maximum savings first**: per product line the greatest saving wins (legacy Product discount, CATEGORY, MENU);
+> on an exact tie the lower priority number wins, then PRODUCT > CATEGORY > MENU, then the stable promotion id.
+> The single CART / QUANTITY winner (greatest saving, then priority, then id) is used only when it saves
+> **strictly more** than all item winners together, and never combined with them. Delivery promotions are
+> independent of that choice: one winner on the delivery fee (greatest saving, then priority, then id).
+> Details: `docs/01-domain/PROMOTIONS_SPEC.md` "Implementation Amendment: Unified Promotions". §35 (targets) is
+> amended by the same decision (B-D2, 2026-11-21, see the note under §35); the DEC-034 release label carries a dated
+> note under DEC-034.
 
 ---
 

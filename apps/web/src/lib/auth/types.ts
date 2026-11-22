@@ -12,8 +12,10 @@ export type FeatureKey =
   | 'KITCHEN'
   /** Offers / Bundles (DEC-069): the Offers page in the dashboard and the Offers strip in the Guest menu. */
   | 'OFFERS'
-  /** AI menu import (DEC-057): the one opt-in feature, OFF unless the platform turns it on. */
-  | 'MENU_IMPORT';
+  /** AI menu import (DEC-057): opt-in and platform-only, OFF unless the platform turns it on. */
+  | 'MENU_IMPORT'
+  /** Advanced promotions (DEC-075): opt-in, OFF unless a package lists it or a restaurant override enables it. */
+  | 'PROMOTIONS';
 
 export type FeatureMap = Record<FeatureKey, boolean>;
 /**

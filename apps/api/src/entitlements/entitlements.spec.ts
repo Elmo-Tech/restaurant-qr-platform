@@ -3,7 +3,9 @@ import {
   ALL_FEATURES,
   CUSTOMER_FEATURE_KEYS,
   FEATURE_KEYS,
+  DEFAULT_ON_CUSTOMER_FEATURE_KEYS,
   OPT_IN_FEATURES,
+  PLATFORM_ONLY_FEATURES,
   resolveFeatures,
   type FeatureMap,
 } from './features';
@@ -16,8 +18,12 @@ const SWITCHES = {
   whatsappNumber: '+201012345678',
 };
 
-/** What a Restaurant with no package and no override gets: everything except the opt-in features (DEC-057). */
-const NO_PACKAGE_DEFAULTS: FeatureMap = { ...ALL_FEATURES, MENU_IMPORT: false };
+/** What a Restaurant with no package and no override gets: everything except the opt-in features (DEC-057, DEC-075). */
+const NO_PACKAGE_DEFAULTS: FeatureMap = {
+  ...ALL_FEATURES,
+  MENU_IMPORT: false,
+  PROMOTIONS: false,
+};
 
 const without = (...keys: (typeof FEATURE_KEYS)[number][]): FeatureMap => ({
   ...ALL_FEATURES,
@@ -29,7 +35,7 @@ describe('feature entitlements', () => {
     expect(resolveFeatures([])).toEqual(NO_PACKAGE_DEFAULTS);
     expect(Object.values(ALL_FEATURES).every(Boolean)).toBe(true);
     expect(Object.keys(ALL_FEATURES)).toEqual([...FEATURE_KEYS]);
-    expect(OPT_IN_FEATURES).toEqual(['MENU_IMPORT']);
+    expect(OPT_IN_FEATURES).toEqual(['MENU_IMPORT', 'PROMOTIONS']);
   });
 
   it('Offers (DEC-069) is a customer feature: on without a package, only in a package that lists it, overridable per restaurant', () => {
@@ -41,8 +47,12 @@ describe('feature entitlements', () => {
     expect(resolveFeatures([], ['KITCHEN']).OFFERS).toBe(false);
     expect(resolveFeatures([], ['OFFERS']).OFFERS).toBe(true);
     // a restaurant override wins in both directions and changes nothing else
-    expect(resolveFeatures([{ feature: 'OFFERS', enabled: false }]).OFFERS).toBe(false);
-    expect(resolveFeatures([{ feature: 'OFFERS', enabled: true }], []).OFFERS).toBe(true);
+    expect(
+      resolveFeatures([{ feature: 'OFFERS', enabled: false }]).OFFERS,
+    ).toBe(false);
+    expect(
+      resolveFeatures([{ feature: 'OFFERS', enabled: true }], []).OFFERS,
+    ).toBe(true);
     expect(resolveFeatures([{ feature: 'OFFERS', enabled: false }])).toEqual({
       ...NO_PACKAGE_DEFAULTS,
       OFFERS: false,
@@ -72,14 +82,63 @@ describe('feature entitlements', () => {
     // switching it on changes no other feature
     expect({
       ...resolveFeatures([{ feature: 'MENU_IMPORT', enabled: true }]),
-    }).toEqual(ALL_FEATURES);
+    }).toEqual({ ...NO_PACKAGE_DEFAULTS, MENU_IMPORT: true });
   });
 
-  it('customers never see the opt-in features', () => {
-    expect(CUSTOMER_FEATURE_KEYS).not.toContain('MENU_IMPORT');
-    expect(CUSTOMER_FEATURE_KEYS).toHaveLength(
-      FEATURE_KEYS.length - OPT_IN_FEATURES.length,
+  it('advanced promotions (DEC-075) are opt-in: off without a package, off in every package that does not list them, only an override or a listing turns them on', () => {
+    expect(FEATURE_KEYS).toContain('PROMOTIONS');
+    expect(OPT_IN_FEATURES).toContain('PROMOTIONS');
+    // no package: every feature EXCEPT the opt-in ones, so a restaurant without a package does NOT get them
+    expect(resolveFeatures([]).PROMOTIONS).toBe(false);
+    expect(resolveFeatures([], null).PROMOTIONS).toBe(false);
+    // existing packages store an explicit list without PROMOTIONS: off (no silent enablement)
+    expect(resolveFeatures([], ['KITCHEN', 'OFFERS']).PROMOTIONS).toBe(false);
+    expect(
+      resolveFeatures([], DEFAULT_ON_CUSTOMER_FEATURE_KEYS).PROMOTIONS,
+    ).toBe(false);
+    expect(resolveFeatures([], ['PROMOTIONS']).PROMOTIONS).toBe(true);
+    // a restaurant override wins in both directions
+    expect(
+      resolveFeatures([{ feature: 'PROMOTIONS', enabled: true }]).PROMOTIONS,
+    ).toBe(true);
+    expect(
+      resolveFeatures([{ feature: 'PROMOTIONS', enabled: true }], [])
+        .PROMOTIONS,
+    ).toBe(true);
+    expect(
+      resolveFeatures(
+        [{ feature: 'PROMOTIONS', enabled: false }],
+        ['PROMOTIONS'],
+      ).PROMOTIONS,
+    ).toBe(false);
+    // switching it on changes no other feature: Offers and every other feature keep their own value
+    expect(resolveFeatures([{ feature: 'PROMOTIONS', enabled: true }])).toEqual(
+      { ...NO_PACKAGE_DEFAULTS, PROMOTIONS: true },
     );
+    expect(
+      resolveFeatures([{ feature: 'PROMOTIONS', enabled: true }], ['KITCHEN'])
+        .OFFERS,
+    ).toBe(false);
+    // and switching Offers off leaves Promotions alone
+    expect(
+      resolveFeatures([
+        { feature: 'OFFERS', enabled: false },
+        { feature: 'PROMOTIONS', enabled: true },
+      ]),
+    ).toEqual({ ...NO_PACKAGE_DEFAULTS, OFFERS: false, PROMOTIONS: true });
+  });
+
+  it('customers never see the platform-only features, but do see advanced promotions', () => {
+    expect(PLATFORM_ONLY_FEATURES).toEqual(['MENU_IMPORT']);
+    expect(CUSTOMER_FEATURE_KEYS).not.toContain('MENU_IMPORT');
+    expect(CUSTOMER_FEATURE_KEYS).toContain('PROMOTIONS');
+    expect(CUSTOMER_FEATURE_KEYS).toHaveLength(
+      FEATURE_KEYS.length - PLATFORM_ONLY_FEATURES.length,
+    );
+    // a missing opt-in feature never makes a restaurant "restricted"
+    expect(DEFAULT_ON_CUSTOMER_FEATURE_KEYS).not.toContain('PROMOTIONS');
+    expect(DEFAULT_ON_CUSTOMER_FEATURE_KEYS).not.toContain('MENU_IMPORT');
+    expect(DEFAULT_ON_CUSTOMER_FEATURE_KEYS).toContain('OFFERS');
   });
 
   it('applies overrides both ways and ignores unknown keys', () => {

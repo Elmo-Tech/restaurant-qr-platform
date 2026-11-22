@@ -329,8 +329,11 @@ describeSandbox('Feature entitlements (real PostgreSQL)', () => {
       DASHBOARD_ORDERING: true,
       TABLE_ORDERING: true,
       KITCHEN: true,
-      // the one opt-in feature (DEC-057): off until the platform turns it on
+      // Offers (DEC-069) is a default-on customer feature
+      OFFERS: true,
+      // the opt-in features (DEC-057, DEC-075): off until the platform turns them on
       MENU_IMPORT: false,
+      PROMOTIONS: false,
     };
     expect(await me(owner)).toEqual(everything);
     expect((await menu(world.genericQr)).context.tracking).toBe(true);

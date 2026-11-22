@@ -742,6 +742,12 @@ lean scope reaches a real restaurant sooner. **Impact:** `VERSION_ROADMAP.md`
 carries the authoritative "V1 Accepted Release Scope" section; the detailed
 domain specs for the deferred items remain valid as the design for V1.1.
 
+> **Note (2026-11-21, Promotions).** The original text above is kept. For **Promotions**, the approved domain and
+> policy is now DEC-075 with its Amendment 2026-11-21 (B-D2): the existing Product discount (DEC-036 / DEC-041) plus
+> CATEGORY, MENU, CART (= the original ORDER target), QUANTITY and DELIVERY scopes. Restaurant availability is
+> governed by the opt-in `PROMOTIONS` feature key (DEC-075, B-D4), not by the V1 / V1.1 label of this list; it is not
+> live until milestones B2–B4 ship. The other items of this list are unchanged.
+
 ### DEC-035 — V1 Is Not a POS or Accounting System (Table Sessions Scope Correction)
 
 **Status:** Accepted (2026-10-10)
@@ -1779,6 +1785,24 @@ Implementation contract: `docs/01-domain/PLATFORM_FOOD_IMAGE_LIBRARY_SPEC.md`. F
 Supersedes the Staff authoring part of DEC-072. Every Modifier Group now has a scope: a **Product Group** (no size, offered with every size and with a Product that has no sizes) or a **Size Group** (one size of the Product, offered only when the Guest chooses that size). The Modifier Library holds two kinds of presets, chosen when the preset is created and never changed afterwards: **Product presets** attach only to a whole Product, **Size presets** attach only to one size of a Product (for example "Large pizza extras" on the Large size). The same Size preset may be attached to several sizes, but at most once per size; a Product preset at most once per Product.
 
 The Product Editor shows "Add-ons for every size" and one area per size, each with its own "Use preset" and "Create custom". The DEC-072 "Customize add-ons by size" screen is hidden from Staff; overrides already saved keep working for Guests and orders, and their endpoints remain for compatibility. Backend stays authoritative: a Size Group of another size, or of an inactive size, is never offered nor accepted, and is never required for another size. Historical order snapshots are unchanged. Details in `docs/01-domain/MENU_SPEC.md` and `docs/02-technical/DATABASE_SPEC.md` amendments.
+
+---
+
+### DEC-075 — Unified Promotions Engine (2026-11-21)
+
+**Status:** Accepted (2026-11-21, Product Owner) — amends `PROMOTIONS_SPEC.md` #27–#29 and AGENTS.md #36 for the Unified Promotions engine (dated amendment notes added there; the original text is kept). Not live yet: milestone B1 (`feat/unified-promotions`) adds the pure engine (`apps/api/src/promotions/promotion-engine.ts`), the pure snapshot mapper (`promotion-snapshot.ts`), the opt-in `PROMOTIONS` feature key and an additive, unused migration (`20261128100000_unified_promotions`); order creation, the Guest menu and Staff screens are unchanged until B2–B4.
+
+**Policy (maximum savings first).** Item scope: per product line the legacy Product discount (`products.discount_*`, only for sizes with `discountApplies`, effective priority 0), CATEGORY and MENU percentage promotions compete and the **greatest saving** wins (exact tie → lower priority number → PRODUCT > CATEGORY > MENU → stable id). Cart scope: CART and QUANTITY (units or distinct products) promotions compete for one winner on the pre-promotion basis of eligible product lines incl. paid extras. Strategy: the cart winner is used only when it saves **strictly** more than the sum of item winners; never combined — a winning cart discount also removes legacy Product discounts. Delivery: one DELIVERY promotion on the zone fee, independent of the merchandise strategy, minimum on the pre-promotion total of all lines incl. Offers. Offer / bundle lines are never discounted again and never counted. Paid modifiers are never discounted by item scope. Promotion minimums use the pre-promotion basis; the Delivery Zone minimum stays on the NET payable (DEC-036), is checked after the engine and refuses with the existing minimum-order error — no promotion is suppressed to pass it (the Guest UI explains the shortfall, B4). Dates inclusive in the order Branch timezone; empty Branch list = all Branches; only ACTIVE promotions.
+
+**History (accepted model).** `order_items.discount_amount` / snapshots = the legacy Product discount only, only when it applied; `order_items.line_total` = net of that legacy discount and before new promotions. New merchandise savings (CATEGORY / MENU / CART / QUANTITY) live only in `order_promotions` + per-line `order_promotion_allocations`; the delivery promotion is a fee adjustment (`orders.delivery_fee_original_amount`, `delivery_discount_amount`, one `order_promotions` row). `orders.subtotal_amount` = Σ line totals − Σ allocations, `discount_total_amount` = legacy + `promotion_discount_amount`, `delivery_fee_amount` = net fee, `total = subtotal + fee`.
+
+**Permissions and entitlement.** Staff routes (B3) reuse the existing `promotions.view` / `promotions.manage` permissions; structural writes keep the Restaurant + all-Branches guards; Product discount editing is unchanged. New customer-visible, **opt-in** feature key `PROMOTIONS`: no existing package or restaurant gets it (packages store an explicit list); a restaurant without a package keeps "every feature except the opt-in ones", so it does **not** get advanced promotions unless a restaurant override enables it. Product Discounts V1 is not gated by it; Offers stay on `OFFERS`. The API guard is authoritative (added with B3).
+
+**Was awaiting approval when DEC-075 was first accepted — resolved by Amendment 2026-11-21 (B-D2) below:** AGENTS.md #35 targets (MENU, QUANTITY, DELIVERY are new; #6 / DATABASE_SPEC #85 list ORDER / PRODUCT / CATEGORY; #94 defers Quantity Discounts; #22 keeps delivery fees outside promotions), the DEC-034 release label (Promotions = V1.1) and the stale AGENTS.md #19.
+
+**Amendment 2026-11-21 (B-D2) — Accepted (Product Owner, second review).** The Promotion domain is extended with **MENU**, **QUANTITY** and **DELIVERY** scopes in addition to the existing supported types; the policy above is the approved promotion policy. Mapping of the original targets: ORDER → `CART`; PRODUCT → the existing Product discount (`products.discount_*`, no Promotion row); CATEGORY → `CATEGORY`. Types stay PERCENTAGE / FIXED_AMOUNT; CATEGORY and MENU are percentage only (INV-PROMO-008 extended). Dated superseding notes (original text kept): AGENTS.md #19, #35, #36; DEC-034; `PROMOTIONS_SPEC.md` #6, #10, #22, #26–#29, #86, #87, #94, INV-PROMO-007 / -008; `DATABASE_SPEC.md` #85; `VERSION_ROADMAP.md` (Promotions row). Release status is unchanged: B1 only (pure engine, unused by order creation); availability per restaurant through the opt-in `PROMOTIONS` key.
+
+**Details:** `PROMOTIONS_SPEC.md` "Implementation Amendment: Unified Promotions"; `docs/01-domain/PROMOTIONS_STACKING_EXAMPLES.md`; `docs/02-technical/UNIFIED_PROMOTIONS_SCHEMA_AND_ROLLOUT.md`; `docs/02-technical/UNIFIED_PROMOTIONS_HISTORICAL_SNAPSHOTS.md`; `docs/02-technical/UNIFIED_PROMOTIONS_IMPLEMENTATION_PLAN.md`.
 
 ---
 
