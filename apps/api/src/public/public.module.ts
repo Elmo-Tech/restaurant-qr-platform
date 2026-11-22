@@ -39,5 +39,6 @@ import { PublicSuggestionsService } from './public-suggestions.service';
     PublicSuggestionsService,
     PublicLandingService,
   ],
+  exports: [PublicMenuService],
 })
 export class PublicModule {}

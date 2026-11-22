@@ -12,11 +12,15 @@ export async function platformFetch<TBody = unknown>(
   path: string,
   options: { method?: ApiMethod; body?: unknown } = {},
 ): Promise<TBody> {
+  const { body } = options;
+  const multipart = body instanceof FormData;
+  const json = body !== undefined && !multipart;
   const response = await fetch(`${PLATFORM_API}${path}`, {
     method: options.method ?? "GET",
     credentials: "include",
-    headers: options.body !== undefined ? { "Content-Type": "application/json" } : undefined,
-    body: options.body !== undefined ? JSON.stringify(options.body) : undefined,
+    // The browser supplies the boundary for multipart uploads.
+    headers: json ? { "Content-Type": "application/json" } : undefined,
+    body: multipart ? body : json ? JSON.stringify(body) : undefined,
   });
   if (response.status === 204) return undefined as TBody;
   const parsed: unknown = await response.json().catch(() => null);

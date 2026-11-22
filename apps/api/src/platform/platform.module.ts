@@ -1,4 +1,9 @@
 import { Module } from '@nestjs/common';
+import { MenuImportModule } from '../menu-import/menu-import.module';
+import { PublicModule } from '../public/public.module';
+import { OnboardingMenuImportService } from './onboarding/onboarding-menu-import.service';
+import { OnboardingMenuWriterService } from './onboarding/onboarding-menu-writer.service';
+import { OnboardingProvisioningService } from './onboarding/onboarding-provisioning.service';
 import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
 import { StorageModule } from '../storage/storage.module';
@@ -46,6 +51,8 @@ import { PlatformController } from './platform.controller';
     AiSettingsModule,
     DemoModule,
     StorageModule,
+    MenuImportModule,
+    PublicModule,
   ],
   controllers: [
     PlatformController,
@@ -78,6 +85,9 @@ import { PlatformController } from './platform.controller';
     PlatformRequestsService,
     PlatformLeadsService,
     OnboardingCasesService,
+    OnboardingMenuImportService,
+    OnboardingMenuWriterService,
+    OnboardingProvisioningService,
   ],
   // the restaurant-facing "My subscription" module records its requests in the same audit log
   exports: [PlatformAuditService],

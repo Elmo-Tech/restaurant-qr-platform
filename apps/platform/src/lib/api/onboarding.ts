@@ -2,10 +2,7 @@ import { platformFetch } from "./client";
 import { ApiError } from "./errors";
 import type { LeadKind, LeadStatus } from "./leads";
 
-/**
- * Mirrors the Backend's owner onboarding cases (`apps/api/src/platform/onboarding`, PROPOSED, A1 + A2).
- * A case stores a draft and a chosen mode only: nothing is provisioned in this build.
- */
+/** Mirrors the Platform onboarding case API, including REAL / TRIAL provisioning. */
 export const ONBOARDING_STATUSES = [
   "DRAFT",
   "READY_FOR_REVIEW",
@@ -130,6 +127,43 @@ export interface OnboardingCaseSummary {
   updatedAt: string;
 }
 
+export interface MenuTranslation {
+  locale: string;
+  name: string;
+  description?: string;
+}
+
+export interface MenuChoiceDraft {
+  translations: MenuTranslation[];
+  price: string;
+}
+
+export interface MenuModifierGroupDraft {
+  translations: MenuTranslation[];
+  minSelections: number;
+  maxSelections: number;
+  options: MenuChoiceDraft[];
+}
+
+export interface MenuProductDraft extends MenuChoiceDraft {
+  variants: MenuChoiceDraft[];
+  modifierGroups: MenuModifierGroupDraft[];
+}
+
+export interface MenuCategoryDraft {
+  translations: MenuTranslation[];
+  products: MenuProductDraft[];
+}
+
+export interface MenuDraft {
+  translations: MenuTranslation[];
+  categories: MenuCategoryDraft[];
+}
+
+export interface OnboardingMenuDraft {
+  menus: MenuDraft[];
+}
+
 export interface OnboardingCase {
   id: string;
   status: OnboardingStatus;
@@ -138,7 +172,15 @@ export interface OnboardingCase {
   details: OnboardingDetails;
   modeConfig: ModeConfig;
   completedSteps: OnboardingStep[];
-  problems: { customer: CustomerProblem[]; mode: ModeProblem[] };
+  problems: { customer: CustomerProblem[]; mode: ModeProblem[]; menu: string[] };
+  menuDraft: OnboardingMenuDraft | null;
+  importExpiresAt: string | null;
+  importReviewed: boolean;
+  importAttempts: number;
+  restaurantId?: string | null;
+  provisioningKey: string | null;
+  lastErrorCode: string | null;
+  ownerPasswordRequired: boolean;
   lead: {
     id: string;
     name: string;
@@ -228,6 +270,7 @@ export interface OnboardingPatch {
   };
   modeConfig?: Partial<ModeConfig>;
   mode?: OnboardingMode | null;
+  menuDraft?: OnboardingMenuDraft;
 }
 
 export const updateOnboardingCase = (id: string, patch: OnboardingPatch) =>
@@ -238,3 +281,25 @@ export const submitOnboardingForReview = (id: string, revision: number) =>
 
 export const cancelOnboardingCase = (id: string, revision: number) =>
   platformFetch<{ data: OnboardingCase }>(`${path(id)}/cancel`, { method: "POST", body: { revision } }).then((r) => r.data);
+
+export function importOnboardingMenu(id: string, revision: number, files: readonly File[]) {
+  const body = new FormData();
+  body.append("revision", String(revision));
+  for (const file of files) body.append("file", file);
+  return platformFetch<{ data: OnboardingCase }>(`${path(id)}/menu-import`, { method: "POST", body }).then((r) => r.data);
+}
+
+export const reviewOnboardingMenu = (id: string, revision: number) =>
+  platformFetch<{ data: OnboardingCase }>(`${path(id)}/menu-import/review`, { method: "POST", body: { revision } }).then((r) => r.data);
+
+export const discardOnboardingImport = (id: string, revision: number) =>
+  platformFetch<{ data: OnboardingCase }>(`${path(id)}/menu-import`, { method: "DELETE", body: { revision } }).then((r) => r.data);
+
+export interface OnboardingProvisionInput {
+  revision: number;
+  provisioningKey: string;
+  ownerPassword?: string;
+}
+
+export const finishOnboardingCase = (id: string, route: "provision" | "retry", body: OnboardingProvisionInput) =>
+  platformFetch<{ data: OnboardingCase }>(`${path(id)}/${route}`, { method: "POST", body }).then((r) => r.data);

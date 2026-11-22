@@ -1,7 +1,6 @@
 import {
   IMPLEMENTED_TRANSITIONS,
   ONBOARDING_STATUSES,
-  PLANNED_TRANSITIONS,
   canTransition,
   decideSubmit,
   isEditable,
@@ -9,7 +8,7 @@ import {
 } from './onboarding-transitions';
 
 describe('onboarding case transitions', () => {
-  it('only DRAFT, READY_FOR_REVIEW and CANCELLED are reachable in this build', () => {
+  it('reaches the provisioning and recovery states, but not A4 delivery', () => {
     const reachable = new Set<string>(['DRAFT']);
     for (const targets of Object.values(IMPLEMENTED_TRANSITIONS)) {
       for (const target of targets) reachable.add(target);
@@ -17,6 +16,10 @@ describe('onboarding case transitions', () => {
     expect([...reachable].sort()).toEqual([
       'CANCELLED',
       'DRAFT',
+      'FAILED',
+      'MENU_SETUP',
+      'PROVISIONING',
+      'READY',
       'READY_FOR_REVIEW',
     ]);
   });
@@ -29,9 +32,14 @@ describe('onboarding case transitions', () => {
     for (const to of ONBOARDING_STATUSES) {
       expect(canTransition('CANCELLED', to)).toBe(false);
     }
-    // The provisioning saga is planned, not implemented.
-    expect(PLANNED_TRANSITIONS.READY_FOR_REVIEW).toContain('PROVISIONING');
-    expect(canTransition('READY_FOR_REVIEW', 'PROVISIONING')).toBe(false);
+    expect(canTransition('DRAFT', 'PROVISIONING')).toBe(false);
+    expect(canTransition('READY_FOR_REVIEW', 'PROVISIONING')).toBe(true);
+    expect(canTransition('PROVISIONING', 'MENU_SETUP')).toBe(true);
+    expect(canTransition('PROVISIONING', 'READY')).toBe(false);
+    expect(canTransition('MENU_SETUP', 'READY')).toBe(true);
+    expect(canTransition('FAILED', 'MENU_SETUP')).toBe(true);
+    expect(canTransition('FAILED', 'CANCELLED')).toBe(true);
+    expect(canTransition('READY', 'DELIVERED')).toBe(false);
   });
 
   it('an edit sends a case under review back to DRAFT', () => {

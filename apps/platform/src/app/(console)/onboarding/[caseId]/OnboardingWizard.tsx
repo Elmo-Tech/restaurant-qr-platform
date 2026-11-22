@@ -7,8 +7,12 @@ import { Alert, Badge, Button, Card, CardHeader, PageHeader, Skeleton } from "@/
 import { ApiError } from "@/lib/api/errors";
 import {
   cancelOnboardingCase,
+  discardOnboardingImport,
+  finishOnboardingCase,
   getOnboardingCase,
+  importOnboardingMenu,
   ONBOARDING_STEPS,
+  reviewOnboardingMenu,
   submitOnboardingForReview,
   updateOnboardingCase,
   type AcquisitionDraft,
@@ -16,6 +20,7 @@ import {
   type ModeConfig,
   type OnboardingCase,
   type OnboardingDetails,
+  type OnboardingMenuDraft,
   type OnboardingMode,
   type OnboardingPatch,
   type OnboardingStep,
@@ -24,16 +29,17 @@ import {
 } from "@/lib/api/onboarding";
 import { useI18n } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { onboardingErrorKey, provisioningRequest } from "@/lib/onboarding-menu";
 import { formConfigAfterModeChange, pendingConfigAfterModeChange } from "@/lib/onboarding-package-choice";
 import { cn } from "@/lib/utils";
 import { OnboardingStatusBadge, transportErrorKey } from "../shared";
 import { CustomerStep, type CustomerField } from "./CustomerStep";
 import { DuplicatesPanel } from "./DuplicatesPanel";
+import { FinalProvisioning } from "./FinalProvisioning";
+import { MenuProblems, MenuStep } from "./MenuStep";
 import { ModeStep } from "./ModeStep";
 
 const AUTOSAVE_DELAY_MS = 1500;
-/** Menu (3) and handoff (5) belong to later milestones and are locked; review (4) only marks the case for review. */
-const LOCKED_STEPS: readonly OnboardingStep[] = ["menu", "handoff"];
 
 /** Edits not yet sent to the server; sent as one PATCH. */
 interface Pending {
@@ -42,6 +48,7 @@ interface Pending {
   acquisition?: AcquisitionDraft | null;
   mode?: OnboardingMode | null;
   modeConfig: Partial<ModeConfig>;
+  menuDraft?: OnboardingMenuDraft;
 }
 const emptyPending = (): Pending => ({ restaurant: {}, owner: {}, modeConfig: {} });
 const hasPending = (p: Pending) =>
@@ -49,6 +56,7 @@ const hasPending = (p: Pending) =>
   Object.keys(p.owner).length > 0 ||
   p.acquisition !== undefined ||
   p.mode !== undefined ||
+  p.menuDraft !== undefined ||
   Object.keys(p.modeConfig).length > 0;
 /** `later` wins over `earlier` (a failed save is put back under the edits made meanwhile). */
 const mergePending = (earlier: Pending, later: Pending): Pending => ({
@@ -57,6 +65,7 @@ const mergePending = (earlier: Pending, later: Pending): Pending => ({
   acquisition: later.acquisition !== undefined ? later.acquisition : earlier.acquisition,
   mode: later.mode !== undefined ? later.mode : earlier.mode,
   modeConfig: { ...earlier.modeConfig, ...later.modeConfig },
+  menuDraft: later.menuDraft ?? earlier.menuDraft,
 });
 
 /** Which field each step-1 problem belongs to. */
@@ -91,16 +100,18 @@ interface Form {
   details: OnboardingDetails;
   mode: OnboardingMode | null;
   modeConfig: ModeConfig;
+  menuDraft: OnboardingMenuDraft | null;
 }
-const formOf = (data: OnboardingCase): Form => ({ details: data.details, mode: data.mode, modeConfig: data.modeConfig });
+const formOf = (data: OnboardingCase): Form => ({
+  details: data.details, mode: data.mode, modeConfig: data.modeConfig, menuDraft: data.menuDraft,
+});
 
 function firstOpenStep(data: OnboardingCase): OnboardingStep {
+  if (data.status !== "DRAFT") return "review";
   if (!data.completedSteps.includes("customer")) return "customer";
   if (!data.completedSteps.includes("mode")) return "mode";
-  return "review";
+  return data.mode !== "DEMO" && !data.completedSteps.includes("menu") ? "menu" : "review";
 }
-
-/** The owner onboarding wizard (PROPOSED, milestones A1 + A2): steps 1 and 2 are live, 3-5 are later milestones. */
 export function OnboardingWizard({ caseId }: { caseId: string }) {
   const { t, fmt } = useI18n();
   const [data, setData] = useState<OnboardingCase | null>(null);
@@ -117,8 +128,11 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
   const [actionBusy, setActionBusy] = useState(false);
   const [actionError, setActionError] = useState<MessageKey | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
+  const [expiredAt, setExpiredAt] = useState<string | null>(null);
 
   const pendingRef = useRef<Pending>(emptyPending());
+  const actionRef = useRef(false);
+  const provisioningKeyRef = useRef<string | null>(null);
   const revisionRef = useRef(0);
   const savingRef = useRef(false);
   const queuedRef = useRef(false);
@@ -130,6 +144,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
 
   const adopt = useCallback((loaded: OnboardingCase, resetForm: boolean) => {
     revisionRef.current = loaded.revision;
+    if (loaded.provisioningKey) provisioningKeyRef.current = loaded.provisioningKey;
     setData(loaded);
     if (resetForm) setForm(formOf(loaded));
   }, []);
@@ -146,6 +161,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
         setPendingFields(new Set());
         setSaveState("idle");
         setSaveError(null);
+        setActionError(null);
         adopt(loaded, true);
         if (initial) setStep(firstOpenStep(loaded));
         setLoadError(null);
@@ -161,6 +177,13 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void load(true);
   }, [load]);
+
+  const expiresAt = data?.importExpiresAt;
+  useEffect(() => {
+    if (!expiresAt) return;
+    const timer = window.setTimeout(() => setExpiredAt(expiresAt), Math.max(0, Date.parse(expiresAt) - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [expiresAt]);
 
   // ---------------------------------------------------------------- autosave
 
@@ -196,6 +219,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
       if (Object.keys(details).length > 0) body.details = details;
       if (patch.mode !== undefined) body.mode = patch.mode;
       if (Object.keys(patch.modeConfig).length > 0) body.modeConfig = patch.modeConfig;
+      if (patch.menuDraft !== undefined) body.menuDraft = patch.menuDraft;
       let ok = false;
       try {
         const saved = await updateOnboardingCase(caseId, body);
@@ -222,6 +246,8 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
           setSaveError("onboarding.save.conflict");
         } else if (caught instanceof ApiError && caught.code === "ONBOARDING_NOT_EDITABLE") {
           setSaveError("onboarding.save.notEditable");
+        } else if (caught instanceof ApiError && caught.problems.includes("ONBOARDING_IMPORT_EXPIRED")) {
+          setSaveError("onboarding.menu.error.expired");
         } else if (caught instanceof ApiError && caught.code === "ONBOARDING_INPUT_INVALID") {
           setSaveError("onboarding.save.invalid");
         } else {
@@ -301,6 +327,12 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
     markPending("mode");
     schedule();
   };
+  const onMenu = (menuDraft: OnboardingMenuDraft) => {
+    setForm((current) => current ? { ...current, menuDraft } : current);
+    pendingRef.current = { ...pendingRef.current, menuDraft };
+    markPending("menu");
+    schedule();
+  };
   const onTouch = (field: string) => setTouched((current) => (current.has(field) ? current : new Set(current).add(field)));
 
   // ---------------------------------------------------------------- navigation and actions
@@ -313,13 +345,15 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
 
   async function continueFrom(current: OnboardingStep) {
     const index = ONBOARDING_STEPS.indexOf(current);
-    const next = ONBOARDING_STEPS[index + 1];
+    const next = current === "mode" && form?.mode === "DEMO" ? "review" : ONBOARDING_STEPS[index + 1];
     if (current === "customer" || current === "mode") {
       const saved = await flush();
       const problems = current === "customer" ? data?.problems.customer : data?.problems.mode;
       // `data` may be one render behind right after a save: re-read the step state from the server answer.
+      const revision = revisionRef.current;
       const fresh = saved ? await getOnboardingCase(caseId).catch(() => null) : null;
-      if (fresh) adopt(fresh, false);
+      if (actionRef.current || savingRef.current || hasPending(pendingRef.current) || revision !== revisionRef.current) return;
+      if (fresh) adopt(fresh, fresh.revision !== revision);
       const stepProblems = fresh ? (current === "customer" ? fresh.problems.customer : fresh.problems.mode) : problems;
       if (stepProblems && stepProblems.length > 0) {
         setShowAll((s) => new Set(s).add(current));
@@ -330,50 +364,74 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
     if (next) goTo(next);
   }
 
-  async function submit() {
-    if (!data || actionBusy) return;
+  /** Actions consume the revision only after any queued edits have been saved. */
+  async function runAction(
+    request: (revision: number) => Promise<OnboardingCase>,
+    kind: "submit" | "cancel" | "menu" | "final",
+    discardPendingMenu = false,
+  ): Promise<boolean> {
+    if (!data || actionRef.current || conflictRef.current) return false;
+    actionRef.current = true;
     setActionBusy(true);
     setActionError(null);
-    const saved = await flush();
-    if (!saved) {
-      setActionBusy(false);
-      return;
-    }
+    let requestRevision = revisionRef.current;
     try {
-      adopt(await submitOnboardingForReview(caseId, revisionRef.current), true);
+      if (discardPendingMenu && pendingRef.current.menuDraft !== undefined) {
+        // Discard is explicit, and an expired menu can no longer be PATCHed.
+        pendingRef.current = { ...pendingRef.current, menuDraft: undefined };
+        setPendingFields((fields) => { const next = new Set(fields); next.delete("menu"); return next; });
+        if (!hasPending(pendingRef.current)) setSaveState("idle");
+      }
+      const saved = await flush();
+      if (!saved && (kind !== "cancel" || conflictRef.current || savingRef.current)) return false;
+      requestRevision = revisionRef.current;
+      adopt(await request(requestRevision), true);
+      if (kind === "cancel") {
+        pendingRef.current = emptyPending();
+        setPendingFields(new Set());
+        setSaveState("idle");
+      }
+      setSaveError(null);
+      setConfirmCancel(false);
+      return true;
     } catch (caught) {
-      if (caught instanceof ApiError && caught.code === "ONBOARDING_INCOMPLETE") {
-        setShowAll(new Set<OnboardingStep>(["customer", "mode"]));
-        setActionError("onboarding.review.incomplete");
-      } else if (caught instanceof ApiError && caught.code === "ONBOARDING_REVISION_CONFLICT") {
+      const code = caught instanceof ApiError ? caught.code : null;
+      if (code === "ONBOARDING_REVISION_CONFLICT") {
         conflictRef.current = true;
         setConflict(true);
-      } else {
-        setActionError(transportErrorKey(caught));
+        return false;
       }
+      if (code === "ONBOARDING_INCOMPLETE" && kind === "submit") {
+        setShowAll(new Set<OnboardingStep>(["customer", "mode"]));
+        setActionError("onboarding.review.incomplete");
+      } else if (code === "ONBOARDING_INCOMPLETE" && kind === "menu") {
+        setActionError(caught instanceof ApiError && caught.problems.includes("ONBOARDING_IMPORT_EXPIRED")
+          ? "onboarding.menu.error.expired" : "onboarding.menu.error.review");
+      } else {
+        setActionError(onboardingErrorKey(code) ?? transportErrorKey(caught));
+      }
+      if (kind === "menu" || kind === "final" || code === "ONBOARDING_INCOMPLETE") {
+        // A failed extraction can consume quota; a lost provisioning response can still have advanced the saga.
+        const fresh = await getOnboardingCase(caseId).catch(() => null);
+        if (fresh) {
+          adopt(fresh, true);
+          if (kind === "final" && (fresh.status === "READY" || (fresh.status === "FAILED" && fresh.revision !== requestRevision))) setActionError(null);
+        }
+      }
+      return false;
     } finally {
+      actionRef.current = false;
       setActionBusy(false);
     }
   }
 
-  async function cancelCase() {
-    if (!data || actionBusy) return;
-    setActionBusy(true);
-    setActionError(null);
-    try {
-      await flush();
-      adopt(await cancelOnboardingCase(caseId, revisionRef.current), true);
-      setConfirmCancel(false);
-    } catch (caught) {
-      if (caught instanceof ApiError && caught.code === "ONBOARDING_REVISION_CONFLICT") {
-        conflictRef.current = true;
-        setConflict(true);
-      } else {
-        setActionError(transportErrorKey(caught));
-      }
-    } finally {
-      setActionBusy(false);
-    }
+  function finish(route: "provision" | "retry", ownerPassword: string | undefined) {
+    if (!data) return;
+    void runAction((revision) => {
+      const body = provisioningRequest(revision, data, provisioningKeyRef.current, ownerPassword, () => crypto.randomUUID());
+      provisioningKeyRef.current = body.provisioningKey;
+      return finishOnboardingCase(caseId, route, body);
+    }, "final");
   }
 
   // ---------------------------------------------------------------- render
@@ -398,7 +456,11 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
   }
 
   const editable = data.status === "DRAFT" || data.status === "READY_FOR_REVIEW";
-  const locked = !editable || conflict;
+  const canCancel = (editable || data.status === "FAILED") && !conflict;
+  const locked = !editable || conflict || actionBusy;
+  const unsaved = saveState === "dirty" || saveState === "saving" || saveState === "error";
+  const importExpired = Boolean(expiresAt && expiredAt === expiresAt) ||
+    data.problems.menu.includes("ONBOARDING_IMPORT_EXPIRED") || saveError === "onboarding.menu.error.expired";
   const visible = (field: string, step: OnboardingStep) => (touched.has(field) || showAll.has(step)) && !pendingFields.has(field);
   const customerError = (field: CustomerField): string | null => {
     if (!visible(field, "customer")) return null;
@@ -407,11 +469,11 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
   };
   const modeProblems = (touched.has("mode") || showAll.has("mode")) && !pendingFields.has("mode") ? data.problems.mode : [];
   const stepState = (s: OnboardingStep): "complete" | "incomplete" | "locked" => {
-    if (LOCKED_STEPS.includes(s)) return "locked";
-    if (s === "review") return data.status === "READY_FOR_REVIEW" ? "complete" : "incomplete";
+    if (s === "handoff" || (s === "menu" && form.mode === "DEMO")) return "locked";
+    if (s === "menu" && (pendingFields.has("menu") || importExpired)) return "incomplete";
     return data.completedSteps.includes(s) ? "complete" : "incomplete";
   };
-  const completedCount = data.completedSteps.length;
+  const completedCount = ONBOARDING_STEPS.filter((s) => stepState(s) === "complete").length;
   const canSubmit = data.status === "DRAFT" && data.completedSteps.includes("customer") && data.completedSteps.includes("mode");
   const stepIndex = ONBOARDING_STEPS.indexOf(step);
   const currentProblems: string[] =
@@ -481,6 +543,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
                 <li key={s} className="shrink-0 xl:shrink">
                   <button
                     type="button"
+                    disabled={actionBusy}
                     onClick={() => goTo(s)}
                     aria-current={current ? "step" : undefined}
                     className={cn(
@@ -566,66 +629,79 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
               }}
             />
           ) : null}
-          {step === "menu" ? <NextMilestone body="onboarding.s3.body" /> : null}
+          {step === "menu" && form.mode === "DEMO" ? <NextMilestone body="onboarding.menu.demo" /> : null}
+          {step === "menu" && form.mode !== "DEMO" ? (
+            <MenuStep data={data} restaurant={form.details.restaurant} draft={form.menuDraft} disabled={!editable || conflict}
+              dirty={pendingFields.has("menu")} busy={actionBusy} saving={saveState === "saving"} expired={importExpired} onChange={onMenu}
+              onImport={(files) => runAction((revision) => importOnboardingMenu(caseId, revision, files), "menu", importExpired)}
+              onReview={() => void runAction((revision) => reviewOnboardingMenu(caseId, revision), "menu")}
+              onDiscard={() => runAction((revision) => discardOnboardingImport(caseId, revision), "menu", importExpired)} />
+          ) : null}
           {step === "review" ? (
-            <Card>
-              <CardHeader title={t("onboarding.review.title")} description={t("onboarding.review.hint")} />
-              <div className="space-y-4 p-5">
-                <ul className="space-y-2 text-sm">
-                  {(["customer", "mode"] as const).map((s) => (
-                    <li key={s} className="flex flex-wrap items-center gap-2">
-                      <Badge tone={data.completedSteps.includes(s) ? "success" : "warning"} dot>
-                        {t(data.completedSteps.includes(s) ? "onboarding.stepState.complete" : "onboarding.stepState.incomplete")}
-                      </Badge>
-                      <button type="button" className="text-primary-text hover:underline" onClick={() => goTo(s)}>
-                        {t(`onboarding.step.${s}`)}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-                <Alert tone="info">{t("onboarding.review.nothingCreated")}</Alert>
-                <div className="flex flex-wrap items-center gap-3">
-                  <Button variant="primary" disabled={!canSubmit || actionBusy || locked} onClick={() => void submit()}>
-                    {actionBusy ? t("common.saving") : t("onboarding.review.submit")}
-                  </Button>
-                  {data.status === "READY_FOR_REVIEW" ? (
-                    <span className="text-[13px] text-muted-foreground">{t("onboarding.review.already")}</span>
-                  ) : null}
+            <div className="space-y-4">
+              <Card>
+                <CardHeader title={t("onboarding.review.title")} description={t("onboarding.review.hint")} />
+                <div className="space-y-4 p-5">
+                  <ul className="space-y-2 text-sm">
+                    {(["customer", "mode", ...(form.mode === "DEMO" ? [] : ["menu"] as const)] as const).map((s) => (
+                      <li key={s} className="flex flex-wrap items-center gap-2">
+                        <Badge tone={stepState(s) === "complete" ? "success" : "warning"} dot>
+                          {t(`onboarding.stepState.${stepState(s)}`)}
+                        </Badge>
+                        <button type="button" disabled={actionBusy} className="text-primary-text hover:underline" onClick={() => goTo(s)}>
+                          {t(`onboarding.step.${s}`)}
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  {editable ? <Alert tone="info">{t("onboarding.review.nothingCreated")}</Alert> : null}
+                  {editable && form.mode !== "DEMO" && data.menuDraft && !pendingFields.has("menu") ? <MenuProblems problems={data.problems.menu} /> : null}
+                  <div className="flex flex-wrap items-center gap-3">
+                    {data.status === "DRAFT" ? <Button variant="primary" disabled={!canSubmit || locked || saveState === "saving"}
+                      onClick={() => void runAction((revision) => submitOnboardingForReview(caseId, revision), "submit")}>
+                      {actionBusy ? t("common.saving") : t("onboarding.review.submit")}
+                    </Button> : null}
+                    {data.status === "READY_FOR_REVIEW" ? (
+                      <span className="text-[13px] text-muted-foreground">{t("onboarding.review.already")}</span>
+                    ) : null}
+                  </div>
                 </div>
-              </div>
-            </Card>
+              </Card>
+              <FinalProvisioning data={data} disabled={conflict} busy={actionBusy} dirty={unsaved} expired={importExpired}
+                onFinish={finish} onReload={() => void load(false)} />
+            </div>
           ) : null}
           {step === "handoff" ? <NextMilestone body="onboarding.s5.body" /> : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
             <div className="flex flex-wrap gap-2">
-              <Button disabled={stepIndex === 0} onClick={() => goTo(ONBOARDING_STEPS[stepIndex - 1])}>
+              <Button disabled={stepIndex === 0 || actionBusy} onClick={() => goTo(ONBOARDING_STEPS[stepIndex - 1])}>
                 {t("common.previous")}
               </Button>
               {stepIndex < ONBOARDING_STEPS.length - 1 ? (
-                <Button variant="primary" onClick={() => void continueFrom(step)}>
+                <Button variant="primary" disabled={actionBusy} onClick={() => void continueFrom(step)}>
                   {t("onboarding.continue")}
                 </Button>
               ) : null}
             </div>
             <div className="flex flex-wrap gap-2">
               {editable && !conflict ? (
-                <Button onClick={() => void flush()} disabled={saveState === "saving"}>
+                <Button onClick={() => void flush()} disabled={saveState === "saving" || actionBusy}>
                   {t("onboarding.saveDraft")}
                 </Button>
               ) : null}
-              {editable && !confirmCancel ? (
-                <Button variant="ghost" onClick={() => setConfirmCancel(true)}>
+              {canCancel && !confirmCancel ? (
+                <Button variant="ghost" disabled={actionBusy} onClick={() => setConfirmCancel(true)}>
                   {t("onboarding.cancelCase")}
                 </Button>
               ) : null}
             </div>
           </div>
-          {confirmCancel ? (
+          {confirmCancel && canCancel ? (
             <Alert tone="warning">
-              <p>{t("onboarding.cancelConfirm")}</p>
+              <p>{t(data.restaurantId ? "onboarding.final.cancelPartial" : "onboarding.cancelConfirm")}</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <Button size="sm" variant="danger" disabled={actionBusy} onClick={() => void cancelCase()}>
+                <Button size="sm" variant="danger" disabled={actionBusy} onClick={() => void runAction((revision) => cancelOnboardingCase(caseId, revision), "cancel")}>
                   {t("onboarding.cancelYes")}
                 </Button>
                 <Button size="sm" onClick={() => setConfirmCancel(false)}>

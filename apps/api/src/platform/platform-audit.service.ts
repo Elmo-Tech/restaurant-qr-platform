@@ -59,7 +59,15 @@ export type PlatformAction =
   // `updatedByAdminId` / `updatedAt`. Details never carry a password or the owner's phone.
   | 'onboarding.created'
   | 'onboarding.submitted_for_review'
-  | 'onboarding.cancelled';
+  | 'onboarding.cancelled'
+  | 'onboarding.provisioning_started'
+  | 'onboarding.restaurant_provisioned'
+  | 'onboarding.menu_published'
+  | 'onboarding.import_staged'
+  | 'onboarding.import_reviewed'
+  | 'onboarding.import_discarded'
+  | 'onboarding.failed'
+  | 'onboarding.ready';
 
 /** The audit actor of work the platform does by itself (the hourly subscription check). */
 export const SYSTEM_ACTOR = null;
@@ -79,16 +87,19 @@ export interface AuditEntryView {
 export class PlatformAuditService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async record(input: {
-    /** The administrator who acted, or `SYSTEM_ACTOR` (null) for the platform itself. */
-    admin: Pick<PlatformAdminPrincipal, 'adminId' | 'email'> | null;
-    /** Who acted when it was not an administrator (a restaurant User's e-mail); default `system`. */
-    actorEmail?: string;
-    action: PlatformAction;
-    restaurant?: { id: string; name: string } | null;
-    details?: Prisma.InputJsonObject;
-  }): Promise<void> {
-    await this.prisma.platformAuditLog.create({
+  async record(
+    input: {
+      /** The administrator who acted, or `SYSTEM_ACTOR` (null) for the platform itself. */
+      admin: Pick<PlatformAdminPrincipal, 'adminId' | 'email'> | null;
+      /** Who acted when it was not an administrator (a restaurant User's e-mail); default `system`. */
+      actorEmail?: string;
+      action: PlatformAction;
+      restaurant?: { id: string; name: string } | null;
+      details?: Prisma.InputJsonObject;
+    },
+    db: Pick<Prisma.TransactionClient, 'platformAuditLog'> = this.prisma,
+  ): Promise<void> {
+    await db.platformAuditLog.create({
       data: {
         adminId: input.admin?.adminId ?? null,
         adminEmail: input.admin?.email ?? input.actorEmail ?? 'system',

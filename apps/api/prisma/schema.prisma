@@ -1562,12 +1562,20 @@ model OnboardingCase {
   ownerEmail       String?              @map("owner_email") @db.VarChar(254)
   leadId           String?              @map("lead_id") @db.Uuid
   packageId        String?              @map("package_id") @db.Uuid
-  // Reserved for the provisioning saga (A3): the provisioned Restaurant and the demo Restaurant.
-  restaurantId     String?              @map("restaurant_id") @db.Uuid
-  demoId           String?              @map("demo_id") @db.Uuid
-  // Reserved for A3: the idempotency key of the final submit.
-  provisioningKey  String?              @unique @map("provisioning_key") @db.Uuid
-  lastErrorCode    String?              @map("last_error_code") @db.VarChar(80)
+  restaurantId            String?   @map("restaurant_id") @db.Uuid
+  demoId                  String?   @map("demo_id") @db.Uuid
+  provisioningKey         String?   @unique @map("provisioning_key") @db.Uuid
+  lastErrorCode           String?   @map("last_error_code") @db.VarChar(80)
+  // The marker survives SET NULL: a removed tenant must never be silently replaced.
+  restaurantProvisionedAt DateTime? @map("restaurant_provisioned_at") @db.Timestamptz
+  menuDraft               Json?     @map("menu_draft")
+  menuPublishedAt         DateTime? @map("menu_published_at") @db.Timestamptz
+  importExpiresAt         DateTime? @map("import_expires_at") @db.Timestamptz
+  importReviewed          Boolean   @default(false) @map("import_reviewed")
+  importAttempts          Int       @default(0) @map("import_attempts")
+  importLeaseUntil        DateTime? @map("import_lease_until") @db.Timestamptz
+  // Durable identity, even if an operator cancels/removes the subscription.
+  trialSubscriptionId     String?   @map("trial_subscription_id") @db.Uuid
   createdByAdminId String?              @map("created_by_admin_id") @db.Uuid
   updatedByAdminId String?              @map("updated_by_admin_id") @db.Uuid
   assignedAdminId  String?              @map("assigned_admin_id") @db.Uuid

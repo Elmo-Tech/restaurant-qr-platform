@@ -33,11 +33,17 @@ import {
 import {
   EDITABLE_STATUSES,
   TERMINAL_STATUSES,
+  canTransition,
   decideSubmit,
   isEditable,
   statusAfterEdit,
   type OnboardingStatusKey,
 } from './onboarding-transitions';
+import { menuProblemsForCase, readCaseMenu } from './onboarding-menu-state';
+import {
+  sanitizeOnboardingMenuDraft,
+  type OnboardingMenuDraft,
+} from './onboarding-menu';
 
 export interface AdminRef {
   id: string;
@@ -68,7 +74,19 @@ export interface OnboardingCaseView {
   modeConfig: ModeConfig;
   /** Recomputed on every read (package status and trial settings can change after a save). */
   completedSteps: OnboardingStep[];
-  problems: { customer: CustomerProblem[]; mode: ModeProblem[] };
+  problems: {
+    customer: CustomerProblem[];
+    mode: ModeProblem[];
+    menu: string[];
+  };
+  menuDraft: OnboardingMenuDraft | null;
+  importExpiresAt: string | null;
+  importReviewed: boolean;
+  importAttempts: number;
+  restaurantId?: string;
+  provisioningKey: string | null;
+  lastErrorCode: string | null;
+  ownerPasswordRequired: boolean;
   lead: {
     id: string;
     name: string;
@@ -128,7 +146,11 @@ export type CaseOutcome<T> =
   | { outcome: 'invalidTransition'; status: OnboardingStatusKey }
   | {
       outcome: 'incomplete';
-      problems: { customer: CustomerProblem[]; mode: ModeProblem[] };
+      problems: {
+        customer: CustomerProblem[];
+        mode: ModeProblem[];
+        menu?: string[];
+      };
     };
 
 export type CreateOutcome =
@@ -140,6 +162,7 @@ export interface CasePatch {
   revision: number;
   details?: unknown;
   modeConfig?: unknown;
+  menuDraft?: unknown;
   mode?: OnboardingModeKey | null;
 }
 
@@ -190,9 +213,8 @@ function searchColumns(details: OnboardingDetails) {
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 
 /**
- * Owner onboarding cases (PROPOSED, milestones A1 + A2): a Platform-team draft of a future Restaurant,
- * its owner, the acquisition source and the chosen onboarding mode. It CREATES NOTHING outside its own
- * table: provisioning, menu, trial / demo creation and the handoff are later milestones.
+ * Platform onboarding drafts, A1/A2 review and revision-guarded lifecycle actions.
+ * Final provisioning is owned by the separate onboarding saga.
  *
  * Concurrency: every write is an `updateMany` guarded by the revision the client read, and bumps it.
  */
@@ -359,6 +381,8 @@ export class OnboardingCasesService {
 
     let details = readDetails(row.details);
     let modeConfig = readModeConfig(row.modeConfig);
+    let menuDraft = row.menuDraft;
+    const menuEdited = patch.menuDraft !== undefined;
     const problems: string[] = [];
     if (patch.details !== undefined) {
       const result = sanitizeDetailsPatch(patch.details, details);
@@ -368,6 +392,21 @@ export class OnboardingCasesService {
     if (patch.modeConfig !== undefined) {
       const result = sanitizeModeConfigPatch(patch.modeConfig, modeConfig);
       if (result.ok) modeConfig = result.value;
+      else problems.push(...result.problems);
+    }
+    if (menuEdited) {
+      if (row.importExpiresAt && row.importExpiresAt <= new Date()) {
+        return {
+          outcome: 'incomplete',
+          problems: {
+            customer: [],
+            mode: [],
+            menu: ['ONBOARDING_IMPORT_EXPIRED'],
+          },
+        };
+      }
+      const result = sanitizeOnboardingMenuDraft(patch.menuDraft);
+      if (result.ok) menuDraft = result.value;
       else problems.push(...result.problems);
     }
     if (problems.length > 0) return { outcome: 'invalidInput', problems };
@@ -387,6 +426,21 @@ export class OnboardingCasesService {
     });
 
     const evaluation = await this.evaluate(mode, modeConfig, details);
+    const prior = readDetails(row.details).restaurant;
+    const reviewInvalidated =
+      menuEdited ||
+      details.restaurant.defaultLocale !== prior.defaultLocale ||
+      details.restaurant.additionalLocales.join(',') !==
+        prior.additionalLocales.join(',');
+    const menu = menuProblemsForCase(
+      {
+        ...row,
+        mode,
+        menuDraft,
+        importReviewed: row.importReviewed && !reviewInvalidated,
+      },
+      details,
+    );
     const written = await this.prisma.onboardingCase.updateMany({
       where: {
         id,
@@ -398,7 +452,12 @@ export class OnboardingCasesService {
         modeConfig: json(modeConfig),
         mode,
         status: statusAfterEdit(row.status),
-        completedSteps: evaluation.completedSteps,
+        completedSteps:
+          mode !== 'DEMO' && menu.length === 0
+            ? [...evaluation.completedSteps, 'menu']
+            : evaluation.completedSteps,
+        ...(menuEdited ? { menuDraft: menuDraft ?? Prisma.DbNull } : {}),
+        ...(reviewInvalidated ? { importReviewed: false } : {}),
         ...searchColumns(details),
         packageId: evaluation.pkg?.id ?? null,
         updatedByAdminId: admin.adminId,
@@ -446,7 +505,10 @@ export class OnboardingCasesService {
       },
       data: {
         status: 'READY_FOR_REVIEW',
-        completedSteps: evaluation.completedSteps,
+        completedSteps:
+          row.mode !== 'DEMO' && menuProblemsForCase(row, details).length === 0
+            ? [...evaluation.completedSteps, 'menu']
+            : evaluation.completedSteps,
         updatedByAdminId: admin.adminId,
         revision: { increment: 1 },
       },
@@ -470,13 +532,17 @@ export class OnboardingCasesService {
     if (row.revision !== revision) {
       return { outcome: 'revisionConflict', currentRevision: row.revision };
     }
-    if (!isEditable(row.status)) {
+    if (!canTransition(row.status, 'CANCELLED')) {
       return { outcome: 'invalidTransition', status: row.status };
     }
     const written = await this.prisma.onboardingCase.updateMany({
-      where: { id, revision, status: { in: [...EDITABLE_STATUSES] } },
+      where: { id, revision, status: { in: [...EDITABLE_STATUSES, 'FAILED'] } },
       data: {
         status: 'CANCELLED',
+        menuDraft: Prisma.DbNull,
+        importExpiresAt: null,
+        importLeaseUntil: null,
+        importReviewed: false,
         cancelledAt: new Date(),
         updatedByAdminId: admin.adminId,
         revision: { increment: 1 },
@@ -675,6 +741,7 @@ export class OnboardingCasesService {
     const details = readDetails(row.details);
     const modeConfig = readModeConfig(row.modeConfig);
     const evaluation = await this.evaluate(row.mode, modeConfig, details);
+    const menu = menuProblemsForCase(row, details);
     return {
       id: row.id,
       status: row.status,
@@ -682,8 +749,25 @@ export class OnboardingCasesService {
       revision: row.revision,
       details,
       modeConfig,
-      completedSteps: evaluation.completedSteps,
-      problems: { customer: evaluation.customer, mode: evaluation.mode },
+      completedSteps: [
+        ...evaluation.completedSteps,
+        ...(row.mode && row.mode !== 'DEMO' && menu.length === 0
+          ? ['menu' as const]
+          : []),
+        ...(row.status === 'READY' ? ['review' as const] : []),
+      ],
+      problems: { customer: evaluation.customer, mode: evaluation.mode, menu },
+      menuDraft: readCaseMenu(row),
+      importExpiresAt: row.importExpiresAt?.toISOString() ?? null,
+      importReviewed:
+        !!row.importReviewed &&
+        !!row.importExpiresAt &&
+        row.importExpiresAt > new Date(),
+      importAttempts: row.importAttempts,
+      ...(row.restaurantId ? { restaurantId: row.restaurantId } : {}),
+      provisioningKey: row.provisioningKey,
+      lastErrorCode: row.lastErrorCode,
+      ownerPasswordRequired: !row.restaurantId && !row.restaurantProvisionedAt,
       lead: row.lead
         ? { ...row.lead, createdAt: row.lead.createdAt.toISOString() }
         : null,

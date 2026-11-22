@@ -1,8 +1,6 @@
 # Onboarding Cases — API and Persistence
 
-**Status:** PROPOSED, with the Product Owner decisions of 2026-11-21 applied (password, lead ↔ demo, package). Milestones A1 + A2 implemented on branch
-`feat/onboarding-wizard`. **2026-11-21 (second review):** A-D4…A-D7 approved as design policies (DEC-076); the A3 / A4
-sections below are planned designs, not started. Product workflow: `docs/01-domain/ONBOARDING_WORKFLOW_SPEC.md`.
+**Status:** A1/A2 draft workflow and A3 REAL/TRIAL provisioning are implemented. A4 (DEMO and handoff) remains deferred. The Product Owner decisions are recorded in DEC-076. Product workflow: `docs/01-domain/ONBOARDING_WORKFLOW_SPEC.md`.
 
 Code: `apps/api/src/platform/onboarding/` (`onboarding-details.ts` sanitizer + step validation,
 `onboarding-transitions.ts` state machine, `onboarding-cases.service.ts`, `onboarding-cases.controller.ts`).
@@ -157,7 +155,26 @@ Two operators starting from the same lead: the service first looks for an open c
 closes the race (a `P2002` on create is answered with the existing case id). The e2e suite fires both POSTs in
 parallel and expects exactly one `201` and one `409`.
 
-## 4. Planned A3 saga (not implemented)
+## 4. A3 implementation and A4 handoff
+
+A3 provisions REAL and TRIAL only. A1/A2 still allow a case with steps 1 and 2 complete to enter review; final provisioning additionally requires a complete menu and, for an imported draft, explicit human review. The Platform routes use the same session and Origin protections as the draft routes.
+
+| Method | Case action | Body | Success |
+|---|---|---|---|
+| PATCH | `/:id` | existing fields plus optional `menuDraft` | Case view; menu edits invalidate import approval |
+| POST | `/:id/menu-import` | multipart `revision` and repeated `file` | Staged normalized menu; no tenant writes |
+| POST | `/:id/menu-import/review` | `{ revision }` | Marks a valid staged menu reviewed |
+| DELETE | `/:id/menu-import` | `{ revision }` | Discards the staged menu and leaves the case in DRAFT |
+| POST | `/:id/provision` | `{ revision, provisioningKey, ownerPassword? }` | READY or the current checkpoint, including FAILED with `lastErrorCode` |
+| POST | `/:id/retry` | same key and current `revision`; password only if no tenant was created | Resumes from the recorded checkpoint |
+
+The menu is a bounded nested graph of fresh content, with no client-controlled tenant or resource IDs. The first menu is primary. Prices are decimal strings. The view reports `menuDraft`, `problems.menu`, `importReviewed`, `importExpiresAt`, `importAttempts`, `provisioningKey`, `lastErrorCode`, and `ownerPasswordRequired`, plus `restaurantId` once present. Drafts may be incomplete; final submit refuses missing names, prices, or review. A package change or archive is revalidated before provisioning and again at the stages that consume it.
+
+Imports retain no source files. The per-case quota is three extraction attempts; normalized imported content expires in seven days and is cleared on cancellation or by the expiry sweep. A4 must clear the staged content on delivery too. If an imported draft expires before its menu was ever committed, it cannot be published on retry. Cancelling FAILED abandons the case but does not delete an already-created tenant.
+
+Release check (no infrastructure change in A3): the checked-in Gateway template limits request bodies to 16 MiB and waits 120 seconds for Platform API responses. Large batches and extraction runs that outlast the Gateway timeout need a separately approved Gateway configuration or upload transport before the full API limits can be offered through that Gateway.
+
+The additive migration `20261128100000_onboarding_a3` records when the tenant was created, when the menu was published, and the identity of the committed trial. Each checkpoint commits in the same transaction as its respective writes and audit. A removed tenant cannot be replaced by retry even if its foreign key is cleared. A retry after a sync interruption reuses the committed trial. READY requires the real Guest Menu reader to resolve the restaurant's current slug and show an available product. Historical design sequence and A4 boundaries follow.
 
 The existing routines each own their transaction (`provisionRestaurant`, menu services, `createTrial` with
 post-commit audit + subscription sync), so one all-or-nothing transaction is not possible without rewriting them.

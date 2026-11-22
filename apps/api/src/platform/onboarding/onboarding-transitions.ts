@@ -1,8 +1,4 @@
-/**
- * The onboarding case state machine (PROPOSED). The full planned machine is written down here so the
- * enum, the docs and the code agree, but ONLY the `IMPLEMENTED` transitions can happen in this build
- * (milestones A1 + A2); the rest belong to the provisioning saga (A3 / A4).
- */
+/** A1/A2 draft lifecycle and the A3 REAL/TRIAL provisioning saga. Delivery is deferred to A4. */
 export const ONBOARDING_STATUSES = [
   'DRAFT',
   'READY_FOR_REVIEW',
@@ -21,24 +17,13 @@ export const IMPLEMENTED_TRANSITIONS: Readonly<
 > = {
   DRAFT: ['READY_FOR_REVIEW', 'CANCELLED'],
   // Any edit of a case under review sends it back to DRAFT.
-  READY_FOR_REVIEW: ['DRAFT', 'CANCELLED'],
-  PROVISIONING: [],
-  MENU_SETUP: [],
-  READY: [],
-  DELIVERED: [],
-  FAILED: [],
-  CANCELLED: [],
-};
-
-/** Planned for A3 / A4 (documented, NOT reachable through any route in this build). */
-export const PLANNED_TRANSITIONS: Readonly<
-  Partial<Record<OnboardingStatusKey, readonly OnboardingStatusKey[]>>
-> = {
-  READY_FOR_REVIEW: ['PROVISIONING'],
+  READY_FOR_REVIEW: ['DRAFT', 'CANCELLED', 'PROVISIONING'],
   PROVISIONING: ['MENU_SETUP', 'FAILED'],
   MENU_SETUP: ['READY', 'FAILED'],
-  READY: ['DELIVERED'],
+  READY: [],
+  DELIVERED: [],
   FAILED: ['PROVISIONING', 'MENU_SETUP', 'CANCELLED'],
+  CANCELLED: [],
 };
 
 /** Terminal for the "one open case per lead" rule. FAILED is recoverable, so it stays open. */

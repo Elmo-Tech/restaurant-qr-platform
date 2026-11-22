@@ -6,8 +6,8 @@ import { hash, verify } from '@node-rs/argon2';
  * minimum 8 characters, recommended maximum 128. No forced composition
  * rules — do not invent uppercase/number/symbol requirements.
  */
-const MIN_PASSWORD_LENGTH = 8;
-const MAX_PASSWORD_LENGTH = 128;
+export const MIN_PASSWORD_LENGTH = 8;
+export const MAX_PASSWORD_LENGTH = 128;
 
 /**
  * @node-rs/argon2's `Algorithm` is declared as an ambient `const enum`,
