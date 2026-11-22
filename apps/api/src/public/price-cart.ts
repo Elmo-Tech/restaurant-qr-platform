@@ -60,6 +60,8 @@ interface PriceCartContext {
   items: readonly CreateGuestOrderItemInput[];
   offersEnabled: boolean;
   promotionsEnabled: boolean;
+  /** Only a persisted order will create RESTRICT references; quotes never lock. */
+  lockPromotionReferences?: boolean;
   now: Date;
 }
 
@@ -634,7 +636,13 @@ export async function priceCart(
   if (orderType === 'DELIVERY' && !zone) throw new DeliveryZoneInvalidError();
 
   const { promotions, labels } = promotionsEnabled
-    ? await loadPromotions(tx, restaurantId, defaultLocale, today)
+    ? await loadPromotions(
+        tx,
+        restaurantId,
+        defaultLocale,
+        today,
+        ctx.lockPromotionReferences === true,
+      )
     : { promotions: [], labels: new Map<string, PromotionLabel>() };
   const result = evaluatePromotions({
     lines: engineLines,
@@ -692,15 +700,27 @@ async function loadPromotions(
   restaurantId: string,
   defaultLocale: string,
   today: string,
+  lockReferences: boolean,
 ): Promise<{
   promotions: EnginePromotion[];
   labels: Map<string, PromotionLabel>;
 }> {
   const date = new Date(`${today}T00:00:00.000Z`);
+  // Serialize only hard deletes with snapshot creation. If Staff deletion wins,
+  // the row is not a candidate; otherwise the FK reference wins through commit.
+  const locked = lockReferences
+    ? await tx.$queryRaw<{ id: string }[]>`
+        SELECT id FROM promotions
+        WHERE restaurant_id = ${restaurantId}::uuid AND status = 'ACTIVE'
+          AND (starts_on IS NULL OR starts_on <= ${today}::date)
+          AND (ends_on IS NULL OR ends_on >= ${today}::date)
+        ORDER BY id FOR KEY SHARE`
+    : undefined;
   const rows = await tx.promotion.findMany({
     where: {
       restaurantId,
       status: 'ACTIVE',
+      ...(locked && { id: { in: locked.map(({ id }) => id) } }),
       AND: [
         { OR: [{ startsOn: null }, { startsOn: { lte: date } }] },
         { OR: [{ endsOn: null }, { endsOn: { gte: date } }] },

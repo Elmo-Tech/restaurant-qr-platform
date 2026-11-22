@@ -67,7 +67,7 @@ original order instead of `409 IDEMPOTENCY_KEY_REUSED` (`API_CONVENTIONS.md` #76
 - [ ] Update every ⚠ reader of `UNIFIED_PROMOTIONS_HISTORICAL_SNAPSHOTS.md` §3: Staff order detail/receipt, table-session summary/bill/drawer, dashboard top products, WhatsApp message, guest confirmation.
 - [ ] Real-DB e2e: B5 scenario end-to-end, idempotent retries, concurrent submissions, promotion disabled mid-checkout, legacy orders.
 
-### B3 — Staff Promotions workspace — PENDING
+### B3 — Staff Promotions workspace — implemented on `feat/promotions-b3` (review pending)
 
 > **Mandatory B3 prerequisites (recorded 2026-11-22, Product Owner correction B-2; not built in B1).**
 > 1. **Delivery Zone delete vs promotions.** B1 already answers `409 DELIVERY_ZONE_USED_BY_PROMOTIONS` from
@@ -87,8 +87,9 @@ original order instead of `409 IDEMPOTENCY_KEY_REUSED` (`API_CONVENTIONS.md` #76
 >    code (to be added to `API_CONVENTIONS.md` with B3) instead of a 500.
 > 3. **B2 writer contract.** Each allocation row carries the Order id (`order_promotion_allocations.order_id`) and
 >    each `order_promotions` row the Order's Restaurant id; the composite keys reject anything else.
-- [ ] Staff CRUD API (`promotions.view` / `promotions.manage`, tenant-safe target validation, `AllBranchesRequiredGuard`, CSRF, `PROMOTIONS` feature guard, zone / category delete conflict).
-- [ ] `/staff/restaurants/[restaurantId]/menu/promotions` registered in `MenuSectionTabs`; list/filter/create/edit/enable; savings preview using engine diagnostics; conflict explanation copy.
+- [x] Staff CRUD API (`promotions.view` / `promotions.manage`, tenant-safe target validation, `AllBranchesRequiredGuard`, CSRF, opt-in `PROMOTIONS`). Safe target edits and terminal archive release explicit links; historical rows are immutable. The Delivery settings explain both deletion blockers and link to the filtered Promotions list. There is no Staff hard-delete route for the other targets; their existing RESTRICT keys remain in place.
+- [x] `/staff/restaurants/[restaurantId]/menu/promotions` registered in `MenuSectionTabs`; list/search/filter/create/edit/activate/archive, engine-backed sample preview, and bilingual conflict recovery.
+- [x] Persisted checkout takes key-share locks on date-eligible Promotion rows. If checkout wins, history blocks a racing delete; if deletion wins, checkout prices without the removed row and retains `PRICE_CHANGED` / reconfirmation. Quotes, WhatsApp dry runs and pricing policy are unchanged. See `API_CONVENTIONS.md` #111–#112 for the B3 contract.
 
 ### B4 — Guest display, receipts, financial QA — PENDING
 - [ ] Cart renders the server quote (debounced, cancellable), sends quote total as `expectedTotal`.

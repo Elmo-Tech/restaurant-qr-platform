@@ -420,11 +420,13 @@ export function OffersWorkspace({
   defaultLocale,
   currencyCode,
   canManage,
+  promotionsEnabled,
 }: {
   restaurantId: string;
   defaultLocale: string;
   currencyCode: string;
   canManage: boolean;
+  promotionsEnabled: boolean;
 }) {
   const { t, tp, locale } = useStaffI18n();
   const activeLocales = useActiveLocales(restaurantId, defaultLocale);
@@ -1105,7 +1107,7 @@ export function OffersWorkspace({
   return (
     <div className="flex flex-col gap-6">
       <MenuHubBackLink restaurantId={restaurantId} parent="hub" />
-      <MenuSectionTabs restaurantId={restaurantId} active="offers" offersEnabled />
+      <MenuSectionTabs restaurantId={restaurantId} active="offers" offersEnabled promotionsEnabled={promotionsEnabled} />
       <PageHeader title={t('offers.title')} description={t('offers.description')} />
 
       {error ? <Alert variant="error">{error}</Alert> : null}

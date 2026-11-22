@@ -938,7 +938,10 @@ export class PublicOrdersService {
             });
           }
 
-          const priced = await priceCart(tx, pricingContext);
+          const priced = await priceCart(tx, {
+            ...pricingContext,
+            lockPromotionReferences: !submission.dryRun,
+          });
           const {
             snapshot,
             itemsData,

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../lib/auth/session';
+import { canOpenPromotions } from '../../../../lib/promotions/capabilities';
 import { canViewMenu } from '../../../../lib/menu/capabilities';
 import { canViewTables } from '../../../../lib/tables/capabilities';
 import { receivesDashboardOrders, usesTableOrdering } from '../../../../lib/entitlements/access';
@@ -74,6 +75,7 @@ export default async function RestaurantWorkspaceLayout({
       // A demo owner's address is a throw-away one: the visitor sees a plain label instead.
       userEmail={membership.restaurant.demoExpiresAt ? t('demo.visitor') : sessionState.context.user.email}
       canViewMenu={canViewMenu(membership)}
+      canOpenPromotions={canOpenPromotions(membership)}
       canViewTables={canViewTables(membership)}
       canViewOrders={canViewOrders(membership)}
       packageHides={{

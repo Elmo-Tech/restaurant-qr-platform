@@ -2183,7 +2183,7 @@ Never returned: a raw `RestaurantLocale` `id`/`restaurantId`. The default locale
 
 **Bilingual names.** `POST /restaurants/{id}/branches`, `PATCH /restaurants/{id}/branches/{branchId}`, `POST /restaurants/{id}/branches/{branchId}/delivery-zones` and `PATCH /restaurants/{id}/delivery-zones/{zoneId}` accept an optional `translations: [{ locale, name }]` (locales `en` / `ar`, no repeats, name up to 100 characters). `name` remains the default-locale name; an empty translation name removes that locale; the default locale cannot be removed (`400 DEFAULT_TRANSLATION_REQUIRED`). Branch list/detail, `/auth/me` branches, and the Delivery overview return `translations`. The public menu returns already-resolved names (requested locale, then default locale, then `name`). `POST /public/qr/{publicCode}/orders` accepts an optional display-only `locale` (`en` | `ar`) used to localize Branch and zone names in the confirmation; it never affects pricing, validation or the stored snapshot.
 
-**Delivery zone delete (amended 2026-11-22, Unified Promotions B1).** `DELETE /restaurants/{id}/delivery-zones/{zoneId}` (`restaurant.manage`, all-Branches scope, CSRF) answers `204` when nothing references the zone; `404 DELIVERY_ZONE_NOT_FOUND` for a malformed / unknown / foreign id; `409 DELIVERY_ZONE_HAS_ORDERS` when Orders reference it (deactivate instead); `409 DELIVERY_ZONE_USED_BY_PROMOTIONS` when a Promotion targets it (change the Promotion or deactivate the zone). When both apply, `DELIVERY_ZONE_HAS_ORDERS` is returned. The Delivery overview's `canDelete` is `false` in both conflict cases.
+**Delivery zone delete (amended 2026-11-22, Unified Promotions B1).** `DELETE /restaurants/{id}/delivery-zones/{zoneId}` (`restaurant.manage`, all-Branches scope, CSRF) answers `204` when nothing references the zone; `404 DELIVERY_ZONE_NOT_FOUND` for a malformed / unknown / foreign id; `409 DELIVERY_ZONE_HAS_ORDERS` when Orders reference it (deactivate instead); `409 DELIVERY_ZONE_USED_BY_PROMOTIONS` when a Promotion targets it (change the Promotion or deactivate the zone). When both apply, including racing references, `DELIVERY_ZONE_HAS_ORDERS` takes precedence. The Delivery overview returns `canDelete: false` and `deleteBlockedBy: "ORDERS" | "PROMOTIONS"` for these cases; otherwise `deleteBlockedBy` is `null`. Staff with access to Promotions can open the list filtered to Promotions explicitly targeting the Zone.
 
 ---
 
@@ -2466,25 +2466,31 @@ See #108C for the complete contract (guard chain, `PRODUCT_NOT_FOUND` existence-
 
 ---
 
-# 111. Promotions API
+# 111. Staff Promotions API (DEC-075, B3)
 
-Examples:
+Base: `/api/v1/restaurants/{restaurantId}/promotions`. All routes require an authenticated, operational Restaurant membership and the opt-in `PROMOTIONS` feature (`403 FEATURE_NOT_AVAILABLE` when off). Reads require `promotions.view`; structural mutations require `promotions.manage`, CSRF and all-Branches scope. Restaurant and audit user come from authenticated context, never from the body.
 
-`GET /api/v1/restaurants/{restaurantId}/promotions`
+| Method and suffix | Behavior |
+| --- | --- |
+| `GET /` | `{ data, meta: { page, pageSize, total } }`; optional `search` (internal name or title), `status`, `scope`, and `zoneId` (explicit links only). Pages start at 1, default size 25, max 100. |
+| `GET /{promotionId}` | `{ data }` with config, lifecycle timestamps and `canDelete`. An unknown, malformed or foreign ID returns `404 PROMOTION_NOT_FOUND`. |
+| `GET /targets` | Restaurant catalog, active locales and default locale; Branches/Zones are limited to the membership's Branch grants. |
+| `POST /` | `201 { data }` with new `INACTIVE` Promotion. |
+| `PATCH /{promotionId}` | `200 { data }`; omitted fields are unchanged. Supplied target/translation arrays replace the corresponding selections (omitted inactive-locale translations are retained). Status changes only through actions. |
+| `POST /preview` | `200 { data }`. Read-only simulation with `promotions.view` and CSRF; the selected active Branch must be accessible and a Delivery Zone must be active and belong to that Branch. |
+| `DELETE /{promotionId}` | `204` only if never used by an Order. Check and FK races both return `409 PROMOTION_HAS_HISTORICAL_REFERENCES`; archive instead. |
 
-`POST /api/v1/restaurants/{restaurantId}/promotions`
+Configuration uses `internalName`, `scope`, `discountType`, `value`, `priority` (default `100`), nullable date-only `startsOn`/`endsOn`, nullable `minimumSubtotal`, `minimumQuantity` and `quantityBasis`, the five target ID arrays and `translations: [{ locale, title, description? }]`. Money is a decimal string. See DEC-075 for allowed field and target combinations. Invalid configuration returns `422 PROMOTION_INVALID` with `details.problems`; missing/foreign/incompatible targets return `422 INVALID_PROMOTION_TARGET` with `details.fields`. A target that disappears during a write returns `409 PROMOTION_TARGET_CHANGED`. Malformed DTOs use the normal validation envelope.
 
-`GET /api/v1/restaurants/{restaurantId}/promotions/{promotionId}`
-
-`PATCH /api/v1/restaurants/{restaurantId}/promotions/{promotionId}`
+Preview takes `{ draft, promotionId?, branchId, orderType, deliveryZoneId?, items: [{ productId, quantity }] }`. It simulates the draft as enabled on the Branch's current local date against the other active Promotions and legacy Product discounts, using catalog prices (first active size if present, no paid extras/Offer lines). It is not a Guest quote or an availability check. It returns the engine strategy and totals as decimal strings, draft-only `appliedSaving`, a draft diagnostic with potential saving and any remaining amount/quantity, and `zoneMinimumShortfall` if the net merchandise misses the zone minimum. Invalid preview selections return `422 PROMOTION_PREVIEW_BRANCH_INVALID`, `PROMOTION_PREVIEW_ZONE_INVALID` or `PROMOTION_PREVIEW_PRODUCT_INVALID`.
 
 ---
 
-# 112. Promotion Activation
+# 112. Promotion Lifecycle and Target Changes
 
-Promotion may be activated / deactivated through PATCH if it is simple configuration.
+Use `POST /{promotionId}/activate`, `/deactivate` or `/archive` (`200 { data }`). Activation validates current schedules, translation and targets. `PATCH` and actions accept `expectedUpdatedAt` from the last read; a stale value returns `409 PROMOTION_CHANGED`.
 
-Backend still validates schedule / targets.
+A change that broadens targeting, including clearing the final Delivery Zone, returns `409 PROMOTION_TARGET_WIDENING_CONFIRMATION_REQUIRED` with `details.fields` unless the request explicitly sends `confirmTargetWidening: true`. Deactivation keeps target restrictions. Terminal archive releases the target links without changing Order snapshots; archived Promotions cannot be edited or reactivated (`409 PROMOTION_ARCHIVED`). A Delivery Zone can then be deleted only if no other Promotion or Order references it (see #108D-1). There is no Staff hard-delete API for Branch, Menu, Category or Product; their target foreign keys remain `RESTRICT`.
 
 ---
 

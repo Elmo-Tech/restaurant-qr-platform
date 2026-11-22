@@ -7,6 +7,7 @@ import {
   hasMenuManagePermission,
 } from '../../../../../../lib/menu/capabilities';
 import { usesOffers } from '../../../../../../lib/entitlements/access';
+import { canOpenPromotions } from '../../../../../../lib/promotions/capabilities';
 import { Alert } from '../../../../../../components/ui/Alert';
 import { ModifierPresetsWorkspace } from './ModifierPresetsWorkspace';
 
@@ -66,6 +67,7 @@ export default async function ModifierPresetsPage({ params }: ModifierPresetsPag
       canManage={canManageMenu(membership)}
       hasMenuManagePermission={hasMenuManagePermission(membership)}
       offersEnabled={usesOffers(membership)}
+      promotionsEnabled={canOpenPromotions(membership)}
     />
   );
 }

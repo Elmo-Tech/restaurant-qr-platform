@@ -7,6 +7,7 @@ import {
   hasMenuManagePermission,
 } from '../../../../../lib/menu/capabilities';
 import { usesMenuImport, usesOffers } from '../../../../../lib/entitlements/access';
+import { canOpenPromotions } from '../../../../../lib/promotions/capabilities';
 import { Alert } from '../../../../../components/ui/Alert';
 import { MenuWorkspace } from './MenuWorkspace';
 
@@ -77,6 +78,7 @@ export default async function MenuManagementPage({
       canManage={canManageMenu(membership)}
       canImportMenu={usesMenuImport(membership)}
       offersEnabled={usesOffers(membership)}
+      promotionsEnabled={canOpenPromotions(membership)}
       hasMenuManagePermission={hasMenuManagePermission(membership)}
       initialMenuId={initialMenuId}
       initialCategoryId={initialCategoryId}

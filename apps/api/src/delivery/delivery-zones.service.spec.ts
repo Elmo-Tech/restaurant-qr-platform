@@ -38,7 +38,9 @@ function build() {
   const zoneUpdate = jest.fn().mockResolvedValue(ZONE_ROW);
   const zoneDelete = jest.fn().mockResolvedValue(undefined);
   const membershipBranchFindMany = jest.fn().mockResolvedValue([]);
+  const orderCount = jest.fn().mockResolvedValue(0);
   const prisma = {
+    order: { count: orderCount },
     branch: { findMany: branchFindMany, findFirst: branchFindFirst },
     deliveryZone: {
       create: zoneCreate,
@@ -59,6 +61,7 @@ function build() {
   return {
     zoneTranslationUpsert,
     zoneTranslationDeleteMany,
+    orderCount,
     service: new DeliveryZonesService(prisma as never),
     branchFindMany,
     branchFindFirst,
@@ -88,6 +91,7 @@ describe('DeliveryZonesService', () => {
       deliveryFee: '25.00',
       minimumOrder: '150.00',
       canDelete: true,
+      deleteBlockedBy: null,
     });
   });
 
@@ -127,7 +131,10 @@ describe('DeliveryZonesService', () => {
       allBranches: true,
     });
 
-    expect(result[0].zones[0].canDelete).toBe(false);
+    expect(result[0].zones[0]).toMatchObject({
+      canDelete: false,
+      deleteBlockedBy: 'ORDERS',
+    });
   });
 
   it('a zone targeted by a promotion (no Orders) reports canDelete=false', async () => {
@@ -150,7 +157,10 @@ describe('DeliveryZonesService', () => {
       allBranches: true,
     });
 
-    expect(result[0].zones[0].canDelete).toBe(false);
+    expect(result[0].zones[0]).toMatchObject({
+      canDelete: false,
+      deleteBlockedBy: 'PROMOTIONS',
+    });
   });
 
   it('create verifies the Branch belongs to the authorized Restaurant', async () => {
@@ -393,6 +403,20 @@ describe('DeliveryZonesService', () => {
     });
 
     expect(result).toEqual({ outcome: 'usedByPromotions' });
+  });
+
+  it('an Order still takes precedence when the database reports the racing promotion FK first', async () => {
+    const m = build();
+    m.orderCount.mockResolvedValue(1);
+    m.zoneDelete.mockRejectedValue(
+      foreignKeyError('promotion_delivery_zones_zone_scope_fkey'),
+    );
+
+    await expect(
+      m.service.deleteZone({ restaurantId: RESTAURANT_ID, zoneId: ZONE_ID }),
+    ).resolves.toEqual({
+      outcome: 'hasOrders',
+    });
   });
 
   it('a race on the Order foreign key (by constraint name) stays hasOrders', async () => {
