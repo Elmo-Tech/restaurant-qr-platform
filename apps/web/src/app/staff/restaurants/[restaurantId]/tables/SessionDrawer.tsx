@@ -394,6 +394,14 @@ export function SessionDrawer({
                             ))}
                           </li>
                         ))}
+                        {round.order.promotions?.map((promotion, index) => (
+                          <li key={`promotion-${index}`} className="flex justify-between gap-3 text-success">
+                            <span className="min-w-0 break-words"><bdi dir="auto">{promotion.title ?? t('orders.pricing.promotion')}</bdi></span>
+                            <span className="whitespace-nowrap">
+                              <Money amount={`−${promotion.amount}`} currency={round.order.currencyCode} />
+                            </span>
+                          </li>
+                        ))}
                       </ul>
                       <p className="mt-2 flex justify-between gap-3 border-t border-border pt-2 text-sm font-semibold text-foreground">
                         <span>&nbsp;</span>

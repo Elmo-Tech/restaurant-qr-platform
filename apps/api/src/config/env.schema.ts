@@ -223,6 +223,8 @@ export const envSchema = z
     RATE_LIMIT_LOGIN_LIMIT: z.coerce.number().int().min(1).default(10),
     // Public Guest order creation, per client IP, per window.
     RATE_LIMIT_PUBLIC_ORDER_LIMIT: z.coerce.number().int().min(1).default(30),
+    // Read-only Guest cart quotes have a separate budget from submissions.
+    RATE_LIMIT_PUBLIC_QUOTE_LIMIT: z.coerce.number().int().min(1).default(60),
     // Guest order tracking (status polling), and the "find my order by phone" lookup.
     RATE_LIMIT_PUBLIC_TRACKING_LIMIT: z.coerce
       .number()

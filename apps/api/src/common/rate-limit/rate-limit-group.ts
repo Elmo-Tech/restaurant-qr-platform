@@ -11,6 +11,7 @@ import { SetMetadata } from '@nestjs/common';
 export const RATE_LIMIT_GROUPS = {
   LOGIN: 'login',
   PUBLIC_ORDER: 'publicOrder',
+  PUBLIC_QUOTE: 'publicQuote',
   /** Guest order tracking: polled every few seconds, so a generous limit. */
   PUBLIC_TRACKING: 'publicTracking',
   /** Guest "find my order by phone": strict, it takes a phone number as input. */

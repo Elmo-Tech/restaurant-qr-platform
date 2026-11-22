@@ -214,6 +214,7 @@ export class DashboardService {
               productNameSnapshot: true,
               quantity: true,
               lineTotal: true,
+              promotionAllocations: { select: { amount: true } },
             },
           })
         : [];
@@ -231,7 +232,12 @@ export class DashboardService {
         isOffer: item.productId === null,
       };
       entry.quantity += item.quantity;
-      entry.amount = entry.amount.plus(item.lineTotal);
+      // The line already includes the legacy discount, but not its merchandise promotion allocations.
+      const netLine = item.promotionAllocations.reduce(
+        (net, allocation) => net.minus(allocation.amount),
+        item.lineTotal,
+      );
+      entry.amount = entry.amount.plus(netLine);
       byProduct.set(key, entry);
     }
     const topProducts: DashboardTopProduct[] = [...byProduct.entries()]

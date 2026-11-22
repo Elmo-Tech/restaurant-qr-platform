@@ -122,6 +122,8 @@ export const ordersMessages = defineMessages({
     'orders.detail.discount': 'Discount',
     'orders.detail.subtotal': 'Subtotal',
     'orders.detail.deliveryFee': 'Delivery fee',
+    'orders.pricing.deliveryDiscount': 'Delivery discount',
+    'orders.pricing.promotion': 'Promotion',
     'orders.detail.total': 'Total',
     'orders.detail.print': 'Print',
 
@@ -269,6 +271,8 @@ export const ordersMessages = defineMessages({
     'orders.detail.discount': 'الخصم',
     'orders.detail.subtotal': 'المجموع الفرعي',
     'orders.detail.deliveryFee': 'رسوم التوصيل',
+    'orders.pricing.deliveryDiscount': 'خصم التوصيل',
+    'orders.pricing.promotion': 'عرض ترويجي',
     'orders.detail.total': 'الإجمالي',
     'orders.detail.print': 'طباعة',
 

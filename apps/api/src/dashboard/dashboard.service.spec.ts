@@ -180,11 +180,20 @@ describe('DashboardService.getMetrics', () => {
   });
 
   describe('top products', () => {
-    const item = (productId: string, name: string, quantity: number, lineTotal: string) => ({
+    const item = (
+      productId: string,
+      name: string,
+      quantity: number,
+      lineTotal: string,
+      allocations: string[] = [],
+    ) => ({
       productId,
       productNameSnapshot: name,
       quantity,
       lineTotal: decimal(lineTotal),
+      promotionAllocations: allocations.map((amount) => ({
+        amount: decimal(amount),
+      })),
     });
 
     it('ranks best sellers by quantity from the revenue orders only, with exact net amounts', async () => {
@@ -210,6 +219,55 @@ describe('DashboardService.getMetrics', () => {
         { productId: 'p-fries', isOffer: false, name: 'Fries', quantity: 5, amount: '75.00' },
         { productId: 'p-burger', isOffer: false, name: 'Burger', quantity: 3, amount: '135.00' },
         { productId: 'p-cola', isOffer: false, name: 'Cola', quantity: 1, amount: '10.00' },
+      ]);
+    });
+
+    it('subtracts only merchandise allocations from lines, leaving net order revenue inclusive of delivery', async () => {
+      const mocks = buildMocks({
+        orders: [
+          order({ id: 'o1', type: 'DELIVERY', totalAmount: decimal('210.00') }),
+        ],
+        items: [
+          item('p-burger', 'Burger', 1, '100.00', ['25.01']),
+          item('p-fries', 'Fries', 1, '100.00', ['24.99']),
+          {
+            ...item('ignored', 'Combo', 1, '40.00'),
+            productId: null,
+            offerId: 'offer-1',
+          },
+        ],
+      });
+
+      const result = await buildService(mocks).getMetrics(ALL_BRANCHES_SCOPE, {
+        range: 'today',
+      });
+
+      expect(result.kpis.revenue).toBe('210.00');
+      expect(mocks.orderItemFindMany.mock.calls[0]).toMatchObject([
+        { select: { promotionAllocations: { select: { amount: true } } } },
+      ]);
+      expect(result.topProducts).toEqual([
+        {
+          productId: 'p-fries',
+          isOffer: false,
+          name: 'Fries',
+          quantity: 1,
+          amount: '75.01',
+        },
+        {
+          productId: 'p-burger',
+          isOffer: false,
+          name: 'Burger',
+          quantity: 1,
+          amount: '74.99',
+        },
+        {
+          productId: 'offer-1',
+          isOffer: true,
+          name: 'Combo',
+          quantity: 1,
+          amount: '40.00',
+        },
       ]);
     });
 

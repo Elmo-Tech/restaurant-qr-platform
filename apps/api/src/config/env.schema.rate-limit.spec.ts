@@ -15,6 +15,7 @@ describe('validateEnv -- rate limiting / proxy (FT-9)', () => {
       RATE_LIMIT_DEFAULT_LIMIT: 300,
       RATE_LIMIT_LOGIN_LIMIT: 10,
       RATE_LIMIT_PUBLIC_ORDER_LIMIT: 30,
+      RATE_LIMIT_PUBLIC_QUOTE_LIMIT: 60,
       TRUST_PROXY_HOPS: 0,
     });
   });
@@ -25,6 +26,7 @@ describe('validateEnv -- rate limiting / proxy (FT-9)', () => {
       RATE_LIMIT_ENABLED: 'false',
       RATE_LIMIT_LOGIN_LIMIT: '5',
       RATE_LIMIT_PUBLIC_ORDER_LIMIT: '12',
+      RATE_LIMIT_PUBLIC_QUOTE_LIMIT: '45',
       TRUST_PROXY_HOPS: '1',
     });
 
@@ -32,6 +34,7 @@ describe('validateEnv -- rate limiting / proxy (FT-9)', () => {
       RATE_LIMIT_ENABLED: false,
       RATE_LIMIT_LOGIN_LIMIT: 5,
       RATE_LIMIT_PUBLIC_ORDER_LIMIT: 12,
+      RATE_LIMIT_PUBLIC_QUOTE_LIMIT: 45,
       TRUST_PROXY_HOPS: 1,
     });
   });
@@ -41,6 +44,7 @@ describe('validateEnv -- rate limiting / proxy (FT-9)', () => {
     ['RATE_LIMIT_LOGIN_LIMIT', '0'],
     ['RATE_LIMIT_WINDOW_SECONDS', '0'],
     ['RATE_LIMIT_PUBLIC_ORDER_LIMIT', 'lots'],
+    ['RATE_LIMIT_PUBLIC_QUOTE_LIMIT', '0'],
     ['TRUST_PROXY_HOPS', '-1'],
     ['TRUST_PROXY_HOPS', '99'],
   ])('rejects an invalid %s=%s at startup', (key, value) => {

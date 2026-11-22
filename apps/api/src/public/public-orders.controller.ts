@@ -16,13 +16,19 @@ import {
   RATE_LIMIT_GROUPS,
   RateLimitGroup,
 } from '../common/rate-limit/rate-limit-group';
-import { CreateGuestOrderDto } from './dto/create-guest-order.dto';
+import {
+  CreateGuestOrderDto,
+  QuoteGuestOrderDto,
+} from './dto/create-guest-order.dto';
 import { PublicOrdersService } from './public-orders.service';
 import { WhatsappTrackingService } from '../whatsapp-tracking/whatsapp-tracking.service';
 import type {
   CreateGuestOrderInput,
   CreateGuestOrderResult,
   GuestOrderView,
+  PublicQuoteView,
+  QuoteGuestOrderInput,
+  QuoteGuestOrderResult,
 } from './public-orders.service';
 import {
   buildWhatsappMessage,
@@ -163,12 +169,20 @@ const IDEMPOTENCY_KEY_REUSED_RESPONSE = {
   },
 };
 
-function minimumOrderNotMetResponse(zoneName: string, minimumOrder: string) {
+function minimumOrderNotMetResponse(
+  zoneName: string,
+  minimumOrder: string,
+  subtotal?: string,
+) {
   return {
     error: {
       code: 'DELIVERY_MINIMUM_NOT_MET',
       message: 'The order is below the minimum for this delivery area.',
-      details: { zoneName, minimumOrder },
+      details: {
+        zoneName,
+        minimumOrder,
+        ...(subtotal !== undefined ? { subtotal } : {}),
+      },
     },
   };
 }
@@ -177,24 +191,7 @@ interface GuestOrderResponseBody {
   data: GuestOrderView;
 }
 
-/**
- * FT-5: the one public Guest Order-creation endpoint,
- * `POST /api/v1/public/qr/:publicCode/orders`. Deliberately carries NONE of
- * AuthGuard/CsrfGuard/RestaurantAccessGuard/PermissionGuard, exactly like
- * `PublicMenuController` -- there is no Guest session/cookie for CSRF to
- * protect at all; `publicCode` alone is the authoritative Restaurant/
- * Branch/Table context, and every authoritative fact (which Products are
- * orderable, unit price, totals) is re-resolved server-side regardless of
- * what the request body claims (Section 4/5/6/8).
- *
- * No reusable Public rate limiter exists anywhere in this repository yet
- * (same documented gap as `PublicMenuController`, Section 28) -- this Fast
- * Track batch deliberately does NOT build a new rate-limiting subsystem for
- * it; adding Guest-facing rate limiting for public Order creation is
- * documented, deferred, pre-production follow-up work, not a silently
- * accepted gap. Idempotency (`clientRequestId`) is still enforced
- * regardless (Section 11/28).
- */
+/** Guest orders and non-reserving price quotes, scoped by the public QR and host. */
 @UseGuards(PublicRestaurantHostGuard)
 @Controller('public/qr')
 export class PublicOrdersController {
@@ -213,6 +210,22 @@ export class PublicOrdersController {
     );
     this.refuse(result);
     if (result.outcome !== 'created')
+      throw new NotFoundException(QR_NOT_FOUND_RESPONSE);
+    return { data: result.data };
+  }
+
+  @Post(':publicCode/quote')
+  @HttpCode(HttpStatus.OK)
+  @RateLimitGroup(RATE_LIMIT_GROUPS.PUBLIC_QUOTE)
+  async quote(
+    @Param('publicCode') publicCode: string,
+    @Body() dto: QuoteGuestOrderDto,
+  ): Promise<{ data: PublicQuoteView }> {
+    const result = await this.publicOrdersService.quote(
+      this.toCartInput(publicCode, dto),
+    );
+    this.refuse(result);
+    if (result.outcome !== 'publicQuote')
       throw new NotFoundException(QR_NOT_FOUND_RESPONSE);
     return { data: result.data };
   }
@@ -249,16 +262,13 @@ export class PublicOrdersController {
     };
   }
 
-  private toInput(
+  private toCartInput(
     publicCode: string,
-    dto: CreateGuestOrderDto,
-    extra: { channel?: 'APP' | 'WHATSAPP'; dryRun?: boolean },
-  ): CreateGuestOrderInput {
+    dto: QuoteGuestOrderDto,
+  ): QuoteGuestOrderInput {
     return {
       publicCode,
-      clientRequestId: dto.clientRequestId,
       locale: dto.locale,
-      expectedTotal: dto.expectedTotal,
       items: dto.items.map((item) => ({
         productId: item.productId,
         offerId: item.offerId,
@@ -272,11 +282,23 @@ export class PublicOrdersController {
         variantId: item.variantId ?? undefined,
       })),
       branchId: dto.branchId,
+      fulfillment: dto.fulfillment,
+      deliveryZoneId: dto.deliveryZoneId,
+    };
+  }
+
+  private toInput(
+    publicCode: string,
+    dto: CreateGuestOrderDto,
+    extra: { channel?: 'APP' | 'WHATSAPP'; dryRun?: boolean },
+  ): CreateGuestOrderInput {
+    return {
+      ...this.toCartInput(publicCode, dto),
+      clientRequestId: dto.clientRequestId,
+      expectedTotal: dto.expectedTotal,
       customerName: dto.customerName,
       customerPhone: dto.customerPhone,
       customerNotes: dto.customerNotes,
-      fulfillment: dto.fulfillment,
-      deliveryZoneId: dto.deliveryZoneId,
       deliveryAddress: dto.deliveryAddress,
       deliveryBuilding: dto.deliveryBuilding,
       deliveryFloor: dto.deliveryFloor,
@@ -286,8 +308,8 @@ export class PublicOrdersController {
     };
   }
 
-  /** Turns every refusal into its stable HTTP error; returns only for `created` and `quoted`. */
-  private refuse(result: CreateGuestOrderResult): void {
+  /** Turns each refusal into its stable HTTP error. */
+  private refuse(result: CreateGuestOrderResult | QuoteGuestOrderResult): void {
     if (result.outcome === 'customerDetailsRequired') {
       throw new BadRequestException(CUSTOMER_DETAILS_REQUIRED_RESPONSE);
     }
@@ -318,7 +340,11 @@ export class PublicOrdersController {
     }
     if (result.outcome === 'minimumOrderNotMet') {
       throw new BadRequestException(
-        minimumOrderNotMetResponse(result.zoneName, result.minimumOrder),
+        minimumOrderNotMetResponse(
+          result.zoneName,
+          result.minimumOrder,
+          result.subtotal,
+        ),
       );
     }
     if (result.outcome === 'tableOrderingUnavailable') {

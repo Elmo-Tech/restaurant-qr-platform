@@ -44,11 +44,20 @@ export interface OrderItemView {
   quantity: number;
   /** Product Discounts V1: total discount taken off this line ("0.00" when none); `lineTotal` is already net of it. `unitPrice` is the price BEFORE the discount. */
   discountAmount: string;
+  /** Sum of the new merchandise promotion allocations, not yet deducted from `lineTotal`. */
+  promotionDiscount?: string;
   lineTotal: string;
   modifiers: OrderItemModifierView[];
 }
 
-/** Mirrors the Backend's `OrderDetail` exactly (FT-5). */
+/** Applied promotion at the time of the order, not its current configuration. */
+export interface OrderPromotionSnapshot {
+  title: string | null;
+  scope: 'CATEGORY' | 'MENU' | 'CART' | 'QUANTITY' | 'DELIVERY';
+  amount: string;
+}
+
+/** Mirrors the Backend's `OrderDetail` (FT-5). */
 export interface OrderDetail {
   id: string;
   createdAt: string;
@@ -69,11 +78,14 @@ export interface OrderDetail {
     apartment: string | null;
     landmark: string | null;
   } | null;
-  /** FT-8: exact money breakdown -- subtotalAmount + deliveryFee = totalAmount. */
+  /** Net merchandise subtotal + net delivery fee = totalAmount. */
   subtotalAmount: string;
   deliveryFee: string;
-  /** Product Discounts V1: sum of the items' discounts ("0.00" when none); `subtotalAmount` is already net of it. */
+  deliveryFeeOriginal?: string | null;
+  deliveryDiscount?: string;
+  /** Combined legacy and new merchandise discounts, already deducted from `subtotalAmount`. */
   discountTotal: string;
+  promotions?: OrderPromotionSnapshot[];
   currencyCode: string;
   totalAmount: string;
   items: OrderItemView[];

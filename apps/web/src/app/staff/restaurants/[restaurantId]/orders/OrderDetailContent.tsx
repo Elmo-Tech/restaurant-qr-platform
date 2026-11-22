@@ -5,7 +5,7 @@ import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { Alert } from '../../../../../components/ui/Alert';
 import { Button } from '../../../../../components/ui/Button';
 import { ReadErrorAlert } from '../../../../../components/staff/ReadErrorAlert';
-import { fromMinorUnits, toMinorUnits } from '../../../../../lib/public-menu/money';
+import { orderDisplayPricing } from '../../../../../lib/orders/display-pricing';
 import type { OrderDetail, OrderStatus } from '../../../../../lib/orders/types';
 import {
   isDestructiveTransition as isDestructive,
@@ -91,7 +91,8 @@ export function OrderDetailContent({
     return t(transitionLabelKey(to, order.type));
   }
   const showFee = isDelivery;
-  const hasDiscount = order.discountTotal !== '0.00';
+  const { hasDiscount, grossSubtotal, merchandisePromotions, deliveryFee, deliveryDiscount } =
+    orderDisplayPricing(order);
 
   return (
     <>
@@ -309,6 +310,12 @@ export function OrderDetailContent({
                   </p>
                 </li>
               ))}
+              {merchandisePromotions.map((promotion, index) => (
+                <li key={`promotion-${index}`} className="flex justify-between gap-3 px-3 py-2 text-sm text-success">
+                  <span className="min-w-0 break-words"><bdi dir="auto">{promotion.title ?? t('orders.pricing.promotion')}</bdi></span>
+                  <bdi dir="ltr" className="shrink-0">−{promotion.amount} {order.currencyCode}</bdi>
+                </li>
+              ))}
             </ul>
           </section>
 
@@ -320,12 +327,7 @@ export function OrderDetailContent({
                 <div className="flex items-baseline justify-between text-sm text-muted-foreground">
                   <span>{t('orders.detail.subtotal')}</span>
                   <bdi dir="ltr">
-                    {hasDiscount
-                      ? fromMinorUnits(
-                          toMinorUnits(order.subtotalAmount) + toMinorUnits(order.discountTotal),
-                        )
-                      : order.subtotalAmount}{' '}
-                    {order.currencyCode}
+                    {grossSubtotal} {order.currencyCode}
                   </bdi>
                 </div>
                 {hasDiscount ? (
@@ -340,9 +342,16 @@ export function OrderDetailContent({
                 {showFee ? (
                   <div className="flex items-baseline justify-between text-sm text-muted-foreground">
                     <span>{t('orders.detail.deliveryFee')}</span>
-                    <bdi dir="ltr">
-                      {order.deliveryFee} {order.currencyCode}
-                    </bdi>
+                    <bdi dir="ltr">{deliveryFee} {order.currencyCode}</bdi>
+                  </div>
+                ) : null}
+                {deliveryDiscount ? (
+                  <div className="flex items-baseline justify-between gap-3 text-sm font-semibold text-success">
+                    <span className="min-w-0 break-words">
+                      {t('orders.pricing.deliveryDiscount')}
+                      {deliveryDiscount.title ? <> · <bdi dir="auto">{deliveryDiscount.title}</bdi></> : null}
+                    </span>
+                    <bdi dir="ltr" className="shrink-0">−{deliveryDiscount.amount} {order.currencyCode}</bdi>
                   </div>
                 ) : null}
               </>

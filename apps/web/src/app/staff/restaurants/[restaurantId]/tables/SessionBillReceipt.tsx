@@ -184,6 +184,12 @@ export function SessionBillView({
                 ))}
               </li>
             ))}
+            {round.promotions?.map((promotion, index) => (
+              <li key={`promotion-${index}`} className="flex justify-between gap-2">
+                <span className="min-w-0 break-words"><Text>{promotion.title ?? t('orders.pricing.promotion')}</Text></span>
+                <span className="whitespace-nowrap"><Num>−{promotion.amount}</Num></span>
+              </li>
+            ))}
           </ul>
           <p className="mt-1 flex justify-between gap-2 border-t border-dotted border-neutral-500 pt-0.5 font-bold">
             <span>&nbsp;</span>
@@ -216,6 +222,12 @@ export function SessionBillView({
                 {round.items.map((item, index) => (
                   <p key={index} className="ps-3">
                     <Num>{item.quantity}×</Num> <Text>{item.productNameSnapshot}{item.variantName ? ` · ${item.variantName}` : ''}</Text>
+                  </p>
+                ))}
+                {round.promotions?.map((promotion, index) => (
+                  <p key={`promotion-${index}`} className="flex justify-between gap-2 ps-3">
+                    <span className="min-w-0 break-words"><Text>{promotion.title ?? t('orders.pricing.promotion')}</Text></span>
+                    <span className="whitespace-nowrap"><Num>−{promotion.amount}</Num></span>
                   </p>
                 ))}
               </div>

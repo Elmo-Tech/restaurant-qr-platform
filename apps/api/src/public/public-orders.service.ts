@@ -1,14 +1,10 @@
+import { randomUUID } from 'node:crypto';
 import { Injectable } from '@nestjs/common';
 import {
   validateGuestOrderFields,
   type GuestFieldError,
 } from './guest-order-fields';
 import { resolveLocalizedName } from '../common/name-translations';
-import {
-  dateOnlyString,
-  localDateIn,
-  resolveActiveDiscount,
-} from '../menu/product-discount';
 import { isClosedNow } from '../branches/branch-hours';
 import { PrismaService } from '../database/prisma.service';
 import { effectiveOrdering } from '../entitlements/effective-ordering';
@@ -19,18 +15,14 @@ import {
   OFFER_CHOICES_SELECT,
   offerChoiceModifiers,
   offerLineKey,
-  resolveOfferChoices,
   type OfferChoiceInput,
-  type OrderableOffer,
   type StoredOfferChoice,
 } from '../offers/offer-order';
-import { itemName, itemOrderable, optionItemSelect } from '../offers/offer-items';
 import {
   matchesStoredOrderRequestFingerprint,
   orderRequestFingerprint,
   type OrderRequestIdentity,
 } from './order-request-fingerprint';
-import { offerAvailability } from '../offers/offer-rules';
 import {
   isClosedSessionTriggerViolation,
   resolveDineInSessionSlot,
@@ -38,6 +30,17 @@ import {
   TableOrderingUnavailableError,
   type DineInSessionSlot,
 } from '../table-sessions/table-session-ordering';
+
+import type { OrderPricingSnapshot } from '../promotions/promotion-snapshot';
+import type { PromotionScopeName } from '../promotions/promotion-engine';
+import {
+  priceCart,
+  DeliveryZoneInvalidError,
+  ItemsUnavailableError,
+  MinimumOrderNotMetError,
+  OfferChangedError,
+  OfferUnavailableError,
+} from './price-cart';
 
 export interface CreateGuestOrderItemInput {
   /** A product line: the Product's identity. Exactly one of `productId` / `offerId` is set (DEC-069). */
@@ -53,11 +56,21 @@ export interface CreateGuestOrderItemInput {
   variantId?: string;
 }
 
-export interface CreateGuestOrderInput {
+export interface QuoteGuestOrderInput {
   publicCode: string;
-  clientRequestId: string;
   /** The Guest's resolved menu content language (display only): used to localize Branch and zone names in the confirmation. Never authority. */
   locale?: string;
+  items: CreateGuestOrderItemInput[];
+  /** FT-7, GENERIC QR (Pickup) only: the Guest's chosen Pickup Branch. Never authority -- always re-validated against the Restaurant's ACTIVE Branches. Ignored entirely for a TABLE QR. */
+  branchId?: string;
+  /** GENERIC QR only; the QR determines whether this is Dine-In. */
+  fulfillment?: 'PICKUP' | 'DELIVERY';
+  /** DELIVERY only: identity of the chosen zone, never a fee/minimum/total. */
+  deliveryZoneId?: string;
+}
+
+export interface CreateGuestOrderInput extends QuoteGuestOrderInput {
+  clientRequestId: string;
   /**
    * The total payable the Guest was shown (decimal string). A staleness check
    * only: when it differs from the Backend's own total (a discount started,
@@ -65,17 +78,9 @@ export interface CreateGuestOrderInput {
    * current total is returned (PROMOTIONS_SPEC.md #46-48). Never used as a price.
    */
   expectedTotal?: string;
-  items: CreateGuestOrderItemInput[];
-  /** FT-7, GENERIC QR (Pickup) only: the Guest's chosen Pickup Branch. Never authority -- always re-validated against the Restaurant's ACTIVE Branches. Ignored entirely for a TABLE QR. */
-  branchId?: string;
-  /** FT-7, GENERIC QR (Pickup) only -- required there, ignored for a TABLE QR. Already DTO-trimmed. */
   customerName?: string;
   customerPhone?: string;
   customerNotes?: string;
-  /** FT-8, GENERIC QR only: the ONLY thing the Guest chooses about the Order type -- PICKUP (default) or DELIVERY. Ignored for a TABLE QR. */
-  fulfillment?: 'PICKUP' | 'DELIVERY';
-  /** FT-8, DELIVERY only: identity of the chosen zone -- never a fee/minimum/total. */
-  deliveryZoneId?: string;
   deliveryAddress?: string;
   deliveryBuilding?: string;
   deliveryFloor?: string;
@@ -95,6 +100,25 @@ export interface QuoteOfferSlot {
   title: string;
   included: boolean;
   choices: { name: string; quantity: number; priceAdjustment: string }[];
+}
+
+export interface AppliedPromotionView {
+  title: string | null;
+  scope: PromotionScopeName;
+  amount: string;
+}
+
+export interface PublicQuoteView {
+  type: OrderType;
+  currencyCode: string;
+  subtotal: string;
+  discountTotal: string;
+  deliveryFee: string;
+  deliveryFeeOriginal: string | null;
+  deliveryDiscount: string;
+  total: string;
+  promotions: AppliedPromotionView[];
+  items: GuestOrderItemView[];
 }
 
 /** The authoritative priced order of a dry run: what the WhatsApp message is built from. */
@@ -129,12 +153,16 @@ export interface OrderQuote {
     }[];
     unitPrice: string;
     discountAmount: string;
+    promotionDiscount?: string;
     lineTotal: string;
   }[];
   subtotal: string;
   discountTotal: string;
   deliveryFee: string;
   total: string;
+  promotions?: AppliedPromotionView[];
+  deliveryFeeOriginal?: string | null;
+  deliveryDiscount?: string;
   customerName: string | null;
   customerPhone: string | null;
   customerNotes: string | null;
@@ -164,6 +192,8 @@ export interface GuestOrderItemView {
   unitPrice: string;
   /** Product Discounts V1: the total discount taken off this line ("0.00" when none). `lineTotal` is already net of it. */
   discountAmount: string;
+  /** Sum of this line’s allocations; not yet subtracted from lineTotal. */
+  promotionDiscount?: string;
   lineTotal: string;
   modifiers: GuestOrderItemModifierView[];
 }
@@ -183,11 +213,14 @@ export interface GuestOrderView {
   pickupBranch: { name: string } | null;
   /** FT-8: DELIVERY only -- Branch and zone display names (null otherwise). */
   delivery: { branchName: string; zoneName: string } | null;
-  /** FT-8: exact money breakdown -- subtotal + deliveryFee = total. deliveryFee is 0.00 for DINE_IN/PICKUP. `subtotal` is already net of product discounts. */
+  /** FT-8: exact money breakdown -- subtotal + deliveryFee = total. deliveryFee is 0.00 for DINE_IN/PICKUP. `subtotal` is already net of merchandise discounts. */
   subtotal: string;
   deliveryFee: string;
-  /** Product Discounts V1: sum of the items' discounts ("0.00" when none). */
+  /** All merchandise discounts (legacy and promotions); excludes delivery discounts. */
   discountTotal: string;
+  promotions?: AppliedPromotionView[];
+  deliveryFeeOriginal?: string | null;
+  deliveryDiscount?: string;
   items: GuestOrderItemView[];
 }
 
@@ -221,7 +254,12 @@ export type CreateGuestOrderResult =
   /** FT-8: zone missing, unknown, foreign, INACTIVE, or not in the selected Branch -- one indistinguishable outcome. */
   | { outcome: 'deliveryZoneInvalid' }
   /** FT-8: items subtotal is below the zone's minimum order. Values come from the Backend's own zone row. */
-  | { outcome: 'minimumOrderNotMet'; zoneName: string; minimumOrder: string }
+  | {
+      outcome: 'minimumOrderNotMet';
+      zoneName: string;
+      minimumOrder: string;
+      subtotal?: string;
+    }
   /** Product Discounts V1: the displayed total is stale; `total` is the Backend's current payable total. Nothing was created. */
   | {
       outcome: 'priceChanged';
@@ -244,6 +282,14 @@ export type CreateGuestOrderResult =
   /** API_CONVENTIONS.md #80: this `clientRequestId` already belongs to a materially different request in this QR + Branch scope. Nothing was created; the original Order is untouched. */
   | { outcome: 'idempotencyKeyReused' };
 
+export type QuoteGuestOrderResult =
+  | Exclude<CreateGuestOrderResult, { outcome: 'created' | 'quoted' }>
+  | { outcome: 'publicQuote'; data: PublicQuoteView };
+
+type CheckoutRequest =
+  | { mode: 'quote'; input: QuoteGuestOrderInput }
+  | { mode: 'submit'; input: CreateGuestOrderInput };
+
 interface OrderViewRow {
   id: string;
   status: OrderStatus;
@@ -253,6 +299,13 @@ interface OrderViewRow {
   type: OrderType;
   subtotalAmount: Prisma.Decimal;
   deliveryFeeAmount: Prisma.Decimal;
+  deliveryFeeOriginalAmount?: Prisma.Decimal | null;
+  deliveryDiscountAmount?: Prisma.Decimal;
+  promotions?: {
+    titleSnapshot: string | null;
+    scope: PromotionScopeName;
+    amount: Prisma.Decimal;
+  }[];
   discountTotalAmount?: Prisma.Decimal;
   deliveryZoneNameSnapshot: string | null;
   table: { tableNumber: string } | null;
@@ -269,6 +322,7 @@ interface OrderViewRow {
     quantity: number;
     lineTotal: Prisma.Decimal;
     discountAmount?: Prisma.Decimal;
+    promotionAllocations?: { amount: Prisma.Decimal }[];
     variantNameSnapshot?: string | null;
     modifiers: {
       modifierGroupNameSnapshot: string;
@@ -287,6 +341,12 @@ const ORDER_VIEW_SELECT = {
   type: true,
   subtotalAmount: true,
   deliveryFeeAmount: true,
+  deliveryFeeOriginalAmount: true,
+  deliveryDiscountAmount: true,
+  promotions: {
+    select: { titleSnapshot: true, scope: true, amount: true },
+    orderBy: [{ scope: 'asc' }, { promotionId: 'asc' }],
+  },
   discountTotalAmount: true,
   deliveryZoneNameSnapshot: true,
   table: { select: { tableNumber: true } },
@@ -307,6 +367,7 @@ const ORDER_VIEW_SELECT = {
       quantity: true,
       lineTotal: true,
       discountAmount: true,
+      promotionAllocations: { select: { amount: true } },
       variantNameSnapshot: true,
       modifiers: {
         select: {
@@ -363,7 +424,10 @@ function toGuestOrderView(order: OrderViewRow, locale?: string): GuestOrderView 
         : null,
     subtotal: order.subtotalAmount.toFixed(2),
     deliveryFee: order.deliveryFeeAmount.toFixed(2),
-    discountTotal: (order.discountTotalAmount ?? new Prisma.Decimal(0)).toFixed(2),
+    discountTotal: amountString(order.discountTotalAmount),
+    deliveryFeeOriginal: order.deliveryFeeOriginalAmount?.toFixed(2) ?? null,
+    deliveryDiscount: amountString(order.deliveryDiscountAmount),
+    promotions: (order.promotions ?? []).map(toPromotionView),
     items: order.items.map((item) => ({
       productId: item.productId,
       offerId: item.offerId ?? null,
@@ -371,7 +435,13 @@ function toGuestOrderView(order: OrderViewRow, locale?: string): GuestOrderView 
       variantName: item.variantNameSnapshot ?? null,
       quantity: item.quantity,
       unitPrice: item.unitPrice.toFixed(2),
-      discountAmount: (item.discountAmount ?? new Prisma.Decimal(0)).toFixed(2),
+      discountAmount: amountString(item.discountAmount),
+      promotionDiscount: amountString(
+        item.promotionAllocations?.reduce(
+          (sum, row) => sum.plus(row.amount),
+          ZERO,
+        ),
+      ),
       lineTotal: item.lineTotal.toFixed(2),
       modifiers: [
         ...item.modifiers.map((modifier) => ({
@@ -385,40 +455,55 @@ function toGuestOrderView(order: OrderViewRow, locale?: string): GuestOrderView 
   };
 }
 
-/**
- * Escapes `$transaction`'s callback distinctly from a real Prisma/database
- * error, so the outer `catch` can tell "an item is no longer orderable"
- * apart from "an unrelated persistence failure" (which must keep
- * propagating unmapped, exactly like `isTableNumberConflict`'s sibling
- * pattern in `tables.service.ts`).
- */
-class ItemsUnavailableError extends Error {}
+const ZERO = new Prisma.Decimal(0);
 
-/** DEC-042: thrown at the end of a dry run to carry the priced order out of (and roll back) the transaction. */
+function amountString(value?: Prisma.Decimal): string {
+  return (value ?? ZERO).toFixed(2);
+}
+
+function toPromotionView(row: {
+  titleSnapshot: string | null;
+  scope: PromotionScopeName;
+  amount: Prisma.Decimal;
+}): AppliedPromotionView {
+  return {
+    title: row.titleSnapshot,
+    scope: row.scope,
+    amount: row.amount.toFixed(2),
+  };
+}
+
+function quoteMoney(snapshot: OrderPricingSnapshot) {
+  const order = snapshot.order;
+  return {
+    subtotal: order.subtotalAmount.toFixed(2),
+    discountTotal: order.discountTotalAmount.toFixed(2),
+    deliveryFee: order.deliveryFeeAmount.toFixed(2),
+    deliveryFeeOriginal: order.deliveryFeeOriginalAmount?.toFixed(2) ?? null,
+    deliveryDiscount: order.deliveryDiscountAmount.toFixed(2),
+    total: order.totalAmount.toFixed(2),
+    promotions: snapshot.promotions.map(toPromotionView),
+  };
+}
+
+function allocationsByLine(snapshot: OrderPricingSnapshot) {
+  const totals = new Map<number, Prisma.Decimal>();
+  for (const promotion of snapshot.promotions) {
+    for (const { lineIndex, amount } of promotion.allocations) {
+      totals.set(lineIndex, (totals.get(lineIndex) ?? ZERO).plus(amount));
+    }
+  }
+  return totals;
+}
+
+/** Preserve the rollback-only WhatsApp dry-run contract. */
 class QuotedSignal extends Error {
   constructor(readonly quote: OrderQuote) {
     super('QUOTED');
   }
 }
 
-/** FT-8: thrown inside the transaction when the zone is not a valid ACTIVE zone of the resolved Branch. */
-class DeliveryZoneInvalidError extends Error {}
-
-/** DEC-069: an Offer is missing, off, not valid today, or not allowed for this Restaurant; rolls everything back. */
-class OfferUnavailableError extends Error {
-  constructor(readonly offerIds: string[]) {
-    super('offer unavailable');
-  }
-}
-
-/** DEC-069: the Guest's choices do not fit the Offer as it is now; rolls everything back. */
-class OfferChangedError extends Error {
-  constructor(readonly offerIds: string[]) {
-    super('offer changed');
-  }
-}
-
-/** Product Discounts V1: thrown inside the transaction when the displayed total is stale; rolls everything back. */
+/** Thrown inside the transaction when the displayed total is stale; rolls everything back. */
 class PriceChangedError extends Error {
   constructor(
     readonly subtotal: Prisma.Decimal,
@@ -426,16 +511,6 @@ class PriceChangedError extends Error {
     readonly total: Prisma.Decimal,
   ) {
     super('displayed total no longer matches the current price');
-  }
-}
-
-/** FT-8: thrown inside the transaction when the items subtotal is below the zone minimum. */
-class MinimumOrderNotMetError extends Error {
-  constructor(
-    readonly zoneName: string,
-    readonly minimumOrder: Prisma.Decimal,
-  ) {
-    super('minimum order not met');
   }
 }
 
@@ -486,7 +561,27 @@ export class PublicOrdersService {
     private readonly entitlements: EntitlementsService,
   ) {}
 
-  async createOrder(input: CreateGuestOrderInput): Promise<CreateGuestOrderResult> {
+  createOrder(input: CreateGuestOrderInput): Promise<CreateGuestOrderResult> {
+    return this.checkout({ mode: 'submit', input });
+  }
+
+  quote(input: QuoteGuestOrderInput): Promise<QuoteGuestOrderResult> {
+    return this.checkout({ mode: 'quote', input });
+  }
+
+  private checkout(request: {
+    mode: 'quote';
+    input: QuoteGuestOrderInput;
+  }): Promise<QuoteGuestOrderResult>;
+  private checkout(request: {
+    mode: 'submit';
+    input: CreateGuestOrderInput;
+  }): Promise<CreateGuestOrderResult>;
+  private async checkout(
+    request: CheckoutRequest,
+  ): Promise<CreateGuestOrderResult | QuoteGuestOrderResult> {
+    const { input } = request;
+    const submission = request.mode === 'submit' ? request.input : null;
     // DEC-069: a line is a Product line OR an Offer line, never both and never neither.
     if (
       input.items.some(
@@ -495,10 +590,6 @@ export class PublicOrdersService {
     ) {
       return { outcome: 'itemsUnavailable' };
     }
-    const productIds = input.items.flatMap((item) =>
-      item.productId === undefined ? [] : [item.productId],
-    );
-
     // FT-6A: line identity is (productId + its exact set of selected
     // Modifier Options), NOT productId alone -- "Burger + Cheese" and
     // "Burger + Bacon" are two genuinely distinct lines (Cart identity
@@ -588,7 +679,7 @@ export class PublicOrdersService {
     let deliveryApartment: string | null = null;
     let deliveryLandmark: string | null = null;
 
-    const viaWhatsapp = input.channel === 'WHATSAPP';
+    const viaWhatsapp = submission?.channel === 'WHATSAPP';
     if (viaWhatsapp) {
       // WhatsApp ordering is for the Restaurant QR only (a Table QR keeps ordering through the app).
       if (qr.type !== 'GENERIC') return { outcome: 'qrNotFound' };
@@ -632,17 +723,18 @@ export class PublicOrdersService {
       }
       // DEC-042: while WhatsApp ordering is on, Pickup and Delivery orders go to WhatsApp INSTEAD
       // of the dashboard, so the app endpoint creates none of them.
-      if (!viaWhatsapp && effective.whatsapp) {
+      if (submission && !viaWhatsapp && effective.whatsapp) {
         return { outcome: 'whatsappOnly' };
       }
-      // Missing details keep their own stable outcomes; details that are present must also be
-      // acceptable (a real phone for the Restaurant's country, sane lengths, no control
-      // characters) and are stored normalized (phone as E.164).
-      if (!input.customerName?.trim() || !input.customerPhone?.trim()) {
+      // Only actual submissions (including WhatsApp) carry customer details.
+      if (
+        submission &&
+        (!submission.customerName?.trim() || !submission.customerPhone?.trim())
+      ) {
         return { outcome: 'customerDetailsRequired' };
       }
       if (isDelivery) {
-        if (!input.deliveryAddress?.trim()) {
+        if (submission && !submission.deliveryAddress?.trim()) {
           return { outcome: 'deliveryDetailsRequired' };
         }
         if (!input.deliveryZoneId) {
@@ -650,21 +742,23 @@ export class PublicOrdersService {
         }
         deliveryZoneId = input.deliveryZoneId;
       }
-      const validated = validateGuestOrderFields(input, {
-        defaultCountry: qr.restaurant.countryCode,
-        delivery: isDelivery,
-      });
-      if (!validated.ok) {
-        return { outcome: 'invalidFields', errors: validated.errors };
+      if (submission) {
+        const validated = validateGuestOrderFields(submission, {
+          defaultCountry: qr.restaurant.countryCode,
+          delivery: isDelivery,
+        });
+        if (!validated.ok) {
+          return { outcome: 'invalidFields', errors: validated.errors };
+        }
+        customerName = validated.fields.customerName;
+        customerPhone = validated.fields.customerPhone;
+        customerNotes = validated.fields.customerNotes;
+        deliveryAddress = validated.fields.deliveryAddress;
+        deliveryBuilding = validated.fields.deliveryBuilding;
+        deliveryFloor = validated.fields.deliveryFloor;
+        deliveryApartment = validated.fields.deliveryApartment;
+        deliveryLandmark = validated.fields.deliveryLandmark;
       }
-      customerName = validated.fields.customerName;
-      customerPhone = validated.fields.customerPhone;
-      customerNotes = validated.fields.customerNotes;
-      deliveryAddress = validated.fields.deliveryAddress;
-      deliveryBuilding = validated.fields.deliveryBuilding;
-      deliveryFloor = validated.fields.deliveryFloor;
-      deliveryApartment = validated.fields.deliveryApartment;
-      deliveryLandmark = validated.fields.deliveryLandmark;
 
       // Branch authority: only an eligible Branch of THIS QR's own
       // Restaurant -- ACTIVE for Pickup; ACTIVE with at least one ACTIVE
@@ -713,30 +807,36 @@ export class PublicOrdersService {
     // above and excludes prices, `expectedTotal` and `locale`, so a genuine retry
     // after a price change or a language switch still replays. A dry run stores
     // nothing and never takes part in idempotency.
-    const requestIdentity: OrderRequestIdentity | null = input.dryRun
-      ? null
-      : {
-          qrCodeId: qr.id,
-          branchId,
-          orderType,
-          channel: input.channel ?? 'APP',
-          items: input.items,
-          customerName,
-          customerPhone,
-          customerNotes,
-          deliveryZoneId: orderType === 'DELIVERY' ? deliveryZoneId : null,
-          deliveryAddress,
-          deliveryBuilding,
-          deliveryFloor,
-          deliveryApartment,
-          deliveryLandmark,
-        };
-    const existing = requestIdentity
-      ? await this.prisma.order.findFirst({
-          where: { qrCodeId: qr.id, branchId, clientRequestId: input.clientRequestId },
-          select: IDEMPOTENT_ORDER_SELECT,
-        })
-      : null;
+    const requestIdentity: OrderRequestIdentity | null =
+      !submission || submission.dryRun
+        ? null
+        : {
+            qrCodeId: qr.id,
+            branchId,
+            orderType,
+            channel: submission.channel ?? 'APP',
+            items: input.items,
+            customerName,
+            customerPhone,
+            customerNotes,
+            deliveryZoneId: orderType === 'DELIVERY' ? deliveryZoneId : null,
+            deliveryAddress,
+            deliveryBuilding,
+            deliveryFloor,
+            deliveryApartment,
+            deliveryLandmark,
+          };
+    const existing =
+      requestIdentity && submission
+        ? await this.prisma.order.findFirst({
+            where: {
+              qrCodeId: qr.id,
+              branchId,
+              clientRequestId: submission.clientRequestId,
+            },
+            select: IDEMPOTENT_ORDER_SELECT,
+          })
+        : null;
     if (existing && requestIdentity) {
       if (
         !matchesStoredOrderRequestFingerprint(
@@ -749,6 +849,7 @@ export class PublicOrdersService {
       return { outcome: 'created', data: toGuestOrderView(existing, input.locale) };
     }
 
+    const now = new Date();
     // Opening hours (DEC-042): a closed Branch takes no Pickup / Delivery orders. Dine-In is
     // not blocked (the Guest is already seated). Checked after the idempotent replay above
     // so a retry of an order accepted while open still returns it.
@@ -769,7 +870,7 @@ export class PublicOrdersService {
             temporarilyClosed: branch.temporarilyClosed,
             intervals: branch.openingHours,
           },
-          new Date(),
+          now,
           branchTimezone,
         )
       ) {
@@ -777,654 +878,222 @@ export class PublicOrdersService {
       }
     }
 
+    const pricingContext = {
+      restaurantId,
+      branchId,
+      branchTimezone,
+      defaultLocale,
+      orderType,
+      deliveryZoneId,
+      now,
+      locale: input.locale,
+      items: input.items,
+      offersEnabled: features.OFFERS,
+      promotionsEnabled: features.PROMOTIONS,
+    };
     try {
-      const created = await this.prisma.$transaction(async (tx) => {
-        // Table Sessions: a Dine-In order locks its Table row FIRST (fixed lock
-        // order, see table-session-ordering.ts), then attaches to the OPEN
-        // session or opens one, and takes the next round number -- all inside
-        // THIS transaction, so a rejected/failed order leaves no session, event
-        // or round behind. Pickup and Delivery never enter this branch.
-        let sessionSlot: DineInSessionSlot | null = null;
-        if (orderType === 'DINE_IN' && tableId) {
-          sessionSlot = await resolveDineInSessionSlot(tx, {
-            restaurantId,
-            branchId,
-            tableId,
-          });
-        }
-
-        // Section 6: every submitted Product must belong to an ACTIVE
-        // Category inside the Restaurant's CURRENT ACTIVE PRIMARY Menu --
-        // resolved fresh, inside this same transaction, never trusted
-        // because the Guest's Menu page loaded it a moment ago.
-        const primaryMenu = await tx.menu.findFirst({
-          where: { restaurantId, isPrimary: true, status: 'ACTIVE' },
-          select: { id: true },
-        });
-        if (!primaryMenu) {
-          throw new ItemsUnavailableError();
-        }
-
-        const distinctProductIds = Array.from(new Set(productIds));
-        const products = await tx.product.findMany({
-          where: {
-            id: { in: distinctProductIds },
-            restaurantId,
-            status: 'ACTIVE',
-            availability: 'AVAILABLE',
-            category: { status: 'ACTIVE', menuId: primaryMenu.id },
-          },
-          select: {
-            id: true,
-            basePrice: true,
-            category: {
-              select: {
-                displayOrder: true,
-                translations: {
-                  where: { locale: defaultLocale },
-                  select: { name: true },
-                  take: 1,
-                },
-              },
-            },
-            discountType: true,
-            discountValue: true,
-            discountEnabled: true,
-            discountStartsOn: true,
-            discountEndsOn: true,
-            translations: {
-              where: { locale: defaultLocale },
-              select: { name: true },
-              take: 1,
-            },
-            // DEC-041: only ACTIVE sizes are authoritative for a submission; a size that was
-            // hidden since the Guest loaded the menu is treated like an unknown id.
-            variants: {
-              where: { status: 'ACTIVE' },
-              select: {
-                id: true,
-                price: true,
-                discountApplies: true,
-                translations: {
-                  where: { locale: defaultLocale },
-                  select: { name: true },
-                  take: 1,
-                },
-              },
-            },
-            // FT-6A: only ACTIVE Groups/Options are ever authoritative for
-            // a submission -- a Group/Option deactivated since the Guest
-            // loaded the Menu is treated exactly like a foreign/unknown id
-            // below (CRITICAL MONEY RULE: re-resolved fresh here, never
-            // trusted from the request).
-            modifierGroups: {
-              where: { status: 'ACTIVE' },
-              select: {
-                id: true,
-                variantId: true,
-                minimumSelections: true,
-                maximumSelections: true,
-                displayOrder: true,
-                sizeSettings: { select: { variantId: true, enabled: true } },
-                translations: {
-                  where: { locale: defaultLocale },
-                  select: { name: true },
-                  take: 1,
-                },
-                options: {
-                  where: { status: 'ACTIVE' },
-                  select: {
-                    id: true,
-                    priceAdjustment: true,
-                    displayOrder: true,
-                    sizeSettings: {
-                      select: { variantId: true, enabled: true, priceAdjustment: true },
-                    },
-                    translations: {
-                      where: { locale: defaultLocale },
-                      select: { name: true },
-                      take: 1,
-                    },
-                  },
-                },
-              },
-            },
-          },
-        });
-
-        const productById = new Map(products.map((product) => [product.id, product]));
-        // Section 6: if ANY requested Product is missing from the
-        // orderable set above (foreign, INACTIVE, SOLD_OUT, or outside the
-        // current primary Menu), the WHOLE Order is rejected -- no partial
-        // Orders.
-        if (productById.size !== distinctProductIds.length) {
-          throw new ItemsUnavailableError();
-        }
-
-        // Product Discounts V1: today's calendar date in the order Branch's
-        // timezone, shared by every line of this order.
-        const today = localDateIn(branchTimezone, new Date());
-
-        // DEC-069: every Offer of this order is re-resolved HERE, fresh and Tenant-scoped, and must be ACTIVE, valid
-        // today (weekday and dates, in THIS Branch's timezone) and allowed by the package. A missing, foreign,
-        // switched-off, archived or expired Offer rejects the whole order with the same OFFER_UNAVAILABLE.
-        const distinctOfferIds = Array.from(
-          new Set(input.items.flatMap((item) => (item.offerId ? [item.offerId] : []))),
+      if (!submission) {
+        // No Order lookup, Table Session slot or lock; a quote does not reserve a price.
+        const priced = await this.prisma.$transaction((tx) =>
+          priceCart(tx, pricingContext),
         );
-        const offerById = new Map<string, OrderableOffer>();
-        if (distinctOfferIds.length > 0) {
-          if (!features.OFFERS) {
-            throw new OfferUnavailableError(distinctOfferIds);
-          }
-          const offerRows = await tx.offer.findMany({
-            where: { id: { in: distinctOfferIds }, restaurantId, status: 'ACTIVE' },
-            select: {
-              id: true,
-              price: true,
-              status: true,
-              daysOfWeek: true,
-              startsOn: true,
-              endsOn: true,
-              translations: {
-                where: { locale: defaultLocale },
-                select: { name: true },
-                take: 1,
-              },
-              slots: {
-                where: { restaurantId },
-                select: {
-                  id: true,
-                  kind: true,
-                  requiredCount: true,
-                  displayOrder: true,
-                  translations: {
-                    where: { locale: defaultLocale },
-                    select: { title: true },
-                    take: 1,
-                  },
-                  options: {
-                    where: { restaurantId },
-                    select: {
-                      id: true,
-                      priceAdjustment: true,
-                      displayOrder: true,
-                      // a typed item's own name (default language); a menu-linked item reads the menu's
-                      translations: {
-                        where: { locale: defaultLocale },
-                        select: { locale: true, name: true },
-                      },
-                      ...optionItemSelect([defaultLocale]),
-                    },
-                  },
-                },
-              },
-            },
-          });
-          const unavailable: string[] = [];
-          for (const id of distinctOfferIds) {
-            const row = offerRows.find((candidate) => candidate.id === id);
-            const nameSnapshot = row?.translations[0]?.name;
-            if (
-              row === undefined ||
-              nameSnapshot === undefined ||
-              offerAvailability(
-                {
-                  status: row.status,
-                  daysOfWeek: row.daysOfWeek,
-                  startsOn: dateOnlyString(row.startsOn),
-                  endsOn: dateOnlyString(row.endsOn),
-                },
-                today,
-              ) !== 'AVAILABLE'
-            ) {
-              unavailable.push(id);
-              continue;
-            }
-            const slots: OrderableOffer['slots'] = [];
-            for (const slot of row.slots) {
-              const titleSnapshot = slot.translations[0]?.title;
-              if (titleSnapshot === undefined) {
-                // Defensive only -- a default-locale title always exists.
-                unavailable.push(id);
-                break;
-              }
-              const options: OrderableOffer['slots'][number]['options'] = [];
-              for (const option of slot.options) {
-                const optionName = itemName(option, option.translations, defaultLocale, defaultLocale);
-                // A linked item whose product is sold out / hidden is not offered: a missing included item (or a
-                // choice group with nothing left) makes the whole offer unavailable, a missing choice is "changed".
-                if (optionName === null || !itemOrderable(option)) {
-                  if (slot.kind === 'FIXED') unavailable.push(id);
-                  continue;
-                }
-                options.push({
-                  id: option.id,
-                  displayOrder: option.displayOrder,
-                  nameSnapshot: optionName,
-                  priceAdjustment: option.priceAdjustment,
-                  quantity: option.quantity,
-                });
-              }
-              if (slot.kind !== 'FIXED' && options.length === 0) unavailable.push(id);
-              slots.push({
-                id: slot.id,
-                kind: slot.kind,
-                requiredCount: slot.requiredCount,
-                displayOrder: slot.displayOrder,
-                titleSnapshot,
-                options,
-              });
-            }
-            if (!unavailable.includes(id)) {
-              offerById.set(id, { id, price: row.price, nameSnapshot, slots });
-            }
-          }
-          if (unavailable.length > 0) {
-            throw new OfferUnavailableError(unavailable);
-          }
-        }
-        let total = new Prisma.Decimal(0);
-        let discountTotal = new Prisma.Decimal(0);
-        // What only the WhatsApp message needs (the Category and the priced extras); kept beside `itemsData`
-        // because that array is written to the database as it is.
-        const quoteDetails: {
-          categoryName: string;
-          categoryOrder: number;
-          offerSlots: QuoteOfferSlot[] | null;
-          modifiers: {
-            groupName: string;
-            optionName: string;
-            priceAdjustment: string;
-          }[];
-        }[] = [];
-        const itemsData = input.items.map((item) => {
-          if (item.offerId !== undefined) {
-            // DEC-069: an Offer line. Price = the fixed offer price + the paid adjustments of the chosen options;
-            // the Guest's choices must satisfy every slot exactly. Product discounts never apply to it.
-            const offer = offerById.get(item.offerId);
-            if (offer === undefined) throw new OfferUnavailableError([item.offerId]);
-            const resolved = resolveOfferChoices(offer, item.offerChoices ?? []);
-            if (!resolved.ok) throw new OfferChangedError([item.offerId]);
-            const lineTotal = resolved.unitTotal.times(item.quantity);
-            total = total.plus(lineTotal);
-            const offerSlots: QuoteOfferSlot[] = [];
-            for (const choice of resolved.choices) {
-              let entry = offerSlots.find((slot) => slot.title === choice.slotTitleSnapshot && slot.included === choice.included);
-              if (!entry) {
-                entry = { title: choice.slotTitleSnapshot, included: choice.included, choices: [] };
-                offerSlots.push(entry);
-              }
-              entry.choices.push({
-                name: choice.optionNameSnapshot,
-                quantity: choice.quantity,
-                priceAdjustment: choice.priceAdjustment.toFixed(2),
-              });
-            }
-            quoteDetails.push({ categoryName: '', categoryOrder: -1, offerSlots, modifiers: [] });
-            return {
-              productId: null,
-              offerId: item.offerId,
-              productNameSnapshot: offer.nameSnapshot,
-              unitPrice: resolved.basePrice,
-              quantity: item.quantity,
-              lineTotal,
-              discountAmount: new Prisma.Decimal(0),
-              discountTypeSnapshot: null,
-              discountValueSnapshot: null,
-              variantId: null,
-              variantNameSnapshot: null,
-              variantPriceSnapshot: null,
-              offerChoices: {
-                create: resolved.choices.map((choice) => ({
-                  offerSlotId: choice.slotId,
-                  offerSlotOptionId: choice.optionId,
-                  slotKind: choice.slotKind,
-                  slotTitleSnapshot: choice.slotTitleSnapshot,
-                  optionNameSnapshot: choice.optionNameSnapshot,
-                  priceAdjustmentSnapshot: choice.priceAdjustment,
-                  quantity: choice.quantity,
-                  included: choice.included,
-                  displayOrder: choice.displayOrder,
-                })),
-              },
-            };
-          }
-          const product = item.productId === undefined ? undefined : productById.get(item.productId);
-          const productNameSnapshot = product?.translations[0]?.name;
-          if (product === undefined || productNameSnapshot === undefined) {
-            // Defensive only -- Batch C/D creation guarantees a
-            // default-locale translation always exists once a Product
-            // does.
-            throw new ItemsUnavailableError();
-          }
-
-          // Resolve the chosen size first: it determines which modifier groups,
-          // options and override prices are authoritative for this line.
-          // A foreign, inactive or omitted size fails closed exactly as before.
-          let size: { id: string; nameSnapshot: string; price: Prisma.Decimal; discountApplies: boolean } | null = null;
-          if (product.variants.length > 0) {
-            const chosen = product.variants.find((variant) => variant.id === item.variantId);
-            const chosenName = chosen?.translations[0]?.name;
-            if (chosen === undefined || chosenName === undefined) throw new ItemsUnavailableError();
-            size = {
-              id: chosen.id, nameSnapshot: chosenName, price: chosen.price,
-              discountApplies: chosen.discountApplies,
-            };
-          } else if (item.variantId !== undefined) {
-            throw new ItemsUnavailableError();
-          }
-          const currentSizeId = size?.id ?? null;
-          // DEC-074: a Size Group belongs only to its own size (and never to a
-          // line without a size); a Product Group may be switched off per size.
-          const availableGroups = product.modifierGroups.filter(
-            (group) =>
-              (!group.variantId || group.variantId === currentSizeId) &&
-              (!currentSizeId ||
-                !(group.sizeSettings ?? []).some(
-                  (setting) =>
-                    setting.variantId === currentSizeId && !setting.enabled,
-                )),
-          );
-
-          // FT-6A CRITICAL MONEY RULE: every selected modifierOptionId is
-          // re-resolved against this Product's OWN currently-ACTIVE
-          // Modifier Groups/Options -- an id that is unknown, belongs to a
-          // different Product, or whose Group/Option has since been
-          // deactivated all converge on the identical whole-order
-          // `itemsUnavailable` rejection (Section: "guest-safe unavailable/
-          // config-changed error", never a distinguishable reason).
-          const optionLookup = new Map<
-            string,
-            {
-              group: (typeof product.modifierGroups)[number];
-              option: (typeof product.modifierGroups)[number]['options'][number];
-              priceAdjustment: Prisma.Decimal;
-            }
-          >();
-          for (const group of availableGroups) {
-            for (const option of group.options) {
-              const override = currentSizeId
-                ? (option.sizeSettings ?? []).find(setting => setting.variantId === currentSizeId)
-                : null;
-              if (override?.enabled === false) continue;
-              optionLookup.set(option.id, {
-                group, option,
-                priceAdjustment: override?.priceAdjustment ?? option.priceAdjustment,
-              });
-            }
-          }
-
-          interface Selection {
-            groupId: string;
-            groupDisplayOrder: number;
-            optionId: string;
-            optionDisplayOrder: number;
-            groupNameSnapshot: string;
-            optionNameSnapshot: string;
-            priceAdjustment: Prisma.Decimal;
-          }
-
-          const selections: Selection[] = [];
-          const selectedCountByGroup = new Map<string, number>();
-          for (const optionId of item.modifierOptionIds ?? []) {
-            const found = optionLookup.get(optionId);
-            if (!found) {
-              throw new ItemsUnavailableError();
-            }
-            const { group, option, priceAdjustment } = found;
-            const groupNameSnapshot = group.translations[0]?.name;
-            const optionNameSnapshot = option.translations[0]?.name;
-            if (groupNameSnapshot === undefined || optionNameSnapshot === undefined) {
-              // Defensive only -- see productNameSnapshot check above.
-              throw new ItemsUnavailableError();
-            }
-            selections.push({
-              groupId: group.id,
-              groupDisplayOrder: group.displayOrder,
-              optionId: option.id,
-              optionDisplayOrder: option.displayOrder,
-              groupNameSnapshot,
-              optionNameSnapshot,
-              priceAdjustment,
-            });
-            selectedCountByGroup.set(group.id, (selectedCountByGroup.get(group.id) ?? 0) + 1);
-          }
-
-          // Every ACTIVE Group belonging to this Product must have its
-          // selection count within [minimumSelections, maximumSelections]
-          // -- including a required Group (minimumSelections >= 1) with
-          // ZERO selections, which must fail here, not silently pass.
-          for (const group of availableGroups) {
-            const count = selectedCountByGroup.get(group.id) ?? 0;
-            if (count < group.minimumSelections || count > group.maximumSelections) {
-              throw new ItemsUnavailableError();
-            }
-          }
-
-          // Stable Group-then-Option presentation order, independent of
-          // the order the Guest happened to submit ids in.
-          selections.sort(
-            (a, b) =>
-              a.groupDisplayOrder - b.groupDisplayOrder ||
-              a.optionDisplayOrder - b.optionDisplayOrder,
-          );
-
-          // Section 8: exact Decimal arithmetic, never Number/parseFloat.
-          // `unitPrice` keeps its established meaning -- Product.basePrice
-          // alone (ORDER_LIFECYCLE_SPEC.md #42's "Base item price"); Modifier
-          // adjustments are summed separately into `lineTotal` and preserved
-          // individually via the OrderItemModifier snapshot rows below.
-          // DEC-041 CRITICAL MONEY RULE: a Product with active sizes is priced by the size the
-          // Guest chose, re-resolved here (never trusted from the request). The size is required;
-          // an unknown, foreign or no-longer-active size, or a size sent for a Product that has
-          // none, all converge on the same whole-order `itemsUnavailable` rejection.
-
-          const unitPrice = size ? size.price : product.basePrice;
-          const modifiersTotal = selections.reduce(
-            (sum, selection) => sum.plus(selection.priceAdjustment),
-            new Prisma.Decimal(0),
-          );
-          // Product Discounts V1: the discount comes only from the product row
-          // read inside this transaction -- never from the request. It applies
-          // to the base price per unit (paid extras are never discounted); the
-          // line is (price - unit discount + extras) * quantity.
-          const applied = size !== null && !size.discountApplies ? null : resolveActiveDiscount(
-            unitPrice,
-            {
-              type: product.discountType,
-              value: product.discountValue,
-              enabled: product.discountEnabled,
-              startsOn: dateOnlyString(product.discountStartsOn),
-              endsOn: dateOnlyString(product.discountEndsOn),
-            },
-            today,
-          );
-          const unitDiscount = applied?.unitDiscount ?? new Prisma.Decimal(0);
-          const lineDiscount = unitDiscount.times(item.quantity);
-          const lineTotal = unitPrice
-            .minus(unitDiscount)
-            .plus(modifiersTotal)
-            .times(item.quantity);
-          total = total.plus(lineTotal);
-          discountTotal = discountTotal.plus(lineDiscount);
-
-          quoteDetails.push({
-            categoryName: product.category.translations[0]?.name ?? '',
-            categoryOrder: product.category.displayOrder,
-            offerSlots: null,
-            modifiers: selections.map((selection) => ({
-              groupName: selection.groupNameSnapshot,
-              optionName: selection.optionNameSnapshot,
-              priceAdjustment: selection.priceAdjustment.toFixed(2),
-            })),
-          });
-          return {
-            productId: item.productId as string,
-            productNameSnapshot,
-            unitPrice,
-            quantity: item.quantity,
-            lineTotal,
-            discountAmount: lineDiscount,
-            discountTypeSnapshot: applied?.type ?? null,
-            discountValueSnapshot: applied?.value ?? null,
-            variantId: size?.id ?? null,
-            variantNameSnapshot: size?.nameSnapshot ?? null,
-            variantPriceSnapshot: size?.price ?? null,
-            modifiers: {
-              create: selections.map((selection, index) => ({
-                modifierGroupId: selection.groupId,
-                modifierOptionId: selection.optionId,
-                modifierGroupNameSnapshot: selection.groupNameSnapshot,
-                modifierOptionNameSnapshot: selection.optionNameSnapshot,
-                priceAdjustmentSnapshot: selection.priceAdjustment,
-                displayOrder: index,
-              })),
-            },
-          };
-        });
-
-        // FT-8: authoritative Delivery money. The zone is re-resolved HERE,
-        // inside the same transaction as the pricing above, and must be an
-        // ACTIVE zone of the resolved Branch (and Restaurant) -- a foreign,
-        // INACTIVE, or wrong-Branch zone all converge on one outcome. The
-        // fee/minimum come only from this row, never from the request.
-        const subtotal = total;
-        let deliveryFee = new Prisma.Decimal(0);
-        let deliveryZoneNameSnapshot: string | null = null;
-        if (orderType === 'DELIVERY') {
-          const zone = await tx.deliveryZone.findFirst({
-            where: { id: deliveryZoneId ?? '', restaurantId, branchId, status: 'ACTIVE' },
-            select: {
-              name: true,
-              deliveryFee: true,
-              minimumOrder: true,
-              translations: { select: { locale: true, name: true } },
-              restaurant: { select: { defaultLocale: true } },
-            },
-          });
-          if (!zone) {
-            throw new DeliveryZoneInvalidError();
-          }
-          if (subtotal.lessThan(zone.minimumOrder)) {
-            // The Guest-facing message uses their content language; the order
-            // snapshot below always keeps the zone's default-locale name.
-            throw new MinimumOrderNotMetError(
-              resolveLocalizedName({
-                requestedLocale: input.locale ?? zone.restaurant.defaultLocale,
-                defaultLocale: zone.restaurant.defaultLocale,
-                translations: zone.translations,
-                legacyName: zone.name,
-              }),
-              zone.minimumOrder,
-            );
-          }
-          deliveryFee = zone.deliveryFee;
-          deliveryZoneNameSnapshot = zone.name;
-        }
-
-        // Product Discounts V1 (PROMOTIONS_SPEC.md #46-48): if the total the Guest
-        // was shown no longer matches (a discount started, ended or changed), do
-        // not silently charge the new amount -- roll back and report it.
-        if (input.expectedTotal !== undefined) {
-          const authoritativeTotal = subtotal.plus(deliveryFee);
-          if (!new Prisma.Decimal(input.expectedTotal).equals(authoritativeTotal)) {
-            throw new PriceChangedError(subtotal, discountTotal, authoritativeTotal);
-          }
-        }
-
-        if (input.dryRun) {
-          const branch = await tx.branch.findFirst({
-            where: { id: branchId, restaurantId },
-            select: {
-              name: true,
-              translations: { where: { locale: defaultLocale }, select: { name: true }, take: 1 },
-            },
-          });
-          throw new QuotedSignal({
-            restaurantId,
-            branchId,
-            restaurantName: qr.restaurant.name,
-            whatsappNumber: qr.restaurant.whatsappNumber ?? '',
-            defaultLocale,
+        const allocations = allocationsByLine(priced.snapshot);
+        return {
+          outcome: 'publicQuote',
+          data: {
+            type: orderType,
             currencyCode,
-            orderType,
-            branchName: branch?.translations[0]?.name ?? branch?.name ?? '',
-            deliveryZoneName: deliveryZoneNameSnapshot,
-            items: itemsData.map((line, index) => ({
-              kind: quoteDetails[index].offerSlots === null ? ('PRODUCT' as const) : ('OFFER' as const),
-              offerSlots: quoteDetails[index].offerSlots,
+            ...quoteMoney(priced.snapshot),
+            items: priced.itemsData.map((line, index) => ({
+              productId: line.productId,
+              offerId: line.offerId ?? null,
               name: line.productNameSnapshot,
-              categoryName: quoteDetails[index].categoryName,
-              categoryOrder: quoteDetails[index].categoryOrder,
               variantName: line.variantNameSnapshot,
               quantity: line.quantity,
-              modifiers: quoteDetails[index].modifiers,
               unitPrice: line.unitPrice.toFixed(2),
               discountAmount: line.discountAmount.toFixed(2),
+              promotionDiscount: amountString(allocations.get(index)),
               lineTotal: line.lineTotal.toFixed(2),
+              modifiers: [
+                ...priced.quoteDetails[index].modifiers,
+                ...offerChoiceModifiers(line.offerChoices?.create ?? []),
+              ],
             })),
-            subtotal: subtotal.toFixed(2),
-            discountTotal: discountTotal.toFixed(2),
-            deliveryFee: deliveryFee.toFixed(2),
-            total: subtotal.plus(deliveryFee).toFixed(2),
-            customerName,
-            customerPhone,
-            customerNotes,
-            deliveryAddress,
-            deliveryBuilding,
-            deliveryFloor,
-            deliveryApartment,
-            deliveryLandmark,
-          });
-        }
-
-        return tx.order.create({
-          data: {
-            restaurantId,
-            branchId,
-            tableId,
-            ...(sessionSlot
-              ? {
-                  tableSessionId: sessionSlot.tableSessionId,
-                  roundNumber: sessionSlot.roundNumber,
-                }
-              : {}),
-            qrCodeId: qr.id,
-            clientRequestId: input.clientRequestId,
-            clientRequestFingerprint: requestIdentity
-              ? orderRequestFingerprint(requestIdentity)
-              : null,
-            status: 'PENDING',
-            type: orderType,
-            customerNameSnapshot: customerName,
-            customerPhoneSnapshot: customerPhone,
-            customerNotesSnapshot: customerNotes,
-            currencyCode,
-            subtotalAmount: subtotal,
-            deliveryFeeAmount: deliveryFee,
-            discountTotalAmount: discountTotal,
-            totalAmount: subtotal.plus(deliveryFee),
-            deliveryZoneId: orderType === 'DELIVERY' ? deliveryZoneId : null,
-            deliveryZoneNameSnapshot,
-            deliveryAddressSnapshot: deliveryAddress,
-            deliveryBuildingSnapshot: deliveryBuilding,
-            deliveryFloorSnapshot: deliveryFloor,
-            deliveryApartmentSnapshot: deliveryApartment,
-            deliveryLandmarkSnapshot: deliveryLandmark,
-            items: { create: itemsData },
-            // FT-11 Section 1: initial Order creation establishes the first
-            // status timestamp -- a nested create, so it commits inside this
-            // exact transaction alongside the Order itself, never as a
-            // separate best-effort write.
-            statusEvents: {
-              create: { restaurantId, branchId, previousStatus: null, newStatus: 'PENDING' },
-            },
           },
-          select: ORDER_VIEW_SELECT,
-        });
-      });
+        };
+      }
+      return await this.prisma.$transaction(
+        async (tx): Promise<CreateGuestOrderResult> => {
+          // Table Sessions: a Dine-In order locks its Table row FIRST (fixed lock
+          // order, see table-session-ordering.ts), then attaches to the OPEN
+          // session or opens one, and takes the next round number -- all inside
+          // THIS transaction, so a rejected/failed order leaves no session, event
+          // or round behind. Pickup and Delivery never enter this branch.
+          let sessionSlot: DineInSessionSlot | null = null;
+          if (orderType === 'DINE_IN' && tableId && !submission.dryRun) {
+            sessionSlot = await resolveDineInSessionSlot(tx, {
+              restaurantId,
+              branchId,
+              tableId,
+            });
+          }
 
-      return { outcome: 'created', data: toGuestOrderView(created, input.locale) };
+          const priced = await priceCart(tx, pricingContext);
+          const {
+            snapshot,
+            itemsData,
+            quoteDetails,
+            deliveryZoneNameSnapshot,
+          } = priced;
+          const {
+            subtotalAmount: subtotal,
+            discountTotalAmount: discountTotal,
+            totalAmount: total,
+          } = snapshot.order;
+
+          // Product Discounts V1 (PROMOTIONS_SPEC.md #46-48): if the total the Guest
+          // was shown no longer matches (a discount started, ended or changed), do
+          // not silently charge the new amount -- roll back and report it.
+          if (
+            submission.expectedTotal !== undefined &&
+            !new Prisma.Decimal(submission.expectedTotal).equals(total)
+          ) {
+            throw new PriceChangedError(subtotal, discountTotal, total);
+          }
+
+          if (submission.dryRun) {
+            const branch = await tx.branch.findFirst({
+              where: { id: branchId, restaurantId },
+              select: {
+                name: true,
+                translations: {
+                  where: { locale: defaultLocale },
+                  select: { name: true },
+                  take: 1,
+                },
+              },
+            });
+            const allocations = allocationsByLine(snapshot);
+            const quote: OrderQuote = {
+              restaurantId,
+              branchId,
+              restaurantName: qr.restaurant.name,
+              whatsappNumber: qr.restaurant.whatsappNumber ?? '',
+              defaultLocale,
+              currencyCode,
+              orderType,
+              branchName: branch?.translations[0]?.name ?? branch?.name ?? '',
+              deliveryZoneName: deliveryZoneNameSnapshot,
+              items: itemsData.map((line, index) => ({
+                kind:
+                  quoteDetails[index].offerSlots === null
+                    ? ('PRODUCT' as const)
+                    : ('OFFER' as const),
+                offerSlots: quoteDetails[index].offerSlots,
+                name: line.productNameSnapshot,
+                categoryName: quoteDetails[index].categoryName,
+                categoryOrder: quoteDetails[index].categoryOrder,
+                variantName: line.variantNameSnapshot,
+                quantity: line.quantity,
+                modifiers: quoteDetails[index].modifiers,
+                unitPrice: line.unitPrice.toFixed(2),
+                discountAmount: line.discountAmount.toFixed(2),
+                promotionDiscount: amountString(allocations.get(index)),
+                lineTotal: line.lineTotal.toFixed(2),
+              })),
+              ...quoteMoney(snapshot),
+              customerName,
+              customerPhone,
+              customerNotes,
+              deliveryAddress,
+              deliveryBuilding,
+              deliveryFloor,
+              deliveryApartment,
+              deliveryLandmark,
+            };
+            throw new QuotedSignal(quote);
+          }
+
+          // Prisma does not promise nested create result ordering. Assign each item's ID
+          // before writing so even identical-priced lines receive the right allocation.
+          const itemIds = snapshot.promotions.some(
+            (row) => row.allocations.length > 0,
+          )
+            ? itemsData.map(() => randomUUID())
+            : [];
+          const created = await tx.order.create({
+            data: {
+              restaurantId,
+              branchId,
+              tableId,
+              ...(sessionSlot
+                ? {
+                    tableSessionId: sessionSlot.tableSessionId,
+                    roundNumber: sessionSlot.roundNumber,
+                  }
+                : {}),
+              qrCodeId: qr.id,
+              clientRequestId: submission.clientRequestId,
+              clientRequestFingerprint: requestIdentity
+                ? orderRequestFingerprint(requestIdentity)
+                : null,
+              status: 'PENDING',
+              type: orderType,
+              customerNameSnapshot: customerName,
+              customerPhoneSnapshot: customerPhone,
+              customerNotesSnapshot: customerNotes,
+              currencyCode,
+              ...snapshot.order,
+              deliveryZoneId: orderType === 'DELIVERY' ? deliveryZoneId : null,
+              deliveryZoneNameSnapshot,
+              deliveryAddressSnapshot: deliveryAddress,
+              deliveryBuildingSnapshot: deliveryBuilding,
+              deliveryFloorSnapshot: deliveryFloor,
+              deliveryApartmentSnapshot: deliveryApartment,
+              deliveryLandmarkSnapshot: deliveryLandmark,
+              items: {
+                create: itemsData.map((line, index) =>
+                  itemIds.length ? { ...line, id: itemIds[index] } : line,
+                ),
+              },
+              // FT-11 Section 1: initial Order creation establishes the first
+              // status timestamp -- a nested create, so it commits inside this
+              // exact transaction alongside the Order itself, never as a
+              // separate best-effort write.
+              statusEvents: {
+                create: {
+                  restaurantId,
+                  branchId,
+                  previousStatus: null,
+                  newStatus: 'PENDING',
+                },
+              },
+            },
+            select: ORDER_VIEW_SELECT,
+          });
+          if (snapshot.promotions.length === 0) {
+            return {
+              outcome: 'created',
+              data: toGuestOrderView(created, input.locale),
+            };
+          }
+          await persistPromotionSnapshots(
+            tx,
+            restaurantId,
+            created.id,
+            itemIds,
+            snapshot.promotions,
+          );
+          const withPromotions = await tx.order.findUniqueOrThrow({
+            where: { id: created.id, restaurantId },
+            select: ORDER_VIEW_SELECT,
+          });
+          return {
+            outcome: 'created',
+            data: toGuestOrderView(withPromotions, input.locale),
+          };
+        },
+      );
     } catch (error) {
       if (error instanceof QuotedSignal) {
         return { outcome: 'quoted', quote: error.quote };
@@ -1468,9 +1137,10 @@ export class PublicOrdersService {
           outcome: 'minimumOrderNotMet',
           zoneName: error.zoneName,
           minimumOrder: error.minimumOrder.toFixed(2),
+          ...(!submission ? { subtotal: error.subtotal.toFixed(2) } : {}),
         };
       }
-      if (isClientRequestIdConflict(error)) {
+      if (submission && requestIdentity && isClientRequestIdConflict(error)) {
         // Section 11: a genuine concurrent double-submit raced past the
         // fast-path check above -- the OTHER request's transaction won;
         // fetch and return ITS Order as success, never a duplicate-create
@@ -1480,7 +1150,11 @@ export class PublicOrdersService {
         // request with the same key but a different payload gets 409, not
         // the winner's Order.
         const winner = await this.prisma.order.findFirst({
-          where: { qrCodeId: qr.id, branchId, clientRequestId: input.clientRequestId },
+          where: {
+            qrCodeId: qr.id,
+            branchId,
+            clientRequestId: submission.clientRequestId,
+          },
           select: IDEMPOTENT_ORDER_SELECT,
         });
         if (winner) {
@@ -1498,5 +1172,35 @@ export class PublicOrdersService {
       }
       throw error;
     }
+  }
+}
+
+async function persistPromotionSnapshots(
+  tx: Prisma.TransactionClient,
+  restaurantId: string,
+  orderId: string,
+  itemIds: readonly string[],
+  promotions: OrderPricingSnapshot['promotions'],
+): Promise<void> {
+  const allocations: Prisma.OrderPromotionAllocationCreateManyInput[] = [];
+  const rows = promotions.map(({ allocations: shares, ...promotion }) => {
+    const id = randomUUID();
+    for (const { lineIndex, amount } of shares) {
+      const orderItemId = itemIds[lineIndex];
+      if (!orderItemId)
+        throw new Error('Promotion allocation refers to an unknown order line');
+      allocations.push({ orderPromotionId: id, orderItemId, orderId, amount });
+    }
+    return {
+      ...promotion,
+      configSnapshot: { ...promotion.configSnapshot },
+      id,
+      orderId,
+      restaurantId,
+    };
+  });
+  await tx.orderPromotion.createMany({ data: rows });
+  if (allocations.length > 0) {
+    await tx.orderPromotionAllocation.createMany({ data: allocations });
   }
 }

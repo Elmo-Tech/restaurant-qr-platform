@@ -112,17 +112,8 @@ export class CreateGuestOrderItemDto {
   variantId?: string;
 }
 
-/**
- * FT-5, Section 4/11: `clientRequestId` is the Guest browser's own
- * idempotency key -- one UUID generated once per genuine submission
- * attempt, never regenerated on retry. No `restaurantId`/`branchId`/
- * `tableId` field exists here at all -- `publicCode` (the route param) is
- * the sole Tenant/Table authority (Section 5).
- */
-export class CreateGuestOrderDto {
-  @IsUUID('all', { message: 'clientRequestId must be a well-formed UUID' })
-  clientRequestId!: string;
-
+/** Cart and fulfillment selections shared by the read-only quote and order submission. */
+export class QuoteGuestOrderDto {
   /** Display-only content language the Guest is browsing in; localizes Branch and zone names in the confirmation. */
   @IsOptional()
   @Transform(({ value }) => trimLower(value))
@@ -130,11 +121,6 @@ export class CreateGuestOrderDto {
     message: `locale must be one of: ${PLATFORM_SUPPORTED_LOCALES.join(', ')}`,
   })
   locale?: string;
-
-  /** The total payable the Guest was shown (decimal string). Staleness check only: a mismatch returns 422 PRICE_CHANGED and creates nothing. */
-  @IsOptional()
-  @IsMoneyDecimalString()
-  expectedTotal?: string;
 
   @ValidateNested({ each: true })
   @Type(() => CreateGuestOrderItemDto)
@@ -152,6 +138,40 @@ export class CreateGuestOrderDto {
   @IsOptional()
   @IsUUID('all', { message: 'branchId must be a well-formed UUID' })
   branchId?: string;
+
+  // FT-8: for a GENERIC QR the Guest may choose ONLY the fulfillment MODE.
+  // Any other value (DINE_IN, DELIVERY spellings, ...) fails validation --
+  // the Order type itself is always derived server-side. Omitted means
+  // PICKUP (keeps FT-7 payloads working). Ignored for a TABLE QR.
+  @IsOptional()
+  @IsIn(['PICKUP', 'DELIVERY'], {
+    message: 'fulfillment must be PICKUP or DELIVERY',
+  })
+  fulfillment?: 'PICKUP' | 'DELIVERY';
+
+  // FT-8 DELIVERY-only fields. Requiredness (address, zone) is applied by
+  // the service for DELIVERY only; the zone's fee/minimum are NEVER
+  // accepted from the client.
+  @IsOptional()
+  @IsUUID('all', { message: 'deliveryZoneId must be a well-formed UUID' })
+  deliveryZoneId?: string;
+}
+
+/**
+ * FT-5, Section 4/11: `clientRequestId` is the Guest browser's own
+ * idempotency key -- one UUID generated once per genuine submission
+ * attempt, never regenerated on retry. No `restaurantId`/`branchId`/
+ * `tableId` field exists here at all -- `publicCode` (the route param) is
+ * the sole Tenant/Table authority (Section 5).
+ */
+export class CreateGuestOrderDto extends QuoteGuestOrderDto {
+  @IsUUID('all', { message: 'clientRequestId must be a well-formed UUID' })
+  clientRequestId!: string;
+
+  /** The total payable the Guest was shown (decimal string). Staleness check only: a mismatch returns 422 PRICE_CHANGED and creates nothing. */
+  @IsOptional()
+  @IsMoneyDecimalString()
+  expectedTotal?: string;
 
   @IsOptional()
   @Transform(({ value }) => cleanSingleLine(value))
@@ -176,21 +196,6 @@ export class CreateGuestOrderDto {
     message: `customerNotes must be at most ${GUEST_FIELD_LIMITS.customerNotes.max} characters`,
   })
   customerNotes?: string;
-
-  // FT-8: for a GENERIC QR the Guest may choose ONLY the fulfillment MODE.
-  // Any other value (DINE_IN, DELIVERY spellings, ...) fails validation --
-  // the Order type itself is always derived server-side. Omitted means
-  // PICKUP (keeps FT-7 payloads working). Ignored for a TABLE QR.
-  @IsOptional()
-  @IsIn(['PICKUP', 'DELIVERY'], { message: 'fulfillment must be PICKUP or DELIVERY' })
-  fulfillment?: 'PICKUP' | 'DELIVERY';
-
-  // FT-8 DELIVERY-only fields. Requiredness (address, zone) is applied by
-  // the service for DELIVERY only; the zone's fee/minimum are NEVER
-  // accepted from the client.
-  @IsOptional()
-  @IsUUID('all', { message: 'deliveryZoneId must be a well-formed UUID' })
-  deliveryZoneId?: string;
 
   @IsOptional()
   @Transform(({ value }) => cleanSingleLine(value))

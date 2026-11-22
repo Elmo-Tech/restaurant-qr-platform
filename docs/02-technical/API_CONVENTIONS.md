@@ -1409,7 +1409,11 @@ Example:
 
 Guest confirms again.
 
-**Implemented (Product Discounts V1):** `POST /public/qr/{publicCode}/orders` returns this response when the optional `expectedTotal` no longer matches the authoritative total. `details.pricing` carries `subtotal` (net of discounts), `discountTotal`, `total` and `currencyCode`. Nothing is created and the idempotency record is not consumed, so the Guest may confirm the new total with the same request id.
+`POST /public/qr/{publicCode}/orders` returns this response when the optional `expectedTotal` no longer matches the authoritative total, including the effect of any applied promotions. `details.pricing` carries `subtotal` (net of merchandise discounts), `discountTotal` (merchandise only), `total` and `currencyCode`. Nothing is created and the idempotency record is not consumed, so the Guest may confirm the new total with the same request id.
+
+**Read-only quote (DEC-075):** `POST /public/qr/{publicCode}/quote` accepts the same `items` and optional `locale`, `branchId`, `fulfillment`, and `deliveryZoneId` as order creation, but no customer fields, `clientRequestId`, or `expectedTotal`. It uses the same pricing as App and WhatsApp checkout without looking up an Order or creating or locking a Table Session. A quote does not reserve prices or guarantee checkout availability. It has a separate `publicQuote` rate limit (default 60 requests per client IP per window).
+
+A successful response is `200 { data: { type, currencyCode, subtotal, discountTotal, deliveryFee, deliveryFeeOriginal, deliveryDiscount, total, promotions, items } }`. All money is a decimal string; `deliveryFeeOriginal` is nullable. Applied promotions carry `title` (the default-locale title or `null`), `scope`, and `amount`. Each item carries `promotionDiscount`, the sum of its merchandise promotion shares, separate from legacy `discountAmount`; `lineTotal` is net of the legacy discount only. Guest order confirmation returns the same additive promotion breakdown from the saved snapshot. A quote below the Delivery Zone minimum returns `400 DELIVERY_MINIMUM_NOT_MET` with `details.zoneName`, `details.minimumOrder`, and `details.subtotal` (net merchandise, before the fee).
 
 ---
 

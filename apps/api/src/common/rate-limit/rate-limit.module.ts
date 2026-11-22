@@ -18,13 +18,14 @@ export interface RateLimitSettings {
   loginLimit: number;
   publicOrderLimit: number;
   /** Optional so existing callers keep working; the defaults match the environment schema. */
+  publicQuoteLimit?: number;
   publicTrackingLimit?: number;
   publicLookupLimit?: number;
 }
 
 /**
  * FT-9: builds the throttler set from validated settings. `default` counts
- * every route; `login` and `publicOrder` count ONLY routes tagged with the
+ * every route; named groups count ONLY routes tagged with the
  * matching `@RateLimitGroup(...)` (via `skipIf`), so the tighter limits never
  * leak onto unrelated routes. In-memory, per API process, keyed by client IP
  * -- no Redis in V1 (a multi-instance deployment would multiply the effective
@@ -61,6 +62,12 @@ export function buildThrottlerOptions(settings: RateLimitSettings): ThrottlerMod
         skipIf: notInGroup(RATE_LIMIT_GROUPS.PUBLIC_ORDER),
       },
       {
+        name: RATE_LIMIT_GROUPS.PUBLIC_QUOTE,
+        ttl,
+        limit: settings.publicQuoteLimit ?? 60,
+        skipIf: notInGroup(RATE_LIMIT_GROUPS.PUBLIC_QUOTE),
+      },
+      {
         name: RATE_LIMIT_GROUPS.PUBLIC_TRACKING,
         ttl,
         limit: settings.publicTrackingLimit ?? 120,
@@ -86,9 +93,18 @@ export function buildThrottlerOptions(settings: RateLimitSettings): ThrottlerMod
           windowSeconds: config.get('RATE_LIMIT_WINDOW_SECONDS', { infer: true }),
           defaultLimit: config.get('RATE_LIMIT_DEFAULT_LIMIT', { infer: true }),
           loginLimit: config.get('RATE_LIMIT_LOGIN_LIMIT', { infer: true }),
-          publicOrderLimit: config.get('RATE_LIMIT_PUBLIC_ORDER_LIMIT', { infer: true }),
-          publicTrackingLimit: config.get('RATE_LIMIT_PUBLIC_TRACKING_LIMIT', { infer: true }),
-          publicLookupLimit: config.get('RATE_LIMIT_PUBLIC_LOOKUP_LIMIT', { infer: true }),
+          publicOrderLimit: config.get('RATE_LIMIT_PUBLIC_ORDER_LIMIT', {
+            infer: true,
+          }),
+          publicQuoteLimit: config.get('RATE_LIMIT_PUBLIC_QUOTE_LIMIT', {
+            infer: true,
+          }),
+          publicTrackingLimit: config.get('RATE_LIMIT_PUBLIC_TRACKING_LIMIT', {
+            infer: true,
+          }),
+          publicLookupLimit: config.get('RATE_LIMIT_PUBLIC_LOOKUP_LIMIT', {
+            infer: true,
+          }),
         }),
     }),
   ],

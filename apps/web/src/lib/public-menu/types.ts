@@ -261,8 +261,10 @@ export interface GuestOrderItemView {
   quantity: number;
   /** Price of one unit BEFORE any product discount. */
   unitPrice: string;
-  /** Product Discounts V1: total discount taken off this line ("0.00" when none). `lineTotal` is already net of it. */
+  /** Legacy Product discount taken off this line. `lineTotal` is already net of it. */
   discountAmount: string;
+  /** Allocated merchandise promotion savings, not yet subtracted from `lineTotal`. */
+  promotionDiscount?: string;
   lineTotal: string;
   modifiers: GuestOrderItemModifierView[];
 }
@@ -291,10 +293,17 @@ export interface GuestOrderView {
   pickupBranch: { name: string } | null;
   /** FT-8: DELIVERY only. */
   delivery: { branchName: string; zoneName: string } | null;
-  /** FT-8: exact breakdown -- subtotal + deliveryFee = total. `subtotal` is net of product discounts. */
+  /** Exact breakdown: subtotal + deliveryFee = total. Subtotal is net of merchandise discounts. */
   subtotal: string;
   deliveryFee: string;
-  /** Product Discounts V1: sum of the items' discounts ("0.00" when none). */
+  deliveryFeeOriginal?: string | null;
+  deliveryDiscount?: string;
+  /** All merchandise discounts, excluding delivery discounts. */
   discountTotal: string;
+  promotions?: {
+    title: string | null;
+    scope: 'CATEGORY' | 'MENU' | 'CART' | 'QUANTITY' | 'DELIVERY';
+    amount: string;
+  }[];
   items: GuestOrderItemView[];
 }
