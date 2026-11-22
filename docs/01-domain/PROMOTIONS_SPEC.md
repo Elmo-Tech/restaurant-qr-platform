@@ -1,4 +1,4 @@
-﻿# Promotions Specification
+# Promotions Specification
 
 ## Document Purpose
 
@@ -42,7 +42,7 @@ Product Discounts V1:
 | Storage (#11) | `Promotion` entity + target tables | Five columns on `products` (type, value, enabled, starts-on, ends-on). One discount per product, so priority / tie-breaking (#26-29) never arises. |
 | Scheduling (#13, #15) | start / end instants, daily windows | Calendar **dates**, inclusive on both ends, evaluated in the **Branch timezone** at read time. "Automatic expiry" is the date comparison itself, so no scheduled job exists. |
 | Which Branch timezone | per Branch | TABLE QR: the table's Branch. Order creation: the chosen Branch. GENERIC menu display (no Branch chosen yet): the oldest ACTIVE Branch. Staff discount state labels: the same oldest-Branch "reference timezone". |
-| Variants (#35) | adjustments are discountable | The platform has no Product Variant in V1; the discount applies to the product price only. |
+| Variants (#35) | adjustments are discountable | ~~The platform has no Product Variant in V1; the discount applies to the product price only.~~ **Superseded by DEC-041 (factual correction, 2026-11-21):** Product Variants (sizes) exist; each size carries its full price and a `discountApplies` flag (default true). The Product discount is computed on the chosen size's price, only for sizes with `discountApplies = true`; a fixed amount is capped at that size's price. |
 | Extras (#36-37) | not discounted by default | Same: paid Modifier options are never discounted. |
 | Rounding (#42) | open | Percentage discount is rounded **half-up to 2 decimals per unit**; a fixed amount is capped at the unit price; the unit price never goes below 0. |
 | Calculation order | open | unit price = base - unit discount; line = (unit price + paid modifiers) x quantity; subtotal = sum of lines; delivery fee is added afterwards. |
@@ -53,6 +53,107 @@ Product Discounts V1:
 Authority: the Backend (`apps/api/src/menu/product-discount.ts`) is the only
 place a discount is resolved or calculated. The Staff editor preview and the
 Guest cart are display-only and are recomputed on submission.
+
+---
+
+## Implementation Amendment: Unified Promotions
+
+> **Status: Accepted (2026-11-21, Product Owner) — DEC-075. Amends #27–#29 and
+> AGENTS.md #36 for the Unified Promotions engine.** The policy below is the
+> approved contract. It is **not live yet**: milestone B1 adds only a pure,
+> unit-tested engine (`apps/api/src/promotions/promotion-engine.ts`), a pure
+> snapshot mapper (`promotion-snapshot.ts`), the opt-in `PROMOTIONS` feature key
+> and an additive migration (`20261128100000_unified_promotions`) that no order
+> code reads or writes yet. Order creation, the Guest menu and the Staff UI
+> still follow "Product Discounts V1" above until B2–B4 are built.
+> Worked numbers: `PROMOTIONS_STACKING_EXAMPLES.md`. Schema, permissions,
+> entitlement, readers and test plan:
+> `docs/02-technical/UNIFIED_PROMOTIONS_SCHEMA_AND_ROLLOUT.md`. Persisted rows:
+> `docs/02-technical/UNIFIED_PROMOTIONS_HISTORICAL_SNAPSHOTS.md`.
+>
+> **Amendment 2026-11-21 (B-D2, Product Owner second review) — Accepted.** The
+> Promotion domain is extended with `MENU`, `QUANTITY` and `DELIVERY` scopes
+> (DEC-075 "Amendment 2026-11-21 (B-D2)"). The three rows below that were
+> "Awaiting approval" are resolved by it; their original status is kept
+> struck through for traceability.
+
+### Mapping of the original targets to engine scopes
+
+| Original target / type (#6, AGENTS.md #35) | Unified Promotions scope | Storage |
+| --- | --- | --- |
+| ORDER | `CART` (pre-promotion basis of eligible product lines incl. paid extras; optional category / product restriction) | `promotions` (+ `promotion_categories` / `promotion_products`) |
+| PRODUCT | the existing Product discount, item-scope candidate "PRODUCT" with effective priority 0 | `products.discount_*` (no Promotion row) |
+| CATEGORY | `CATEGORY` (percentage only, INV-PROMO-008) | `promotions` + `promotion_categories` |
+| — (new, B-D2) | `MENU` (percentage only), `QUANTITY` (units / distinct products threshold), `DELIVERY` (zone fee) | `promotions` + `promotion_menus` / `promotion_delivery_zones` |
+
+### Decisions (2026-11-21) and items that were awaiting approval
+
+| Item | Status |
+| --- | --- |
+| Winner rule: maximum savings first (item 1 below) | **Accepted** — amends #27–#29 and AGENTS.md #36 (dated notes added there; original text kept) |
+| Legacy Product discount never stays applied when the cart strategy wins | **Accepted** (engine + tests) |
+| Delivery Zone minimum on the NET merchandise payable, refusal with the existing minimum-order error, no promotion suppressed to pass it | **Accepted** |
+| `discountApplies = false` governs the legacy Product discount only | **Accepted** |
+| Paid modifiers never discounted by item-scope promotions; Offers / bundles never discounted again | **Accepted** |
+| Permissions: existing `promotions.view` / `promotions.manage` | **Accepted** (implemented in B3) |
+| Entitlement: new opt-in, customer-visible `PROMOTIONS` feature key | **Accepted and added in B1** |
+| Historical snapshot model (legacy on `order_items`, new promotions as allocations) | **Accepted** (schema + pure mapper in B1) |
+| AGENTS.md #35 targets (ORDER / PRODUCT / CATEGORY; MENU, QUANTITY, DELIVERY are new) | ~~Awaiting approval — #35 not edited~~ **Accepted 2026-11-21 (B-D2)** — dated note under AGENTS.md #35, #6, #94, DATABASE_SPEC #85 |
+| DEC-034 release label (Promotions listed as V1.1) | ~~Awaiting approval~~ **Resolved 2026-11-21 (B-D2)** — dated note under DEC-034: availability via the opt-in `PROMOTIONS` key, not live before B2–B4 |
+| AGENTS.md #19 "Delivery is deferred" (stale since DEC-034) | ~~Awaiting approval — not edited~~ **Resolved 2026-11-21** — dated superseding note under AGENTS.md #19 (DEC-034 Delivery, DEC-075 delivery-fee promotions) |
+
+### Conflicts recorded when this amendment was proposed
+
+1. **Winner rule (direct inversion) — resolved by DEC-075.** The original text is *priority-first*:
+   - #27: "The backend chooses one winning Promotion path according to the configured priority rules."
+   - #28: "Lower number = Higher priority … Priority determines which Promotion is evaluated first when several Promotions overlap."
+   - #29: "If multiple eligible Promotions have the same Priority: The backend should choose the Promotion that gives the customer the greater valid discount."
+   - AGENTS.md #36: "Lower numeric priority wins. If valid Promotions share the same priority: Choose the greater valid discount deterministically."
+
+   This amendment uses **saving-first** (accepted 2026-11-21): the greatest
+   monetary saving for the Guest wins; priority (lower number first) only
+   breaks an *exact* tie of savings. AGENTS.md #36 carries a dated amendment
+   note; ~~#35 still awaits approval~~ #35 amended by B-D2 (2026-11-21).
+2. **New targets — resolved by DEC-075 Amendment 2026-11-21 (B-D2).** `MENU`, `QUANTITY` and `DELIVERY` do not exist in #6 /
+   DATABASE_SPEC #85 (ORDER / PRODUCT / CATEGORY only). Quantity Discounts are
+   listed as deferred in #94; delivery fees are outside Promotion calculation
+   in #22. `CART` is this amendment's name for the ORDER target.
+3. **Version scope (~~awaiting approval~~ resolved 2026-11-21, B-D2: dated note under DEC-034).** DEC-034 lists Promotions as **V1.1**;
+   AGENTS.md #35 calls them "V1 Promotion types". DEC-075 does not relabel the
+   release.
+4. **Product discount as a competitor.** DEC-036 / the amendment above say "one
+   discount per product, so priority never arises". Here the legacy Product
+   discount becomes one item-scope candidate among others (accepted with the
+   DEC-075 policy, R1 below).
+5. **Resolved 2026-11-21 (dated note under AGENTS.md #19).** AGENTS.md #19 ("Delivery is deferred") is already stale since DEC-034; noted
+   for the same AGENTS.md update.
+
+### Policy (accepted)
+
+| Rule | Behavior |
+| --- | --- |
+| R1 Item scope | Per product line the candidates are: the legacy Product discount (`products.discount_*`, resolved by `resolveActiveDiscount`, **only if the chosen size has `discountApplies = true`**), CATEGORY promotions targeting the line's category and MENU promotions targeting the line's menu. CATEGORY / MENU are **PERCENTAGE only** (FIXED rejected by validation and a DB CHECK, extending INV-PROMO-008). Unit discount on the pre-discount unit price (size price or base price), paid modifiers excluded, half-up to 2 decimals per unit, capped at the unit price (`computeUnitDiscount`). Winner per line = greatest line saving; exact tie → lower priority number → specificity PRODUCT (legacy) > CATEGORY > MENU → promotion id ascending. The legacy Product discount has **effective priority 0** (no column exists; it wins every exact tie by priority). |
+| R1 design decision | `discountApplies` governs **only** the legacy Product discount, exactly as today (DEC-041). CATEGORY / MENU promotions apply to **all sizes** of their products. Reason: the flag was defined as "does the Product discount apply to this size"; reusing it for promotions would silently change its meaning. |
+| R1 CATEGORY / MENU eligibility (exact) | A product line is eligible for a CATEGORY promotion when the line's Product `category_id` is in the promotion's category list, and for a MENU promotion when that category's `menu_id` is in its menu list (both evaluated on the Product's current category at order time; offers are never product lines). Additionally the promotion must be `ACTIVE`, `today` within `starts_on` / `ends_on` (inclusive, order Branch timezone), and the order Branch in its Branch list (empty = all). There is no spend / quantity minimum for item scope (rejected by validation and a CHECK). The saving is PERCENTAGE of the pre-discount unit price of the chosen size (or base price), half-up per unit, capped at the unit price, paid modifiers excluded; a line whose unit saving rounds to 0.00 (e.g. a 0.00 price) has nothing to win. |
+| R2 Cart scope | CART and QUANTITY promotions compete for **one** winner. Eligible lines = product lines (Offer / bundle lines never), optionally restricted by the promotion's category / product targets (empty = all product lines; category ∪ product). Basis = Σ (unit price + paid modifiers per unit) × qty of eligible lines, **pre-promotion**. Cart promotions therefore discount merchandise **including** paid extras, item-scope ones exclude them. CART requires basis ≥ `minimumSubtotal` (if set). QUANTITY requires count ≥ `minimumQuantity`, count = total units (UNITS) or distinct products (DISTINCT_PRODUCTS; two sizes of one product count once), plus an optional `minimumSubtotal`. Amount: PERCENTAGE = basis × value / 100 half-up 2 dp; FIXED = min(value, basis), once per order. Winner = greatest saving → priority → id. |
+| R3 Strategy | A = Σ item-scope winners; B = cart winner. **B only if B > A strictly**; exact tie keeps A. Never combined: when B wins, no item discount applies, **including legacy Product discounts**. B is allocated to its eligible lines proportionally to each line's basis: floor to cents, remaining cents one by one to the largest fractional remainder, ties by line index ascending (deterministic, sums exactly, never above a line's basis). |
+| R4 Delivery | Only `DELIVERY` orders with a zone and a fee. Candidates: DELIVERY promotions whose Branch applicability matches and whose zone list includes the zone (empty = every zone of the eligible Branches). `minimumSubtotal` basis = pre-promotion merchandise total of **all** lines **including Offer lines**. PERCENTAGE of the fee half-up 2 dp (100 % = free delivery); FIXED = min(value, fee). One winner: saving → priority → id. Independent of R3: it coexists with the item or cart strategy. |
+| R5 Offers | Offer / bundle lines are excluded from every merchandise promotion and from quantity counts and cart bases; their totals still count in the merchandise payable and in the delivery-promotion minimum basis (consistent with #96 / DEC-069). |
+| R6 / R7 | Nothing is ever negative. `Prisma.Decimal` only, explicit ROUND_HALF_UP; allocation uses exact integer cents. |
+| R8 Minimums | Promotion minimums use the **pre-promotion** basis (#21). The **Delivery Zone minimum stays on the NET merchandise payable** (DEC-036) and is checked by the caller **after** the engine with the winning strategy. If it fails, the order is refused with the existing minimum-order error (`MINIMUM_ORDER_NOT_MET`); the engine never suppresses a promotion or falls back to a worse strategy to reach the minimum. Reason: "the best discount always applies" stays deterministic and explainable, and the zone minimum keeps protecting what the restaurant actually collects, exactly as today. The Guest UI must explain the shortfall (B4). |
+| R9 Eligibility | Status `ACTIVE` only (INACTIVE / ARCHIVED are never candidates). Calendar dates `startsOn` / `endsOn` inclusive, compared with `today` computed by the caller in the **order Branch timezone** (`localDateIn`). Branch applicability: empty Branch list = all Branches. |
+| R10 History (accepted 2026-11-21) | `order_items.discount_amount` (+ `discount_type/value_snapshot`) = the **legacy** Product discount only, only when it applied (item strategy and the legacy discount won that line). `order_items.line_total` = (unit − legacy unit discount + modifiers) × qty, **before** new promotions. Every NEW merchandise saving (CATEGORY / MENU winners and the CART / QUANTITY winner) is stored only as `order_promotions` + per-line `order_promotion_allocations`; a beaten legacy discount is never stored. The delivery promotion is a fee adjustment: `orders.delivery_fee_original_amount`, `delivery_discount_amount`, one `order_promotions` row (no allocation); `delivery_fee_amount` = net fee. `orders.promotion_discount_amount` = Σ allocations; `discount_total_amount` = legacy line discounts + `promotion_discount_amount`; `subtotal_amount` = Σ `line_total` − Σ allocations; `total = subtotal + fee`. |
+| Entitlement / permissions | Opt-in `PROMOTIONS` feature key (not gated: Product Discounts V1; Offers stay on `OFFERS`). Staff routes (B3): `promotions.view` / `promotions.manage`, structural writes behind the Restaurant + all-Branches guards. |
+| Storage | No PRODUCT scope row: the legacy Product discount stays on `products` (single authority, no data migration). |
+| Diagnostics | Per promotion: `APPLIED`, `LOST_TO_BETTER_OFFER`, `NOT_STARTED`, `EXPIRED`, `INACTIVE`, `WRONG_BRANCH`, `WRONG_ORDER_TYPE`, `WRONG_ZONE`, `NO_ELIGIBLE_ITEMS`, `NO_DELIVERY_FEE`, `NO_EFFECTIVE_DISCOUNT`, `BELOW_MINIMUM_SUBTOTAL` (+ remaining amount), `BELOW_MINIMUM_QUANTITY` (+ remaining quantity), `INVALID_CONFIGURATION`. A delivery promotion on a positive fee that otherwise qualifies but saves 0.00 after rounding reports `NO_EFFECTIVE_DISCOUNT` and cannot win; a zero or absent fee still reports `NO_DELIVERY_FEE`. |
+
+Validation (`validatePromotionInput`): scope / type combos above; percentage
+0 < v ≤ 100; fixed > 0; at most 2 decimals; end ≥ start; priority integer
+0..1000; QUANTITY requires `minimumQuantity` (integer ≥ 1) and `quantityBasis`;
+`minimumSubtotal` ≥ 0 and only for CART / QUANTITY / DELIVERY; targets per
+scope: CATEGORY → categories required, MENU → menus required, CART / QUANTITY →
+optional categories / products, DELIVERY → optional zones, every scope →
+optional Branches; a title in the Restaurant default locale is required.
 
 ---
 
@@ -151,6 +252,10 @@ V1 target types:
 - PRODUCT
 - CATEGORY
 
+> **Amended by DEC-075 (2026-11-21, B-D2).** The list above is kept as originally written. Scopes are now
+> `CATEGORY`, `MENU`, `CART` (= ORDER), `QUANTITY` and `DELIVERY`; PRODUCT stays the existing Product discount
+> (`products.discount_*`). Mapping (see "Implementation Amendment: Unified Promotions" at the top of this document).
+
 ---
 
 # 7. ORDER Target
@@ -234,6 +339,10 @@ This avoids ambiguous behavior such as:
 50 EGP off every item in a Category.
 
 More advanced category pricing rules are deferred.
+
+> **Note (DEC-075, 2026-11-21, B-D2).** Still valid; the new `MENU` scope follows the same rule (percentage only,
+> validation + DB CHECK `promotions_item_scope_percentage_only`). FIXED_AMOUNT is allowed for `CART` (= ORDER),
+> `QUANTITY` and `DELIVERY`.
 
 ---
 
@@ -451,6 +560,10 @@ These financial components will receive separate specifications when introduced.
 
 Promotion logic must not guess tax behavior.
 
+> **Amended by DEC-075 (2026-11-21, B-D2).** Delivery fees are no longer fully outside Promotions: a `DELIVERY`
+> promotion discounts the zone fee only, as one independent winner beside the merchandise strategy (R4)
+> (see "Implementation Amendment: Unified Promotions" at the top of this document). Merchandise promotions still never touch the delivery fee; taxes, service charges and tips are unchanged.
+
 ---
 
 # 23. Automatic Promotions
@@ -506,6 +619,10 @@ A qualifying price component receives at most one Promotion.
 
 V1 does not combine multiple Promotions on the same Product line.
 
+> **Note (DEC-075, 2026-11-21).** Still valid for the Unified Promotions engine: each product line receives at most
+> one item-scope saving or one share of the single cart winner, never both. The delivery fee is a separate price
+> component with at most one `DELIVERY` promotion.
+
 ---
 
 # 27. Order-Level and Item-Level Stacking
@@ -517,6 +634,11 @@ An Order-level Promotion does not stack with Product or Category Promotions.
 The backend chooses one winning Promotion path according to the configured priority rules.
 
 Future versions may add explicit stacking configuration.
+
+
+> **Amended by DEC-075 (2026-11-21).** For the Unified Promotions engine the winner rule is maximum savings first,
+> priority only breaks an exact tie (see "Implementation Amendment: Unified Promotions" at the top of this document).
+> The text of #27 above is kept as originally written.
 
 ---
 
@@ -540,6 +662,11 @@ Priority 20
 
 The Dashboard should provide a reasonable default.
 
+
+> **Amended by DEC-075 (2026-11-21).** For the Unified Promotions engine the winner rule is maximum savings first,
+> priority only breaks an exact tie (see "Implementation Amendment: Unified Promotions" at the top of this document).
+> The text of #28 above is kept as originally written.
+
 ---
 
 # 29. Tie Breaking
@@ -553,6 +680,11 @@ If the calculated discount is still equal:
 Use a stable deterministic tie-breaking rule.
 
 Exact implementation details will be defined later.
+
+
+> **Amended by DEC-075 (2026-11-21).** For the Unified Promotions engine the winner rule is maximum savings first,
+> priority only breaks an exact tie (see "Implementation Amendment: Unified Promotions" at the top of this document).
+> The text of #29 above is kept as originally written.
 
 ---
 
@@ -1458,6 +1590,9 @@ Example:
 
 This is desirable but not required for first vertical slice.
 
+> **Amended by DEC-075 (2026-11-21).** With maximum savings first, a warning should say that the greater saving
+> wins and priority only breaks exact ties (see "Implementation Amendment: Unified Promotions" at the top of this document).
+
 ---
 
 # 87. Promotion Priority UX
@@ -1477,6 +1612,9 @@ A default such as:
 100
 
 may be used.
+
+> **Amended by DEC-075 (2026-11-21).** The helper text above no longer describes the rule: the greater saving wins
+> and a lower number only breaks an exact tie of savings (see "Implementation Amendment: Unified Promotions" at the top of this document). The default 100 and the range 0–1000 stay.
 
 ---
 
@@ -1583,6 +1721,11 @@ Not required initially:
 - Dynamic AI Pricing
 - Personalized Pricing
 
+> **Amended by DEC-075 (2026-11-21, B-D2).** "Quantity Discounts" are no longer deferred in the bounded form of the
+> `QUANTITY` scope (one order-level discount once a unit or distinct-product threshold is met; no BOGO / Buy X Get Y).
+> "Complex Promotion Stacking" stays deferred: the engine chooses one merchandise path (item or cart) plus at most one
+> delivery promotion (see "Implementation Amendment: Unified Promotions" at the top of this document). Bundles stay the separate Offers model (DEC-069). The rest of the list is unchanged.
+
 ---
 
 # 95. Future BOGO
@@ -1677,9 +1820,14 @@ A Promotion never overrides Product availability.
 
 V1 does not arbitrarily stack Promotions.
 
+> Note (DEC-075, 2026-11-21): unchanged; the only coexistence is one merchandise path + at most one `DELIVERY`
+> promotion on the fee.
+
 ## INV-PROMO-008
 
 FIXED_AMOUNT CATEGORY Promotions are not supported in V1.
+
+> Note (DEC-075, 2026-11-21, B-D2): extended to `MENU` (FIXED_AMOUNT MENU Promotions are not supported either).
 
 ## INV-PROMO-009
 

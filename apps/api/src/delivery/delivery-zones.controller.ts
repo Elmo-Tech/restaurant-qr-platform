@@ -50,6 +50,15 @@ const ZONE_HAS_ORDERS_RESPONSE = {
   },
 };
 
+/** Unified Promotions (DEC-075): the zone is a target of a promotion; that configuration must change first. */
+const ZONE_USED_BY_PROMOTIONS_RESPONSE = {
+  error: {
+    code: 'DELIVERY_ZONE_USED_BY_PROMOTIONS',
+    message:
+      'This delivery zone is used by a promotion and cannot be deleted. Remove it from the promotion or deactivate the zone instead.',
+  },
+};
+
 /**
  * FT-8: Restaurant Settings -> Delivery. Reads need `restaurant.view`;
  * every mutation needs `restaurant.manage` plus Restaurant-wide branch scope
@@ -147,6 +156,9 @@ export class DeliveryZonesController {
     }
     if (result.outcome === 'hasOrders') {
       throw new ConflictException(ZONE_HAS_ORDERS_RESPONSE);
+    }
+    if (result.outcome === 'usedByPromotions') {
+      throw new ConflictException(ZONE_USED_BY_PROMOTIONS_RESPONSE);
     }
   }
 }

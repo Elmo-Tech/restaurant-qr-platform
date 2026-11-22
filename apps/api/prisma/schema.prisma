@@ -187,6 +187,9 @@ enum FeatureKey {
   KITCHEN
   MENU_IMPORT
   OFFERS
+  // Unified Promotions (DEC-075): the advanced Promotion system (CATEGORY / MENU / CART / QUANTITY / DELIVERY).
+  // Opt-in: no package or restaurant gets it automatically. Product Discounts V1 is NOT gated by it.
+  PROMOTIONS
 
   @@map("feature_key")
 }
@@ -420,6 +423,8 @@ model Restaurant {
   demoAccessLinks       DemoAccessLink[]
   slugs                 RestaurantSlug[]
   referredAcquisitions  RestaurantAcquisition[]     @relation("RestaurantAcquisitionReferrer")
+  promotions            Promotion[]
+  orderPromotions       OrderPromotion[]
 
   @@index([packageId])
   @@map("restaurants")
@@ -556,7 +561,10 @@ model Branch {
   whatsappOrderReceipts WhatsappOrderReceipt[]
   deliveryZones      DeliveryZone[]
   translations       BranchTranslation[]
+  promotionLinks     PromotionBranch[]
 
+  // Target of the tenant-safe promotion_branches composite foreign key.
+  @@unique([id, restaurantId])
   @@index([restaurantId])
   @@map("branches")
 }
@@ -751,6 +759,228 @@ model OfferSlotOptionTranslation {
   @@map("offer_slot_option_translations")
 }
 
+// -----------------------------------------------------------------------------
+// Unified Promotions (DEC-075, accepted 2026-11-21; milestone B1 = storage +
+// pure engine, no order-flow wiring yet). See docs/02-technical/UNIFIED_PROMOTIONS_SCHEMA_AND_ROLLOUT.md.
+// The legacy Product discount stays on `products.discount_*` (single authority,
+// no data migration), so there is deliberately no PRODUCT scope here; the
+// engine enters it as an item-scope candidate with effective priority 0.
+// Shape rules (value > 0, percentage <= 100, CATEGORY/MENU percentage only,
+// QUANTITY needs minimum_quantity + quantity_basis, dates ordered, priority
+// 0..1000) are CHECK constraints in the migration. Every target table carries
+// restaurant_id and two composite foreign keys (promotion and target both on
+// (id, restaurant_id)), so a Promotion can never point at another tenant's row.
+// -----------------------------------------------------------------------------
+
+enum PromotionScope {
+  CATEGORY
+  MENU
+  CART
+  QUANTITY
+  DELIVERY
+
+  @@map("promotion_scope")
+}
+
+enum PromotionDiscountType {
+  PERCENTAGE
+  FIXED_AMOUNT
+
+  @@map("promotion_discount_type")
+}
+
+enum PromotionStatus {
+  ACTIVE
+  INACTIVE
+  ARCHIVED
+
+  @@map("promotion_status")
+}
+
+enum PromotionQuantityBasis {
+  UNITS
+  DISTINCT_PRODUCTS
+
+  @@map("promotion_quantity_basis")
+}
+
+/// Dates are inclusive calendar dates read in the ORDER Branch timezone (like Product discounts and Offers).
+/// Empty target lists mean "all" for branches, delivery zones and CART/QUANTITY restrictions; CATEGORY/MENU need targets.
+model Promotion {
+  id              String                  @id @default(uuid()) @db.Uuid
+  restaurantId    String                  @map("restaurant_id") @db.Uuid
+  internalName    String                  @map("internal_name")
+  scope           PromotionScope
+  discountType    PromotionDiscountType   @map("discount_type")
+  value           Decimal                 @db.Decimal(14, 2)
+  status          PromotionStatus
+  priority        Int                     @default(100)
+  startsOn        DateTime?               @map("starts_on") @db.Date
+  endsOn          DateTime?               @map("ends_on") @db.Date
+  minimumSubtotal Decimal?                @map("minimum_subtotal") @db.Decimal(14, 2)
+  minimumQuantity Int?                    @map("minimum_quantity")
+  quantityBasis   PromotionQuantityBasis? @map("quantity_basis")
+  createdByUserId String?                 @map("created_by_user_id") @db.Uuid
+  updatedByUserId String?                 @map("updated_by_user_id") @db.Uuid
+  createdAt       DateTime                @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt       DateTime                @updatedAt @map("updated_at") @db.Timestamptz
+  archivedAt      DateTime?               @map("archived_at") @db.Timestamptz
+
+  restaurant      Restaurant              @relation(fields: [restaurantId], references: [id], onDelete: Cascade)
+  createdBy       User?                   @relation("PromotionCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  updatedBy       User?                   @relation("PromotionUpdatedBy", fields: [updatedByUserId], references: [id], onDelete: SetNull)
+  translations    PromotionTranslation[]
+  branches        PromotionBranch[]
+  menus           PromotionMenu[]
+  categories      PromotionCategory[]
+  products        PromotionProduct[]
+  deliveryZones   PromotionDeliveryZone[]
+  orderPromotions OrderPromotion[]
+
+  // Target of the tenant-safe composite foreign keys of the target tables.
+  @@unique([id, restaurantId])
+  @@index([restaurantId, status])
+  @@index([restaurantId, scope, status])
+  @@index([restaurantId, startsOn, endsOn])
+  @@map("promotions")
+}
+
+model PromotionTranslation {
+  id          String  @id @default(uuid()) @db.Uuid
+  promotionId String  @map("promotion_id") @db.Uuid
+  locale      String
+  title       String
+  description String?
+
+  promotion Promotion @relation(fields: [promotionId], references: [id], onDelete: Cascade)
+
+  @@unique([promotionId, locale])
+  @@map("promotion_translations")
+}
+
+// Target tables: Cascade from the Promotion; Restrict on the target so deleting
+// a targeted Branch / Zone / Category / ... can never silently widen or empty a
+// Promotion (the Staff service must answer a conflict instead).
+model PromotionBranch {
+  promotionId  String @map("promotion_id") @db.Uuid
+  branchId     String @map("branch_id") @db.Uuid
+  restaurantId String @map("restaurant_id") @db.Uuid
+
+  promotion Promotion @relation(fields: [promotionId, restaurantId], references: [id, restaurantId], onDelete: Cascade, map: "promotion_branches_promotion_scope_fkey")
+  branch    Branch    @relation(fields: [branchId, restaurantId], references: [id, restaurantId], onDelete: Restrict, map: "promotion_branches_branch_scope_fkey")
+
+  @@id([promotionId, branchId])
+  @@index([restaurantId, branchId])
+  @@map("promotion_branches")
+}
+
+model PromotionMenu {
+  promotionId  String @map("promotion_id") @db.Uuid
+  menuId       String @map("menu_id") @db.Uuid
+  restaurantId String @map("restaurant_id") @db.Uuid
+
+  promotion Promotion @relation(fields: [promotionId, restaurantId], references: [id, restaurantId], onDelete: Cascade, map: "promotion_menus_promotion_scope_fkey")
+  menu      Menu      @relation(fields: [menuId, restaurantId], references: [id, restaurantId], onDelete: Restrict, map: "promotion_menus_menu_scope_fkey")
+
+  @@id([promotionId, menuId])
+  @@index([restaurantId, menuId])
+  @@map("promotion_menus")
+}
+
+model PromotionCategory {
+  promotionId  String @map("promotion_id") @db.Uuid
+  categoryId   String @map("category_id") @db.Uuid
+  restaurantId String @map("restaurant_id") @db.Uuid
+
+  promotion Promotion @relation(fields: [promotionId, restaurantId], references: [id, restaurantId], onDelete: Cascade, map: "promotion_categories_promotion_scope_fkey")
+  category  Category  @relation(fields: [categoryId, restaurantId], references: [id, restaurantId], onDelete: Restrict, map: "promotion_categories_category_scope_fkey")
+
+  @@id([promotionId, categoryId])
+  @@index([restaurantId, categoryId])
+  @@map("promotion_categories")
+}
+
+model PromotionProduct {
+  promotionId  String @map("promotion_id") @db.Uuid
+  productId    String @map("product_id") @db.Uuid
+  restaurantId String @map("restaurant_id") @db.Uuid
+
+  promotion Promotion @relation(fields: [promotionId, restaurantId], references: [id, restaurantId], onDelete: Cascade, map: "promotion_products_promotion_scope_fkey")
+  product   Product   @relation(fields: [productId, restaurantId], references: [id, restaurantId], onDelete: Restrict, map: "promotion_products_product_scope_fkey")
+
+  @@id([promotionId, productId])
+  @@index([restaurantId, productId])
+  @@map("promotion_products")
+}
+
+model PromotionDeliveryZone {
+  promotionId    String @map("promotion_id") @db.Uuid
+  deliveryZoneId String @map("delivery_zone_id") @db.Uuid
+  restaurantId   String @map("restaurant_id") @db.Uuid
+
+  promotion    Promotion    @relation(fields: [promotionId, restaurantId], references: [id, restaurantId], onDelete: Cascade, map: "promotion_delivery_zones_promotion_scope_fkey")
+  deliveryZone DeliveryZone @relation(fields: [deliveryZoneId, restaurantId], references: [id, restaurantId], onDelete: Restrict, map: "promotion_delivery_zones_zone_scope_fkey")
+
+  @@id([promotionId, deliveryZoneId])
+  @@index([restaurantId, deliveryZoneId])
+  @@map("promotion_delivery_zones")
+}
+
+/// History of the NEW promotions applied to an Order (written by B2, not yet): one row per applied Promotion
+/// (CATEGORY / MENU / CART / QUANTITY / DELIVERY). The legacy Product discount is NOT recorded here: it lives only on
+/// `order_items.discount_amount` (+ snapshots), its single historical home. The snapshots are the history; the
+/// Promotion link stays as a RESTRICT reference (PROMOTIONS_SPEC #52: a Promotion used by an Order is archived,
+/// never hard-deleted). Merchandise amounts are split per line ONLY in `order_promotion_allocations` (never on
+/// `order_items`); a DELIVERY row has no allocation.
+/// Tenant isolation is enforced by the database (2026-11-22): both the Order and the Promotion are referenced on
+/// (id, restaurant_id), so a row can never mix two Restaurants. RESTRICT towards `orders`, like `order_items`.
+model OrderPromotion {
+  id                   String                @id @default(uuid()) @db.Uuid
+  orderId              String                @map("order_id") @db.Uuid
+  restaurantId         String                @map("restaurant_id") @db.Uuid
+  promotionId          String                @map("promotion_id") @db.Uuid
+  scope                PromotionScope
+  discountType         PromotionDiscountType @map("discount_type")
+  value                Decimal               @db.Decimal(14, 2)
+  amount               Decimal               @db.Decimal(14, 2)
+  internalNameSnapshot String                @map("internal_name_snapshot")
+  titleSnapshot        String?               @map("title_snapshot")
+  configSnapshot       Json                  @map("config_snapshot")
+  createdAt            DateTime              @default(now()) @map("created_at") @db.Timestamptz
+
+  order       Order                      @relation(fields: [orderId, restaurantId], references: [id, restaurantId], onDelete: Restrict, map: "order_promotions_order_scope_fkey")
+  restaurant  Restaurant                 @relation(fields: [restaurantId], references: [id], onDelete: Restrict)
+  promotion   Promotion                  @relation(fields: [promotionId, restaurantId], references: [id, restaurantId], onDelete: Restrict, map: "order_promotions_promotion_scope_fkey")
+  allocations OrderPromotionAllocation[]
+
+  // Target of the order-scoped allocation foreign key.
+  @@unique([id, orderId])
+  @@index([orderId])
+  @@index([restaurantId, promotionId])
+  @@index([promotionId])
+  @@map("order_promotions")
+}
+
+/// The share of one merchandise promotion carried by one order line: a CATEGORY / MENU winner (unit discount x qty)
+/// or a CART / QUANTITY largest-remainder share. Only positive shares are stored; they sum exactly to the row amount.
+/// `orderId` (2026-11-22) ties both sides to ONE Order: the parent row and the line are each referenced on
+/// (id, order_id), so a share can never point at a line of another Order (or another Restaurant). Cascade from the
+/// parent row (a pure split of it, like `order_item_modifiers`); Restrict towards the line, so deleting a line can
+/// never silently break "allocations sum to the row amount".
+model OrderPromotionAllocation {
+  orderPromotionId String  @map("order_promotion_id") @db.Uuid
+  orderItemId      String  @map("order_item_id") @db.Uuid
+  orderId          String  @map("order_id") @db.Uuid
+  amount           Decimal @db.Decimal(14, 2)
+
+  orderPromotion OrderPromotion @relation(fields: [orderPromotionId, orderId], references: [id, orderId], onDelete: Cascade, map: "order_promotion_allocations_order_promotion_scope_fkey")
+  orderItem      OrderItem      @relation(fields: [orderItemId, orderId], references: [id, orderId], onDelete: Restrict, map: "order_promotion_allocations_order_item_scope_fkey")
+
+  @@id([orderPromotionId, orderItemId])
+  @@index([orderItemId])
+  @@map("order_promotion_allocations")
+}
+
 enum BranchHoursMode {
   ALWAYS_OPEN
   SCHEDULE
@@ -806,7 +1036,10 @@ model Menu {
   translations MenuTranslation[]
   categories   Category[]
   importJobs   MenuImportJob[]
+  promotionLinks PromotionMenu[]
 
+  // Target of the tenant-safe promotion_menus composite foreign key.
+  @@unique([id, restaurantId])
   @@index([restaurantId])
   @@map("menus")
 }
@@ -850,7 +1083,10 @@ model Category {
   menu         Menu                  @relation(fields: [menuId], references: [id], onDelete: Restrict)
   translations CategoryTranslation[]
   products     Product[]
+  promotionLinks PromotionCategory[]
 
+  // Target of the tenant-safe promotion_categories composite foreign key.
+  @@unique([id, restaurantId])
   @@index([restaurantId])
   @@index([menuId])
   @@map("categories")
@@ -1341,7 +1577,10 @@ model Product {
   // Manual suggestion rules where this product is the trigger / the suggestion.
   suggestions    ProductSuggestion[]  @relation("SuggestionTrigger")
   suggestedBy    ProductSuggestion[]  @relation("SuggestionTarget")
+  promotionLinks PromotionProduct[]
 
+  // Target of the tenant-safe promotion_products composite foreign key.
+  @@unique([id, restaurantId])
   @@index([restaurantId])
   @@index([categoryId])
   @@map("products")
@@ -1898,6 +2137,16 @@ model Order {
   // Product Discounts V1: sum of the items' discountAmount (informational;
   // `subtotalAmount` is already the payable items total after discounts).
   discountTotalAmount       Decimal     @default(0) @map("discount_total_amount") @db.Decimal(14, 2)
+  // Unified Promotions (DEC-075, B1 storage only; written from B2). Snapshot model accepted 2026-11-21
+  // (UNIFIED_PROMOTIONS_HISTORICAL_SNAPSHOTS.md): subtotalAmount = NET merchandise payable
+  // = sum(items.lineTotal) - sum(order_promotion_allocations); discountTotalAmount = legacy line discounts
+  // + promotionDiscountAmount (so subtotal + discountTotal = gross merchandise for every existing reader);
+  // deliveryFeeAmount = NET fee; total = subtotal + fee. Legacy rows keep 0 / NULL.
+  // Sum of the NEW merchandise promotion allocations (CATEGORY / MENU / CART / QUANTITY); never the legacy discount.
+  promotionDiscountAmount   Decimal     @default(0) @map("promotion_discount_amount") @db.Decimal(14, 2)
+  // Zone fee before any delivery promotion; NULL for legacy and non-delivery orders.
+  deliveryFeeOriginalAmount Decimal?    @map("delivery_fee_original_amount") @db.Decimal(14, 2)
+  deliveryDiscountAmount    Decimal     @default(0) @map("delivery_discount_amount") @db.Decimal(14, 2)
   // FT-8: DELIVERY-only snapshots (null otherwise). The zone reference is
   // for traceability only -- historical rendering always uses the snapshots.
   deliveryZoneId            String?     @map("delivery_zone_id") @db.Uuid
@@ -1928,6 +2177,7 @@ model Order {
   deliveryZone DeliveryZone?      @relation(fields: [deliveryZoneId], references: [id], onDelete: Restrict)
   items        OrderItem[]
   statusEvents OrderStatusEvent[]
+  promotions   OrderPromotion[]
   // Composite scope: with MATCH SIMPLE semantics the constraint is only
   // checked when every column is non-null (i.e. a DINE_IN order with a
   // session), so it can never attach an order to another tenant's, branch's or
@@ -1936,6 +2186,8 @@ model Order {
 
   @@unique([qrCodeId, branchId, clientRequestId])
   @@unique([tableSessionId, roundNumber])
+  // Target of the tenant-safe order_promotions composite foreign key (Unified Promotions).
+  @@unique([id, restaurantId])
   @@index([deliveryZoneId])
   @@index([restaurantId])
   @@index([branchId])
@@ -2117,7 +2369,10 @@ model DeliveryZone {
   branch       Branch                    @relation(fields: [branchId], references: [id], onDelete: Restrict)
   orders       Order[]
   translations DeliveryZoneTranslation[]
+  promotionLinks PromotionDeliveryZone[]
 
+  // Target of the tenant-safe promotion_delivery_zones composite foreign key.
+  @@unique([id, restaurantId])
   @@index([restaurantId])
   @@index([branchId, status])
   @@map("delivery_zones")
@@ -2195,7 +2450,13 @@ model OrderItem {
   variant      ProductVariant?        @relation(fields: [variantId], references: [id], onDelete: Restrict)
   modifiers    OrderItemModifier[]
   offerChoices OrderItemOfferChoice[]
+  // Unified Promotions (DEC-075): this line's shares of NEW promotions. `discountAmount` / its snapshots stay the
+  // LEGACY Product discount only (and only when it applied); `lineTotal` is net of that legacy discount and
+  // BEFORE these allocations.
+  promotionAllocations OrderPromotionAllocation[]
 
+  // Target of the order-scoped order_promotion_allocations composite foreign key (Unified Promotions).
+  @@unique([id, orderId])
   @@index([orderId])
   @@index([productId])
   @@index([offerId])
@@ -2292,6 +2553,8 @@ model User {
   subscriptionRequests SubscriptionRequest[]
   setupVisibilities    RestaurantSetupVisibility[]
   setupsCompleted      RestaurantSetup[]           @relation("RestaurantSetupCompletedBy")
+  promotionsCreated    Promotion[]                 @relation("PromotionCreatedBy")
+  promotionsUpdated    Promotion[]                 @relation("PromotionUpdatedBy")
 
   @@map("users")
 }

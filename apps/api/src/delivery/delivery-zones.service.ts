@@ -71,10 +71,15 @@ export type UpdateDeliveryZoneResult =
   | { outcome: 'zoneNotFound' }
   | { outcome: 'defaultNameRequired' };
 
+/**
+ * `hasOrders` wins over `usedByPromotions` when both apply: Orders block the deletion for good (deactivate
+ * instead), whereas promotion targets could be edited -- and doing so would still not make the zone deletable.
+ */
 export type DeleteDeliveryZoneResult =
   | { outcome: 'deleted' }
   | { outcome: 'zoneNotFound' }
-  | { outcome: 'hasOrders' };
+  | { outcome: 'hasOrders' }
+  | { outcome: 'usedByPromotions' };
 
 const TRANSLATIONS_SELECT = {
   select: { locale: true, name: true },
@@ -89,7 +94,7 @@ const ZONE_SELECT = {
   minimumOrder: true,
   status: true,
   displayOrder: true,
-  _count: { select: { orders: true } },
+  _count: { select: { orders: true, promotionLinks: true } },
 } satisfies Prisma.DeliveryZoneSelect;
 
 function toZoneView(zone: {
@@ -100,7 +105,7 @@ function toZoneView(zone: {
   minimumOrder: Prisma.Decimal;
   status: DeliveryZoneStatus;
   displayOrder: number;
-  _count: { orders: number };
+  _count: { orders: number; promotionLinks: number };
 }): DeliveryZoneView {
   return {
     id: zone.id,
@@ -110,12 +115,39 @@ function toZoneView(zone: {
     minimumOrder: zone.minimumOrder.toFixed(2),
     status: zone.status,
     displayOrder: zone.displayOrder,
-    canDelete: zone._count.orders === 0,
+    canDelete: zone._count.orders === 0 && zone._count.promotionLinks === 0,
   };
 }
 
-function isForeignKeyViolation(error: unknown): boolean {
-  return error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2003';
+/**
+ * Unified Promotions (DEC-075): `promotion_delivery_zones` references a zone ON DELETE RESTRICT, so a zone targeted
+ * by a promotion is never silently removed (an empty zone list means "all zones" and would widen the promotion).
+ */
+const PROMOTION_ZONE_FOREIGN_KEY = 'promotion_delivery_zones_zone_scope_fkey';
+
+/**
+ * Which reference refused the delete. The driver-adapter client reports the violated constraint name at
+ * `meta.driverAdapterError.cause.constraint.index` (same shape as the P2002 handling in `tables.service.ts`,
+ * verified for this P2003 against real PostgreSQL in `delivery-zone-delete-postgres.e2e-spec.ts`). Only the
+ * promotion constraint maps to `usedByPromotions`; any other foreign key (the Order one) keeps the existing
+ * `hasOrders` answer.
+ */
+function foreignKeyViolationOutcome(
+  error: unknown,
+): 'hasOrders' | 'usedByPromotions' | null {
+  if (
+    !(error instanceof Prisma.PrismaClientKnownRequestError) ||
+    error.code !== 'P2003'
+  ) {
+    return null;
+  }
+  const meta = error.meta as
+    | { driverAdapterError?: { cause?: { constraint?: { index?: string } } } }
+    | undefined;
+  return meta?.driverAdapterError?.cause?.constraint?.index ===
+    PROMOTION_ZONE_FOREIGN_KEY
+    ? 'usedByPromotions'
+    : 'hasOrders';
 }
 
 /**
@@ -125,6 +157,8 @@ function isForeignKeyViolation(error: unknown): boolean {
  * indistinguishable from a nonexistent one. Zones are never hard-deleted
  * once an Order references them (deactivate instead) -- the Order FK is
  * Restrict as a backstop, and Orders carry their own snapshots anyway.
+ * Likewise a zone targeted by a promotion (`promotion_delivery_zones`,
+ * Restrict) is refused with its own outcome, never reported as "has orders".
  */
 @Injectable()
 export class DeliveryZonesService {
@@ -273,7 +307,10 @@ export class DeliveryZonesService {
     }
     const zone = await this.prisma.deliveryZone.findFirst({
       where: { id: scope.zoneId, restaurantId: scope.restaurantId },
-      select: { id: true, _count: { select: { orders: true } } },
+      select: {
+        id: true,
+        _count: { select: { orders: true, promotionLinks: true } },
+      },
     });
     if (!zone) {
       return { outcome: 'zoneNotFound' };
@@ -281,13 +318,17 @@ export class DeliveryZonesService {
     if (zone._count.orders > 0) {
       return { outcome: 'hasOrders' };
     }
+    if (zone._count.promotionLinks > 0) {
+      return { outcome: 'usedByPromotions' };
+    }
 
     try {
       await this.prisma.deliveryZone.delete({ where: { id: zone.id } });
     } catch (error) {
-      // An Order referenced the zone between the check and the delete.
-      if (isForeignKeyViolation(error)) {
-        return { outcome: 'hasOrders' };
+      // An Order or a promotion target referenced the zone between the check and the delete.
+      const outcome = foreignKeyViolationOutcome(error);
+      if (outcome) {
+        return { outcome };
       }
       throw error;
     }

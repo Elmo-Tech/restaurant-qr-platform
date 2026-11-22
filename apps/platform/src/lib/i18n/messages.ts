@@ -290,6 +290,8 @@ const en = {
   "feature.KITCHEN.hint": "The kitchen screen: accepted orders as tickets to prepare. Needs dashboard or table orders.",
   "feature.OFFERS": "Offers and bundles",
   "feature.OFFERS.hint": "Fixed-price offers with choices (a sandwich with a free side, a box of three): an Offers page in the dashboard and an Offers strip in the guest menu.",
+  "feature.PROMOTIONS": "Advanced promotions",
+  "feature.PROMOTIONS.hint": "Category, menu, cart, quantity and delivery promotions; the guest always gets the single best saving. Off by default, including restaurants without a package: tick it per package or switch it on per restaurant. Product discounts work without it.",
   "feature.MENU_IMPORT": "AI menu import",
   "feature.MENU_IMPORT.hint": "Reads a menu from photos, a PDF or an Excel file into a draft. Off by default and it uses model quota: switch it on for one restaurant while its menu is being set up, then off again.",
 
@@ -1267,6 +1269,8 @@ const ar: Record<MessageKey, string> = {
   "feature.KITCHEN.hint": "شاشة المطبخ: الطلبات المقبولة كتذاكر للتحضير. تحتاج طلبات اللوحة أو الطاولات.",
   "feature.OFFERS": "العروض والباندل",
   "feature.OFFERS.hint": "عروض بسعر ثابت مع اختيارات (ساندويتش مع هدية، بوكس من ٣): صفحة العروض في لوحة التحكم وشريط العروض في منيو الضيف.",
+  "feature.PROMOTIONS": "العروض الترويجية المتقدمة",
+  "feature.PROMOTIONS.hint": "خصومات على قسم أو منيو أو السلة أو الكمية أو التوصيل، ويحصل الضيف دائمًا على أكبر توفير واحد. متوقفة افتراضيًا حتى للمطاعم بدون باقة: فعّلها لكل باقة أو لكل مطعم. خصومات المنتجات تعمل بدونها.",
   "feature.MENU_IMPORT": "استيراد المنيو بالذكاء الاصطناعي",
   "feature.MENU_IMPORT.hint": "يقرأ المنيو من صور أو ملف PDF أو Excel إلى مسودة. متوقفة افتراضيًا وتستهلك حصة النموذج: فعّلها لمطعم واحد أثناء ضبط المنيو ثم أوقفها.",
 

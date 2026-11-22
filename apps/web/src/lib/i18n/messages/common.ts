@@ -127,6 +127,8 @@ export const commonMessages = defineMessages({
     'error.ORDER_STATUS_CHANGED': 'This order was already updated by someone else.',
     'error.DELIVERY_ZONE_HAS_ORDERS':
       'This delivery area has orders and cannot be deleted. Deactivate it instead.',
+    'error.DELIVERY_ZONE_USED_BY_PROMOTIONS':
+      'This delivery area is used by a promotion and cannot be deleted. Remove it from the promotion or deactivate the area instead.',
     'error.GENERIC_QR_ALREADY_EXISTS': 'This restaurant already has a Restaurant QR.',
     'error.MODIFIER_HAS_HISTORICAL_REFERENCES':
       'This modifier appears in past orders and cannot be deleted. Deactivate it instead.',
@@ -280,6 +282,8 @@ export const commonMessages = defineMessages({
     'error.ORDER_STATUS_CHANGED': 'تم تحديث هذا الطلب بالفعل بواسطة شخص آخر.',
     'error.DELIVERY_ZONE_HAS_ORDERS':
       'هذه المنطقة لها طلبات ولا يمكن حذفها. قم بإلغاء تفعيلها بدلًا من ذلك.',
+    'error.DELIVERY_ZONE_USED_BY_PROMOTIONS':
+      'هذه المنطقة مستخدمة في عرض ترويجي ولا يمكن حذفها. أزلها من العرض أو قم بإلغاء تفعيلها بدلًا من ذلك.',
     'error.GENERIC_QR_ALREADY_EXISTS': 'لدى هذا المطعم رمز QR للمطعم بالفعل.',
     'error.MODIFIER_HAS_HISTORICAL_REFERENCES':
       'هذه الإضافة ظاهرة في طلبات سابقة ولا يمكن حذفها. قم بإلغاء تفعيلها بدلًا من ذلك.',

@@ -2201,6 +2201,12 @@ PRODUCT
 
 CATEGORY
 
+> **Amended by DEC-075 (2026-11-21, B-D2).** The list above is kept as originally written. The implemented column is
+> `promotions.scope` (enum `promotion_scope`: `CATEGORY`, `MENU`, `CART`, `QUANTITY`, `DELIVERY`; migration
+> `20261128100000_unified_promotions`). ORDER → `CART`; PRODUCT stays the Product discount on `products.discount_*`
+> (no Promotion row). Targets live in `promotion_branches`, `promotion_menus`, `promotion_categories`,
+> `promotion_products`, `promotion_delivery_zones`. Details: `docs/02-technical/UNIFIED_PROMOTIONS_SCHEMA_AND_ROLLOUT.md`.
+
 ---
 
 # 86. Promotion Validation Constraints
@@ -2688,6 +2694,9 @@ Product Variant may later become inactive without damaging history.
 
 # 112. Order Promotion
 
+> **Historical text — superseded by the "Amendment 2026-11-22" after #114 (DEC-075, Unified Promotions).** The
+> field list below is kept as originally approved; the implemented table differs (see the amendment).
+
 Database table:
 
 `order_promotions`
@@ -2709,6 +2718,9 @@ Potential fields:
 ---
 
 # 113. Order Promotion Item
+
+> **Historical text — superseded by the "Amendment 2026-11-22" after #114.** Implemented as
+> `order_promotion_allocations` (composite primary key, no surrogate `id`, plus `order_id`).
 
 Database table:
 
@@ -2734,6 +2746,80 @@ Which Item received which discount.
 V1 non-stacking rules reduce complexity.
 
 However, storing Promotion application separately keeps the schema extensible for future versions.
+
+> **Historical text — the winner rule is amended by DEC-075** (maximum savings first; see `AGENTS.md` #36 note and
+> `docs/01-domain/PROMOTIONS_SPEC.md` "Implementation Amendment: Unified Promotions"). "Separate storage" (above) is
+> what the amendment below implements.
+
+## Amendment 2026-11-22 — Unified Promotions storage (DEC-075, migration `20261128100000_unified_promotions`)
+
+Status: accepted design (Product Owner 2026-11-21, historical-integrity corrections 2026-11-22); storage exists from
+milestone B1, but **no order writes these rows until B2**. Sections #112–#114 above are kept as the originally
+approved model and are superseded by this amendment where they differ. Full detail:
+`UNIFIED_PROMOTIONS_SCHEMA_AND_ROLLOUT.md` §2 and `UNIFIED_PROMOTIONS_HISTORICAL_SNAPSHOTS.md`.
+
+**Promotion configuration (implemented schema).** `promotions` (`restaurant_id`, `internal_name`, `scope`
+`promotion_scope` = CATEGORY / MENU / CART / QUANTITY / DELIVERY, `discount_type` PERCENTAGE / FIXED_AMOUNT,
+`value`, `status` ACTIVE / INACTIVE / ARCHIVED with `archived_at`, `priority` 0..1000, inclusive `starts_on` /
+`ends_on` dates, `minimum_subtotal`, `minimum_quantity` + `quantity_basis` for QUANTITY) with CHECKs for the shape
+rules; `promotion_translations` (per locale title / description); target tables `promotion_branches`,
+`promotion_menus`, `promotion_categories`, `promotion_products`, `promotion_delivery_zones`, each referencing the
+Promotion and the target on (`id`, `restaurant_id`) — Promotion side CASCADE, target side RESTRICT (an empty list
+means "all", so deleting a target must never silently widen a Promotion). The legacy Product discount
+(`products.discount_*`) is not a Promotion row.
+
+**`order_promotions`** — one row per applied NEW Promotion with `amount > 0`: `order_id`, `restaurant_id`,
+`promotion_id` (NOT NULL), `scope`, `discount_type`, `value`, `amount`, `internal_name_snapshot`,
+`title_snapshot`, `config_snapshot` jsonb, `created_at`. The legacy Product discount is never recorded here.
+
+**`order_promotion_allocations`** — the per-line share of each merchandise Promotion: PK (`order_promotion_id`,
+`order_item_id`), `order_id`, `amount > 0`. CATEGORY / MENU winners = unit discount × quantity; CART / QUANTITY
+winners = largest-remainder split; a DELIVERY row has none. Shares of one row sum exactly to its `amount`.
+
+**Tenant- and order-scoped foreign keys (enforced by the database).**
+
+| Constraint | Key | ON DELETE |
+| --- | --- | --- |
+| `order_promotions_order_scope_fkey` | (`order_id`, `restaurant_id`) → `orders` (`id`, `restaurant_id`) | RESTRICT |
+| `order_promotions_promotion_scope_fkey` | (`promotion_id`, `restaurant_id`) → `promotions` (`id`, `restaurant_id`) | RESTRICT |
+| `order_promotions_restaurant_id_fkey` | `restaurant_id` → `restaurants` | RESTRICT |
+| `order_promotion_allocations_order_promotion_scope_fkey` | (`order_promotion_id`, `order_id`) → `order_promotions` (`id`, `order_id`) | CASCADE |
+| `order_promotion_allocations_order_item_scope_fkey` | (`order_item_id`, `order_id`) → `order_items` (`id`, `order_id`) | RESTRICT |
+
+Supporting UNIQUE indexes: `orders` (`id`, `restaurant_id`), `order_items` (`id`, `order_id`), `order_promotions`
+(`id`, `order_id`), `promotions` (`id`, `restaurant_id`). Consequences: an applied row can never reference another
+Restaurant's Order or Promotion; a share can never point at a line of another Order (even in the same Restaurant);
+an Order with applied promotions, or a line carrying a share, cannot be deleted (same RESTRICT semantics as
+`order_items` → `orders`); existing `orders` / `order_items` keys are unchanged.
+
+**Snapshot retention.** The snapshot columns are the history. A Promotion referenced by any Order cannot be
+hard-deleted (RESTRICT; deactivate or archive it — PROMOTIONS_SPEC #52); editing or archiving it never changes
+`order_promotions` or allocations. Deleting the applied row itself removes only its own shares (pure split).
+
+**Discount-path exclusivity.** Per order either the item path (legacy Product discount / CATEGORY / MENU winners per
+line) or one CART / QUANTITY winner applies, never both; a legacy discount that did not win is not stored
+(`order_items.discount_amount` = 0). Delivery promotions are independent (one winner on the fee).
+
+**Delivery discount separation (orders columns + CHECKs).** `orders.delivery_fee_original_amount` (NULL for legacy
+and non-delivery orders), `orders.delivery_discount_amount` (default 0) and `orders.delivery_fee_amount` = NET fee;
+CHECK `orders_delivery_discount_consistent` (original NULL ⇒ discount 0; otherwise discount ≤ original and net =
+original − discount) plus non-negative CHECKs. A delivery promotion is an `order_promotions` row with scope DELIVERY
+and no allocation; it never reduces `subtotal_amount`.
+
+**Historical reconciliation rules.**
+
+```text
+Σ order_items.line_total − Σ allocations          = orders.subtotal_amount   (NET merchandise)
+Σ allocations                                     = orders.promotion_discount_amount
+Σ order_items.discount_amount (legacy only) + promotion_discount_amount = orders.discount_total_amount
+subtotal_amount + discount_total_amount           = gross merchandise         (unchanged for every existing reader)
+delivery_fee_original_amount − delivery_discount_amount = delivery_fee_amount  (DB CHECK)
+subtotal_amount + delivery_fee_amount             = total_amount              (unchanged stored invariant)
+```
+
+`orders_promotion_discount_within_total` (CHECK `promotion_discount_amount ≤ discount_total_amount`) keeps the legacy
+part non-negative; the cross-row identities are verified by `checkOrderPricingSnapshot` before B2 persists. Every
+pre-B1 order reads as "no promotion" (new columns 0 / NULL, no rows).
 
 ---
 

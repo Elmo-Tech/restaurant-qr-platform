@@ -27,6 +27,12 @@ export const FEATURE_KEYS = [
   'MENU_IMPORT',
   /** Offers / Bundles: fixed-price packages with choices in the Guest menu and the dashboard (DEC-069). */
   'OFFERS',
+  /**
+   * Unified Promotions (DEC-075): the advanced Promotion system (Category / Menu / Cart / Quantity / Delivery
+   * promotions). Opt-in and customer-visible. Product Discounts V1 (`products.discount_*`) is NOT gated by it and
+   * Offers stay on `OFFERS`. The Staff guard and the engine gate arrive with B2 / B3.
+   */
+  'PROMOTIONS',
 ] as const;
 
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
@@ -37,17 +43,33 @@ export type FeatureMap = Record<FeatureKey, boolean>;
 export const DEFAULT_ENTITLEMENT = true;
 
 /**
- * Features that are OFF until the platform turns them on, because each use spends a metered resource
- * (DEC-057: model requests). A Package includes one only if it lists it, and a Restaurant with no Package
- * does not have it. They are a platform tool, so customers never see them in packages, My subscription,
- * upgrade options or contracts (`CUSTOMER_FEATURE_KEYS`).
+ * Features that are OFF until the platform turns them on: a Package includes one only if it lists it, and a
+ * Restaurant with no Package does not have it (only a Restaurant override can give it one). MENU_IMPORT because
+ * each use spends a metered resource (DEC-057: model requests); PROMOTIONS because the advanced Promotion system
+ * must never appear in an existing Restaurant without an explicit decision (DEC-075).
  */
-export const OPT_IN_FEATURES: readonly FeatureKey[] = ['MENU_IMPORT'];
+export const OPT_IN_FEATURES: readonly FeatureKey[] = [
+  'MENU_IMPORT',
+  'PROMOTIONS',
+];
 
-/** The features customers see: every feature except the opt-in ones. */
+/**
+ * Opt-in features that are a platform tool, so customers never see them in packages, My subscription, upgrade
+ * options or contracts (DEC-057). PROMOTIONS is opt-in but customer-visible (DEC-075), so it is not listed here.
+ */
+export const PLATFORM_ONLY_FEATURES: readonly FeatureKey[] = ['MENU_IMPORT'];
+
+/** The features customers see: every feature except the platform-only ones. */
 export const CUSTOMER_FEATURE_KEYS: readonly FeatureKey[] = FEATURE_KEYS.filter(
-  (key) => !OPT_IN_FEATURES.includes(key),
+  (key) => !PLATFORM_ONLY_FEATURES.includes(key),
 );
+
+/**
+ * The customer features every Restaurant has by default. Missing one of THESE makes a Restaurant "restricted" in
+ * the platform console; missing an opt-in feature does not (it is off for everyone until switched on).
+ */
+export const DEFAULT_ON_CUSTOMER_FEATURE_KEYS: readonly FeatureKey[] =
+  CUSTOMER_FEATURE_KEYS.filter((key) => !OPT_IN_FEATURES.includes(key));
 
 /** Where a feature's effective value comes from (the order of precedence, strongest first). */
 export type FeatureSource = 'override' | 'package' | 'default';

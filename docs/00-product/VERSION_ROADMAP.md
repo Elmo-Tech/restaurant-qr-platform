@@ -1,4 +1,4 @@
-﻿# Version Roadmap
+# Version Roadmap
 
 ## Document Purpose
 
@@ -105,6 +105,11 @@ Introduce advanced AI, automation, experimentation, and enterprise capabilities.
 | Staff & Access UI, Branch management UI, General settings, Branding | next release batches |
 | Per-Branch product availability (Branch Product Override) | V1.1 |
 | Object storage / CDN for images (V1 uses local disk on one server) | V1.1 |
+
+> **Note (2026-11-21).** "Promotions" row above: the approved Promotion domain and policy is DEC-075 with its
+> Amendment 2026-11-21 (B-D2) (Product discount, CATEGORY, MENU, CART, QUANTITY, DELIVERY). It is gated per restaurant
+> by the opt-in `PROMOTIONS` feature key and is not live until milestones B2–B4 ship. Product discounts are already
+> live (DEC-036).
 
 ## Order types — updated
 

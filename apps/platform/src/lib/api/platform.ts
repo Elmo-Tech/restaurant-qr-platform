@@ -13,14 +13,16 @@ export const FEATURE_KEYS = [
   "TABLE_ORDERING",
   "MENU_IMPORT",
   "OFFERS",
+  "PROMOTIONS",
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 
 /**
- * Features that are OFF until the platform turns them on (DEC-057): a package includes one only if it lists it, and a
- * restaurant with no package does not have it. "Select all" skips them, and a restaurant without them is not "restricted".
+ * Features that are OFF until the platform turns them on (DEC-057, DEC-075): a package includes one only if it lists it,
+ * and a restaurant with no package does not have it. "Select all" skips them, and a restaurant without them is not
+ * "restricted". PROMOTIONS (advanced promotions) is opt-in but visible to customers; MENU_IMPORT is platform-only.
  */
-export const OPT_IN_FEATURES: readonly FeatureKey[] = ["MENU_IMPORT"];
+export const OPT_IN_FEATURES: readonly FeatureKey[] = ["MENU_IMPORT", "PROMOTIONS"];
 
 /**
  * The three ways a guest can place an order. Each is its own feature: a package with none of them
