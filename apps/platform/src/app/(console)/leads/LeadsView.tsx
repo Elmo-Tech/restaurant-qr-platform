@@ -1,9 +1,11 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 import { Alert, Badge, Button, Card, EmptyState, Input, Label, PageHeader, Skeleton } from "@/components/ui";
 import { ApiError, isNetworkFailure } from "@/lib/api/errors";
 import { listLeads, updateLead, type LeadStatus, type SignupLead } from "@/lib/api/leads";
+import { openOnboardingForLead } from "@/lib/api/onboarding";
 import { useI18n } from "@/lib/i18n/client";
 import { cn } from "@/lib/utils";
 
@@ -40,6 +42,7 @@ export function LeadsView() {
   const [error, setError] = useState<string | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [notes, setNotes] = useState<Record<string, string>>({});
+  const router = useRouter();
 
   const describe = useCallback(
     (caught: unknown) =>
@@ -84,6 +87,19 @@ export function LeadsView() {
     } catch (caught) {
       setError(describe(caught));
     } finally {
+      setBusyId(null);
+    }
+  }
+
+  /** Opens the lead's onboarding case: a new one, or the one a colleague already started (409). */
+  async function startOnboarding(lead: SignupLead) {
+    if (busyId) return;
+    setBusyId(lead.id);
+    setError(null);
+    try {
+      router.push(`/onboarding/${await openOnboardingForLead(lead.id)}`);
+    } catch (caught) {
+      setError(describe(caught));
       setBusyId(null);
     }
   }
@@ -187,6 +203,11 @@ export function LeadsView() {
                     />
                   </div>
                   <div className="flex flex-wrap gap-2">
+                    {lead.status === "NEW" || lead.status === "CONTACTED" ? (
+                      <Button size="sm" disabled={busyId !== null} onClick={() => void startOnboarding(lead)}>
+                        {t("onboarding.startOnboarding")}
+                      </Button>
+                    ) : null}
                     {ACTIONS[lead.status].map((action) => (
                       <Button
                         key={action.status}
