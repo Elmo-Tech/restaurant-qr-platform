@@ -46,7 +46,7 @@ export function OrderReceipt({ order, logoUrl = null }: { order: OrderDetail; lo
   if (typeof document === 'undefined') return null;
 
   const isDelivery = order.type === 'DELIVERY';
-  const { hasDiscount, grossSubtotal, merchandisePromotions, deliveryFee, deliveryDiscount } =
+  const { hasDiscount, grossSubtotal, legacyDiscount, merchandisePromotions, deliveryFee, deliveryDiscount } =
     orderDisplayPricing(order);
   const isDineIn = order.type === 'DINE_IN';
   const money = (amount: string) => (
@@ -171,12 +171,6 @@ export function OrderReceipt({ order, logoUrl = null }: { order: OrderDetail; lo
               </div>
             </li>
           ))}
-          {merchandisePromotions.map((promotion, index) => (
-            <li key={`promotion-${index}`} className="flex justify-between gap-2">
-              <span className="min-w-0 break-words"><Text>{promotion.title ?? t('orders.pricing.promotion')}</Text></span>
-              <span className="whitespace-nowrap">{money(`−${promotion.amount}`)}</span>
-            </li>
-          ))}
         </ul>
 
         <Divider />
@@ -188,23 +182,36 @@ export function OrderReceipt({ order, logoUrl = null }: { order: OrderDetail; lo
                 label={t('orders.receipt.subtotal')}
                 value={money(grossSubtotal)}
               />
-              {hasDiscount ? (
+              {legacyDiscount !== '0.00' ? (
                 <Row
                   label={t('orders.receipt.discount')}
-                  value={money(`−${order.discountTotal}`)}
+                  value={money(`−${legacyDiscount}`)}
                 />
               ) : null}
+              {merchandisePromotions.map((promotion, index) => (
+                <Row
+                  key={index}
+                  label={<Text>{promotion.title ?? t('orders.pricing.promotion')}</Text>}
+                  value={money(`−${promotion.amount}`)}
+                />
+              ))}
               {isDelivery ? (
-                <Row label={t('orders.receipt.deliveryFee')} value={money(deliveryFee)} />
+                <Row
+                  label={t(deliveryDiscount ? 'orders.pricing.deliveryFeeBeforeDiscount' : 'orders.receipt.deliveryFee')}
+                  value={money(deliveryFee)}
+                />
               ) : null}
               {deliveryDiscount ? (
-                <Row
-                  label={<>
-                    {t('orders.pricing.deliveryDiscount')}
-                    {deliveryDiscount.title ? <> · <Text>{deliveryDiscount.title}</Text></> : null}
-                  </>}
-                  value={money(`−${deliveryDiscount.amount}`)}
-                />
+                <>
+                  <Row
+                    label={<>
+                      {t('orders.pricing.deliveryDiscount')}
+                      {deliveryDiscount.title ? <> · <Text>{deliveryDiscount.title}</Text></> : null}
+                    </>}
+                    value={money(`−${deliveryDiscount.amount}`)}
+                  />
+                  <Row label={t('orders.pricing.deliveryFeeAfterDiscount')} value={money(order.deliveryFee)} />
+                </>
               ) : null}
             </>
           ) : null}

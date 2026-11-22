@@ -631,24 +631,73 @@ describeSandbox('Unified Promotions B2 order pricing (real PostgreSQL)', () => {
     const w = await seedWorld({ minimumOrder: '155.00' });
     await addPromotion(w, 'CART', 'FIXED_AMOUNT', '50.00');
     await addPromotion(w, 'DELIVERY', 'FIXED_AMOUNT', '10.00');
+    const pending = await addPromotion(w, 'DELIVERY', 'FIXED_AMOUNT', '30.00', {
+      minimumSubtotal: '220.00',
+    });
     // Gross 200, legacy-only net 160 and final total 170 all pass; the winning merchandise net 150 does not.
     const cart = deliveryCart(w);
     const quoted = await quote(w.genericQr.publicCode, cart).expect(400);
     const placed = await place(w.genericQr.publicCode, cart, '170.00').expect(
       400,
     );
-    for (const response of [quoted, placed]) {
+    await prisma.restaurant.update({
+      where: { id: w.restaurantId },
+      data: { whatsappOrderingEnabled: true, whatsappNumber: '+201012345678' },
+    });
+    const whatsapp = await request(app.getHttpServer())
+      .post(`/api/v1/public/qr/${w.genericQr.publicCode}/whatsapp-order`)
+      .send({
+        ...cart,
+        ...customer,
+        deliveryAddress,
+        clientRequestId: randomUUID(),
+        expectedTotal: '170.00',
+      })
+      .expect(400);
+    for (const response of [quoted, placed, whatsapp]) {
       expect(response.body).toMatchObject({
         error: {
           code: 'DELIVERY_MINIMUM_NOT_MET',
-          details: { zoneName: 'IT Zone', minimumOrder: '155.00' },
+          details: {
+            zoneName: 'IT Zone',
+            minimumOrder: '155.00',
+            remainingAmount: '5.00',
+          },
         },
       });
     }
     expect(quoted.body).toMatchObject({
-      error: { details: { subtotal: '150.00' } },
+      error: {
+        details: {
+          subtotal: '150.00',
+          quote: {
+            total: '170.00',
+            subtotal: '150.00',
+            deliveryFeeOriginal: '30.00',
+            deliveryDiscount: '10.00',
+            deliveryFee: '20.00',
+            promotionProgress: [
+              {
+                title: pending.title,
+                scope: 'DELIVERY',
+                status: 'BELOW_MINIMUM_SUBTOTAL',
+                subtotal: {
+                  basis: 'MERCHANDISE_SUBTOTAL',
+                  current: '200.00',
+                  required: '220.00',
+                  remaining: '20.00',
+                },
+                quantity: null,
+              },
+            ],
+          },
+        },
+      },
     });
-    expect(placed.body).not.toHaveProperty('error.details.subtotal');
+    for (const response of [placed, whatsapp]) {
+      expect(response.body).not.toHaveProperty('error.details.subtotal');
+      expect(response.body).not.toHaveProperty('error.details.quote');
+    }
     expect(await orderCount(w)).toBe(0);
     expect(
       await prisma.orderPromotion.count({
@@ -678,15 +727,18 @@ describeSandbox('Unified Promotions B2 order pricing (real PostgreSQL)', () => {
       },
     });
     const discount = await addPromotion(w, 'CART', 'PERCENTAGE', '50.00');
-    await addPromotion(w, 'CART', 'PERCENTAGE', '100.00', {
+    const pending = await addPromotion(w, 'CART', 'PERCENTAGE', '100.00', {
       minimumSubtotal: '200.00',
+    });
+    await addPromotion(w, 'DELIVERY', 'PERCENTAGE', '50.00', {
+      minimumSubtotal: '250.00',
     });
     const cart: Cart = {
       fulfillment: 'PICKUP',
       branchId: w.branchId,
       items: [
-        { productId: w.products[0], quantity: 1 },
         { offerId: offer.id, quantity: 1 },
+        { productId: w.products[0], quantity: 1 },
       ],
     };
     const expected = {
@@ -697,7 +749,26 @@ describeSandbox('Unified Promotions B2 order pricing (real PostgreSQL)', () => {
       promotions: [{ scope: 'CART', title: discount.title, amount: '50.00' }],
     };
     const quoted = await quote(w.genericQr.publicCode, cart).expect(200);
-    expect(quoted.body).toMatchObject({ data: expected });
+    expect(quoted.body).toMatchObject({
+      data: {
+        ...expected,
+        items: [{ offerId: offer.id }, { productId: w.products[0] }],
+        promotionProgress: [
+          {
+            title: pending.title,
+            scope: 'CART',
+            status: 'BELOW_MINIMUM_SUBTOTAL',
+            subtotal: {
+              basis: 'ELIGIBLE_PRODUCT_SUBTOTAL',
+              current: '100.00',
+              required: '200.00',
+              remaining: '100.00',
+            },
+            quantity: null,
+          },
+        ],
+      },
+    });
     const placed = await place(
       w.genericQr.publicCode,
       cart,

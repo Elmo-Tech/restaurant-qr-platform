@@ -199,6 +199,21 @@ export type PromotionEvaluationStatus =
   | 'BELOW_MINIMUM_QUANTITY'
   | 'INVALID_CONFIGURATION';
 
+interface ThresholdProgress<Basis, Value> {
+  basis: Basis;
+  current: Value;
+  required: Value;
+  remaining: Value;
+}
+
+export interface PromotionThresholdProgress {
+  subtotal: ThresholdProgress<
+    'ELIGIBLE_PRODUCT_SUBTOTAL' | 'MERCHANDISE_SUBTOTAL',
+    Prisma.Decimal
+  > | null;
+  quantity: ThresholdProgress<PromotionQuantityBasisName, number> | null;
+}
+
 export interface PromotionEvaluation {
   promotionId: string;
   scope: PromotionScopeName;
@@ -209,6 +224,8 @@ export interface PromotionEvaluation {
   remainingAmount: Prisma.Decimal | null;
   /** Units / distinct products still missing to reach `minimumQuantity`. */
   remainingQuantity: number | null;
+  /** Present only for progress that an otherwise relevant Guest cart can act on. */
+  thresholdProgress?: PromotionThresholdProgress;
 }
 
 export type EngineStrategy = 'NONE' | 'ITEM' | 'CART';
@@ -365,7 +382,10 @@ function evaluation(
   extra: Partial<
     Pick<
       PromotionEvaluation,
-      'potentialSaving' | 'remainingAmount' | 'remainingQuantity'
+      | 'potentialSaving'
+      | 'remainingAmount'
+      | 'remainingQuantity'
+      | 'thresholdProgress'
     >
   > = {},
 ): PromotionEvaluation {
@@ -376,6 +396,9 @@ function evaluation(
     potentialSaving: extra.potentialSaving ?? ZERO,
     remainingAmount: extra.remainingAmount ?? null,
     remainingQuantity: extra.remainingQuantity ?? null,
+    ...(extra.thresholdProgress && {
+      thresholdProgress: extra.thresholdProgress,
+    }),
   };
 }
 
@@ -516,39 +539,59 @@ export function evaluatePromotions(input: EngineInput): EngineResult {
       line.unitPrice.plus(line.modifiersUnitTotal).times(line.quantity),
     );
     const basis = bases.reduce((acc, value) => acc.plus(value), ZERO);
+    const minimumSubtotal = promotion.minimumSubtotal;
     const remainingAmount =
-      promotion.minimumSubtotal !== null &&
-      basis.lessThan(promotion.minimumSubtotal)
-        ? promotion.minimumSubtotal.minus(basis)
+      minimumSubtotal !== null && basis.lessThan(minimumSubtotal)
+        ? minimumSubtotal.minus(basis)
         : null;
+    let quantity: PromotionThresholdProgress['quantity'] = null;
     if (promotion.scope === 'QUANTITY') {
-      const count =
-        promotion.quantityBasis === 'DISTINCT_PRODUCTS'
-          ? new Set(eligibleLines.map((line) => line.productId)).size
-          : eligibleLines.reduce((acc, line) => acc + line.quantity, 0);
       const minimum = promotion.minimumQuantity;
-      if (minimum === null || promotion.quantityBasis === null) {
+      const quantityBasis = promotion.quantityBasis;
+      if (minimum === null || quantityBasis === null) {
         evaluations.set(
           promotion.id,
           evaluation(promotion, 'INVALID_CONFIGURATION'),
         );
         continue;
       }
-      if (count < minimum) {
-        evaluations.set(
-          promotion.id,
-          evaluation(promotion, 'BELOW_MINIMUM_QUANTITY', {
-            remainingQuantity: minimum - count,
-            remainingAmount,
-          }),
-        );
-        continue;
-      }
+      const count =
+        quantityBasis === 'DISTINCT_PRODUCTS'
+          ? new Set(eligibleLines.map((line) => line.productId)).size
+          : eligibleLines.reduce((acc, line) => acc + line.quantity, 0);
+      quantity = {
+        basis: quantityBasis,
+        current: count,
+        required: minimum,
+        remaining: Math.max(0, minimum - count),
+      };
     }
-    if (remainingAmount !== null) {
+    const remainingQuantity = quantity?.remaining || null;
+    if (remainingQuantity !== null || remainingAmount !== null) {
       evaluations.set(
         promotion.id,
-        evaluation(promotion, 'BELOW_MINIMUM_SUBTOTAL', { remainingAmount }),
+        evaluation(
+          promotion,
+          remainingQuantity !== null
+            ? 'BELOW_MINIMUM_QUANTITY'
+            : 'BELOW_MINIMUM_SUBTOTAL',
+          {
+            remainingAmount,
+            remainingQuantity,
+            thresholdProgress: {
+              subtotal:
+                minimumSubtotal === null
+                  ? null
+                  : {
+                      basis: 'ELIGIBLE_PRODUCT_SUBTOTAL',
+                      current: basis,
+                      required: minimumSubtotal,
+                      remaining: remainingAmount ?? ZERO,
+                    },
+              quantity,
+            },
+          },
+        ),
       );
       continue;
     }
@@ -743,23 +786,37 @@ export function evaluatePromotions(input: EngineInput): EngineResult {
       evaluations.set(promotion.id, evaluation(promotion, 'NO_DELIVERY_FEE'));
       continue;
     }
-    if (
-      promotion.minimumSubtotal !== null &&
-      merchandiseOriginal.lessThan(promotion.minimumSubtotal)
-    ) {
-      evaluations.set(
-        promotion.id,
-        evaluation(promotion, 'BELOW_MINIMUM_SUBTOTAL', {
-          remainingAmount: promotion.minimumSubtotal.minus(merchandiseOriginal),
-        }),
-      );
-      continue;
-    }
     const amount = amountOff(
       deliveryFeeOriginal,
       promotion.discountType,
       promotion.value,
     );
+    if (
+      promotion.minimumSubtotal !== null &&
+      merchandiseOriginal.lessThan(promotion.minimumSubtotal)
+    ) {
+      const remainingAmount =
+        promotion.minimumSubtotal.minus(merchandiseOriginal);
+      evaluations.set(
+        promotion.id,
+        evaluation(promotion, 'BELOW_MINIMUM_SUBTOTAL', {
+          remainingAmount,
+          // Adding merchandise cannot turn a fee discount that rounds to zero into a saving.
+          thresholdProgress: amount.greaterThan(ZERO)
+            ? {
+                subtotal: {
+                  basis: 'MERCHANDISE_SUBTOTAL',
+                  current: merchandiseOriginal,
+                  required: promotion.minimumSubtotal,
+                  remaining: remainingAmount,
+                },
+                quantity: null,
+              }
+            : undefined,
+        }),
+      );
+      continue;
+    }
     if (!amount.greaterThan(ZERO)) {
       evaluations.set(
         promotion.id,

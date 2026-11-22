@@ -2,14 +2,13 @@
 
 import { memo, useState } from 'react';
 import { DishFallback } from '../../../components/guest/DishFallback';
-import { DiscountedPrice, OriginalPrice } from '../../../components/guest/DiscountedPrice';
+import { MenuItemPrice } from '../../../components/guest/MenuItemPrice';
 import { GuestIconPlus } from '../../../components/guest/icons';
-import { Price } from '../../../components/guest/Price';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
 import type {EditorialPriceDisplay} from '../../../lib/public-menu/editorial-settings';
-import { toMinorUnits } from '../../../lib/public-menu/money';
+import { cheapestMenuSize, menuItemPrice } from '../../../lib/public-menu/menu-item-price';
 import type { PublicMenuProduct } from '../../../lib/public-menu/types';
 
 /**
@@ -48,12 +47,7 @@ function useProductView(product: PublicMenuProduct, canOrder: boolean, simpleQua
   const sizes = product.variants ?? [];
   const hasSizes = sizes.length > 0;
   const hasModifiers = product.modifierGroups.length > 0 || hasSizes;
-  const cheapest = hasSizes
-    ? sizes.reduce((best, size) => {
-        const price = (s: typeof size) => toMinorUnits(s.discountedPrice ?? s.price);
-        return price(size) < price(best) ? size : best;
-      })
-    : null;
+  const cheapest = cheapestMenuSize(product);
   const interactive = canOrder && !isSoldOut;
   return {
     imageUrl: imageUrl !== null && !imageFailed ? imageUrl : null,
@@ -64,8 +58,6 @@ function useProductView(product: PublicMenuProduct, canOrder: boolean, simpleQua
     interactive,
     hasModifiers,
     showStepper: interactive && !hasModifiers && simpleQuantity > 0,
-    discounted:
-      (cheapest ? cheapest.discountedPrice !== null : product.discount !== null) && !isSoldOut,
     dimmed: isSoldOut ? 'opacity-50 grayscale' : '',
   };
 }
@@ -165,17 +157,8 @@ function PriceBlock({
       {cheapest && showFrom ? (
         <span className="block text-[11.5px] font-semibold text-g-text-3">{copy.fromPrice}</span>
       ) : null}
-      <DiscountedPrice
-        original={cheapest ? cheapest.price : product.basePrice}
-        current={
-          cheapest
-            ? (cheapest.discountedPrice ?? cheapest.price)
-            : product.discount
-              ? product.discount.discountedPrice
-              : product.basePrice
-        }
-        discounted={view.discounted}
-        badge={view.discounted ? product.discount : null}
+      <MenuItemPrice
+        {...menuItemPrice(product, cheapest)}
         currency={currency}
         copy={copy}
         className={`g-num [font-weight:800] ${view.isSoldOut ? 'text-g-text-3' : 'text-g-price'} ${className}`}
@@ -427,18 +410,12 @@ function ProductLineImpl(props: ProductVariantProps) {
                 aria-hidden="true"
                 className="min-w-3 flex-1 translate-y-[-3px] border-b border-dotted border-g-line"
               />
-              <span className="flex shrink-0 items-baseline gap-1.5">
-                {size.discountedPrice !== null ? (
-                  <OriginalPrice
-                    amount={size.price}
-                    currency={currency}
-                    copy={copy}
-                    className="g-num text-[12px] font-semibold text-g-text-3"
-                  />
-                ) : null}
-                <Price
-                  amount={size.discountedPrice ?? size.price}
+              <span className="flex max-w-[60%] flex-col items-end gap-1 text-end">
+                <MenuItemPrice
+                  {...menuItemPrice(product, size)}
+                  badge={null}
                   currency={currency}
+                  copy={copy}
                   className={`g-num text-[15.5px] [font-weight:800] ${view.isSoldOut ? 'text-g-text-3' : 'text-g-price'}`}
                   currencyClassName="text-[11px] font-semibold"
                 />
@@ -516,14 +493,15 @@ function ProductEditorialImpl(props: ProductVariantProps) {
                   {size.name}
                 </span>
                 <span aria-hidden="true" className="min-w-2 flex-1 border-b border-dotted border-g-line"/>
-                <span className="flex shrink-0 flex-wrap items-baseline justify-end gap-1 text-end">
-                  {size.discountedPrice !== null ? (
-                    <OriginalPrice amount={size.price} currency={currency} copy={copy}
-                      className="g-num text-[10.5px] font-semibold text-g-text-3"/>
-                  ) : null}
-                  <Price amount={size.discountedPrice ?? size.price} currency={currency}
+                <span className="flex max-w-[60%] flex-col items-end gap-1 text-end">
+                  <MenuItemPrice
+                    {...menuItemPrice(product, size)}
+                    badge={null}
+                    currency={currency}
+                    copy={copy}
                     className={`g-num text-[13px] font-extrabold sm:text-[14px] ${view.isSoldOut ? 'text-g-text-3' : 'text-g-price'}`}
-                    currencyClassName="text-[10px] font-semibold"/>
+                    currencyClassName="text-[10px] font-semibold"
+                  />
                 </span>
               </li>
             ))}

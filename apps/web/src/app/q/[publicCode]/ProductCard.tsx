@@ -3,12 +3,11 @@
 import { memo, useState } from 'react';
 import { DishFallback } from '../../../components/guest/DishFallback';
 import { GuestIconPlus } from '../../../components/guest/icons';
-import { DiscountedPrice, OriginalPrice } from '../../../components/guest/DiscountedPrice';
-import { Price } from '../../../components/guest/Price';
+import { MenuItemPrice } from '../../../components/guest/MenuItemPrice';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
-import { toMinorUnits } from '../../../lib/public-menu/money';
+import { cheapestMenuSize, menuItemPrice } from '../../../lib/public-menu/menu-item-price';
 import type { PublicMenuProduct } from '../../../lib/public-menu/types';
 
 /**
@@ -74,13 +73,8 @@ function ProductCardImpl({
   const hasSizes = sizes.length > 0;
   // A product with sizes always opens its page: the guest must pick a size first.
   const hasModifiers = product.modifierGroups.length > 0 || hasSizes;
-  // With sizes the card shows the cheapest final price, marked "From".
-  const cheapest = hasSizes
-    ? sizes.reduce((best, size) => {
-        const price = (s: typeof size) => toMinorUnits(s.discountedPrice ?? s.price);
-        return price(size) < price(best) ? size : best;
-      })
-    : null;
+  const cheapest = cheapestMenuSize(product);
+  const price = menuItemPrice(product, cheapest);
   // Two or more sizes: the card lists every size with its price instead of one "From" price.
   const showSizeList = sizes.length >= 2;
   const visibleSizes = sizes.slice(0, 4);
@@ -90,8 +84,7 @@ function ProductCardImpl({
   const dimmed = isSoldOut ? 'opacity-50 grayscale' : '';
   // A discounted card gives the price lockup its own row and moves the Add control to a row
   // of its own below; a plain card keeps price and Add side by side.
-  const discounted =
-    !showSizeList && (cheapest ? cheapest.discountedPrice !== null : product.discount !== null) && !isSoldOut;
+  const priceNeedsRoom = !showSizeList && (price.discounted || price.promotion !== null);
 
   return (
     <article
@@ -161,18 +154,12 @@ function ProductCardImpl({
                   <bdi>{size.name}</bdi>
                 </span>
                 <span aria-hidden="true" className="min-w-3 flex-1 translate-y-[-3px] border-b border-dotted border-g-line" />
-                <span className="flex shrink-0 items-baseline gap-1.5">
-                  {size.discountedPrice !== null ? (
-                    <OriginalPrice
-                      amount={size.price}
-                      currency={currency}
-                      copy={copy}
-                      className="g-num text-[11.5px] font-semibold text-g-text-3"
-                    />
-                  ) : null}
-                  <Price
-                    amount={size.discountedPrice ?? size.price}
+                <span className="flex max-w-[60%] flex-col items-end gap-1">
+                  <MenuItemPrice
+                    {...menuItemPrice(product, size)}
+                    badge={null}
                     currency={currency}
+                    copy={copy}
                     className={`g-num text-[15px] [font-weight:800] md:text-base ${isSoldOut ? 'text-g-text-3' : 'text-g-price'}`}
                     currencyClassName="text-[11px] font-semibold"
                   />
@@ -189,24 +176,15 @@ function ProductCardImpl({
 
         <div
           className={`mt-auto pt-1.5 ${
-            discounted ? 'flex flex-col gap-2.5' : 'flex items-center justify-between gap-2'
+            priceNeedsRoom ? 'flex flex-col gap-2.5' : 'flex items-center justify-between gap-2'
           }`}
         >
           <div className={showSizeList ? 'hidden' : 'min-w-0'}>
             {cheapest ? (
               <span className="block text-[11.5px] font-semibold text-g-text-3">{copy.fromPrice}</span>
             ) : null}
-            <DiscountedPrice
-              original={cheapest ? cheapest.price : product.basePrice}
-              current={
-                cheapest
-                  ? (cheapest.discountedPrice ?? cheapest.price)
-                  : product.discount
-                    ? product.discount.discountedPrice
-                    : product.basePrice
-              }
-              discounted={discounted}
-              badge={discounted ? product.discount : null}
+            <MenuItemPrice
+              {...price}
               currency={currency}
               copy={copy}
               className={cx(`g-num text-[20px] [font-weight:800] md:text-[22px] ${isSoldOut ? 'text-g-text-3' : 'text-g-price'}`)}
@@ -217,7 +195,7 @@ function ProductCardImpl({
           {isSoldOut ? (
             <span className="text-[12.5px] font-semibold text-g-text-3">{copy.unavailableNow}</span>
           ) : interactive ? (
-            <div className={`relative z-10 ${discounted ? 'self-end' : showSizeList ? 'ms-auto' : ''}`}>
+            <div className={`relative z-10 ${priceNeedsRoom ? 'self-end' : showSizeList ? 'ms-auto' : ''}`}>
               {showStepper ? (
                 <Stepper
                   variant="accent"

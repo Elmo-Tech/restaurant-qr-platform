@@ -20,7 +20,7 @@ export function CartBar({
   onOpen,
 }: {
   count: number;
-  totalDisplay: string;
+  totalDisplay: string | null;
   currency: string;
   modeLabel: string;
   copy: PublicMenuCopy;
@@ -49,12 +49,12 @@ export function CartBar({
           </span>
         </span>
         <span className="flex shrink-0 items-center gap-2">
-          <Price
+          {totalDisplay !== null ? <Price
             amount={totalDisplay}
             currency={currency}
             className="g-num text-[21px] [font-weight:900]"
             currencyClassName="text-[12.5px] font-bold"
-          />
+          /> : null}
           <GuestIconChevron className="size-[18px] rtl:-scale-x-100" strokeWidth={2.6} />
         </span>
       </button>

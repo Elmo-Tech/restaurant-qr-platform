@@ -683,6 +683,77 @@ describe('evaluatePromotions — cart scope and strategy', () => {
     );
   });
 
+  it('reports threshold-specific progress over eligible products, with paid extras but never Offers', () => {
+    const lines = [
+      product(0, {
+        productId: 'target',
+        unitPrice: d('25.10'),
+        modifiersUnitTotal: d('2.35'),
+        quantity: 2,
+        variantId: 'small',
+      }),
+      product(1, {
+        productId: 'target',
+        unitPrice: d('40.00'),
+        variantId: 'large',
+      }),
+      product(2, { categoryId: 'not-targeted' }),
+      offer(3, '65.00'),
+    ];
+    const targeted = {
+      productIds: ['target'],
+      minimumSubtotal: d('100.00'),
+      minimumQuantity: 4,
+    };
+    const result = run(lines, [
+      promo('distinct', 'QUANTITY', 'FIXED_AMOUNT', '20.00', {
+        ...targeted,
+        quantityBasis: 'DISTINCT_PRODUCTS',
+      }),
+      promo('units', 'QUANTITY', 'FIXED_AMOUNT', '20.00', {
+        ...targeted,
+        minimumQuantity: 3,
+        quantityBasis: 'UNITS',
+      }),
+      promo('wrong-branch', 'QUANTITY', 'FIXED_AMOUNT', '20.00', {
+        ...targeted,
+        branchIds: ['elsewhere'],
+        quantityBasis: 'UNITS',
+      }),
+      promo('no-match', 'CART', 'FIXED_AMOUNT', '20.00', {
+        productIds: ['absent'],
+        minimumSubtotal: d('100.00'),
+      }),
+    ]);
+    const subtotal = {
+      basis: 'ELIGIBLE_PRODUCT_SUBTOTAL',
+      current: d('94.90'),
+      required: d('100.00'),
+      remaining: d('5.10'),
+    };
+    expect(statusOf(result, 'distinct')).toMatchObject({
+      status: 'BELOW_MINIMUM_QUANTITY',
+      thresholdProgress: {
+        subtotal,
+        quantity: {
+          basis: 'DISTINCT_PRODUCTS',
+          current: 1,
+          required: 4,
+          remaining: 3,
+        },
+      },
+    });
+    expect(statusOf(result, 'units')).toMatchObject({
+      status: 'BELOW_MINIMUM_SUBTOTAL',
+      thresholdProgress: {
+        subtotal,
+        quantity: { basis: 'UNITS', current: 3, required: 3, remaining: 0 },
+      },
+    });
+    expect(statusOf(result, 'wrong-branch').thresholdProgress).toBeUndefined();
+    expect(statusOf(result, 'no-match').thresholdProgress).toBeUndefined();
+  });
+
   it('spend threshold: below / at / above, on the PRE-promotion basis', () => {
     const cart = promo('cart-min', 'CART', 'PERCENTAGE', '10', {
       minimumSubtotal: d('200.00'),
@@ -957,14 +1028,29 @@ describe('evaluatePromotions — delivery', () => {
     // net merchandise is 80 but the pre-promotion total 160 qualifies
     expect(s(result.merchandisePayable)).toBe('80.00');
     expect(statusOf(result, 'dlv-min').status).toBe('APPLIED');
-    const short = run(
-      [product(0, { unitPrice: d('120.00') })],
-      [dlv],
+    const lines = [product(0, { unitPrice: d('90.00') }), offer(1, '30.00')];
+    const short = run(lines, [dlv], delivery('30.00'));
+    expect(statusOf(short, 'dlv-min')).toMatchObject({
+      remainingAmount: d('30.00'),
+      thresholdProgress: {
+        subtotal: {
+          basis: 'MERCHANDISE_SUBTOTAL',
+          current: d('120.00'),
+          required: d('150.00'),
+          remaining: d('30.00'),
+        },
+        quantity: null,
+      },
+    });
+    const negligibleDiscount = { ...dlv, value: d('0.01') };
+    const noPotentialSaving = run(
+      lines,
+      [negligibleDiscount],
       delivery('30.00'),
     );
-    expect(s(statusOf(short, 'dlv-min').remainingAmount ?? d('0'))).toBe(
-      '30.00',
-    );
+    expect(
+      statusOf(noPotentialSaving, 'dlv-min').thresholdProgress,
+    ).toBeUndefined();
   });
 });
 

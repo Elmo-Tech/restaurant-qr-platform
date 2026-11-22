@@ -1,4 +1,4 @@
-import type { PublicMenuProduct } from './types';
+import type { PublicMenuProduct, PublicMenuVariant } from './types';
 
 /**
  * Meat Lovers sells by weight: every size of a cut is a weight (250 g, 500 g, 1 kg ...) whose price is the
@@ -33,6 +33,7 @@ export interface PerKiloPrice {
   price: string;
   /** The 1 kg size's price while a discount applies to it, else null. */
   discountedPrice: string | null;
+  itemPromotion?: PublicMenuVariant['itemPromotion'];
 }
 
 /** The per-kilo price of a product sold by weight, or null when it is not one (shown like any other product). */
@@ -43,7 +44,10 @@ export function perKiloPrice(product: Pick<PublicMenuProduct, 'variants'>): PerK
   for (const variant of variants) {
     const grams = variantGrams(variant.name);
     if (grams === null) return null;
-    if (grams === 1000 && kilo === null) kilo = { price: variant.price, discountedPrice: variant.discountedPrice };
+    if (grams === 1000 && kilo === null) {
+      kilo = { price: variant.price, discountedPrice: variant.discountedPrice };
+      if (variant.itemPromotion !== undefined) kilo.itemPromotion = variant.itemPromotion;
+    }
   }
   return kilo;
 }

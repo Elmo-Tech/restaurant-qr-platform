@@ -1,11 +1,10 @@
 'use client';
 
 import { memo } from 'react';
-import { DiscountedPrice } from '../../../../components/guest/DiscountedPrice';
-import { Price } from '../../../../components/guest/Price';
+import { ItemPromotionLabel, MenuItemPrice } from '../../../../components/guest/MenuItemPrice';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../../lib/public-menu/copy';
-import { toMinorUnits } from '../../../../lib/public-menu/money';
+import { cheapestMenuSize, menuItemPrice } from '../../../../lib/public-menu/menu-item-price';
 import { currencyLabel, formatAmount } from '../../../../lib/public-menu/price-format';
 import { perKiloPrice } from '../../../../lib/public-menu/meat-lovers-weight';
 import type { PublicMenuProduct } from '../../../../lib/public-menu/types';
@@ -64,17 +63,8 @@ function MeatLoversCardImpl({
   const interactive = canOrder && !isSoldOut;
   const showStepper = interactive && !needsChoice && simpleQuantity > 0;
   // Without a 1 kg size (a product the Restaurant added later) the cheapest size is shown as "from".
-  const cheapest =
-    !byWeight && sizes.length > 0
-      ? sizes.reduce((best, size) => (toMinorUnits(size.discountedPrice ?? size.price) < toMinorUnits(best.discountedPrice ?? best.price) ? size : best))
-      : null;
-  const shownOriginal = byWeight ? byWeight.price : cheapest ? cheapest.price : product.basePrice;
-  const shownCurrent = byWeight
-    ? (byWeight.discountedPrice ?? byWeight.price)
-    : cheapest
-      ? (cheapest.discountedPrice ?? cheapest.price)
-      : (product.discount?.discountedPrice ?? product.basePrice);
-  const discounted = !isSoldOut && shownCurrent !== shownOriginal;
+  const cheapest = byWeight ? null : cheapestMenuSize(product);
+  const price = menuItemPrice(product, byWeight ?? cheapest);
   const unit = currencyLabel(currency, locale);
   const tag = isSoldOut ? copy.soldOut : product.featured ? copy.featured : categoryName;
 
@@ -133,24 +123,23 @@ function MeatLoversCardImpl({
             ) : (
               <>
                 {cheapest ? <span className="ml-from">{copy.fromPrice}</span> : null}
-                {discounted ? (
-                  <DiscountedPrice
-                    original={shownOriginal}
-                    current={shownCurrent}
-                    discounted
-                    badge={byWeight || !cheapest ? product.discount : null}
+                {price.discounted || !byWeight ? (
+                  <MenuItemPrice
+                    {...price}
+                    badge={byWeight || !cheapest ? price.badge : null}
                     currency={currency}
                     copy={copy}
                     className="ml-amount"
                     currencyClassName="ml-unit"
                     originalClassName="ml-was"
                   />
-                ) : byWeight ? (
-                  <bdi className="ml-per-kilo"><strong dir="ltr">{formatAmount(shownCurrent)}</strong><span>{copy.meatLoversPerKg(unit)}</span></bdi>
                 ) : (
-                  <Price amount={shownCurrent} currency={currency} className="ml-amount" currencyClassName="ml-unit" />
+                  <span>
+                    <bdi className="ml-per-kilo"><strong dir="ltr">{formatAmount(price.current)}</strong><span>{copy.meatLoversPerKg(unit)}</span></bdi>
+                    <ItemPromotionLabel promotion={price.promotion} currency={currency} copy={copy} />
+                  </span>
                 )}
-                {discounted && byWeight ? <span className="ml-per-kilo-note">{copy.meatLoversPerKg(unit)}</span> : null}
+                {price.discounted && byWeight ? <span className="ml-per-kilo-note">{copy.meatLoversPerKg(unit)}</span> : null}
               </>
             )}
           </div>

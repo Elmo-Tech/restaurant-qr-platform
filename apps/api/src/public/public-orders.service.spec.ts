@@ -155,7 +155,12 @@ describe('PublicOrdersService.quote', () => {
     const result = await buildService(mock).quote(input);
     expect(result).toMatchObject({
       outcome: 'publicQuote',
-      data: { type: 'DINE_IN', total: '100.00', promotions: [] },
+      data: {
+        type: 'DINE_IN',
+        total: '100.00',
+        promotions: [],
+        promotionProgress: [],
+      },
     });
     expect(mock.promotionFindMany).not.toHaveBeenCalled();
     expect(mock.orderFindFirst).not.toHaveBeenCalled();

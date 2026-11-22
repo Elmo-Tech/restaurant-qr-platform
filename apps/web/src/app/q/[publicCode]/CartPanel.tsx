@@ -13,6 +13,7 @@ import {
   GuestIconTrash,
 } from '../../../components/guest/icons';
 import { Price } from '../../../components/guest/Price';
+import { orderItemDisplayPricing } from '../../../lib/orders/display-pricing';
 import { fromMinorUnits, toMinorUnits } from '../../../lib/public-menu/money';
 import { groupCheckoutRecapLines } from '../../../lib/public-menu/checkout-recap-groups';
 import { DiscountedPrice } from '../../../components/guest/DiscountedPrice';
@@ -20,9 +21,12 @@ import { Sheet } from '../../../components/guest/Sheet';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
+import { currencyLabel, formatAmount } from '../../../lib/public-menu/price-format';
 import { getOffersCopy, type OffersCopy } from '../../../lib/public-menu/offers-copy';
 import type { WhatsappOrderView } from '../../../lib/public-menu/orders-api';
 import type { GuestOrderView, PublicMenuProduct } from '../../../lib/public-menu/types';
+import { CartQuoteSummary, OrderPriceSummary } from './CartPricing';
+import type { CartQuoteState } from './useCartQuote';
 import { CartSuggestions } from './CartSuggestions';
 import {
   AddressSection,
@@ -31,7 +35,6 @@ import {
   ContactSection,
   MinimumNotice,
   NotesSection,
-  SummaryRow,
   ZonePicker,
 } from './CheckoutSections';
 import type { CartLine, CheckoutFormProps, OrderingContextView } from './guest-view-types';
@@ -47,10 +50,10 @@ export interface CartPanelProps {
   lines: CartLine[];
   /** Total units in the cart (the badge next to the title). */
   count: number;
-  /** Items subtotal AFTER product discounts (what the Guest pays for the items). */
-  totalDisplay: string;
-  /** Product Discounts V1: the total discount across the cart, or null when nothing is discounted. */
-  discountDisplay: string | null;
+  quoteState: CartQuoteState;
+  onRefreshQuote: () => void;
+  minimumMessage: string | null;
+  minimumShortfallDisplay: string | null;
   isSubmitting: boolean;
   canSubmit: boolean;
   submitError: string | null;
@@ -99,17 +102,21 @@ function CartItemRow({
   currency,
   copy,
   offersCopy,
+  locale,
   onIncrement,
   onDecrement,
   onRemove,
   onEditLine,
   showPhotos,
+  disabled,
 }: {
+  disabled: boolean;
   showPhotos: boolean;
   line: CartLine;
   currency: string;
   copy: PublicMenuCopy;
   offersCopy: OffersCopy;
+  locale: string;
   onIncrement: (lineKey: string) => void;
   onDecrement: (lineKey: string) => void;
   onRemove: (lineKey: string) => void;
@@ -167,20 +174,23 @@ function CartItemRow({
             </p>
           ) : null}
           <div className="mt-1 flex flex-wrap items-center gap-x-3">
-            <DiscountedPrice
-              original={line.originalLineTotal}
-              current={line.lineTotal}
-              discounted={line.discounted}
-              currency={currency}
-              copy={copy}
-              direction="row"
-              className="g-num text-base text-g-price"
-              currencyClassName="text-[0.65em] font-semibold"
-            />
+            {line.pricing ? (
+              <DiscountedPrice
+                original={line.pricing.grossLineTotal}
+                current={line.pricing.netLineTotal}
+                discounted={line.pricing.hasDiscount}
+                currency={currency}
+                copy={copy}
+                direction="row"
+                className="g-num text-base text-g-price"
+                currencyClassName="text-[0.65em] font-semibold"
+              />
+            ) : null}
             {line.hasModifierGroups && !line.blocked ? (
               <button
                 type="button"
                 onClick={() => onEditLine(line.lineKey)}
+                disabled={disabled}
                 aria-label={copy.editAria(line.name)}
                 className="-my-2 flex h-11 items-center text-[13px] font-bold text-g-accent-text"
               >
@@ -188,10 +198,16 @@ function CartItemRow({
               </button>
             ) : null}
           </div>
+          {line.pricing?.hasDiscount ? (
+            <p data-testid="cart-line-saving" className="mt-0.5 text-xs font-semibold text-g-accent-text">
+              {copy.discountAmountOff(formatAmount(line.pricing.saving), currencyLabel(currency, locale))}
+            </p>
+          ) : null}
         </div>
         {!line.blocked ? (
           <Stepper
             variant="cart"
+            disabled={disabled}
             value={line.quantity}
             removesAtOne
             incrementLabel={copy.increaseAria(line.name)}
@@ -271,15 +287,7 @@ function OrderRecap({
               </h3>
               <ul className="flex flex-col gap-2">
                 {group.lines.map((line) => {
-                  // Like the WhatsApp message: the product (or size) price on the item row, and every
-                  // extra on its own row with its own price (times the quantity). Display only.
                   const quantity = BigInt(line.quantity);
-                  const extrasMinor = line.selections.reduce(
-                    (sum, selection) => sum + toMinorUnits(selection.priceAdjustment),
-                    BigInt(0),
-                  ) * quantity;
-                  const baseCurrent = fromMinorUnits(toMinorUnits(line.lineTotal) - extrasMinor);
-                  const baseOriginal = fromMinorUnits(toMinorUnits(line.originalLineTotal) - extrasMinor);
                   return (
                     <li key={line.lineKey} className="flex flex-col gap-1 text-sm">
                       <div className="flex items-baseline justify-between gap-3">
@@ -290,17 +298,17 @@ function OrderRecap({
                             <span className="text-g-text-3"> (<bdi>{line.variantName}</bdi>)</span>
                           ) : null}
                         </span>
-                        <DiscountedPrice
-                          original={baseOriginal}
-                          current={baseCurrent}
-                          discounted={line.discounted}
+                        {line.pricing ? <DiscountedPrice
+                          original={line.pricing.grossLineTotal}
+                          current={line.pricing.netLineTotal}
+                          discounted={line.pricing.hasDiscount}
                           currency={currency}
                           copy={copy}
                           direction="row"
                           className="g-num shrink-0 text-g-text-2"
                           currencyClassName="text-[0.7em] font-semibold"
                           originalClassName="g-num text-[12.5px] text-g-text-3"
-                        />
+                        /> : null}
                       </div>
                       {line.selections.map((selection, index) => {
                         const extraMinor = toMinorUnits(selection.priceAdjustment) * quantity;
@@ -321,7 +329,7 @@ function OrderRecap({
                                 <span className="g-num whitespace-nowrap text-g-text-3"> × {line.quantity}</span>
                               ) : null}
                             </span>
-                            {extraMinor !== BigInt(0) ? (
+                            {line.pricing && extraMinor !== BigInt(0) ? (
                               <span className="g-num flex shrink-0 items-baseline gap-0.5">
                                 <span aria-hidden="true">{extraMinor > BigInt(0) ? '+' : '-'}</span>
                                 <Price
@@ -381,8 +389,8 @@ function OrderRecap({
  * `PublicMenuView`). A TABLE QR has nothing to fill in, so it is a single review step whose
  * footer sends the order (DINE_IN, unchanged).
  *
- * Cart/Order semantics are unchanged: every figure is display-only (the Backend recomputes the
- * fee, minimum and total), a sold-out line stays visible and blocks continuing until removed,
+ * Current prices and minimums come from the server quote. A sold-out line stays visible
+ * and blocks continuing until removed;
  * only the existing submit handler places the order (idempotent; the button is disabled while a
  * submission is in flight), and the confirmation uses only the Backend's returned order.
  */
@@ -394,8 +402,10 @@ export function CartPanel({
   context,
   lines,
   count,
-  totalDisplay,
-  discountDisplay,
+  quoteState,
+  onRefreshQuote,
+  minimumMessage,
+  minimumShortfallDisplay,
   isSubmitting,
   canSubmit,
   submitError,
@@ -425,7 +435,7 @@ export function CartPanel({
   const isDelivery = checkout?.fulfillment === 'DELIVERY';
   const offersCopy = getOffersCopy(locale);
   const isTwoStep = checkout !== null && !confirmedOrder && lines.length > 0;
-  const canContinue = lines.length > 0 && !hasBlockedLines;
+  const canContinue = lines.length > 0 && !hasBlockedLines && !isSubmitting;
   const disabled = isSubmitting;
 
   // A cart emptied behind our back (or one without a checkout form) is always the review step.
@@ -454,7 +464,11 @@ export function CartPanel({
         ? copy.placeDeliveryOrder
         : copy.placePickupOrder
       : copy.placeOrder;
-  const grandTotal = checkout ? checkout.grandTotalDisplay : totalDisplay;
+  const grandTotal = quoteState.kind === 'ready' ? quoteState.quote.total : null;
+  const priceSummary = (
+    <CartQuoteSummary state={quoteState} copy={copy} locale={locale} idleHint={submitHint}
+      onRefresh={onRefreshQuote} disabled={disabled} />
+  );
 
   const titleText = whatsappHandoff
     ? copy.whatsappReadyTitle
@@ -518,6 +532,7 @@ export function CartPanel({
           <button
             type="button"
             onClick={onClose}
+            disabled={disabled}
             aria-label={copy.close}
             className="flex size-11 shrink-0 items-center justify-center rounded-full border border-g-line bg-g-surface text-g-text lg:bg-g-surface-2"
           >
@@ -543,7 +558,7 @@ export function CartPanel({
         {whatsappHandoff ? (
           <WhatsappHandoff copy={copy} handoff={whatsappHandoff} />
         ) : confirmedOrder ? (
-          <Confirmation copy={copy} currency={currency} order={confirmedOrder} onTrack={onTrackOrder} />
+          <Confirmation copy={copy} order={confirmedOrder} onTrack={onTrackOrder} />
         ) : lines.length === 0 ? (
           <GuestEmptyState icon={<GuestIconBag />} title={copy.emptyCart} className="border-0" />
         ) : effectiveStep === 'review' ? (
@@ -569,6 +584,7 @@ export function CartPanel({
               {lines.map((line) => (
                 <CartItemRow
                   offersCopy={offersCopy}
+                  locale={locale}
                   key={line.lineKey}
                   line={line}
                   currency={currency}
@@ -578,6 +594,7 @@ export function CartPanel({
                   onRemove={onRemove}
                   onEditLine={onEditLine}
                   showPhotos={showPhotos}
+                  disabled={disabled}
                 />
               ))}
             </ul>
@@ -593,39 +610,8 @@ export function CartPanel({
             ) : null}
 
             <CheckoutSection title={copy.orderSummary} id="cart-summary-title">
-              <div className="flex flex-col gap-2.5 rounded-[22px] border border-g-line bg-g-surface p-4">
-                {discountDisplay ? (
-                  <>
-                    <SummaryRow
-                      label={copy.itemsSubtotal}
-                      amount={addMoney(totalDisplay, discountDisplay)}
-                      currency={currency}
-                    />
-                    <SummaryRow
-                      label={copy.discountLabel}
-                      amount={discountDisplay}
-                      currency={currency}
-                      negative
-                    />
-                  </>
-                ) : (
-                  <SummaryRow label={copy.itemsSubtotal} amount={totalDisplay} currency={currency} />
-                )}
-                {isDelivery ? (
-                  <p className="text-[12.5px] text-g-text-3">{copy.deliveryFeeNextStep}</p>
-                ) : null}
-                {!checkout ? (
-                  <>
-                    <div className="my-1 h-px bg-g-line" />
-                    <SummaryRow
-                      strong
-                      label={copy.total}
-                      amount={totalDisplay}
-                      currency={currency}
-                    />
-                  </>
-                ) : null}
-              </div>
+              {priceSummary}
+              {minimumMessage ? <MinimumNotice message={minimumMessage} shortfall={minimumShortfallDisplay} /> : null}
             </CheckoutSection>
           </div>
         ) : (
@@ -650,11 +636,8 @@ export function CartPanel({
                       locale={locale}
                       disabled={disabled}
                     />
-                    {checkout.minimumMessage ? (
-                      <MinimumNotice
-                        message={checkout.minimumMessage}
-                        shortfall={checkout.minimumShortfallDisplay}
-                      />
+                    {minimumMessage ? (
+                      <MinimumNotice message={minimumMessage} shortfall={minimumShortfallDisplay} />
                     ) : null}
                   </div>
                 ) : null}
@@ -665,43 +648,7 @@ export function CartPanel({
                 <NotesSection checkout={checkout} copy={copy} disabled={disabled} />
 
                 <CheckoutSection title={copy.orderSummary} id="cart-final-summary-title">
-                  <div className="flex flex-col gap-2.5 rounded-[22px] border border-g-line bg-g-surface p-4">
-                    {discountDisplay ? (
-                      <>
-                        <SummaryRow
-                          label={copy.itemsSubtotal}
-                          amount={addMoney(checkout.subtotalDisplay, discountDisplay)}
-                          currency={currency}
-                        />
-                        <SummaryRow
-                          label={copy.discountLabel}
-                          amount={discountDisplay}
-                          currency={currency}
-                          negative
-                        />
-                      </>
-                    ) : (
-                      <SummaryRow
-                        label={copy.itemsSubtotal}
-                        amount={checkout.subtotalDisplay}
-                        currency={currency}
-                      />
-                    )}
-                    {isDelivery && checkout.deliveryFeeDisplay !== null ? (
-                      <SummaryRow
-                        label={copy.deliveryFee}
-                        amount={checkout.deliveryFeeDisplay}
-                        currency={currency}
-                      />
-                    ) : null}
-                    <div className="my-1 h-px bg-g-line" />
-                    <SummaryRow
-                      strong
-                      label={copy.total}
-                      amount={checkout.grandTotalDisplay}
-                      currency={currency}
-                    />
-                  </div>
+                  {priceSummary}
                 </CheckoutSection>
               </>
             ) : null}
@@ -763,12 +710,12 @@ export function CartPanel({
                       strokeWidth={2.6}
                     />
                   </span>
-                  <Price
-                    amount={totalDisplay}
+                  {grandTotal !== null ? <Price
+                    amount={grandTotal}
                     currency={currency}
                     className="g-num text-xl [font-weight:900]"
                     currencyClassName="text-xs font-semibold"
-                  />
+                  /> : null}
                 </button>
               </>
             ) : (
@@ -790,7 +737,7 @@ export function CartPanel({
                   }`}
                 >
                   <span className="truncate">{ctaLabel}</span>
-                  {lines.length > 0 ? (
+                  {grandTotal !== null ? (
                     <Price
                       amount={grandTotal}
                       currency={currency}
@@ -900,16 +847,15 @@ function WhatsappHandoff({ copy, handoff }: { copy: PublicMenuCopy; handoff: Wha
 /** The confirmation, stamped from the Backend's own returned order -- never a client recomputation. */
 function Confirmation({
   copy,
-  currency,
   order,
   onTrack,
 }: {
   copy: PublicMenuCopy;
-  currency: string;
   order: GuestOrderView;
   /** `null` when tracking is not available for this Restaurant (no track button). */
   onTrack: (() => void) | null;
 }) {
+  const currency = order.currencyCode;
   const pending =
     order.type === 'PICKUP'
       ? copy.pickupOrderPending
@@ -917,7 +863,7 @@ function Confirmation({
         ? copy.deliveryOrderPending
         : copy.orderStatusPending;
   return (
-    <div className="flex flex-col items-center gap-6 py-2 text-center">
+    <div data-testid="order-confirmation" className="flex flex-col items-center gap-6 py-2 text-center">
       <div className="flex flex-col items-center gap-3">
         <span className="guest-anim-bump flex size-16 items-center justify-center rounded-full bg-g-accent text-g-on-accent">
           <svg
@@ -970,67 +916,44 @@ function Confirmation({
         className="w-full rounded-[22px] border border-g-line bg-g-surface p-4 text-start"
       >
         <ul className="flex flex-col gap-3 border-b border-dashed border-g-line pb-4">
-          {order.items.map((item, index) => (
-            <li
-              key={`${item.productId}-${index}`}
-              className="flex items-start justify-between gap-3"
-            >
-              <div className="min-w-0">
-                <p dir="auto" className="text-[15px] font-bold text-g-text">
-                  <span className="g-num text-g-accent-text">{item.quantity}×</span> {item.name}
-                </p>
-                {item.variantName !== null || item.modifiers.length > 0 ? (
-                  <p dir="auto" className="mt-0.5 text-[12.5px] text-g-text-2">
-                    {[item.variantName, ...item.modifiers.map((modifier) => modifier.optionName)]
-                      .filter((part): part is string => part !== null && part !== '')
-                      .join(' · ')}
+          {order.items.map((item, index) => {
+            const pricing = orderItemDisplayPricing(item);
+            return (
+              <li
+                key={`${item.productId}-${index}`}
+                className="flex items-start justify-between gap-3"
+              >
+                <div className="min-w-0">
+                  <p dir="auto" className="text-[15px] font-bold text-g-text">
+                    <span className="g-num text-g-accent-text">{item.quantity}×</span> {item.name}
                   </p>
-                ) : null}
-              </div>
-              <DiscountedPrice
-                original={addMoney(item.lineTotal, item.discountAmount)}
-                current={item.lineTotal}
-                discounted={item.discountAmount !== '0.00'}
-                currency={currency}
-                copy={copy}
-                direction="row"
-                className="g-num shrink-0 text-[15px] text-g-text"
-                currencyClassName="text-[0.65em] font-semibold"
-                originalClassName="g-num text-[13px] text-g-text-3"
-              />
-            </li>
-          ))}
+                  {item.variantName !== null || item.modifiers.length > 0 ? (
+                    <p dir="auto" className="mt-0.5 text-[12.5px] text-g-text-2">
+                      {[item.variantName, ...item.modifiers.map((modifier) => modifier.optionName)]
+                        .filter((part): part is string => part !== null && part !== '')
+                        .join(' · ')}
+                    </p>
+                  ) : null}
+                </div>
+                <DiscountedPrice
+                  original={pricing.grossLineTotal}
+                  current={pricing.netLineTotal}
+                  discounted={pricing.hasDiscount}
+                  currency={currency}
+                  copy={copy}
+                  direction="row"
+                  className="g-num shrink-0 text-[15px] text-g-text"
+                  currencyClassName="text-[0.65em] font-semibold"
+                  originalClassName="g-num text-[13px] text-g-text-3"
+                />
+              </li>
+            );
+          })}
         </ul>
         <div className="mt-4 flex flex-col gap-2.5">
-          {order.discountTotal !== '0.00' || order.type === 'DELIVERY' ? (
-            <>
-              <SummaryRow
-                label={copy.itemsSubtotal}
-                amount={addMoney(order.subtotal, order.discountTotal)}
-                currency={currency}
-              />
-              {order.discountTotal !== '0.00' ? (
-                <SummaryRow
-                  label={copy.discountLabel}
-                  amount={order.discountTotal}
-                  currency={currency}
-                  negative
-                />
-              ) : null}
-              {order.type === 'DELIVERY' ? (
-                <SummaryRow label={copy.deliveryFee} amount={order.deliveryFee} currency={currency} />
-              ) : null}
-              <div className="my-1 h-px bg-g-line" />
-            </>
-          ) : null}
-          <SummaryRow strong label={copy.total} amount={order.total} currency={currency} />
+          <OrderPriceSummary order={order} copy={copy} />
         </div>
       </section>
     </div>
   );
-}
-
-/** Exact decimal addition of two Backend money strings (BigInt minor units; display only). */
-function addMoney(a: string, b: string): string {
-  return fromMinorUnits(toMinorUnits(a) + toMinorUnits(b));
 }

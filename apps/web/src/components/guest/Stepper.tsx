@@ -38,6 +38,7 @@ export function Stepper({
   incrementLabel,
   removesAtOne = false,
   incrementDisabled = false,
+  disabled = false,
   className = '',
 }: {
   variant: StepperVariant;
@@ -48,6 +49,7 @@ export function Stepper({
   incrementLabel: string;
   removesAtOne?: boolean;
   incrementDisabled?: boolean;
+  disabled?: boolean;
   className?: string;
 }) {
   const iconSize = variant === 'sheet' ? 'size-[18px]' : 'size-4';
@@ -57,7 +59,7 @@ export function Stepper({
       <button
         type="button"
         onClick={onIncrement}
-        disabled={incrementDisabled}
+        disabled={disabled || incrementDisabled}
         aria-label={incrementLabel}
         className={button}
       >
@@ -69,6 +71,7 @@ export function Stepper({
       <button
         type="button"
         onClick={onDecrement}
+        disabled={disabled}
         aria-label={decrementLabel}
         className={`${button} ${variant === 'sheet' ? 'text-g-text-2' : ''}`}
       >

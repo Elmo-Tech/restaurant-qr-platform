@@ -179,12 +179,29 @@ export interface PublicMenuCopy {
   deliveryHint: string;
   yourDetails: string;
   deliveryAddressSection: string;
-  minimumShortfall: (amount: string, currency: string) => string;
+  minimumNetShortfall: (subtotal: string, remaining: string, currency: string) => string;
+  quoteLoading: string;
+  quoteStale: string;
+  quoteUnavailable: string;
+  quoteRetry: string;
+  noApplicablePromotion: string;
+  promotionLabel: string;
+  promotionProgress: string;
+  promotionSpendProgress: (current: string, target: string, remaining: string, currency: string, includesOffers: boolean) => string;
+  promotionQuantityProgress: (current: number, target: number, remaining: number, distinct: boolean) => string;
+  productSavings: string;
+  cartSavings: string;
+  itemsSubtotalNet: string;
+  deliveryFeeOriginal: string;
+  deliveryDiscount: string;
   discountPercentOff: (percent: string) => string;
   discountAmountOff: (amount: string, currency: string) => string;
   discountLabel: string;
   originalPriceAria: string;
   discountedPriceAria: string;
+  possiblePromotionPercent: (percent: string) => string;
+  possiblePromotionAmount: (amount: string, currency: string) => string;
+  possiblePromotionPrice: string;
   priceChangedError: string;
   orderSummary: string;
   selectBranchFirst: string;
@@ -508,14 +525,34 @@ const EN_COPY: PublicMenuCopy = {
   deliveryHint: 'Brought to your door',
   yourDetails: 'Your details',
   deliveryAddressSection: 'Address',
-  minimumShortfall: (amount, currency) => `Add ${amount} ${currency} more to place a delivery order.`,
+  minimumNetShortfall: (subtotal, remaining, currency) =>
+    `Your items total ${subtotal} ${currency} after discounts, before delivery. You need ${remaining} ${currency} more at that subtotal to order.`,
+  quoteLoading: 'Checking current prices…',
+  quoteStale: 'Previous pricing is out of date. Checking again…',
+  quoteUnavailable: 'Current prices are unavailable. Please try again before ordering.',
+  quoteRetry: 'Retry price check',
+  noApplicablePromotion: 'No promotion applied to this cart.',
+  promotionLabel: 'Promotion',
+  promotionProgress: 'Promotion progress',
+  promotionSpendProgress: (current, target, remaining, currency, includesOffers) =>
+    `${current} of ${target} ${currency} ${includesOffers ? 'in items including Offers' : 'in eligible products'}, before discounts. ${remaining} ${currency} more needed.`,
+  promotionQuantityProgress: (current, target, remaining, distinct) =>
+    `${current} of ${target} ${distinct ? 'different eligible products' : 'eligible units'}. ${remaining} more needed.`,
+  productSavings: 'Product discounts',
+  cartSavings: 'Cart savings',
+  itemsSubtotalNet: 'Items after discounts',
+  deliveryFeeOriginal: 'Delivery before discount',
+  deliveryDiscount: 'Delivery discount',
   discountPercentOff: (percent) => `${percent}% OFF`,
   discountAmountOff: (amount, currency) => `Save ${amount} ${currency}`,
   discountLabel: 'Discount',
   originalPriceAria: 'Original price',
   discountedPriceAria: 'Price now',
+  possiblePromotionPercent: (percent) => `Possible ${percent}% off`,
+  possiblePromotionAmount: (amount, currency) => `Possible ${amount} ${currency} off`,
+  possiblePromotionPrice: 'Possible price',
   priceChangedError:
-    'Prices changed while you were ordering. Your total has been updated: please review it and place your order again.',
+    'Prices changed while you were ordering. Review the refreshed total before placing your order again.',
   orderSummary: 'Order summary',
   selectBranchFirst: 'Choose a branch to see delivery areas.',
   notAvailableNow: 'Not available right now',
@@ -829,14 +866,34 @@ const AR_COPY: PublicMenuCopy = {
   deliveryHint: 'يصلك إلى بابك',
   yourDetails: 'بياناتك',
   deliveryAddressSection: 'العنوان',
-  minimumShortfall: (amount, currency) => `أضف ${amount} ${currency} لإتمام طلب التوصيل.`,
+  minimumNetShortfall: (subtotal, remaining, currency) =>
+    `إجمالي أصنافك بعد الخصومات وقبل رسوم التوصيل ${subtotal} ${currency}. تحتاج إلى ${remaining} ${currency} إضافية في هذا الإجمالي لإتمام الطلب.`,
+  quoteLoading: 'جارٍ التحقق من الأسعار الحالية…',
+  quoteStale: 'الأسعار السابقة لم تعد محدثة. جارٍ التحقق مجددًا…',
+  quoteUnavailable: 'تعذّر الحصول على الأسعار الحالية. حاول مجددًا قبل الطلب.',
+  quoteRetry: 'أعد التحقق من الأسعار',
+  noApplicablePromotion: 'لم يُطبَّق أي عرض على هذه السلة.',
+  promotionLabel: 'عرض ترويجي',
+  promotionProgress: 'التقدّم نحو شروط العرض',
+  promotionSpendProgress: (current, target, remaining, currency, includesOffers) =>
+    `${current} من ${target} ${currency} ${includesOffers ? 'في الأصناف شاملة الباقات' : 'في الأصناف المؤهلة'} قبل الخصومات. يتبقى ${remaining} ${currency}.`,
+  promotionQuantityProgress: (current, target, remaining, distinct) =>
+    `${current} من ${target} ${distinct ? 'من الأصناف المؤهلة المختلفة' : 'من الوحدات المؤهلة'}. المتبقي: ${remaining}.`,
+  productSavings: 'خصومات الأصناف',
+  cartSavings: 'توفير السلة',
+  itemsSubtotalNet: 'الأصناف بعد الخصومات',
+  deliveryFeeOriginal: 'التوصيل قبل الخصم',
+  deliveryDiscount: 'خصم التوصيل',
   discountPercentOff: (percent) => `خصم ${percent}%`,
   discountAmountOff: (amount, currency) => `وفّر ${amount} ${currency}`,
   discountLabel: 'الخصم',
   originalPriceAria: 'السعر الأصلي',
   discountedPriceAria: 'السعر الآن',
+  possiblePromotionPercent: (percent) => `خصم محتمل ${percent}%`,
+  possiblePromotionAmount: (amount, currency) => `خصم محتمل ${amount} ${currency}`,
+  possiblePromotionPrice: 'السعر المحتمل',
   priceChangedError:
-    'تغيّرت الأسعار أثناء طلبك. تم تحديث الإجمالي، يرجى مراجعته ثم إرسال الطلب مرة أخرى.',
+    'تغيّرت الأسعار أثناء طلبك. راجع الإجمالي المحدّث قبل إرسال الطلب مجددًا.',
   orderSummary: 'ملخص الطلب',
   selectBranchFirst: 'اختر الفرع لعرض مناطق التوصيل.',
   notAvailableNow: 'غير متاح حاليًا',

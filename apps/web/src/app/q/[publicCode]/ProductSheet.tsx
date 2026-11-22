@@ -9,11 +9,12 @@ import {
   GuestIconStar,
 } from '../../../components/guest/icons';
 import { Price } from '../../../components/guest/Price';
-import { DiscountBadge, DiscountedPrice } from '../../../components/guest/DiscountedPrice';
+import { MenuItemPrice } from '../../../components/guest/MenuItemPrice';
 import { Sheet } from '../../../components/guest/Sheet';
 import { Stepper } from '../../../components/guest/Stepper';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
+import { cheapestMenuSize, menuItemPrice } from '../../../lib/public-menu/menu-item-price';
 import { fromMinorUnits, toMinorUnits, ZERO_MINOR_UNITS } from '../../../lib/public-menu/money';
 import type { PublicMenuModifierGroup, PublicMenuProduct } from '../../../lib/public-menu/types';
 import { allowedModifierSelection, modifierGroupsForSize } from '../../../lib/public-menu/effective-modifiers';
@@ -125,26 +126,20 @@ export function ProductSheet({
   const isValid = invalidGroupIds.size === 0 && !sizeMissing;
   const chosenSize = sizes.find((size) => size.id === variantId) ?? null;
   // With sizes the price shown is the chosen size's; until one is chosen, the cheapest ("From").
-  const sizePriceOf = (size: (typeof sizes)[number]) => toMinorUnits(size.discountedPrice ?? size.price);
-  const shownSize =
-    chosenSize ??
-    (hasSizes ? sizes.reduce((best, size) => (sizePriceOf(size) < sizePriceOf(best) ? size : best)) : null);
-  const originalPrice = shownSize ? shownSize.price : product.basePrice;
-  const currentPrice = shownSize
-    ? (shownSize.discountedPrice ?? shownSize.price)
-    : product.discount
-      ? product.discount.discountedPrice
-      : product.basePrice;
-  const isDiscounted = shownSize ? shownSize.discountedPrice !== null : product.discount !== null;
+  const shownSize = chosenSize ?? cheapestMenuSize(product);
+  const price = menuItemPrice(product, shownSize);
+  const usesPromotions = product.itemPromotion !== undefined;
 
-  const unitMinorUnits = activeGroups.reduce((sum, group) => {
-    const selectedIds = new Set(selectionsFor(group.id));
-    const groupSum = group.options
-      .filter((option) => selectedIds.has(option.id))
-      .reduce((s, option) => s + toMinorUnits(option.priceAdjustment), ZERO_MINOR_UNITS);
-    return sum + groupSum;
-  }, toMinorUnits(currentPrice));
-  const totalDisplay = fromMinorUnits(unitMinorUnits * BigInt(quantity));
+  // With unified promotions, only the cart quote can give a payable total.
+  const legacyDisplayTotal = usesPromotions
+    ? null
+    : fromMinorUnits(activeGroups.reduce((sum, group) => {
+        const selectedIds = new Set(selectionsFor(group.id));
+        const groupSum = group.options
+          .filter((option) => selectedIds.has(option.id))
+          .reduce((s, option) => s + toMinorUnits(option.priceAdjustment), ZERO_MINOR_UNITS);
+        return sum + groupSum;
+      }, toMinorUnits(price.current)) * BigInt(quantity));
 
   function handleConfirm() {
     if (!isValid) {
@@ -179,19 +174,14 @@ export function ProductSheet({
       >
         <bdi>{product.name}</bdi>
       </h2>
-      <span className="flex shrink-0 flex-col items-end gap-1">
-        {product.discount && isDiscounted ? (
-          <DiscountBadge discount={product.discount} currency={currency} copy={copy} />
-        ) : null}
+      <span className={`flex max-w-[55%] flex-col items-end gap-1 ${showPhoto ? 'text-white' : 'text-g-text-2'}`}>
         {hasSizes && chosenSize === null ? (
           <span className={`text-[11.5px] font-semibold ${showPhoto ? 'text-white/80' : 'text-g-text-3'}`}>
             {copy.fromPrice}
           </span>
         ) : null}
-        <DiscountedPrice
-          original={originalPrice}
-          current={currentPrice}
-          discounted={isDiscounted}
+        <MenuItemPrice
+          {...price}
           currency={currency}
           copy={copy}
           className={`g-num text-2xl [font-weight:900] ${showPhoto ? 'text-[#f7b548]' : 'text-g-price'}`}
@@ -319,11 +309,10 @@ export function ProductSheet({
                     <span className="min-w-0 flex-1 leading-snug">
                       <bdi>{size.name}</bdi>
                     </span>
-                    <DiscountedPrice
-                      original={size.price}
-                      current={size.discountedPrice ?? size.price}
-                      discounted={size.discountedPrice !== null}
-                      currency={currency}
+                    <MenuItemPrice
+                       {...menuItemPrice(product, size, false)}
+                       badge={null}
+                       currency={currency}
                       copy={copy}
                       className={`g-num text-sm [font-weight:800] ${isChecked ? 'text-g-price' : 'text-g-text-2'}`}
                       currencyClassName="text-[0.85em] font-semibold"
@@ -477,12 +466,14 @@ export function ProductSheet({
               />
               <span className="truncate">{initial ? copy.updateOrder : copy.addToOrder}</span>
             </span>
-            <Price
-              amount={totalDisplay}
-              currency={currency}
-              className="g-num text-[19px] [font-weight:900]"
-              currencyClassName="text-xs font-semibold"
-            />
+            {legacyDisplayTotal !== null ? (
+              <Price
+                amount={legacyDisplayTotal}
+                currency={currency}
+                className="g-num text-[19px] [font-weight:900]"
+                currencyClassName="text-xs font-semibold"
+              />
+            ) : null}
           </button>
         </div>
       </div>

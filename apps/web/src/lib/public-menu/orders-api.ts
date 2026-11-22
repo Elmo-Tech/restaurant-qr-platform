@@ -63,9 +63,8 @@ export type SubmitGuestOrderResult =
   | { outcome: 'deliveryUnavailable' }
   | { outcome: 'minimumNotMet'; zoneName: string | null; minimumOrder: string | null }
   /**
-   * Product Discounts V1: a discount started, ended or changed since the Guest
-   * saw the total (422 PRICE_CHANGED, API_CONVENTIONS.md #75). Nothing was created; `total` is the
-   * Backend's current total payable (display hint only -- the menu is refetched).
+   * The total changed since the Guest reviewed the quote (PRICE_CHANGED, API_CONVENTIONS.md #75).
+   * Nothing was created. Request a fresh quote and ask the Guest to confirm again.
    */
   | { outcome: 'priceChanged'; total: string | null }
   /** DEC-069: an offer in the cart is gone, switched off, not valid today, or the package no longer has Offers (409 OFFER_UNAVAILABLE). Nothing was created. */
@@ -101,17 +100,16 @@ export async function getTableOrdering(
  * `fetch` (via the existing `apiFetch` transport, same as every other
  * client-side mutation in this app), never a Server Component transport,
  * since it only ever runs in response to a Guest tapping "Place Order".
- * `clientRequestId` + `items` (productId/quantity only) is everything sent
- * -- no price, no total, no Restaurant/Branch/Table id (Section 4): the
- * Backend re-resolves all of that from the URL's own `publicCode`.
+ * The selected identities and fulfillment details describe the cart. The
+ * last quoted total is sent only as a staleness check; the Backend reprices.
  */
 export async function submitGuestOrder(
   publicCode: string,
   clientRequestId: string,
   items: SubmitGuestOrderItem[],
-  pickup: SubmitPickupCheckout | null = null,
-  locale: string | null = null,
-  expectedTotal: string | null = null,
+  pickup: SubmitPickupCheckout | null,
+  locale: string | null,
+  expectedTotal: string,
 ): Promise<SubmitGuestOrderResult> {
   const result = await sendOrder('orders', publicCode, clientRequestId, items, pickup, locale, expectedTotal);
   return result.outcome === 'whatsappSuccess' ? { outcome: 'networkError' } : result;
@@ -130,7 +128,7 @@ export async function submitWhatsappOrder(
   items: SubmitGuestOrderItem[],
   pickup: SubmitPickupCheckout | null,
   locale: string | null,
-  expectedTotal: string | null,
+  expectedTotal: string,
   newRequestId: string,
 ): Promise<SubmitWhatsappOrderResult> {
   const result = await sendOrder('whatsapp-order', publicCode, newRequestId, items, pickup, locale, expectedTotal);
@@ -142,11 +140,11 @@ async function sendOrder(
   publicCode: string,
   clientRequestId: string,
   items: SubmitGuestOrderItem[],
-  pickup: SubmitPickupCheckout | null = null,
+  pickup: SubmitPickupCheckout | null,
   /** The menu content language the Guest is browsing in; the Backend localizes Branch and zone names in the confirmation with it. Display only. */
-  locale: string | null = null,
+  locale: string | null,
   /** The total payable the Guest was shown (a staleness check only -- the Backend recomputes every amount). */
-  expectedTotal: string | null = null,
+  expectedTotal: string,
 ): Promise<SubmitGuestOrderResult | { outcome: 'whatsappSuccess'; data: WhatsappOrderView }> {
   try {
     const body = await apiFetch<{ data: GuestOrderView | WhatsappOrderView }>(
@@ -156,7 +154,7 @@ async function sendOrder(
         body: {
           clientRequestId,
           ...(locale ? { locale } : {}),
-          ...(expectedTotal ? { expectedTotal } : {}),
+          expectedTotal,
           items,
           ...(pickup
             ? {

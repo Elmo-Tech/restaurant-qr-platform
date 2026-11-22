@@ -1,12 +1,11 @@
 'use client';
 
 import { memo } from 'react';
-import { DiscountedPrice } from '../../../../components/guest/DiscountedPrice';
-import { Price } from '../../../../components/guest/Price';
+import { ItemPromotionLabel, MenuItemPrice } from '../../../../components/guest/MenuItemPrice';
 import { VerdeImage } from './VerdeImage';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../../lib/public-menu/copy';
-import { toMinorUnits } from '../../../../lib/public-menu/money';
+import { cheapestMenuSize, menuItemPrice } from '../../../../lib/public-menu/menu-item-price';
 import { formatAmount } from '../../../../lib/public-menu/price-format';
 import type { PublicMenuProduct } from '../../../../lib/public-menu/types';
 
@@ -52,14 +51,9 @@ function VerdeProductCardImpl({
   const isSoldOut = product.availability === 'SOLD_OUT';
   const interactive = canOrder && !isSoldOut;
   const showStepper = interactive && !needsChoice && simpleQuantity > 0;
-  const cheapest = hasSizes
-    ? sizes.reduce((best, size) => {
-        const price = (s: typeof size) => toMinorUnits(s.discountedPrice ?? s.price);
-        return price(size) < price(best) ? size : best;
-      })
-    : null;
-  const discounted =
-    !isSoldOut && (cheapest ? cheapest.discountedPrice !== null : product.discount !== null);
+  const cheapest = cheapestMenuSize(product);
+  const showsSizeList = sizes.length >= 2;
+  const price = menuItemPrice(product, cheapest, !showsSizeList);
 
   return (
     <article className={`v-dish${isSoldOut ? ' is-soldout' : ''}`}>
@@ -94,15 +88,16 @@ function VerdeProductCardImpl({
           </p>
         ) : null}
 
-        {hasSizes && sizes.length >= 2 ? (
+        {showsSizeList ? (
           <ul className="v-dish-sizes">
             {sizes.slice(0, MAX_SIZE_CHIPS).map((size) => (
               <li key={size.id}>
                 <bdi>{size.name}</bdi>
                 <span aria-hidden="true"> · </span>
                 <bdi dir="ltr" className="v-size-price">
-                  {formatAmount(size.discountedPrice ?? size.price)}
+                  {formatAmount(menuItemPrice(product, size, false).current)}
                 </bdi>
+                <ItemPromotionLabel promotion={size.itemPromotion ?? null} currency={currency} copy={copy} />
               </li>
             ))}
             {sizes.length > MAX_SIZE_CHIPS ? <li className="is-more">{copy.moreSizes(sizes.length - MAX_SIZE_CHIPS)}</li> : null}
@@ -116,26 +111,15 @@ function VerdeProductCardImpl({
             ) : (
               <>
                 <small>{cheapest ? copy.fromPrice : ' '}</small>
-                {discounted ? (
-                  <DiscountedPrice
-                    original={cheapest ? cheapest.price : product.basePrice}
-                    current={cheapest ? (cheapest.discountedPrice ?? cheapest.price) : (product.discount?.discountedPrice ?? product.basePrice)}
-                    discounted
-                    badge={product.discount}
-                    currency={currency}
-                    copy={copy}
-                    className="v-price-now"
-                    currencyClassName="v-price-unit"
-                    originalClassName="v-price-was"
-                  />
-                ) : (
-                  <Price
-                    amount={cheapest ? (cheapest.discountedPrice ?? cheapest.price) : product.basePrice}
-                    currency={currency}
-                    className="v-price-now"
-                    currencyClassName="v-price-unit"
-                  />
-                )}
+                <MenuItemPrice
+                  {...price}
+                  promotion={showsSizeList ? null : price.promotion}
+                  currency={currency}
+                  copy={copy}
+                  className="v-price-now"
+                  currencyClassName="v-price-unit"
+                  originalClassName="v-price-was"
+                />
               </>
             )}
           </div>

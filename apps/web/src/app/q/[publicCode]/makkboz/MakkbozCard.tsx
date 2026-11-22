@@ -1,12 +1,12 @@
 'use client';
 
 import { memo } from 'react';
-import { DiscountedPrice } from '../../../../components/guest/DiscountedPrice';
+import { ItemPromotionLabel, MenuItemPrice } from '../../../../components/guest/MenuItemPrice';
 import { Price } from '../../../../components/guest/Price';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../../lib/public-menu/copy';
 import type { MakkbozPriceDisplay } from '../../../../lib/public-menu/makkboz-settings';
-import { toMinorUnits } from '../../../../lib/public-menu/money';
+import { cheapestMenuSize, menuItemPrice } from '../../../../lib/public-menu/menu-item-price';
 import type { PublicMenuProduct } from '../../../../lib/public-menu/types';
 import { VerdeImage as MakkbozImage } from '../verde/VerdeImage';
 import { MakkbozOrnament } from './MakkbozArt';
@@ -56,13 +56,9 @@ function MakkbozCardImpl({
   const isSoldOut = product.availability === 'SOLD_OUT';
   const interactive = canOrder && !isSoldOut;
   const showStepper = interactive && !needsChoice && simpleQuantity > 0;
-  const cheapest = hasSizes
-    ? sizes.reduce((best, size) => {
-        const price = (s: typeof size) => toMinorUnits(s.discountedPrice ?? s.price);
-        return price(size) < price(best) ? size : best;
-      })
-    : null;
-  const discounted = !isSoldOut && (cheapest ? cheapest.discountedPrice !== null : product.discount !== null);
+  const cheapest = cheapestMenuSize(product);
+  const showsSizeList = hasSizes && priceDisplay === 'ALL_VARIANTS';
+  const price = menuItemPrice(product, cheapest, !showsSizeList);
   const tag = isSoldOut ? copy.soldOut : product.featured ? copy.featured : null;
 
   return (
@@ -99,12 +95,13 @@ function MakkbozCardImpl({
           )}
         </h4>
         {product.description ? <p className="m-card-desc" dir="auto">{product.description}</p> : null}
-        {hasSizes && priceDisplay === 'ALL_VARIANTS' ? (
+        {showsSizeList ? (
           <ul className="m-card-sizes">
             {sizes.map((size) => (
               <li key={size.id}>
                 <bdi>{size.name}</bdi>
-                <Price amount={size.discountedPrice ?? size.price} currency={currency} className="m-size-price" currencyClassName="m-size-unit" />
+                <Price amount={menuItemPrice(product, size, false).current} currency={currency} className="m-size-price" currencyClassName="m-size-unit" />
+                <ItemPromotionLabel promotion={size.itemPromotion ?? null} currency={currency} copy={copy} />
               </li>
             ))}
           </ul>
@@ -117,21 +114,15 @@ function MakkbozCardImpl({
             ) : (
               <>
                 <span className="m-price-unit-label">{sizes.length > 1 ? copy.fromPrice : ' '}</span>
-                {discounted ? (
-                  <DiscountedPrice
-                    original={cheapest ? cheapest.price : product.basePrice}
-                    current={cheapest ? (cheapest.discountedPrice ?? cheapest.price) : (product.discount?.discountedPrice ?? product.basePrice)}
-                    discounted
-                    badge={product.discount}
-                    currency={currency}
-                    copy={copy}
-                    className="m-price"
-                    currencyClassName="m-price-unit"
-                    originalClassName="m-price-was"
-                  />
-                ) : (
-                  <Price amount={cheapest ? (cheapest.discountedPrice ?? cheapest.price) : product.basePrice} currency={currency} className="m-price" currencyClassName="m-price-unit" />
-                )}
+                <MenuItemPrice
+                  {...price}
+                  promotion={showsSizeList ? null : price.promotion}
+                  currency={currency}
+                  copy={copy}
+                  className="m-price"
+                  currencyClassName="m-price-unit"
+                  originalClassName="m-price-was"
+                />
               </>
             )}
           </div>

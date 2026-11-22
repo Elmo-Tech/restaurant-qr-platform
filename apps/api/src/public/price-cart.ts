@@ -39,14 +39,11 @@ export class OfferChangedError extends Error {
     super('offer changed');
   }
 }
-export class MinimumOrderNotMetError extends Error {
-  constructor(
-    readonly zoneName: string,
-    readonly minimumOrder: Prisma.Decimal,
-    readonly subtotal: Prisma.Decimal,
-  ) {
-    super('minimum order not met');
-  }
+export interface DeliveryMinimumShortfall {
+  zoneName: string;
+  minimumOrder: Prisma.Decimal;
+  subtotal: Prisma.Decimal;
+  remainingAmount: Prisma.Decimal;
 }
 
 interface PriceCartContext {
@@ -662,18 +659,21 @@ export async function priceCart(
 
   // DEC-036/075: the zone minimum is the net merchandise payable, not the fee or gross items.
   // Refuse this pricing result; never suppress a promotion to meet the minimum.
-  if (zone && snapshot.order.subtotalAmount.lessThan(zone.minimumOrder)) {
-    throw new MinimumOrderNotMetError(
-      resolveLocalizedName({
-        requestedLocale: locale ?? zone.restaurant.defaultLocale,
-        defaultLocale: zone.restaurant.defaultLocale,
-        translations: zone.translations,
-        legacyName: zone.name,
-      }),
-      zone.minimumOrder,
-      snapshot.order.subtotalAmount,
-    );
-  }
+  const subtotal = snapshot.order.subtotalAmount;
+  const deliveryMinimumShortfall: DeliveryMinimumShortfall | null =
+    zone && subtotal.lessThan(zone.minimumOrder)
+      ? {
+          zoneName: resolveLocalizedName({
+            requestedLocale: locale ?? zone.restaurant.defaultLocale,
+            defaultLocale: zone.restaurant.defaultLocale,
+            translations: zone.translations,
+            legacyName: zone.name,
+          }),
+          minimumOrder: zone.minimumOrder,
+          subtotal,
+          remainingAmount: zone.minimumOrder.minus(subtotal),
+        }
+      : null;
 
   const itemsData = snapshot.items.map(({ lineIndex, ...money }) => ({
     ...lineDetails[lineIndex],
@@ -683,7 +683,10 @@ export async function priceCart(
     snapshot,
     itemsData,
     quoteDetails,
+    deliveryMinimumShortfall,
     deliveryZoneNameSnapshot: zone?.name ?? null,
+    promotionEvaluations: result.evaluations,
+    promotionLabels: labels,
   };
 }
 
