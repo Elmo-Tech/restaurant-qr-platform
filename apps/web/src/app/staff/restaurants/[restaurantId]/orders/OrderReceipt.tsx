@@ -239,7 +239,7 @@ function Row({ label, value }: { label: ReactNode; value: ReactNode }) {
   return (
     <div className="flex justify-between gap-3">
       <dt className="min-w-0 break-words">{label}</dt>
-      <dd className="text-end font-bold">{value}</dd>
+      <dd className="shrink-0 whitespace-nowrap text-end font-bold">{value}</dd>
     </div>
   );
 }
