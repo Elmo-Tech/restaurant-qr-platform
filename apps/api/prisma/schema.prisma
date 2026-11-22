@@ -1506,6 +1506,7 @@ model SignupLead {
   message        String?
   locale         String                    @default("ar")
   status         SubscriptionRequestStatus @default(NEW)
+  statusVersion  Int                       @default(0) @map("status_version")
   note           String?
   handledByEmail String?                   @map("handled_by_email")
   handledAt      DateTime?                 @map("handled_at") @db.Timestamptz
@@ -1564,6 +1565,10 @@ model OnboardingCase {
   packageId        String?              @map("package_id") @db.Uuid
   restaurantId            String?   @map("restaurant_id") @db.Uuid
   demoId                  String?   @map("demo_id") @db.Uuid
+  demoHistory             Json?     @map("demo_history")
+  demoRemovedAt           DateTime? @map("demo_removed_at") @db.Timestamptz
+  leadStatusVersion       Int?      @map("lead_status_version")
+  deliveredAt             DateTime? @map("delivered_at") @db.Timestamptz
   provisioningKey         String?   @unique @map("provisioning_key") @db.Uuid
   lastErrorCode           String?   @map("last_error_code") @db.VarChar(80)
   // The marker survives SET NULL: a removed tenant must never be silently replaced.
@@ -1594,6 +1599,7 @@ model OnboardingCase {
   @@index([status, updatedAt])
   @@index([ownerEmail])
   @@index([leadId])
+  @@index([demoId])
   @@map("onboarding_cases")
 }
 

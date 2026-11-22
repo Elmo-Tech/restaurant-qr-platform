@@ -2,6 +2,7 @@ import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
 import { PasswordHasherService } from '../../auth/password/password-hasher.service';
 import { resolveFeatures } from '../../entitlements/features';
 import { PrismaService } from '../../database/prisma.service';
+import { DemoService } from '../../demo/demo.service';
 import { Prisma, type OnboardingCase } from '../../generated/prisma/client';
 import {
   provisionRestaurant,
@@ -36,6 +37,7 @@ import {
 } from './onboarding-menu-state';
 import { OnboardingMenuWriterService } from './onboarding-menu-writer.service';
 import { canTransition } from './onboarding-transitions';
+import { OnboardingHandoffLinksService } from './onboarding-handoff-links.service';
 
 interface ProvisionRequest {
   revision: number;
@@ -92,6 +94,8 @@ export class OnboardingProvisioningService {
     private readonly billing: PlatformBillingService,
     private readonly sync: SubscriptionSyncService,
     private readonly guestMenu: PublicMenuService,
+    private readonly demos: DemoService,
+    private readonly links: OnboardingHandoffLinksService,
   ) {}
 
   async run(
@@ -99,13 +103,15 @@ export class OnboardingProvisioningService {
     id: string,
     input: ProvisionRequest,
     retry: boolean,
-  ): Promise<CaseOutcome<OnboardingCaseView>> {
+  ): Promise<CaseOutcome<OnboardingCaseView & { demoLink?: string }>> {
     if (!isUuid(id)) return { outcome: 'notFound' };
     const key = input.provisioningKey.toLowerCase();
     const claim = await this.claim(admin, id, input, key, retry);
     if (claim.outcome !== 'run') {
       return claim.outcome === 'replay' ? this.cases.get(id) : claim;
     }
+
+    if (claim.row.mode === 'DEMO') return this.runDemo(admin, claim.row, key);
 
     let expectedRevision = claim.row.revision;
     let stepError = 'ONBOARDING_PROVISIONING_FAILED';
@@ -146,6 +152,131 @@ export class OnboardingProvisioningService {
     return this.cases.get(id);
   }
 
+  private async runDemo(
+    admin: PlatformAdminPrincipal,
+    claimed: OnboardingCase,
+    key: string,
+  ) {
+    const { id } = claimed;
+    let expectedRevision = claimed.revision;
+    let demoLink: string | undefined;
+    let stepError = 'ONBOARDING_DEMO_PROVISIONING_FAILED';
+    try {
+      if (claimed.status === 'PROVISIONING') {
+        const config = readModeConfig(claimed.modeConfig);
+        const label = (readDetails(claimed.details).restaurant.name ?? '')
+          .trim()
+          .slice(0, 80);
+        const result = await this.demos.create(
+          {
+            label,
+            hours: config.demoHours ?? 0,
+            kind: config.demoKind ?? undefined,
+            packageId: config.packageId,
+          },
+          {
+            beforeCreate: async (tx) => {
+              const row = await lockCase(tx, id);
+              return (
+                !!row &&
+                row.status === 'PROVISIONING' &&
+                row.mode === 'DEMO' &&
+                row.provisioningKey === key &&
+                row.revision === expectedRevision &&
+                !row.demoHistory
+              );
+            },
+            checkpoint: async (tx, demo) => {
+              await tx.onboardingCase.update({
+                where: { id },
+                data: {
+                  demoId: demo.id,
+                  demoHistory: {
+                    kind: demo.kind,
+                    label: demo.label,
+                    packageName: demo.package?.name ?? null,
+                    createdAt: demo.createdAt,
+                    expiresAt: demo.expiresAt,
+                  },
+                  status: 'MENU_SETUP',
+                  revision: { increment: 1 },
+                },
+              });
+              await this.audit.record(
+                {
+                  admin,
+                  action: 'onboarding.demo_provisioned',
+                  details: { caseId: id, demoId: demo.id, kind: demo.kind },
+                },
+                tx,
+              );
+            },
+          },
+        );
+        if (result.outcome === 'limitReached')
+          throw new StepFailure('ONBOARDING_DEMO_LIMIT_REACHED');
+        if (result.outcome === 'invalidInput') throw new StepFailure(stepError);
+        if (result.outcome === 'created') {
+          demoLink = result.link;
+          expectedRevision += 1;
+        }
+      }
+
+      const checkpoint = await this.prisma.onboardingCase.findUnique({
+        where: { id },
+      });
+      if (
+        checkpoint?.status === 'MENU_SETUP' &&
+        checkpoint.provisioningKey === key
+      ) {
+        expectedRevision = checkpoint.revision;
+        stepError = 'ONBOARDING_GUEST_MENU_NOT_READY';
+        const demoId = checkpoint.demoId;
+        if (!demoId || !(await this.links.readySlug(demoId, true)))
+          throw new StepFailure(stepError);
+        await this.prisma.$transaction(async (tx) => {
+          const written = await tx.onboardingCase.updateMany({
+            where: {
+              id,
+              revision: expectedRevision,
+              status: 'MENU_SETUP',
+              provisioningKey: key,
+              demoId,
+              demo: {
+                is: {
+                  isDemo: true,
+                  status: 'ACTIVE',
+                  demoExpiresAt: { gt: new Date() },
+                },
+              },
+            },
+            data: {
+              status: 'READY',
+              revision: { increment: 1 },
+              updatedByAdminId: admin.adminId,
+            },
+          });
+          if (written.count === 1) {
+            await this.audit.record(
+              { admin, action: 'onboarding.ready', details: { caseId: id } },
+              tx,
+            );
+          }
+        });
+      }
+    } catch (error) {
+      const code = error instanceof StepFailure ? error.code : stepError;
+      await this.recordFailure(admin, id, key, expectedRevision, code);
+    }
+    const view = await this.cases.get(id);
+    return view.outcome === 'ok' &&
+      demoLink &&
+      view.data.demoState === 'ACTIVE' &&
+      view.data.status !== 'DELIVERED'
+      ? { outcome: 'ok' as const, data: { ...view.data, demoLink } }
+      : view;
+  }
+
   private async claim(
     admin: PlatformAdminPrincipal,
     id: string,
@@ -168,7 +299,11 @@ export class OnboardingProvisioningService {
             'Use the existing provisioning attempt.',
           );
         }
-        if (row.status === 'READY' || (row.status === 'FAILED' && !retry))
+        if (
+          row.status === 'READY' ||
+          row.status === 'DELIVERED' ||
+          (row.status === 'FAILED' && !retry)
+        )
           return { outcome: 'replay' };
         if (row.status === 'PROVISIONING' || row.status === 'MENU_SETUP') {
           this.requirePassword(row, input.ownerPassword);
@@ -176,7 +311,7 @@ export class OnboardingProvisioningService {
         }
         if (
           row.status !== (retry ? 'FAILED' : 'READY_FOR_REVIEW') ||
-          (row.mode !== 'REAL' && row.mode !== 'TRIAL')
+          !row.mode
         ) {
           return { outcome: 'invalidTransition', status: row.status };
         }
@@ -197,7 +332,12 @@ export class OnboardingProvisioningService {
             (await trialsEnabled(tx)),
         });
         const menu = menuProblemsForCase(row, details);
-        if (pkg && row.importExpiresAt && !row.menuPublishedAt) {
+        if (
+          row.mode !== 'DEMO' &&
+          pkg &&
+          row.importExpiresAt &&
+          !row.menuPublishedAt
+        ) {
           const features = await tx.packageFeature.findMany({
             where: { packageId: pkg.id },
             select: { feature: true },
@@ -214,7 +354,7 @@ export class OnboardingProvisioningService {
           return { outcome: 'incomplete', problems: { customer, mode, menu } };
         this.requirePassword(row, input.ownerPassword);
         const status =
-          row.restaurantProvisionedAt || row.restaurantId
+          row.restaurantProvisionedAt || row.restaurantId || row.demoHistory
             ? 'MENU_SETUP'
             : 'PROVISIONING';
         if (!canTransition(row.status, status))
@@ -255,7 +395,12 @@ export class OnboardingProvisioningService {
   }
 
   private requirePassword(row: OnboardingCase, password: string | undefined) {
-    if (!row.restaurantProvisionedAt && !row.restaurantId && !password) {
+    if (
+      row.mode !== 'DEMO' &&
+      !row.restaurantProvisionedAt &&
+      !row.restaurantId &&
+      !password
+    ) {
       onboardingError(
         HttpStatus.UNPROCESSABLE_ENTITY,
         'OWNER_PASSWORD_REQUIRED',

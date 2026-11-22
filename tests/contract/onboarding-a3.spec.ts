@@ -35,7 +35,6 @@ describe('A3 final provisioning', () => {
     expect(provisionAction({ ...ready, problems: { ...ready.problems, menu: ['menus[0].categories'] } })).toBeNull();
     expect(provisionAction({ ...ready, importExpiresAt: '2030-01-01T00:00:00Z' })).toBeNull();
     expect(provisionAction({ ...ready, importExpiresAt: '2030-01-01T00:00:00Z', importReviewed: true })).toBe('provision');
-    expect(provisionAction({ ...ready, mode: 'DEMO' })).toBeNull();
     expect(provisionAction({ ...ready, status: 'READY' })).toBeNull();
   });
 

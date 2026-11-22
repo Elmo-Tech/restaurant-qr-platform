@@ -1,4 +1,4 @@
-/** A1/A2 draft lifecycle and the A3 REAL/TRIAL provisioning saga. Delivery is deferred to A4. */
+/** Draft lifecycle, provisioning checkpoints and explicit handoff. */
 export const ONBOARDING_STATUSES = [
   'DRAFT',
   'READY_FOR_REVIEW',
@@ -20,7 +20,7 @@ export const IMPLEMENTED_TRANSITIONS: Readonly<
   READY_FOR_REVIEW: ['DRAFT', 'CANCELLED', 'PROVISIONING'],
   PROVISIONING: ['MENU_SETUP', 'FAILED'],
   MENU_SETUP: ['READY', 'FAILED'],
-  READY: [],
+  READY: ['DELIVERED'],
   DELIVERED: [],
   FAILED: ['PROVISIONING', 'MENU_SETUP', 'CANCELLED'],
   CANCELLED: [],

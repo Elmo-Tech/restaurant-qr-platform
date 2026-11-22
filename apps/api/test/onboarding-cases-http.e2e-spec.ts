@@ -2,8 +2,12 @@
  * supertest exposes `response.body` as `any`; the assertions below read the JSON
  * envelope directly, exactly like the other HTTP e2e specs in this folder. */
 import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
+import { setTimeout as sleep } from 'node:timers/promises';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { EnvConfig } from '../src/config/env.schema';
+import { DemoService } from '../src/demo/demo.service';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
 import sharp from 'sharp';
@@ -21,7 +25,7 @@ import { OnboardingCasesService } from './../src/platform/onboarding/onboarding-
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
 
 /**
- * Owner onboarding cases (PROPOSED, milestones A1 + A2) against REAL PostgreSQL through the real Nest app:
+ * Owner onboarding cases (A1–A4) against real PostgreSQL through the real Nest app:
  * platform session + Origin rules, create / get / list / search, optimistic concurrency between two
  * operators, one open case per lead, duplicate warnings, submit-for-review gating, cancel, that no
  * password is ever stored and that the audit log carries no secret.
@@ -46,6 +50,7 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
     packageIds: [] as string[],
     leadIds: [] as string[],
     restaurantIds: [] as string[],
+    demoIds: [] as string[],
     userIds: [] as string[],
   };
 
@@ -80,8 +85,20 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
 
   /** Deletes the suite's rows: cases first (every FK to them is SET NULL), then their fixtures. */
   async function removeCreatedRows() {
-    const { adminEmails, packageIds, leadIds, restaurantIds, userIds } =
-      fixtures;
+    const {
+      adminEmails,
+      packageIds,
+      leadIds,
+      restaurantIds,
+      demoIds,
+      userIds,
+    } = fixtures;
+    const remainingDemos = await prisma.restaurant.findMany({
+      where: { id: { in: demoIds }, isDemo: true },
+      select: { id: true },
+    });
+    for (const demo of remainingDemos)
+      await app.get(DemoService).purge(demo.id);
     await prisma.onboardingCase.deleteMany({
       where: {
         OR: [
@@ -1397,7 +1414,7 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
     });
   });
 
-  describe('A3 final provisioning and staging', () => {
+  describe('final provisioning, staging and handoff', () => {
     const translation = (name: string) => [{ locale: 'ar', name }];
     const menu = {
       menus: [
@@ -1432,26 +1449,36 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
     };
 
     async function start(
-      mode: 'REAL' | 'TRIAL' = 'REAL',
-      withMenu = true,
+      mode: 'REAL' | 'TRIAL' | 'DEMO' = 'REAL',
+      withMenu = mode !== 'DEMO',
       allowImport = false,
+      leadId?: string,
+      loginCookie?: string,
     ) {
-      const cookie = await platformLogin(await addAdmin());
+      const cookie = loginCookie ?? (await platformLogin(await addAdmin()));
       const pkg = await addPackage();
       if (allowImport)
         await prisma.packageFeature.create({
           data: { packageId: pkg.id, feature: 'MENU_IMPORT' },
         });
       const ownerEmail = `a3-${randomUUID()}@example.test`;
-      const name = `A3 ${randomUUID()}`;
-      const created = await send('post', '/onboarding-cases', cookie, {});
+      const name = `IT Onboarding ${randomUUID()}`;
+      const created = await send('post', '/onboarding-cases', cookie, {
+        ...(leadId ? { leadId } : {}),
+      });
+      expect(created.status).toBe(201);
       const id = created.body.data.id as string;
       const path = `/onboarding-cases/${id}`;
       const saved = await send('patch', path, cookie, {
         revision: 1,
         details: step1(name, ownerEmail),
         mode,
-        modeConfig: { packageId: pkg.id, trialDays: 14 },
+        modeConfig: {
+          packageId: pkg.id,
+          ...(mode === 'DEMO'
+            ? { demoKind: 'cafe', demoHours: 24 }
+            : { trialDays: 14 }),
+        },
         ...(withMenu ? { menuDraft: menu } : {}),
       });
       expect(saved.status).toBe(200);
@@ -1502,6 +1529,8 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
         !fixtures.restaurantIds.includes(row.restaurantId)
       )
         fixtures.restaurantIds.push(row.restaurantId);
+      if (row.demoId && !fixtures.demoIds.includes(row.demoId))
+        fixtures.demoIds.push(row.demoId);
       const user = await prisma.user.findUnique({
         where: { emailNormalized: context.ownerEmail },
         select: { id: true },
@@ -1806,6 +1835,520 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
       } finally {
         extract.mockRestore();
       }
+    });
+
+    describe('A4 explicit handoff', () => {
+      type Context = Awaited<ReturnType<typeof start>>;
+      type LeadStatus = 'NEW' | 'CONTACTED' | 'DONE' | 'DISMISSED';
+      const deliver = (c: Context, revision = c.revision) =>
+        send('post', `${c.path}/deliver`, c.cookie, { revision });
+      const leadState = (id: string) =>
+        prisma.signupLead.findUniqueOrThrow({
+          where: { id },
+          select: { status: true, statusVersion: true, note: true },
+        });
+      const editLead = (
+        cookie: string,
+        leadId: string,
+        status: LeadStatus,
+        note?: string,
+      ) =>
+        send('patch', `/leads/${leadId}`, cookie, { status, note }).expect(200);
+      const caseAudit = (caseId: string, action: string) =>
+        prisma.platformAuditLog.findMany({
+          where: { action, details: { path: ['caseId'], equals: caseId } },
+        });
+      const webOrigin = () =>
+        app
+          .get<ConfigService<EnvConfig, true>>(ConfigService)
+          .get('CORS_ORIGIN', {
+            infer: true,
+          });
+
+      async function provisionReady(
+        c: Context,
+        password: string | null = SECRET,
+      ) {
+        await review(c);
+        const response = await final(c, false, password);
+        const row = await remember(c);
+        expect(response.status).toBe(200);
+        expect(response.body.data.status).toBe('READY');
+        expect(row.status).toBe('READY');
+        c.revision = row.revision;
+        return { row, response };
+      }
+
+      async function publicMenuFor(restaurantId: string) {
+        const { slug } = await prisma.restaurantSlug.findFirstOrThrow({
+          where: { restaurantId, isCurrent: true },
+          select: { slug: true },
+        });
+        return request(app.getHttpServer())
+          .get(`/api/v1/public/qr/${encodeURIComponent(slug)}/menu`)
+          .expect(200);
+      }
+
+      it('delivers READY exactly once, clears only staging and keeps the published guest menu and URLs', async () => {
+        const lead = await addLead(`a4-real-${randomUUID()}@example.test`);
+        const c = await start('REAL', true, false, lead.id);
+        expect((await get(c.path, c.cookie)).body.data).toMatchObject({
+          handoff: null,
+          deliveredAt: null,
+          demoHistory: null,
+        });
+        const premature = await deliver(c);
+        expect(premature.status).toBe(409);
+        expect(premature.body.error.code).toBe('ONBOARDING_INVALID_TRANSITION');
+
+        const { row } = await provisionReady(c);
+        const restaurantId = row.restaurantId!;
+        expect(await leadState(lead.id)).toEqual({
+          status: 'NEW',
+          statusVersion: 0,
+          note: null,
+        });
+        expect(row.leadStatusVersion).toBe(0);
+        const body = { revision: c.revision };
+        await send('post', `${c.path}/deliver`, null, body).expect(401);
+        for (const origin of ['https://foreign.example.test', null]) {
+          const refused = await send(
+            'post',
+            `${c.path}/deliver`,
+            c.cookie,
+            body,
+            origin,
+          );
+          expect(refused.status).toBe(403);
+          expect(refused.body.error.code).toBe('CSRF_VALIDATION_FAILED');
+        }
+        const stale = await deliver(c, c.revision - 1);
+        expect(stale.status).toBe(409);
+        expect(stale.body.error.code).toBe('ONBOARDING_REVISION_CONFLICT');
+
+        // A live Generic QR cannot make an unavailable menu ready for handoff.
+        const product = await prisma.product.findFirstOrThrow({
+          where: { restaurantId },
+        });
+        const setAvailability = (availability: 'AVAILABLE' | 'SOLD_OUT') =>
+          prisma.product.update({
+            where: { id: product.id },
+            data: { availability },
+          });
+        await setAvailability('SOLD_OUT');
+        expect(
+          await prisma.qrCode.count({
+            where: { restaurantId, type: 'GENERIC', status: 'ACTIVE' },
+          }),
+        ).toBe(1);
+        expect((await get(c.path, c.cookie)).body.data.handoff).toBeNull();
+        const unavailable = await deliver(c);
+        expect(unavailable.status).toBe(422);
+        expect(unavailable.body.error.code).toBe(
+          'ONBOARDING_HANDOFF_UNAVAILABLE',
+        );
+        expect(await caseAudit(c.id, 'onboarding.delivered')).toHaveLength(0);
+        await setAvailability('AVAILABLE');
+
+        // The ordinary publish path retains the draft; seed populated import metadata,
+        // including a lease (normally cleared by the importer), to verify delivery scrubs it.
+        const lease = new Date(Date.now() + 60_000);
+        await prisma.onboardingCase.update({
+          where: { id: c.id },
+          data: {
+            importExpiresAt: lease,
+            importLeaseUntil: lease,
+            importReviewed: true,
+          },
+        });
+        const ready = await get(c.path, c.cookie).expect(200);
+        expect(ready.body.data).toMatchObject({
+          status: 'READY',
+          menuDraft: row.menuDraft,
+          importReviewed: true,
+          importExpiresAt: lease.toISOString(),
+          deliveredAt: null,
+        });
+        expect(ready.body.data.menuDraft).not.toBeNull();
+        const detail = await get(
+          `/restaurants/${restaurantId}`,
+          c.cookie,
+        ).expect(200);
+        expect(detail.body.data.menuLink.url).toEqual(expect.any(String));
+        const handoff = {
+          guestMenuUrl: detail.body.data.menuLink.url,
+          staffLoginUrl: new URL('/login', webOrigin()).href,
+        };
+        expect(ready.body.data.handoff).toEqual(handoff);
+        const before = await publicMenuFor(restaurantId);
+        expect(before.body.data.menu.categories[0].products[0]).toMatchObject({
+          name: 'Coffee',
+          availability: 'AVAILABLE',
+        });
+
+        const other = await platformLogin(await addAdmin());
+        const [first, concurrent] = await Promise.all([
+          deliver(c),
+          send('post', `${c.path}/deliver`, other, body),
+        ]);
+        expect(first.status).toBe(200);
+        expect(concurrent.status).toBe(200);
+        const delivered = first.body.data;
+        expect(delivered).toMatchObject({
+          status: 'DELIVERED',
+          revision: c.revision + 1,
+          handoff,
+          menuDraft: null,
+          importExpiresAt: null,
+          importReviewed: false,
+          deliveredAt: expect.any(String),
+          demoHistory: null,
+        });
+        expect(concurrent.body.data).toEqual(delivered);
+        expect((await deliver(c).expect(200)).body.data).toEqual(delivered);
+        expect((await get(c.path, c.cookie).expect(200)).body.data).toEqual(
+          delivered,
+        );
+        expect(await remember(c)).toMatchObject({
+          menuDraft: null,
+          importExpiresAt: null,
+          importLeaseUntil: null,
+          importReviewed: false,
+          menuPublishedAt: row.menuPublishedAt,
+          deliveredAt: new Date(delivered.deliveredAt as string),
+        });
+        expect((await publicMenuFor(restaurantId)).body.data.menu).toEqual(
+          before.body.data.menu,
+        );
+        expect(await leadState(lead.id)).toMatchObject({
+          status: 'DONE',
+          statusVersion: 1,
+        });
+        expect(await caseAudit(c.id, 'onboarding.delivered')).toHaveLength(1);
+        expect(
+          await caseAudit(c.id, 'onboarding.lead_transitioned'),
+        ).toMatchObject([
+          {
+            details: { caseId: c.id, leadId: lead.id, from: 'NEW', to: 'DONE' },
+          },
+        ]);
+      });
+
+      it.each([
+        ['CONTACTED', 'DONE', 2],
+        ['DONE', 'DONE', 1],
+        ['DISMISSED', 'DISMISSED', 1],
+      ] as const)(
+        'captures a nonzero lead version and delivers TRIAL from %s without overwriting terminal leads',
+        async (initial, expected, version) => {
+          const cookie = await platformLogin(await addAdmin());
+          const lead = await addLead(`a4-trial-${randomUUID()}@example.test`);
+          await editLead(cookie, lead.id, initial);
+          const c = await start('TRIAL', true, false, lead.id, cookie);
+          expect((await remember(c)).leadStatusVersion).toBe(1);
+          const { response } = await provisionReady(c);
+          expect(response.body.data.handoff).toMatchObject({
+            guestMenuUrl: expect.any(String),
+            staffLoginUrl: new URL('/login', webOrigin()).href,
+          });
+          expect(await leadState(lead.id)).toMatchObject({
+            status: initial,
+            statusVersion: 1,
+          });
+          expect((await deliver(c).expect(200)).body.data.status).toBe(
+            'DELIVERED',
+          );
+          expect(await leadState(lead.id)).toMatchObject({
+            status: expected,
+            statusVersion: version,
+          });
+          expect(
+            await caseAudit(c.id, 'onboarding.lead_transitioned'),
+          ).toHaveLength(version - 1);
+        },
+      );
+
+      it('respects intervening manual ABA edits and a note-only update', async () => {
+        const lead = await addLead(`a4-aba-${randomUUID()}@example.test`);
+        const c = await start('REAL', true, false, lead.id);
+        const operator = await platformLogin(await addAdmin());
+        await editLead(operator, lead.id, 'CONTACTED');
+        expect(await leadState(lead.id)).toMatchObject({
+          status: 'CONTACTED',
+          statusVersion: 1,
+        });
+        await editLead(operator, lead.id, 'NEW');
+        expect(await leadState(lead.id)).toMatchObject({
+          status: 'NEW',
+          statusVersion: 2,
+        });
+        await editLead(operator, lead.id, 'NEW', 'Operator follow-up pending');
+        const manual = {
+          status: 'NEW',
+          statusVersion: 3,
+          note: 'Operator follow-up pending',
+        };
+        expect(await leadState(lead.id)).toEqual(manual);
+        expect((await provisionReady(c)).row.leadStatusVersion).toBe(0);
+        expect((await deliver(c).expect(200)).body.data.status).toBe(
+          'DELIVERED',
+        );
+        expect(await leadState(lead.id)).toEqual(manual);
+        expect(
+          await caseAudit(c.id, 'onboarding.lead_transitioned'),
+        ).toHaveLength(0);
+      });
+
+      it('does not overwrite an operator note committed while delivery waits on the lead row', async () => {
+        const lead = await addLead(`a4-race-${randomUUID()}@example.test`);
+        const c = await start('REAL', true, false, lead.id);
+        await provisionReady(c);
+        let delivery: Promise<request.Response> | undefined;
+        try {
+          await prisma.$transaction(
+            async (tx) => {
+              // Hold the lock from a same-status operator edit before either write commits.
+              const [{ pid }] = await tx.$queryRaw<
+                { pid: number }[]
+              >`SELECT pg_backend_pid() AS pid`;
+              await tx.signupLead.update({
+                where: { id: lead.id },
+                data: {
+                  note: 'Concurrent operator note',
+                  statusVersion: { increment: 1 },
+                },
+              });
+              delivery = deliver(c).then((response) => response);
+              const deadline = Date.now() + 3_000;
+              do {
+                const [{ blocked }] = await prisma.$queryRaw<
+                  { blocked: boolean }[]
+                >`
+                SELECT EXISTS (
+                  SELECT FROM pg_stat_activity
+                  WHERE ${pid}::int = ANY(pg_blocking_pids(pid))
+                    AND query LIKE '%signup_leads%'
+                ) AS blocked
+              `;
+                if (blocked) return;
+                await sleep(20);
+              } while (Date.now() < deadline);
+              throw new Error(
+                'Delivery did not block on the uncommitted lead update',
+              );
+            },
+            { timeout: 5_000 },
+          );
+        } finally {
+          // Always drain the request after the blocking transaction has committed or rolled back.
+          const response = await delivery;
+          if (response) {
+            expect(response.status).toBe(200);
+            expect(response.body.data.status).toBe('DELIVERED');
+          }
+        }
+        expect(await leadState(lead.id)).toEqual({
+          status: 'NEW',
+          statusVersion: 1,
+          note: 'Concurrent operator note',
+        });
+        expect(await caseAudit(c.id, 'onboarding.delivered')).toHaveLength(1);
+        expect(
+          await caseAudit(c.id, 'onboarding.lead_transitioned'),
+        ).toHaveLength(0);
+      }, 10_000);
+
+      it('returns the private demo link once across concurrent creation, then preserves only history after purge', async () => {
+        const lead = await addLead(`a4-demo-${randomUUID()}@example.test`);
+        const c = await start('DEMO', false, false, lead.id);
+        await review(c);
+        const initial = await get(c.path, c.cookie).expect(200);
+        expect(initial.body.data).toMatchObject({
+          handoff: null,
+          demoHistory: null,
+          deliveredAt: null,
+        });
+        expect(initial.body.data).not.toHaveProperty('demoLink');
+        const responses = await Promise.all([
+          final(c, false, null),
+          final(c, false, null),
+        ]);
+        const row = await remember(c);
+        expect(responses.map((result) => result.status)).toEqual([200, 200]);
+        const created = responses.filter(
+          (result) => 'demoLink' in result.body.data,
+        );
+        expect(created).toHaveLength(1);
+        const link = created[0].body.data.demoLink as string;
+        expect(link).toMatch(/^https?:\/\/.*\/demo\/[A-Za-z0-9_-]{43}$/);
+        const token = new URL(link).pathname.split('/').at(-1)!;
+        expect(row.status).toBe('READY');
+        const demoId = row.demoId!;
+        const demos = await prisma.restaurant.findMany({
+          where: { isDemo: true, demoLabel: c.name },
+          select: {
+            id: true,
+            status: true,
+            createdAt: true,
+            demoExpiresAt: true,
+            package: { select: { name: true } },
+          },
+        });
+        expect(demos).toHaveLength(1);
+        expect(demos[0]).toMatchObject({ id: demoId, status: 'ACTIVE' });
+        expect(
+          await caseAudit(c.id, 'onboarding.demo_provisioned'),
+        ).toHaveLength(1);
+        const history = {
+          kind: 'cafe',
+          label: c.name,
+          packageName: demos[0].package!.name,
+          createdAt: demos[0].createdAt.toISOString(),
+          expiresAt: demos[0].demoExpiresAt!.toISOString(),
+          removedAt: null,
+          purged: false,
+        };
+        expect(created[0].body.data.demoHistory).toEqual(history);
+        expect(created[0].body.data.handoff).toBeNull();
+        expect(await leadState(lead.id)).toMatchObject({
+          status: 'NEW',
+          statusVersion: 0,
+        });
+        expect(
+          await caseAudit(c.id, 'onboarding.lead_transitioned'),
+        ).toHaveLength(0);
+        const guest = await publicMenuFor(demoId);
+        expect(guest.body.data.menu.categories).not.toHaveLength(0);
+        expect(JSON.stringify(guest.body)).not.toContain(`a4-demo-`);
+        await request(app.getHttpServer())
+          .post('/api/v1/demo/enter')
+          .set('Origin', new URL(webOrigin()).origin)
+          .send({ token })
+          .expect(200);
+
+        const fetched = await get(c.path, c.cookie).expect(200);
+        expect(fetched.body.data.demoHistory).toEqual(history);
+        const replay = await final(c, false, null).expect(200);
+        c.revision = row.revision;
+        const retried = await final(c, true, null).expect(200);
+        for (const response of [fetched, replay, retried]) {
+          expect(response.body.data).not.toHaveProperty('demoLink');
+        }
+        const rawCase = await prisma.$queryRaw<{ row: string }[]>`
+          SELECT row_to_json(c)::text AS row FROM onboarding_cases c WHERE c.id = ${c.id}::uuid
+        `;
+        const access = await prisma.demoAccessLink.findMany({
+          where: { restaurantId: demoId },
+        });
+        expect(access).toMatchObject([
+          { tokenHash: createHash('sha256').update(token).digest('hex') },
+        ]);
+        const audits = await prisma.platformAuditLog.findMany({
+          where: { details: { path: ['caseId'], equals: c.id } },
+        });
+        const nonSecret = JSON.stringify({
+          rawCase,
+          access,
+          audits,
+          replay: replay.body,
+          fetched: fetched.body,
+          retried: retried.body,
+        });
+        expect(nonSecret).not.toContain(token);
+        expect(nonSecret).not.toContain(link);
+
+        const delivered = await deliver(c).expect(200);
+        expect(delivered.body.data).toMatchObject({
+          status: 'DELIVERED',
+          handoff: null,
+          deliveredAt: expect.any(String),
+        });
+        expect(delivered.body.data).not.toHaveProperty('demoLink');
+        expect(await leadState(lead.id)).toMatchObject({
+          status: 'CONTACTED',
+          statusVersion: 1,
+        });
+        expect(
+          await caseAudit(c.id, 'onboarding.lead_transitioned'),
+        ).toMatchObject([
+          {
+            details: {
+              caseId: c.id,
+              leadId: lead.id,
+              from: 'NEW',
+              to: 'CONTACTED',
+            },
+          },
+        ]);
+        await app.get(DemoService).purge(demoId);
+        expect(
+          await prisma.restaurant.findUnique({ where: { id: demoId } }),
+        ).toBeNull();
+        expect(
+          await prisma.demoAccessLink.count({
+            where: { restaurantId: demoId },
+          }),
+        ).toBe(0);
+        const purgedRow = await remember(c);
+        expect(purgedRow.demoId).toBeNull();
+        expect(purgedRow.leadId).toBe(lead.id);
+        const purged = await get(c.path, c.cookie).expect(200);
+        expect(purged.body.data.demoHistory).toEqual({
+          ...history,
+          removedAt: expect.any(String),
+          purged: true,
+        });
+        expect(purged.body.data).not.toHaveProperty('demoLink');
+        expect(JSON.stringify(purged.body)).not.toContain(token);
+        expect((await deliver(c).expect(200)).body.data).toEqual(
+          purged.body.data,
+        );
+        expect(await caseAudit(c.id, 'onboarding.delivered')).toHaveLength(1);
+        expect(
+          await caseAudit(c.id, 'onboarding.lead_transitioned'),
+        ).toHaveLength(1);
+      }, 15_000);
+
+      it('rejects handoff of an expired, locked or removed demo without contacting its lead', async () => {
+        const lead = await addLead(`a4-expired-${randomUUID()}@example.test`);
+        const c = await start('DEMO', false, false, lead.id);
+        const { row } = await provisionReady(c, null);
+        const demoId = row.demoId!;
+        const demos = app.get(DemoService);
+        const refused = async () => {
+          const result = await deliver(c).expect(422);
+          expect(result.body.error.code).toBe('ONBOARDING_DEMO_EXPIRED');
+          expect(result.body.data).toBeUndefined();
+        };
+        await prisma.restaurant.update({
+          where: { id: demoId },
+          data: { demoExpiresAt: new Date(Date.now() - 1_000) },
+        });
+        await refused();
+        // Check each guard independently: a locked demo's expiry is now in the future.
+        expect((await demos.extend(demoId, 24)).outcome).toBe('ok');
+        await demos.lock(demoId);
+        await refused();
+        await demos.purge(demoId);
+        expect((await remember(c)).demoId).toBeNull();
+        await refused();
+        expect(await leadState(lead.id)).toMatchObject({
+          status: 'NEW',
+          statusVersion: 0,
+        });
+        expect(
+          (await get(c.path, c.cookie).expect(200)).body.data,
+        ).toMatchObject({
+          status: 'READY',
+          revision: c.revision,
+          deliveredAt: null,
+          handoff: null,
+        });
+        expect(await caseAudit(c.id, 'onboarding.delivered')).toHaveLength(0);
+        expect(
+          await caseAudit(c.id, 'onboarding.lead_transitioned'),
+        ).toHaveLength(0);
+      }, 15_000);
     });
   });
 });

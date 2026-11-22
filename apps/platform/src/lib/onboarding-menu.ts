@@ -75,6 +75,10 @@ const ACTION_ERROR = new Map<string, MessageKey>([
   ["ONBOARDING_GUEST_MENU_NOT_READY", "onboarding.final.menuNotReady"],
   ["ONBOARDING_PROVISIONING_FAILED", "onboarding.final.provisionFailed"],
   ["ONBOARDING_TRIAL_FAILED", "onboarding.final.trialFailed"],
+  ["ONBOARDING_DEMO_EXPIRED", "onboarding.handoff.demoExpired"],
+  ["ONBOARDING_HANDOFF_UNAVAILABLE", "onboarding.handoff.unavailable"],
+  ["ONBOARDING_DEMO_PROVISIONING_FAILED", "onboarding.final.demoFailed"],
+  ["ONBOARDING_DEMO_LIMIT_REACHED", "onboarding.final.demoLimit"],
   ["ONBOARDING_RESTAURANT_NOT_ELIGIBLE", "onboarding.final.notEligible"],
   ["PACKAGE_NOT_AVAILABLE", "onboarding.problem.PACKAGE_NOT_AVAILABLE"],
   ["TRIAL_DISABLED", "onboarding.problem.TRIAL_DISABLED"],
@@ -96,14 +100,14 @@ type ProvisionState = Pick<OnboardingCase, "status" | "mode" | "completedSteps" 
 
 /** A1/A2 review may be submitted separately; only the first provisioning call requires all three steps. */
 export function provisionAction(data: ProvisionState): "provision" | "retry" | null {
-  if (data.mode !== "REAL" && data.mode !== "TRIAL") return null;
+  if (!data.mode) return null;
   if (data.status === "FAILED") return "retry";
   if (data.status === "PROVISIONING" || data.status === "MENU_SETUP") return "provision";
   if (data.status !== "READY_FOR_REVIEW") return null;
-  return data.completedSteps.includes("customer") && data.completedSteps.includes("mode") && data.completedSteps.includes("menu") &&
-    data.menuDraft && data.problems.menu.length === 0 && (!data.importExpiresAt || data.importReviewed)
-    ? "provision"
-    : null;
+  if (!data.completedSteps.includes("customer") || !data.completedSteps.includes("mode")) return null;
+  if (data.mode === "DEMO") return "provision"; // Demos use their existing template rather than a customer menu.
+  return data.completedSteps.includes("menu") && data.menuDraft && data.problems.menu.length === 0 &&
+    (!data.importExpiresAt || data.importReviewed) ? "provision" : null;
 }
 
 export function provisioningRequest(

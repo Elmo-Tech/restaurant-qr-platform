@@ -40,6 +40,11 @@ import {
   type OnboardingStatusKey,
 } from './onboarding-transitions';
 import { menuProblemsForCase, readCaseMenu } from './onboarding-menu-state';
+import { PlatformLeadsService } from '../leads/platform-leads.service';
+import {
+  OnboardingHandoffLinksService,
+  type OnboardingHandoffLinks,
+} from './onboarding-handoff-links.service';
 import {
   sanitizeOnboardingMenuDraft,
   type OnboardingMenuDraft,
@@ -87,6 +92,11 @@ export interface OnboardingCaseView {
   provisioningKey: string | null;
   lastErrorCode: string | null;
   ownerPasswordRequired: boolean;
+  handoff: OnboardingHandoffLinks | null;
+  deliveredAt: string | null;
+  demoHistory: OnboardingDemoHistory | null;
+  demoState: 'ACTIVE' | 'EXPIRED' | 'PURGED' | null;
+  demoExpiresAt: string | null;
   lead: {
     id: string;
     name: string;
@@ -117,6 +127,16 @@ export interface OnboardingCaseView {
   cancelledAt: string | null;
 }
 
+export interface OnboardingDemoHistory {
+  kind: string;
+  label: string;
+  packageName: string | null;
+  createdAt: string;
+  expiresAt: string;
+  removedAt: string | null;
+  purged: boolean;
+}
+
 export interface OnboardingDuplicates {
   /** A User with the owner e-mail exists: provisioning would refuse it (never attached). */
   ownerEmailInUse: boolean;
@@ -144,6 +164,10 @@ export type CaseOutcome<T> =
   | { outcome: 'notEditable'; status: OnboardingStatusKey }
   | { outcome: 'invalidInput'; problems: string[] }
   | { outcome: 'invalidTransition'; status: OnboardingStatusKey }
+  | {
+      outcome: 'handoffUnavailable';
+      code: 'ONBOARDING_HANDOFF_UNAVAILABLE' | 'ONBOARDING_DEMO_EXPIRED';
+    }
   | {
       outcome: 'incomplete';
       problems: {
@@ -186,6 +210,7 @@ const viewInclude = {
       createdAt: true,
     },
   },
+  demo: { select: { status: true, demoExpiresAt: true } },
   createdBy: adminSelect,
   updatedBy: adminSelect,
   assignedTo: adminSelect,
@@ -212,6 +237,11 @@ function searchColumns(details: OnboardingDetails) {
 
 const json = (value: unknown) => value as Prisma.InputJsonValue;
 
+function handoffSteps(status: OnboardingStatusKey): OnboardingStep[] {
+  if (status === 'DELIVERED') return ['review', 'handoff'];
+  return status === 'READY' ? ['review'] : [];
+}
+
 /**
  * Platform onboarding drafts, A1/A2 review and revision-guarded lifecycle actions.
  * Final provisioning is owned by the separate onboarding saga.
@@ -224,6 +254,8 @@ export class OnboardingCasesService {
     private readonly prisma: PrismaService,
     private readonly audit: PlatformAuditService,
     private readonly trialSettings: PlatformTrialSettingsService,
+    private readonly links: OnboardingHandoffLinksService,
+    private readonly leads: PlatformLeadsService,
   ) {}
 
   async list(input: {
@@ -270,7 +302,7 @@ export class OnboardingCasesService {
         restaurantName: row.restaurantName,
         ownerEmail: row.ownerEmail,
         leadId: row.leadId,
-        completedSteps: row.completedSteps,
+        completedSteps: [...row.completedSteps, ...handoffSteps(row.status)],
         updatedBy: row.updatedBy,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
@@ -286,6 +318,7 @@ export class OnboardingCasesService {
     input: { leadId?: string | null },
   ): Promise<CreateOutcome> {
     const leadId = input.leadId ?? null;
+    let leadStatusVersion: number | null = null;
     const details = emptyDetails();
     // The same starting values as the New Restaurant form; the operator changes them in step 1.
     details.restaurant.countryCode = 'EG';
@@ -303,9 +336,11 @@ export class OnboardingCasesService {
           phone: true,
           restaurantName: true,
           locale: true,
+          statusVersion: true,
         },
       });
       if (!lead) return { outcome: 'leadNotFound' };
+      leadStatusVersion = lead.statusVersion;
       const open = await this.openCaseForLead(leadId);
       if (open) return { outcome: 'leadInProgress', caseId: open };
       // Prefill only what the visitor typed; the acquisition source is NOT invented.
@@ -329,6 +364,7 @@ export class OnboardingCasesService {
           completedSteps: evaluation.completedSteps,
           ...searchColumns(details),
           leadId,
+          leadStatusVersion,
           createdByAdminId: admin.adminId,
           updatedByAdminId: admin.adminId,
           assignedAdminId: admin.adminId,
@@ -520,6 +556,94 @@ export class OnboardingCasesService {
       details: { caseId: id, mode: row.mode, revision: revision + 1 },
     });
     return this.get(id);
+  }
+
+  async deliver(
+    admin: PlatformAdminPrincipal,
+    id: string,
+    revision: number,
+  ): Promise<CaseOutcome<OnboardingCaseView>> {
+    if (!isUuid(id)) return { outcome: 'notFound' };
+    // The public reader takes its own pool connection; never call it while holding the case lock.
+    const preview = await this.prisma.onboardingCase.findUnique({
+      where: { id },
+      select: { status: true, revision: true, mode: true, restaurantId: true },
+    });
+    const readyRestaurantId =
+      preview?.status === 'READY' &&
+      preview.revision === revision &&
+      preview.mode !== 'DEMO' &&
+      preview.restaurantId &&
+      (await this.links.resolve(preview.restaurantId))
+        ? preview.restaurantId
+        : null;
+    const outcome = await this.prisma.$transaction(
+      async (tx): Promise<CaseOutcome<null>> => {
+        await tx.$queryRaw`SELECT id FROM onboarding_cases WHERE id = ${id}::uuid FOR UPDATE`;
+        const row = await tx.onboardingCase.findUnique({ where: { id } });
+        if (!row) return { outcome: 'notFound' };
+        // A lost response may be retried with the already-consumed revision, even after DEMO expiry/purge.
+        if (row.status === 'DELIVERED') return { outcome: 'ok', data: null };
+        if (row.revision !== revision)
+          return { outcome: 'revisionConflict', currentRevision: row.revision };
+        if (!row.mode || !canTransition(row.status, 'DELIVERED'))
+          return { outcome: 'invalidTransition', status: row.status };
+
+        if (row.mode === 'DEMO') {
+          const [demo] = row.demoId
+            ? await tx.$queryRaw<{ expiresAt: Date }[]>`
+          SELECT demo_expires_at AS "expiresAt" FROM restaurants
+          WHERE id = ${row.demoId}::uuid AND is_demo AND status = 'ACTIVE' FOR SHARE
+        `
+            : [];
+          if (!demo?.expiresAt || demo.expiresAt <= new Date())
+            return {
+              outcome: 'handoffUnavailable',
+              code: 'ONBOARDING_DEMO_EXPIRED',
+            };
+        } else {
+          if (!row.restaurantId || !row.menuPublishedAt)
+            return {
+              outcome: 'handoffUnavailable',
+              code: 'ONBOARDING_HANDOFF_UNAVAILABLE',
+            };
+          if (!readyRestaurantId || row.restaurantId !== readyRestaurantId)
+            return {
+              outcome: 'handoffUnavailable',
+              code: 'ONBOARDING_HANDOFF_UNAVAILABLE',
+            };
+        }
+        await tx.onboardingCase.update({
+          where: { id },
+          data: {
+            status: 'DELIVERED',
+            deliveredAt: new Date(),
+            menuDraft: Prisma.DbNull,
+            importExpiresAt: null,
+            importLeaseUntil: null,
+            importReviewed: false,
+            updatedByAdminId: admin.adminId,
+            revision: { increment: 1 },
+          },
+        });
+        await this.audit.record(
+          {
+            admin,
+            action: 'onboarding.delivered',
+            details: { caseId: id, mode: row.mode, leadId: row.leadId },
+          },
+          tx,
+        );
+        await this.leads.onOnboardingDelivered(tx, admin, {
+          caseId: id,
+          leadId: row.leadId,
+          leadStatusVersion: row.leadStatusVersion,
+          mode: row.mode,
+        });
+        return { outcome: 'ok', data: null };
+      },
+    );
+    return outcome.outcome === 'ok' ? this.get(id) : outcome;
   }
 
   async cancel(
@@ -742,6 +866,9 @@ export class OnboardingCasesService {
     const modeConfig = readModeConfig(row.modeConfig);
     const evaluation = await this.evaluate(row.mode, modeConfig, details);
     const menu = menuProblemsForCase(row, details);
+    const ready = row.status === 'READY' || row.status === 'DELIVERED';
+    const demoHistory = this.demoHistoryOf(row);
+    const demoExpiresAt = row.demo?.demoExpiresAt ?? null;
     return {
       id: row.id,
       status: row.status,
@@ -754,7 +881,7 @@ export class OnboardingCasesService {
         ...(row.mode && row.mode !== 'DEMO' && menu.length === 0
           ? ['menu' as const]
           : []),
-        ...(row.status === 'READY' ? ['review' as const] : []),
+        ...handoffSteps(row.status),
       ],
       problems: { customer: evaluation.customer, mode: evaluation.mode, menu },
       menuDraft: readCaseMenu(row),
@@ -767,7 +894,26 @@ export class OnboardingCasesService {
       ...(row.restaurantId ? { restaurantId: row.restaurantId } : {}),
       provisioningKey: row.provisioningKey,
       lastErrorCode: row.lastErrorCode,
-      ownerPasswordRequired: !row.restaurantId && !row.restaurantProvisionedAt,
+      ownerPasswordRequired:
+        row.mode !== 'DEMO' &&
+        !row.restaurantId &&
+        !row.restaurantProvisionedAt,
+      handoff:
+        ready && row.mode !== 'DEMO' && row.restaurantId
+          ? await this.links.resolve(row.restaurantId)
+          : null,
+      deliveredAt: row.deliveredAt?.toISOString() ?? null,
+      demoHistory,
+      demoState: !demoHistory
+        ? null
+        : !row.demoId
+          ? 'PURGED'
+          : row.demo?.status === 'ACTIVE' &&
+              demoExpiresAt &&
+              demoExpiresAt > new Date()
+            ? 'ACTIVE'
+            : 'EXPIRED',
+      demoExpiresAt: demoExpiresAt?.toISOString() ?? null,
       lead: row.lead
         ? { ...row.lead, createdAt: row.lead.createdAt.toISOString() }
         : null,
@@ -788,6 +934,30 @@ export class OnboardingCasesService {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       cancelledAt: row.cancelledAt?.toISOString() ?? null,
+    };
+  }
+
+  private demoHistoryOf(row: CaseRow): OnboardingDemoHistory | null {
+    const snapshot = row.demoHistory;
+    if (!snapshot || typeof snapshot !== 'object' || Array.isArray(snapshot))
+      return null;
+    const { kind, label, packageName, createdAt, expiresAt } = snapshot;
+    if (
+      typeof kind !== 'string' ||
+      typeof label !== 'string' ||
+      (packageName !== null && typeof packageName !== 'string') ||
+      typeof createdAt !== 'string' ||
+      typeof expiresAt !== 'string'
+    )
+      return null;
+    return {
+      kind,
+      label,
+      packageName,
+      createdAt,
+      expiresAt,
+      removedAt: row.demoRemovedAt?.toISOString() ?? null,
+      purged: row.demoId === null,
     };
   }
 }

@@ -7,11 +7,13 @@ import { Alert, Badge, Button, Card, CardHeader, PageHeader, Skeleton } from "@/
 import { ApiError } from "@/lib/api/errors";
 import {
   cancelOnboardingCase,
+  deliverOnboardingCase,
   discardOnboardingImport,
   finishOnboardingCase,
   getOnboardingCase,
   importOnboardingMenu,
   ONBOARDING_STEPS,
+  onboardingStepCount,
   reviewOnboardingMenu,
   submitOnboardingForReview,
   updateOnboardingCase,
@@ -29,6 +31,7 @@ import {
 } from "@/lib/api/onboarding";
 import { useI18n } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { demoAccessStatus, handoffUrl, isHandoffStepOpen } from "@/lib/onboarding-handoff";
 import { onboardingErrorKey, provisioningRequest } from "@/lib/onboarding-menu";
 import { formConfigAfterModeChange, pendingConfigAfterModeChange } from "@/lib/onboarding-package-choice";
 import { cn } from "@/lib/utils";
@@ -36,6 +39,7 @@ import { OnboardingStatusBadge, transportErrorKey } from "../shared";
 import { CustomerStep, type CustomerField } from "./CustomerStep";
 import { DuplicatesPanel } from "./DuplicatesPanel";
 import { FinalProvisioning } from "./FinalProvisioning";
+import { HandoffStep } from "./HandoffStep";
 import { MenuProblems, MenuStep } from "./MenuStep";
 import { ModeStep } from "./ModeStep";
 
@@ -107,15 +111,26 @@ const formOf = (data: OnboardingCase): Form => ({
 });
 
 function firstOpenStep(data: OnboardingCase): OnboardingStep {
+  if (isHandoffStepOpen(data)) return "handoff";
   if (data.status !== "DRAFT") return "review";
   if (!data.completedSteps.includes("customer")) return "customer";
   if (!data.completedSteps.includes("mode")) return "mode";
   return data.mode !== "DEMO" && !data.completedSteps.includes("menu") ? "menu" : "review";
 }
+function caseAccessError(caught: unknown): MessageKey | null {
+  if (!(caught instanceof ApiError)) return null;
+  if (caught.status === 401) return "common.sessionExpired";
+  if (caught.status === 403) return "onboarding.handoff.accessDenied";
+  if (caught.status === 404) return "onboarding.notFound";
+  return null;
+}
+
 export function OnboardingWizard({ caseId }: { caseId: string }) {
   const { t, fmt } = useI18n();
   const [data, setData] = useState<OnboardingCase | null>(null);
   const [loadError, setLoadError] = useState<MessageKey | null>(null);
+  const [loadBusy, setLoadBusy] = useState(true);
+  const [demoLink, setDemoLink] = useState<string | null>(null);
   const [form, setForm] = useState<Form | null>(null);
   const [step, setStep] = useState<OnboardingStep>("customer");
   const [saveState, setSaveState] = useState<SaveState>("idle");
@@ -147,12 +162,16 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
     if (loaded.provisioningKey) provisioningKeyRef.current = loaded.provisioningKey;
     setData(loaded);
     if (resetForm) setForm(formOf(loaded));
+    if (loaded.mode !== "DEMO" || loaded.status !== "READY" || demoAccessStatus(loaded, Date.now()) !== "active") {
+      setDemoLink(null);
+    }
   }, []);
 
   // ---------------------------------------------------------------- load / reload
 
   const load = useCallback(
     async (initial: boolean) => {
+      setLoadBusy(true);
       try {
         const loaded = await getOnboardingCase(caseId);
         pendingRef.current = emptyPending();
@@ -163,10 +182,13 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
         setSaveError(null);
         setActionError(null);
         adopt(loaded, true);
-        if (initial) setStep(firstOpenStep(loaded));
+        if (initial || isHandoffStepOpen(loaded)) setStep(firstOpenStep(loaded));
         setLoadError(null);
       } catch (caught) {
-        setLoadError(caught instanceof ApiError && caught.status === 404 ? "onboarding.notFound" : transportErrorKey(caught));
+        setDemoLink(null);
+        setLoadError(caseAccessError(caught) ?? transportErrorKey(caught));
+      } finally {
+        setLoadBusy(false);
       }
     },
     [caseId, adopt],
@@ -184,6 +206,25 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
     const timer = window.setTimeout(() => setExpiredAt(expiresAt), Math.max(0, Date.parse(expiresAt) - Date.now()));
     return () => window.clearTimeout(timer);
   }, [expiresAt]);
+
+  const demoExpiresAt = data?.demoExpiresAt;
+  useEffect(() => {
+    if (!demoLink || !demoExpiresAt || !Number.isFinite(Date.parse(demoExpiresAt))) return;
+    const timer = window.setTimeout(() => setDemoLink(null), Math.max(0, Date.parse(demoExpiresAt) - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [demoLink, demoExpiresAt]);
+
+  // A document restored from the browser's back/forward cache is also a new visit for demo-link purposes.
+  useEffect(() => {
+    const onShow = (event: PageTransitionEvent) => {
+      if (event.persisted) {
+        setDemoLink(null);
+        void load(false);
+      }
+    };
+    window.addEventListener("pageshow", onShow);
+    return () => window.removeEventListener("pageshow", onShow);
+  }, [load]);
 
   // ---------------------------------------------------------------- autosave
 
@@ -367,10 +408,10 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
   /** Actions consume the revision only after any queued edits have been saved. */
   async function runAction(
     request: (revision: number) => Promise<OnboardingCase>,
-    kind: "submit" | "cancel" | "menu" | "final",
+    kind: "submit" | "cancel" | "menu" | "final" | "deliver",
     discardPendingMenu = false,
   ): Promise<boolean> {
-    if (!data || actionRef.current || conflictRef.current) return false;
+    if (!data || loadBusy || actionRef.current || conflictRef.current) return false;
     actionRef.current = true;
     setActionBusy(true);
     setActionError(null);
@@ -385,7 +426,12 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
       const saved = await flush();
       if (!saved && (kind !== "cancel" || conflictRef.current || savingRef.current)) return false;
       requestRevision = revisionRef.current;
-      adopt(await request(requestRevision), true);
+      const updated = await request(requestRevision);
+      adopt(updated, true);
+      if ((kind === "final" || kind === "deliver") && isHandoffStepOpen(updated)) {
+        movedRef.current = true;
+        setStep("handoff");
+      }
       if (kind === "cancel") {
         pendingRef.current = emptyPending();
         setPendingFields(new Set());
@@ -395,7 +441,20 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
       setConfirmCancel(false);
       return true;
     } catch (caught) {
+      const accessError = caseAccessError(caught);
+      if (accessError) {
+        setDemoLink(null);
+        setLoadError(accessError);
+        return false;
+      }
       const code = caught instanceof ApiError ? caught.code : null;
+      if (kind === "deliver" && code === "ONBOARDING_DEMO_EXPIRED") {
+        setDemoLink(null);
+        setData((current) => current ? { ...current, demoState: "EXPIRED" } : current);
+      }
+      if (kind === "deliver" && code === "ONBOARDING_HANDOFF_UNAVAILABLE") {
+        setData((current) => current ? { ...current, handoff: null } : current);
+      }
       if (code === "ONBOARDING_REVISION_CONFLICT") {
         conflictRef.current = true;
         setConflict(true);
@@ -408,14 +467,26 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
         setActionError(caught instanceof ApiError && caught.problems.includes("ONBOARDING_IMPORT_EXPIRED")
           ? "onboarding.menu.error.expired" : "onboarding.menu.error.review");
       } else {
-        setActionError(onboardingErrorKey(code) ?? transportErrorKey(caught));
+        setActionError(kind === "deliver" && code === "ONBOARDING_INVALID_TRANSITION"
+          ? "onboarding.handoff.deliveryChanged" : onboardingErrorKey(code) ?? transportErrorKey(caught));
       }
-      if (kind === "menu" || kind === "final" || code === "ONBOARDING_INCOMPLETE") {
-        // A failed extraction can consume quota; a lost provisioning response can still have advanced the saga.
-        const fresh = await getOnboardingCase(caseId).catch(() => null);
-        if (fresh) {
+      if (kind === "menu" || kind === "final" || kind === "deliver" || code === "ONBOARDING_INCOMPLETE") {
+        // A lost response can still have committed; reconciliations only read the case, never replay a mutation.
+        try {
+          const fresh = await getOnboardingCase(caseId);
           adopt(fresh, true);
-          if (kind === "final" && (fresh.status === "READY" || (fresh.status === "FAILED" && fresh.revision !== requestRevision))) setActionError(null);
+          if ((kind === "final" || kind === "deliver") && isHandoffStepOpen(fresh)) {
+            movedRef.current = true;
+            setStep("handoff");
+          }
+          if (kind === "final" && (isHandoffStepOpen(fresh) || (fresh.status === "FAILED" && fresh.revision !== requestRevision))) setActionError(null);
+          if (kind === "deliver" && fresh.status === "DELIVERED") setActionError(null);
+        } catch (freshError) {
+          const accessError = caseAccessError(freshError);
+          if (accessError) {
+            setDemoLink(null);
+            setLoadError(accessError);
+          }
         }
       }
       return false;
@@ -427,28 +498,35 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
 
   function finish(route: "provision" | "retry", ownerPassword: string | undefined) {
     if (!data) return;
-    void runAction((revision) => {
+    void runAction(async (revision) => {
       const body = provisioningRequest(revision, data, provisioningKeyRef.current, ownerPassword, () => crypto.randomUUID());
       provisioningKeyRef.current = body.provisioningKey;
-      return finishOnboardingCase(caseId, route, body);
+      const { demoLink: receivedLink, ...updated } = await finishOnboardingCase(caseId, route, body);
+      // The one-time receipt is not adopted into the case or stored anywhere outside this wizard's memory.
+      if (updated.mode === "DEMO" && updated.status === "READY" && demoAccessStatus(updated, Date.now()) === "active") {
+        const link = handoffUrl(receivedLink);
+        if (link) setDemoLink(link);
+      }
+      return updated;
     }, "final");
   }
 
   // ---------------------------------------------------------------- render
 
-  if (loadError) {
+  if (loadError && !loadBusy) {
     return (
       <>
         <BackLink />
         <Alert tone="danger">{t(loadError)}</Alert>
+        {loadError !== "onboarding.notFound" ? <Button className="mt-3" onClick={() => void load(true)}>{t("common.retry")}</Button> : null}
       </>
     );
   }
-  if (!data || !form) {
+  if (loadBusy || !data || !form) {
     return (
       <div className="space-y-4" aria-busy="true">
         <span className="sr-only">{t("common.loading")}</span>
-        <Skeleton className="h-10 w-64" />
+        <Skeleton className="h-10 w-64 max-w-full" />
         <Skeleton className="h-16 w-full" />
         <Skeleton className="h-96 w-full" />
       </div>
@@ -468,12 +546,14 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
     return code ? t(`onboarding.problem.${code}`) : null;
   };
   const modeProblems = (touched.has("mode") || showAll.has("mode")) && !pendingFields.has("mode") ? data.problems.mode : [];
-  const stepState = (s: OnboardingStep): "complete" | "incomplete" | "locked" => {
-    if (s === "handoff" || (s === "menu" && form.mode === "DEMO")) return "locked";
+  const stepState = (s: OnboardingStep): "complete" | "incomplete" | "locked" | "skipped" => {
+    if (s === "handoff" && !isHandoffStepOpen(data)) return "locked";
+    if (s === "menu" && form.mode === "DEMO") return "skipped";
     if (s === "menu" && (pendingFields.has("menu") || importExpired)) return "incomplete";
     return data.completedSteps.includes(s) ? "complete" : "incomplete";
   };
   const completedCount = ONBOARDING_STEPS.filter((s) => stepState(s) === "complete").length;
+  const requiredSteps = onboardingStepCount(form.mode);
   const canSubmit = data.status === "DRAFT" && data.completedSteps.includes("customer") && data.completedSteps.includes("mode");
   const stepIndex = ONBOARDING_STEPS.indexOf(step);
   const currentProblems: string[] =
@@ -522,17 +602,17 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
         <nav aria-label={t("onboarding.stepsLabel")} className="min-w-0">
           <div className="mb-3">
             <p className="text-[13px] font-medium text-muted-foreground">
-              {t("onboarding.progress", { done: fmt.number(completedCount), total: fmt.number(ONBOARDING_STEPS.length) })}
+              {t("onboarding.progress", { done: fmt.number(completedCount), total: fmt.number(requiredSteps) })}
             </p>
             <div
               className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-surface-2"
               role="progressbar"
               aria-valuemin={0}
-              aria-valuemax={ONBOARDING_STEPS.length}
+              aria-valuemax={requiredSteps}
               aria-valuenow={completedCount}
               aria-label={t("onboarding.progressLabel")}
             >
-              <div className="h-full rounded-full bg-primary" style={{ width: `${(completedCount / ONBOARDING_STEPS.length) * 100}%` }} />
+              <div className="h-full rounded-full bg-primary" style={{ width: `${(completedCount / requiredSteps) * 100}%` }} />
             </div>
           </div>
           <ol className="flex gap-2 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible">
@@ -557,7 +637,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
                         "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
                         state === "complete"
                           ? "bg-success text-white"
-                          : state === "locked"
+                          : (state === "locked" || state === "skipped")
                             ? "bg-surface-2 text-muted-foreground"
                             : "border border-border-strong text-foreground",
                       )}
@@ -629,7 +709,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
               }}
             />
           ) : null}
-          {step === "menu" && form.mode === "DEMO" ? <NextMilestone body="onboarding.menu.demo" /> : null}
+          {step === "menu" && form.mode === "DEMO" ? <Card className="p-5 text-sm">{t("onboarding.menu.demo")}</Card> : null}
           {step === "menu" && form.mode !== "DEMO" ? (
             <MenuStep data={data} restaurant={form.details.restaurant} draft={form.menuDraft} disabled={!editable || conflict}
               dirty={pendingFields.has("menu")} busy={actionBusy} saving={saveState === "saving"} expired={importExpired} onChange={onMenu}
@@ -671,11 +751,15 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
                 onFinish={finish} onReload={() => void load(false)} />
             </div>
           ) : null}
-          {step === "handoff" ? <NextMilestone body="onboarding.s5.body" /> : null}
+          {step === "handoff" ? (
+            <HandoffStep data={data} demoLink={demoLink} busy={actionBusy} disabled={actionBusy || conflict}
+              onDeliver={() => void runAction((revision) => deliverOnboardingCase(caseId, revision), "deliver")}
+              onReload={() => void load(false)} onReview={() => goTo("review")} />
+          ) : null}
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
             <div className="flex flex-wrap gap-2">
-              <Button disabled={stepIndex === 0 || actionBusy} onClick={() => goTo(ONBOARDING_STEPS[stepIndex - 1])}>
+              <Button disabled={stepIndex === 0 || actionBusy} onClick={() => goTo(step === "review" && form.mode === "DEMO" ? "mode" : ONBOARDING_STEPS[stepIndex - 1])}>
                 {t("common.previous")}
               </Button>
               {stepIndex < ONBOARDING_STEPS.length - 1 ? (
@@ -723,22 +807,6 @@ function BackLink() {
       <IconArrowLeft className="rtl:rotate-180" width={16} height={16} />
       {t("onboarding.back")}
     </Link>
-  );
-}
-
-/** Steps that belong to later milestones: said plainly, with no pretend success. */
-function NextMilestone({ body }: { body: MessageKey }) {
-  const { t } = useI18n();
-  return (
-    <Card>
-      <div className="flex flex-col gap-2 p-6">
-        <Badge tone="warning" className="self-start">
-          {t("onboarding.notYet")}
-        </Badge>
-        <p className="text-sm text-foreground">{t(body)}</p>
-        <p className="text-[13px] text-muted-foreground">{t("onboarding.notYetHint")}</p>
-      </div>
-    </Card>
   );
 }
 

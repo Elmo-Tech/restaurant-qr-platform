@@ -3,6 +3,7 @@ import { MenuImportModule } from '../menu-import/menu-import.module';
 import { PublicModule } from '../public/public.module';
 import { OnboardingMenuImportService } from './onboarding/onboarding-menu-import.service';
 import { OnboardingMenuWriterService } from './onboarding/onboarding-menu-writer.service';
+import { OnboardingHandoffLinksService } from './onboarding/onboarding-handoff-links.service';
 import { OnboardingProvisioningService } from './onboarding/onboarding-provisioning.service';
 import { AuthModule } from '../auth/auth.module';
 import { DatabaseModule } from '../database/database.module';
@@ -88,6 +89,7 @@ import { PlatformController } from './platform.controller';
     OnboardingMenuImportService,
     OnboardingMenuWriterService,
     OnboardingProvisioningService,
+    OnboardingHandoffLinksService,
   ],
   // the restaurant-facing "My subscription" module records its requests in the same audit log
   exports: [PlatformAuditService],

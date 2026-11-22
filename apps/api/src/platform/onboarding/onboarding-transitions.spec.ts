@@ -8,13 +8,14 @@ import {
 } from './onboarding-transitions';
 
 describe('onboarding case transitions', () => {
-  it('reaches the provisioning and recovery states, but not A4 delivery', () => {
+  it('reaches the provisioning, recovery and delivery states', () => {
     const reachable = new Set<string>(['DRAFT']);
     for (const targets of Object.values(IMPLEMENTED_TRANSITIONS)) {
       for (const target of targets) reachable.add(target);
     }
     expect([...reachable].sort()).toEqual([
       'CANCELLED',
+      'DELIVERED',
       'DRAFT',
       'FAILED',
       'MENU_SETUP',
@@ -39,7 +40,12 @@ describe('onboarding case transitions', () => {
     expect(canTransition('MENU_SETUP', 'READY')).toBe(true);
     expect(canTransition('FAILED', 'MENU_SETUP')).toBe(true);
     expect(canTransition('FAILED', 'CANCELLED')).toBe(true);
-    expect(canTransition('READY', 'DELIVERED')).toBe(false);
+    expect(canTransition('READY', 'DELIVERED')).toBe(true);
+    for (const status of ONBOARDING_STATUSES) {
+      if (status !== 'READY')
+        expect(canTransition(status, 'DELIVERED')).toBe(false);
+      expect(canTransition('DELIVERED', status)).toBe(false);
+    }
   });
 
   it('an edit sends a case under review back to DRAFT', () => {
