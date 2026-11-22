@@ -149,3 +149,11 @@ export const IconInbox = (p: P) => (
     <path d="M4 13.5v4a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-4h-4.5a1.5 1.5 0 0 0-1.5 1.5 1.5 1.5 0 0 1-3 0 1.5 1.5 0 0 0-1.5-1.5Z" />
   </Icon>
 );
+/** A clipboard with a check: the owner onboarding checklist. */
+export const IconClipboard = (p: P) => (
+  <Icon {...p}>
+    <rect x="5" y="4.5" width="14" height="16" rx="2" />
+    <path d="M9 4.5V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v.5" />
+    <path d="m9 13 2 2 4-4.5" />
+  </Icon>
+);

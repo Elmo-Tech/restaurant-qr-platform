@@ -1481,6 +1481,13 @@ they do never affects anyone else.
 **Not in scope:** a public self-service "Try the demo", seeded order history, a test-order button, converting a demo
 into a trial. (Several templates were out of scope here and were added by DEC-061.)
 
+**Extended 2026-11-21 by Product Owner:** an owner onboarding case (Platform console, `docs/01-domain/ONBOARDING_WORKFLOW_SPEC.md`)
+may reference an existing marketing lead and the temporary demo created for that lead. The association lives only in
+the Platform onboarding domain; the public demo shows no lead details; `DemoService` expiry, access tokens,
+restrictions and purge are unchanged; there is no automatic demo → trial / customer conversion. When a demo is
+purged, the case keeps only appropriate non-secret sales history (kind, label, dates, purged flag — never the access
+token or link).
+
 ---
 
 ### DEC-061 — Demo kinds: restaurant, café, sweets shop
@@ -1796,3 +1803,28 @@ The Product Editor shows "Add-ons for every size" and one area per size, each wi
 **Amendment 2026-11-21 (B-D2) — Accepted (Product Owner, second review).** The Promotion domain is extended with **MENU**, **QUANTITY** and **DELIVERY** scopes in addition to the existing supported types; the policy above is the approved promotion policy. Mapping of the original targets: ORDER → `CART`; PRODUCT → the existing Product discount (`products.discount_*`, no Promotion row); CATEGORY → `CATEGORY`. Types stay PERCENTAGE / FIXED_AMOUNT; CATEGORY and MENU are percentage only (INV-PROMO-008 extended). Dated superseding notes (original text kept): AGENTS.md #19, #35, #36; DEC-034; `PROMOTIONS_SPEC.md` #6, #10, #22, #26–#29, #86, #87, #94, INV-PROMO-007 / -008; `DATABASE_SPEC.md` #85; `VERSION_ROADMAP.md` (Promotions row). Release status is unchanged: B1 only (pure engine, unused by order creation); availability per restaurant through the opt-in `PROMOTIONS` key.
 
 **Details:** `PROMOTIONS_SPEC.md` "Implementation Amendment: Unified Promotions"; `docs/01-domain/PROMOTIONS_STACKING_EXAMPLES.md`; `docs/02-technical/UNIFIED_PROMOTIONS_SCHEMA_AND_ROLLOUT.md`; `docs/02-technical/UNIFIED_PROMOTIONS_HISTORICAL_SNAPSHOTS.md`; `docs/02-technical/UNIFIED_PROMOTIONS_IMPLEMENTATION_PLAN.md`.
+
+---
+
+### DEC-076 — Owner Onboarding Wizard decisions (2026-11-21)
+
+**Status:** Product Owner decisions for the Platform Owner Onboarding Wizard (`docs/01-domain/ONBOARDING_WORKFLOW_SPEC.md` §7, branch `feat/onboarding-wizard`). A-D1–A-D3 approved earlier on 2026-11-21 and implemented in milestones A1 + A2; A-D4–A-D7 approved on 2026-11-21 (second review) as **design policies only — milestones A3 / A4 are not started**. Review, QA, merge and deployment remain separate gates.
+
+DEC-075 is reserved by the parallel promotions branch; this entry is therefore DEC-076.
+
+- **A-D1 — Initial Owner password (DEC-047 kept).** The operator types it only at final provisioning; never stored in drafts, audit, logs, URLs or responses; hashed only by the existing password service. No invitation, reset token or generated credential now.
+- **A-D2 — Lead ↔ demo association.** A case may reference a lead and the temporary demo made for it, in the Platform onboarding domain only (dated note under DEC-060). The demo is unchanged; no automatic demo → trial / customer conversion; after purge only non-secret history is kept.
+- **A-D3 — Package.** REAL and TRIAL need an explicit ACTIVE package; no null-package shortcut in the wizard. The legacy form, CLI and demo optional package are unchanged.
+- **A-D4 — Lead status after onboarding.** A REAL or TRIAL case may set its lead to DONE only after successful account delivery / handoff (`DELIVERED`); creating the restaurant alone does not complete the lead. A temporary DEMO normally leaves the lead at CONTACTED. A lead already DONE or DISMISSED is never downgraded, and an intentional manual change by another operator is respected. Automated transitions are idempotent, audited and concurrency-safe (compare-and-set). Onboarding status and lead status stay distinct; operators can still reopen / update a lead through the leads workflow (DEC-053).
+- **A-D5 — Platform Menu Writer (approved for A3).** A dedicated, narrowly scoped, audited writer behind `PlatformAuthGuard` + `PlatformCsrfGuard`; explicit restaurant and resource ownership checks; reuses the Menu / Category / Product / Variant / Modifier and translation rules; no Owner impersonation; no bypass of business validation or package entitlements; no arbitrary DB writes from client JSON; idempotent publishing with resumable partial-failure handling and no duplication after a network retry; full audit events without secrets; integration tests on real PostgreSQL.
+- **A-D6 — Menu import before restaurant creation (staging only).** A protected, bounded onboarding draft plus temporary upload, with file type / size limits, quotas, authorization and retention / cleanup; existing extraction / normalization reused where technically safe; human review of names, categories, variants and prices. No menu record is published before an authorized restaurant exists; at final provisioning the approved draft is attached through the Platform menu writer after rechecking package entitlements and import eligibility. The tenant-scoped `MenuImportService` is never invoked under a fabricated restaurant identity. An incomplete menu never produces a false READY. Simplest staged approach; no second general-purpose import engine.
+- **A-D7 — QR preview.** Reuse the existing Backend-generated Generic QR and menu URL; after tenant provisioning show the real QR preview, copy link and export options. Never a fake QR, and never a pre-provisioning placeholder presented as ready to share. Private demo-access tokens are shown to authorized operators only. Menu readiness is confirmed separately from QR existence.
+
+**Clarifications 2026-11-21 (Product Owner, final clarifications; implementation still A4, not started):**
+
+- **A-D4 — demo leads.** When the temporary demo link has actually been handed over to the prospect, an associated `NEW` lead may move to `CONTACTED`. Demo creation alone changes nothing; an existing `CONTACTED` is kept; `DONE` / `DISMISSED` are never overwritten automatically. REAL / TRIAL may set `DONE` only after successful handoff. All transitions audited, idempotent and concurrency-safe.
+- **A-D7 — QR preview.** The Platform handoff shows the QR preview and a PNG download rendered with the established `qrcode` library, encoding the authoritative Backend-generated Guest Menu URL; `apps/web` QR rendering conventions are reused where practical without coupling Platform authentication to Staff sessions; no placeholder QR before provisioning; the existing Staff QR export features are unchanged.
+
+Decision numbering confirmed: DEC-075 = Promotions, DEC-076 = Onboarding.
+
+Implementation plan: `docs/02-technical/ONBOARDING_IMPLEMENTATION_PLAN.md`; contract: `docs/02-technical/ONBOARDING_API_AND_PERSISTENCE.md`.

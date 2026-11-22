@@ -423,6 +423,8 @@ model Restaurant {
   demoAccessLinks       DemoAccessLink[]
   slugs                 RestaurantSlug[]
   referredAcquisitions  RestaurantAcquisition[]     @relation("RestaurantAcquisitionReferrer")
+  onboardingCases       OnboardingCase[]            @relation("OnboardingCaseRestaurant")
+  onboardingDemoCases   OnboardingCase[]            @relation("OnboardingCaseDemo")
   promotions            Promotion[]
   orderPromotions       OrderPromotion[]
 
@@ -1124,6 +1126,10 @@ model PlatformAdmin {
   subscriptions Subscription[]
   payments      SubscriptionPayment[]
 
+  onboardingCasesCreated  OnboardingCase[] @relation("OnboardingCaseCreatedBy")
+  onboardingCasesUpdated  OnboardingCase[] @relation("OnboardingCaseUpdatedBy")
+  onboardingCasesAssigned OnboardingCase[] @relation("OnboardingCaseAssignedTo")
+
   @@map("platform_admins")
 }
 
@@ -1283,6 +1289,7 @@ model Package {
   subscriptionRequests SubscriptionRequest[]
   signupLeads          SignupLead[]
   trialSettings        PlatformTrialSettings[]
+  onboardingCases      OnboardingCase[]
 
   @@map("packages")
 }
@@ -1505,11 +1512,81 @@ model SignupLead {
   createdAt      DateTime                  @default(now()) @map("created_at") @db.Timestamptz
   updatedAt      DateTime                  @updatedAt @map("updated_at") @db.Timestamptz
 
-  package Package? @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  package         Package?         @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  onboardingCases OnboardingCase[]
 
   @@index([status, createdAt])
   @@index([email, createdAt])
   @@map("signup_leads")
+}
+
+// Owner onboarding wizard (PROPOSED, docs/01-domain/ONBOARDING_WORKFLOW_SPEC.md). Only DRAFT,
+// READY_FOR_REVIEW and CANCELLED are reachable in this build; the other states are reserved for the
+// provisioning saga (A3/A4) so the enum does not need a migration later.
+enum OnboardingCaseStatus {
+  DRAFT
+  READY_FOR_REVIEW
+  PROVISIONING
+  MENU_SETUP
+  READY
+  DELIVERED
+  FAILED
+  CANCELLED
+
+  @@map("onboarding_case_status")
+}
+
+enum OnboardingMode {
+  REAL
+  TRIAL
+  DEMO
+
+  @@map("onboarding_mode")
+}
+
+// A Platform-team onboarding case: a resumable draft of a future Restaurant, owner, attribution and
+// onboarding mode. `details` / `modeConfig` are written only through a strict allow-list sanitizer and
+// NEVER contain a password. `revision` is the optimistic-concurrency token every write must match.
+// Partial unique index (migration SQL): at most one non-terminal case (not CANCELLED / DELIVERED) per lead.
+model OnboardingCase {
+  id               String               @id @default(uuid()) @db.Uuid
+  status           OnboardingCaseStatus @default(DRAFT)
+  mode             OnboardingMode?
+  revision         Int                  @default(1)
+  details          Json                 @default("{}")
+  modeConfig       Json                 @default("{}") @map("mode_config")
+  // Server-computed snapshot at the last write ("customer", "mode", ...); never trusted from a client.
+  completedSteps   String[]             @default([]) @map("completed_steps")
+  // Searchable copies of details (owner e-mail is stored lower-cased, enforced by a CHECK).
+  restaurantName   String?              @map("restaurant_name") @db.VarChar(100)
+  ownerEmail       String?              @map("owner_email") @db.VarChar(254)
+  leadId           String?              @map("lead_id") @db.Uuid
+  packageId        String?              @map("package_id") @db.Uuid
+  // Reserved for the provisioning saga (A3): the provisioned Restaurant and the demo Restaurant.
+  restaurantId     String?              @map("restaurant_id") @db.Uuid
+  demoId           String?              @map("demo_id") @db.Uuid
+  // Reserved for A3: the idempotency key of the final submit.
+  provisioningKey  String?              @unique @map("provisioning_key") @db.Uuid
+  lastErrorCode    String?              @map("last_error_code") @db.VarChar(80)
+  createdByAdminId String?              @map("created_by_admin_id") @db.Uuid
+  updatedByAdminId String?              @map("updated_by_admin_id") @db.Uuid
+  assignedAdminId  String?              @map("assigned_admin_id") @db.Uuid
+  createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz
+  cancelledAt      DateTime?            @map("cancelled_at") @db.Timestamptz
+
+  lead       SignupLead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
+  package    Package?       @relation(fields: [packageId], references: [id], onDelete: SetNull)
+  restaurant Restaurant?    @relation("OnboardingCaseRestaurant", fields: [restaurantId], references: [id], onDelete: SetNull)
+  demo       Restaurant?    @relation("OnboardingCaseDemo", fields: [demoId], references: [id], onDelete: SetNull)
+  createdBy  PlatformAdmin? @relation("OnboardingCaseCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  updatedBy  PlatformAdmin? @relation("OnboardingCaseUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
+  assignedTo PlatformAdmin? @relation("OnboardingCaseAssignedTo", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+
+  @@index([status, updatedAt])
+  @@index([ownerEmail])
+  @@index([leadId])
+  @@map("onboarding_cases")
 }
 
 // Manual suggestion rule (DEC-042): when `product` is in the Guest cart, suggest `suggestedProduct`.

@@ -54,7 +54,12 @@ export type PlatformAction =
   | 'restaurant.auto_suspended'
   | 'restaurant.auto_reactivated'
   | 'subscription_request.created'
-  | 'subscription_request.status_changed';
+  | 'subscription_request.status_changed'
+  // Owner onboarding wizard (PROPOSED). Autosave edits are not audited one by one: the case row keeps
+  // `updatedByAdminId` / `updatedAt`. Details never carry a password or the owner's phone.
+  | 'onboarding.created'
+  | 'onboarding.submitted_for_review'
+  | 'onboarding.cancelled';
 
 /** The audit actor of work the platform does by itself (the hourly subscription check). */
 export const SYSTEM_ACTOR = null;
