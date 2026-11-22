@@ -1,0 +1,441 @@
+{
+  "version": 1,
+  "kind": "WAYTA_20_NEW_ISOREPUBLIC_SOURCE_CANDIDATES_NOT_IMPORT_MANIFEST",
+  "date": "2026-11-16",
+  "scope": "20 genuinely distinct externally evidenced source pages, but zero originals obtained/approved. Do not pass to the importer.",
+  "candidates": [
+    {
+      "id": "iso-new-20-01",
+      "sourcePageUrl": "https://isorepublic.com/photo/burger-in-restaurant/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "BURGER"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-02",
+      "sourcePageUrl": "https://isorepublic.com/photo/mexican-tacos/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "TACOS"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Different ISO Republic taco photo from previous candidate batch. Title-level metadata only; original/QA and rights chain unverified."
+    },
+    {
+      "id": "iso-new-20-03",
+      "sourcePageUrl": "https://isorepublic.com/photo/pizza/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "PIZZA"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-04",
+      "sourcePageUrl": "https://isorepublic.com/photo/fresh-pizza/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "PIZZA"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-05",
+      "sourcePageUrl": "https://isorepublic.com/photo/pizza-and-rocket/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "PIZZA"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-06",
+      "sourcePageUrl": "https://isorepublic.com/photo/pizza-closeup/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "PIZZA"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-07",
+      "sourcePageUrl": "https://isorepublic.com/photo/pasta-and-prawns/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "PASTA"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-08",
+      "sourcePageUrl": "https://isorepublic.com/photo/pasta-dish-plate/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "PASTA"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-09",
+      "sourcePageUrl": "https://isorepublic.com/photo/beef-steak-food/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "STEAK"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-10",
+      "sourcePageUrl": "https://isorepublic.com/photo/grilled-beef-steak/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "STEAK"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-11",
+      "sourcePageUrl": "https://isorepublic.com/photo/grilled-chicken/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "GRILLED_CHICKEN_DISH"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-12",
+      "sourcePageUrl": "https://isorepublic.com/photo/cheesecake-dessert/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "CHEESECAKE"
+      ],
+      "sectors": [
+        "SWEETS"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-13",
+      "sourcePageUrl": "https://isorepublic.com/photo/french-macarons/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "MACARON"
+      ],
+      "sectors": [
+        "SWEETS"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-14",
+      "sourcePageUrl": "https://isorepublic.com/photo/sushi-dish/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "SUSHI"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-15",
+      "sourcePageUrl": "https://isorepublic.com/photo/coffee-cup-cafe/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "CAPPUCCINO"
+      ],
+      "sectors": [
+        "CAFE"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-16",
+      "sourcePageUrl": "https://isorepublic.com/photo/raw-steaks/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "BEEF"
+      ],
+      "sectors": [
+        "BUTCHER"
+      ],
+      "presentation": "RAW",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-17",
+      "sourcePageUrl": "https://isorepublic.com/photo/raw-meat-steak/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "BEEF"
+      ],
+      "sectors": [
+        "BUTCHER"
+      ],
+      "presentation": "RAW",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-18",
+      "sourcePageUrl": "https://isorepublic.com/photo/tacos-plate-food/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "TACOS"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-19",
+      "sourcePageUrl": "https://isorepublic.com/photo/french-fries-truffle/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "FRIES"
+      ],
+      "sectors": [
+        "RESTAURANT"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    },
+    {
+      "id": "iso-new-20-20",
+      "sourcePageUrl": "https://isorepublic.com/photo/fresh-baked-cookies/",
+      "licenseClaim": "CC0 on individual source page",
+      "licenseProofUrl": "https://isorepublic.com/license/",
+      "tagCodes": [
+        "COOKIE"
+      ],
+      "sectors": [
+        "SWEETS"
+      ],
+      "presentation": "READY_TO_SERVE",
+      "sourceUrl": null,
+      "expectedSha256": null,
+      "licenseReviewedAt": null,
+      "approved": false,
+      "visualScores": null,
+      "originalDownloaded": false,
+      "draftImported": false,
+      "notes": "Metadata proposal only. Verify actual original/photo quality and authorship before import."
+    }
+  ],
+  "counts": {
+    "sources": 20,
+    "originalsDownloaded": 0,
+    "individualRightsVerified": 0,
+    "finalQAApproved": 0,
+    "imported": 0
+  },
+  "blockers": [
+    "Container cannot resolve external hosts; connected Windows source machine offline",
+    "No safe production deployment or storage/DB backup verification",
+    "9/10 six-criteria visual QA impossible without full originals and 1:1 / 4:5 crop check",
+    "Actual photographer rights-chain verification not completed"
+  ]
+}
