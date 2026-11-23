@@ -40,14 +40,8 @@ export interface CartLine {
   hasModifierGroups: boolean;
   /** The product photo, or null (the cart row then shows the shared dish tile). */
   imageAssetPath: string | null;
-  /** The CHARGED unit price: the (discounted) product price PLUS every selected Option's priceAdjustment -- display-only. */
-  unitPrice: string;
-  /** unitPrice * quantity -- display-only, exact via BigInt minor units. */
-  lineTotal: string;
-  /** Product Discounts V1: the same line before the discount (original price + options) * quantity; equals `lineTotal` when not discounted. */
-  originalLineTotal: string;
-  /** True while a product discount applies to this line. */
-  discounted: boolean;
+  /** Exact presentation of server-quoted amounts; null until there is a current quote. */
+  pricing: { grossLineTotal: string; netLineTotal: string; saving: string; hasDiscount: boolean } | null;
   selections: CartLineSelection[];
   /** Offers (DEC-069): set for an Offer line (then `productId` is empty); `offerChoices` are the Guest's choices (identities). */
   offerId: string | null;
@@ -94,14 +88,6 @@ export interface CheckoutFormProps {
   fieldErrors: Partial<Record<CheckoutFieldKey, string>>;
   /** The Guest left a field: its problem (if any) may be shown from now on. */
   onFieldBlur: (key: CheckoutFieldKey) => void;
-  subtotalDisplay: string;
-  /** Delivery only, once a zone is chosen. */
-  deliveryFeeDisplay: string | null;
-  grandTotalDisplay: string;
-  /** Delivery only: shown when the items subtotal is below the chosen zone's minimum. */
-  minimumMessage: string | null;
-  /** Delivery only: how much more the items need to reach the zone minimum (display-only). */
-  minimumShortfallDisplay: string | null;
 }
 
 /** What the Guest is ordering into -- drives the hero line, the cart header and the cart bar's sub-line. */

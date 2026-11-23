@@ -31,15 +31,22 @@ import {
   type DineInSessionSlot,
 } from '../table-sessions/table-session-ordering';
 
-import type { OrderPricingSnapshot } from '../promotions/promotion-snapshot';
-import type { PromotionScopeName } from '../promotions/promotion-engine';
+import type {
+  OrderPricingSnapshot,
+  PromotionLabel,
+} from '../promotions/promotion-snapshot';
+import type {
+  PromotionEvaluation,
+  PromotionScopeName,
+  PromotionThresholdProgress,
+} from '../promotions/promotion-engine';
 import {
   priceCart,
   DeliveryZoneInvalidError,
   ItemsUnavailableError,
-  MinimumOrderNotMetError,
   OfferChangedError,
   OfferUnavailableError,
+  type DeliveryMinimumShortfall,
 } from './price-cart';
 
 export interface CreateGuestOrderItemInput {
@@ -108,6 +115,19 @@ export interface AppliedPromotionView {
   amount: string;
 }
 
+interface PublicPromotionProgressView {
+  title: string | null;
+  scope: 'CART' | 'QUANTITY' | 'DELIVERY';
+  status: 'BELOW_MINIMUM_SUBTOTAL' | 'BELOW_MINIMUM_QUANTITY';
+  subtotal: {
+    basis: NonNullable<PromotionThresholdProgress['subtotal']>['basis'];
+    current: string;
+    required: string;
+    remaining: string;
+  } | null;
+  quantity: PromotionThresholdProgress['quantity'];
+}
+
 export interface PublicQuoteView {
   type: OrderType;
   currencyCode: string;
@@ -118,6 +138,7 @@ export interface PublicQuoteView {
   deliveryDiscount: string;
   total: string;
   promotions: AppliedPromotionView[];
+  promotionProgress: PublicPromotionProgressView[];
   items: GuestOrderItemView[];
 }
 
@@ -253,12 +274,15 @@ export type CreateGuestOrderResult =
   | { outcome: 'deliveryUnavailable' }
   /** FT-8: zone missing, unknown, foreign, INACTIVE, or not in the selected Branch -- one indistinguishable outcome. */
   | { outcome: 'deliveryZoneInvalid' }
-  /** FT-8: items subtotal is below the zone's minimum order. Values come from the Backend's own zone row. */
+  /** FT-8: net merchandise is below the zone's minimum order. */
   | {
       outcome: 'minimumOrderNotMet';
       zoneName: string;
       minimumOrder: string;
+      remainingAmount: string;
+      /** Quote only: a priced cart, not authorization to submit it. */
       subtotal?: string;
+      quote?: PublicQuoteView;
     }
   /** Product Discounts V1: the displayed total is stale; `total` is the Backend's current payable total. Nothing was created. */
   | {
@@ -483,6 +507,52 @@ function quoteMoney(snapshot: OrderPricingSnapshot) {
     deliveryDiscount: order.deliveryDiscountAmount.toFixed(2),
     total: order.totalAmount.toFixed(2),
     promotions: snapshot.promotions.map(toPromotionView),
+  };
+}
+
+function toPromotionProgress(
+  evaluations: readonly PromotionEvaluation[],
+  labels: ReadonlyMap<string, PromotionLabel>,
+): PublicPromotionProgressView[] {
+  const progress: PublicPromotionProgressView[] = [];
+  for (const { promotionId, scope, status, thresholdProgress } of evaluations) {
+    if (
+      !thresholdProgress ||
+      (scope !== 'CART' && scope !== 'QUANTITY' && scope !== 'DELIVERY') ||
+      (status !== 'BELOW_MINIMUM_SUBTOTAL' &&
+        status !== 'BELOW_MINIMUM_QUANTITY')
+    ) {
+      continue;
+    }
+    const { subtotal, quantity } = thresholdProgress;
+    progress.push({
+      title: labels.get(promotionId)?.title ?? null,
+      scope,
+      status,
+      subtotal: subtotal
+        ? {
+            basis: subtotal.basis,
+            current: subtotal.current.toFixed(2),
+            required: subtotal.required.toFixed(2),
+            remaining: subtotal.remaining.toFixed(2),
+          }
+        : null,
+      quantity,
+    });
+  }
+  return progress;
+}
+
+function minimumOrderRefusal(
+  shortfall: DeliveryMinimumShortfall,
+  quote?: PublicQuoteView,
+): Extract<CreateGuestOrderResult, { outcome: 'minimumOrderNotMet' }> {
+  return {
+    outcome: 'minimumOrderNotMet',
+    zoneName: shortfall.zoneName,
+    minimumOrder: shortfall.minimumOrder.toFixed(2),
+    remainingAmount: shortfall.remainingAmount.toFixed(2),
+    ...(quote && { subtotal: shortfall.subtotal.toFixed(2), quote }),
   };
 }
 
@@ -898,29 +968,33 @@ export class PublicOrdersService {
           priceCart(tx, pricingContext),
         );
         const allocations = allocationsByLine(priced.snapshot);
-        return {
-          outcome: 'publicQuote',
-          data: {
-            type: orderType,
-            currencyCode,
-            ...quoteMoney(priced.snapshot),
-            items: priced.itemsData.map((line, index) => ({
-              productId: line.productId,
-              offerId: line.offerId ?? null,
-              name: line.productNameSnapshot,
-              variantName: line.variantNameSnapshot,
-              quantity: line.quantity,
-              unitPrice: line.unitPrice.toFixed(2),
-              discountAmount: line.discountAmount.toFixed(2),
-              promotionDiscount: amountString(allocations.get(index)),
-              lineTotal: line.lineTotal.toFixed(2),
-              modifiers: [
-                ...priced.quoteDetails[index].modifiers,
-                ...offerChoiceModifiers(line.offerChoices?.create ?? []),
-              ],
-            })),
-          },
+        const data: PublicQuoteView = {
+          type: orderType,
+          currencyCode,
+          ...quoteMoney(priced.snapshot),
+          promotionProgress: toPromotionProgress(
+            priced.promotionEvaluations,
+            priced.promotionLabels,
+          ),
+          items: priced.itemsData.map((line, index) => ({
+            productId: line.productId,
+            offerId: line.offerId ?? null,
+            name: line.productNameSnapshot,
+            variantName: line.variantNameSnapshot,
+            quantity: line.quantity,
+            unitPrice: line.unitPrice.toFixed(2),
+            discountAmount: line.discountAmount.toFixed(2),
+            promotionDiscount: amountString(allocations.get(index)),
+            lineTotal: line.lineTotal.toFixed(2),
+            modifiers: [
+              ...priced.quoteDetails[index].modifiers,
+              ...offerChoiceModifiers(line.offerChoices?.create ?? []),
+            ],
+          })),
         };
+        return priced.deliveryMinimumShortfall
+          ? minimumOrderRefusal(priced.deliveryMinimumShortfall, data)
+          : { outcome: 'publicQuote', data };
       }
       return await this.prisma.$transaction(
         async (tx): Promise<CreateGuestOrderResult> => {
@@ -942,6 +1016,10 @@ export class PublicOrdersService {
             ...pricingContext,
             lockPromotionReferences: !submission.dryRun,
           });
+          // Delivery never resolves a Table Session; refuse before any order or WhatsApp writes.
+          if (priced.deliveryMinimumShortfall) {
+            return minimumOrderRefusal(priced.deliveryMinimumShortfall);
+          }
           const {
             snapshot,
             itemsData,
@@ -1133,14 +1211,6 @@ export class PublicOrdersService {
             total: error.total.toFixed(2),
             currencyCode,
           },
-        };
-      }
-      if (error instanceof MinimumOrderNotMetError) {
-        return {
-          outcome: 'minimumOrderNotMet',
-          zoneName: error.zoneName,
-          minimumOrder: error.minimumOrder.toFixed(2),
-          ...(!submission ? { subtotal: error.subtotal.toFixed(2) } : {}),
         };
       }
       if (submission && requestIdentity && isClientRequestIdConflict(error)) {

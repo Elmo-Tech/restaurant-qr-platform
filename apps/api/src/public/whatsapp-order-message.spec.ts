@@ -384,6 +384,30 @@ describe('WhatsApp order message', () => {
     expect(nameOnly).not.toMatch(/\n{3,}/);
   });
 
+  it('reconciles fractional merchandise and delivery promotions in Arabic without duplicating the cart discount', () => {
+    const message = buildWhatsappMessage(
+      quote({
+        defaultLocale: 'ar',
+        subtotal: '140.01',
+        discountTotal: '49.99',
+        promotions: [
+          { scope: 'CART', title: '*وفر* الآن', amount: '49.99' },
+          { scope: 'DELIVERY', title: 'خصم المنطقة', amount: '5.01' },
+        ],
+        deliveryFeeOriginal: '25.00',
+        deliveryDiscount: '5.01',
+        deliveryFee: '19.99',
+        total: '160.00',
+      }),
+    );
+    expect(message.split('\n').slice(-4)).toEqual([
+      '\u200Fالأصناف: 190 ج.م',
+      '\u200Fوفر الآن: -49.99 ج.م',
+      '\u200Fالتوصيل: 25 ج.م - 5.01 ج.م (خصم المنطقة) = 19.99 ج.م',
+      '\u200F*الإجمالي: 160 ج.م*',
+    ]);
+  });
+
   it('strips guest-supplied direction overrides without removing customer wording', () => {
     expect(plain('\u202Eأحمد\u202C \u2066محمد\u2069')).toBe('أحمد محمد');
     expect(plain('\u200FHello\u200E')).toBe('Hello');

@@ -397,6 +397,7 @@ describe('PublicOrdersService.createOrder -- DELIVERY (FT-8)', () => {
       outcome: 'minimumOrderNotMet',
       zoneName: 'University District',
       minimumOrder: '150.00',
+      remainingAmount: '50.00',
     });
     expect(mock.orderCreate).not.toHaveBeenCalled();
   });

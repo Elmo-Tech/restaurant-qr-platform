@@ -23,7 +23,18 @@ import {
 import { PrismaService } from '../database/prisma.service';
 import { effectiveOrdering } from '../entitlements/effective-ordering';
 import { EntitlementsService } from '../entitlements/entitlements.service';
-import type { MenuTemplate, ProductAvailability, QrType } from '../generated/prisma/client';
+import {
+  Prisma,
+  type MenuTemplate,
+  type ProductAvailability,
+  type QrType,
+} from '../generated/prisma/client';
+import type { EngineProductLine } from '../promotions/promotion-engine';
+import {
+  loadMenuItemPromotions,
+  resolveMenuItemPromotions,
+  type PublicItemPromotion,
+} from './public-menu-promotions';
 import {
   normalizePlatformLocale,
   type PlatformSupportedLocale,
@@ -295,6 +306,7 @@ export interface PublicMenuVariant {
   /** The full price of this size. */
   price: string;
   discountedPrice: string | null;
+  itemPromotion?: PublicItemPromotion | null;
   isDefault: boolean;
 }
 
@@ -302,7 +314,7 @@ export interface PublicMenuProduct {
   id: string;
   name: string;
   description: string | null;
-  /** The ORIGINAL price. When `discount` is present the Guest is charged `discount.discountedPrice` per unit instead. */
+  /** The original menu price, before any discounts. */
   basePrice: string;
   /**
    * Product Discounts V1: present only while a discount currently applies
@@ -311,6 +323,8 @@ export interface PublicMenuProduct {
    * order creation re-resolves it from the database.
    */
   discount: PublicProductDiscount | null;
+  /** Omitted without PROMOTIONS; null if no item preview can be advertised. Each size has its own candidate. */
+  itemPromotion?: PublicItemPromotion | null;
   primaryImageAssetPath: string | null;
   availability: ProductAvailability;
   featured: boolean;
@@ -367,7 +381,7 @@ function pickRow(
 
 /**
  * FT-3: the public, unauthenticated Guest QR Menu aggregate -- a single
- * bounded read (four Prisma calls total, never one query per Category/
+ * bounded read (never one query per Category/
  * Product/translation row) that resolves a `publicCode` all the way down to
  * a render-ready Menu. Never writes anything; every method here is a pure
  * read (Section 10/25 no-mutation-on-GET requirement).
@@ -603,6 +617,7 @@ export class PublicMenuService {
         // At most one row per platform locale, so no extra filtering is needed.
         branch: {
           select: {
+            id: true,
             name: true,
             address: true,
             phone: true,
@@ -858,6 +873,19 @@ export class PublicMenuService {
       },
     });
 
+    const previewBranches = (
+      qr.type === 'TABLE'
+        ? qr.branch
+          ? [qr.branch]
+          : []
+        : (activeBranches ?? [])
+    ).map(({ id: branchId, timezone }) => ({
+      branchId,
+      today: localDateIn(timezone, now),
+    }));
+    const previewLines: EngineProductLine[] = [];
+    const previewTargets: (PublicMenuProduct | PublicMenuVariant)[] = [];
+    const zero = new Prisma.Decimal(0);
     const publicCategories: PublicMenuCategory[] = [];
     for (const category of categories) {
       const categoryDefault = pickRow(category.translations, defaultLocale);
@@ -945,6 +973,34 @@ export class PublicMenuService {
           startsOn: dateOnlyString(product.discountStartsOn),
           endsOn: dateOnlyString(product.discountEndsOn),
         };
+        const registerPreview = (
+          target: PublicMenuProduct | PublicMenuVariant,
+          unitPrice: Prisma.Decimal,
+          variantId: string | null,
+          sizeDiscountApplies: boolean,
+        ) => {
+          if (!features.PROMOTIONS) return;
+          target.itemPromotion = null;
+          if (
+            product.availability === 'SOLD_OUT' ||
+            previewBranches.length === 0
+          )
+            return;
+          previewLines.push({
+            index: previewTargets.length,
+            kind: 'PRODUCT',
+            productId: product.id,
+            categoryId: category.id,
+            menuId: menu.id,
+            variantId,
+            sizeDiscountApplies,
+            quantity: 1,
+            unitPrice,
+            modifiersUnitTotal: zero,
+            productDiscount: discountConfig,
+          });
+          previewTargets.push(target);
+        };
         const variants: PublicMenuVariant[] = [];
         for (const variant of product.variants) {
           const variantRows: PublicTranslatableRow[] = variant.translations.map((row) => ({
@@ -958,19 +1014,26 @@ export class PublicMenuService {
           const appliedToSize = variant.discountApplies
             ? resolveActiveDiscount(variant.price, discountConfig, today)
             : null;
-          variants.push({
+          const view: PublicMenuVariant = {
             id: variant.id,
             name: variantFields.name,
             price: variant.price.toFixed(2),
             discountedPrice: appliedToSize ? appliedToSize.discountedPrice.toFixed(2) : null,
             isDefault: variant.isDefault,
-          });
+          };
+          registerPreview(
+            view,
+            variant.price,
+            variant.id,
+            variant.discountApplies,
+          );
+          variants.push(view);
         }
 
         // SOLD_OUT Products stay visible (Section 6) -- `availability` is
         // never used as a visibility filter, only `status` is (already
         // applied in the query's `where` above).
-        products.push({
+        const view: PublicMenuProduct = {
           id: product.id,
           name: productFields.name,
           description: productFields.description,
@@ -981,13 +1044,7 @@ export class PublicMenuService {
           discount: (() => {
             const applied = resolveActiveDiscount(
               product.basePrice,
-              {
-                type: product.discountType,
-                value: product.discountValue,
-                enabled: product.discountEnabled,
-                startsOn: dateOnlyString(product.discountStartsOn),
-                endsOn: dateOnlyString(product.discountEndsOn),
-              },
+              discountConfig,
               today,
             );
             return applied
@@ -1005,7 +1062,13 @@ export class PublicMenuService {
           featured: product.featured,
           modifierGroups,
           variants,
-        });
+        };
+        if (product.variants.length === 0) {
+          registerPreview(view, product.basePrice, null, true);
+        } else if (features.PROMOTIONS) {
+          view.itemPromotion = null;
+        }
+        products.push(view);
       }
 
       publicCategories.push({
@@ -1015,6 +1078,22 @@ export class PublicMenuService {
         imageAssetPath: category.imageAssetPath,
         products,
       });
+    }
+
+    if (previewLines.length > 0) {
+      const itemPromotions = await loadMenuItemPromotions(
+        this.prisma,
+        qr.restaurantId,
+        menu.id,
+        publicCategories.map(({ id }) => id),
+      );
+      for (const [index, candidate] of resolveMenuItemPromotions(
+        previewLines,
+        itemPromotions,
+        previewBranches,
+      )) {
+        previewTargets[index].itemPromotion = candidate;
+      }
     }
 
     // Display names resolve to the menu content language, then the Restaurant

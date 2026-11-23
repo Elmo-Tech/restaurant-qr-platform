@@ -26,7 +26,7 @@ test('Makkboz renderer is loaded on demand and replaces only the presentation', 
 });
 
 test('prices, sizes, discounts and sold-out state come from shared menu data; a dish without a photo is a text card', () => {
-  assert.ok(card.includes('DiscountedPrice') && card.includes('product.variants') && card.includes("'SOLD_OUT'"));
+  assert.ok(card.includes('MenuItemPrice') && card.includes('product.variants') && card.includes("'SOLD_OUT'"));
   assert.ok(!/toFixed|parseFloat|Number\(/.test(card), 'money is shown from exact decimal strings');
   assert.ok(card.includes('has-photo') && card.includes('m-card-ornament'));
   assert.ok(!/DEMO|هذا عرض توضيحي|نموذج تصميم|WAYTA Backend/.test(menu + card + css + approvedCss));

@@ -19,6 +19,7 @@ export type ApiMethod = 'GET' | 'POST' | 'PATCH' | 'PUT' | 'DELETE';
 export interface ApiFetchOptions {
   method?: ApiMethod;
   body?: unknown;
+  signal?: AbortSignal;
 }
 
 /**
@@ -56,6 +57,7 @@ export async function apiFetch<TBody = unknown>(
   const response = await fetch(`${browserApiBaseUrl()}${path}`, {
     method: options.method ?? 'GET',
     credentials: 'include',
+    signal: options.signal,
     headers:
       options.body !== undefined
         ? { 'Content-Type': 'application/json' }

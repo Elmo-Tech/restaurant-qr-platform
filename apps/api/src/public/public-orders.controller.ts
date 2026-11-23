@@ -169,11 +169,13 @@ const IDEMPOTENCY_KEY_REUSED_RESPONSE = {
   },
 };
 
-function minimumOrderNotMetResponse(
-  zoneName: string,
-  minimumOrder: string,
-  subtotal?: string,
-) {
+function minimumOrderNotMetResponse({
+  zoneName,
+  minimumOrder,
+  remainingAmount,
+  subtotal,
+  quote,
+}: Extract<CreateGuestOrderResult, { outcome: 'minimumOrderNotMet' }>) {
   return {
     error: {
       code: 'DELIVERY_MINIMUM_NOT_MET',
@@ -181,7 +183,9 @@ function minimumOrderNotMetResponse(
       details: {
         zoneName,
         minimumOrder,
+        remainingAmount,
         ...(subtotal !== undefined ? { subtotal } : {}),
+        ...(quote ? { quote } : {}),
       },
     },
   };
@@ -339,13 +343,7 @@ export class PublicOrdersController {
       throw new ConflictException(DELIVERY_UNAVAILABLE_RESPONSE);
     }
     if (result.outcome === 'minimumOrderNotMet') {
-      throw new BadRequestException(
-        minimumOrderNotMetResponse(
-          result.zoneName,
-          result.minimumOrder,
-          result.subtotal,
-        ),
-      );
+      throw new BadRequestException(minimumOrderNotMetResponse(result));
     }
     if (result.outcome === 'tableOrderingUnavailable') {
       throw new ConflictException(TABLE_ORDERING_UNAVAILABLE_RESPONSE);

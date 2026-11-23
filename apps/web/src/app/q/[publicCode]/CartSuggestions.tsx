@@ -3,25 +3,12 @@
 import { useState } from 'react';
 import { DishFallback } from '../../../components/guest/DishFallback';
 import { GuestIconPlus } from '../../../components/guest/icons';
+import { ItemPromotionLabel } from '../../../components/guest/MenuItemPrice';
 import { Price } from '../../../components/guest/Price';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
-import { toMinorUnits } from '../../../lib/public-menu/money';
+import { cheapestMenuSize, menuItemPrice } from '../../../lib/public-menu/menu-item-price';
 import type { PublicMenuProduct } from '../../../lib/public-menu/types';
-
-/** The price a suggestion shows: the cheapest size ("From") when it has sizes, else its own (discounted) price. */
-function suggestionPrice(product: PublicMenuProduct): { amount: string; from: boolean } {
-  const sizes = product.variants ?? [];
-  if (sizes.length > 0) {
-    const cheapest = sizes.reduce((best, size) =>
-      toMinorUnits(size.discountedPrice ?? size.price) < toMinorUnits(best.discountedPrice ?? best.price)
-        ? size
-        : best,
-    );
-    return { amount: cheapest.discountedPrice ?? cheapest.price, from: true };
-  }
-  return { amount: product.discount ? product.discount.discountedPrice : product.basePrice, from: false };
-}
 
 function SuggestionCard({
   product,
@@ -38,7 +25,8 @@ function SuggestionCard({
 }) {
   const imageUrl = resolveAssetUrl(product.primaryImageAssetPath);
   const [imageFailed, setImageFailed] = useState(false);
-  const { amount, from } = suggestionPrice(product);
+  const size = cheapestMenuSize(product);
+  const { current, promotion } = menuItemPrice(product, size, false);
   return (
     <li className="flex w-[150px] shrink-0 flex-col overflow-hidden rounded-[18px] border border-g-line bg-g-surface">
       {showPhotos ? (
@@ -64,11 +52,11 @@ function SuggestionCard({
         </p>
         <div className="mt-auto flex items-end justify-between gap-2 pt-1">
           <span className="min-w-0">
-            {from ? (
+            {size ? (
               <span className="block text-[11px] font-semibold text-g-text-3">{copy.fromPrice}</span>
             ) : null}
             <Price
-              amount={amount}
+              amount={current}
               currency={currency}
               className="g-num text-[15px] [font-weight:800] text-g-price"
               currencyClassName="text-[10.5px] font-semibold"
@@ -83,6 +71,7 @@ function SuggestionCard({
             <GuestIconPlus className="size-[18px]" strokeWidth={2.8} />
           </button>
         </div>
+        <ItemPromotionLabel promotion={promotion} currency={currency} copy={copy} />
       </div>
     </li>
   );

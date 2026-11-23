@@ -324,6 +324,7 @@ export function MinimumNotice({
   return (
     <div
       role="alert"
+      data-testid="delivery-minimum-shortfall"
       className="mt-3 flex gap-3 rounded-2xl border border-g-accent bg-g-accent-soft p-3.5 text-g-text"
     >
       <GuestIconAlert className="mt-0.5 size-5 shrink-0 text-g-accent-text" />
@@ -506,7 +507,7 @@ export function SummaryRow({
         strong ? 'text-base font-bold text-g-text' : 'text-[14.5px] text-g-text-2'
       }`}
     >
-      <span>{label}</span>
+      <bdi className="min-w-0 break-words text-start">{label}</bdi>
       <Price
         amount={amount}
         currency={currency}

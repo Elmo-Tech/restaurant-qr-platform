@@ -91,7 +91,7 @@ export function OrderDetailContent({
     return t(transitionLabelKey(to, order.type));
   }
   const showFee = isDelivery;
-  const { hasDiscount, grossSubtotal, merchandisePromotions, deliveryFee, deliveryDiscount } =
+  const { hasDiscount, grossSubtotal, legacyDiscount, merchandisePromotions, deliveryFee, deliveryDiscount } =
     orderDisplayPricing(order);
 
   return (
@@ -310,16 +310,8 @@ export function OrderDetailContent({
                   </p>
                 </li>
               ))}
-              {merchandisePromotions.map((promotion, index) => (
-                <li key={`promotion-${index}`} className="flex justify-between gap-3 px-3 py-2 text-sm text-success">
-                  <span className="min-w-0 break-words"><bdi dir="auto">{promotion.title ?? t('orders.pricing.promotion')}</bdi></span>
-                  <bdi dir="ltr" className="shrink-0">−{promotion.amount} {order.currencyCode}</bdi>
-                </li>
-              ))}
             </ul>
           </section>
-
-          <OrderTimeline history={order.statusHistory} type={order.type} />
 
           <div className="flex flex-col gap-2 rounded-lg bg-muted px-4 py-3">
             {showFee || hasDiscount ? (
@@ -330,29 +322,38 @@ export function OrderDetailContent({
                     {grossSubtotal} {order.currencyCode}
                   </bdi>
                 </div>
-                {hasDiscount ? (
+                {legacyDiscount !== '0.00' ? (
                   <div className="flex items-baseline justify-between text-sm font-semibold text-success">
                     <span>{t('orders.detail.discount')}</span>
-                    <bdi dir="ltr">
-                      {'−'}
-                      {order.discountTotal} {order.currencyCode}
-                    </bdi>
+                    <bdi dir="ltr">−{legacyDiscount} {order.currencyCode}</bdi>
                   </div>
                 ) : null}
+                {merchandisePromotions.map((promotion, index) => (
+                  <div key={index} className="flex items-baseline justify-between gap-3 text-sm font-semibold text-success">
+                    <span className="min-w-0 break-words"><bdi dir="auto">{promotion.title ?? t('orders.pricing.promotion')}</bdi></span>
+                    <bdi dir="ltr" className="shrink-0">−{promotion.amount} {order.currencyCode}</bdi>
+                  </div>
+                ))}
                 {showFee ? (
-                  <div className="flex items-baseline justify-between text-sm text-muted-foreground">
-                    <span>{t('orders.detail.deliveryFee')}</span>
-                    <bdi dir="ltr">{deliveryFee} {order.currencyCode}</bdi>
+                  <div className="flex items-baseline justify-between gap-3 text-sm text-muted-foreground">
+                    <span>{t(deliveryDiscount ? 'orders.pricing.deliveryFeeBeforeDiscount' : 'orders.detail.deliveryFee')}</span>
+                    <bdi dir="ltr" className="shrink-0">{deliveryFee} {order.currencyCode}</bdi>
                   </div>
                 ) : null}
                 {deliveryDiscount ? (
-                  <div className="flex items-baseline justify-between gap-3 text-sm font-semibold text-success">
-                    <span className="min-w-0 break-words">
-                      {t('orders.pricing.deliveryDiscount')}
-                      {deliveryDiscount.title ? <> · <bdi dir="auto">{deliveryDiscount.title}</bdi></> : null}
-                    </span>
-                    <bdi dir="ltr" className="shrink-0">−{deliveryDiscount.amount} {order.currencyCode}</bdi>
-                  </div>
+                  <>
+                    <div className="flex items-baseline justify-between gap-3 text-sm font-semibold text-success">
+                      <span className="min-w-0 break-words">
+                        {t('orders.pricing.deliveryDiscount')}
+                        {deliveryDiscount.title ? <> · <bdi dir="auto">{deliveryDiscount.title}</bdi></> : null}
+                      </span>
+                      <bdi dir="ltr" className="shrink-0">−{deliveryDiscount.amount} {order.currencyCode}</bdi>
+                    </div>
+                    <div className="flex items-baseline justify-between gap-3 text-sm text-muted-foreground">
+                      <span>{t('orders.pricing.deliveryFeeAfterDiscount')}</span>
+                      <bdi dir="ltr" className="shrink-0">{order.deliveryFee} {order.currencyCode}</bdi>
+                    </div>
+                  </>
                 ) : null}
               </>
             ) : null}
@@ -363,6 +364,8 @@ export function OrderDetailContent({
               </bdi>
             </div>
           </div>
+
+          <OrderTimeline history={order.statusHistory} type={order.type} />
         </div>
 
         {/* Phones (< sm, the full-screen dialog): utilities and destructive

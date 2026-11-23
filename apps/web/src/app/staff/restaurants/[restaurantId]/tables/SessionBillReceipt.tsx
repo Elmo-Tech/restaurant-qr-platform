@@ -219,17 +219,22 @@ export function SessionBillView({
                   <span>{t('sessions.print.order', { number: round.roundNumber })}</span>
                   <span>{money(round.totalAmount)}</span>
                 </p>
-                {round.items.map((item, index) => (
-                  <p key={index} className="ps-3">
-                    <Num>{item.quantity}×</Num> <Text>{item.productNameSnapshot}{item.variantName ? ` · ${item.variantName}` : ''}</Text>
-                  </p>
-                ))}
-                {round.promotions?.map((promotion, index) => (
-                  <p key={`promotion-${index}`} className="flex justify-between gap-2 ps-3">
-                    <span className="min-w-0 break-words"><Text>{promotion.title ?? t('orders.pricing.promotion')}</Text></span>
-                    <span className="whitespace-nowrap"><Num>−{promotion.amount}</Num></span>
-                  </p>
-                ))}
+                <ul className="ps-3">
+                  {round.items.map((item, index) => (
+                    <li key={index} className="flex justify-between gap-2">
+                      <span className="min-w-0 break-words">
+                        <Num>{item.quantity}×</Num> <Text>{item.productNameSnapshot}{item.variantName ? ` · ${item.variantName}` : ''}</Text>
+                      </span>
+                      <span className="whitespace-nowrap"><Num>{item.lineTotal}</Num></span>
+                    </li>
+                  ))}
+                  {round.promotions?.map((promotion, index) => (
+                    <li key={`promotion-${index}`} className="flex justify-between gap-2">
+                      <span className="min-w-0 break-words"><Text>{promotion.title ?? t('orders.pricing.promotion')}</Text></span>
+                      <span className="whitespace-nowrap"><Num>−{promotion.amount}</Num></span>
+                    </li>
+                  ))}
+                </ul>
               </div>
             ))}
           </section>

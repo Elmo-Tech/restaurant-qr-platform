@@ -85,6 +85,7 @@ export function DiscountedPrice({
   originalClassName,
   direction = 'row',
   badge = null,
+  preview = false,
 }: {
   /** The price before any discount. */
   original: string;
@@ -100,6 +101,8 @@ export function DiscountedPrice({
   direction?: 'column' | 'row';
   /** When set, the badge joins the lockup after the original price. */
   badge?: PublicProductDiscount | null;
+  /** Menu-only display of a potential Product-discount price. */
+  preview?: boolean;
 }) {
   if (!discounted) {
     return (
@@ -119,7 +122,9 @@ export function DiscountedPrice({
           : 'flex-col items-start gap-0.5'
       }`}
     >
-      <span className="sr-only">{copy.discountedPriceAria} </span>
+      <span className={preview ? "basis-full text-[11px] font-semibold" : "sr-only"}>
+        {preview ? copy.possiblePromotionPrice : copy.discountedPriceAria}{' '}
+      </span>
       <Price
         amount={current}
         currency={currency}

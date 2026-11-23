@@ -154,6 +154,15 @@ export interface PublicProductDiscount {
   endsOn: string | null;
 }
 
+/** The backend's best eligible item-scope preview; never an applied cart discount. */
+export interface PublicItemPromotion {
+  scope: 'PRODUCT' | 'CATEGORY' | 'MENU';
+  type: 'PERCENTAGE' | 'FIXED_AMOUNT';
+  value: string;
+  amountOff: string;
+  previewPrice: string | null;
+}
+
 export interface PublicDeliveryZone {
   id: string;
   name: string;
@@ -206,6 +215,7 @@ export interface PublicMenuVariant {
   name: string;
   price: string;
   discountedPrice: string | null;
+  itemPromotion?: PublicItemPromotion | null;
   isDefault: boolean;
 }
 
@@ -213,10 +223,11 @@ export interface PublicMenuProduct {
   id: string;
   name: string;
   description: string | null;
-  /** The ORIGINAL price. While `discount` is present the Guest pays `discount.discountedPrice` per unit instead. */
+  /** The original menu price, before any discounts. */
   basePrice: string;
   /** Product Discounts V1: present only while a discount currently applies; absent means normal pricing. */
   discount: PublicProductDiscount | null;
+  itemPromotion?: PublicItemPromotion | null;
   primaryImageAssetPath: string | null;
   availability: PublicProductAvailability;
   featured: boolean;

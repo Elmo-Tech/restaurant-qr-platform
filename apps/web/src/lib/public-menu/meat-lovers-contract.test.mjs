@@ -27,7 +27,7 @@ test('Meat Lovers renderer is loaded on demand and replaces only the presentatio
 });
 
 test('prices come from shared menu data; a cut without a photo gets built-in artwork; no money arithmetic in the UI', () => {
-  assert.ok(card.includes('DiscountedPrice') && card.includes('product.variants') && card.includes("'SOLD_OUT'"));
+  assert.ok(card.includes('MenuItemPrice') && card.includes('product.variants') && card.includes("'SOLD_OUT'"));
   assert.ok(card.includes('perKiloPrice(product)'));
   assert.ok(!/toFixed|parseFloat|Number\(/.test(card), 'money is shown from exact decimal strings');
   assert.ok(card.includes('MeatLoversPlaceholder'));

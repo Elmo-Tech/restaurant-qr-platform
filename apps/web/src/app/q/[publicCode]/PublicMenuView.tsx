@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 import { GuestIconInfo } from '../../../components/guest/icons';
 import { GuestLocaleProvider } from '../../../components/guest/GuestLocale';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
@@ -25,10 +25,8 @@ import { extraLabel, getOffersCopy } from '../../../lib/public-menu/offers-copy'
 import { OfferSheet } from './OfferSheet';
 import { OffersStrip } from './OffersStrip';
 import {
-  lineTotalMinorUnits,
   fromMinorUnits,
   toMinorUnits,
-  ZERO_MINOR_UNITS,
 } from '../../../lib/public-menu/money';
 import { getTableOrdering, submitGuestOrder } from '../../../lib/public-menu/orders-api';
 import { TableClosedNotice, type OrderingRecheckStatus } from './TableClosedNotice';
@@ -60,6 +58,8 @@ import {
   type WhatsappOrderView,
 } from '../../../lib/public-menu/orders-api';
 import { TrackOrderSheet } from './TrackOrderSheet';
+import { orderItemDisplayPricing } from '../../../lib/orders/display-pricing';
+import { useCartQuote } from './useCartQuote';
 import { useCheckoutValidation } from './useCheckoutValidation';
 import { sanitizeWhileTyping } from '../../../lib/public-menu/checkout-validation';
 import { fetchSuggestions } from '../../../lib/public-menu/suggestions';
@@ -467,6 +467,7 @@ export function PublicMenuView({
   const [hasHydratedCart, setHasHydratedCart] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const submissionInFlight = useRef(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   // Table Sessions: staff can close ordering for a TABLE QR. The server-rendered value is
   // advisory; a 409 from the order endpoint or "Check again" overrides it. Never applies to
@@ -540,23 +541,25 @@ export function PublicMenuView({
     country: data.context.restaurant.countryCode,
     locale,
   });
-  const submitValues = validation.valuesForSubmit();
-  const checkout: PendingOrderCheckout | null = isGenericQr
-    ? {
-        fulfillment,
-        branchId: resolvedBranchId,
-        customerName: submitValues.customerName,
-        customerPhone: submitValues.customerPhone,
-        customerNotes: submitValues.customerNotes,
-        deliveryZoneId: isDelivery ? resolvedZoneId : null,
-        // A Pickup attempt never carries delivery text (typed earlier, then switched away from).
-        deliveryAddress: isDelivery ? submitValues.deliveryAddress : '',
-        deliveryBuilding: isDelivery ? submitValues.deliveryBuilding : '',
-        deliveryFloor: isDelivery ? submitValues.deliveryFloor : '',
-        deliveryApartment: isDelivery ? submitValues.deliveryApartment : '',
-        deliveryLandmark: isDelivery ? submitValues.deliveryLandmark : '',
-      }
-    : null;
+  const { valuesForSubmit } = validation;
+  const checkout = useMemo<PendingOrderCheckout | null>(() => {
+    if (!isGenericQr) return null;
+    const submitValues = valuesForSubmit();
+    return {
+      fulfillment,
+      branchId: resolvedBranchId,
+      customerName: submitValues.customerName,
+      customerPhone: submitValues.customerPhone,
+      customerNotes: submitValues.customerNotes,
+      deliveryZoneId: isDelivery ? resolvedZoneId : null,
+      // A Pickup attempt never carries delivery text typed before switching modes.
+      deliveryAddress: isDelivery ? submitValues.deliveryAddress : '',
+      deliveryBuilding: isDelivery ? submitValues.deliveryBuilding : '',
+      deliveryFloor: isDelivery ? submitValues.deliveryFloor : '',
+      deliveryApartment: isDelivery ? submitValues.deliveryApartment : '',
+      deliveryLandmark: isDelivery ? submitValues.deliveryLandmark : '',
+    };
+  }, [isGenericQr, isDelivery, valuesForSubmit, fulfillment, resolvedBranchId, resolvedZoneId]);
   // A stable primitive for effect dependencies (the object above is new every render).
   const checkoutKey = JSON.stringify(checkout);
   // The Product open in the customizer sheet -- null means no sheet is open.
@@ -627,6 +630,7 @@ export function PublicMenuView({
   // (Stable identity: the memoized menu below depends on the handlers.)
   const updateCart = useCallback(
     (updater: (prev: StoredCartItem[]) => StoredCartItem[]) => {
+      if (submissionInFlight.current) return;
       setCart((prev) => {
         const next = updater(prev);
         saveCart(publicCode, next);
@@ -960,10 +964,10 @@ export function PublicMenuView({
     );
   }, [offers, hasHydratedCart, cart, updateCart]);
 
-  const cartLines: CartLine[] = cart
+  const unpricedLines: CartLine[] = cart
     .map((item): CartLine | null => {
       if (item.offerId) {
-        // An Offer line (DEC-069): name, rows and price always come from the CURRENT offer, never from storage.
+        // An Offer line (DEC-069): its choices come from the current menu; its prices come from the quote.
         const resolved = resolveOfferLine(
           offers,
           { offerId: item.offerId, choices: item.offerChoices ?? [] },
@@ -971,7 +975,6 @@ export function PublicMenuView({
           locale === 'ar' ? '، ' : ', ',
         );
         if (!resolved) return null;
-        const unitPrice = resolved.unitPrice;
         return {
           lineKey: storedItemKey(item),
           productId: '',
@@ -985,10 +988,7 @@ export function PublicMenuView({
           category: null,
           hasModifierGroups: true,
           imageAssetPath: resolved.offer.imageAssetPath,
-          unitPrice,
-          lineTotal: fromMinorUnits(lineTotalMinorUnits(unitPrice, item.quantity)),
-          originalLineTotal: fromMinorUnits(lineTotalMinorUnits(unitPrice, item.quantity)),
-          discounted: false,
+          pricing: null,
           selections: [],
           offerRows: resolved.rows,
           blocked: resolved.problem !== null,
@@ -1013,7 +1013,6 @@ export function PublicMenuView({
       // rejects the whole Order with a guest-safe error if it's genuinely
       // no longer valid -- Section: Cart remains intact on that error).
       const selections: { groupName: string; optionName: string; priceAdjustment: string }[] = [];
-      let modifiersMinorUnits = ZERO_MINOR_UNITS;
       const activeGroups = modifierGroupsForSize(
         product.modifierGroups, item.variantId ?? null, (product.variants?.length ?? 0) > 0,
       );
@@ -1025,7 +1024,6 @@ export function PublicMenuView({
               optionName: option.name,
               priceAdjustment: option.priceAdjustment,
             });
-            modifiersMinorUnits += toMinorUnits(option.priceAdjustment);
           }
         }
       }
@@ -1034,20 +1032,6 @@ export function PublicMenuView({
       const sizes = product.variants ?? [];
       const size = item.variantId ? (sizes.find((entry) => entry.id === item.variantId) ?? null) : null;
       const sizeMissing = sizes.length > 0 && size === null;
-      // Product Discounts V1: the discount applies to the product (or size) price only, never to
-      // paid extras. Display only -- the Backend recomputes every amount on submit.
-      const baseForLine = size ? size.price : product.basePrice;
-      const discountedForLine = size
-        ? size.discountedPrice
-        : product.discount
-          ? product.discount.discountedPrice
-          : null;
-      const discounted = discountedForLine !== null;
-      const originalUnitPrice = fromMinorUnits(toMinorUnits(baseForLine) + modifiersMinorUnits);
-      const unitPrice = discountedForLine !== null
-        ? fromMinorUnits(toMinorUnits(discountedForLine) + modifiersMinorUnits)
-        : originalUnitPrice;
-
       return {
         lineKey: storedItemKey(item),
         productId: item.productId,
@@ -1059,10 +1043,7 @@ export function PublicMenuView({
         category: categoryByProductId.get(item.productId) ?? null,
         hasModifierGroups: product.modifierGroups.length > 0 || sizes.length > 0,
         imageAssetPath: product.primaryImageAssetPath,
-        unitPrice,
-        lineTotal: fromMinorUnits(lineTotalMinorUnits(unitPrice, item.quantity)),
-        originalLineTotal: fromMinorUnits(lineTotalMinorUnits(originalUnitPrice, item.quantity)),
-        discounted,
+        pricing: null,
         selections,
         offerId: null,
         offerChoices: [],
@@ -1094,53 +1075,53 @@ export function PublicMenuView({
           },
     );
 
-  const orderableLines = cartLines.filter((line) => !line.blocked);
-  const hasBlockedLines = cartLines.some((line) => line.blocked);
-  const totalMinorUnits = orderableLines.reduce(
-    (sum, line) => sum + lineTotalMinorUnits(line.unitPrice, line.quantity),
-    ZERO_MINOR_UNITS,
-  );
-  const totalDisplay = fromMinorUnits(totalMinorUnits);
-  const originalTotalMinorUnits = orderableLines.reduce(
-    (sum, line) => sum + toMinorUnits(line.originalLineTotal),
-    ZERO_MINOR_UNITS,
-  );
-  const discountDisplay =
-    originalTotalMinorUnits > totalMinorUnits
-      ? fromMinorUnits(originalTotalMinorUnits - totalMinorUnits)
-      : null;
+  const hasBlockedLines = unpricedLines.some((line) => line.blocked);
   const cartCount = cart.reduce((sum, item) => sum + item.quantity, 0);
-  // FT-8 display-only breakdown (exact BigInt minor units). The Backend
-  // recomputes the fee, minimum and total from the zone row on submit.
-  const deliveryFeeMinorUnits = selectedZone
-    ? toMinorUnits(selectedZone.deliveryFee)
-    : ZERO_MINOR_UNITS;
-  const deliveryFeeDisplay = fromMinorUnits(deliveryFeeMinorUnits);
-  const grandTotalDisplay = fromMinorUnits(totalMinorUnits + deliveryFeeMinorUnits);
-  const belowMinimum =
-    selectedZone !== null && totalMinorUnits < toMinorUnits(selectedZone.minimumOrder);
-  // Money inside sentences uses the Guest display format ("100 ج.م" / "100 EGP").
-  const unitLabel = currencyLabel(currency, locale);
-  const minimumMessage =
-    selectedZone !== null && belowMinimum
-      ? copy.minimumOrderMessage(
-          selectedZone.name,
-          formatAmount(selectedZone.minimumOrder),
-          unitLabel,
-        )
-      : null;
-  const minimumShortfallDisplay =
-    selectedZone !== null && belowMinimum
-      ? copy.minimumShortfall(
-          formatAmount(fromMinorUnits(toMinorUnits(selectedZone.minimumOrder) - totalMinorUnits)),
-          unitLabel,
-        )
-      : null;
-  // Branch, delivery area and the minimum order block the button with a reason. The typed
-  // fields (name, phone, address ...) do not: tapping send shows each problem under its field.
-  const checkoutDetailsComplete =
-    !isGenericQr ||
-    (resolvedBranchId !== null && (!isDelivery || (resolvedZoneId !== null && !belowMinimum)));
+  const checkoutContextComplete = !isGenericQr ||
+    (resolvedBranchId !== null && (!isDelivery || resolvedZoneId !== null));
+  const items = toSubmitItems(unpricedLines);
+  const { state: quoteState, refresh: refreshQuote } = useCartQuote(publicCode,
+    canOrder && hasHydratedCart && checkoutContextComplete && !hasBlockedLines && items.length > 0
+      ? {
+          items,
+          locale: data.locale.resolved,
+          ...(isGenericQr ? {
+            fulfillment,
+            ...(resolvedBranchId ? { branchId: resolvedBranchId } : {}),
+            ...(isDelivery && resolvedZoneId ? { deliveryZoneId: resolvedZoneId } : {}),
+          } : {}),
+        }
+      : null,
+  );
+  const quote = quoteState.kind === 'ready' || quoteState.kind === 'minimum' ? quoteState.quote : null;
+  const quoteCurrency = quote?.currencyCode ?? currency;
+  const cartLines = quote ? unpricedLines.map((line, index) => {
+    const quoted = quote.items[index];
+    const amounts = orderItemDisplayPricing(quoted);
+    return {
+      ...line,
+      pricing: {
+        ...amounts,
+        saving: fromMinorUnits(toMinorUnits(amounts.grossLineTotal) - toMinorUnits(amounts.netLineTotal)),
+      },
+      // Offer choices have their own slots; keep them there, not in the product modifier recap.
+      selections: line.offerId ? line.selections : quoted.modifiers,
+    };
+  }) : unpricedLines;
+  const belowMinimum = quoteState.kind === 'minimum';
+  const unitLabel = currencyLabel(quoteCurrency, locale);
+  const minimumMessage = quoteState.kind === 'minimum'
+    ? copy.minimumOrderMessage(quoteState.zoneName, formatAmount(quoteState.minimumOrder), unitLabel)
+    : null;
+  const minimumShortfallDisplay = quoteState.kind === 'minimum'
+    ? copy.minimumNetShortfall(
+        formatAmount(quoteState.subtotal),
+        formatAmount(quoteState.remainingAmount ?? fromMinorUnits(
+          toMinorUnits(quoteState.minimumOrder) - toMinorUnits(quoteState.subtotal),
+        )),
+        unitLabel,
+      )
+    : null;
   // Opening hours (DEC-042): a closed Branch takes no Pickup / Delivery orders. Advisory
   // here; the Backend refuses with BRANCH_CLOSED either way.
   const branchClosed =
@@ -1150,7 +1131,7 @@ export function PublicMenuView({
     cartLines.length > 0 &&
     !hasBlockedLines &&
     !isSubmitting &&
-    checkoutDetailsComplete &&
+    quoteState.kind === 'ready' &&
     !branchClosed &&
     !tableLocked;
   // WhatsApp ordering (DEC-042): while it is on, a Restaurant QR order is sent to the Restaurant on
@@ -1161,7 +1142,7 @@ export function PublicMenuView({
     data.context.tracking !== false && !(isGenericQr && data.context.ordering?.whatsapp);
   const whatsappAction =
     isGenericQr && data.context.ordering?.whatsapp
-      ? { onSend: () => void handleSendWhatsapp() }
+      ? { onSend: () => void submitCheckout('whatsapp') }
       : null;
 
   // Why the primary action is unavailable, in words (shown instead of a silently greyed button).
@@ -1172,7 +1153,7 @@ export function PublicMenuView({
     ? copy.placeOrderHintBlocked
     : branchClosed
       ? copy.branchClosedHint
-      : !checkoutDetailsComplete && !belowMinimum
+      : !checkoutContextComplete && !belowMinimum
       ? isDelivery && resolvedBranchId !== null
         ? copy.deliveryAreaError
         : copy.pickupBranchError
@@ -1213,45 +1194,55 @@ export function PublicMenuView({
     return () => document.removeEventListener('visibilitychange', onVisible);
   }, [tableLocked, checkOrderingAgain]);
 
-  async function handlePlaceOrder() {
-    if (!canSubmit) return;
-    if (!(await validation.checkBeforeSend())) return;
-    setIsSubmitting(true);
-    setSubmitError(null);
-    const items = toSubmitItems(orderableLines);
-    // FT-5 critical fix: reuse the SAME clientRequestId as any still-
-    // pending attempt for this exact Cart payload (a retry after a lost
-    // response, including across a refresh or an EN/AR navigation), or
-    // generate+persist a fresh one -- never a brand-new id on every call,
-    // which would silently defeat the Backend's idempotency guarantee on
-    // the most important case (an ambiguous network failure).
-    const clientRequestId = resolveClientRequestId(
-      publicCode,
-      toPendingItems(orderableLines),
-      checkout,
-      generateUuid,
-    );
-    const result = await submitGuestOrder(
-      publicCode,
-      clientRequestId,
-      items,
-      checkout,
-      data.locale.resolved,
-      // The total the Guest is looking at: if a discount changed meanwhile the Backend
-      // answers 409 instead of silently charging a different amount.
-      isDelivery ? grandTotalDisplay : totalDisplay,
-    );
-    setIsSubmitting(false);
+  const submissionCandidate = quoteState.kind === 'ready' && canSubmit ? quoteState.quote : null;
+  const latestCheckout = useRef({ checkout, fields, candidate: submissionCandidate });
+  useLayoutEffect(() => {
+    latestCheckout.current = { checkout, fields, candidate: submissionCandidate };
+  }, [checkout, fields, submissionCandidate]);
 
-    if (result.outcome === 'success') {
-      rememberOrder(publicCode, result.data.id);
-      setHasActiveOrder(true);
-      setConfirmedOrder(result.data);
+  async function submitCheckout(channel: 'app' | 'whatsapp') {
+    if (!submissionCandidate || submissionInFlight.current) return;
+    submissionInFlight.current = true;
+    try {
+      if (!(await validation.checkBeforeSend())) return;
+      const current = latestCheckout.current;
+      // Validation may wait for phone tools. Do not send a quote or fields replaced in the meantime.
+      if (current.candidate !== submissionCandidate || current.fields !== fields) return;
+      setIsSubmitting(true);
+      setSubmitError(null);
+      const { total } = submissionCandidate;
+      const result = channel === 'whatsapp'
+        ? await submitWhatsappOrder(publicCode, items, current.checkout, data.locale.resolved, total, generateUuid())
+        : await submitGuestOrder(
+            publicCode,
+            // Explicit retries of an ambiguous failure reuse the same key for the same payload.
+            resolveClientRequestId(publicCode, toPendingItems(unpricedLines), current.checkout, generateUuid),
+            items,
+            current.checkout,
+            data.locale.resolved,
+            total,
+          );
+      if (result.outcome === 'success') {
+        rememberOrder(publicCode, result.data.id);
+        setHasActiveOrder(true);
+        setConfirmedOrder(result.data);
+      } else if (result.outcome === 'whatsappSuccess') {
+        setWhatsappHandoff(result.data);
+        try {
+          window.open(result.data.whatsappUrl, '_blank', 'noopener,noreferrer');
+        } catch {
+          // The handoff panel also provides the link.
+        }
+      } else {
+        reportFailure(result);
+        return;
+      }
       persistCartCleared();
       clearPendingAttempt(publicCode);
-      return;
+    } finally {
+      submissionInFlight.current = false;
+      setIsSubmitting(false);
     }
-    reportFailure(result);
   }
 
   /** Why an order (or a WhatsApp order) was not accepted, in the Guest's words. Nothing was created. */
@@ -1270,14 +1261,15 @@ export function PublicMenuView({
       return;
     }
     if (result.outcome === 'priceChanged') {
-      // A discount started, ended or changed. Nothing was created: refetch the menu so
-      // the cart shows the current prices, and ask the Guest to review before ordering.
+      // Invalidate immediately. Only an explicit confirmation can send the refreshed total.
       setSubmitError(copy.priceChangedError);
+      refreshQuote();
       router.refresh();
       return;
     }
     if (result.outcome === 'itemsUnavailable') {
       setSubmitError(copy.itemsUnavailableError);
+      refreshQuote();
       return;
     }
     if (result.outcome === 'offerUnavailable' || result.outcome === 'offerChanged') {
@@ -1286,6 +1278,7 @@ export function PublicMenuView({
       setSubmitError(
         result.outcome === 'offerUnavailable' ? offersCopy.unavailableError : offersCopy.changedError,
       );
+      refreshQuote();
       router.refresh();
       return;
     }
@@ -1326,6 +1319,7 @@ export function PublicMenuView({
       return;
     }
     if (result.outcome === 'minimumNotMet') {
+      refreshQuote();
       setSubmitError(
         copy.minimumOrderMessage(
           result.zoneName ?? selectedZone?.name ?? '',
@@ -1364,37 +1358,6 @@ export function PublicMenuView({
     setSubmitError(copy.orderNetworkError);
   }
 
-  /** DEC-042: prices the cart on the Backend and hands the ready-to-send message to WhatsApp. No order is stored. */
-  async function handleSendWhatsapp() {
-    if (!canSubmit) return;
-    if (!(await validation.checkBeforeSend())) return;
-    setIsSubmitting(true);
-    setSubmitError(null);
-    const items = toSubmitItems(orderableLines);
-    const result = await submitWhatsappOrder(
-      publicCode,
-      items,
-      checkout,
-      data.locale.resolved,
-      isDelivery ? grandTotalDisplay : totalDisplay,
-      generateUuid(),
-    );
-    setIsSubmitting(false);
-    if (result.outcome === 'whatsappSuccess') {
-      setWhatsappHandoff(result.data);
-      persistCartCleared();
-      clearPendingAttempt(publicCode);
-      // Try to open WhatsApp at once; a browser may block it after the wait, so the panel also has a button.
-      try {
-        window.open(result.data.whatsappUrl, '_blank', 'noopener,noreferrer');
-      } catch {
-        // The button in the panel does the same.
-      }
-      return;
-    }
-    reportFailure(result);
-  }
-
   function openTracking() {
     setIsCartOpen(false);
     setConfirmedOrder(null);
@@ -1407,6 +1370,7 @@ export function PublicMenuView({
   }
 
   function closeCart() {
+    if (submissionInFlight.current) return;
     setIsCartOpen(false);
     setWhatsappHandoff(null);
     if (confirmedOrder) {
@@ -1522,8 +1486,8 @@ export function PublicMenuView({
         {showCartBar ? (
           <CartBar
             count={cartCount}
-            totalDisplay={totalDisplay}
-            currency={currency}
+            totalDisplay={quoteState.kind === 'ready' ? quoteState.quote.total : null}
+            currency={quoteCurrency}
             modeLabel={cartBarModeLabel}
             copy={copy}
             onOpen={() => setIsCartOpen(true)}
@@ -1533,14 +1497,16 @@ export function PublicMenuView({
         {canOrder && (isCartOpen || confirmedOrder || whatsappHandoff) ? (
           <CartPanel
             copy={copy}
-            currency={currency}
+            currency={quoteCurrency}
             locale={locale}
             dir={dir}
             context={orderingContext}
             lines={cartLines}
             count={cartCount}
-            totalDisplay={totalDisplay}
-            discountDisplay={discountDisplay}
+            quoteState={quoteState}
+            onRefreshQuote={refreshQuote}
+            minimumMessage={minimumMessage}
+            minimumShortfallDisplay={minimumShortfallDisplay}
             isSubmitting={isSubmitting}
             canSubmit={canSubmit}
             submitError={submitError}
@@ -1581,11 +1547,6 @@ export function PublicMenuView({
                     },
                     fieldErrors: validation.fieldErrors,
                     onFieldBlur: validation.onFieldBlur,
-                    subtotalDisplay: totalDisplay,
-                    deliveryFeeDisplay: isDelivery && selectedZone ? deliveryFeeDisplay : null,
-                    grandTotalDisplay: isDelivery ? grandTotalDisplay : totalDisplay,
-                    minimumMessage,
-                    minimumShortfallDisplay,
                   }
                 : null
             }
@@ -1593,7 +1554,7 @@ export function PublicMenuView({
             onDecrement={handleDecrement}
             onRemove={handleRemove}
             onEditLine={handleEditLine}
-            onPlaceOrder={() => void handlePlaceOrder()}
+            onPlaceOrder={() => void submitCheckout('app')}
             onClose={closeCart}
             onTrackOrder={trackingAvailable ? openTracking : null}
             showPhotos={showPhotos}

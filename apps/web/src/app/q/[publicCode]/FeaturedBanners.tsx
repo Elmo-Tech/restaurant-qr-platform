@@ -2,10 +2,10 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { GuestIconPlus, GuestIconStar } from '../../../components/guest/icons';
-import { Price } from '../../../components/guest/Price';
-import { DiscountBadge, OriginalPrice } from '../../../components/guest/DiscountedPrice';
+import { MenuItemPrice } from '../../../components/guest/MenuItemPrice';
 import { resolveAssetUrl } from '../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../lib/public-menu/copy';
+import { cheapestMenuSize, menuItemPrice } from '../../../lib/public-menu/menu-item-price';
 import type { PublicMenuProduct } from '../../../lib/public-menu/types';
 import { categoryDomId, FEATURED_SECTION_ID } from './useMenuNavigation';
 import { SectionHeading } from './MenuSections';
@@ -36,6 +36,8 @@ function Banner({
 }) {
   const [failed, setFailed] = useState(false);
   if (failed) return null;
+  const size = product.itemPromotion !== undefined ? cheapestMenuSize(product) : null;
+  const price = menuItemPrice(product, size);
   return (
     <article
       className={`g-shadow relative h-[210px] shrink-0 basis-full snap-center overflow-hidden rounded-[24px] bg-g-surface-2 has-[[data-open]:focus-visible]:outline-2 has-[[data-open]:focus-visible]:outline-offset-2 has-[[data-open]:focus-visible]:outline-g-accent-text lg:h-[300px] ${
@@ -102,26 +104,15 @@ function Banner({
           ) : null}
           {/* The price lives on the photo itself, never inside the Add control. */}
           <div className="relative z-10 mt-2 flex flex-col items-start gap-1.5 lg:mt-3">
-            {product.discount ? (
-              <span className="flex flex-wrap items-center gap-x-2.5 gap-y-1">
-                <DiscountBadge discount={product.discount} currency={currency} copy={copy} />
-                <OriginalPrice
-                  amount={product.basePrice}
-                  currency={currency}
-                  copy={copy}
-                  className="g-num text-[13px] font-semibold text-white/75 lg:text-[15px]"
-                />
-              </span>
-            ) : null}
-            <span className="flex items-baseline">
-              <span className="sr-only">{product.discount ? copy.discountedPriceAria : ''} </span>
-              <Price
-                amount={product.discount ? product.discount.discountedPrice : product.basePrice}
-                currency={currency}
-                className={`g-num text-[28px] leading-none text-[#f7b548] [font-weight:900] [text-shadow:0_1px_10px_rgba(0,0,0,.55)] ${single ? 'lg:text-[36px]' : ''}`}
-                currencyClassName="text-[13px] font-bold text-white/90"
-              />
-            </span>
+            {size ? <span className="text-xs font-semibold text-white/80">{copy.fromPrice}</span> : null}
+            <MenuItemPrice
+              {...price}
+              currency={currency}
+              copy={copy}
+              className={`g-num text-[28px] leading-none text-[#f7b548] [font-weight:900] [text-shadow:0_1px_10px_rgba(0,0,0,.55)] ${single ? 'lg:text-[36px]' : ''}`}
+              currencyClassName="text-[13px] font-bold text-white/90"
+              originalClassName="g-num text-[13px] font-semibold text-white/75 lg:text-[15px]"
+            />
           </div>
         </div>
         {canOrder ? (

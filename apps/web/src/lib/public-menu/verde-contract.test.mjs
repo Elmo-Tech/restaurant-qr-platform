@@ -31,7 +31,7 @@ test('VERDE copy and prices come from settings, i18n and Backend data -- no conc
   for (const leftover of ['NOT LIVE', 'DESIGN STUDY', 'CONCEPT 02', 'PDF THEME', 'ثيم الـ PDF', 'قائمة تجريبية', 'Prototype']) {
     assert.ok(!menu.includes(leftover) && !css.includes(leftover) && !settings.includes(leftover), leftover);
   }
-  assert.ok(card.includes('DiscountedPrice') && card.includes('product.variants'));
+  assert.ok(card.includes('MenuItemPrice') && card.includes('product.variants'));
   assert.ok(menu.includes('copy.lightMode') && menu.includes('copy.verdeViewPhotos'));
   assert.ok(!/toFixed|parseFloat|Number\(/.test(card), 'money is shown from exact decimal strings');
 });

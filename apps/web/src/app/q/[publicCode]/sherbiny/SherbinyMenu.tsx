@@ -3,11 +3,12 @@
 import Link from 'next/link';
 import { Fragment, useCallback, useEffect, useMemo, useState, type ReactNode } from 'react';
 import { GuestIconBag, GuestIconClose, GuestIconMoon, GuestIconPhone, GuestIconReceipt, GuestIconSearch, GuestIconSun } from '../../../../components/guest/icons';
+import { ItemPromotionLabel } from '../../../../components/guest/MenuItemPrice';
 import { Price } from '../../../../components/guest/Price';
 import type { DesignOffers } from '../guest-view-types';
 import { resolveAssetUrl } from '../../../../lib/media/asset-url';
 import type { PublicMenuCopy } from '../../../../lib/public-menu/copy';
-import { toMinorUnits } from '../../../../lib/public-menu/money';
+import { cheapestMenuSize, menuItemPrice } from '../../../../lib/public-menu/menu-item-price';
 import {
   sherbinyCopy,
   type SherbinyCopyKey,
@@ -418,10 +419,8 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
               <div className={`s-fav-grid is-n${favorites.length}`}>
                 {favorites.map(({ product, category }, index) => {
                   const photo = resolveAssetUrl(favoriteImages[index] ?? null) ?? resolveAssetUrl(product.primaryImageAssetPath) ?? firstPhoto(category);
-                  const sizes = product.variants ?? [];
-                  const cheapest = sizes.length
-                    ? sizes.reduce((best, size) => (toMinorUnits(size.discountedPrice ?? size.price) < toMinorUnits(best.discountedPrice ?? best.price) ? size : best))
-                    : null;
+                  const cheapest = cheapestMenuSize(product);
+                  const price = menuItemPrice(product, cheapest, false);
                   return (
                     <article key={product.id} className={`s-fav s-reveal${index === 0 ? ' is-primary' : ''}`}>
                       <span className="s-fav-index" dir="ltr" aria-hidden="true">{`/${pad(index + 1)}`}</span>
@@ -435,11 +434,12 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
                           <p>
                             {cheapest ? <>{copy.fromPrice} </> : null}
                             <Price
-                              amount={cheapest ? (cheapest.discountedPrice ?? cheapest.price) : (product.discount?.discountedPrice ?? product.basePrice)}
+                              amount={price.current}
                               currency={currency}
                               currencyClassName="s-price-unit"
                             />
                           </p>
+                          <ItemPromotionLabel promotion={price.promotion} currency={currency} copy={copy} />
                         </div>
                         <button type="button" onClick={() => onOpenProduct(product)} aria-label={copy.sherbinyDetails(product.name)}>
                           <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 18 19 5M7 5h12v12" /></svg>

@@ -1,15 +1,15 @@
 import { EMPTY_CONTACT } from '../restaurants/restaurant-contact';
 import { PublicMenuService } from './public-menu.service';
-import { ALL_FEATURES } from '../entitlements/features';
+import { ALL_FEATURES as FEATURES_INCLUDING_OPT_IN } from '../entitlements/features';
+import { Prisma } from '../generated/prisma/client';
 import { MENU_TEMPLATE_KEYS } from '../entitlements/templates';
 import { DEFAULT_EMBER_SETTINGS } from '../restaurants/ember-template-config';
 import { DEFAULT_BLOOM_SETTINGS } from '../restaurants/bloom-template-config';
 import { DEFAULT_BREW_SETTINGS } from '../restaurants/brew-template-config';
 import { DEFAULT_EDITORIAL_SETTINGS } from '../restaurants/editorial-template-config';
 
-function decimal(value: string) {
-  return { toFixed: () => value } as unknown as { toFixed: (digits: number) => string };
-}
+const ALL_FEATURES = { ...FEATURES_INCLUDING_OPT_IN, PROMOTIONS: false };
+const decimal = (value: string) => new Prisma.Decimal(value);
 
 const GENERIC_QR_ROW = {
   type: 'GENERIC' as const,
@@ -44,7 +44,12 @@ const GENERIC_QR_ROW = {
 const TABLE_QR_ROW = {
   ...GENERIC_QR_ROW,
   type: 'TABLE' as const,
-  branch: { name: 'Downtown Branch', translations: [] },
+  branch: {
+    id: 'branch-a',
+    name: 'Downtown Branch',
+    timezone: 'Africa/Cairo',
+    translations: [],
+  },
   tableId: 'table-1',
   table: { tableNumber: '12', status: 'ACTIVE' as const, staffOpenRequired: false },
 };
@@ -147,6 +152,7 @@ function buildPrismaMock() {
     prisma: {
       restaurantAnnouncement: { findMany: jest.fn().mockResolvedValue([]) },
       offer: { findMany: jest.fn().mockResolvedValue([]) },
+      promotion: { findMany: jest.fn().mockResolvedValue([]) },
       qrCode: {
         findUnique: qrCodeFindUnique,
         findFirst: qrCodeFindFirst,
@@ -1435,5 +1441,216 @@ describe('PublicMenuService readable menu links (DEC-066)', () => {
     expect(result.outcome).toBe('found');
     if (result.outcome !== 'found') return;
     expect(result.data.context.restaurant.shareCode).toBeNull();
+  });
+});
+
+describe('PublicMenuService DEC-075 item previews', () => {
+  const input = {
+    publicCode: 'menu-qr',
+    explicitLang: null,
+    acceptLanguageHeader: null,
+  };
+  const menuPromotion = {
+    id: 'internal-menu-promotion',
+    scope: 'MENU',
+    discountType: 'PERCENTAGE',
+    value: decimal('20'),
+    status: 'ACTIVE',
+    priority: 20,
+    startsOn: null,
+    endsOn: null,
+    minimumSubtotal: null,
+    minimumQuantity: null,
+    quantityBasis: null,
+    branches: [],
+    menus: [{ menuId: MENU_ROW.id }],
+    categories: [],
+  };
+  const categoryPromotion = {
+    ...menuPromotion,
+    id: 'internal-category-promotion',
+    scope: 'CATEGORY',
+    value: decimal('35'),
+    priority: 50,
+    menus: [],
+    categories: [{ categoryId: 'category-1' }],
+  };
+
+  function fixture({ enabled = true, table = false } = {}) {
+    const mock = buildPrismaMock();
+    if (table) mock.qrCodeFindUnique.mockResolvedValue(TABLE_QR_ROW);
+    const service = enabled
+      ? new PublicMenuService(
+          mock.prisma as never,
+          {
+            detailsFor: () =>
+              Promise.resolve({
+                features: FEATURES_INCLUDING_OPT_IN,
+                templates: [...MENU_TEMPLATE_KEYS],
+              }),
+          } as never,
+        )
+      : buildService(mock);
+    return { mock, service };
+  }
+
+  async function firstProduct(service: PublicMenuService) {
+    const result = await service.getPublicMenu(input);
+    if (result.outcome !== 'found')
+      throw new Error(`Unexpected outcome: ${result.outcome}`);
+    return result.data.menu.categories[0].products[0];
+  }
+
+  function withLegacyDiscount(
+    mock: ReturnType<typeof buildPrismaMock>,
+    variants: unknown[] = [],
+  ) {
+    const row = buildCategoryRow();
+    mock.categoryFindMany.mockResolvedValue([
+      {
+        ...row,
+        products: [
+          {
+            ...row.products[0],
+            discountEnabled: true,
+            discountType: 'FIXED_AMOUNT',
+            discountValue: decimal('5'),
+            discountStartsOn: null,
+            discountEndsOn: null,
+            variants,
+          },
+        ],
+      },
+    ]);
+  }
+
+  it('keeps legacy Product Discount data and does not query promotions without entitlement', async () => {
+    const { mock, service } = fixture({ enabled: false });
+    withLegacyDiscount(mock);
+    const product = await firstProduct(service);
+    expect(mock.prisma.promotion.findMany).not.toHaveBeenCalled();
+    expect(product).not.toHaveProperty('itemPromotion');
+    expect(product.discount?.discountedPrice).toBe('7.50');
+  });
+
+  it('queries only the resolved tenant’s active item scopes and exposes only the best eligible size preview', async () => {
+    const { mock, service } = fixture({ table: true });
+    const size = (id: string, price: string, discountApplies: boolean) => ({
+      id,
+      price: decimal(price),
+      discountApplies,
+      isDefault: false,
+      translations: [{ locale: 'en', name: id }],
+    });
+    withLegacyDiscount(mock, [
+      size('small', '12.50', true),
+      size('large', '21.00', false),
+    ]);
+    mock.prisma.promotion.findMany.mockResolvedValue([
+      menuPromotion,
+      categoryPromotion,
+      {
+        ...menuPromotion,
+        id: 'higher-saving-cart',
+        scope: 'CART',
+        value: decimal('100'),
+      },
+      {
+        ...categoryPromotion,
+        id: 'wrong-branch',
+        value: decimal('100'),
+        branches: [{ branchId: 'branch-b' }],
+      },
+    ]);
+    const product = await firstProduct(service);
+    expect(mock.prisma.promotion.findMany).toHaveBeenCalledTimes(1);
+    expect(mock.prisma.promotion.findMany).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: {
+          restaurantId: 'restaurant-1',
+          status: 'ACTIVE',
+          OR: [
+            { scope: 'MENU', menus: { some: { menuId: 'menu-1' } } },
+            {
+              scope: 'CATEGORY',
+              categories: { some: { categoryId: { in: ['category-1'] } } },
+            },
+          ],
+        },
+      }),
+    );
+    expect(product.itemPromotion).toBeNull();
+    expect(product.variants.map((variant) => variant.itemPromotion)).toEqual([
+      {
+        scope: 'PRODUCT',
+        type: 'FIXED_AMOUNT',
+        value: '5.00',
+        amountOff: '5.00',
+        previewPrice: '7.50',
+      },
+      {
+        scope: 'CATEGORY',
+        type: 'PERCENTAGE',
+        value: '35.00',
+        amountOff: '7.35',
+        previewPrice: null,
+      },
+    ]);
+  });
+
+  it('does not guess the Branch of a generic menu, but can show the same winner across all active Branches', async () => {
+    const { mock, service } = fixture();
+    mock.prisma.promotion.findMany
+      .mockResolvedValueOnce([
+        menuPromotion,
+        {
+          ...categoryPromotion,
+          branches: [{ branchId: 'branch-a' }],
+        },
+      ])
+      .mockResolvedValueOnce([menuPromotion]);
+    expect((await firstProduct(service)).itemPromotion).toBeNull();
+    expect((await firstProduct(service)).itemPromotion).toEqual({
+      scope: 'MENU',
+      type: 'PERCENTAGE',
+      value: '20.00',
+      amountOff: '2.50',
+      previewPrice: null,
+    });
+  });
+
+  it('evaluates the inclusive schedule separately in each known Branch timezone', async () => {
+    jest.useFakeTimers().setSystemTime(new Date('2026-11-22T22:30:00.000Z'));
+    try {
+      const { mock, service } = fixture();
+      mock.branchFindMany.mockResolvedValue([
+        {
+          id: 'branch-a',
+          timezone: 'Africa/Cairo',
+          createdAt: new Date('2026-01-01'),
+          translations: [],
+          deliveryZones: [],
+        },
+        {
+          id: 'branch-b',
+          timezone: 'UTC',
+          createdAt: new Date('2026-01-02'),
+          translations: [],
+          deliveryZones: [],
+        },
+      ]);
+      mock.prisma.promotion.findMany.mockResolvedValue([
+        {
+          ...menuPromotion,
+          startsOn: new Date('2026-11-23'),
+          endsOn: new Date('2026-11-23'),
+        },
+      ]);
+      expect((await firstProduct(service)).itemPromotion).toBeNull();
+      mock.qrCodeFindUnique.mockResolvedValue(TABLE_QR_ROW);
+      expect((await firstProduct(service)).itemPromotion?.scope).toBe('MENU');
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });

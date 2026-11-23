@@ -80,22 +80,25 @@ test('the phone keeps the telephone keyboard and an LTR value inside the RTL pag
 });
 
 test('a send with a problem is blocked and focused on the first bad field, in both the order and the WhatsApp flows', () => {
-  for (const handler of ['handlePlaceOrder', 'handleSendWhatsapp']) {
-    const start = menuView.indexOf(`async function ${handler}()`);
-    assert.ok(start > 0, handler);
-    const body = menuView.slice(start, start + 400);
-    const guard = body.indexOf('if (!(await validation.checkBeforeSend())) return;');
-    const submitting = body.indexOf('setIsSubmitting(true)');
-    assert.ok(guard > 0 && submitting > guard, `${handler} must check the fields before sending anything`);
+  assert.match(menuView, /onPlaceOrder=\{\(\) => void submitCheckout\('app'\)\}/);
+  assert.match(menuView, /onSend: \(\) => void submitCheckout\('whatsapp'\)/);
+  const body = menuView.match(/async function submitCheckout\([\s\S]*?(?=\n  \/\*\*)/)?.[0];
+  assert.ok(body, 'the two checkout channels share one guarded submit');
+  const guard = body.indexOf('if (!(await validation.checkBeforeSend())) return;');
+  for (const send of ['setIsSubmitting(true)', 'await submitGuestOrder(', 'await submitWhatsappOrder(']) {
+    assert.ok(guard > 0 && body.indexOf(send) > guard, `${send} must follow field validation`);
   }
   assert.ok(hook.includes('document.getElementById(`checkout-${first}`)'));
   assert.ok(hook.includes('setAttempted(true)'));
 });
 
-test('the typed fields no longer silently grey the button: only branch, area and minimum do', () => {
-  const start = menuView.indexOf('const checkoutDetailsComplete');
-  const block = menuView.slice(start, start + 300);
-  assert.doesNotMatch(block, /customerPhone|customerName|deliveryAddress/);
+test('checkout needs a current server quote; typed fields are validated on send instead of silently disabling it', () => {
+  const context = menuView.match(/const checkoutContextComplete = ([\s\S]+?);/)?.[1];
+  const guard = menuView.match(/const canSubmit =\s*([\s\S]+?);/)?.[1];
+  assert.ok(context && guard);
+  assert.match(context, /resolvedBranchId.*resolvedZoneId/);
+  assert.match(guard, /quoteState\.kind === 'ready'/);
+  assert.doesNotMatch(`${context}\n${guard}`, /customerPhone|customerName|deliveryAddress|validation/);
 });
 
 test('typing is sanitized (digits in any script, no control characters) and the API verdict is shown per field', () => {

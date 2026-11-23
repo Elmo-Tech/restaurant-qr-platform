@@ -39,14 +39,11 @@ export class OfferChangedError extends Error {
     super('offer changed');
   }
 }
-export class MinimumOrderNotMetError extends Error {
-  constructor(
-    readonly zoneName: string,
-    readonly minimumOrder: Prisma.Decimal,
-    readonly subtotal: Prisma.Decimal,
-  ) {
-    super('minimum order not met');
-  }
+export interface DeliveryMinimumShortfall {
+  zoneName: string;
+  minimumOrder: Prisma.Decimal;
+  subtotal: Prisma.Decimal;
+  remainingAmount: Prisma.Decimal;
 }
 
 interface PriceCartContext {
@@ -639,6 +636,7 @@ export async function priceCart(
     ? await loadPromotions(
         tx,
         restaurantId,
+        locale ?? defaultLocale,
         defaultLocale,
         today,
         ctx.lockPromotionReferences === true,
@@ -670,18 +668,21 @@ export async function priceCart(
 
   // DEC-036/075: the zone minimum is the net merchandise payable, not the fee or gross items.
   // Refuse this pricing result; never suppress a promotion to meet the minimum.
-  if (zone && snapshot.order.subtotalAmount.lessThan(zone.minimumOrder)) {
-    throw new MinimumOrderNotMetError(
-      resolveLocalizedName({
-        requestedLocale: locale ?? zone.restaurant.defaultLocale,
-        defaultLocale: zone.restaurant.defaultLocale,
-        translations: zone.translations,
-        legacyName: zone.name,
-      }),
-      zone.minimumOrder,
-      snapshot.order.subtotalAmount,
-    );
-  }
+  const subtotal = snapshot.order.subtotalAmount;
+  const deliveryMinimumShortfall: DeliveryMinimumShortfall | null =
+    zone && subtotal.lessThan(zone.minimumOrder)
+      ? {
+          zoneName: resolveLocalizedName({
+            requestedLocale: locale ?? zone.restaurant.defaultLocale,
+            defaultLocale: zone.restaurant.defaultLocale,
+            translations: zone.translations,
+            legacyName: zone.name,
+          }),
+          minimumOrder: zone.minimumOrder,
+          subtotal,
+          remainingAmount: zone.minimumOrder.minus(subtotal),
+        }
+      : null;
 
   const itemsData = snapshot.items.map(({ lineIndex, ...money }) => ({
     ...lineDetails[lineIndex],
@@ -691,13 +692,17 @@ export async function priceCart(
     snapshot,
     itemsData,
     quoteDetails,
+    deliveryMinimumShortfall,
     deliveryZoneNameSnapshot: zone?.name ?? null,
+    promotionEvaluations: result.evaluations,
+    promotionLabels: labels,
   };
 }
 
 async function loadPromotions(
   tx: Prisma.TransactionClient,
   restaurantId: string,
+  requestedLocale: string,
   defaultLocale: string,
   today: string,
   lockReferences: boolean,
@@ -740,8 +745,8 @@ async function loadPromotions(
       minimumQuantity: true,
       quantityBasis: true,
       translations: {
-        where: { locale: defaultLocale },
-        select: { title: true },
+        where: { locale: { in: [requestedLocale, defaultLocale] } },
+        select: { locale: true, title: true },
       },
       branches: { select: { branchId: true }, orderBy: { branchId: 'asc' } },
       menus: { select: { menuId: true }, orderBy: { menuId: 'asc' } },
@@ -770,7 +775,11 @@ async function loadPromotions(
     }) => {
       labels.set(row.id, {
         internalName,
-        title: translations[0]?.title ?? null,
+        title:
+          translations.find(({ locale }) => locale === requestedLocale)
+            ?.title ??
+          translations.find(({ locale }) => locale === defaultLocale)?.title ??
+          null,
       });
       return {
         ...row,

@@ -20,17 +20,15 @@ test('the current Editorial FROM price is the default for every old restaurant',
   assert.ok(sections.includes("editorialPriceDisplay='FROM'"));
 });
 
-test('Editorial variant mode lists every real size and effective discounted price', () => {
+test('Editorial variant mode lists every real size with shared menu pricing and preview labels', () => {
   const start = product.indexOf('function ProductEditorialImpl');
   const end = product.indexOf('EMBER-specific cinematic poster', start);
   assert.ok(start >= 0 && end > start);
   const editorial = product.slice(start, end);
   assert.ok(editorial.includes('view.sizes.map(size=>('), 'show all size rows, not just first four');
   assert.ok(!editorial.includes('view.sizes.slice('), 'do not silently hide extra sizes');
-  assert.ok(editorial.includes('size.discountedPrice !== null'));
-  assert.ok(editorial.includes('<OriginalPrice amount={size.price}'));
-  assert.ok(editorial.includes('size.discountedPrice ?? size.price'));
-  assert.ok(editorial.includes('<Price amount='));
+  assert.ok(editorial.includes('<MenuItemPrice'));
+  assert.ok(editorial.includes('menuItemPrice(product, size)'), 'use each exact size’s price and candidate');
   assert.ok(editorial.includes('<AddControl'), 'shared add / variant selection must be intact');
   assert.ok(editorial.includes('{!showAllSizes ? <div'), 'only one price area is rendered');
 });

@@ -28,7 +28,7 @@ test('no concept leftovers and money stays an exact decimal string', () => {
   for (const leftover of ['Concept Preview', 'EXCLUSIVE MENU CONCEPT', 'معاينة تصميم', 'غير متصل', 'Interactive UI Concept']) {
     assert.ok(!menu.includes(leftover) && !css.includes(leftover) && !settings.includes(leftover), leftover);
   }
-  assert.ok(row.includes('DiscountedPrice') && row.includes('product.variants') && row.includes("'SOLD_OUT'"));
+  assert.ok(row.includes('MenuItemPrice') && row.includes('product.variants') && row.includes("'SOLD_OUT'"));
   assert.ok(!/toFixed|parseFloat|Number\(/.test(row), 'money is shown from exact decimal strings');
 });
 
