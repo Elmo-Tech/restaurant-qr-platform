@@ -3,7 +3,7 @@
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { NavTabs } from '../../../../../components/ui/Tabs';
 
-export type MenuSection = 'products' | 'modifier-library' | 'offers';
+export type MenuSection = 'products' | 'modifier-library' | 'offers' | 'promotions';
 
 /**
  * FT-6B closeout, Section 2 (design-system-v2: rebuilt on the shared
@@ -19,11 +19,15 @@ export function MenuSectionTabs({
   restaurantId,
   active,
   offersEnabled = false,
+  promotionsEnabled = false,
+  canViewProducts = true,
 }: {
   restaurantId: string;
   active: MenuSection;
-  /** The package includes Offers (UX only; the Backend refuses the rest). */
+  /** These flags hide unavailable routes; the Backend remains authoritative. */
   offersEnabled?: boolean;
+  promotionsEnabled?: boolean;
+  canViewProducts?: boolean;
 }) {
   const { t } = useStaffI18n();
   return (
@@ -31,16 +35,18 @@ export function MenuSectionTabs({
       ariaLabel={t('menu.section.aria')}
       activeKey={active}
       items={[
-        {
-          key: 'products',
-          label: t('menu.section.products'),
-          href: `/staff/restaurants/${restaurantId}/menu`,
-        },
-        {
-          key: 'modifier-library',
-          label: t('menu.section.library'),
-          href: `/staff/restaurants/${restaurantId}/menu/modifier-presets`,
-        },
+        ...(canViewProducts ? [
+          {
+            key: 'products',
+            label: t('menu.section.products'),
+            href: `/staff/restaurants/${restaurantId}/menu`,
+          },
+          {
+            key: 'modifier-library',
+            label: t('menu.section.library'),
+            href: `/staff/restaurants/${restaurantId}/menu/modifier-presets`,
+          },
+        ] : []),
         ...(offersEnabled
           ? [
               {
@@ -50,6 +56,11 @@ export function MenuSectionTabs({
               },
             ]
           : []),
+        ...(promotionsEnabled ? [{
+          key: 'promotions',
+          label: t('promotions.title'),
+          href: `/staff/restaurants/${restaurantId}/menu/promotions`,
+        }] : []),
       ]}
     />
   );

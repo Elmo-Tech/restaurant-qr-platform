@@ -19,8 +19,9 @@ export interface DeliveryZoneView {
   minimumOrder: string;
   status: DeliveryZoneStatus;
   displayOrder: number;
-  /** True only when no Order has ever referenced this zone -- otherwise it can only be deactivated (history stays intact). */
   canDelete: boolean;
+  /** Orders take precedence over removable Promotion links. */
+  deleteBlockedBy: 'ORDERS' | 'PROMOTIONS' | null;
 }
 
 export interface DeliveryBranchView {
@@ -107,6 +108,12 @@ function toZoneView(zone: {
   displayOrder: number;
   _count: { orders: number; promotionLinks: number };
 }): DeliveryZoneView {
+  const deleteBlockedBy =
+    zone._count.orders > 0
+      ? 'ORDERS'
+      : zone._count.promotionLinks > 0
+        ? 'PROMOTIONS'
+        : null;
   return {
     id: zone.id,
     name: zone.name,
@@ -115,7 +122,8 @@ function toZoneView(zone: {
     minimumOrder: zone.minimumOrder.toFixed(2),
     status: zone.status,
     displayOrder: zone.displayOrder,
-    canDelete: zone._count.orders === 0 && zone._count.promotionLinks === 0,
+    canDelete: deleteBlockedBy === null,
+    deleteBlockedBy,
   };
 }
 
@@ -327,8 +335,20 @@ export class DeliveryZonesService {
     } catch (error) {
       // An Order or a promotion target referenced the zone between the check and the delete.
       const outcome = foreignKeyViolationOutcome(error);
-      if (outcome) {
-        return { outcome };
+      if (outcome === 'usedByPromotions') {
+        // The FK that PostgreSQL reports first is not our conflict precedence.
+        // If both references arrived after the pre-check, Orders still win.
+        const orders = await this.prisma.order.count({
+          where: { restaurantId: scope.restaurantId, deliveryZoneId: zone.id },
+        });
+        return { outcome: orders > 0 ? 'hasOrders' : outcome };
+      }
+      if (outcome) return { outcome };
+      if (
+        error instanceof Prisma.PrismaClientKnownRequestError &&
+        error.code === 'P2025'
+      ) {
+        return { outcome: 'zoneNotFound' };
       }
       throw error;
     }

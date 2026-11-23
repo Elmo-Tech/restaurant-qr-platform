@@ -3,6 +3,7 @@ import { getAuthSessionState } from '../../../../../../lib/auth/session';
 import { getStaffI18n } from '../../../../../../lib/i18n/server';
 import { usesOffers } from '../../../../../../lib/entitlements/access';
 import { canManageMenu, canViewMenu } from '../../../../../../lib/menu/capabilities';
+import { canOpenPromotions } from '../../../../../../lib/promotions/capabilities';
 import { Alert } from '../../../../../../components/ui/Alert';
 import { OffersWorkspace } from './OffersWorkspace';
 
@@ -58,6 +59,7 @@ export default async function OffersPage({ params }: OffersPageProps) {
       defaultLocale={membership.restaurant.defaultLocale}
       currencyCode={membership.restaurant.currencyCode}
       canManage={canManageMenu(membership)}
+      promotionsEnabled={canOpenPromotions(membership)}
     />
   );
 }

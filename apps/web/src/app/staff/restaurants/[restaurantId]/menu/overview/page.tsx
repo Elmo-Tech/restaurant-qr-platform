@@ -2,6 +2,7 @@ import Link from 'next/link';
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../../lib/auth/session';
 import { getStaffI18n } from '../../../../../../lib/i18n/server';
+import { canOpenPromotions } from '../../../../../../lib/promotions/capabilities';
 import { canViewMenu } from '../../../../../../lib/menu/capabilities';
 import { canViewRestaurantSettings } from '../../../../../../lib/settings/capabilities';
 import { canViewTables } from '../../../../../../lib/tables/capabilities';
@@ -90,9 +91,8 @@ export default async function MenuOverviewPage({ params }: Props) {
       state: t(member.restaurant.status === 'SUSPENDED' ? 'guard.state.suspended' : 'guard.state.inactive'),
     })}</Alert>;
   }
-  // The Hub is a launcher for two pre-existing permission domains:
-  // menu.view for products and restaurant.view for design/guest settings.
-  if (!canViewMenu(member) && !canViewRestaurantSettings(member)) {
+  const promotionsEnabled = canOpenPromotions(member);
+  if (!canViewMenu(member) && !canViewRestaurantSettings(member) && !promotionsEnabled) {
     return <Alert variant="error">{t('guard.noPermission.menu')}</Alert>;
   }
 
@@ -139,6 +139,15 @@ export default async function MenuOverviewPage({ params }: Props) {
           href={base + '/settings/guest-qr'} kind="share" tone="navy" number="04" enabled={qr}
           unavailable={unavailable} openLabel={openLabel} />
       </div>
+      {promotionsEnabled ? (
+        <Link href={`${base}/menu/promotions`} className="flex min-h-14 flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-3 shadow-sm focus-visible:outline-2 focus-visible:outline-ring hover:border-primary sm:px-6">
+          <div className="min-w-0">
+            <h2 className="font-bold">{t('promotions.title')}</h2>
+            <p className="text-sm text-muted-foreground">{t('promotions.description')}</p>
+          </div>
+          <span className="text-sm font-semibold text-primary">{openLabel}</span>
+        </Link>
+      ) : null}
     </div>
   );
 }

@@ -20,6 +20,7 @@ interface StaffShellProps {
   restaurantLogoUrl: string | null;
   userEmail: string;
   canViewMenu: boolean;
+  canOpenPromotions?: boolean;
   canViewTables: boolean;
   canViewOrders: boolean;
   packageHides?: PackageHides;
@@ -47,6 +48,7 @@ export function StaffShell({
   restaurantLogoUrl,
   userEmail,
   canViewMenu,
+  canOpenPromotions = false,
   canViewTables,
   canViewOrders,
   packageHides,
@@ -91,6 +93,7 @@ export function StaffShell({
       ? pathname === hubPath ? menuCrumbs
         : pathname === guestPath ? [...menuCrumbs, { label: t('menuHub.guest') }]
         : pathname === menuRoot ? [...menuCrumbs, { label: t('menuHub.menus') }]
+        : isAtOrUnder(`${menuRoot}/promotions`) ? [...menuCrumbs, { label: t('promotions.title') }]
         : isAtOrUnder(`${menuRoot}/modifier-presets`) ? [...menuContentCrumbs, { label: t('menu.section.library') }]
         : isAtOrUnder(`${menuRoot}/import`) ? [...menuContentCrumbs, { label: t('import.title') }]
         : isAtOrUnder(`${menuRoot}/products`) ? [...menuContentCrumbs,
@@ -134,7 +137,7 @@ export function StaffShell({
         restaurantStatus={restaurantStatus}
         restaurantLogoUrl={restaurantLogoUrl}
         currentSection={section}
-        canViewMenu={canViewMenu}
+        canViewMenu={canViewMenu || canOpenPromotions}
         canViewTables={canViewTables}
         canViewOrders={canViewOrders}
         packageHides={packageHides}
@@ -172,7 +175,7 @@ export function StaffShell({
           restaurantLogoUrl={restaurantLogoUrl}
           userEmail={userEmail}
           access={{
-            canViewMenu,
+            canViewMenu: canViewMenu || canOpenPromotions,
             canViewOrders,
             canViewTables,
             canViewKitchen,

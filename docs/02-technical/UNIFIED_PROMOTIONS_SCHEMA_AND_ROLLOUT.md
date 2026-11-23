@@ -20,8 +20,8 @@
 | --- | --- | --- |
 | **B1** | Docs; pure engine `apps/api/src/promotions/promotion-engine.ts` + `validatePromotionInput`; pure snapshot mapper `promotion-snapshot.ts`; `PROMOTIONS` feature key (API, platform console, web types / labels); additive migration `20261128100000_unified_promotions` | built on `feat/unified-promotions`, not merged |
 | B2 | Order flow: extract `priceCart` from `public-orders.service.ts`, call the engine once per order, persist `buildOrderPricingSnapshot`, Delivery Zone minimum on the net payable after the engine, public quote endpoint (own rate-limit group), engine gated by `PROMOTIONS` (off ⇒ legacy-identical result), update every ⚠ reader of the snapshot doc | planned |
-| B3 | Staff CRUD API: `promotions.view` / `promotions.manage`, Restaurant + all-Branches guards for structural writes, CSRF, `PromotionsFeatureGuard` (`PROMOTIONS`), tenant-scoped target validation, archive vs delete, zone / category delete conflicts | planned |
-| B4 | Staff UI (`/staff/restaurants/[id]/menu/promotions`), Guest cart renders the server quote and sends its total as `expectedTotal`, shortfall explanation for the zone minimum, Guest badges for item-scope winners | planned |
+| B3 | Staff CRUD API and workspace (`/staff/restaurants/[id]/menu/promotions`): `promotions.view` / `promotions.manage`, Restaurant + all-Branches guards for structural writes, CSRF, `PromotionsFeatureGuard` (`PROMOTIONS`), tenant-scoped target validation, archive vs delete, zone-delete recovery and engine-backed preview | implemented on `feat/promotions-b3`; review pending |
+| B4 | Guest cart renders the server quote and sends its total as `expectedTotal`, shortfall explanation for the zone minimum, Guest badges for item-scope winners, financial and visual QA | planned |
 
 ## 2. Schema (migration `20261128100000_unified_promotions`)
 

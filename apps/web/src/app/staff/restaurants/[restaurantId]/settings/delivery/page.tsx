@@ -66,6 +66,7 @@ export default async function DeliverySettingsPage({ params, searchParams }: Del
       // Same rule as Languages: `restaurant.manage` AND full Branch scope.
       canManage={canManageLanguages(membership)}
       hasRestaurantManagePermission={hasRestaurantManagePermission(membership)}
+      canViewPromotions={membership.restaurant.features.PROMOTIONS && membership.permissions.includes('promotions.view')}
       initialBranchId={branchId}
     />
   );

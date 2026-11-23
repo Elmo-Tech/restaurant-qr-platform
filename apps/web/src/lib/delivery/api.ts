@@ -16,8 +16,8 @@ export interface DeliveryZone {
   minimumOrder: string;
   status: DeliveryZoneStatus;
   displayOrder: number;
-  /** True only when no Order has ever used this zone; otherwise it can only be deactivated. */
   canDelete: boolean;
+  deleteBlockedBy: 'ORDERS' | 'PROMOTIONS' | null;
 }
 
 export interface DeliveryBranch {

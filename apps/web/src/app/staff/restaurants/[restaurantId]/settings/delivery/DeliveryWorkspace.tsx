@@ -42,6 +42,7 @@ export interface DeliveryWorkspaceProps {
   /** `restaurant.manage` AND `allBranches === true`. */
   canManage: boolean;
   hasRestaurantManagePermission: boolean;
+  canViewPromotions: boolean;
   initialBranchId?: string;
 }
 
@@ -58,6 +59,7 @@ export function DeliveryWorkspace({
   currencyCode,
   canManage,
   hasRestaurantManagePermission: hasManagePermission,
+  canViewPromotions,
   initialBranchId,
 }: DeliveryWorkspaceProps) {
   const { t } = useStaffI18n();
@@ -156,6 +158,7 @@ export function DeliveryWorkspace({
           defaultLocale={defaultLocale}
           currencyCode={currencyCode}
           canManage={canManage}
+          canViewPromotions={canViewPromotions}
           branch={branch}
           onZoneChanged={(zone) => replaceZone(branch.id, zone)}
           onZoneCreated={(zone) => addZone(branch.id, zone)}
@@ -171,6 +174,7 @@ function BranchCard({
   defaultLocale,
   currencyCode,
   canManage,
+  canViewPromotions,
   branch,
   onZoneChanged,
   onZoneCreated,
@@ -180,6 +184,7 @@ function BranchCard({
   defaultLocale: string;
   currencyCode: string;
   canManage: boolean;
+  canViewPromotions: boolean;
   branch: DeliveryBranch;
   onZoneChanged: (zone: DeliveryZone) => void;
   onZoneCreated: (zone: DeliveryZone) => void;
@@ -217,6 +222,7 @@ function BranchCard({
               defaultLocale={defaultLocale}
               currencyCode={currencyCode}
               canManage={canManage}
+              canViewPromotions={canViewPromotions}
               zone={zone}
               onChanged={onZoneChanged}
               onDeleted={onZoneDeleted}
@@ -254,6 +260,7 @@ function ZoneRow({
   defaultLocale,
   currencyCode,
   canManage,
+  canViewPromotions,
   zone,
   onChanged,
   onDeleted,
@@ -262,6 +269,7 @@ function ZoneRow({
   defaultLocale: string;
   currencyCode: string;
   canManage: boolean;
+  canViewPromotions: boolean;
   zone: DeliveryZone;
   onChanged: (zone: DeliveryZone) => void;
   onDeleted: (zoneId: string) => void;
@@ -282,7 +290,9 @@ function ZoneRow({
         return;
       }
       if (err instanceof ApiError && err.code === 'DELIVERY_ZONE_HAS_ORDERS') {
-        setError(t('settings.delivery.hasOrders'));
+        onChanged({ ...zone, canDelete: false, deleteBlockedBy: 'ORDERS' });
+      } else if (err instanceof ApiError && err.code === 'DELIVERY_ZONE_USED_BY_PROMOTIONS') {
+        onChanged({ ...zone, canDelete: false, deleteBlockedBy: 'PROMOTIONS' });
       } else {
         setError(describeError(err));
       }
@@ -326,7 +336,22 @@ function ZoneRow({
         <p className="text-xs text-muted-foreground">
           {t('settings.delivery.feeLine', { fee: zone.deliveryFee, currency: currencyCode })} · {minimum}
         </p>
-        {error ? <p className="mt-1 text-xs text-destructive">{error}</p> : null}
+        {zone.deleteBlockedBy === 'ORDERS' ? (
+          <p role="status" className="mt-1 text-xs text-muted-foreground">{t('settings.delivery.hasOrders')}</p>
+        ) : zone.deleteBlockedBy === 'PROMOTIONS' ? (
+          <div role="status" className="mt-1 text-xs text-muted-foreground">
+            <p>{t('settings.delivery.usedByPromotions')}</p>
+            {canViewPromotions ? (
+              <Link
+                href={`/staff/restaurants/${encodeURIComponent(restaurantId)}/menu/promotions?zoneId=${encodeURIComponent(zone.id)}`}
+                className="inline-flex min-h-11 items-center font-semibold text-primary underline underline-offset-4"
+              >
+                {t('settings.delivery.reviewPromotions')}
+              </Link>
+            ) : null}
+          </div>
+        ) : null}
+        {error ? <p role="alert" className="mt-1 text-xs text-destructive">{error}</p> : null}
       </div>
       <div className="flex flex-wrap items-center gap-2">
         <Button variant="secondary" disabled={!canManage || isBusy} onClick={() => setIsEditing(true)}>
