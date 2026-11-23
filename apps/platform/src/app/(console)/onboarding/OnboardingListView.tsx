@@ -9,6 +9,7 @@ import { listLeads, type SignupLead } from "@/lib/api/leads";
 import {
   createOnboardingCase,
   listOnboardingCases,
+  onboardingStepCount,
   openOnboardingForLead,
   type OnboardingCasePage,
   type OnboardingCaseSummary,
@@ -23,13 +24,12 @@ const FILTERS: { value: OnboardingStatus | ""; label: MessageKey }[] = [
   { value: "", label: "common.all" },
   { value: "DRAFT", label: "onboarding.status.DRAFT" },
   { value: "READY_FOR_REVIEW", label: "onboarding.status.READY_FOR_REVIEW" },
+  { value: "READY", label: "onboarding.status.READY" },
+  { value: "DELIVERED", label: "onboarding.status.DELIVERED" },
   { value: "CANCELLED", label: "onboarding.status.CANCELLED" },
 ];
 
-/** Steps 1 and 2 are the only ones that can be complete in this build. */
-const ACTIVE_STEPS = 2;
-
-/** The list of owner onboarding cases (PROPOSED, milestones A1 + A2). */
+/** The list of owner onboarding cases. */
 export function OnboardingListView() {
   const { t, fmt } = useI18n();
   const router = useRouter();
@@ -135,6 +135,7 @@ export function OnboardingListView() {
                 type="button"
                 aria-pressed={status === filter.value}
                 onClick={() => {
+                  if (status === filter.value && page === 1) return;
                   setStatus(filter.value);
                   setPage(1);
                   setData(null);
@@ -211,7 +212,7 @@ export function OnboardingListView() {
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{item.mode ? t(`onboarding.mode.${item.mode}`) : "—"}</td>
                         <td className="tabular px-4 py-3 text-muted-foreground">
-                          {t("onboarding.progressShort", { done: fmt.number(item.completedSteps.length), total: fmt.number(ACTIVE_STEPS) })}
+                          {t("onboarding.progressShort", { done: fmt.number(item.completedSteps.length), total: fmt.number(onboardingStepCount(item.mode)) })}
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           <bdi>{item.updatedBy?.displayName ?? "—"}</bdi>
@@ -264,7 +265,7 @@ function CaseCard({ item }: { item: OnboardingCaseSummary }) {
       ) : null}
       <p className="text-xs text-muted-foreground">
         {item.mode ? t(`onboarding.mode.${item.mode}`) : t("onboarding.noMode")} ·{" "}
-        {t("onboarding.progressShort", { done: fmt.number(item.completedSteps.length), total: fmt.number(ACTIVE_STEPS) })} ·{" "}
+        {t("onboarding.progressShort", { done: fmt.number(item.completedSteps.length), total: fmt.number(onboardingStepCount(item.mode)) })} ·{" "}
         <bdi>{item.updatedBy?.displayName ?? "—"}</bdi> · {fmt.dateTime(item.updatedAt)}
       </p>
     </Link>

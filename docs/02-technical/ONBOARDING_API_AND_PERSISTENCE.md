@@ -157,7 +157,7 @@ parallel and expects exactly one `201` and one `409`.
 
 ## 4. A3 implementation and A4 handoff
 
-A3 provisions REAL and TRIAL only. A1/A2 still allow a case with steps 1 and 2 complete to enter review; final provisioning additionally requires a complete menu and, for an imported draft, explicit human review. The Platform routes use the same session and Origin protections as the draft routes.
+A3 provisions REAL and TRIAL; A4 also provisions a template-based DEMO through `DemoService.create`. Steps 1 and 2 still gate review. Final REAL/TRIAL provisioning requires a complete menu and, for an imported draft, explicit human review. The Platform routes use the same session and Origin protections as the draft routes.
 
 | Method | Case action | Body | Success |
 |---|---|---|---|
@@ -166,11 +166,12 @@ A3 provisions REAL and TRIAL only. A1/A2 still allow a case with steps 1 and 2 c
 | POST | `/:id/menu-import/review` | `{ revision }` | Marks a valid staged menu reviewed |
 | DELETE | `/:id/menu-import` | `{ revision }` | Discards the staged menu and leaves the case in DRAFT |
 | POST | `/:id/provision` | `{ revision, provisioningKey, ownerPassword? }` | READY or the current checkpoint, including FAILED with `lastErrorCode` |
-| POST | `/:id/retry` | same key and current `revision`; password only if no tenant was created | Resumes from the recorded checkpoint |
+| POST | `/:id/retry` | same key and current `revision`; password only for unprovisioned REAL / TRIAL | Resumes from the recorded checkpoint |
+| POST | `/:id/deliver` | `{ revision }`, the operator’s explicit confirmation | DELIVERED; replay returns the current case without reapplying the transition |
 
 The menu is a bounded nested graph of fresh content, with no client-controlled tenant or resource IDs. The first menu is primary. Prices are decimal strings. The view reports `menuDraft`, `problems.menu`, `importReviewed`, `importExpiresAt`, `importAttempts`, `provisioningKey`, `lastErrorCode`, and `ownerPasswordRequired`, plus `restaurantId` once present. Drafts may be incomplete; final submit refuses missing names, prices, or review. A package change or archive is revalidated before provisioning and again at the stages that consume it.
 
-Imports retain no source files. The per-case quota is three extraction attempts; normalized imported content expires in seven days and is cleared on cancellation or by the expiry sweep. A4 must clear the staged content on delivery too. If an imported draft expires before its menu was ever committed, it cannot be published on retry. Cancelling FAILED abandons the case but does not delete an already-created tenant.
+Imports retain no source files. The per-case quota is three extraction attempts; normalized imported content expires in seven days and is cleared on cancellation or by the expiry sweep. Delivery clears the case’s staged menu and import expiry/review/lease fields in the transition transaction; published tenant content and attempt counts are retained. If an imported draft expires before its menu was ever committed, it cannot be published on retry. Cancelling FAILED abandons the case but does not delete an already-created tenant.
 
 Release check (no infrastructure change in A3): the checked-in Gateway template limits request bodies to 16 MiB and waits 120 seconds for Platform API responses. Large batches and extraction runs that outlast the Gateway timeout need a separately approved Gateway configuration or upload transport before the full API limits can be offered through that Gateway.
 
@@ -223,14 +224,13 @@ A3 is therefore a **resumable saga whose progress lives on the case**:
    to `CONTACTED` only when the demo link has actually been handed over (never on demo creation); CONTACTED is kept;
    DONE / DISMISSED are never overwritten automatically.
 
-### 4.1 Lead ↔ demo history (A4 plan, PO decision A-D2)
+### 4.1 A4 handoff, DEMO history and lead transition
 
-`demo_id` is `ON DELETE SET NULL`: when `DemoService` purges the demo, the link disappears and the demo purge never
-touches `onboarding_cases`. A4 will add an additive, non-secret snapshot on the case, written when the wizard
-creates the demo and updated when it is found removed, e.g. `demo_history jsonb` =
-`{ kind, label, packageName, createdAt, expiresAt, removedAt, purged: true|false }`. It **never** stores the demo
-access token or link (the link is shown once, as today), and no lead detail is ever copied into the demo.
-Not implemented in this build: the wizard creates no demo yet, so no column was added.
+- REAL / TRIAL: the `handoff` object contains `guestMenuUrl` and `staffLoginUrl` for READY / DELIVERED only while the menu is shareable. The API uses the live Generic QR and current slug with the existing `restaurantMenuUrl` builder, configured Web origin and optional restaurant base domain. The Staff link points to Web `/login`. The case UI renders the PNG from that exact Guest Menu URL and never includes the original owner password in either handoff message. No QR is shown for the private DEMO access link.
+- DEMO: creation, the hashed link and non-secret case checkpoint commit together. The plain `data.demoLink` is returned only to the request that committed the create (including an authorized retry that creates it for the first time). Provision/retry responses are `private, no-store`. Normal case reads, successful replays, lead records and audit never contain the link. A lost response does not recreate the demo or reveal the link again. If necessary, use the existing Demos console to extend or generate a replacement; possession or copying a link does not confirm delivery.
+- `demo_history` stores the original kind, label, package name, creation time and expiry only. `demoExpiresAt` and `demoState` report current availability separately while the demo exists. Removal records `demo_removed_at` in the existing purge transaction; the `demo_id` foreign key becomes null. The case survives with `demoHistory.purged` and its non-secret snapshot. No lead details are copied into the demo.
+- The guarded case transition sets `deliveredAt`. Expired, locked or purged demos and unavailable REAL / TRIAL menus cannot be newly delivered. An already-delivered case can be replayed, even after removal. An undelivered, permanently purged READY case remains historical and cannot be marked delivered or restarted through its case; see the [release notes](ONBOARDING_A4_VALIDATION.md).
+- The case snapshots the lead’s status version at creation. Manual writes increment it, even if the visible status returns to the same value. Before automation changes a lead, both the expected status and version must match. The case, staged-content cleanup, lead compare-and-set and applicable audits commit together. REAL / TRIAL can move NEW or CONTACTED to DONE; DEMO can move only NEW to CONTACTED after the operator confirms actual sharing. A concurrent manual edit wins; DONE and DISMISSED never change automatically. Pre-A4 cases have no captured version: the migration backfills only still-NEW, never-handled leads and otherwise skips automation.
 
 ## 5. Verification
 

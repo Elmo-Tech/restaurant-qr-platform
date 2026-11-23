@@ -3,6 +3,7 @@ import {
   Controller,
   Delete,
   Get,
+  Header,
   HttpCode,
   HttpException,
   HttpStatus,
@@ -184,6 +185,19 @@ function unwrap<T>(result: CaseOutcome<T>): { data: T } {
         },
         HttpStatus.CONFLICT,
       );
+    case 'handoffUnavailable':
+      throw new HttpException(
+        {
+          error: {
+            code: result.code,
+            message:
+              result.code === 'ONBOARDING_DEMO_EXPIRED'
+                ? 'The temporary demo is no longer available.'
+                : 'The Guest Menu is not ready to hand off.',
+          },
+        },
+        HttpStatus.UNPROCESSABLE_ENTITY,
+      );
     case 'invalidInput':
       throw new HttpException(
         {
@@ -330,6 +344,7 @@ export class OnboardingCasesController {
   }
 
   @Post(':caseId/provision')
+  @Header('Cache-Control', 'private, no-store')
   @HttpCode(HttpStatus.OK)
   @UseGuards(PlatformAuthGuard)
   async provision(
@@ -343,6 +358,7 @@ export class OnboardingCasesController {
   }
 
   @Post(':caseId/retry')
+  @Header('Cache-Control', 'private, no-store')
   @HttpCode(HttpStatus.OK)
   @UseGuards(PlatformAuthGuard)
   async retry(
@@ -352,6 +368,19 @@ export class OnboardingCasesController {
   ) {
     return unwrap(
       await this.provisioning.run(request.platformAdmin, caseId, body, true),
+    );
+  }
+
+  @Post(':caseId/deliver')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PlatformAuthGuard)
+  async deliver(
+    @Param('caseId') caseId: string,
+    @Body() body: RevisionBody,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: OnboardingCaseView }> {
+    return unwrap(
+      await this.cases.deliver(request.platformAdmin, caseId, body.revision),
     );
   }
 

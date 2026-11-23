@@ -54,11 +54,9 @@ text in the A-D4 … A-D7 rows is the historical wording before that approval.
 - [ ] **Mandatory (PO decision 2026-11-22):** final provisioning consumes only the operator's explicit `modeConfig.packageId` (never `PlatformTrialSettings.defaultPackage`) and re-validates that it still exists and is ACTIVE immediately before `provisionRestaurant` / `createTrial` / package assignment, in the same guarded write or transaction that moves the case to PROVISIONING (no read-then-write gap). A non-ACTIVE package refuses the final submit with the step-2 problem `PACKAGE_NOT_AVAILABLE`. No A1 / A2 code path provisions anything today (`provision-restaurant.ts` only exports its validators for the wizard).
 - [ ] Guest-menu readiness check separate from QR existence; incomplete menu → no READY.
 
-### A4 — Temporary demo, handoff, full QA — PENDING
-- [ ] DEMO path via `DemoService.create` (kind, hours, package); link shown once; case keeps a non-secret demo history snapshot (A-D2).
-- [ ] Handoff screen (backend-built Guest Menu URL, staff login URL, copyable ar/en messages; the password is handed over manually and never shown back from storage), DELIVERED transition.
-- [ ] Lead transition (A-D4): on DELIVERED for REAL / TRIAL, compare-and-set lead → DONE (skip if DONE / DISMISSED or changed manually); DEMO → CONTACTED at most; audited, idempotent. Needs a guarded, audited variant of `PlatformLeadsService.update` (today a plain `update`, no audit).
-  - Clarified 2026-11-21 (PO, final clarifications): DEMO → only `NEW → CONTACTED`, and only when the demo link has actually been handed over to the prospect (not on demo creation); existing CONTACTED kept; DONE / DISMISSED never overwritten automatically.
-- [ ] QR preview (A-D7): real Generic QR + menu URL after provisioning, copy / export; decide `qrcode` in `apps/platform` vs linking to the web QR export.
-  - Decided 2026-11-21 (PO, final clarifications): handoff QR preview + PNG download with the `qrcode` library in `apps/platform`; encodes the authoritative Backend-generated Guest Menu URL; reuse `apps/web/src/lib/qr/render.ts` conventions where practical, Platform-guarded API only (no Staff session coupling); no placeholder QR before provisioning; Staff QR export unchanged. Dependency addition happens with A4.
-- [ ] Full QA matrix (A8), interrupted-provisioning and menu-failure retries on disposable DB.
+### A4 — Temporary demo, handoff, full QA — implemented (Draft PR; release gated)
+- [x] DEMO provisioning through `DemoService.create`; one-time private link, existing expiry and purge, non-secret case history (A-D2).
+- [x] English and Arabic handoff with backend Guest Menu and Staff login URLs, manual password handoff, and explicit `DELIVERED` confirmation and staged-content cleanup.
+- [x] Audited, idempotent lead compare-and-set (A-D4): REAL / TRIAL → DONE on delivery, DEMO NEW → CONTACTED only on confirmed handoff; preserve terminal statuses and manual edits.
+- [x] `qrcode` in `apps/platform` renders the real Generic QR preview and downloadable PNG from the backend Guest Menu URL (A-D7). Staff QR export is unchanged.
+- [x] Local [validation and release gates](ONBOARDING_A4_VALIDATION.md). Full-size imports remain blocked through the checked-in Gateway.

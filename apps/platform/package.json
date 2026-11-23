@@ -13,6 +13,7 @@
     "clsx": "^2.1.1",
     "dotenv": "^17.4.2",
     "next": "16.4.2",
+    "qrcode": "^1.5.4",
     "react": "19.2.8",
     "react-dom": "19.2.8",
     "tailwind-merge": "^3.7.0"
@@ -20,6 +21,7 @@
   "devDependencies": {
     "@tailwindcss/postcss": "^4",
     "@types/node": "^24.13.3",
+    "@types/qrcode": "^1.5.6",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",

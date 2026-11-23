@@ -18,7 +18,7 @@ const MODES: { mode: OnboardingMode; title: MessageKey; body: MessageKey }[] = [
 /** The same choices as the demos page. */
 const DEMO_DURATIONS = [1, 4, 24, 72, 168] as const;
 
-/** Step 2: how this customer starts. Only the choice is stored; nothing is created in this build. */
+/** Step 2 records how this customer starts; provisioning is a separate action. */
 export function ModeStep({
   data,
   mode,

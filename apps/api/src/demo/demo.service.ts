@@ -16,7 +16,7 @@ import type { MenuTemplate } from '../generated/prisma/client';
 import { createProductPublicId } from '../menu/product-public-id';
 import {
   provisionRestaurant,
-  type ProvisioningPrisma,
+  type ProvisioningTx,
 } from '../provisioning/provision-restaurant';
 import { createQrPublicCode } from '../qr/qr-public-code';
 import { normalizeBloomSettings } from '../restaurants/bloom-template-config';
@@ -59,6 +59,20 @@ export type CreateDemoResult =
   | { outcome: 'created'; demo: DemoView; link: string }
   | { outcome: 'invalidInput'; problems: string[] }
   | { outcome: 'limitReached'; max: number };
+
+interface CreateDemoInput {
+  label: string;
+  hours: number;
+  packageId?: string | null;
+  kind?: string;
+}
+
+export interface DemoCreationCheckpoint {
+  /** Lock and check the consuming workflow before any demo is created. False is a no-op. */
+  beforeCreate?: (tx: Prisma.TransactionClient) => Promise<boolean>;
+  /** Persist the consuming workflow's checkpoint here; the private link is never passed in. */
+  checkpoint: (tx: Prisma.TransactionClient, demo: DemoView) => Promise<void>;
+}
 
 export type DemoActionResult<T = DemoView> =
   | { outcome: 'ok'; demo: T }
@@ -151,18 +165,21 @@ export class DemoService {
   }
 
   /** The link a prospect opens. Shown once: only a hash of the secret is stored. */
-  private async issueLink(restaurantId: string): Promise<string> {
+  private makeLink(): { link: string; tokenHash: string } {
     const token = randomBytes(32).toString('base64url');
-    await this.prisma.$transaction([
-      this.prisma.demoAccessLink.deleteMany({ where: { restaurantId } }),
-      this.prisma.demoAccessLink.create({
-        data: { restaurantId, tokenHash: sha256(token) },
-      }),
-    ]);
     const base = this.config
       .get('CORS_ORIGIN', { infer: true })
       .replace(/\/+$/, '');
-    return `${base}/demo/${token}`;
+    return { link: `${base}/demo/${token}`, tokenHash: sha256(token) };
+  }
+
+  private async issueLink(restaurantId: string): Promise<string> {
+    const { link, tokenHash } = this.makeLink();
+    await this.prisma.$transaction([
+      this.prisma.demoAccessLink.deleteMany({ where: { restaurantId } }),
+      this.prisma.demoAccessLink.create({ data: { restaurantId, tokenHash } }),
+    ]);
+    return link;
   }
 
   /**
@@ -170,6 +187,7 @@ export class DemoService {
    * (DEC-043, DEC-046, DEC-051): a feature the Package does not include is hidden, a design it does not allow is locked.
    */
   private async loadPackage(
+    tx: Prisma.TransactionClient,
     packageId: string,
   ): Promise<
     | { ok: true; id: string; templates: MenuTemplateKey[] }
@@ -177,7 +195,13 @@ export class DemoService {
   > {
     if (!UUID.test(packageId))
       return { ok: false, problem: 'the package was not found' };
-    const pkg = await this.prisma.package.findUnique({
+    // Do not assign a Package archived between validation and creation.
+    const rows = await tx.$queryRaw<{ id: string }[]>`
+      SELECT id FROM packages WHERE id = ${packageId}::uuid FOR SHARE
+    `;
+    if (rows.length === 0)
+      return { ok: false, problem: 'the package was not found' };
+    const pkg = await tx.package.findUnique({
       where: { id: packageId },
       select: {
         id: true,
@@ -210,12 +234,15 @@ export class DemoService {
     };
   }
 
-  async create(input: {
-    label: string;
-    hours: number;
-    packageId?: string | null;
-    kind?: string;
-  }): Promise<CreateDemoResult> {
+  create(input: CreateDemoInput): Promise<CreateDemoResult>;
+  create(
+    input: CreateDemoInput,
+    hooks: DemoCreationCheckpoint,
+  ): Promise<CreateDemoResult | { outcome: 'skipped' }>;
+  async create(
+    input: CreateDemoInput,
+    hooks?: DemoCreationCheckpoint,
+  ): Promise<CreateDemoResult | { outcome: 'skipped' }> {
     const kind = input.kind ?? DEFAULT_DEMO_KIND;
     const label = input.label.replace(/\s+/g, ' ').trim();
     const problems: string[] = [];
@@ -229,92 +256,95 @@ export class DemoService {
       problems.push(
         `hours must be a whole number from ${DEMO_MIN_HOURS} to ${DEMO_MAX_HOURS}`,
       );
-    if (!isDemoKind(kind)) problems.push('the kind of demo is not known');
-    let pkg: { id: string; templates: MenuTemplateKey[] } | null = null;
-    if (input.packageId) {
-      const loaded = await this.loadPackage(input.packageId);
-      if (loaded.ok) pkg = loaded;
-      else problems.push(loaded.problem);
-    }
-    if (problems.length > 0) return { outcome: 'invalidInput', problems };
+    const demoKind = isDemoKind(kind) ? kind : null;
+    if (!demoKind) problems.push('the kind of demo is not known');
 
-    const max = this.config.get('DEMO_MAX_ACTIVE', { infer: true });
-    if (
-      (await this.prisma.restaurant.count({ where: { isDemo: true } })) >= max
-    ) {
-      return { outcome: 'limitReached', max };
-    }
+    return this.prisma.$transaction(
+      async (tx) => {
+        if (hooks?.beforeCreate && !(await hooks.beforeCreate(tx)))
+          return { outcome: 'skipped' };
 
-    // The kind was checked with the other input above; this narrows it for the compiler.
-    const demoKind = kind as DemoKind;
-    const template = await loadDemoTemplate(demoKind);
-    const uploadDir = resolveUploadDir(
-      this.config.get('UPLOAD_LOCAL_DIR', { infer: true }),
-    );
-    const assets = await installTemplateImages(demoKind, template, uploadDir);
+        let pkg: { id: string; templates: MenuTemplateKey[] } | null = null;
+        if (input.packageId) {
+          const loaded = await this.loadPackage(tx, input.packageId);
+          if (loaded.ok) pkg = loaded;
+          else problems.push(loaded.problem);
+        }
+        if (!demoKind || problems.length > 0)
+          return { outcome: 'invalidInput', problems };
 
-    // The owner of a demo is a throw-away identity: an address that can never receive mail and a password nobody knows.
-    const provisioned = await provisionRestaurant(
-      this.prisma as unknown as ProvisioningPrisma,
-      this.hasher,
-      {
-        restaurantName: template.restaurant.name,
-        ownerEmail: `demo-${randomUUID()}@${DEMO_EMAIL_DOMAIN}`,
-        ownerPassword: randomBytes(24).toString('base64url'),
-        branchName: template.branches[0].names.ar,
-        defaultLocale: template.restaurant.defaultLocale,
-        currencyCode: template.restaurant.currencyCode,
-        timezone: template.branches[0].timezone,
+        // Count all stored demos, including locked ones. Both creation routes hold this lock
+        // through commit so a concurrent create cannot claim the same last slot.
+        await tx.$queryRaw`SELECT 1 FROM pg_advisory_xact_lock(hashtext('demo-create'))`;
+        const max = this.config.get('DEMO_MAX_ACTIVE', { infer: true });
+        if ((await tx.restaurant.count({ where: { isDemo: true } })) >= max)
+          return { outcome: 'limitReached', max };
+
+        // These are local, bundled assets shared by all demos, never private files for this case.
+        const template = await loadDemoTemplate(demoKind);
+        const uploadDir = resolveUploadDir(
+          this.config.get('UPLOAD_LOCAL_DIR', { infer: true }),
+        );
+        const assets = await installTemplateImages(
+          demoKind,
+          template,
+          uploadDir,
+        );
+
+        // Reuse the tenant provisioner in this transaction along with the template, hashed link and checkpoint.
+        // The demo owner is a throw-away identity: an undeliverable address and a password nobody knows.
+        const provisioned = await provisionRestaurant(
+          { $transaction: (work) => work(tx as unknown as ProvisioningTx) },
+          this.hasher,
+          {
+            restaurantName: template.restaurant.name,
+            ownerEmail: `demo-${randomUUID()}@${DEMO_EMAIL_DOMAIN}`,
+            ownerPassword: randomBytes(24).toString('base64url'),
+            branchName: template.branches[0].names.ar,
+            defaultLocale: template.restaurant.defaultLocale,
+            currencyCode: template.restaurant.currencyCode,
+            timezone: template.branches[0].timezone,
+          },
+        );
+        if (provisioned.outcome !== 'provisioned') {
+          return {
+            outcome: 'invalidInput',
+            problems: ['could not create the demo restaurant'],
+          };
+        }
+        const restaurant = await tx.restaurant.findUniqueOrThrow({
+          where: { publicId: provisioned.restaurantPublicId },
+          select: { id: true },
+        });
+        await this.fillFromTemplate(tx, restaurant.id, template, assets, {
+          label,
+          kind: demoKind,
+          expiresAt: new Date(Date.now() + input.hours * HOUR_MS),
+          packageId: pkg?.id ?? null,
+          // The template's design when the Package allows it, otherwise the one design every Package has.
+          menuTemplate:
+            !pkg ||
+            pkg.templates.includes(
+              template.restaurant.menuTemplate as MenuTemplateKey,
+            )
+              ? (template.restaurant.menuTemplate as MenuTemplate)
+              : 'CLASSIC',
+        });
+        const { link, tokenHash } = this.makeLink();
+        await tx.demoAccessLink.create({
+          data: { restaurantId: restaurant.id, tokenHash },
+        });
+        const row = await tx.restaurant.findUniqueOrThrow({
+          where: { id: restaurant.id },
+          select: this.select,
+        });
+        const demo = this.view(row);
+        await hooks?.checkpoint(tx, demo);
+        return { outcome: 'created', demo, link };
       },
+      // A count after acquiring the advisory lock must see the preceding creation commit.
+      { timeout: 60_000, maxWait: 10_000, isolationLevel: 'ReadCommitted' },
     );
-    if (provisioned.outcome !== 'provisioned') {
-      return {
-        outcome: 'invalidInput',
-        problems: ['could not create the demo restaurant'],
-      };
-    }
-    const restaurant = await this.prisma.restaurant.findUniqueOrThrow({
-      where: { publicId: provisioned.restaurantPublicId },
-      select: { id: true },
-    });
-
-    try {
-      const expiresAt = new Date(Date.now() + input.hours * HOUR_MS);
-      await this.prisma.$transaction(
-        (tx) =>
-          this.fillFromTemplate(tx, restaurant.id, template, assets, {
-            label,
-            kind: demoKind,
-            expiresAt,
-            packageId: pkg?.id ?? null,
-            // The template's design when the Package allows it, otherwise the one design every Package has.
-            menuTemplate:
-              !pkg ||
-              pkg.templates.includes(
-                template.restaurant.menuTemplate as MenuTemplateKey,
-              )
-                ? (template.restaurant.menuTemplate as MenuTemplate)
-                : 'CLASSIC',
-          }),
-        { timeout: 60_000, maxWait: 10_000 },
-      );
-    } catch (error) {
-      // Never leave a half-built demo behind.
-      this.logger.error(`Demo creation failed, removing it: ${String(error)}`);
-      await this.purge(restaurant.id).catch((purgeError) =>
-        this.logger.error(
-          `Cleanup of a failed demo also failed: ${String(purgeError)}`,
-        ),
-      );
-      throw error;
-    }
-
-    const link = await this.issueLink(restaurant.id);
-    const row = await this.prisma.restaurant.findUniqueOrThrow({
-      where: { id: restaurant.id },
-      select: this.select,
-    });
-    return { outcome: 'created', demo: this.view(row), link };
   }
 
   /** The template's settings for the design the demo ended up on, normalized by the dashboard's own rules. */
@@ -748,6 +778,13 @@ export class DemoService {
         );
         if (!locked) return;
         try {
+          // Take the case lock before the restaurant lock, matching onboarding. This marker
+          // rolls back if purge fails; the existing SET NULL FK detaches the case on success.
+          await tx.$executeRaw`
+            UPDATE onboarding_cases
+            SET demo_removed_at = clock_timestamp()
+            WHERE demo_id = ${id}::uuid AND demo_history IS NOT NULL AND demo_removed_at IS NULL
+          `;
           const result = await purgeDemoRestaurant(tx, id);
           this.logger.log(
             `Removed demo ${id}: ${result.rowsDeleted} rows in ${result.tablesTouched} tables`,

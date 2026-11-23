@@ -67,7 +67,10 @@ export type PlatformAction =
   | 'onboarding.import_reviewed'
   | 'onboarding.import_discarded'
   | 'onboarding.failed'
-  | 'onboarding.ready';
+  | 'onboarding.ready'
+  | 'onboarding.demo_provisioned'
+  | 'onboarding.delivered'
+  | 'onboarding.lead_transitioned';
 
 /** The audit actor of work the platform does by itself (the hourly subscription check). */
 export const SYSTEM_ACTOR = null;

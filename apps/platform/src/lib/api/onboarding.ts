@@ -2,7 +2,7 @@ import { platformFetch } from "./client";
 import { ApiError } from "./errors";
 import type { LeadKind, LeadStatus } from "./leads";
 
-/** Mirrors the Platform onboarding case API, including REAL / TRIAL provisioning. */
+/** Mirrors the Platform onboarding case API. */
 export const ONBOARDING_STATUSES = [
   "DRAFT",
   "READY_FOR_REVIEW",
@@ -17,6 +17,7 @@ export type OnboardingStatus = (typeof ONBOARDING_STATUSES)[number];
 export type OnboardingMode = "REAL" | "TRIAL" | "DEMO";
 export const ONBOARDING_STEPS = ["customer", "mode", "menu", "review", "handoff"] as const;
 export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
+export const onboardingStepCount = (mode: OnboardingMode | null) => ONBOARDING_STEPS.length - (mode === "DEMO" ? 1 : 0);
 export const BUSINESS_TYPES = ["RESTAURANT", "CAFE", "SWEETS", "OTHER"] as const;
 export type BusinessType = (typeof BUSINESS_TYPES)[number];
 
@@ -164,6 +165,21 @@ export interface OnboardingMenuDraft {
   menus: MenuDraft[];
 }
 
+export interface OnboardingDemoHistory {
+  kind: "restaurant" | "cafe" | "sweets";
+  label: string;
+  packageName: string | null;
+  createdAt: string;
+  expiresAt: string;
+  removedAt: string | null;
+  purged: boolean;
+}
+
+export interface OnboardingHandoff {
+  guestMenuUrl: string;
+  staffLoginUrl: string;
+}
+
 export interface OnboardingCase {
   id: string;
   status: OnboardingStatus;
@@ -181,6 +197,11 @@ export interface OnboardingCase {
   provisioningKey: string | null;
   lastErrorCode: string | null;
   ownerPasswordRequired: boolean;
+  deliveredAt: string | null;
+  handoff: OnboardingHandoff | null;
+  demoHistory: OnboardingDemoHistory | null;
+  demoState: "ACTIVE" | "EXPIRED" | "PURGED" | null;
+  demoExpiresAt: string | null;
   lead: {
     id: string;
     name: string;
@@ -301,5 +322,13 @@ export interface OnboardingProvisionInput {
   ownerPassword?: string;
 }
 
+type OnboardingProvisionResult = OnboardingCase & {
+  /** Returned only by the request that first creates the demo. Never part of the case view. */
+  demoLink?: string;
+};
+
 export const finishOnboardingCase = (id: string, route: "provision" | "retry", body: OnboardingProvisionInput) =>
-  platformFetch<{ data: OnboardingCase }>(`${path(id)}/${route}`, { method: "POST", body }).then((r) => r.data);
+  platformFetch<{ data: OnboardingProvisionResult }>(`${path(id)}/${route}`, { method: "POST", body }).then((r) => r.data);
+
+export const deliverOnboardingCase = (id: string, revision: number) =>
+  platformFetch<{ data: OnboardingCase }>(`${path(id)}/deliver`, { method: "POST", body: { revision } }).then((r) => r.data);
