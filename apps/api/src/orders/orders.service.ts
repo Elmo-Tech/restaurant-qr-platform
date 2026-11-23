@@ -9,7 +9,16 @@ import {
 import { BranchAccessService } from '../auth/context/branch-access.service';
 import type { RestaurantAccessContext } from '../auth/context/restaurant-access.service';
 import { hasPermission } from '../auth/permission/has-permission';
-import type { OrderStatus, OrderType } from '../generated/prisma/client';
+import {
+  Prisma,
+  type OrderStatus,
+  type OrderType,
+} from '../generated/prisma/client';
+import {
+  ORDER_PROMOTION_VIEW_SELECT,
+  toOrderPromotionView,
+  type OrderPromotionView,
+} from './order-promotion-view';
 import { findOrderTransitionRule } from './order-transitions';
 import { resolveOrderBranchIdFilter } from './order-branch-scope';
 import {
@@ -56,6 +65,8 @@ export interface OrderItemView {
   quantity: number;
   /** Product Discounts V1: total discount taken off this line ("0.00" when none); `lineTotal` is already net of it. */
   discountAmount: string;
+  /** Sum of this line's new merchandise allocations; not yet deducted from `lineTotal`. */
+  promotionDiscount: string;
   lineTotal: string;
   modifiers: OrderItemModifierView[];
 }
@@ -82,11 +93,15 @@ export interface OrderDetail {
     apartment: string | null;
     landmark: string | null;
   } | null;
-  /** FT-8: exact money breakdown: subtotal + deliveryFee = totalAmount. */
+  /** Net merchandise subtotal + net delivery fee = totalAmount. */
   subtotalAmount: string;
   deliveryFee: string;
-  /** Product Discounts V1: sum of the items' discounts ("0.00" when none); `subtotalAmount` is already net of it. */
+  /** The zone fee before any delivery promotion; null for older and non-delivery orders. */
+  deliveryFeeOriginal: string | null;
+  deliveryDiscount: string;
+  /** Combined legacy and new merchandise discounts, already deducted from `subtotalAmount`. */
   discountTotal: string;
+  promotions: OrderPromotionView[];
   currencyCode: string;
   totalAmount: string;
   items: OrderItemView[];
@@ -140,6 +155,7 @@ const ORDER_ITEM_VIEW_SELECT = {
   quantity: true,
   lineTotal: true,
   discountAmount: true,
+  promotionAllocations: { select: { amount: true } },
   modifiers: {
     select: {
       modifierGroupNameSnapshot: true,
@@ -160,6 +176,7 @@ function toOrderItemView(item: {
   quantity: number;
   lineTotal: { toFixed(digits: number): string };
   discountAmount?: { toFixed(digits: number): string };
+  promotionAllocations: { amount: Prisma.Decimal }[];
   modifiers: {
     modifierGroupNameSnapshot: string;
     modifierOptionNameSnapshot: string;
@@ -174,6 +191,12 @@ function toOrderItemView(item: {
     unitPrice: formatMoney(item.unitPrice),
     quantity: item.quantity,
     discountAmount: item.discountAmount ? formatMoney(item.discountAmount) : '0.00',
+    promotionDiscount: formatMoney(
+      item.promotionAllocations.reduce(
+        (total, allocation) => total.plus(allocation.amount),
+        new Prisma.Decimal(0),
+      ),
+    ),
     lineTotal: formatMoney(item.lineTotal),
     modifiers: [
       ...item.modifiers.map((modifier) => ({
@@ -282,6 +305,8 @@ export class OrdersService {
         customerNotesSnapshot: true,
         subtotalAmount: true,
         deliveryFeeAmount: true,
+        deliveryFeeOriginalAmount: true,
+        deliveryDiscountAmount: true,
         discountTotalAmount: true,
         deliveryZoneNameSnapshot: true,
         deliveryAddressSnapshot: true,
@@ -296,6 +321,10 @@ export class OrdersService {
         branch: { select: { id: true, name: true } },
         table: { select: { id: true, tableNumber: true } },
         items: { select: ORDER_ITEM_VIEW_SELECT, orderBy: { createdAt: 'asc' } },
+        promotions: {
+          select: ORDER_PROMOTION_VIEW_SELECT,
+          orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+        },
         statusEvents: {
           select: { previousStatus: true, newStatus: true, transitionedAt: true },
           orderBy: { transitionedAt: 'asc' },
@@ -347,6 +376,10 @@ export class OrdersService {
             : null,
         subtotalAmount: formatMoney(order.subtotalAmount),
         deliveryFee: formatMoney(order.deliveryFeeAmount),
+        deliveryFeeOriginal:
+          order.deliveryFeeOriginalAmount?.toFixed(2) ?? null,
+        deliveryDiscount: formatMoney(order.deliveryDiscountAmount),
+        promotions: order.promotions.map(toOrderPromotionView),
         discountTotal: order.discountTotalAmount
           ? formatMoney(order.discountTotalAmount)
           : '0.00',

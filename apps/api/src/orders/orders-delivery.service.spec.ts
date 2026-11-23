@@ -21,6 +21,9 @@ const DELIVERY_ROW = {
   customerNotesSnapshot: 'Ring twice',
   subtotalAmount: decimal('240.00'),
   deliveryFeeAmount: decimal('25.00'),
+  deliveryFeeOriginalAmount: null,
+  deliveryDiscountAmount: decimal('0.00'),
+  promotions: [],
   deliveryZoneNameSnapshot: 'University District',
   deliveryAddressSnapshot: '12 University St',
   deliveryBuildingSnapshot: 'B4',
@@ -83,9 +86,88 @@ describe('OrdersService -- DELIVERY Orders (FT-8)', () => {
         },
         subtotalAmount: '240.00',
         deliveryFee: '25.00',
+        deliveryFeeOriginal: null,
+        deliveryDiscount: '0.00',
+        promotions: [],
         totalAmount: '265.00',
       },
     });
+  });
+
+  it('returns historical merchandise allocations and delivery savings without changing stored totals', async () => {
+    const item = {
+      productId: 'product-1',
+      productNameSnapshot: 'Burger',
+      unitPrice: decimal('100.00'),
+      quantity: 1,
+      lineTotal: decimal('100.00'),
+      discountAmount: decimal('0.00'),
+      promotionAllocations: [{ amount: decimal('25.00') }],
+      modifiers: [],
+    };
+    const m = build({
+      ...DELIVERY_ROW,
+      subtotalAmount: decimal('150.00'),
+      discountTotalAmount: decimal('50.00'),
+      deliveryFeeOriginalAmount: decimal('30.00'),
+      deliveryDiscountAmount: decimal('10.00'),
+      deliveryFeeAmount: decimal('20.00'),
+      totalAmount: decimal('170.00'),
+      items: [item, item],
+      promotions: [
+        {
+          scope: 'CART',
+          titleSnapshot: 'عرض الطلب',
+          internalNameSnapshot: 'Cart saving',
+          amount: decimal('50.00'),
+        },
+        {
+          scope: 'DELIVERY',
+          titleSnapshot: null,
+          internalNameSnapshot: 'Zone saving',
+          amount: decimal('10.00'),
+        },
+      ],
+    });
+
+    const result = await m.service.getOrderDetail(SCOPE, ORDER_ID);
+
+    expect(result).toMatchObject({
+      outcome: 'found',
+      data: {
+        subtotalAmount: '150.00',
+        discountTotal: '50.00',
+        deliveryFeeOriginal: '30.00',
+        deliveryDiscount: '10.00',
+        deliveryFee: '20.00',
+        totalAmount: '170.00',
+        items: [
+          {
+            discountAmount: '0.00',
+            promotionDiscount: '25.00',
+            lineTotal: '100.00',
+          },
+          {
+            discountAmount: '0.00',
+            promotionDiscount: '25.00',
+            lineTotal: '100.00',
+          },
+        ],
+      },
+    });
+    expect(result.outcome === 'found' && result.data.promotions).toEqual([
+      { scope: 'CART', title: 'عرض الطلب', amount: '50.00' },
+      { scope: 'DELIVERY', title: null, amount: '10.00' },
+    ]);
+    expect(m.orderFindFirst.mock.calls[0]).toMatchObject([
+      {
+        select: {
+          promotions: {
+            select: { scope: true, titleSnapshot: true, amount: true },
+          },
+        },
+      },
+    ]);
   });
 
   it('a DINE_IN/PICKUP detail has no delivery block and a zero fee', async () => {

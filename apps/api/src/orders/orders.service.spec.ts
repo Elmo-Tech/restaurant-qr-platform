@@ -1,4 +1,5 @@
 import { OrdersService } from './orders.service';
+import { Prisma } from '../generated/prisma/client';
 import { restaurantAccessFor } from '../auth/context/restaurant-access.fixture';
 
 const RESTAURANT_ID = 'restaurant-1';
@@ -7,7 +8,7 @@ const FOREIGN_BRANCH_ID = 'branch-foreign';
 const WELL_FORMED_UUID = '11111111-1111-4111-8111-111111111111';
 
 function decimal(value: string) {
-  return { toFixed: () => value } as unknown as { toFixed: (n: number) => string };
+  return new Prisma.Decimal(value);
 }
 
 const SAMPLE_ORDER_ROW = {
@@ -20,6 +21,9 @@ const SAMPLE_ORDER_ROW = {
   customerNotesSnapshot: null,
   subtotalAmount: decimal('100.00'),
   deliveryFeeAmount: decimal('0.00'),
+  deliveryFeeOriginalAmount: null,
+  deliveryDiscountAmount: decimal('0.00'),
+  promotions: [],
   deliveryZoneNameSnapshot: null,
   deliveryAddressSnapshot: null,
   deliveryBuildingSnapshot: null,
@@ -42,6 +46,7 @@ const SAMPLE_ORDER_ROW = {
       unitPrice: decimal('100.00'),
       quantity: 1,
       lineTotal: decimal('100.00'),
+      promotionAllocations: [],
       modifiers: [],
     },
   ],
@@ -255,6 +260,9 @@ describe('OrdersService.getOrderDetail', () => {
         delivery: null,
         subtotalAmount: '100.00',
         deliveryFee: '0.00',
+        deliveryFeeOriginal: null,
+        deliveryDiscount: '0.00',
+        promotions: [],
         discountTotal: '0.00',
         currencyCode: 'EGP',
         totalAmount: '100.00',
@@ -267,6 +275,7 @@ describe('OrdersService.getOrderDetail', () => {
             unitPrice: '100.00',
             quantity: 1,
             discountAmount: '0.00',
+            promotionDiscount: '0.00',
             lineTotal: '100.00',
             modifiers: [],
           },

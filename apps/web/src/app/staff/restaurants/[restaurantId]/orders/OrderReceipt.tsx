@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import { createPortal } from 'react-dom';
-import { fromMinorUnits, toMinorUnits } from '../../../../../lib/public-menu/money';
+import { orderDisplayPricing } from '../../../../../lib/orders/display-pricing';
 import type { OrderDetail } from '../../../../../lib/orders/types';
 import { orderStatusLabel } from './StatusBadge';
 import { orderTypeLabel } from './OrderTypeBadge';
@@ -46,7 +46,8 @@ export function OrderReceipt({ order, logoUrl = null }: { order: OrderDetail; lo
   if (typeof document === 'undefined') return null;
 
   const isDelivery = order.type === 'DELIVERY';
-  const hasDiscount = order.discountTotal !== '0.00';
+  const { hasDiscount, grossSubtotal, merchandisePromotions, deliveryFee, deliveryDiscount } =
+    orderDisplayPricing(order);
   const isDineIn = order.type === 'DINE_IN';
   const money = (amount: string) => (
     <Num>
@@ -170,6 +171,12 @@ export function OrderReceipt({ order, logoUrl = null }: { order: OrderDetail; lo
               </div>
             </li>
           ))}
+          {merchandisePromotions.map((promotion, index) => (
+            <li key={`promotion-${index}`} className="flex justify-between gap-2">
+              <span className="min-w-0 break-words"><Text>{promotion.title ?? t('orders.pricing.promotion')}</Text></span>
+              <span className="whitespace-nowrap">{money(`−${promotion.amount}`)}</span>
+            </li>
+          ))}
         </ul>
 
         <Divider />
@@ -179,22 +186,25 @@ export function OrderReceipt({ order, logoUrl = null }: { order: OrderDetail; lo
             <>
               <Row
                 label={t('orders.receipt.subtotal')}
-                value={money(
-                  hasDiscount
-                    ? fromMinorUnits(
-                        toMinorUnits(order.subtotalAmount) + toMinorUnits(order.discountTotal),
-                      )
-                    : order.subtotalAmount,
-                )}
+                value={money(grossSubtotal)}
               />
               {hasDiscount ? (
                 <Row
                   label={t('orders.receipt.discount')}
-                  value={`−${money(order.discountTotal)}`}
+                  value={money(`−${order.discountTotal}`)}
                 />
               ) : null}
               {isDelivery ? (
-                <Row label={t('orders.receipt.deliveryFee')} value={money(order.deliveryFee)} />
+                <Row label={t('orders.receipt.deliveryFee')} value={money(deliveryFee)} />
+              ) : null}
+              {deliveryDiscount ? (
+                <Row
+                  label={<>
+                    {t('orders.pricing.deliveryDiscount')}
+                    {deliveryDiscount.title ? <> · <Text>{deliveryDiscount.title}</Text></> : null}
+                  </>}
+                  value={money(`−${deliveryDiscount.amount}`)}
+                />
               ) : null}
             </>
           ) : null}
@@ -218,10 +228,10 @@ function Divider() {
   return <hr className="my-2 border-0 border-t border-dashed border-black" />;
 }
 
-function Row({ label, value }: { label: string; value: ReactNode }) {
+function Row({ label, value }: { label: ReactNode; value: ReactNode }) {
   return (
     <div className="flex justify-between gap-3">
-      <dt className="flex-shrink-0">{label}</dt>
+      <dt className="min-w-0 break-words">{label}</dt>
       <dd className="text-end font-bold">{value}</dd>
     </div>
   );

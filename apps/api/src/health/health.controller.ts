@@ -3,7 +3,12 @@ import { SkipThrottle } from '@nestjs/throttler';
 import { PrismaService } from '../database/prisma.service';
 
 /** Never rate-limited: load balancers and uptime monitors poll these. */
-const SKIP_ALL_THROTTLES = { default: true, login: true, publicOrder: true };
+const SKIP_ALL_THROTTLES = {
+  default: true,
+  login: true,
+  publicOrder: true,
+  publicQuote: true,
+};
 
 /** Readiness gives up on the DB probe after this long -- a hung database must read as "not ready", not hang the probe. */
 const READINESS_TIMEOUT_MS = 2000;

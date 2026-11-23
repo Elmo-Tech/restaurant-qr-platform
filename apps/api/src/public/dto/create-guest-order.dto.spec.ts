@@ -1,7 +1,10 @@
 import { plainToInstance } from 'class-transformer';
 import { validate } from 'class-validator';
 import { validationExceptionFactory } from '../../common/http/validation-exception.factory';
-import { CreateGuestOrderDto } from './create-guest-order.dto';
+import {
+  CreateGuestOrderDto,
+  QuoteGuestOrderDto,
+} from './create-guest-order.dto';
 
 const WELL_FORMED_UUID = '11111111-1111-4111-8111-111111111111';
 
@@ -267,5 +270,22 @@ describe('CreateGuestOrderDto -- Pickup fields (FT-7)', () => {
       items: [{ productId: WELL_FORMED_UUID, quantity }],
     });
     expect(errors.length).toBeGreaterThan(0);
+  });
+});
+
+describe('QuoteGuestOrderDto', () => {
+  it('validates cart selections without accepting identity, totals, or customer details', async () => {
+    const dto = plainToInstance(QuoteGuestOrderDto, {
+      items: [{ productId: WELL_FORMED_UUID, quantity: 1, unitPrice: '0.00' }],
+      clientRequestId: WELL_FORMED_UUID,
+      expectedTotal: '0.00',
+      customerName: 'Ignored',
+      customerPhone: 'Ignored',
+      deliveryAddress: 'Ignored',
+    });
+    expect(await validate(dto, { whitelist: true })).toEqual([]);
+    expect(JSON.parse(JSON.stringify(dto))).toEqual({
+      items: [{ productId: WELL_FORMED_UUID, quantity: 1 }],
+    });
   });
 });

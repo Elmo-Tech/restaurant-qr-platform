@@ -148,7 +148,9 @@ function buildMock(options: { qr: unknown; eligibleBranchIds?: string[]; zone?: 
 }
 
 /** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
-const ENTITLEMENTS = { forRestaurant: () => Promise.resolve(ALL_FEATURES) };
+const ENTITLEMENTS = {
+  forRestaurant: () => Promise.resolve({ ...ALL_FEATURES, PROMOTIONS: false }),
+};
 
 function buildService(mock: ReturnType<typeof buildMock>): PublicOrdersService {
   return new PublicOrdersService(mock.prisma as never, ENTITLEMENTS as never);

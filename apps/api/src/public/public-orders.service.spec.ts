@@ -43,6 +43,7 @@ const TABLE_QR_ROW = {
 
 const PRODUCT_ROW = {
   id: 'product-1',
+  categoryId: 'category-1',
   basePrice: decimal('100.00'),
   translations: [{ name: 'Burger' }],
   category: { displayOrder: 0, translations: [{ name: 'Mains' }] },
@@ -96,11 +97,15 @@ function buildPrismaMock() {
   const menuFindFirst = jest.fn().mockResolvedValue({ id: 'menu-1' });
   const productFindMany = jest.fn().mockResolvedValue([PRODUCT_ROW]);
   const orderCreate = jest.fn().mockResolvedValue(CREATED_ORDER_ROW);
+  const promotionFindMany = jest
+    .fn<Promise<unknown>, [Prisma.PromotionFindManyArgs]>()
+    .mockResolvedValue([]);
   const branchFindMany = jest.fn().mockResolvedValue([{ id: 'branch-1' }]);
 
   const txClient = {
     menu: { findFirst: menuFindFirst },
     product: { findMany: productFindMany },
+    promotion: { findMany: promotionFindMany },
     order: { create: orderCreate },
   };
   const transaction = jest.fn((callback: (tx: typeof txClient) => unknown) =>
@@ -118,14 +123,16 @@ function buildPrismaMock() {
     orderFindFirst,
     menuFindFirst,
     productFindMany,
+    promotionFindMany,
     orderCreate,
     branchFindMany,
     transaction,
   };
 }
 
-/** Every feature allowed (DEC-043): the default for a Restaurant without overrides. */
-const ENTITLEMENTS = { forRestaurant: () => Promise.resolve(ALL_FEATURES) };
+const ENTITLEMENTS = {
+  forRestaurant: () => Promise.resolve({ ...ALL_FEATURES, PROMOTIONS: false }),
+};
 
 function buildService(mock: ReturnType<typeof buildPrismaMock>): PublicOrdersService {
   return new PublicOrdersService(mock.prisma as never, ENTITLEMENTS as never);
@@ -136,6 +143,80 @@ const VALID_INPUT = {
   clientRequestId: '11111111-1111-4111-8111-111111111111',
   items: [{ productId: 'product-1', quantity: 1 }],
 };
+
+describe('PublicOrdersService.quote', () => {
+  const input = {
+    publicCode: VALID_INPUT.publicCode,
+    items: VALID_INPUT.items,
+  };
+
+  it('keeps legacy prices and never reads an Order or resolves a session slot', async () => {
+    const mock = buildPrismaMock();
+    const result = await buildService(mock).quote(input);
+    expect(result).toMatchObject({
+      outcome: 'publicQuote',
+      data: { type: 'DINE_IN', total: '100.00', promotions: [] },
+    });
+    expect(mock.promotionFindMany).not.toHaveBeenCalled();
+    expect(mock.orderFindFirst).not.toHaveBeenCalled();
+    expect(mock.orderCreate).not.toHaveBeenCalled();
+    expect(resolveSlotMock).not.toHaveBeenCalled();
+  });
+
+  it('loads active candidates once for the QR restaurant when entitled', async () => {
+    const mock = buildPrismaMock();
+    mock.promotionFindMany.mockResolvedValue([
+      {
+        id: 'promotion-1',
+        internalName: 'Internal',
+        scope: 'CATEGORY',
+        discountType: 'PERCENTAGE',
+        value: decimal('30'),
+        status: 'ACTIVE',
+        priority: 100,
+        startsOn: null,
+        endsOn: null,
+        minimumSubtotal: null,
+        minimumQuantity: null,
+        quantityBasis: null,
+        translations: [{ title: 'Main dishes' }],
+        categories: [{ categoryId: 'category-1' }],
+        branches: [],
+        menus: [],
+        products: [],
+        deliveryZones: [],
+      },
+    ]);
+    const service = new PublicOrdersService(
+      mock.prisma as never,
+      {
+        forRestaurant: () => Promise.resolve(ALL_FEATURES),
+      } as never,
+    );
+    expect(await service.quote(input)).toMatchObject({
+      outcome: 'publicQuote',
+      data: {
+        total: '70.00',
+        promotions: [
+          { title: 'Main dishes', scope: 'CATEGORY', amount: '30.00' },
+        ],
+        items: [
+          {
+            lineTotal: '100.00',
+            discountAmount: '0.00',
+            promotionDiscount: '30.00',
+          },
+        ],
+      },
+    });
+    expect(mock.promotionFindMany).toHaveBeenCalledTimes(1);
+    expect(mock.promotionFindMany.mock.calls[0][0]).toMatchObject({
+      where: { restaurantId: 'restaurant-1', status: 'ACTIVE' },
+    });
+    expect(mock.orderFindFirst).not.toHaveBeenCalled();
+    expect(resolveSlotMock).not.toHaveBeenCalled();
+  });
+});
 
 describe('PublicOrdersService.createOrder', () => {
   it('rejects an unknown publicCode', async () => {
@@ -361,7 +442,10 @@ describe('PublicOrdersService.createOrder', () => {
         delivery: null,
         subtotal: '100.00',
         deliveryFee: '0.00',
+        deliveryFeeOriginal: null,
+        deliveryDiscount: '0.00',
         discountTotal: '0.00',
+        promotions: [],
         items: [
           {
             productId: 'product-1',
@@ -371,6 +455,7 @@ describe('PublicOrdersService.createOrder', () => {
             quantity: 1,
             unitPrice: '100.00',
             discountAmount: '0.00',
+            promotionDiscount: '0.00',
             lineTotal: '100.00',
             modifiers: [],
           },

@@ -14,6 +14,11 @@ import type {
   TableSessionPaymentMethod,
 } from '../generated/prisma/client';
 import { resolveOrderBranchIdFilter } from '../orders/order-branch-scope';
+import {
+  ORDER_PROMOTION_VIEW_SELECT,
+  toOrderPromotionView,
+  type OrderPromotionView,
+} from '../orders/order-promotion-view';
 import type { CloseSessionDto } from './dto/close-session.dto';
 import {
   SESSION_LIST_DEFAULT_LIMIT,
@@ -76,6 +81,7 @@ export interface SessionRoundView {
     currencyCode: string;
     totalAmount: string;
     items: SessionOrderItemView[];
+    promotions: OrderPromotionView[];
   };
 }
 
@@ -140,6 +146,7 @@ export interface SessionBillRound {
   createdAt: Date;
   totalAmount: string;
   items: SessionOrderItemView[];
+  promotions: OrderPromotionView[];
 }
 
 export interface SessionBillDocument {
@@ -244,6 +251,11 @@ const DETAIL_SELECT = {
       roundNumber: true,
       currencyCode: true,
       totalAmount: true,
+      promotions: {
+        where: { scope: { not: 'DELIVERY' } },
+        select: ORDER_PROMOTION_VIEW_SELECT,
+        orderBy: [{ createdAt: 'asc' }, { id: 'asc' }],
+      },
       items: {
         orderBy: { createdAt: 'asc' },
         select: {
@@ -526,6 +538,7 @@ export class TableSessionsService {
       createdAt: round.order.createdAt,
       totalAmount: round.order.totalAmount,
       items: round.order.items,
+      promotions: round.order.promotions,
     });
     return {
       outcome: 'found',
@@ -1121,6 +1134,7 @@ function toDetail(
         billable: billable.has(order.status),
         currencyCode: order.currencyCode,
         totalAmount: formatMoney(order.totalAmount),
+        promotions: order.promotions.map(toOrderPromotionView),
         items: order.items.map((item) => ({
           productId: item.productId,
           offerId: item.offerId,

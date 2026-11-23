@@ -1,4 +1,4 @@
-import type { OrderStatus, OrderType } from '../orders/types';
+import type { OrderPromotionSnapshot, OrderStatus, OrderType } from '../orders/types';
 
 /**
  * Mirrors the Backend's Table Session read models (Table Sessions design v3,
@@ -63,6 +63,7 @@ export interface SessionRound {
     currencyCode: string;
     totalAmount: string;
     items: SessionOrderItem[];
+    promotions?: OrderPromotionSnapshot[];
   };
 }
 
@@ -95,6 +96,7 @@ export interface SessionSummaryRound {
   createdAt: string;
   totalAmount: string;
   items: SessionOrderItem[];
+  promotions?: OrderPromotionSnapshot[];
 }
 
 /** The printable table order summary. Rendered exactly as received. */

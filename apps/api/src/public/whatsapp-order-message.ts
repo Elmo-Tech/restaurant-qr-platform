@@ -290,20 +290,54 @@ export function buildWhatsappMessage(quote: OrderQuote): string {
 
 
   lines.push('');
+  const deliveryDiscount = quote.deliveryDiscount ?? '0.00';
   const hasBreakdown =
-    quote.deliveryFee !== '0.00' || quote.discountTotal !== '0.00';
+    quote.deliveryFee !== '0.00' ||
+    deliveryDiscount !== '0.00' ||
+    quote.discountTotal !== '0.00';
   if (hasBreakdown) {
-    // The backend subtotal is already NET of product discounts. Show the
-    // pre-discount items figure only when also showing the discount line,
-    // so the summary still reconciles: items - discount + delivery = total.
-    const itemsBeforeDiscount = centsAmount(
-      amountCents(quote.subtotal) + amountCents(quote.discountTotal),
+    const merchandise = (quote.promotions ?? []).filter(
+      (promotion) => promotion.scope !== 'DELIVERY',
     );
-    lines.push(t.subtotal + ': ' + cost(itemsBeforeDiscount));
-    if (quote.discountTotal !== '0.00')
-      lines.push(t.discount + ': -' + cost(quote.discountTotal));
-    if (quote.deliveryFee !== '0.00')
+    const discountTotal = amountCents(quote.discountTotal);
+    const legacyDiscount = merchandise.reduce(
+      (remaining, promotion) => remaining - amountCents(promotion.amount),
+      discountTotal,
+    );
+    // Explain each deduction once: gross items − legacy − merchandise promos + net delivery.
+    lines.push(
+      t.subtotal +
+        ': ' +
+        cost(centsAmount(amountCents(quote.subtotal) + discountTotal)),
+    );
+    if (legacyDiscount > 0n)
+      lines.push(t.discount + ': -' + cost(centsAmount(legacyDiscount)));
+    for (const promotion of merchandise) {
+      lines.push(
+        (plain(promotion.title ?? '') || t.discount) +
+          ': -' +
+          cost(promotion.amount),
+      );
+    }
+    if (deliveryDiscount !== '0.00' && quote.deliveryFeeOriginal != null) {
+      const deliveryPromotion = quote.promotions?.find(
+        (promotion) => promotion.scope === 'DELIVERY',
+      );
+      const label = plain(deliveryPromotion?.title ?? '') || t.discount;
+      lines.push(
+        t.deliveryFee +
+          ': ' +
+          cost(quote.deliveryFeeOriginal) +
+          ' - ' +
+          cost(deliveryDiscount) +
+          ' (' +
+          label +
+          ') = ' +
+          cost(quote.deliveryFee),
+      );
+    } else if (quote.deliveryFee !== '0.00') {
       lines.push(t.deliveryFee + ': ' + cost(quote.deliveryFee));
+    }
   }
   lines.push('*' + t.total + ': ' + cost(quote.total) + '*');
 

@@ -22,6 +22,7 @@ const BASE: RateLimitSettings = {
   defaultLimit: 1000,
   loginLimit: 3,
   publicOrderLimit: 2,
+  publicQuoteLimit: 1,
 };
 
 const ORDER_BODY = {
@@ -43,7 +44,10 @@ async function buildApp(settings: RateLimitSettings): Promise<INestApplication> 
       { provide: WhatsappTrackingService, useValue: {} },
       {
         provide: PublicOrdersService,
-        useValue: { createOrder: jest.fn().mockResolvedValue({ outcome: 'qrNotFound' }) },
+        useValue: {
+          createOrder: jest.fn().mockResolvedValue({ outcome: 'qrNotFound' }),
+          quote: jest.fn().mockResolvedValue({ outcome: 'qrNotFound' }),
+        },
       },
       {
         provide: PublicMenuService,
@@ -99,6 +103,20 @@ describe('rate limiting (FT-9)', () => {
 
     // 404 = the (mocked) qrNotFound outcome reached the handler; the third never does.
     expect(statuses).toEqual([404, 404, 429]);
+  });
+
+  it('throttles public quotes under their own budget without throttling orders', async () => {
+    app = await buildApp(BASE);
+    const quote = await post(
+      app,
+      '/public/qr/some-code/quote',
+      { items: ORDER_BODY.items },
+      2,
+    );
+    expect(quote).toEqual([404, 429]);
+    expect(
+      await post(app, '/public/qr/some-code/orders', ORDER_BODY, 2),
+    ).toEqual([404, 404]);
   });
 
   it('the stricter groups do NOT leak onto unrelated routes (public menu read is unaffected)', async () => {
