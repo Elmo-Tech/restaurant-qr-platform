@@ -2329,6 +2329,11 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
         expect((await demos.extend(demoId, 24)).outcome).toBe('ok');
         await demos.lock(demoId);
         await refused();
+        // Expired/locked is not proof of purge: even explicit operator confirmation cannot cancel yet.
+        const beforePurge = await send('post', `${c.path}/cancel`, c.cookie, {
+          revision: c.revision, confirmNotDelivered: true,
+        }).expect(409);
+        expect(beforePurge.body.error.code).toBe('ONBOARDING_INVALID_TRANSITION');
         await demos.purge(demoId);
         expect((await remember(c)).demoId).toBeNull();
         await refused();
@@ -2348,6 +2353,41 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
         expect(
           await caseAudit(c.id, 'onboarding.lead_transitioned'),
         ).toHaveLength(0);
+
+        const anonymous = await send('post', `${c.path}/cancel`, null, {
+          revision: c.revision, confirmNotDelivered: true,
+        }).expect(401);
+        expect(anonymous.body.error.code).toBe('UNAUTHENTICATED');
+        const noConfirmation = await send('post', `${c.path}/cancel`, c.cookie, {
+          revision: c.revision,
+        }).expect(409);
+        expect(noConfirmation.body.error.code).toBe('ONBOARDING_INVALID_TRANSITION');
+        await send('post', `${c.path}/cancel`, c.cookie, {
+          revision: c.revision, confirmNotDelivered: 'yes',
+        }).expect(400);
+
+        const results = await Promise.all([
+          send('post', `${c.path}/cancel`, c.cookie, { revision: c.revision, confirmNotDelivered: true }),
+          send('post', `${c.path}/cancel`, c.cookie, { revision: c.revision, confirmNotDelivered: true }),
+        ]);
+        expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
+        const cancelled = results.find((r) => r.status === 200)!;
+        expect(cancelled.body.data).toMatchObject({
+          status: 'CANCELLED',
+          deliveredAt: null,
+          demoHistory: { purged: true, removedAt: expect.any(String) },
+        });
+        expect(await caseAudit(c.id, 'onboarding.cancelled')).toHaveLength(1);
+        expect(await caseAudit(c.id, 'onboarding.delivered')).toHaveLength(0);
+        expect(await leadState(lead.id)).toMatchObject({ status: 'NEW', statusVersion: 0 });
+        // Terminal CANCELLED releases the one-open-case-per-lead slot; no demo token is reused.
+        const replacementCase = await send('post', '/onboarding-cases', c.cookie, {
+          leadId: lead.id,
+        }).expect(201);
+        expect(replacementCase.body.data).toMatchObject({
+          status: 'DRAFT',
+          lead: { id: lead.id },
+        });
       }, 15_000);
     });
   });

@@ -1,0 +1,84 @@
+name: A4 DEMO cancellation review-only QA
+
+on:
+  push:
+    branches:
+      - review/a4-demo-ready-cancel-20261123
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a4-demo-cancel-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  demo-cancel:
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: restaurant_qr_it
+          POSTGRES_PASSWORD: ci_disposable_only
+          POSTGRES_DB: restaurant_qr_onboarding_ci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U restaurant_qr_it -d restaurant_qr_onboarding_ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      CORS_ORIGIN: http://localhost:3000
+      PLATFORM_ORIGIN: http://localhost:3001
+      DATABASE_URL: postgresql://restaurant_qr_it:ci_disposable_only@127.0.0.1:5432/restaurant_qr_onboarding_ci_test?schema=public
+      TABLE_SESSION_IT_DATABASE_URL: postgresql://restaurant_qr_it:ci_disposable_only@127.0.0.1:5432/restaurant_qr_onboarding_ci_test?schema=public
+    steps:
+      - name: Checkout review branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Use Node.js 24 and locked npm cache
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Mark isolated sandbox before allowing any integration test writes
+        run: |
+          node <<'NODE'
+          const {Client}=require('pg');
+          (async()=>{
+            const db=new Client({connectionString:process.env.DATABASE_URL});
+            await db.connect();
+            const identity=await db.query("SELECT current_database() AS db, current_user AS usr");
+            if(identity.rows[0].db!=='restaurant_qr_onboarding_ci_test'||identity.rows[0].usr!=='restaurant_qr_it') throw new Error('unexpected database identity');
+            await db.query("COMMENT ON DATABASE restaurant_qr_onboarding_ci_test IS 'restaurant-qr-integration-sandbox'");
+            await db.end();
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - name: Validate schema and generate Prisma client
+        run: |
+          npm run db:validate
+          npm run db:generate
+      - name: Apply migration chain on disposable PostgreSQL 18
+        run: npm exec --workspace=apps/api -- prisma migrate deploy
+      - name: Typecheck API and Platform
+        run: |
+          npm run typecheck:api
+          npm run typecheck:platform
+      - name: Focused transition and API unit tests
+        run: npm exec --workspace=apps/api -- jest --runInBand onboarding-transitions.spec.ts
+      - name: Real PostgreSQL onboarding cancellation and concurrency E2E
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+        run: npm exec --workspace=apps/api -- jest --config ./test/jest-e2e.json --runInBand onboarding-cases-http.e2e-spec.ts
+      - name: A4 contract regression
+        run: npm run test:contract-ui -- --runInBand onboarding-a4.spec.ts
+      - name: Whitespace validation
+        run: git diff --check 6437d437cfd4757d9415ffa1384247a434d84daf...HEAD

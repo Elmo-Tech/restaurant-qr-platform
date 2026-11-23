@@ -300,8 +300,11 @@ export const updateOnboardingCase = (id: string, patch: OnboardingPatch) =>
 export const submitOnboardingForReview = (id: string, revision: number) =>
   platformFetch<{ data: OnboardingCase }>(`${path(id)}/submit-for-review`, { method: "POST", body: { revision } }).then((r) => r.data);
 
-export const cancelOnboardingCase = (id: string, revision: number) =>
-  platformFetch<{ data: OnboardingCase }>(`${path(id)}/cancel`, { method: "POST", body: { revision } }).then((r) => r.data);
+export const cancelOnboardingCase = (id: string, revision: number, confirmNotDelivered = false) =>
+  platformFetch<{ data: OnboardingCase }>(`${path(id)}/cancel`, {
+    method: "POST",
+    body: { revision, ...(confirmNotDelivered ? { confirmNotDelivered: true } : {}) },
+  }).then((r) => r.data);
 
 export function importOnboardingMenu(id: string, revision: number, files: readonly File[]) {
   const body = new FormData();

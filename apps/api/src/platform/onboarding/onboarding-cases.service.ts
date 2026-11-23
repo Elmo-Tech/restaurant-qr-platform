@@ -650,12 +650,83 @@ export class OnboardingCasesService {
     admin: PlatformAdminPrincipal,
     id: string,
     revision: number,
+    confirmNotDelivered = false,
   ): Promise<CaseOutcome<OnboardingCaseView>> {
     const row = await this.find(id);
     if (!row) return { outcome: 'notFound' };
     if (row.revision !== revision) {
       return { outcome: 'revisionConflict', currentRevision: row.revision };
     }
+
+    // Approved 2026-11-23: a READY demo with proven, committed purge can be
+    // abandoned only after explicit operator confirmation of NO handoff.
+    // DemoService.purge stamps demoRemovedAt in the same transaction as DELETE;
+    // the case's demoId is SET NULL only when that transaction commits.
+    if (row.status === 'READY') {
+      if (!confirmNotDelivered)
+        return { outcome: 'invalidTransition', status: row.status };
+      const result = await this.prisma.$transaction(
+        async (tx): Promise<CaseOutcome<null>> => {
+          // Delivery and purge take this same row lock. Re-read AFTER acquiring it;
+          // a prior unlocked preview cannot authorize a destructive transition.
+          await tx.$queryRaw`SELECT id FROM onboarding_cases WHERE id = ${id}::uuid FOR UPDATE`;
+          const current = await tx.onboardingCase.findUnique({ where: { id } });
+          if (!current) return { outcome: 'notFound' };
+          if (current.revision !== revision)
+            return { outcome: 'revisionConflict', currentRevision: current.revision };
+          if (
+            current.status !== 'READY' ||
+            current.mode !== 'DEMO' ||
+            current.demoId !== null ||
+            current.demoRemovedAt === null ||
+            current.demoHistory === null ||
+            current.deliveredAt !== null
+          )
+            return { outcome: 'invalidTransition', status: current.status };
+
+          const written = await tx.onboardingCase.updateMany({
+            where: {
+              id,
+              revision,
+              status: 'READY',
+              mode: 'DEMO',
+              demoId: null,
+              demoRemovedAt: { not: null },
+              deliveredAt: null,
+            },
+            data: {
+              status: 'CANCELLED',
+              menuDraft: Prisma.DbNull,
+              importExpiresAt: null,
+              importLeaseUntil: null,
+              importReviewed: false,
+              cancelledAt: new Date(),
+              updatedByAdminId: admin.adminId,
+              revision: { increment: 1 },
+            },
+          });
+          if (written.count !== 1)
+            return { outcome: 'invalidTransition', status: current.status };
+          await this.audit.record(
+            {
+              admin,
+              action: 'onboarding.cancelled',
+              details: {
+                caseId: id,
+                from: 'READY',
+                leadId: current.leadId,
+                reason: 'DEMO_PURGED_UNDELIVERED',
+                confirmedNoHandoff: true,
+              },
+            },
+            tx,
+          );
+          return { outcome: 'ok', data: null };
+        },
+      );
+      return result.outcome === 'ok' ? this.get(id) : result;
+    }
+
     if (!canTransition(row.status, 'CANCELLED')) {
       return { outcome: 'invalidTransition', status: row.status };
     }

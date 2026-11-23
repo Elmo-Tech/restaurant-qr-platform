@@ -534,7 +534,10 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
   }
 
   const editable = data.status === "DRAFT" || data.status === "READY_FOR_REVIEW";
-  const canCancel = (editable || data.status === "FAILED") && !conflict;
+  const purgedUndeliveredDemo = data.status === "READY" && data.mode === "DEMO" &&
+    data.demoState === "PURGED" && data.demoHistory?.purged === true &&
+    Boolean(data.demoHistory.removedAt) && data.deliveredAt === null;
+  const canCancel = (editable || data.status === "FAILED" || purgedUndeliveredDemo) && !conflict;
   const locked = !editable || conflict || actionBusy;
   const unsaved = saveState === "dirty" || saveState === "saving" || saveState === "error";
   const importExpired = Boolean(expiresAt && expiredAt === expiresAt) ||
@@ -783,10 +786,10 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
           </div>
           {confirmCancel && canCancel ? (
             <Alert tone="warning">
-              <p>{t(data.restaurantId ? "onboarding.final.cancelPartial" : "onboarding.cancelConfirm")}</p>
+              <p>{t(purgedUndeliveredDemo ? "onboarding.demo.cancelPurgedConfirm" : data.restaurantId ? "onboarding.final.cancelPartial" : "onboarding.cancelConfirm")}</p>
               <div className="mt-2 flex flex-wrap gap-2">
-                <Button size="sm" variant="danger" disabled={actionBusy} onClick={() => void runAction((revision) => cancelOnboardingCase(caseId, revision), "cancel")}>
-                  {t("onboarding.cancelYes")}
+                <Button size="sm" variant="danger" disabled={actionBusy} onClick={() => void runAction((revision) => cancelOnboardingCase(caseId, revision, purgedUndeliveredDemo), "cancel")}>
+                  {t(purgedUndeliveredDemo ? "onboarding.demo.cancelPurgedYes" : "onboarding.cancelYes")}
                 </Button>
                 <Button size="sm" onClick={() => setConfirmCancel(false)}>
                   {t("common.back")}
