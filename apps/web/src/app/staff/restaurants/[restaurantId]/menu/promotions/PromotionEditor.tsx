@@ -189,9 +189,13 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
     }
   }
 
+  // Like the Product editor's live preview: a sticky sidebar on desktop, full width below the form on smaller screens.
   const preview = original?.status !== 'ARCHIVED' ? (
-    <SavingsPreview restaurantId={restaurantId} original={original} targets={targets} fields={fields} currencyCode={currencyCode} disabled={blocked} />
+    <aside className="min-w-0 xl:sticky xl:top-4">
+      <SavingsPreview restaurantId={restaurantId} original={original} targets={targets} fields={fields} currencyCode={currencyCode} disabled={blocked} />
+    </aside>
   ) : null;
+  const layout = 'grid min-w-0 grid-cols-1 items-start gap-6 xl:grid-cols-[minmax(0,1fr)_380px]';
   const extraLocales = targets.activeLocales.filter((locale) => locale !== targets.defaultLocale);
 
   return (
@@ -200,8 +204,8 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
         <Button type="button" variant="secondary" disabled={saving || reloading} onClick={() => uncertainCreate ? onUncertainCreate() : dirty ? setDiscard(true) : onBack()}>{t('promotions.viewList')}</Button>
         {!blocked && !dirty ? actionBar : null}
       </div>
-      {!canEdit && original ? <div className="grid min-w-0 items-start gap-4 xl:grid-cols-2"><PromotionSummary row={original} targets={targets} currencyCode={currencyCode} />{preview}</div> : canEdit ? (
-        <div className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,1.25fr)_minmax(0,1fr)]">
+      {!canEdit && original ? <div className={layout}><PromotionSummary row={original} targets={targets} currencyCode={currencyCode} />{preview}</div> : canEdit ? (
+        <div className={layout}>
           <form onSubmit={(event) => void submit(event)} className="min-w-0 space-y-4">
             <fieldset disabled={blocked} className="min-w-0 space-y-4">
               <Card className="space-y-4 p-4 sm:p-6">

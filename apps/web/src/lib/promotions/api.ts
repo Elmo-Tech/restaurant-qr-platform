@@ -73,8 +73,7 @@ export interface PromotionsPage {
   meta: { page: number; pageSize: number; total: number };
 }
 
-export const previewOrderTypes = ['DINE_IN', 'PICKUP', 'DELIVERY'] as const;
-export type PreviewOrderType = (typeof previewOrderTypes)[number];
+export type PreviewOrderType = 'DINE_IN' | 'PICKUP' | 'DELIVERY';
 
 export interface PreviewInput {
   draft: PromotionDraft;
@@ -148,7 +147,7 @@ export async function runPromotionAction(restaurantId: string, promotion: Promot
   }
 }
 
-export async function previewPromotion(restaurantId: string, input: PreviewInput): Promise<PromotionPreview> {
-  const { data } = await apiFetch<{ data: PromotionPreview }>(`${base(restaurantId)}/preview`, { method: 'POST', body: input });
+export async function previewPromotion(restaurantId: string, input: PreviewInput, signal?: AbortSignal): Promise<PromotionPreview> {
+  const { data } = await apiFetch<{ data: PromotionPreview }>(`${base(restaurantId)}/preview`, { method: 'POST', body: input, signal });
   return data;
 }

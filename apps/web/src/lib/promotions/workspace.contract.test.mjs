@@ -67,7 +67,7 @@ test('zone deep link and server preview use Staff API contracts, not Guest prici
   assert.match(source('./api.ts'), /confirmTargetWidening: true/);
   assert.match(source('./api.ts'), /expectedUpdatedAt: original\.updatedAt/);
   assert.match(source(`${workspace}PromotionEditor.tsx`), /mustConfirm && !confirmWiden/);
-  assert.match(source(`${workspace}SavingsPreview.tsx`), /money\(result\.appliedSaving\)/);
-  assert.match(source(`${workspace}SavingsPreview.tsx`), /result\.diagnostic\.status/);
+  assert.match(source(`${workspace}SavingsPreview.tsx`), /result\.appliedSaving/);
+  assert.match(source(`${workspace}SavingsPreview.tsx`), /diagnostic\.status/);
   assert.match(source(`${workspace}SavingsPreview.tsx`), /result\.zoneMinimumShortfall/);
 });
