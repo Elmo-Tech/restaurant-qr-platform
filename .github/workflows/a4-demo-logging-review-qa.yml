@@ -1,0 +1,43 @@
+name: A4 Demo capability logging review QA
+
+on:
+  push:
+    branches:
+      - review/a4-demo-logging-protection-20261123
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a4-demo-logging-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  redaction-and-referrer:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout independent review branch
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Node 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Pull disposable Nginx and Node images
+        run: |
+          docker pull nginx:1.28-alpine
+          docker pull node:24.15.0-alpine
+      - name: Probe raw and normalized Demo paths, errors and Referer with inert markers
+        run: node tests/release/a4-demo-logging-gateway-smoke.mjs
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Validate Next Web TypeScript
+        run: npm run typecheck:web
+      - name: Whitespace check on review diff
+        run: git diff --check b0c7572c560f6998f4f3efbbb678be621190ebfe...HEAD
+      - name: Explicitly exclude production
+        run: echo 'Only synthetic localhost probes; no production access, deployment or live tokens'

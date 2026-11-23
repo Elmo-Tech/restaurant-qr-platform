@@ -45,9 +45,18 @@ map $fwd_proto $hsts {
     https   "max-age=31536000; includeSubDomains";
 }
 
-# No query string and no cookies in the access log (reset links and QR codes carry tokens in the URL).
-log_format gateway '$remote_addr $host "$request_method $uri" $status $body_bytes_sent ${request_time}s req=$req_id';
-access_log /dev/stdout gateway;
+# The /demo/:token path is a bearer capability. Never log the path segment.
+# Match normalized URI (also covers encoded and differently cased variants);
+# no request line, raw Referer, query string, cookies or headers in this format.
+map $uri $safe_log_uri {
+    default $uri;
+    ~*^/demo/ /demo/[redacted];
+}
+log_format gateway '$remote_addr $host "$request_method $safe_log_uri" $status $body_bytes_sent ${request_time}s req=$req_id';
+# The official nginx image already has an HTTP-scope "main" access_log that
+# includes $request and $http_referer. Each server below declares exactly one
+# own access_log to override that inherited directive rather than adding a
+# second logger at the HTTP scope.
 error_log  /dev/stderr warn;
 
 # Apex homepage -> landing site (see `location = /` in the restaurant app server). Only a query made
@@ -87,6 +96,13 @@ server {
     listen 8080 default_server;
     server_name _;
 
+    access_log /dev/stdout gateway;
+    # Reject unknown hosts, and suppress upstream/request-line error detail on Demo paths.
+    location ~* ^/demo/ {
+        error_log /dev/null crit;
+        return 444;
+    }
+
     location = /gateway-health {
         access_log off;
         default_type text/plain;
@@ -106,6 +122,12 @@ server {
     listen 8080;
     server_name wayta.elmotechsoft.online;
 
+    access_log /dev/stdout gateway;
+    location ~* ^/demo/ {
+        error_log /dev/null crit;
+        return 308 https://waytaapp.com$request_uri;
+    }
+
     location ^~ /api/v1/whatsapp-tracking/webhook/ {
         access_log off;
         proxy_pass $api_upstream;
@@ -120,6 +142,12 @@ server {
     listen 8080;
     server_name wayta-control.elmotechsoft.online;
 
+    access_log /dev/stdout gateway;
+    location ~* ^/demo/ {
+        error_log /dev/null crit;
+        return 308 https://control.waytaapp.com$request_uri;
+    }
+
     location / {
         return 308 https://control.waytaapp.com$request_uri;
     }
@@ -129,6 +157,14 @@ server {
 server {
     listen 8080;
     server_name ${WEB_HOST} ${RESTAURANT_WILDCARD_HOST};
+
+    access_log /dev/stdout gateway;
+    # Nginx logs failed upstream requests with their raw request line unless
+    # this capability route has its own restricted error logging.
+    location ~* ^/demo/ {
+        error_log /dev/null crit;
+        proxy_pass $web_upstream;
+    }
 
     # The platform administrators' API lives on the console host only. Nest/Express routing is
     # case-insensitive by default, so this gateway boundary must reject every casing too.
@@ -149,6 +185,16 @@ server {
     # Restaurant subdomains can access only QR-scoped public endpoints.
     # The Nest guard additionally checks QR ownership against this Host.
     location ^~ /api/v1/public/qr/ {
+        proxy_pass $api_upstream;
+    }
+
+    # DEMO capability exchange can receive a token-bearing Referer from older
+    # browsers/clients. Keep API routing and the host guard identical while
+    # preventing upstream error diagnostics from echoing the raw Referer.
+    location = /api/v1/demo/enter {
+        if ($host != ${WEB_HOST}) { return 404; }
+        error_log /dev/null crit;
+        proxy_read_timeout 600s;
         proxy_pass $api_upstream;
     }
 
@@ -196,6 +242,12 @@ server {
 server {
     listen 8080;
     server_name ${PLATFORM_HOST};
+
+    access_log /dev/stdout gateway;
+    location ~* ^/demo/ {
+        error_log /dev/null crit;
+        proxy_pass $platform_upstream;
+    }
 
     # only the platform routes of the API are reachable from the console host
     location ^~ /api/v1/platform/ {

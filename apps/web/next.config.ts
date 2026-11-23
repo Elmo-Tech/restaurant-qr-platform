@@ -30,7 +30,14 @@ const nextConfig: NextConfig = {
     ? { output: "standalone" as const, outputFileTracingRoot: path.resolve(__dirname, "..", "..") }
     : {}),
   async headers() {
-    return [{ source: "/:path*", headers: securityHeaders }];
+    return [
+      { source: "/:path*", headers: securityHeaders },
+      // A demo link contains a bearer capability in its pathname. Prevent
+      // same-origin API, RSC and asset requests from forwarding that path as
+      // Referer; the generic Web default intentionally permits full same-origin
+      // Referers on all ordinary pages.
+      { source: "/demo/:token", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+    ];
   },
 };
 
