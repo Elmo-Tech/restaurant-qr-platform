@@ -1,0 +1,122 @@
+import type { OnboardingCase, OnboardingMenuDraft, OnboardingProvisionInput } from "./api/onboarding";
+import type { MessageKey } from "./i18n/messages";
+import type { Translate } from "./i18n/translate";
+
+export const IMPORT_ATTEMPT_LIMIT = 3;
+export const MENU_FILE_ACCEPT = ".jpg,.jpeg,.png,.webp,.pdf,.xlsx,.xls,image/jpeg,image/png,image/webp,application/pdf";
+const MB = 1024 * 1024;
+
+/** A client-side hint for obvious file size/count problems; the API checks actual content and eligibility. */
+export function menuFileProblem(files: readonly Pick<File, "size">[]): MessageKey | null {
+  if (files.length === 0 || files.length > 10 || files.some((file) => file.size === 0)) return "onboarding.menu.error.file";
+  if (files.some((file) => file.size > 10 * MB) || files.reduce((size, file) => size + file.size, 0) > 40 * MB) {
+    return "onboarding.menu.error.fileSize";
+  }
+  return null;
+}
+
+export function menuCounts(draft: OnboardingMenuDraft) {
+  let categories = 0;
+  let products = 0;
+  for (const menu of draft.menus) {
+    categories += menu.categories.length;
+    for (const category of menu.categories) products += category.products.length;
+  }
+  return { menus: draft.menus.length, categories, products };
+}
+
+const ENTITY_LABEL = {
+  menus: "onboarding.menu.item.menu",
+  categories: "onboarding.menu.item.category",
+  products: "onboarding.menu.item.product",
+  variants: "onboarding.menu.item.variant",
+  modifierGroups: "onboarding.menu.item.group",
+  options: "onboarding.menu.item.option",
+  translations: "onboarding.menu.item.translation",
+} as const satisfies Record<string, MessageKey>;
+
+const MENU_PROBLEM = new Map<string, MessageKey>([
+  ["menuDraft", "onboarding.menu.problem.menus"],
+  ["menus", "onboarding.menu.problem.menus"],
+  ["categories", "onboarding.menu.problem.categories"],
+  ["products", "onboarding.menu.problem.products"],
+  ["translations", "onboarding.menu.problem.translations"],
+  ["name", "onboarding.menu.problem.translations"],
+  ["locale", "onboarding.menu.problem.locale"],
+  ["description", "onboarding.menu.problem.description"],
+  ["price", "onboarding.menu.problem.price"],
+  ["minSelections", "onboarding.menu.problem.selections"],
+  ["maxSelections", "onboarding.menu.problem.selections"],
+  ["options", "onboarding.menu.problem.options"],
+]);
+
+export function menuProblemText(problem: string, t: Translate, number: (value: number) => string) {
+  const codeKey = onboardingErrorKey(problem);
+  if (codeKey) return t(codeKey);
+  const path = problem.split(".");
+  const field = path.at(-1) ?? "";
+  const description = t(MENU_PROBLEM.get(field) ?? "onboarding.menu.problem.invalid");
+  const location = path.flatMap((part) => {
+    const match = /^(menus|categories|products|variants|modifierGroups|options|translations)\[(\d{1,4})\]$/.exec(part);
+    if (!match) return [];
+    return [t(ENTITY_LABEL[match[1] as keyof typeof ENTITY_LABEL], { n: number(Number(match[2]) + 1) })];
+  });
+  // Never show raw backend paths or values. The editor uses the same localized row numbers.
+  return location.length ? t("onboarding.menu.problem.at", { location: location.join(" / "), description }) : description;
+}
+
+const ACTION_ERROR = new Map<string, MessageKey>([
+  ["ONBOARDING_INCOMPLETE", "onboarding.final.incomplete"],
+  ["ONBOARDING_INVALID_TRANSITION", "onboarding.final.stateChanged"],
+  ["ONBOARDING_NOT_EDITABLE", "onboarding.final.stateChanged"],
+  ["ONBOARDING_PROVISIONING_KEY_CONFLICT", "onboarding.final.stateChanged"],
+  ["OWNER_PASSWORD_REQUIRED", "onboarding.final.passwordHint"],
+  ["ONBOARDING_OWNER_EMAIL_IN_USE", "onboarding.final.emailInUse"],
+  ["ONBOARDING_GUEST_MENU_NOT_READY", "onboarding.final.menuNotReady"],
+  ["ONBOARDING_PROVISIONING_FAILED", "onboarding.final.provisionFailed"],
+  ["ONBOARDING_TRIAL_FAILED", "onboarding.final.trialFailed"],
+  ["ONBOARDING_RESTAURANT_NOT_ELIGIBLE", "onboarding.final.notEligible"],
+  ["PACKAGE_NOT_AVAILABLE", "onboarding.problem.PACKAGE_NOT_AVAILABLE"],
+  ["TRIAL_DISABLED", "onboarding.problem.TRIAL_DISABLED"],
+  ["FEATURE_NOT_AVAILABLE", "onboarding.menu.error.feature"],
+  ["ONBOARDING_IMPORT_EXPIRED", "onboarding.menu.error.expired"],
+  ["ONBOARDING_IMPORT_REVIEW_REQUIRED", "onboarding.menu.error.review"],
+  ["ONBOARDING_IMPORT_QUOTA", "onboarding.menu.error.quota"],
+  ["ONBOARDING_IMPORT_FAILED", "onboarding.menu.error.extraction"],
+  ["IMPORT_ALREADY_RUNNING", "onboarding.menu.error.running"],
+  ["ONBOARDING_MENU_INCOMPLETE", "onboarding.menu.problem.menus"],
+  ["ONBOARDING_MENU_PUBLISH_FAILED", "onboarding.final.menuPublishFailed"],
+  ["ONBOARDING_MENU_TARGET_NOT_EMPTY", "onboarding.final.menuTargetNotEmpty"],
+  ["IMPORT_FILE_INVALID", "onboarding.menu.error.file"],
+  ["IMPORT_FILE_TOO_LARGE", "onboarding.menu.error.fileSize"],
+]);
+export const onboardingErrorKey = (code: string | null) => (code ? ACTION_ERROR.get(code) : undefined);
+
+type ProvisionState = Pick<OnboardingCase, "status" | "mode" | "completedSteps" | "problems" | "menuDraft" | "importExpiresAt" | "importReviewed">;
+
+/** A1/A2 review may be submitted separately; only the first provisioning call requires all three steps. */
+export function provisionAction(data: ProvisionState): "provision" | "retry" | null {
+  if (data.mode !== "REAL" && data.mode !== "TRIAL") return null;
+  if (data.status === "FAILED") return "retry";
+  if (data.status === "PROVISIONING" || data.status === "MENU_SETUP") return "provision";
+  if (data.status !== "READY_FOR_REVIEW") return null;
+  return data.completedSteps.includes("customer") && data.completedSteps.includes("mode") && data.completedSteps.includes("menu") &&
+    data.menuDraft && data.problems.menu.length === 0 && (!data.importExpiresAt || data.importReviewed)
+    ? "provision"
+    : null;
+}
+
+export function provisioningRequest(
+  revision: number,
+  state: Pick<OnboardingCase, "provisioningKey" | "ownerPasswordRequired">,
+  pendingKey: string | null,
+  ownerPassword: string | undefined,
+  createKey: () => string,
+): OnboardingProvisionInput {
+  return {
+    revision,
+    // Once the server has a claimed key it is authoritative, including after reload or a lost response.
+    provisioningKey: state.provisioningKey ?? pendingKey ?? createKey(),
+    ...(state.ownerPasswordRequired && ownerPassword !== undefined ? { ownerPassword } : {}),
+  };
+}

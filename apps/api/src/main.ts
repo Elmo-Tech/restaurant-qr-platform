@@ -3,7 +3,7 @@ import { NestFactory } from '@nestjs/core';
 import helmet from 'helmet';
 import { ConfigService } from '@nestjs/config';
 import type { NestExpressApplication } from '@nestjs/platform-express';
-import type { Response } from 'express';
+import { json, type NextFunction, type Request, type Response } from 'express';
 import { AppModule } from './app.module';
 import { requestContextMiddleware } from './common/http/request-context.middleware';
 import { validationExceptionFactory } from './common/http/validation-exception.factory';
@@ -50,6 +50,17 @@ async function bootstrap() {
   // FT-9: request id + one access-log line per request (no bodies, cookies,
   // Authorization, or concrete URLs -- see the middleware).
   app.use(requestContextMiddleware);
+
+  // Only the bounded menu-draft PATCH needs more than Express's default JSON limit.
+  const parseOnboardingDraft = json({ limit: '2mb' });
+  app.use(
+    `/${apiPrefix}/platform/onboarding-cases/:caseId`,
+    (req: Request, res: Response, next: NextFunction) => {
+      if (req.method === 'PATCH' && req.path === '/')
+        parseOnboardingDraft(req, res, next);
+      else next();
+    },
+  );
 
   // FT-9: standard security headers. crossOriginResourcePolicy is relaxed
   // to cross-origin on purpose: uploaded Product/Category images are served

@@ -6,6 +6,12 @@ import { randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
+import sharp from 'sharp';
+import { MenuImportExtractor } from '../src/menu-import/menu-import-extractor';
+import { OnboardingMenuImportService } from '../src/platform/onboarding/onboarding-menu-import.service';
+import { OnboardingMenuWriterService } from '../src/platform/onboarding/onboarding-menu-writer.service';
+import { PlatformAuditService } from '../src/platform/platform-audit.service';
+import { SubscriptionSyncService } from '../src/platform/billing/subscription-sync.service';
 import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
@@ -94,8 +100,17 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
       where: { emailNormalized: { in: adminEmails } },
     });
     await prisma.signupLead.deleteMany({ where: { id: { in: leadIds } } });
-    await prisma.package.deleteMany({ where: { id: { in: packageIds } } });
+    await prisma.subscription.deleteMany({
+      where: { restaurantId: { in: restaurantIds } },
+    });
     for (const restaurantId of restaurantIds) {
+      await prisma.modifierOption.deleteMany({ where: { restaurantId } });
+      await prisma.modifierGroup.deleteMany({ where: { restaurantId } });
+      await prisma.productVariant.deleteMany({ where: { restaurantId } });
+      await prisma.product.deleteMany({ where: { restaurantId } });
+      await prisma.category.deleteMany({ where: { restaurantId } });
+      await prisma.menu.deleteMany({ where: { restaurantId } });
+      await prisma.qrCode.deleteMany({ where: { restaurantId } });
       await prisma.restaurantLocale.deleteMany({ where: { restaurantId } });
       await prisma.restaurantMembershipBranch.deleteMany({
         where: { membership: { restaurantId } },
@@ -103,8 +118,17 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
       await prisma.restaurantMembership.deleteMany({ where: { restaurantId } });
       await prisma.restaurantRole.deleteMany({ where: { restaurantId } });
       await prisma.branch.deleteMany({ where: { restaurantId } });
+      await prisma.restaurantSetup.deleteMany({ where: { restaurantId } });
+      await prisma.restaurantSlug.deleteMany({ where: { restaurantId } });
+      await prisma.restaurantAcquisition.deleteMany({
+        where: { restaurantId },
+      });
+      await prisma.restaurantOwnerContact.deleteMany({
+        where: { restaurantId },
+      });
       await prisma.restaurant.delete({ where: { id: restaurantId } });
     }
+    await prisma.package.deleteMany({ where: { id: { in: packageIds } } });
     for (const userId of userIds) {
       await prisma.authSession.deleteMany({ where: { userId } });
       await prisma.user.delete({ where: { id: userId } });
@@ -1370,6 +1394,418 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
         revision: c.revision + 1,
         packageId: winnerPkg,
       });
+    });
+  });
+
+  describe('A3 final provisioning and staging', () => {
+    const translation = (name: string) => [{ locale: 'ar', name }];
+    const menu = {
+      menus: [
+        {
+          translations: translation('Menu'),
+          categories: [
+            {
+              translations: translation('Category'),
+              products: [
+                {
+                  translations: translation('Coffee'),
+                  price: '10.00',
+                  variants: [
+                    { translations: translation('Large'), price: '12.00' },
+                  ],
+                  modifierGroups: [
+                    {
+                      translations: translation('Extras'),
+                      minSelections: 0,
+                      maxSelections: 1,
+                      options: [
+                        { translations: translation('Shot'), price: '1.50' },
+                      ],
+                    },
+                  ],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    };
+
+    async function start(
+      mode: 'REAL' | 'TRIAL' = 'REAL',
+      withMenu = true,
+      allowImport = false,
+    ) {
+      const cookie = await platformLogin(await addAdmin());
+      const pkg = await addPackage();
+      if (allowImport)
+        await prisma.packageFeature.create({
+          data: { packageId: pkg.id, feature: 'MENU_IMPORT' },
+        });
+      const ownerEmail = `a3-${randomUUID()}@example.test`;
+      const name = `A3 ${randomUUID()}`;
+      const created = await send('post', '/onboarding-cases', cookie, {});
+      const id = created.body.data.id as string;
+      const path = `/onboarding-cases/${id}`;
+      const saved = await send('patch', path, cookie, {
+        revision: 1,
+        details: step1(name, ownerEmail),
+        mode,
+        modeConfig: { packageId: pkg.id, trialDays: 14 },
+        ...(withMenu ? { menuDraft: menu } : {}),
+      });
+      expect(saved.status).toBe(200);
+      return {
+        cookie,
+        pkg,
+        id,
+        path,
+        ownerEmail,
+        name,
+        revision: saved.body.data.revision as number,
+        key: randomUUID(),
+      };
+    }
+    async function review(context: Awaited<ReturnType<typeof start>>) {
+      const res = await send(
+        'post',
+        `${context.path}/submit-for-review`,
+        context.cookie,
+        { revision: context.revision },
+      );
+      expect(res.status).toBe(200);
+      context.revision = res.body.data.revision as number;
+    }
+    function final(
+      context: Awaited<ReturnType<typeof start>>,
+      retry = false,
+      password: string | null = SECRET,
+      key = context.key,
+    ) {
+      return send(
+        'post',
+        `${context.path}/${retry ? 'retry' : 'provision'}`,
+        context.cookie,
+        {
+          revision: context.revision,
+          provisioningKey: key,
+          ...(password !== null ? { ownerPassword: password } : {}),
+        },
+      );
+    }
+    async function remember(context: Awaited<ReturnType<typeof start>>) {
+      const row = await prisma.onboardingCase.findUniqueOrThrow({
+        where: { id: context.id },
+      });
+      if (
+        row.restaurantId &&
+        !fixtures.restaurantIds.includes(row.restaurantId)
+      )
+        fixtures.restaurantIds.push(row.restaurantId);
+      const user = await prisma.user.findUnique({
+        where: { emailNormalized: context.ownerEmail },
+        select: { id: true },
+      });
+      if (user && !fixtures.userIds.includes(user.id))
+        fixtures.userIds.push(user.id);
+      return row;
+    }
+
+    it('requires Platform auth, CSRF, a reviewed valid menu, and explicit ACTIVE package', async () => {
+      const c = await start('TRIAL', false);
+      await review(c);
+      const body = {
+        revision: c.revision,
+        provisioningKey: c.key,
+        ownerPassword: SECRET,
+      };
+      expect(
+        (await send('post', `${c.path}/provision`, null, body)).status,
+      ).toBe(401);
+      expect(
+        (
+          await send(
+            'post',
+            `${c.path}/provision`,
+            c.cookie,
+            body,
+            'https://foreign.example.test',
+          )
+        ).status,
+      ).toBe(403);
+      const missing = await final(c);
+      expect(missing.status).toBe(422);
+      expect(missing.body.error.problems).toContain(
+        'ONBOARDING_MENU_INCOMPLETE',
+      );
+      await prisma.package.update({
+        where: { id: c.pkg.id },
+        data: { status: 'ARCHIVED' },
+      });
+      const archived = await final(c);
+      expect(archived.status).toBe(422);
+      expect(archived.body.error.details.mode).toContain(
+        'PACKAGE_NOT_AVAILABLE',
+      );
+      expect(await remember(c)).toMatchObject({
+        provisioningKey: null,
+        restaurantId: null,
+        status: 'READY_FOR_REVIEW',
+      });
+      expect(
+        await prisma.user.count({ where: { emailNormalized: c.ownerEmail } }),
+      ).toBe(0);
+    });
+
+    it('creates one tenant, owner, menu graph and trial across parallel requests and replays', async () => {
+      const c = await start('TRIAL');
+      await review(c);
+      const missingPassword = await final(c, false, null);
+      expect(missingPassword.status).toBe(422);
+      expect(missingPassword.body.error.code).toBe('OWNER_PASSWORD_REQUIRED');
+      const [a, b] = await Promise.all([final(c), final(c)]);
+      const row = await remember(c);
+      expect([a.status, b.status]).toEqual([200, 200]);
+      expect(row.status).toBe('READY');
+      const restaurantId = row.restaurantId!;
+      expect(
+        await prisma.restaurant.count({
+          where: { name: c.name, packageId: c.pkg.id },
+        }),
+      ).toBe(1);
+      expect(
+        await prisma.user.count({ where: { emailNormalized: c.ownerEmail } }),
+      ).toBe(1);
+      expect(await prisma.menu.count({ where: { restaurantId } })).toBe(1);
+      expect(await prisma.product.count({ where: { restaurantId } })).toBe(1);
+      expect(
+        await prisma.subscription.count({
+          where: { restaurantId, packageId: c.pkg.id, kind: 'TRIAL' },
+        }),
+      ).toBe(1);
+      expect(
+        await prisma.platformAuditLog.count({
+          where: { restaurantId, action: 'onboarding.menu_published' },
+        }),
+      ).toBe(1);
+      const slug = await prisma.restaurantSlug.findFirstOrThrow({
+        where: { restaurantId, isCurrent: true },
+      });
+      const publicMenu = await request(app.getHttpServer()).get(
+        `/api/v1/public/qr/${slug.slug}/menu`,
+      );
+      expect(publicMenu.status).toBe(200);
+      expect(publicMenu.body.data.menu.categories[0].products[0]).toMatchObject(
+        { name: 'Coffee', basePrice: '12.00', availability: 'AVAILABLE' },
+      );
+      const replay = await final(c, false, null);
+      expect(replay.body.data).toMatchObject({
+        status: 'READY',
+        restaurantId,
+        provisioningKey: c.key,
+      });
+      expect((await final(c, false, null, randomUUID())).status).toBe(409);
+      const audit = await prisma.platformAuditLog.findMany({
+        where: { restaurantId },
+      });
+      expect(
+        JSON.stringify({ row, a: a.body, b: b.body, audit }),
+      ).not.toContain(SECRET);
+    });
+
+    it('rolls back a failure before the tenant checkpoint and requires password re-entry', async () => {
+      const c = await start();
+      await review(c);
+      const audit = app.get(PlatformAuditService);
+      const original = audit.record.bind(audit);
+      const checkpoint = jest
+        .spyOn(audit, 'record')
+        .mockImplementation(async (event, db) => {
+          if (event.action === 'onboarding.restaurant_provisioned')
+            throw new Error('Simulated checkpoint failure');
+          await original(event, db);
+        });
+      try {
+        const refused = await final(c);
+        expect(refused.body.data).toMatchObject({
+          status: 'FAILED',
+          lastErrorCode: 'ONBOARDING_PROVISIONING_FAILED',
+          ownerPasswordRequired: true,
+        });
+        expect(await prisma.restaurant.count({ where: { name: c.name } })).toBe(
+          0,
+        );
+        expect(
+          await prisma.user.count({ where: { emailNormalized: c.ownerEmail } }),
+        ).toBe(0);
+        c.revision = refused.body.data.revision as number;
+        expect((await final(c, true, null)).body.error.code).toBe(
+          'OWNER_PASSWORD_REQUIRED',
+        );
+      } finally {
+        checkpoint.mockRestore();
+      }
+      const completed = await final(c, true);
+      expect((await remember(c)).status).toBe('READY');
+      expect(completed.status).toBe(200);
+    });
+
+    it('resumes a menu failure without password or a second restaurant', async () => {
+      const c = await start();
+      await review(c);
+      jest
+        .spyOn(app.get(OnboardingMenuWriterService), 'publish')
+        .mockRejectedValueOnce(new Error('Simulated interruption'));
+      const failed = await final(c);
+      const saved = await remember(c);
+      expect(failed.body.data).toMatchObject({
+        status: 'FAILED',
+        lastErrorCode: 'ONBOARDING_MENU_PUBLISH_FAILED',
+        ownerPasswordRequired: false,
+      });
+      expect(saved.restaurantId).toEqual(expect.any(String));
+      expect(
+        await prisma.menu.count({
+          where: { restaurantId: saved.restaurantId! },
+        }),
+      ).toBe(0);
+      c.revision = saved.revision;
+      const finished = await final(c, true, null);
+      expect(finished.body.data).toMatchObject({
+        status: 'READY',
+        restaurantId: saved.restaurantId,
+      });
+      expect(await prisma.restaurant.count({ where: { name: c.name } })).toBe(
+        1,
+      );
+    });
+
+    it('reuses a committed trial after sync failure and verifies the actual public menu', async () => {
+      const c = await start('TRIAL');
+      await review(c);
+      jest
+        .spyOn(app.get(SubscriptionSyncService), 'syncRestaurant')
+        .mockRejectedValueOnce(new Error('Simulated sync failure'));
+      const failed = await final(c);
+      const row = await remember(c);
+      expect(failed.body.data).toMatchObject({
+        status: 'FAILED',
+        lastErrorCode: 'ONBOARDING_TRIAL_FAILED',
+      });
+      expect(row.trialSubscriptionId).toEqual(expect.any(String));
+      const restaurantId = row.restaurantId!;
+      await prisma.product.updateMany({
+        where: { restaurantId },
+        data: { availability: 'SOLD_OUT' },
+      });
+      expect(
+        await prisma.qrCode.count({
+          where: { restaurantId, status: 'ACTIVE' },
+        }),
+      ).toBe(1);
+      c.revision = row.revision;
+      const unavailable = await final(c, true, null);
+      expect(unavailable.body.data).toMatchObject({
+        status: 'FAILED',
+        lastErrorCode: 'ONBOARDING_GUEST_MENU_NOT_READY',
+      });
+      await prisma.product.updateMany({
+        where: { restaurantId },
+        data: { availability: 'AVAILABLE' },
+      });
+      c.revision = unavailable.body.data.revision as number;
+      const resumed = await final(c, true, null);
+      expect(resumed.body.data).toMatchObject({
+        status: 'READY',
+        restaurantId,
+      });
+      expect(
+        await prisma.subscription.count({
+          where: { restaurantId, kind: 'TRIAL' },
+        }),
+      ).toBe(1);
+    });
+
+    it('stages, gates, reviews, and expires extracted drafts without writing tenant menu rows', async () => {
+      const c = await start('REAL', false, true);
+      const png = await sharp({
+        create: { width: 1, height: 1, channels: 3, background: 'white' },
+      })
+        .png()
+        .toBuffer();
+      const extract = jest
+        .spyOn(app.get(MenuImportExtractor), 'extract')
+        .mockResolvedValue({
+          status: 'EXTRACTED',
+          schemaVersion: 1,
+          languages: ['ar'],
+          categories: [
+            {
+              translations: { ar: { name: 'Drinks' } },
+              products: [
+                { translations: { ar: { name: 'Tea' } }, price: '4.20' },
+              ],
+            },
+          ],
+        });
+      const upload = (bytes = png, cookie = c.cookie) =>
+        request(app.getHttpServer())
+          .post(`/api/v1/platform${c.path}/menu-import`)
+          .set('Origin', platformOrigin)
+          .set('Cookie', cookie)
+          .field('revision', c.revision)
+          .attach('file', bytes, 'menu.png');
+      try {
+        expect((await upload(png, '')).status).toBe(401);
+        expect(
+          (await upload(Buffer.from('not an image'))).body.error.code,
+        ).toBe('IMPORT_FILE_INVALID');
+        const staged = await upload();
+        expect(staged.status).toBe(200);
+        expect(staged.body.data).toMatchObject({
+          importAttempts: 1,
+          importReviewed: false,
+        });
+        expect(staged.body.data).not.toHaveProperty('restaurantId');
+        expect(
+          staged.body.data.menuDraft.menus[0].categories[0].products[0].price,
+        ).toBe('4.20');
+        c.revision = staged.body.data.revision as number;
+        await review(c);
+        const unreviewed = await final(c);
+        expect(unreviewed.body.error.problems).toContain(
+          'ONBOARDING_IMPORT_REVIEW_REQUIRED',
+        );
+        const approved = await send(
+          'post',
+          `${c.path}/menu-import/review`,
+          c.cookie,
+          { revision: c.revision },
+        );
+        expect(approved.body.data.importReviewed).toBe(true);
+        c.revision = approved.body.data.revision as number;
+        await prisma.packageFeature.deleteMany({
+          where: { packageId: c.pkg.id },
+        });
+        expect((await final(c)).body.error.problems).toContain(
+          'FEATURE_NOT_AVAILABLE',
+        );
+        expect(await prisma.restaurant.count({ where: { name: c.name } })).toBe(
+          0,
+        );
+        await prisma.onboardingCase.update({
+          where: { id: c.id },
+          data: { importExpiresAt: new Date('2020-01-01T00:00:00Z') },
+        });
+        await app.get(OnboardingMenuImportService).cleanupExpired();
+        expect(await remember(c)).toMatchObject({
+          menuDraft: null,
+          importReviewed: false,
+        });
+        expect(extract).toHaveBeenCalledTimes(1);
+      } finally {
+        extract.mockRestore();
+      }
     });
   });
 });

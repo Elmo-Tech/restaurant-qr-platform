@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpException,
@@ -10,8 +11,11 @@ import {
   Post,
   Query,
   Req,
+  UploadedFiles,
   UseGuards,
+  UseInterceptors,
 } from '@nestjs/common';
+import { FilesInterceptor } from '@nestjs/platform-express';
 import { Type } from 'class-transformer';
 import {
   IsIn,
@@ -19,6 +23,8 @@ import {
   IsObject,
   IsOptional,
   IsString,
+  IsUUID,
+  Length,
   Max,
   MaxLength,
   Min,
@@ -28,6 +34,19 @@ import {
   PlatformCsrfGuard,
   type PlatformRequest,
 } from '../platform-guards';
+import {
+  MIN_PASSWORD_LENGTH,
+  MAX_PASSWORD_LENGTH,
+} from '../../auth/password/password-hasher.service';
+import {
+  MAX_IMPORT_FILES,
+  MAX_IMPORT_FILE_BYTES,
+  type UploadedMenuFile,
+} from '../../menu-import/menu-import-file';
+import { MenuImportUploadErrorsInterceptor } from '../../menu-import/menu-import-upload-errors.interceptor';
+import { onboardingImportStorage } from './onboarding-import-upload';
+import { OnboardingMenuImportService } from './onboarding-menu-import.service';
+import { OnboardingProvisioningService } from './onboarding-provisioning.service';
 import { ONBOARDING_MODES, type OnboardingModeKey } from './onboarding-details';
 import {
   OnboardingCasesService,
@@ -83,7 +102,26 @@ class RevisionBody {
  * `details` and `modeConfig` are only checked to be objects here: the service's strict allow-list
  * sanitizer decides every key (an unknown key such as `password` refuses the whole write).
  */
+class ImportBody extends RevisionBody {
+  @Type(() => Number)
+  declare revision: number;
+}
+
+class ProvisionBody extends RevisionBody {
+  @IsUUID('4')
+  provisioningKey!: string;
+
+  @IsOptional()
+  @IsString()
+  @Length(MIN_PASSWORD_LENGTH, MAX_PASSWORD_LENGTH)
+  ownerPassword?: string;
+}
+
 class PatchBody extends RevisionBody {
+  @IsOptional()
+  @IsObject()
+  menuDraft?: Record<string, unknown>;
+
   @IsOptional()
   @IsObject()
   details?: Record<string, unknown>;
@@ -162,8 +200,13 @@ function unwrap<T>(result: CaseOutcome<T>): { data: T } {
         {
           error: {
             code: 'ONBOARDING_INCOMPLETE',
-            message: 'Steps 1 and 2 must be complete before review.',
-            problems: [...result.problems.customer, ...result.problems.mode],
+            message:
+              'Complete the required onboarding fields before continuing.',
+            problems: [
+              ...result.problems.customer,
+              ...result.problems.mode,
+              ...(result.problems.menu ?? []),
+            ],
             details: result.problems,
           },
         },
@@ -176,7 +219,11 @@ function unwrap<T>(result: CaseOutcome<T>): { data: T } {
 @Controller('platform/onboarding-cases')
 @UseGuards(PlatformCsrfGuard)
 export class OnboardingCasesController {
-  constructor(private readonly cases: OnboardingCasesService) {}
+  constructor(
+    private readonly cases: OnboardingCasesService,
+    private readonly provisioning: OnboardingProvisioningService,
+    private readonly menuImport: OnboardingMenuImportService,
+  ) {}
 
   @Get()
   @UseGuards(PlatformAuthGuard)
@@ -259,6 +306,7 @@ export class OnboardingCasesController {
         revision: body.revision,
         details: body.details,
         modeConfig: body.modeConfig,
+        menuDraft: body.menuDraft,
         mode: body.mode,
       }),
     );
@@ -277,6 +325,99 @@ export class OnboardingCasesController {
         request.platformAdmin,
         caseId,
         body.revision,
+      ),
+    );
+  }
+
+  @Post(':caseId/provision')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PlatformAuthGuard)
+  async provision(
+    @Param('caseId') caseId: string,
+    @Body() body: ProvisionBody,
+    @Req() request: PlatformRequest,
+  ) {
+    return unwrap(
+      await this.provisioning.run(request.platformAdmin, caseId, body, false),
+    );
+  }
+
+  @Post(':caseId/retry')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PlatformAuthGuard)
+  async retry(
+    @Param('caseId') caseId: string,
+    @Body() body: ProvisionBody,
+    @Req() request: PlatformRequest,
+  ) {
+    return unwrap(
+      await this.provisioning.run(request.platformAdmin, caseId, body, true),
+    );
+  }
+
+  @Post(':caseId/menu-import')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PlatformAuthGuard)
+  @UseInterceptors(
+    MenuImportUploadErrorsInterceptor,
+    FilesInterceptor('file', MAX_IMPORT_FILES, {
+      storage: onboardingImportStorage,
+      limits: {
+        fileSize: MAX_IMPORT_FILE_BYTES + 1,
+        files: MAX_IMPORT_FILES,
+        fields: 1,
+        fieldSize: 32,
+      },
+    }),
+  )
+  async stageMenu(
+    @Param('caseId') caseId: string,
+    @Body() body: ImportBody,
+    @UploadedFiles() files: UploadedMenuFile[] | undefined,
+    @Req() request: PlatformRequest,
+  ) {
+    return unwrap(
+      await this.menuImport.stage(
+        request.platformAdmin,
+        caseId,
+        body.revision,
+        files,
+      ),
+    );
+  }
+
+  @Post(':caseId/menu-import/review')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PlatformAuthGuard)
+  async reviewMenu(
+    @Param('caseId') caseId: string,
+    @Body() body: RevisionBody,
+    @Req() request: PlatformRequest,
+  ) {
+    return unwrap(
+      await this.menuImport.reviewOrDiscard(
+        request.platformAdmin,
+        caseId,
+        body.revision,
+        false,
+      ),
+    );
+  }
+
+  @Delete(':caseId/menu-import')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PlatformAuthGuard)
+  async discardMenu(
+    @Param('caseId') caseId: string,
+    @Body() body: RevisionBody,
+    @Req() request: PlatformRequest,
+  ) {
+    return unwrap(
+      await this.menuImport.reviewOrDiscard(
+        request.platformAdmin,
+        caseId,
+        body.revision,
+        true,
       ),
     );
   }

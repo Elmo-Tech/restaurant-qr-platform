@@ -532,7 +532,10 @@ export class PlatformBillingService {
     admin: PlatformAdminPrincipal,
     restaurantId: string,
     input: TrialInput,
+    // Onboarding commits its trial checkpoint and audit together with the subscription.
+    onboardingTx?: Prisma.TransactionClient,
   ): Promise<BillingOutcome<SubscriptionView>> {
+    const db = onboardingTx ?? this.prisma;
     if (!UUID.test(restaurantId)) return { outcome: 'RESTAURANT_NOT_FOUND' };
     if (!UUID.test(input.packageId)) return { outcome: 'PACKAGE_NOT_FOUND' };
     if (
@@ -544,7 +547,7 @@ export class PlatformBillingService {
     }
 
     const [restaurant, pkg, settings] = await Promise.all([
-      this.prisma.restaurant.findUnique({
+      db.restaurant.findUnique({
         where: { id: restaurantId },
         select: {
           id: true,
@@ -556,11 +559,11 @@ export class PlatformBillingService {
           },
         },
       }),
-      this.prisma.package.findUnique({
+      db.package.findUnique({
         where: { id: input.packageId },
         select: { id: true, name: true, status: true },
       }),
-      this.prisma.platformTrialSettings.findUnique({
+      db.platformTrialSettings.findUnique({
         where: { id: 'trial' },
         select: { enabled: true },
       }),
@@ -581,60 +584,68 @@ export class PlatformBillingService {
     if (overlaps) return { outcome: 'OVERLAP' };
 
     const currencyCode = currencyForCountry(restaurant.countryCode);
+    const insert = async (tx: Prisma.TransactionClient) => {
+      await tx.$queryRaw`SELECT id FROM restaurants WHERE id = ${restaurantId}::uuid FOR UPDATE`;
+      const clash = await tx.subscription.findFirst({
+        where: {
+          restaurantId,
+          status: 'ACTIVE',
+          startsAt: { lt: endsAt },
+          endsAt: { gt: startsAt },
+        },
+        select: { id: true },
+      });
+      if (clash) return 'OVERLAP' as const;
+      return tx.subscription.create({
+        data: {
+          restaurantId,
+          packageId: pkg.id,
+          packageName: pkg.name,
+          kind: 'TRIAL',
+          period: null,
+          startsAt,
+          endsAt,
+          currencyCode,
+          listPrice: 0,
+          offerAmount: 0,
+          discountAmount: 0,
+          finalPrice: 0,
+          notes: input.notes,
+          createdByAdminId: admin.adminId,
+          createdByEmail: admin.email,
+        },
+        include: subscriptionInclude,
+      });
+    };
     let created: SubscriptionRow | 'OVERLAP';
     try {
-      created = await this.prisma.$transaction(async (tx) => {
-        await tx.$queryRaw`SELECT id FROM restaurants WHERE id = ${restaurantId}::uuid FOR UPDATE`;
-        const clash = await tx.subscription.findFirst({
-          where: {
-            restaurantId,
-            status: 'ACTIVE',
-            startsAt: { lt: endsAt },
-            endsAt: { gt: startsAt },
-          },
-          select: { id: true },
-        });
-        if (clash) return 'OVERLAP' as const;
-        return tx.subscription.create({
-          data: {
-            restaurantId,
-            packageId: pkg.id,
-            packageName: pkg.name,
-            kind: 'TRIAL',
-            period: null,
-            startsAt,
-            endsAt,
-            currencyCode,
-            listPrice: 0,
-            offerAmount: 0,
-            discountAmount: 0,
-            finalPrice: 0,
-            notes: input.notes,
-            createdByAdminId: admin.adminId,
-            createdByEmail: admin.email,
-          },
-          include: subscriptionInclude,
-        });
-      });
+      created = onboardingTx
+        ? await insert(onboardingTx)
+        : await this.prisma.$transaction(insert);
     } catch (error) {
-      if (isOverlapViolation(error)) return { outcome: 'OVERLAP' };
+      // The onboarding caller must roll back an aborted outer transaction.
+      if (!onboardingTx && isOverlapViolation(error))
+        return { outcome: 'OVERLAP' };
       throw error;
     }
     if (created === 'OVERLAP') return { outcome: 'OVERLAP' };
 
-    await this.audit.record({
-      admin,
-      action: 'trial.created',
-      restaurant: { id: restaurant.id, name: restaurant.name },
-      details: {
-        subscriptionId: created.id,
-        package: pkg.name,
-        startsAt: formatDateOnly(startsAt),
-        endsAt: formatDateOnly(endsAt),
-        durationDays: input.durationDays,
+    await this.audit.record(
+      {
+        admin,
+        action: 'trial.created',
+        restaurant: { id: restaurant.id, name: restaurant.name },
+        details: {
+          subscriptionId: created.id,
+          package: pkg.name,
+          startsAt: formatDateOnly(startsAt),
+          endsAt: formatDateOnly(endsAt),
+          durationDays: input.durationDays,
+        },
       },
-    });
-    await this.sync.syncRestaurant(restaurantId);
+      onboardingTx,
+    );
+    if (!onboardingTx) await this.sync.syncRestaurant(restaurantId);
     return {
       outcome: 'ok',
       data: subscriptionView(created, todayInCairo(), this.graceDays),
