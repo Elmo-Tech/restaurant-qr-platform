@@ -63,6 +63,12 @@ jobs:
           apps/web/src/lib/public-menu/subscription-plans.contract.test.mjs
           apps/web/src/lib/public-menu/restaurant-routing.contract.test.mjs
 
+      - name: Promotions live preview and workspace contracts
+        run: >-
+          node --experimental-strip-types --test
+          apps/web/src/lib/promotions/savings-preview.test.mjs
+          apps/web/src/lib/promotions/workspace.contract.test.mjs
+
       - name: Staff hubs, navigation, setup checklist and form feedback
         run: >-
           node --experimental-strip-types --test

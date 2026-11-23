@@ -8,9 +8,7 @@ const en = {
   email: 'Email', password: 'Password', signIn: 'Sign in',
   internal: 'Internal name (staff only)', scope: 'Discount scope', type: 'Discount type', value: /^Discount value/,
   title: language => `Title — ${language}`, moreLanguages: 'More guest languages',
-  previewType: 'Sample order type', previewZone: 'Sample delivery area', sampleProduct: 'Sample product',
-  addSample: 'Add sample product', sampleQuantity: 'Quantity', calculate: 'Calculate savings',
-  applied: 'This promotion applies.', saving: 'Saving from this promotion', total: 'Total',
+  applied: 'The offer works on this example.', needsValue: 'Enter the discount value to see how much customers save.',
 };
 const ar = {
   heading: 'العروض الترويجية', create: 'عرض ترويجي جديد', save: 'إنشاء دون تفعيل', edit: 'تعديل العرض الترويجي',
@@ -18,9 +16,7 @@ const ar = {
   email: 'البريد الإلكتروني', password: 'كلمة المرور', signIn: 'تسجيل الدخول',
   internal: 'الاسم الداخلي (للموظفين فقط)', scope: 'نطاق الخصم', type: 'نوع الخصم', value: /^قيمة الخصم/,
   title: language => `العنوان — ${language}`, moreLanguages: 'لغات إضافية للضيف',
-  previewType: 'نوع طلب المعاينة', previewZone: 'منطقة توصيل المعاينة', sampleProduct: 'منتج للمعاينة',
-  addSample: 'إضافة منتج للمعاينة', sampleQuantity: 'الكمية', calculate: 'حساب الخصم',
-  applied: 'ينطبق هذا العرض.', saving: 'الخصم من هذا العرض', total: 'الإجمالي',
+  applied: 'العرض شغال على المثال ده.', needsValue: 'اكتب قيمة الخصم علشان تشوف العميل هيوفّر قد إيه.',
 };
 const button = (container, name) => container.getByRole('button', { name, exact: true });
 const text = (container, label) => container.getByText(label, { exact: true });
@@ -63,37 +59,41 @@ async function expectNoHorizontalOverflow(page) {
     .toBeLessThanOrEqual(1);
 }
 
-async function addSample(page, copy, product) {
-  await button(page, copy.addSample).click();
-  await input(page, copy.sampleProduct).last().selectOption(product.id);
+const previewPath = w => `${process.env.B4_API_ORIGIN}${staffUrl(w)}/preview`;
+
+/** Records every automatic preview request so the test can prove only real catalog IDs are sent. */
+function recordPreviewRequests(page, w) {
+  const bodies = [];
+  page.on('request', request => {
+    if (request.method() === 'POST' && request.url() === previewPath(w)) bodies.push(request.postDataJSON());
+  });
+  return bodies;
 }
 
-async function staffPreview(page, w, copy, created, scenario) {
-  const { scope, samples, strategy, original, payable, saving, grand } = scenario;
-  await input(page, copy.previewType).selectOption(scope === 'DELIVERY' ? 'DELIVERY' : 'DINE_IN');
-  if (scope === 'DELIVERY') await input(page, copy.previewZone).selectOption(w.zoneId);
-  await addSample(page, copy, w.products[0]);
-  if (scope === 'QUANTITY') {
-    // Two units of a single product do not meet a distinct-product threshold.
-    const quantity = input(page, copy.sampleQuantity);
-    await quantity.fill('2');
-    const below = await clickPost(page, `${staffUrl(w)}/preview`, button(page, copy.calculate), 200);
-    expect(below).toMatchObject({ appliedSaving: '0.00', diagnostic: { status: 'BELOW_MINIMUM_QUANTITY', remainingQuantity: 1 } });
-    await expect(text(page, 'Remaining quantity: 1')).toBeVisible();
-    await quantity.fill('1');
-  }
-  if (samples === 2) await addSample(page, copy, w.products[1]);
-  const result = await clickPost(page, `${staffUrl(w)}/preview`, button(page, copy.calculate), 200);
+function waitPreview(page, w, matches) {
+  return page.waitForResponse(response => response.request().method() === 'POST' && response.url() === previewPath(w) &&
+    matches(response.request().postDataJSON()), { timeout: 15_000 });
+}
+
+/** The automatic preview of the saved promotion: no selectors, no Calculate button. */
+async function staffPreview(page, w, copy, created, scenario, response) {
+  const { scope, items, strategy, original, payable, saving, grand } = scenario;
+  const result = await readData(response, 200);
+  const body = response.request().postDataJSON();
+  expect(body).toMatchObject({ promotionId: created.id, branchId: w.branchId, orderType: scope === 'DELIVERY' ? 'DELIVERY' : 'PICKUP',
+    items: items(w) });
+  expect(body.deliveryZoneId).toBe(scope === 'DELIVERY' ? w.zoneId : undefined);
   expect(result).toMatchObject({ strategy, merchandiseOriginal: original, merchandisePayable: payable,
     appliedSaving: saving, grandTotal: grand, diagnostic: { status: 'APPLIED' } });
-  const status = page.getByRole('status').filter({ hasText: copy.applied });
+  const card = page.getByTestId('savings-preview');
+  const status = card.getByRole('status').filter({ hasText: copy.applied });
   await expect(status).toBeVisible();
-  const metric = label => status.locator('dl > div').filter({ has: text(page, label) });
-  await expect(metric(copy.saving)).toContainText(`${saving} EGP`);
-  await expect(metric(copy.total)).toContainText(`${grand} EGP`);
+  await expect(card.getByTestId('savings-preview-saving')).toContainText(`${saving} EGP`);
+  await expect(card.getByTestId('savings-preview-payable')).toContainText(`${scope === 'DELIVERY' ? '19.50' : payable} EGP`);
+  await expect(card.locator('select, input, textarea, button')).toHaveCount(0);
   if (scope === 'DELIVERY') {
     expect(result).toMatchObject({ deliveryFeeOriginal: '30.00', deliveryFeePayable: '19.50' });
-    await expect(metric('Delivery fee before / after savings')).toContainText('30.00 EGP / 19.50 EGP');
+    await expect(card.getByTestId('savings-preview-original')).toContainText('30.00 EGP');
   }
   // Preview runs the real engine as if active, but must not write any state.
   const persisted = await prisma.promotion.findUniqueOrThrow({ where: { id: created.id } });
@@ -154,20 +154,25 @@ async function guestCheck(browser, w, promotion, { locale, title, total, saving,
   }
 }
 
+// The preview picks its own example: the first eligible item in menu order (Kofta), or as many
+// distinct items as a quantity threshold needs. Kofta carries a 20% Product discount, so a promotion
+// must save more than 20.00 to win the item.
+const one = w => [{ productId: w.products[0].id, quantity: 1 }];
 const scenarios = [
   { scope: 'CART', label: 'سلة', defaultLocale: 'ar', mobile: true, discountType: 'FIXED_AMOUNT', value: '35.00',
-    samples: 1, strategy: 'CART', original: '100.00', payable: '65.00', saving: '35.00', grand: '65.00' },
+    items: one, strategy: 'CART', original: '100.00', payable: '65.00', saving: '35.00', grand: '65.00' },
   { scope: 'CATEGORY', label: 'Category', defaultLocale: 'ar', discountType: 'PERCENTAGE', value: '35.00',
     target: ['Grill', 'categories', 'categoryId', w => w.products[0].categoryId],
-    samples: 2, strategy: 'ITEM', original: '200.00', payable: '145.00', saving: '35.00', grand: '145.00' },
+    items: one, strategy: 'ITEM', original: '100.00', payable: '65.00', saving: '35.00', grand: '65.00' },
   { scope: 'MENU', label: 'Menu', discountType: 'PERCENTAGE', value: '30.00',
     target: ['Nile Menu', 'menus', 'menuId', w => w.menuId],
-    samples: 2, strategy: 'ITEM', original: '200.00', payable: '140.00', saving: '60.00', grand: '140.00' },
+    items: one, strategy: 'ITEM', original: '100.00', payable: '70.00', saving: '30.00', grand: '70.00' },
   { scope: 'QUANTITY', label: 'Quantity', discountType: 'FIXED_AMOUNT', value: '50.00',
-    samples: 2, strategy: 'CART', original: '200.00', payable: '150.00', saving: '50.00', grand: '150.00' },
+    items: w => w.products.map(({ id }) => ({ productId: id, quantity: 1 })),
+    strategy: 'CART', original: '200.00', payable: '150.00', saving: '50.00', grand: '150.00' },
   { scope: 'DELIVERY', label: 'Delivery fee', discountType: 'FIXED_AMOUNT', value: '10.50',
     target: ['Nile Zone', 'deliveryZones', 'deliveryZoneId', w => w.zoneId],
-    samples: 1, strategy: 'ITEM', original: '100.00', payable: '80.00', saving: '10.50', grand: '99.50' },
+    items: one, strategy: 'ITEM', original: '100.00', payable: '80.00', saving: '10.50', grand: '99.50' },
 ];
 
 test.beforeAll(assertDisposableDatabase);
@@ -186,7 +191,12 @@ for (const scenario of scenarios) {
       const title = defaultLocale === 'ar' ? (scope === 'CART' ? 'خصم السلة من الموظف' : 'خصم المشويات') : englishTitle;
       const direction = mobile ? 'rtl' : 'ltr';
       const language = defaultLocale === 'ar' ? 'العربية' : 'English';
+      const sent = recordPreviewRequests(page, w);
       await signIn(page, w, copy);
+      const card = page.getByTestId('savings-preview');
+      // A blank draft explains what is missing instead of showing a number.
+      await expect(card.getByRole('status')).toHaveText(copy.needsValue);
+      await expect(card).toHaveCSS('direction', direction);
       const heading = page.getByRole('heading', { name: copy.create, level: 1 });
       await expect(heading).toHaveCSS('direction', direction);
       const requiredTitle = input(page, copy.title(language));
@@ -213,7 +223,21 @@ for (const scenario of scenarios) {
         await input(page, 'Count by').selectOption('DISTINCT_PRODUCTS');
       }
       await expectNoHorizontalOverflow(page);
+      // The unsaved draft previews by itself, with no button to press.
+      await expect(card.getByTestId('savings-preview-saving')).toContainText(`${scenario.saving} EGP`);
+      await expect(card.getByRole('status').filter({ hasText: copy.applied })).toBeVisible();
+      const [form, side] = await Promise.all([page.locator('form').filter({ has: button(page, copy.save) }).boundingBox(), card.boundingBox()]);
+      if (mobile) {
+        // Full width below the editor on a phone.
+        expect(side.y).toBeGreaterThanOrEqual(form.y + form.height);
+        expect(Math.abs(side.width - form.width)).toBeLessThanOrEqual(2);
+      } else {
+        // Sticky sidebar beside the editor on desktop.
+        expect(side.x).toBeGreaterThan(form.x + form.width - 1);
+        await expect(page.locator('aside').filter({ has: card })).toHaveCSS('position', 'sticky');
+      }
 
+      const savedPreview = waitPreview(page, w, body => body.promotionId !== undefined);
       const created = await clickPost(page, staffUrl(w), button(page, copy.save), 201);
       expect(created).toMatchObject({ scope, status: 'INACTIVE', internalName, discountType, value,
         translations: expect.arrayContaining([expect.objectContaining({ locale: defaultLocale, title })]) });
@@ -228,7 +252,10 @@ for (const scenario of scenarios) {
         expect(inactive[relation]).toEqual([expect.objectContaining({ [key]: targetId(w), restaurantId: w.restaurantId })]);
       }
 
-      const { result: preview, status } = await staffPreview(page, w, copy, created, scenario);
+      const { result: preview, status } = await staffPreview(page, w, copy, created, scenario, await savedPreview);
+      const catalog = new Set(w.products.map(({ id }) => id));
+      expect(sent.length).toBeGreaterThan(0);
+      for (const body of sent) for (const item of body.items) expect(catalog.has(item.productId)).toBe(true);
       await expectNoHorizontalOverflow(page);
       await status.scrollIntoViewIfNeeded();
       await info.attach(`${scope.toLowerCase()}-staff-preview`, { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
