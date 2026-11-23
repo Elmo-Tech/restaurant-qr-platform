@@ -54,9 +54,9 @@ try {
   assert.ok(ready, 'Nginx gateway did not start');
   docker('exec', session, 'nginx', '-t');
 
-  const hit = (host, path, referer) => new Promise((resolve, reject) => {
+  const hit = (host, path, referer, method = 'GET') => new Promise((resolve, reject) => {
     const id = 'safe-qa-' + ++sequence;
-    const options = { method: 'GET', headers: { Host: host, 'X-Request-Id': id } };
+    const options = { method, headers: { Host: host, 'X-Request-Id': id } };
     if (referer) options.headers.Referer = referer;
     const req = request(address + path, options, (res) => {
       res.resume();
@@ -76,6 +76,7 @@ try {
     ['wildcard upstream error', 'r1.qa.example.test', '/demo/' + marker + '?fail=1', 502],
     ['platform document', platform, '/demo/' + marker, 200],
     ['platform upstream error', platform, '/demo/' + marker + '?fail=1', 502],
+    ['demo exchange upstream error with Referer', web, '/api/v1/demo/enter?fail=1', 502],
     ['legacy web redirect', 'wayta.elmotechsoft.online', '/demo/' + marker, 308],
     ['legacy platform redirect', 'wayta-control.elmotechsoft.online', '/demo/' + marker, 308],
     ['unknown host', 'unknown.invalid', '/demo/' + marker, 444],
@@ -87,9 +88,11 @@ try {
   const ids = [];
   for (const [name, host, path, expected] of cases) {
     // A synthetic Referer verifies inherited nginx main logging is disabled.
-    const referer = name === 'regular request Referer control'
+    const referer = name === 'regular request Referer control' ||
+      name === 'demo exchange upstream error with Referer'
       ? 'https://' + web + '/demo/' + refererMarker : undefined;
-    const response = await hit(host, path, referer);
+    const response = await hit(host, path, referer,
+      name === 'demo exchange upstream error with Referer' ? 'POST' : 'GET');
     assert.equal(response.status, expected, name + ' returned unexpected status');
     ids.push(response.id);
   }
