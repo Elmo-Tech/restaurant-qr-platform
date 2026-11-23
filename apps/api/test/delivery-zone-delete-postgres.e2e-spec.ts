@@ -218,6 +218,9 @@ describeSandbox(
       // refusal to the right outcome.
       const racing = (zoneId: string) =>
         new DeliveryZonesService({
+          order: {
+            count: (args: Prisma.OrderCountArgs) => prisma.order.count(args),
+          },
           deliveryZone: {
             findFirst: () =>
               Promise.resolve({

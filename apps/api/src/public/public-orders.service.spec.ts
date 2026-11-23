@@ -184,7 +184,7 @@ describe('PublicOrdersService.quote', () => {
         minimumSubtotal: null,
         minimumQuantity: null,
         quantityBasis: null,
-        translations: [{ title: 'Main dishes' }],
+        translations: [{ locale: 'en', title: 'Main dishes' }],
         categories: [{ categoryId: 'category-1' }],
         branches: [],
         menus: [],

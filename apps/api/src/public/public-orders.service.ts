@@ -1012,7 +1012,10 @@ export class PublicOrdersService {
             });
           }
 
-          const priced = await priceCart(tx, pricingContext);
+          const priced = await priceCart(tx, {
+            ...pricingContext,
+            lockPromotionReferences: !submission.dryRun,
+          });
           // Delivery never resolves a Table Session; refuse before any order or WhatsApp writes.
           if (priced.deliveryMinimumShortfall) {
             return minimumOrderRefusal(priced.deliveryMinimumShortfall);

@@ -24,6 +24,7 @@ import { offersMessages } from './offers';
 import { ordersMessages } from './orders';
 import { presetsMessages } from './presets';
 import { productMessages } from './product';
+import { promotionsMessages } from './promotions';
 import { profileMessages } from './profile';
 import { rolesMessages } from './roles';
 import { sessionsMessages } from './sessions';
@@ -68,6 +69,7 @@ const en = {
   ...ordersMessages.en,
   ...presetsMessages.en,
   ...productMessages.en,
+  ...promotionsMessages.en,
   ...profileMessages.en,
   ...rolesMessages.en,
   ...sessionsMessages.en,
@@ -108,6 +110,7 @@ const ar = {
   ...ordersMessages.ar,
   ...presetsMessages.ar,
   ...productMessages.ar,
+  ...promotionsMessages.ar,
   ...profileMessages.ar,
   ...rolesMessages.ar,
   ...sessionsMessages.ar,
