@@ -2,22 +2,25 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { IconPlus, IconSearch } from "@/components/icons";
 import { Alert, Badge, Button, Card, CardHeader, EmptyState, Input, PageHeader, Skeleton, TableWrap, Th } from "@/components/ui";
+import { ApiError } from "@/lib/api/errors";
 import { listLeads, type SignupLead } from "@/lib/api/leads";
 import {
   createOnboardingCase,
   listOnboardingCases,
-  onboardingStepCount,
   openOnboardingForLead,
+  restoreOnboardingCase,
   type OnboardingCasePage,
   type OnboardingCaseSummary,
   type OnboardingStatus,
 } from "@/lib/api/onboarding";
 import { useI18n } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
+import { stepProgress } from "@/lib/onboarding-steps";
 import { cn } from "@/lib/utils";
+import { RemoveCaseDialog } from "./RemoveCaseDialog";
 import { OnboardingStatusBadge, transportErrorKey } from "./shared";
 
 const FILTERS: { value: OnboardingStatus | ""; label: MessageKey }[] = [
@@ -42,6 +45,12 @@ export function OnboardingListView() {
   const [busy, setBusy] = useState(false);
   const [actionError, setActionError] = useState<MessageKey | null>(null);
   const [pickerOpen, setPickerOpen] = useState(false);
+  /** Active list, or the cases removed from it (kept for history; restorable). */
+  const [archived, setArchived] = useState(false);
+  const [reload, setReload] = useState(0);
+  const [removing, setRemoving] = useState<OnboardingCaseSummary | null>(null);
+  const [restoringId, setRestoringId] = useState<string | null>(null);
+  const [notice, setNotice] = useState<MessageKey | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -53,9 +62,14 @@ export function OnboardingListView() {
 
   useEffect(() => {
     let cancelled = false;
-    listOnboardingCases({ search: debounced, status, page })
+    listOnboardingCases({ search: debounced, status, page, archived })
       .then((result) => {
         if (cancelled) return;
+        // The last row of a later page was removed: show the new last page instead of an empty one.
+        if (result.items.length === 0 && result.page > 1 && result.total > 0) {
+          setPage(Math.max(1, Math.ceil(result.total / result.pageSize)));
+          return;
+        }
         setData(result);
         setError(null);
       })
@@ -65,7 +79,36 @@ export function OnboardingListView() {
     return () => {
       cancelled = true;
     };
-  }, [debounced, status, page]);
+  }, [debounced, status, page, archived, reload]);
+
+  /** Re-reads the current page from the server (never trusts the rows already shown). */
+  const refresh = () => setReload((value) => value + 1);
+
+  function removed(item: OnboardingCaseSummary) {
+    setRemoving(null);
+    setActionError(null);
+    setNotice(item.removal.allowed && item.removal.action === "ARCHIVE" ? "onboarding.remove.doneArchived" : "onboarding.remove.done");
+    // Drop the row at once so it never lingers, then reload the page and the totals from the server.
+    setData((current) => current && { ...current, items: current.items.filter((row) => row.id !== item.id), total: Math.max(0, current.total - 1) });
+    refresh();
+  }
+
+  async function restore(item: OnboardingCaseSummary) {
+    if (restoringId) return;
+    setRestoringId(item.id);
+    setActionError(null);
+    setNotice(null);
+    try {
+      await restoreOnboardingCase(item.id, item.revision);
+      setNotice("onboarding.remove.restored");
+      setData((current) => current && { ...current, items: current.items.filter((row) => row.id !== item.id), total: Math.max(0, current.total - 1) });
+    } catch (caught) {
+      setActionError(caught instanceof ApiError && (caught.status === 404 || caught.status === 409) ? "onboarding.remove.error.changed" : transportErrorKey(caught));
+    } finally {
+      setRestoringId(null);
+      refresh();
+    }
+  }
 
   async function startNew() {
     if (busy) return;
@@ -107,6 +150,13 @@ export function OnboardingListView() {
           {t(actionError)}
         </Alert>
       ) : null}
+      <div role="status" aria-live="polite">
+        {notice ? (
+          <Alert tone="success" className="mb-4">
+            {t(notice)}
+          </Alert>
+        ) : null}
+      </div>
 
       {pickerOpen ? <LeadPicker onClose={() => setPickerOpen(false)} /> : null}
 
@@ -151,7 +201,26 @@ export function OnboardingListView() {
               </button>
             ))}
           </div>
+          <button
+            type="button"
+            aria-pressed={archived}
+            onClick={() => {
+              setArchived((value) => !value);
+              setPage(1);
+              setData(null);
+              setNotice(null);
+            }}
+            className={cn(
+              "h-8 rounded-full border px-3 text-[13px] font-medium transition-colors sm:ms-auto",
+              archived
+                ? "border-primary bg-primary-soft text-primary-text"
+                : "border-border text-muted-foreground hover:bg-surface-2 hover:text-foreground",
+            )}
+          >
+            {t("onboarding.remove.showRemoved")}
+          </button>
         </div>
+        {archived ? <p className="border-b border-border px-4 py-2.5 text-[13px] text-muted-foreground">{t("onboarding.remove.removedHint")}</p> : null}
 
         {error ? (
           <div className="p-4">
@@ -165,8 +234,8 @@ export function OnboardingListView() {
             ))}
           </div>
         ) : data.items.length === 0 ? (
-          <EmptyState title={t(debounced || status ? "onboarding.emptyFiltered" : "onboarding.empty")}>
-            {t("onboarding.emptyHint")}
+          <EmptyState title={t(archived ? "onboarding.remove.emptyRemoved" : debounced || status ? "onboarding.emptyFiltered" : "onboarding.empty")}>
+            {archived ? null : t("onboarding.emptyHint")}
           </EmptyState>
         ) : (
           <>
@@ -174,7 +243,8 @@ export function OnboardingListView() {
             <ul className="divide-y divide-border md:hidden">
               {data.items.map((item) => (
                 <li key={item.id}>
-                  <CaseCard item={item} />
+                  <CaseCard item={item} action={<RowAction item={item} archived={archived} restoring={restoringId === item.id}
+                    onRemove={() => { setNotice(null); setRemoving(item); }} onRestore={() => void restore(item)} />} />
                 </li>
               ))}
             </ul>
@@ -189,6 +259,7 @@ export function OnboardingListView() {
                       <Th>{t("onboarding.col.progress")}</Th>
                       <Th>{t("onboarding.col.operator")}</Th>
                       <Th>{t("onboarding.col.updated")}</Th>
+                      <Th className="text-end"><span className="sr-only">{t("onboarding.col.actions")}</span></Th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-border">
@@ -197,7 +268,7 @@ export function OnboardingListView() {
                         <td className="px-4 py-3">
                           <Link href={`/onboarding/${item.id}`} className="group block min-w-[180px]">
                             <span className="flex items-center gap-2 font-medium text-foreground group-hover:text-primary-text">
-                              <bdi>{item.restaurantName ?? t("onboarding.unnamed")}</bdi>
+                              <bdi>{item.restaurantName ?? t(item.mode === "DEMO" ? "onboarding.demo.unnamed" : "onboarding.unnamed")}</bdi>
                               {item.leadId ? <Badge tone="primary">{t("onboarding.fromLeadBadge")}</Badge> : null}
                             </span>
                             {item.ownerEmail ? (
@@ -212,12 +283,16 @@ export function OnboardingListView() {
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">{item.mode ? t(`onboarding.mode.${item.mode}`) : "—"}</td>
                         <td className="tabular px-4 py-3 text-muted-foreground">
-                          {t("onboarding.progressShort", { done: fmt.number(item.completedSteps.length), total: fmt.number(onboardingStepCount(item.mode)) })}
+                          <Progress item={item} />
                         </td>
                         <td className="px-4 py-3 text-muted-foreground">
                           <bdi>{item.updatedBy?.displayName ?? "—"}</bdi>
                         </td>
                         <td className="whitespace-nowrap px-4 py-3 text-muted-foreground">{fmt.dateTime(item.updatedAt)}</td>
+                        <td className="px-4 py-3 text-end">
+                          <RowAction item={item} archived={archived} restoring={restoringId === item.id}
+                            onRemove={() => { setNotice(null); setRemoving(item); }} onRestore={() => void restore(item)} />
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -243,17 +318,62 @@ export function OnboardingListView() {
           </div>
         ) : null}
       </Card>
+
+      {removing ? (
+        <RemoveCaseDialog
+          item={removing}
+          onClose={() => setRemoving(null)}
+          onRemoved={removed}
+          onStale={(message) => {
+            setRemoving(null);
+            setActionError(message);
+            refresh();
+          }}
+        />
+      ) : null}
     </>
   );
 }
 
-function CaseCard({ item }: { item: OnboardingCaseSummary }) {
+function Progress({ item }: { item: OnboardingCaseSummary }) {
+  const { t, fmt } = useI18n();
+  const { done, total } = stepProgress(item.mode, item.completedSteps);
+  return <>{t("onboarding.progressShort", { done: fmt.number(done), total: fmt.number(total) })}</>;
+}
+
+/** Remove (active list) or Restore (removed list), reachable without opening the case. */
+function RowAction({ item, archived, restoring, onRemove, onRestore }: {
+  item: OnboardingCaseSummary;
+  archived: boolean;
+  restoring: boolean;
+  onRemove: () => void;
+  onRestore: () => void;
+}) {
+  const { t } = useI18n();
+  const name = item.restaurantName ?? t(item.mode === "DEMO" ? "onboarding.demo.unnamed" : "onboarding.unnamed");
+  if (archived) {
+    return (
+      <Button size="sm" disabled={restoring} aria-label={t("onboarding.remove.restoreNamed", { name })} onClick={onRestore} className="min-h-11 sm:min-h-8">
+        {restoring ? t("common.saving") : t("onboarding.remove.restore")}
+      </Button>
+    );
+  }
+  return (
+    <Button size="sm" variant="ghost" aria-label={t("onboarding.remove.actionNamed", { name })} onClick={onRemove}
+      className="min-h-11 text-danger hover:bg-danger-soft sm:min-h-8">
+      {t("onboarding.remove.action")}
+    </Button>
+  );
+}
+
+function CaseCard({ item, action }: { item: OnboardingCaseSummary; action: ReactNode }) {
   const { t, fmt } = useI18n();
   return (
-    <Link href={`/onboarding/${item.id}`} className="block space-y-2 px-4 py-3.5 hover:bg-surface-2/60">
+    <div className="flex items-start gap-2 pe-3 hover:bg-surface-2/60">
+    <Link href={`/onboarding/${item.id}`} className="block min-w-0 flex-1 space-y-2 px-4 py-3.5">
       <div className="flex flex-wrap items-center gap-2">
         <span className="min-w-0 break-words font-medium text-foreground">
-          <bdi>{item.restaurantName ?? t("onboarding.unnamed")}</bdi>
+          <bdi>{item.restaurantName ?? t(item.mode === "DEMO" ? "onboarding.demo.unnamed" : "onboarding.unnamed")}</bdi>
         </span>
         <OnboardingStatusBadge status={item.status} t={t} />
         {item.leadId ? <Badge tone="primary">{t("onboarding.fromLeadBadge")}</Badge> : null}
@@ -264,11 +384,12 @@ function CaseCard({ item }: { item: OnboardingCaseSummary }) {
         </p>
       ) : null}
       <p className="text-xs text-muted-foreground">
-        {item.mode ? t(`onboarding.mode.${item.mode}`) : t("onboarding.noMode")} ·{" "}
-        {t("onboarding.progressShort", { done: fmt.number(item.completedSteps.length), total: fmt.number(onboardingStepCount(item.mode)) })} ·{" "}
+        {item.mode ? t(`onboarding.mode.${item.mode}`) : t("onboarding.noMode")} · <Progress item={item} /> ·{" "}
         <bdi>{item.updatedBy?.displayName ?? "—"}</bdi> · {fmt.dateTime(item.updatedAt)}
       </p>
     </Link>
+    <div className="shrink-0 pt-2.5">{action}</div>
+    </div>
   );
 }
 

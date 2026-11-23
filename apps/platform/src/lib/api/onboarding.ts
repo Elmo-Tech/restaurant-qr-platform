@@ -1,6 +1,10 @@
 import { platformFetch } from "./client";
 import { ApiError } from "./errors";
 import type { LeadKind, LeadStatus } from "./leads";
+import type { RemovalImpact, RemovalSummary } from "../onboarding-removal";
+import type { OnboardingStep } from "../onboarding-steps";
+
+export { ONBOARDING_STEPS, stepsForMode, type OnboardingStep } from "../onboarding-steps";
 
 /** Mirrors the Platform onboarding case API. */
 export const ONBOARDING_STATUSES = [
@@ -15,9 +19,6 @@ export const ONBOARDING_STATUSES = [
 ] as const;
 export type OnboardingStatus = (typeof ONBOARDING_STATUSES)[number];
 export type OnboardingMode = "REAL" | "TRIAL" | "DEMO";
-export const ONBOARDING_STEPS = ["customer", "mode", "menu", "review", "handoff"] as const;
-export type OnboardingStep = (typeof ONBOARDING_STEPS)[number];
-export const onboardingStepCount = (mode: OnboardingMode | null) => ONBOARDING_STEPS.length - (mode === "DEMO" ? 1 : 0);
 export const BUSINESS_TYPES = ["RESTAURANT", "CAFE", "SWEETS", "OTHER"] as const;
 export type BusinessType = (typeof BUSINESS_TYPES)[number];
 
@@ -54,6 +55,7 @@ export const MODE_PROBLEMS = [
   "TRIAL_DAYS_INVALID",
   "DEMO_KIND_INVALID",
   "DEMO_HOURS_INVALID",
+  "DEMO_LABEL_INVALID",
 ] as const;
 export type CustomerProblem = (typeof CUSTOMER_PROBLEMS)[number];
 export type ModeProblem = (typeof MODE_PROBLEMS)[number];
@@ -126,6 +128,10 @@ export interface OnboardingCaseSummary {
   updatedBy: AdminRef | null;
   createdAt: string;
   updatedAt: string;
+  /** Set when the case was removed from the active list (kept for history; restorable). */
+  archivedAt: string | null;
+  /** The server's removal decision for this row; enforced again by the remove action. */
+  removal: RemovalSummary;
 }
 
 export interface MenuTranslation {
@@ -222,6 +228,7 @@ export interface OnboardingCase {
   createdAt: string;
   updatedAt: string;
   cancelledAt: string | null;
+  archivedAt: string | null;
 }
 
 export interface OnboardingDuplicates {
@@ -246,10 +253,13 @@ export async function listOnboardingCases(input: {
   search: string;
   status: OnboardingStatus | "";
   page: number;
+  /** `true`: only the cases removed from the active list. */
+  archived?: boolean;
 }): Promise<OnboardingCasePage> {
   const params = new URLSearchParams({ page: String(input.page), pageSize: String(PAGE_SIZE) });
   if (input.search.trim()) params.set("search", input.search.trim());
   if (input.status) params.set("status", input.status);
+  if (input.archived) params.set("archived", "true");
   const body = await platformFetch<{ data: OnboardingCaseSummary[]; meta: { page: number; pageSize: number; total: number } }>(
     `/onboarding-cases?${params.toString()}`,
   );
@@ -305,6 +315,25 @@ export const cancelOnboardingCase = (id: string, revision: number, confirmNotDel
     method: "POST",
     body: { revision, ...(confirmNotDelivered ? { confirmNotDelivered: true } : {}) },
   }).then((r) => r.data);
+
+export interface RemovedOnboardingCase {
+  id: string;
+  status: OnboardingStatus;
+  revision: number;
+  archivedAt: string | null;
+}
+
+/**
+ * Removes a case from the active list. `acknowledgedImpacts` are exactly the impacts the operator was shown and
+ * confirmed; the server refuses (`409 ONBOARDING_REMOVE_CONFIRMATION_REQUIRED`) when it finds any other.
+ */
+export const removeOnboardingCase = (
+  id: string,
+  body: { revision: number; acknowledgedImpacts: RemovalImpact[]; confirmNotDelivered?: true },
+) => platformFetch<{ data: RemovedOnboardingCase }>(`${path(id)}/remove`, { method: "POST", body }).then((r) => r.data);
+
+export const restoreOnboardingCase = (id: string, revision: number) =>
+  platformFetch<{ data: OnboardingCase }>(`${path(id)}/restore`, { method: "POST", body: { revision } }).then((r) => r.data);
 
 export function importOnboardingMenu(id: string, revision: number, files: readonly File[]) {
   const body = new FormData();

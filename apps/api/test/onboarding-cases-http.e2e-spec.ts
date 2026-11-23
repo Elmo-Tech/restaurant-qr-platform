@@ -1349,7 +1349,10 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
         modeConfig: { demoKind: 'cafe', demoHours: 24 },
       });
       await expectCleared(res);
-      expect(res.body.data.completedSteps).toEqual(['customer', 'mode']);
+      // Mode first (PO 2026-11-23): the customer step is not part of a DEMO's path, so it is never reported.
+      expect(res.body.data.completedSteps).toEqual(['mode']);
+      // The customer details typed for TRIAL are kept (compatible draft data), only hidden for the DEMO.
+      expect(res.body.data.details.owner.email).toEqual(expect.any(String));
 
       // DEMO (with a package) -> TRIAL
       revision = await choose(res.body.data.revision);
@@ -2331,9 +2334,12 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
         await refused();
         // Expired/locked is not proof of purge: even explicit operator confirmation cannot cancel yet.
         const beforePurge = await send('post', `${c.path}/cancel`, c.cookie, {
-          revision: c.revision, confirmNotDelivered: true,
+          revision: c.revision,
+          confirmNotDelivered: true,
         }).expect(409);
-        expect(beforePurge.body.error.code).toBe('ONBOARDING_INVALID_TRANSITION');
+        expect(beforePurge.body.error.code).toBe(
+          'ONBOARDING_INVALID_TRANSITION',
+        );
         await demos.purge(demoId);
         expect((await remember(c)).demoId).toBeNull();
         await refused();
@@ -2355,20 +2361,35 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
         ).toHaveLength(0);
 
         const anonymous = await send('post', `${c.path}/cancel`, null, {
-          revision: c.revision, confirmNotDelivered: true,
+          revision: c.revision,
+          confirmNotDelivered: true,
         }).expect(401);
         expect(anonymous.body.error.code).toBe('UNAUTHENTICATED');
-        const noConfirmation = await send('post', `${c.path}/cancel`, c.cookie, {
-          revision: c.revision,
-        }).expect(409);
-        expect(noConfirmation.body.error.code).toBe('ONBOARDING_INVALID_TRANSITION');
+        const noConfirmation = await send(
+          'post',
+          `${c.path}/cancel`,
+          c.cookie,
+          {
+            revision: c.revision,
+          },
+        ).expect(409);
+        expect(noConfirmation.body.error.code).toBe(
+          'ONBOARDING_INVALID_TRANSITION',
+        );
         await send('post', `${c.path}/cancel`, c.cookie, {
-          revision: c.revision, confirmNotDelivered: 'yes',
+          revision: c.revision,
+          confirmNotDelivered: 'yes',
         }).expect(400);
 
         const results = await Promise.all([
-          send('post', `${c.path}/cancel`, c.cookie, { revision: c.revision, confirmNotDelivered: true }),
-          send('post', `${c.path}/cancel`, c.cookie, { revision: c.revision, confirmNotDelivered: true }),
+          send('post', `${c.path}/cancel`, c.cookie, {
+            revision: c.revision,
+            confirmNotDelivered: true,
+          }),
+          send('post', `${c.path}/cancel`, c.cookie, {
+            revision: c.revision,
+            confirmNotDelivered: true,
+          }),
         ]);
         expect(results.map((r) => r.status).sort()).toEqual([200, 409]);
         const cancelled = results.find((r) => r.status === 200)!;
@@ -2379,16 +2400,681 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
         });
         expect(await caseAudit(c.id, 'onboarding.cancelled')).toHaveLength(1);
         expect(await caseAudit(c.id, 'onboarding.delivered')).toHaveLength(0);
-        expect(await leadState(lead.id)).toMatchObject({ status: 'NEW', statusVersion: 0 });
+        expect(await leadState(lead.id)).toMatchObject({
+          status: 'NEW',
+          statusVersion: 0,
+        });
         // Terminal CANCELLED releases the one-open-case-per-lead slot; no demo token is reused.
-        const replacementCase = await send('post', '/onboarding-cases', c.cookie, {
-          leadId: lead.id,
-        }).expect(201);
+        const replacementCase = await send(
+          'post',
+          '/onboarding-cases',
+          c.cookie,
+          {
+            leadId: lead.id,
+          },
+        ).expect(201);
         expect(replacementCase.body.data).toMatchObject({
           status: 'DRAFT',
           lead: { id: lead.id },
         });
       }, 15_000);
+    });
+
+    describe('mode first: DEMO short path, mode switching and list removal (PO 2026-11-23)', () => {
+      const unique = (prefix: string) =>
+        `${prefix} ${tag} ${randomUUID().slice(0, 8)}`;
+      const casePath = (id: string) => `/onboarding-cases/${id}`;
+      const auditOf = (caseId: string) =>
+        prisma.platformAuditLog.findMany({
+          where: { details: { path: ['caseId'], equals: caseId } },
+          orderBy: { createdAt: 'asc' },
+          select: { action: true, details: true },
+        });
+      const listed = async (cookie: string, search: string, archived = false) =>
+        (
+          await get(
+            `/onboarding-cases?search=${encodeURIComponent(search)}${archived ? '&archived=true' : ''}`,
+            cookie,
+          ).expect(200)
+        ).body as {
+          data: {
+            id: string;
+            revision: number;
+            removal: Record<string, unknown>;
+          }[];
+          meta: { total: number };
+        };
+      const remove = (
+        cookie: string | null,
+        id: string,
+        body: Record<string, unknown>,
+        origin: string | null = platformOrigin,
+      ) => send('post', `${casePath(id)}/remove`, cookie, body, origin);
+
+      /** A DEMO with nothing but its label, kind and duration: no customer, contact, branch or menu data. */
+      async function demoOnly(cookie: string, label: string, leadId?: string) {
+        const created = await send(
+          'post',
+          '/onboarding-cases',
+          cookie,
+          leadId ? { leadId } : {},
+        ).expect(201);
+        const id = created.body.data.id as string;
+        const saved = await send('patch', casePath(id), cookie, {
+          revision: created.body.data.revision,
+          mode: 'DEMO',
+          details: { restaurant: { name: label } },
+          modeConfig: { demoKind: 'sweets', demoHours: 4 },
+        }).expect(200);
+        return {
+          id,
+          view: saved.body.data,
+          revision: saved.body.data.revision as number,
+        };
+      }
+
+      it('submits and provisions a DEMO without any customer details (no fake data)', async () => {
+        const cookie = await platformLogin(await addAdmin());
+        const label = unique('Demo only');
+        const c = await demoOnly(cookie, label);
+        expect(c.view.problems).toEqual({ customer: [], mode: [], menu: [] });
+        expect(c.view.completedSteps).toEqual(['mode']);
+        expect(c.view.details.owner).toEqual({
+          fullName: null,
+          phone: null,
+          email: null,
+          facebookUrl: null,
+          additionalContact: null,
+        });
+        expect(c.view.details.acquisition).toBeNull();
+        expect(c.view.details.restaurant.branchName).toBeNull();
+
+        const submitted = await send(
+          'post',
+          `${casePath(c.id)}/submit-for-review`,
+          cookie,
+          { revision: c.revision },
+        ).expect(200);
+        expect(submitted.body.data.status).toBe('READY_FOR_REVIEW');
+        const provisioned = await send(
+          'post',
+          `${casePath(c.id)}/provision`,
+          cookie,
+          {
+            revision: submitted.body.data.revision,
+            provisioningKey: randomUUID(),
+          },
+        ).expect(200);
+        const row = await prisma.onboardingCase.findUniqueOrThrow({
+          where: { id: c.id },
+        });
+        if (row.demoId) fixtures.demoIds.push(row.demoId);
+        expect(provisioned.body.data).toMatchObject({
+          status: 'READY',
+          mode: 'DEMO',
+          demoState: 'ACTIVE',
+          demoHistory: { kind: 'sweets', label, packageName: null },
+          ownerPasswordRequired: false,
+        });
+        expect(provisioned.body.data.demoLink).toEqual(expect.any(String));
+        // Only the demo exists: no real restaurant for that label, no owner account invented.
+        expect(
+          await prisma.restaurant.count({
+            where: { name: label, isDemo: false },
+          }),
+        ).toBe(0);
+        expect(row.restaurantId).toBeNull();
+      }, 15_000);
+
+      it('refuses a DEMO without a label on edit, submit and provisioning', async () => {
+        const cookie = await platformLogin(await addAdmin());
+        const created = await send(
+          'post',
+          '/onboarding-cases',
+          cookie,
+          {},
+        ).expect(201);
+        const id = created.body.data.id as string;
+        const saved = await send('patch', casePath(id), cookie, {
+          revision: 1,
+          mode: 'DEMO',
+          details: { restaurant: { name: '   ' } },
+          modeConfig: { demoKind: 'cafe', demoHours: 24 },
+        }).expect(200);
+        expect(saved.body.data.problems.mode).toEqual(['DEMO_LABEL_INVALID']);
+        expect(saved.body.data.completedSteps).toEqual([]);
+        const submit = await send(
+          'post',
+          `${casePath(id)}/submit-for-review`,
+          cookie,
+          { revision: saved.body.data.revision },
+        ).expect(422);
+        expect(submit.body.error.problems).toEqual(['DEMO_LABEL_INVALID']);
+        // Even a case forced past review cannot create a demo without its label.
+        await prisma.onboardingCase.update({
+          where: { id },
+          data: { status: 'READY_FOR_REVIEW' },
+        });
+        const current = await prisma.onboardingCase.findUniqueOrThrow({
+          where: { id },
+        });
+        const final = await send('post', `${casePath(id)}/provision`, cookie, {
+          revision: current.revision,
+          provisioningKey: randomUUID(),
+        }).expect(422);
+        expect(final.body.error.problems).toEqual(['DEMO_LABEL_INVALID']);
+        expect(
+          (await prisma.onboardingCase.findUniqueOrThrow({ where: { id } }))
+            .demoId,
+        ).toBeNull();
+      });
+
+      it('keeps the lead association of a DEMO without requiring the lead contact details', async () => {
+        const cookie = await platformLogin(await addAdmin());
+        const lead = await addLead(`demo-lead-${randomUUID()}@example.test`);
+        const created = await send('post', '/onboarding-cases', cookie, {
+          leadId: lead.id,
+        }).expect(201);
+        const id = created.body.data.id as string;
+        const saved = await send('patch', casePath(id), cookie, {
+          revision: 1,
+          mode: 'DEMO',
+          details: { owner: { fullName: null, email: null, phone: null } },
+          modeConfig: { demoKind: 'restaurant', demoHours: 24 },
+        }).expect(200);
+        // The label is the lead's restaurant name, prefilled; nothing else is needed.
+        expect(saved.body.data.details.restaurant.name).toBe(
+          `Lead Bistro ${tag}`,
+        );
+        expect(saved.body.data.completedSteps).toEqual(['mode']);
+        expect(saved.body.data.lead).toMatchObject({ id: lead.id });
+        await send('post', `${casePath(id)}/submit-for-review`, cookie, {
+          revision: saved.body.data.revision,
+        }).expect(200);
+        expect(
+          await prisma.signupLead.findUniqueOrThrow({
+            where: { id: lead.id },
+            select: { status: true, statusVersion: true },
+          }),
+        ).toEqual({ status: 'NEW', statusVersion: 0 });
+      });
+
+      it('switching modes keeps compatible draft data, clears the package and re-applies the right rules', async () => {
+        const cookie = await platformLogin(await addAdmin());
+        const pkg = await addPackage();
+        const created = await send(
+          'post',
+          '/onboarding-cases',
+          cookie,
+          {},
+        ).expect(201);
+        const id = created.body.data.id as string;
+        const email = `switch-${randomUUID()}@example.test`;
+        let res = await send('patch', casePath(id), cookie, {
+          revision: 1,
+          mode: 'REAL',
+          details: step1(unique('Switch Bistro'), email),
+          modeConfig: { packageId: pkg.id },
+        }).expect(200);
+        expect(res.body.data.completedSteps).toEqual(['customer', 'mode']);
+
+        res = await send('patch', casePath(id), cookie, {
+          revision: res.body.data.revision,
+          mode: 'DEMO',
+          modeConfig: { demoKind: 'cafe', demoHours: 72 },
+        }).expect(200);
+        expect(res.body.data.modeConfig.packageId).toBeNull();
+        expect(res.body.data.details.owner.email).toBe(email);
+        expect(res.body.data.completedSteps).toEqual(['mode']);
+        expect(res.body.data.problems.customer).toEqual([]);
+
+        // Back to REAL: the kept customer details count again; the package must be chosen again.
+        res = await send('patch', casePath(id), cookie, {
+          revision: res.body.data.revision,
+          mode: 'REAL',
+        }).expect(200);
+        expect(res.body.data.completedSteps).toEqual(['customer']);
+        expect(res.body.data.problems.mode).toEqual(['PACKAGE_REQUIRED']);
+        expect(res.body.data.modeConfig.demoKind).toBe('cafe');
+
+        // A REAL case with broken customer data is refused, the same data is irrelevant for a DEMO.
+        res = await send('patch', casePath(id), cookie, {
+          revision: res.body.data.revision,
+          details: { owner: { email: null } },
+          modeConfig: { packageId: pkg.id },
+        }).expect(200);
+        const realSubmit = await send(
+          'post',
+          `${casePath(id)}/submit-for-review`,
+          cookie,
+          { revision: res.body.data.revision },
+        ).expect(422);
+        expect(realSubmit.body.error.problems).toContain('OWNER_EMAIL_INVALID');
+        res = await send('patch', casePath(id), cookie, {
+          revision: res.body.data.revision,
+          mode: 'DEMO',
+        }).expect(200);
+        await send('post', `${casePath(id)}/submit-for-review`, cookie, {
+          revision: res.body.data.revision,
+        }).expect(200);
+      });
+
+      it('removes a routine draft from the active list without deleting it, and restores it', async () => {
+        const cookie = await platformLogin(await addAdmin());
+        const name = unique('Routine Remove');
+        const created = await send(
+          'post',
+          '/onboarding-cases',
+          cookie,
+          {},
+        ).expect(201);
+        const id = created.body.data.id as string;
+        const saved = await send('patch', casePath(id), cookie, {
+          revision: 1,
+          details: { restaurant: { name } },
+        }).expect(200);
+        const before = await listed(cookie, name);
+        expect(before.data).toHaveLength(1);
+        expect(before.data[0].removal).toEqual({
+          allowed: true,
+          action: 'CANCEL_AND_ARCHIVE',
+          impacts: [],
+          confirmNotDelivered: false,
+        });
+
+        // Platform authorization and CSRF apply.
+        expect(
+          (await remove(null, id, { revision: 2, acknowledgedImpacts: [] }))
+            .status,
+        ).toBe(401);
+        expect(
+          (
+            await remove(
+              cookie,
+              id,
+              { revision: 2, acknowledgedImpacts: [] },
+              'http://evil.example.test',
+            )
+          ).status,
+        ).toBe(403);
+        expect(
+          (
+            await remove(cookie, id, {
+              revision: 2,
+              acknowledgedImpacts: ['NOT_AN_IMPACT'],
+            })
+          ).status,
+        ).toBe(400);
+        // A stale revision changes nothing.
+        const stale = await remove(cookie, id, {
+          revision: 1,
+          acknowledgedImpacts: [],
+        }).expect(409);
+        expect(stale.body.error.code).toBe('ONBOARDING_REVISION_CONFLICT');
+
+        const removed = await remove(cookie, id, {
+          revision: saved.body.data.revision,
+          acknowledgedImpacts: [],
+        }).expect(200);
+        expect(removed.body.data).toMatchObject({
+          id,
+          status: 'CANCELLED',
+          archivedAt: expect.any(String),
+        });
+        expect((await listed(cookie, name)).data).toHaveLength(0);
+        const archived = await listed(cookie, name, true);
+        expect(archived.data.map((item) => item.id)).toEqual([id]);
+        expect(archived.data[0].removal).toEqual({
+          allowed: false,
+          refusal: 'ALREADY_ARCHIVED',
+        });
+        const row = await prisma.onboardingCase.findUniqueOrThrow({
+          where: { id },
+        });
+        expect(row).toMatchObject({
+          status: 'CANCELLED',
+          restaurantName: name,
+        });
+        expect(row.cancelledAt).not.toBeNull();
+        expect(row.archivedByAdminId).not.toBeNull();
+
+        // A retried request whose answer was lost is answered idempotently, without a second audit entry.
+        await remove(cookie, id, {
+          revision: saved.body.data.revision,
+          acknowledgedImpacts: [],
+        }).expect(200);
+        expect((await auditOf(id)).map((entry) => entry.action)).toEqual([
+          'onboarding.created',
+          'onboarding.cancelled',
+          'onboarding.archived',
+        ]);
+        expect((await auditOf(id))[1].details).toMatchObject({
+          reason: 'REMOVED_FROM_LIST',
+          from: 'DRAFT',
+        });
+
+        const staleRestore = await send(
+          'post',
+          `${casePath(id)}/restore`,
+          cookie,
+          {
+            revision: saved.body.data.revision,
+          },
+        ).expect(409);
+        expect(staleRestore.body.error.code).toBe(
+          'ONBOARDING_REVISION_CONFLICT',
+        );
+        const restored = await send('post', `${casePath(id)}/restore`, cookie, {
+          revision: row.revision,
+        }).expect(200);
+        expect(restored.body.data).toMatchObject({
+          status: 'CANCELLED',
+          archivedAt: null,
+        });
+        expect(
+          (await listed(cookie, name)).data.map((item) => item.id),
+        ).toEqual([id]);
+        const again = await send('post', `${casePath(id)}/restore`, cookie, {
+          revision: restored.body.data.revision,
+        }).expect(409);
+        expect(again.body.error.code).toBe('ONBOARDING_INVALID_TRANSITION');
+        expect((await auditOf(id)).at(-1)?.action).toBe('onboarding.restored');
+      });
+
+      it('requires explicit acknowledgement of a linked lead and a submitted review; the lead is untouched and freed', async () => {
+        const cookie = await platformLogin(await addAdmin());
+        const pkg = await addPackage();
+        const lead = await addLead(`remove-lead-${randomUUID()}@example.test`);
+        const created = await send('post', '/onboarding-cases', cookie, {
+          leadId: lead.id,
+        }).expect(201);
+        const id = created.body.data.id as string;
+        const name = unique('Lead Remove');
+        const saved = await send('patch', casePath(id), cookie, {
+          revision: 1,
+          mode: 'REAL',
+          details: step1(name, `remove-${randomUUID()}@example.test`),
+          modeConfig: { packageId: pkg.id },
+        }).expect(200);
+        const submitted = await send(
+          'post',
+          `${casePath(id)}/submit-for-review`,
+          cookie,
+          { revision: saved.body.data.revision },
+        ).expect(200);
+        const revision = submitted.body.data.revision as number;
+        expect((await listed(cookie, name)).data[0].removal).toMatchObject({
+          allowed: true,
+          impacts: ['LINKED_LEAD', 'SUBMITTED'],
+        });
+
+        for (const acknowledgedImpacts of [[], ['LINKED_LEAD']]) {
+          const refused = await remove(cookie, id, {
+            revision,
+            acknowledgedImpacts,
+          }).expect(409);
+          expect(refused.body.error).toMatchObject({
+            code: 'ONBOARDING_REMOVE_CONFIRMATION_REQUIRED',
+            details: { impacts: ['LINKED_LEAD', 'SUBMITTED'] },
+          });
+        }
+        expect(
+          await prisma.onboardingCase.findUniqueOrThrow({ where: { id } }),
+        ).toMatchObject({
+          status: 'READY_FOR_REVIEW',
+          revision,
+          archivedAt: null,
+        });
+
+        await remove(cookie, id, {
+          revision,
+          acknowledgedImpacts: ['LINKED_LEAD', 'SUBMITTED'],
+        }).expect(200);
+        expect(
+          await prisma.signupLead.findUniqueOrThrow({
+            where: { id: lead.id },
+            select: { status: true, statusVersion: true },
+          }),
+        ).toEqual({ status: 'NEW', statusVersion: 0 });
+        await send('post', '/onboarding-cases', cookie, {
+          leadId: lead.id,
+        }).expect(201);
+      });
+
+      it('lets exactly one of two concurrent removals or a removal and an edit win', async () => {
+        const cookie = await platformLogin(await addAdmin());
+        const twice = await send(
+          'post',
+          '/onboarding-cases',
+          cookie,
+          {},
+        ).expect(201);
+        const twiceId = twice.body.data.id as string;
+        const results = await Promise.all([
+          remove(cookie, twiceId, {
+            revision: 1,
+            acknowledgedImpacts: [],
+          }),
+          remove(cookie, twiceId, {
+            revision: 1,
+            acknowledgedImpacts: [],
+          }),
+        ]);
+        expect(results.map((r) => r.status)).toEqual([200, 200]);
+        expect(
+          (await auditOf(twiceId)).filter(
+            (e) => e.action === 'onboarding.archived',
+          ),
+        ).toHaveLength(1);
+
+        const raced = await send(
+          'post',
+          '/onboarding-cases',
+          cookie,
+          {},
+        ).expect(201);
+        const racedId = raced.body.data.id as string;
+        const [removal, edit] = await Promise.all([
+          remove(cookie, racedId, {
+            revision: 1,
+            acknowledgedImpacts: [],
+          }),
+          send('patch', casePath(racedId), cookie, {
+            revision: 1,
+            details: { restaurant: { name: 'Edited meanwhile' } },
+          }),
+        ]);
+        expect([removal.status, edit.status].sort()).toEqual([200, 409]);
+        const row = await prisma.onboardingCase.findUniqueOrThrow({
+          where: { id: racedId },
+        });
+        if (removal.status === 200) expect(row.status).toBe('CANCELLED');
+        else expect(row).toMatchObject({ status: 'DRAFT', archivedAt: null });
+      });
+
+      it('refuses active provisioning and pending handoff, archives delivered history only, and keeps the purged-demo rule', async () => {
+        const cookie = await platformLogin(await addAdmin());
+        const fresh = async () =>
+          (await send('post', '/onboarding-cases', cookie, {}).expect(201)).body
+            .data.id as string;
+        const revisionOf = async (id: string) =>
+          (await prisma.onboardingCase.findUniqueOrThrow({ where: { id } }))
+            .revision;
+
+        const provisioning = await fresh();
+        await prisma.onboardingCase.update({
+          where: { id: provisioning },
+          data: { status: 'PROVISIONING', mode: 'REAL' },
+        });
+        const busy = await remove(cookie, provisioning, {
+          revision: await revisionOf(provisioning),
+          acknowledgedImpacts: [...['LINKED_LEAD', 'SUBMITTED']],
+        }).expect(409);
+        expect(busy.body.error).toMatchObject({
+          code: 'ONBOARDING_REMOVE_REFUSED',
+          details: { reason: 'PROVISIONING_ACTIVE' },
+        });
+
+        const restaurant = await addOwnedRestaurant(
+          unique('Delivered Bistro'),
+          `delivered-${randomUUID()}@example.test`,
+        );
+        const pending = await fresh();
+        await prisma.onboardingCase.update({
+          where: { id: pending },
+          data: {
+            status: 'READY',
+            mode: 'REAL',
+            restaurantId: restaurant.id,
+            restaurantProvisionedAt: new Date(),
+          },
+        });
+        expect(
+          (
+            await remove(cookie, pending, {
+              revision: await revisionOf(pending),
+              acknowledgedImpacts: [],
+            }).expect(409)
+          ).body.error.details,
+        ).toEqual({ reason: 'HANDOFF_PENDING' });
+
+        const delivered = await fresh();
+        await prisma.onboardingCase.update({
+          where: { id: delivered },
+          data: {
+            status: 'DELIVERED',
+            deliveredAt: new Date(),
+            mode: 'REAL',
+            restaurantId: restaurant.id,
+            restaurantProvisionedAt: new Date(),
+          },
+        });
+        const needAck = await remove(cookie, delivered, {
+          revision: await revisionOf(delivered),
+          acknowledgedImpacts: [],
+        }).expect(409);
+        expect(needAck.body.error.details).toEqual({
+          impacts: ['DELIVERED', 'RESTAURANT_KEPT'],
+        });
+        const archivedDelivered = await remove(cookie, delivered, {
+          revision: await revisionOf(delivered),
+          acknowledgedImpacts: ['DELIVERED', 'RESTAURANT_KEPT'],
+        }).expect(200);
+        expect(archivedDelivered.body.data).toMatchObject({
+          status: 'DELIVERED',
+          archivedAt: expect.any(String),
+        });
+        // The delivered restaurant, its owner membership and the case history all stay.
+        expect(
+          await prisma.restaurant.findUniqueOrThrow({
+            where: { id: restaurant.id },
+          }),
+        ).toMatchObject({ status: 'ACTIVE' });
+        expect(
+          await prisma.restaurantMembership.count({
+            where: { restaurantId: restaurant.id, role: 'OWNER' },
+          }),
+        ).toBe(1);
+        expect(
+          await prisma.onboardingCase.findUniqueOrThrow({
+            where: { id: delivered },
+          }),
+        ).toMatchObject({
+          restaurantId: restaurant.id,
+          deliveredAt: expect.any(Date),
+        });
+
+        const purged = await fresh();
+        await prisma.onboardingCase.update({
+          where: { id: purged },
+          data: {
+            status: 'READY',
+            mode: 'DEMO',
+            demoHistory: {
+              kind: 'cafe',
+              label: 'Gone demo',
+              packageName: null,
+              createdAt: new Date().toISOString(),
+              expiresAt: new Date().toISOString(),
+            },
+            demoRemovedAt: new Date(),
+          },
+        });
+        const noAssertion = await remove(cookie, purged, {
+          revision: await revisionOf(purged),
+          acknowledgedImpacts: ['DEMO_PURGED'],
+        }).expect(409);
+        expect(noAssertion.body.error.code).toBe(
+          'ONBOARDING_REMOVE_CONFIRMATION_REQUIRED',
+        );
+        await remove(cookie, purged, {
+          revision: await revisionOf(purged),
+          acknowledgedImpacts: ['DEMO_PURGED'],
+          confirmNotDelivered: true,
+        }).expect(200);
+        const purgedAudit = await auditOf(purged);
+        expect(
+          purgedAudit.find((entry) => entry.action === 'onboarding.cancelled')
+            ?.details,
+        ).toMatchObject({
+          reason: 'DEMO_PURGED_UNDELIVERED',
+          confirmedNoHandoff: true,
+        });
+
+        // The database itself refuses to hide an open case.
+        const open = await fresh();
+        await expect(
+          prisma.onboardingCase.update({
+            where: { id: open },
+            data: { archivedAt: new Date() },
+          }),
+        ).rejects.toThrow();
+      }, 15_000);
+
+      it('keeps pagination consistent after a removal (no stale rows)', async () => {
+        const cookie = await platformLogin(await addAdmin());
+        const marker = unique('Paged');
+        const ids: string[] = [];
+        for (let n = 0; n < 3; n += 1) {
+          const created = await send(
+            'post',
+            '/onboarding-cases',
+            cookie,
+            {},
+          ).expect(201);
+          await send(
+            'patch',
+            casePath(created.body.data.id as string),
+            cookie,
+            {
+              revision: 1,
+              details: { restaurant: { name: `${marker} ${n}` } },
+            },
+          ).expect(200);
+          ids.push(created.body.data.id as string);
+        }
+        const page = (n: number) =>
+          get(
+            `/onboarding-cases?search=${encodeURIComponent(marker)}&pageSize=2&page=${n}`,
+            cookie,
+          ).expect(200);
+        expect((await page(1)).body.meta.total).toBe(3);
+        const target = (await page(2)).body.data[0] as {
+          id: string;
+          revision: number;
+        };
+        await remove(cookie, target.id, {
+          revision: target.revision,
+          acknowledgedImpacts: [],
+        }).expect(200);
+        const first = await page(1);
+        const second = await page(2);
+        expect(first.body.meta.total).toBe(2);
+        expect(second.body.data).toHaveLength(0);
+        expect(
+          (first.body.data as { id: string }[]).map((item) => item.id),
+        ).not.toContain(target.id);
+      });
     });
   });
 });

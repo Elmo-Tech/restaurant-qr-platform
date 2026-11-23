@@ -19,6 +19,8 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Type } from 'class-transformer';
 import {
+  ArrayMaxSize,
+  IsArray,
   IsBoolean,
   IsIn,
   IsInt,
@@ -56,10 +58,13 @@ import {
   type OnboardingCaseSummary,
   type OnboardingCaseView,
   type OnboardingDuplicates,
+  type RemovedCase,
 } from './onboarding-cases.service';
 import {
   ONBOARDING_STATUSES,
+  REMOVAL_IMPACTS,
   type OnboardingStatusKey,
+  type RemovalImpact,
 } from './onboarding-transitions';
 
 class ListQuery {
@@ -71,6 +76,11 @@ class ListQuery {
   @IsOptional()
   @IsIn(ONBOARDING_STATUSES)
   status?: OnboardingStatusKey;
+
+  /** `true` lists only the cases removed from the active list (kept for history and restorable). */
+  @IsOptional()
+  @IsIn(['true', 'false'])
+  archived?: 'true' | 'false';
 
   @IsOptional()
   @Type(() => Number)
@@ -102,6 +112,19 @@ class RevisionBody {
 
 class CancelBody extends RevisionBody {
   /** Explicit, operator-confirmed assertion: the purged READY demo was not handed off. */
+  @IsOptional()
+  @IsBoolean()
+  confirmNotDelivered?: boolean;
+}
+
+class RemoveBody extends RevisionBody {
+  /** The impacts the operator was shown and confirmed; the server requires every impact it finds now. */
+  @IsArray()
+  @ArrayMaxSize(REMOVAL_IMPACTS.length)
+  @IsIn(REMOVAL_IMPACTS, { each: true })
+  acknowledgedImpacts!: RemovalImpact[];
+
+  /** Required for the READY purged-demo case only: the operator confirms the demo was never handed off. */
   @IsOptional()
   @IsBoolean()
   confirmNotDelivered?: boolean;
@@ -193,6 +216,33 @@ function unwrap<T>(result: CaseOutcome<T>): { data: T } {
         },
         HttpStatus.CONFLICT,
       );
+    case 'removalRefused':
+      throw new HttpException(
+        {
+          error: {
+            code: 'ONBOARDING_REMOVE_REFUSED',
+            message:
+              result.refusal === 'PROVISIONING_ACTIVE'
+                ? 'This case is being set up and cannot be removed now.'
+                : result.refusal === 'HANDOFF_PENDING'
+                  ? 'Finish or cancel the handoff before removing this case.'
+                  : 'This case was already removed from the list.',
+            details: { reason: result.refusal },
+          },
+        },
+        HttpStatus.CONFLICT,
+      );
+    case 'removalConfirmationRequired':
+      throw new HttpException(
+        {
+          error: {
+            code: 'ONBOARDING_REMOVE_CONFIRMATION_REQUIRED',
+            message: 'Confirm what removing this case affects, then try again.',
+            details: { impacts: result.impacts },
+          },
+        },
+        HttpStatus.CONFLICT,
+      );
     case 'handoffUnavailable':
       throw new HttpException(
         {
@@ -256,6 +306,7 @@ export class OnboardingCasesController {
     const result = await this.cases.list({
       search: query.search,
       status: query.status,
+      archived: query.archived === 'true',
       page: query.page ?? 1,
       pageSize: query.pageSize ?? 20,
     });
@@ -456,6 +507,37 @@ export class OnboardingCasesController {
         body.revision,
         true,
       ),
+    );
+  }
+
+  /** Removes the case from the active list: cancel (existing rules) + archive, or archive only. Never a delete. */
+  @Post(':caseId/remove')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PlatformAuthGuard)
+  async remove(
+    @Param('caseId') caseId: string,
+    @Body() body: RemoveBody,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: RemovedCase }> {
+    return unwrap(
+      await this.cases.remove(request.platformAdmin, caseId, {
+        revision: body.revision,
+        acknowledgedImpacts: body.acknowledgedImpacts,
+        confirmNotDelivered: body.confirmNotDelivered === true,
+      }),
+    );
+  }
+
+  @Post(':caseId/restore')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PlatformAuthGuard)
+  async restore(
+    @Param('caseId') caseId: string,
+    @Body() body: RevisionBody,
+    @Req() request: PlatformRequest,
+  ): Promise<{ data: OnboardingCaseView }> {
+    return unwrap(
+      await this.cases.restore(request.platformAdmin, caseId, body.revision),
     );
   }
 

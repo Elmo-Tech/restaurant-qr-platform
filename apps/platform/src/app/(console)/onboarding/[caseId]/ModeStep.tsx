@@ -8,7 +8,7 @@ import { useI18n } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { offerRecommendation, recommendedFirst, recommendedPackageId } from "@/lib/onboarding-package-choice";
 import { cn } from "@/lib/utils";
-import { describedBy, Field } from "./fields";
+import { describedBy, Field, TextField } from "./fields";
 
 const MODES: { mode: OnboardingMode; title: MessageKey; body: MessageKey }[] = [
   { mode: "REAL", title: "onboarding.mode.REAL", body: "onboarding.s2.realBody" },
@@ -18,24 +18,39 @@ const MODES: { mode: OnboardingMode; title: MessageKey; body: MessageKey }[] = [
 /** The same choices as the demos page. */
 const DEMO_DURATIONS = [1, 4, 24, 72, 168] as const;
 
-/** Step 2 records how this customer starts; provisioning is a separate action. */
+/**
+ * Step 1 records how this customer starts; provisioning is a separate action. For a DEMO this is the whole short
+ * path: an internal label, the kind, the duration and an optional package (no customer, branch or menu details).
+ */
 export function ModeStep({
   data,
   mode,
   config,
+  demoLabel,
+  demoLabelError,
+  packageCleared,
   disabled,
   problems,
   onMode,
   onConfig,
+  onDemoLabel,
+  onDemoLabelBlur,
 }: {
   data: OnboardingCase;
   mode: OnboardingMode | null;
   config: ModeConfig;
+  /** The internal demo label (stored as the case's restaurant name, which is what the demo service receives). */
+  demoLabel: string | null;
+  demoLabelError: string | null;
+  /** The last mode switch dropped the package picked for the previous mode. */
+  packageCleared: boolean;
   disabled: boolean;
   /** Server problems to show now (already filtered: touched or after Continue). */
   problems: ModeProblem[];
   onMode: (mode: OnboardingMode) => void;
   onConfig: <K extends keyof ModeConfig>(key: K, value: ModeConfig[K]) => void;
+  onDemoLabel: (value: string) => void;
+  onDemoLabelBlur: () => void;
 }) {
   const { t, locale } = useI18n();
   const [packages, setPackages] = useState<PackageSummary[] | null>(null);
@@ -73,49 +88,16 @@ export function ModeStep({
   const packageError = problem("PACKAGE_REQUIRED") ?? problem("PACKAGE_NOT_AVAILABLE");
   const packageOptional = mode === "DEMO";
 
-  return (
-    <fieldset disabled={disabled} className="min-w-0 space-y-6">
-      <Alert tone="info">{t("onboarding.s2.nothingCreated")}</Alert>
-
-      <Card>
-        <CardHeader title={t("onboarding.s2.chooseMode")} description={t("onboarding.s2.demoVsTrial")} />
-        <div role="radiogroup" aria-label={t("onboarding.s2.chooseMode")} className="grid gap-3 p-5 md:grid-cols-3">
-          {MODES.map((option) => {
-            const selected = mode === option.mode;
-            return (
-              <label
-                key={option.mode}
-                className={cn(
-                  "flex cursor-pointer flex-col gap-1.5 rounded-lg border p-4 transition-colors focus-within:ring-2 focus-within:ring-ring/40",
-                  selected ? "border-primary bg-primary-soft" : "border-border hover:bg-surface-2",
-                )}
-              >
-                <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
-                  <input
-                    type="radio"
-                    name="onboarding-mode"
-                    value={option.mode}
-                    checked={selected}
-                    onChange={() => onMode(option.mode)}
-                    className="size-4 accent-primary"
-                  />
-                  {t(option.title)}
-                </span>
-                <span className="text-[13px] text-muted-foreground">{t(option.body)}</span>
-              </label>
-            );
-          })}
-        </div>
-        {problem("MODE_REQUIRED") ? <p className="px-5 pb-5 text-xs font-medium text-danger">{problem("MODE_REQUIRED")}</p> : null}
-      </Card>
-
-      {mode ? (
+  const packageCard = mode ? (
         <Card>
           <CardHeader
             title={t("onboarding.s2.package")}
             description={t(packageOptional ? "onboarding.s2.packageOptional" : "onboarding.s2.packageRequired")}
           />
           <div className="space-y-3 p-5">
+            {packageCleared && config.packageId === null ? (
+              <Alert tone="info">{t("onboarding.s2.packageCleared")}</Alert>
+            ) : null}
             {data.package && config.packageId === data.package.id && data.package.status !== "ACTIVE" ? (
               <Alert tone="warning">{t("onboarding.problem.PACKAGE_NOT_AVAILABLE")}</Alert>
             ) : null}
@@ -175,7 +157,45 @@ export function ModeStep({
             ) : null}
           </div>
         </Card>
-      ) : null}
+      ) : null;
+
+  return (
+    <fieldset disabled={disabled} className="min-w-0 space-y-6">
+      <Alert tone="info">{t("onboarding.s2.nothingCreated")}</Alert>
+
+      <Card>
+        <CardHeader title={t("onboarding.s2.chooseMode")} description={t("onboarding.s2.demoVsTrial")} />
+        <div role="radiogroup" aria-label={t("onboarding.s2.chooseMode")} className="grid gap-3 p-5 md:grid-cols-3">
+          {MODES.map((option) => {
+            const selected = mode === option.mode;
+            return (
+              <label
+                key={option.mode}
+                className={cn(
+                  "flex cursor-pointer flex-col gap-1.5 rounded-lg border p-4 transition-colors focus-within:ring-2 focus-within:ring-ring/40",
+                  selected ? "border-primary bg-primary-soft" : "border-border hover:bg-surface-2",
+                )}
+              >
+                <span className="flex items-center gap-2 text-sm font-semibold text-foreground">
+                  <input
+                    type="radio"
+                    name="onboarding-mode"
+                    value={option.mode}
+                    checked={selected}
+                    onChange={() => onMode(option.mode)}
+                    className="size-4 accent-primary"
+                  />
+                  {t(option.title)}
+                </span>
+                <span className="text-[13px] text-muted-foreground">{t(option.body)}</span>
+              </label>
+            );
+          })}
+        </div>
+        {problem("MODE_REQUIRED") ? <p className="px-5 pb-5 text-xs font-medium text-danger">{problem("MODE_REQUIRED")}</p> : null}
+      </Card>
+
+      {mode !== "DEMO" ? packageCard : null}
 
       {mode === "TRIAL" ? (
         <Card>
@@ -213,6 +233,18 @@ export function ModeStep({
         <Card>
           <CardHeader title={t("onboarding.s2.demoSection")} description={t("onboarding.s2.demoHint")} />
           <div className="grid gap-4 p-5 sm:grid-cols-2">
+            <TextField
+              id="ob-demo-label"
+              className="sm:col-span-2"
+              label={t("onboarding.demo.label")}
+              hint={t("onboarding.demo.labelHint")}
+              error={demoLabelError}
+              value={demoLabel}
+              onValue={onDemoLabel}
+              onBlur={onDemoLabelBlur}
+              maxLength={80}
+              autoComplete="off"
+            />
             <Field id="ob-demo-kind" label={t("demos.kind")} hint={t("demos.kindHint")} error={problem("DEMO_KIND_INVALID")}>
               <Select
                 id="ob-demo-kind"
@@ -244,9 +276,19 @@ export function ModeStep({
                 ) : null}
               </Select>
             </Field>
+            {data.lead ? (
+              <p className="rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-[13px] text-muted-foreground sm:col-span-2">
+                {t("onboarding.demo.linkedLead")} <bdi className="font-medium text-foreground">{data.lead.name}</bdi>
+                {" · "}
+                <bdi dir="ltr">{data.lead.email}</bdi>
+                <span className="mt-0.5 block">{t("onboarding.demo.linkedLeadHint")}</span>
+              </p>
+            ) : null}
           </div>
         </Card>
       ) : null}
+
+      {mode === "DEMO" ? packageCard : null}
     </fieldset>
   );
 }

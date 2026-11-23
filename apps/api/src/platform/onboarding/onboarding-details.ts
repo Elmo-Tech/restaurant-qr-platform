@@ -31,9 +31,14 @@ import { normalizePlatformLocale } from '../../restaurants/platform-locales';
 import { validateAcquisitionInput } from '../restaurant-acquisition';
 import { validateOwnerContact } from '../restaurant-owner-contact';
 
+/**
+ * Step order (Product Owner request 2026-11-23, "choose mode first"): the operator first chooses how the customer
+ * starts, then REAL / TRIAL continue with customer, menu, review and handoff, while a DEMO takes the short path
+ * mode -> review -> handoff (a demo is built from a template and needs no customer, branch or menu details).
+ */
 export const ONBOARDING_STEPS = [
-  'customer',
   'mode',
+  'customer',
   'menu',
   'review',
   'handoff',
@@ -48,6 +53,20 @@ export const BUSINESS_TYPES = [
 ] as const;
 export const ONBOARDING_MODES = ['REAL', 'TRIAL', 'DEMO'] as const;
 export type OnboardingModeKey = (typeof ONBOARDING_MODES)[number];
+
+/** The steps of one mode's path, in order. No mode yet shows the full REAL / TRIAL path. */
+export function stepsForMode(mode: OnboardingModeKey | null): OnboardingStep[] {
+  return mode === 'DEMO'
+    ? ['mode', 'review', 'handoff']
+    : [...ONBOARDING_STEPS];
+}
+
+/** The steps that must be complete before a case may be submitted for review. */
+export function stepsRequiredForReview(
+  mode: OnboardingModeKey | null,
+): OnboardingStep[] {
+  return mode === 'DEMO' ? ['mode'] : ['mode', 'customer'];
+}
 
 /** Trial length bounds: the same as `PlatformBillingService.createTrial`. */
 export const TRIAL_MIN_DAYS = 1;
@@ -481,7 +500,8 @@ export type ModeProblem =
   | 'TRIAL_DISABLED'
   | 'TRIAL_DAYS_INVALID'
   | 'DEMO_KIND_INVALID'
-  | 'DEMO_HOURS_INVALID';
+  | 'DEMO_HOURS_INVALID'
+  | 'DEMO_LABEL_INVALID';
 
 const MAX_ADDRESS = 300;
 const MAX_ADDITIONAL_CONTACT = 300;
@@ -664,13 +684,62 @@ export function validateModeStep(
   return problems;
 }
 
-/** Steps 3–5 belong to later milestones and are never complete in this build. */
-export function computeCompletedSteps(problems: {
-  customer: readonly string[];
-  mode: readonly string[];
-}): OnboardingStep[] {
+/**
+ * The internal demo label, stored as `details.restaurant.name` (the same value `DemoService.create` receives as
+ * its label, with the same 1–80 character rule after collapsing whitespace). A DEMO needs nothing else from the
+ * customer step: no contact, acquisition, branch or locale data (PO request 2026-11-23).
+ */
+export const DEMO_LABEL_MAX = 80;
+export function validateDemoLabel(name: string | null): ModeProblem[] {
+  const label = (name ?? '').replace(/\s+/g, ' ').trim();
+  return label.length < 1 || label.length > DEMO_LABEL_MAX
+    ? ['DEMO_LABEL_INVALID']
+    : [];
+}
+
+/**
+ * Steps 1–2 of a case as the server sees them; the single evaluation used by edits, submit-for-review and the
+ * provisioning claim, so a DEMO is never blocked by customer validation anywhere and REAL / TRIAL keep every
+ * customer check.
+ */
+export function evaluateSteps(
+  mode: OnboardingModeKey | null,
+  config: ModeConfig,
+  context: ModeContext,
+  details: OnboardingDetails,
+): {
+  customer: CustomerProblem[];
+  mode: ModeProblem[];
+  completedSteps: OnboardingStep[];
+} {
+  const customer = mode === 'DEMO' ? [] : validateCustomerStep(details);
+  const modeProblems = [
+    ...validateModeStep(mode, config, context),
+    ...(mode === 'DEMO' ? validateDemoLabel(details.restaurant.name) : []),
+  ];
+  return {
+    customer,
+    mode: modeProblems,
+    completedSteps: computeCompletedSteps(
+      { customer, mode: modeProblems },
+      mode,
+    ),
+  };
+}
+
+/**
+ * Steps 1–2 that are complete. The customer step is not part of a DEMO's path, so it is never reported for a
+ * DEMO (progress counts only the steps of the case's own path). Menu, review and handoff are added by the caller.
+ */
+export function computeCompletedSteps(
+  problems: {
+    customer: readonly string[];
+    mode: readonly string[];
+  },
+  mode: OnboardingModeKey | null = null,
+): OnboardingStep[] {
   const done: OnboardingStep[] = [];
-  if (problems.customer.length === 0) done.push('customer');
+  if (mode !== 'DEMO' && problems.customer.length === 0) done.push('customer');
   if (problems.mode.length === 0) done.push('mode');
   return done;
 }

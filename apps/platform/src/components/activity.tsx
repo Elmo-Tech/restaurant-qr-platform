@@ -49,6 +49,8 @@ const ACTION_LABEL: Record<string, MessageKey> = {
   "onboarding.created": "action.onboarding.created",
   "onboarding.submitted_for_review": "action.onboarding.submitted_for_review",
   "onboarding.cancelled": "action.onboarding.cancelled",
+  "onboarding.archived": "action.onboarding.archived",
+  "onboarding.restored": "action.onboarding.restored",
 };
 
 const PACKAGE_PARTS = ["name", "description", "status", "prices", "offer", "templates", "features"] as const;

@@ -11,9 +11,9 @@ import { PlatformAuditService } from '../platform-audit.service';
 import type { PlatformAdminPrincipal } from '../platform-auth.service';
 import { PlatformTrialSettingsService } from '../platform-trial-settings.service';
 import {
-  computeCompletedSteps,
   emptyDetails,
   emptyModeConfig,
+  evaluateSteps,
   isUuid,
   modeConfigForPatch,
   readDetails,
@@ -21,8 +21,6 @@ import {
   sanitizeDetailsPatch,
   sanitizeModeConfigPatch,
   suppliesPackageId,
-  validateCustomerStep,
-  validateModeStep,
   type CustomerProblem,
   type ModeConfig,
   type ModeProblem,
@@ -34,10 +32,16 @@ import {
   EDITABLE_STATUSES,
   TERMINAL_STATUSES,
   canTransition,
+  decideRemoval,
   decideSubmit,
+  impactsAcknowledged,
   isEditable,
   statusAfterEdit,
   type OnboardingStatusKey,
+  type RemovalDecision,
+  type RemovalFacts,
+  type RemovalImpact,
+  type RemovalRefusal,
 } from './onboarding-transitions';
 import { menuProblemsForCase, readCaseMenu } from './onboarding-menu-state';
 import { PlatformLeadsService } from '../leads/platform-leads.service';
@@ -68,7 +72,19 @@ export interface OnboardingCaseSummary {
   updatedBy: AdminRef | null;
   createdAt: string;
   updatedAt: string;
+  archivedAt: string | null;
+  /** How the list may remove this case; recomputed and enforced again by the remove action. */
+  removal: RemovalSummary;
 }
+
+export type RemovalSummary =
+  | {
+      allowed: true;
+      action: 'CANCEL_AND_ARCHIVE' | 'ARCHIVE';
+      impacts: RemovalImpact[];
+      confirmNotDelivered: boolean;
+    }
+  | { allowed: false; refusal: RemovalRefusal };
 
 export interface OnboardingCaseView {
   id: string;
@@ -125,6 +141,7 @@ export interface OnboardingCaseView {
   createdAt: string;
   updatedAt: string;
   cancelledAt: string | null;
+  archivedAt: string | null;
 }
 
 export interface OnboardingDemoHistory {
@@ -164,6 +181,8 @@ export type CaseOutcome<T> =
   | { outcome: 'notEditable'; status: OnboardingStatusKey }
   | { outcome: 'invalidInput'; problems: string[] }
   | { outcome: 'invalidTransition'; status: OnboardingStatusKey }
+  | { outcome: 'removalRefused'; refusal: RemovalRefusal }
+  | { outcome: 'removalConfirmationRequired'; impacts: RemovalImpact[] }
   | {
       outcome: 'handoffUnavailable';
       code: 'ONBOARDING_HANDOFF_UNAVAILABLE' | 'ONBOARDING_DEMO_EXPIRED';
@@ -176,6 +195,25 @@ export type CaseOutcome<T> =
         menu?: string[];
       };
     };
+
+export interface RemovedCase {
+  id: string;
+  status: OnboardingStatusKey;
+  revision: number;
+  archivedAt: string | null;
+}
+
+const removed = (row: {
+  id: string;
+  status: OnboardingStatusKey;
+  revision: number;
+  archivedAt: Date | null;
+}): RemovedCase => ({
+  id: row.id,
+  status: row.status,
+  revision: row.revision,
+  archivedAt: row.archivedAt?.toISOString() ?? null,
+});
 
 export type CreateOutcome =
   | { outcome: 'created'; data: OnboardingCaseView }
@@ -242,6 +280,47 @@ function handoffSteps(status: OnboardingStatusKey): OnboardingStep[] {
   return status === 'READY' ? ['review'] : [];
 }
 
+type RemovalRow = Omit<RemovalFacts, 'hasMenuDraft'>;
+
+function removalFacts(row: RemovalRow, hasMenuDraft: boolean): RemovalFacts {
+  return {
+    status: row.status,
+    mode: row.mode,
+    leadId: row.leadId,
+    restaurantId: row.restaurantId,
+    restaurantProvisionedAt: row.restaurantProvisionedAt,
+    demoId: row.demoId,
+    demoHistory: row.demoHistory,
+    demoRemovedAt: row.demoRemovedAt,
+    deliveredAt: row.deliveredAt,
+    archivedAt: row.archivedAt,
+    hasMenuDraft,
+  };
+}
+
+function removalSummary(decision: RemovalDecision): RemovalSummary {
+  return decision.allowed
+    ? {
+        allowed: true,
+        action: decision.action,
+        impacts: decision.impacts,
+        confirmNotDelivered: decision.confirmNotDelivered,
+      }
+    : { allowed: false, refusal: decision.refusal };
+}
+
+/** The fields every cancellation writes (the existing cancel and the list removal share them). */
+const cancelledFields = (adminId: string, now: Date) => ({
+  status: 'CANCELLED' as const,
+  menuDraft: Prisma.DbNull,
+  importExpiresAt: null,
+  importLeaseUntil: null,
+  importReviewed: false,
+  cancelledAt: now,
+  updatedByAdminId: adminId,
+  revision: { increment: 1 },
+});
+
 /**
  * Platform onboarding drafts, A1/A2 review and revision-guarded lifecycle actions.
  * Final provisioning is owned by the separate onboarding saga.
@@ -261,6 +340,8 @@ export class OnboardingCasesService {
   async list(input: {
     search?: string;
     status?: OnboardingStatusKey;
+    /** false (default): the active list; true: only cases removed from it. */
+    archived?: boolean;
     page: number;
     pageSize: number;
   }): Promise<{
@@ -273,6 +354,7 @@ export class OnboardingCasesService {
     const page = Math.max(input.page, 1);
     const search = input.search?.trim() ?? '';
     const where: Prisma.OnboardingCaseWhereInput = {
+      archivedAt: input.archived ? { not: null } : null,
       ...(input.status ? { status: input.status } : {}),
       ...(search
         ? {
@@ -286,6 +368,8 @@ export class OnboardingCasesService {
     const [rows, total] = await Promise.all([
       this.prisma.onboardingCase.findMany({
         where,
+        // Never the menu draft itself here: it can be large, and the list needs only whether one exists.
+        omit: { menuDraft: true, details: true, modeConfig: true },
         include: { updatedBy: adminSelect },
         orderBy: [{ updatedAt: 'desc' }, { id: 'asc' }],
         skip: (page - 1) * pageSize,
@@ -293,6 +377,19 @@ export class OnboardingCasesService {
       }),
       this.prisma.onboardingCase.count({ where }),
     ]);
+    const withMenu = new Set(
+      rows.length === 0
+        ? []
+        : (
+            await this.prisma.onboardingCase.findMany({
+              where: {
+                id: { in: rows.map((row) => row.id) },
+                menuDraft: { not: Prisma.DbNull },
+              },
+              select: { id: true },
+            })
+          ).map((row) => row.id),
+    );
     return {
       items: rows.map((row) => ({
         id: row.id,
@@ -306,6 +403,10 @@ export class OnboardingCasesService {
         updatedBy: row.updatedBy,
         createdAt: row.createdAt.toISOString(),
         updatedAt: row.updatedAt.toISOString(),
+        archivedAt: row.archivedAt?.toISOString() ?? null,
+        removal: removalSummary(
+          decideRemoval(removalFacts(row, withMenu.has(row.id))),
+        ),
       })),
       total,
       page,
@@ -520,7 +621,11 @@ export class OnboardingCasesService {
       readModeConfig(row.modeConfig),
       details,
     );
-    const decision = decideSubmit(row.status, evaluation.completedSteps);
+    const decision = decideSubmit(
+      row.status,
+      evaluation.completedSteps,
+      row.mode,
+    );
     if (!decision.ok) {
       return decision.refusal === 'INVALID_TRANSITION'
         ? { outcome: 'invalidTransition', status: row.status }
@@ -673,7 +778,10 @@ export class OnboardingCasesService {
           const current = await tx.onboardingCase.findUnique({ where: { id } });
           if (!current) return { outcome: 'notFound' };
           if (current.revision !== revision)
-            return { outcome: 'revisionConflict', currentRevision: current.revision };
+            return {
+              outcome: 'revisionConflict',
+              currentRevision: current.revision,
+            };
           if (
             current.status !== 'READY' ||
             current.mode !== 'DEMO' ||
@@ -694,16 +802,7 @@ export class OnboardingCasesService {
               demoRemovedAt: { not: null },
               deliveredAt: null,
             },
-            data: {
-              status: 'CANCELLED',
-              menuDraft: Prisma.DbNull,
-              importExpiresAt: null,
-              importLeaseUntil: null,
-              importReviewed: false,
-              cancelledAt: new Date(),
-              updatedByAdminId: admin.adminId,
-              revision: { increment: 1 },
-            },
+            data: cancelledFields(admin.adminId, new Date()),
           });
           if (written.count !== 1)
             return { outcome: 'invalidTransition', status: current.status };
@@ -732,16 +831,7 @@ export class OnboardingCasesService {
     }
     const written = await this.prisma.onboardingCase.updateMany({
       where: { id, revision, status: { in: [...EDITABLE_STATUSES, 'FAILED'] } },
-      data: {
-        status: 'CANCELLED',
-        menuDraft: Prisma.DbNull,
-        importExpiresAt: null,
-        importLeaseUntil: null,
-        importReviewed: false,
-        cancelledAt: new Date(),
-        updatedByAdminId: admin.adminId,
-        revision: { increment: 1 },
-      },
+      data: cancelledFields(admin.adminId, new Date()),
     });
     if (written.count !== 1) return this.writeRefused(id, revision);
     await this.audit.record({
@@ -750,6 +840,183 @@ export class OnboardingCasesService {
       details: { caseId: id, from: row.status, leadId: row.leadId },
     });
     return this.get(id);
+  }
+
+  /**
+   * Removes a case from the active list (PO request 2026-11-23). Never a hard delete: an open case is cancelled
+   * with the existing cancellation rules (DRAFT / READY_FOR_REVIEW / FAILED, or the READY purged-and-undelivered
+   * DEMO with its explicit no-handoff assertion) and archived in the same transaction; an already-terminal case is
+   * only archived. Restaurants, accounts, subscriptions, demos, leads, orders and audit rows are never touched.
+   *
+   * The decision is re-evaluated under the case row lock (shared with delivery, provisioning, import and the demo
+   * purge), so a stale list row cannot authorize anything: the revision must match and every impact the server
+   * finds now must be among those the operator acknowledged.
+   */
+  async remove(
+    admin: PlatformAdminPrincipal,
+    id: string,
+    input: {
+      revision: number;
+      acknowledgedImpacts: readonly string[];
+      confirmNotDelivered: boolean;
+    },
+  ): Promise<CaseOutcome<RemovedCase>> {
+    if (!isUuid(id)) return { outcome: 'notFound' };
+    return this.prisma.$transaction(
+      async (tx): Promise<CaseOutcome<RemovedCase>> => {
+        await tx.$queryRaw`SELECT id FROM onboarding_cases WHERE id = ${id}::uuid FOR UPDATE`;
+        const row = await tx.onboardingCase.findUnique({
+          where: { id },
+          omit: { details: true, modeConfig: true, menuDraft: true },
+        });
+        if (!row) return { outcome: 'notFound' };
+        // A retried removal whose first answer was lost: the requested end state already holds.
+        if (row.archivedAt !== null)
+          return { outcome: 'ok', data: removed(row) };
+        if (row.revision !== input.revision)
+          return { outcome: 'revisionConflict', currentRevision: row.revision };
+        const hasMenuDraft =
+          (await tx.onboardingCase.count({
+            where: { id, menuDraft: { not: Prisma.DbNull } },
+          })) === 1;
+        const decision = decideRemoval(removalFacts(row, hasMenuDraft));
+        if (!decision.allowed)
+          return { outcome: 'removalRefused', refusal: decision.refusal };
+        if (
+          !impactsAcknowledged(decision.impacts, input.acknowledgedImpacts) ||
+          (decision.confirmNotDelivered && !input.confirmNotDelivered)
+        )
+          return {
+            outcome: 'removalConfirmationRequired',
+            impacts: decision.impacts,
+          };
+
+        const now = new Date();
+        const archived = {
+          archivedAt: now,
+          archivedByAdminId: admin.adminId,
+        };
+        if (decision.action === 'CANCEL_AND_ARCHIVE') {
+          const written = await tx.onboardingCase.updateMany({
+            where: decision.confirmNotDelivered
+              ? {
+                  id,
+                  revision: input.revision,
+                  status: 'READY',
+                  mode: 'DEMO',
+                  demoId: null,
+                  demoRemovedAt: { not: null },
+                  deliveredAt: null,
+                  archivedAt: null,
+                }
+              : {
+                  id,
+                  revision: input.revision,
+                  status: { in: [...EDITABLE_STATUSES, 'FAILED'] },
+                  archivedAt: null,
+                },
+            data: { ...cancelledFields(admin.adminId, now), ...archived },
+          });
+          if (written.count !== 1)
+            return { outcome: 'invalidTransition', status: row.status };
+          await this.audit.record(
+            {
+              admin,
+              action: 'onboarding.cancelled',
+              details: {
+                caseId: id,
+                from: row.status,
+                leadId: row.leadId,
+                reason: decision.confirmNotDelivered
+                  ? 'DEMO_PURGED_UNDELIVERED'
+                  : 'REMOVED_FROM_LIST',
+                ...(decision.confirmNotDelivered
+                  ? { confirmedNoHandoff: true }
+                  : {}),
+              },
+            },
+            tx,
+          );
+        } else {
+          const written = await tx.onboardingCase.updateMany({
+            where: {
+              id,
+              revision: input.revision,
+              status: { in: ['CANCELLED', 'DELIVERED'] },
+              archivedAt: null,
+            },
+            data: {
+              ...archived,
+              updatedByAdminId: admin.adminId,
+              revision: { increment: 1 },
+            },
+          });
+          if (written.count !== 1)
+            return { outcome: 'invalidTransition', status: row.status };
+        }
+        await this.audit.record(
+          {
+            admin,
+            action: 'onboarding.archived',
+            details: {
+              caseId: id,
+              from: row.status,
+              removal: decision.action,
+              impacts: decision.impacts,
+              leadId: row.leadId,
+            },
+          },
+          tx,
+        );
+        const after = await tx.onboardingCase.findUniqueOrThrow({
+          where: { id },
+          select: { id: true, status: true, revision: true, archivedAt: true },
+        });
+        return { outcome: 'ok', data: removed(after) };
+      },
+    );
+  }
+
+  /** Puts an archived case back on the active list. Its status (CANCELLED / DELIVERED) is unchanged. */
+  async restore(
+    admin: PlatformAdminPrincipal,
+    id: string,
+    revision: number,
+  ): Promise<CaseOutcome<OnboardingCaseView>> {
+    if (!isUuid(id)) return { outcome: 'notFound' };
+    const result = await this.prisma.$transaction(
+      async (tx): Promise<CaseOutcome<null>> => {
+        await tx.$queryRaw`SELECT id FROM onboarding_cases WHERE id = ${id}::uuid FOR UPDATE`;
+        const row = await tx.onboardingCase.findUnique({
+          where: { id },
+          select: { status: true, revision: true, archivedAt: true },
+        });
+        if (!row) return { outcome: 'notFound' };
+        if (row.revision !== revision)
+          return { outcome: 'revisionConflict', currentRevision: row.revision };
+        if (row.archivedAt === null)
+          return { outcome: 'invalidTransition', status: row.status };
+        await tx.onboardingCase.update({
+          where: { id },
+          data: {
+            archivedAt: null,
+            archivedByAdminId: null,
+            updatedByAdminId: admin.adminId,
+            revision: { increment: 1 },
+          },
+        });
+        await this.audit.record(
+          {
+            admin,
+            action: 'onboarding.restored',
+            details: { caseId: id, status: row.status },
+          },
+          tx,
+        );
+        return { outcome: 'ok', data: null };
+      },
+    );
+    return result.outcome === 'ok' ? this.get(id) : result;
   }
 
   /** Warnings only: nothing is attached, merged or refused because of them. */
@@ -918,18 +1185,13 @@ export class OnboardingCasesService {
         : Promise.resolve(null),
       this.trialSettings.get(),
     ]);
-    const customer = validateCustomerStep(details);
-    const modeProblems = validateModeStep(mode, config, {
-      pkg,
-      trialsEnabled: settings.enabled,
-    });
-    return {
-      customer,
-      mode: modeProblems,
-      completedSteps: computeCompletedSteps({ customer, mode: modeProblems }),
-      pkg,
-      settings,
-    };
+    const steps = evaluateSteps(
+      mode,
+      config,
+      { pkg, trialsEnabled: settings.enabled },
+      details,
+    );
+    return { ...steps, pkg, settings };
   }
 
   private async toView(row: CaseRow): Promise<OnboardingCaseView> {
@@ -1005,6 +1267,7 @@ export class OnboardingCasesService {
       createdAt: row.createdAt.toISOString(),
       updatedAt: row.updatedAt.toISOString(),
       cancelledAt: row.cancelledAt?.toISOString() ?? null,
+      archivedAt: row.archivedAt?.toISOString() ?? null,
     };
   }
 

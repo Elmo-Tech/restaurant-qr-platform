@@ -5,6 +5,7 @@ import { Alert, Badge, Button, Card, CardHeader, Input } from "@/components/ui";
 import type { OnboardingCase, OnboardingMenuDraft, RestaurantDraft } from "@/lib/api/onboarding";
 import { useI18n } from "@/lib/i18n/client";
 import { IMPORT_ATTEMPT_LIMIT, MENU_FILE_ACCEPT, menuFileProblem, menuProblemText } from "@/lib/onboarding-menu";
+import { AiPromptHelp } from "./AiPromptHelp";
 import { describedBy, Field } from "./fields";
 import { MenuEditor } from "./MenuEditor";
 
@@ -81,6 +82,8 @@ export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirt
                 }}>{t("onboarding.menu.upload")}</Button>
               </div>
             ) : null}
+            {/* Optional: prepare the Excel with an AI chat, then upload it above. Nothing is sent until a file is uploaded. */}
+            {!disabled && !exhausted ? <AiPromptHelp /> : null}
             {!disabled ? (
               <p className="text-xs text-muted-foreground">{t(exhausted ? "onboarding.menu.error.quota" : "onboarding.menu.quota", {
                 used: fmt.number(data.importAttempts), total: fmt.number(IMPORT_ATTEMPT_LIMIT),

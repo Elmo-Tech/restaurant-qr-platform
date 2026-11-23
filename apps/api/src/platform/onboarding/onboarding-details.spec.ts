@@ -1,6 +1,11 @@
 import {
+  ONBOARDING_STEPS,
   computeCompletedSteps,
   emptyDetails,
+  evaluateSteps,
+  stepsForMode,
+  stepsRequiredForReview,
+  validateDemoLabel,
   emptyModeConfig,
   modeConfigForPatch,
   readDetails,
@@ -499,5 +504,128 @@ describe('completed steps', () => {
     expect(
       computeCompletedSteps({ customer: [], mode: ['MODE_REQUIRED'] }),
     ).toEqual(['customer']);
+  });
+});
+
+describe('mode first and the DEMO short path (PO request 2026-11-23)', () => {
+  const demo = config({ demoKind: 'cafe', demoHours: 24 });
+  const labelled = (name: string | null): OnboardingDetails => {
+    const details = emptyDetails();
+    details.restaurant.name = name;
+    return details;
+  };
+
+  it('orders the steps mode first; a DEMO path skips customer and menu', () => {
+    expect(ONBOARDING_STEPS).toEqual([
+      'mode',
+      'customer',
+      'menu',
+      'review',
+      'handoff',
+    ]);
+    expect(stepsForMode(null)).toEqual([...ONBOARDING_STEPS]);
+    expect(stepsForMode('REAL')).toEqual([...ONBOARDING_STEPS]);
+    expect(stepsForMode('TRIAL')).toEqual([...ONBOARDING_STEPS]);
+    expect(stepsForMode('DEMO')).toEqual(['mode', 'review', 'handoff']);
+    expect(stepsRequiredForReview('DEMO')).toEqual(['mode']);
+    expect(stepsRequiredForReview('REAL')).toEqual(['mode', 'customer']);
+    expect(stepsRequiredForReview(null)).toEqual(['mode', 'customer']);
+  });
+
+  it('completes a DEMO with only a label, kind and hours: no customer, contact, branch or acquisition data', () => {
+    const result = evaluateSteps(
+      'DEMO',
+      demo,
+      ACTIVE,
+      labelled('Demo for Cafe X'),
+    );
+    expect(result).toEqual({
+      customer: [],
+      mode: [],
+      completedSteps: ['mode'],
+    });
+  });
+
+  it('never reports the customer step complete for a DEMO, even with full customer details', () => {
+    const details = completeDetails();
+    expect(evaluateSteps('DEMO', demo, ACTIVE, details).completedSteps).toEqual(
+      ['mode'],
+    );
+    expect(computeCompletedSteps({ customer: [], mode: [] }, 'DEMO')).toEqual([
+      'mode',
+    ]);
+  });
+
+  it('requires the demo label with the demo service 1–80 character rule', () => {
+    expect(validateDemoLabel(null)).toEqual(['DEMO_LABEL_INVALID']);
+    expect(validateDemoLabel('   ')).toEqual(['DEMO_LABEL_INVALID']);
+    expect(validateDemoLabel('x'.repeat(81))).toEqual(['DEMO_LABEL_INVALID']);
+    expect(validateDemoLabel('x'.repeat(80))).toEqual([]);
+    // Whitespace is collapsed first, exactly as DemoService does.
+    expect(validateDemoLabel(`a${' '.repeat(100)}b`)).toEqual([]);
+    expect(evaluateSteps('DEMO', demo, ACTIVE, labelled(null)).mode).toEqual([
+      'DEMO_LABEL_INVALID',
+    ]);
+  });
+
+  it('keeps the DEMO kind, hours and optional ACTIVE package rules', () => {
+    expect(
+      evaluateSteps('DEMO', emptyModeConfig(), ACTIVE, labelled('Demo')).mode,
+    ).toEqual(['DEMO_KIND_INVALID', 'DEMO_HOURS_INVALID']);
+    expect(
+      evaluateSteps(
+        'DEMO',
+        config({ demoKind: 'cafe', demoHours: 24, packageId: PACKAGE_ID }),
+        { pkg: { status: 'ARCHIVED' }, trialsEnabled: true },
+        labelled('Demo'),
+      ).mode,
+    ).toEqual(['PACKAGE_NOT_AVAILABLE']);
+  });
+
+  it('keeps every customer check for REAL / TRIAL and for a case without a mode', () => {
+    const empty = labelled('Fake Bistro');
+    for (const mode of ['REAL', 'TRIAL', null] as const) {
+      const result = evaluateSteps(
+        mode,
+        config({ packageId: PACKAGE_ID, trialDays: 14 }),
+        ACTIVE,
+        empty,
+      );
+      expect(result.customer).toEqual(
+        expect.arrayContaining(['OWNER_EMAIL_INVALID', 'ACQUISITION_REQUIRED']),
+      );
+      expect(result.completedSteps).not.toContain('customer');
+      expect(result.mode).not.toContain('DEMO_LABEL_INVALID');
+    }
+    expect(
+      evaluateSteps(
+        'REAL',
+        config({ packageId: PACKAGE_ID }),
+        ACTIVE,
+        completeDetails(),
+      ).completedSteps,
+    ).toEqual(['customer', 'mode']);
+  });
+
+  it('switching modes keeps compatible draft data but never the package', () => {
+    const fromReal = modeConfigForPatch({
+      previousMode: 'REAL',
+      nextMode: 'DEMO',
+      config: config({ packageId: PACKAGE_ID, demoKind: 'cafe', demoHours: 4 }),
+      packageSupplied: false,
+      trialDefaultDays: null,
+    });
+    expect(fromReal).toEqual(
+      config({ packageId: null, demoKind: 'cafe', demoHours: 4 }),
+    );
+    const backToReal = modeConfigForPatch({
+      previousMode: 'DEMO',
+      nextMode: 'REAL',
+      config: config({ packageId: PACKAGE_ID, demoKind: 'cafe', demoHours: 4 }),
+      packageSupplied: false,
+      trialDefaultDays: null,
+    });
+    expect(backToReal.packageId).toBeNull();
+    expect(backToReal.demoKind).toBe('cafe');
   });
 });
