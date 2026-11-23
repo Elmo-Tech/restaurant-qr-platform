@@ -40,10 +40,24 @@ test('Tenant hosts cannot reach Staff APIs, realtime or provider webhooks throug
   assert.ok(tenant.includes('location ^~ /media/ {'));
   assert.ok(tenant.includes('location ~* ^/api/v1/platform(?:/|$) {'));
 
-  // The apex-only checks must cover the generic API, Socket.IO, and incoming
-  // WhatsApp tracking webhooks. Only QR-scoped public APIs stay available.
-  const apexOnlyChecks = tenant.split('if ($host != ${WEB_HOST}) { return 404; }').length - 1;
-  assert.equal(apexOnlyChecks, 3, 'all three sensitive route groups must reject tenant hosts');
+  // Verify each security boundary by location, not by a brittle global count.
+  // The Demo capability exchange now has its own exact-match, apex-only route
+  // with restricted error logging; tenant subdomains must not reach it either.
+  const apexOnlyRoutes = [
+    ['WhatsApp tracking webhook', 'location ^~ /api/v1/whatsapp-tracking/webhook/ {'],
+    ['Demo capability exchange', 'location = /api/v1/demo/enter {'],
+    ['generic Staff/API', 'location /api/v1/ {'],
+    ['Socket.IO', 'location ^~ /socket.io/ {'],
+  ];
+  for (const [label, startTag] of apexOnlyRoutes) {
+    const start = tenant.indexOf(`    ${startTag}\n`);
+    assert.ok(start >= 0, `${label}: missing location`);
+    const end = tenant.indexOf('\n    }', start);
+    assert.ok(end > start, `${label}: malformed location`);
+    const route = tenant.slice(start, end);
+    assert.ok(route.includes('if ($host != ${WEB_HOST}) { return 404; }'),
+      `${label}: tenant hosts must return 404`);
+  }
 
   const legacy = gateway.slice(0, tenantStart);
   assert.ok(legacy.includes('server_name wayta.elmotechsoft.online;'));

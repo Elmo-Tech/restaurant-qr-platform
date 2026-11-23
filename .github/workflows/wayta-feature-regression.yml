@@ -61,6 +61,7 @@ jobs:
           apps/web/src/lib/public-menu/editorial-price-display.contract.test.mjs
           apps/web/src/lib/public-menu/mobile-ux.contract.test.mjs
           apps/web/src/lib/public-menu/subscription-plans.contract.test.mjs
+          apps/web/src/lib/public-menu/restaurant-routing.contract.test.mjs
 
       - name: Staff hubs, navigation, setup checklist and form feedback
         run: >-
