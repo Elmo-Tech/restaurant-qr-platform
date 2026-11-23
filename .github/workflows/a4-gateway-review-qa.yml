@@ -1,0 +1,35 @@
+name: A4 Gateway review-only QA
+
+on:
+  push:
+    branches:
+      - review/a4-gateway-menu-import-20261123
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: a4-gateway-review-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  gateway-boundaries:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout review branch
+        uses: actions/checkout@v4
+      - name: Use Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24.15.0'
+      - name: Pull disposable local-only test images
+        run: |
+          docker pull nginx:1.28-alpine
+          docker pull node:24.15.0-alpine
+      - name: Verify Nginx 42 MiB import and 16 MiB sibling, 600s/120s timeout inheritance
+        run: node tests/release/onboarding-a4-gateway-smoke.mjs
+      - name: Confirm no production deployment or secrets used
+        run: |
+          echo 'Local Docker gateway stub QA only; no production ingress was contacted.'
