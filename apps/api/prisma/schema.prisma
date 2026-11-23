@@ -1129,6 +1129,7 @@ model PlatformAdmin {
   onboardingCasesCreated  OnboardingCase[] @relation("OnboardingCaseCreatedBy")
   onboardingCasesUpdated  OnboardingCase[] @relation("OnboardingCaseUpdatedBy")
   onboardingCasesAssigned OnboardingCase[] @relation("OnboardingCaseAssignedTo")
+  onboardingCasesArchived OnboardingCase[] @relation("OnboardingCaseArchivedBy")
 
   @@map("platform_admins")
 }
@@ -1587,6 +1588,9 @@ model OnboardingCase {
   createdAt        DateTime             @default(now()) @map("created_at") @db.Timestamptz
   updatedAt        DateTime             @updatedAt @map("updated_at") @db.Timestamptz
   cancelledAt      DateTime?            @map("cancelled_at") @db.Timestamptz
+  // Removed from the active list (kept for history; restorable). Only terminal cases, enforced by a CHECK.
+  archivedAt        DateTime?           @map("archived_at") @db.Timestamptz
+  archivedByAdminId String?             @map("archived_by_admin_id") @db.Uuid
 
   lead       SignupLead?    @relation(fields: [leadId], references: [id], onDelete: SetNull)
   package    Package?       @relation(fields: [packageId], references: [id], onDelete: SetNull)
@@ -1595,8 +1599,10 @@ model OnboardingCase {
   createdBy  PlatformAdmin? @relation("OnboardingCaseCreatedBy", fields: [createdByAdminId], references: [id], onDelete: SetNull)
   updatedBy  PlatformAdmin? @relation("OnboardingCaseUpdatedBy", fields: [updatedByAdminId], references: [id], onDelete: SetNull)
   assignedTo PlatformAdmin? @relation("OnboardingCaseAssignedTo", fields: [assignedAdminId], references: [id], onDelete: SetNull)
+  archivedBy PlatformAdmin? @relation("OnboardingCaseArchivedBy", fields: [archivedByAdminId], references: [id], onDelete: SetNull)
 
   @@index([status, updatedAt])
+  @@index([archivedAt, updatedAt])
   @@index([ownerEmail])
   @@index([leadId])
   @@index([demoId])

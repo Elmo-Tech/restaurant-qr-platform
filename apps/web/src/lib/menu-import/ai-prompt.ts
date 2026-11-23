@@ -6,6 +6,10 @@
  *
  * It is English on purpose (every chat follows English instructions best) and it tells the chat to keep the menu's
  * own languages. If the template columns change, change `TEMPLATE_COLUMNS` here as well.
+ *
+ * The Platform onboarding Menu step shows the same instructions from a mirror,
+ * `apps/platform/src/lib/menu-import-ai-prompt.ts` (with a byte-identical template in `apps/platform/public/templates`).
+ * Change both together: `tests/contract/onboarding-ai-prompt.spec.ts` fails when they differ.
  */
 export const TEMPLATE_COLUMNS = [
   'category_ar',

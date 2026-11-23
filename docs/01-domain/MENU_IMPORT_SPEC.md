@@ -95,6 +95,9 @@ The template has no add-ons (Modifiers) and holds at most 3 sizes, but the instr
 anything: a section of add-ons is a normal category with one row per add-on (it becomes ordinary products the
 restaurant can tidy up later), only an item with more than 3 sizes keeps the first 3 and the chat names the rest in a
 note, and the chat is asked to count items against rows before it answers.
+_2026-11-23:_ the Platform onboarding Menu step shows the same instructions and template from byte-identical mirrors
+(`apps/platform/src/lib/menu-import-ai-prompt.ts`, `apps/platform/public/templates/menu-import-template.xlsx`); change
+both together — `tests/contract/onboarding-ai-prompt.spec.ts` fails on any difference (ONBOARDING_WORKFLOW_SPEC §9.2).
 
 ---
 

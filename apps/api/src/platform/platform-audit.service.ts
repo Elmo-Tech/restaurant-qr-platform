@@ -60,6 +60,8 @@ export type PlatformAction =
   | 'onboarding.created'
   | 'onboarding.submitted_for_review'
   | 'onboarding.cancelled'
+  | 'onboarding.archived'
+  | 'onboarding.restored'
   | 'onboarding.provisioning_started'
   | 'onboarding.restaurant_provisioned'
   | 'onboarding.menu_published'

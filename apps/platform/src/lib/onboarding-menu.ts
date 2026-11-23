@@ -1,6 +1,7 @@
 import type { OnboardingCase, OnboardingMenuDraft, OnboardingProvisionInput } from "./api/onboarding";
 import type { MessageKey } from "./i18n/messages";
 import type { Translate } from "./i18n/translate";
+import { hasRequiredSteps } from "./onboarding-steps";
 
 export const IMPORT_ATTEMPT_LIMIT = 3;
 export const MENU_FILE_ACCEPT = ".jpg,.jpeg,.png,.webp,.pdf,.xlsx,.xls,image/jpeg,image/png,image/webp,application/pdf";
@@ -98,13 +99,14 @@ export const onboardingErrorKey = (code: string | null) => (code ? ACTION_ERROR.
 
 type ProvisionState = Pick<OnboardingCase, "status" | "mode" | "completedSteps" | "problems" | "menuDraft" | "importExpiresAt" | "importReviewed">;
 
-/** A1/A2 review may be submitted separately; only the first provisioning call requires all three steps. */
+/** A1/A2 review may be submitted separately; only the first provisioning call requires every step of the mode's path. */
 export function provisionAction(data: ProvisionState): "provision" | "retry" | null {
   if (!data.mode) return null;
   if (data.status === "FAILED") return "retry";
   if (data.status === "PROVISIONING" || data.status === "MENU_SETUP") return "provision";
   if (data.status !== "READY_FOR_REVIEW") return null;
-  if (!data.completedSteps.includes("customer") || !data.completedSteps.includes("mode")) return null;
+  // A DEMO needs only its mode step; REAL / TRIAL also need the customer step (same rule as the server).
+  if (!hasRequiredSteps(data.mode, data.completedSteps)) return null;
   if (data.mode === "DEMO") return "provision"; // Demos use their existing template rather than a customer menu.
   return data.completedSteps.includes("menu") && data.menuDraft && data.problems.menu.length === 0 &&
     (!data.importExpiresAt || data.importReviewed) ? "provision" : null;

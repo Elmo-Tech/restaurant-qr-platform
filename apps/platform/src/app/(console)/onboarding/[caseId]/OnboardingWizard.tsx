@@ -12,8 +12,6 @@ import {
   finishOnboardingCase,
   getOnboardingCase,
   importOnboardingMenu,
-  ONBOARDING_STEPS,
-  onboardingStepCount,
   reviewOnboardingMenu,
   submitOnboardingForReview,
   updateOnboardingCase,
@@ -34,6 +32,14 @@ import type { MessageKey } from "@/lib/i18n/messages";
 import { demoAccessStatus, handoffUrl, isHandoffStepOpen } from "@/lib/onboarding-handoff";
 import { onboardingErrorKey, provisioningRequest } from "@/lib/onboarding-menu";
 import { formConfigAfterModeChange, pendingConfigAfterModeChange } from "@/lib/onboarding-package-choice";
+import {
+  canSubmitForReview,
+  firstOpenStep as firstOpenStepOf,
+  nextStep,
+  previousStep,
+  stepsForMode,
+  visibleStep,
+} from "@/lib/onboarding-steps";
 import { cn } from "@/lib/utils";
 import { OnboardingStatusBadge, transportErrorKey } from "../shared";
 import { CustomerStep, type CustomerField } from "./CustomerStep";
@@ -42,6 +48,7 @@ import { FinalProvisioning } from "./FinalProvisioning";
 import { HandoffStep } from "./HandoffStep";
 import { MenuProblems, MenuStep } from "./MenuStep";
 import { ModeStep } from "./ModeStep";
+import { ReviewSummary } from "./ReviewSummary";
 
 const AUTOSAVE_DELAY_MS = 1500;
 
@@ -110,13 +117,9 @@ const formOf = (data: OnboardingCase): Form => ({
   details: data.details, mode: data.mode, modeConfig: data.modeConfig, menuDraft: data.menuDraft,
 });
 
-function firstOpenStep(data: OnboardingCase): OnboardingStep {
-  if (isHandoffStepOpen(data)) return "handoff";
-  if (data.status !== "DRAFT") return "review";
-  if (!data.completedSteps.includes("customer")) return "customer";
-  if (!data.completedSteps.includes("mode")) return "mode";
-  return data.mode !== "DEMO" && !data.completedSteps.includes("menu") ? "menu" : "review";
-}
+/** The first incomplete step of the case's own path (mode first; a DEMO has no customer or menu step). */
+const firstOpenStep = (data: OnboardingCase): OnboardingStep =>
+  firstOpenStepOf({ status: data.status, mode: data.mode, completedSteps: data.completedSteps, handoffOpen: isHandoffStepOpen(data) });
 function caseAccessError(caught: unknown): MessageKey | null {
   if (!(caught instanceof ApiError)) return null;
   if (caught.status === 401) return "common.sessionExpired";
@@ -132,7 +135,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
   const [loadBusy, setLoadBusy] = useState(true);
   const [demoLink, setDemoLink] = useState<string | null>(null);
   const [form, setForm] = useState<Form | null>(null);
-  const [step, setStep] = useState<OnboardingStep>("customer");
+  const [step, setStep] = useState<OnboardingStep>("mode");
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [savedAt, setSavedAt] = useState<string | null>(null);
   const [saveError, setSaveError] = useState<MessageKey | null>(null);
@@ -144,6 +147,8 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
   const [actionError, setActionError] = useState<MessageKey | null>(null);
   const [confirmCancel, setConfirmCancel] = useState(false);
   const [expiredAt, setExpiredAt] = useState<string | null>(null);
+  /** A mode switch dropped a package picked for the previous mode: say so instead of clearing it silently. */
+  const [packageCleared, setPackageCleared] = useState(false);
 
   const pendingRef = useRef<Pending>(emptyPending());
   const actionRef = useRef(false);
@@ -357,12 +362,15 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
   const onMode = (mode: OnboardingMode) => {
     // A mode change clears the package (PO decision 2026-11-22): the server does the same unless the PATCH
     // supplies one, so a package picked for the previous mode is dropped from the unsaved edits too.
+    // Every other draft value (customer details, menu, trial length, demo kind / hours / label) is kept.
+    if (form && form.mode !== mode && form.modeConfig.packageId !== null) setPackageCleared(true);
     setForm((current) => (current ? { ...current, mode, modeConfig: formConfigAfterModeChange(current.modeConfig) } : current));
     pendingRef.current = { ...pendingRef.current, mode, modeConfig: pendingConfigAfterModeChange(pendingRef.current.modeConfig) };
     markPending("mode");
     schedule();
   };
   const onConfig = <K extends keyof ModeConfig>(key: K, value: ModeConfig[K]) => {
+    if (key === "packageId") setPackageCleared(false);
     setForm((current) => (current ? { ...current, modeConfig: { ...current.modeConfig, [key]: value } } : current));
     pendingRef.current = { ...pendingRef.current, modeConfig: { ...pendingRef.current.modeConfig, [key]: value } };
     markPending("mode");
@@ -385,8 +393,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
   }
 
   async function continueFrom(current: OnboardingStep) {
-    const index = ONBOARDING_STEPS.indexOf(current);
-    const next = current === "mode" && form?.mode === "DEMO" ? "review" : ONBOARDING_STEPS[index + 1];
+    const next = nextStep(form?.mode ?? null, current);
     if (current === "customer" || current === "mode") {
       const saved = await flush();
       const problems = current === "customer" ? data?.problems.customer : data?.problems.mode;
@@ -461,7 +468,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
         return false;
       }
       if (code === "ONBOARDING_INCOMPLETE" && kind === "submit") {
-        setShowAll(new Set<OnboardingStep>(["customer", "mode"]));
+        setShowAll(new Set<OnboardingStep>(["mode", "customer"]));
         setActionError("onboarding.review.incomplete");
       } else if (code === "ONBOARDING_INCOMPLETE" && kind === "menu") {
         setActionError(caught instanceof ApiError && caught.problems.includes("ONBOARDING_IMPORT_EXPIRED")
@@ -549,24 +556,33 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
     return code ? t(`onboarding.problem.${code}`) : null;
   };
   const modeProblems = (touched.has("mode") || showAll.has("mode")) && !pendingFields.has("mode") ? data.problems.mode : [];
-  const stepState = (s: OnboardingStep): "complete" | "incomplete" | "locked" | "skipped" => {
+  const demoLabelError =
+    (touched.has("restaurant.name") || showAll.has("mode")) && !pendingFields.has("restaurant.name") &&
+    data.problems.mode.includes("DEMO_LABEL_INVALID") ? t("onboarding.problem.DEMO_LABEL_INVALID") : null;
+  // The path follows the mode being edited: mode → customer → menu → review → handoff, or mode → review → handoff.
+  const path = stepsForMode(form.mode);
+  const current = visibleStep(form.mode, step);
+  const stepState = (s: OnboardingStep): "complete" | "incomplete" | "locked" => {
     if (s === "handoff" && !isHandoffStepOpen(data)) return "locked";
-    if (s === "menu" && form.mode === "DEMO") return "skipped";
     if (s === "menu" && (pendingFields.has("menu") || importExpired)) return "incomplete";
+    // Until the edited mode is saved, the server's completion belongs to the previous mode.
+    if (s === "mode" && pendingFields.has("mode")) return "incomplete";
     return data.completedSteps.includes(s) ? "complete" : "incomplete";
   };
-  const completedCount = ONBOARDING_STEPS.filter((s) => stepState(s) === "complete").length;
-  const requiredSteps = onboardingStepCount(form.mode);
-  const canSubmit = data.status === "DRAFT" && data.completedSteps.includes("customer") && data.completedSteps.includes("mode");
-  const stepIndex = ONBOARDING_STEPS.indexOf(step);
+  const completedCount = path.filter((s) => stepState(s) === "complete").length;
+  const requiredSteps = path.length;
+  const canSubmit = data.mode === form.mode && canSubmitForReview(data);
+  const stepIndex = path.indexOf(current);
+  const previous = previousStep(form.mode, current);
+  const next = nextStep(form.mode, current);
   const currentProblems: string[] =
-    showAll.has(step) && step === "customer" ? data.problems.customer : showAll.has(step) && step === "mode" ? data.problems.mode : [];
+    showAll.has(current) && current === "customer" ? data.problems.customer : showAll.has(current) && current === "mode" ? data.problems.mode : [];
 
   return (
     <>
       <BackLink />
       <PageHeader
-        title={form.details.restaurant.name?.trim() || t("onboarding.unnamed")}
+        title={form.details.restaurant.name?.trim() || t(form.mode === "DEMO" ? "onboarding.demo.unnamed" : "onboarding.unnamed")}
         description={t("onboarding.wizard.subtitle")}
         actions={
           <div className="flex flex-wrap items-center gap-2">
@@ -619,19 +635,19 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
             </div>
           </div>
           <ol className="flex gap-2 overflow-x-auto pb-1 xl:flex-col xl:overflow-visible">
-            {ONBOARDING_STEPS.map((s, index) => {
+            {path.map((s, index) => {
               const state = stepState(s);
-              const current = s === step;
+              const isCurrent = s === current;
               return (
                 <li key={s} className="shrink-0 xl:shrink">
                   <button
                     type="button"
                     disabled={actionBusy}
                     onClick={() => goTo(s)}
-                    aria-current={current ? "step" : undefined}
+                    aria-current={isCurrent ? "step" : undefined}
                     className={cn(
                       "flex w-full min-w-[9.5rem] items-center gap-3 rounded-lg border px-3 py-2.5 text-start text-sm transition-colors xl:min-w-0",
-                      current ? "border-primary bg-primary-soft" : "border-border bg-surface hover:bg-surface-2",
+                      isCurrent ? "border-primary bg-primary-soft" : "border-border bg-surface hover:bg-surface-2",
                     )}
                   >
                     <span
@@ -640,7 +656,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
                         "flex size-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold",
                         state === "complete"
                           ? "bg-success text-white"
-                          : (state === "locked" || state === "skipped")
+                          : state === "locked"
                             ? "bg-surface-2 text-muted-foreground"
                             : "border border-border-strong text-foreground",
                       )}
@@ -661,10 +677,10 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
         <section aria-labelledby="onboarding-step-heading" className="min-w-0 space-y-6">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-              {t("onboarding.stepOf", { n: fmt.number(stepIndex + 1), total: fmt.number(ONBOARDING_STEPS.length) })}
+              {t("onboarding.stepOf", { n: fmt.number(stepIndex + 1), total: fmt.number(path.length) })}
             </p>
             <h2 id="onboarding-step-heading" ref={headingRef} tabIndex={-1} className="text-lg font-semibold text-foreground outline-none">
-              {t(`onboarding.step.${step}`)}
+              {t(`onboarding.step.${current}`)}
             </h2>
           </div>
 
@@ -681,7 +697,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
             ) : null}
           </div>
 
-          {step === "customer" ? (
+          {current === "customer" ? (
             <>
               <DuplicatesPanel caseId={caseId} revision={data.revision} />
               <CustomerStep
@@ -695,13 +711,18 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
               />
             </>
           ) : null}
-          {step === "mode" ? (
+          {current === "mode" ? (
             <ModeStep
               data={data}
               mode={form.mode}
               config={form.modeConfig}
+              demoLabel={form.details.restaurant.name}
+              demoLabelError={demoLabelError}
+              packageCleared={packageCleared}
               disabled={locked}
               problems={modeProblems}
+              onDemoLabel={(value) => onRestaurant("name", value)}
+              onDemoLabelBlur={() => onTouch("restaurant.name")}
               onMode={(mode) => {
                 onTouch("mode");
                 onMode(mode);
@@ -712,21 +733,21 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
               }}
             />
           ) : null}
-          {step === "menu" && form.mode === "DEMO" ? <Card className="p-5 text-sm">{t("onboarding.menu.demo")}</Card> : null}
-          {step === "menu" && form.mode !== "DEMO" ? (
+          {current === "menu" ? (
             <MenuStep data={data} restaurant={form.details.restaurant} draft={form.menuDraft} disabled={!editable || conflict}
               dirty={pendingFields.has("menu")} busy={actionBusy} saving={saveState === "saving"} expired={importExpired} onChange={onMenu}
               onImport={(files) => runAction((revision) => importOnboardingMenu(caseId, revision, files), "menu", importExpired)}
               onReview={() => void runAction((revision) => reviewOnboardingMenu(caseId, revision), "menu")}
               onDiscard={() => runAction((revision) => discardOnboardingImport(caseId, revision), "menu", importExpired)} />
           ) : null}
-          {step === "review" ? (
+          {current === "review" ? (
             <div className="space-y-4">
               <Card>
-                <CardHeader title={t("onboarding.review.title")} description={t("onboarding.review.hint")} />
+                <CardHeader title={t("onboarding.review.title")} description={t(form.mode === "DEMO" ? "onboarding.review.demoHint" : "onboarding.review.hint")} />
                 <div className="space-y-4 p-5">
+                  <ReviewSummary data={data} />
                   <ul className="space-y-2 text-sm">
-                    {(["customer", "mode", ...(form.mode === "DEMO" ? [] : ["menu"] as const)] as const).map((s) => (
+                    {path.filter((s) => s !== "review" && s !== "handoff").map((s) => (
                       <li key={s} className="flex flex-wrap items-center gap-2">
                         <Badge tone={stepState(s) === "complete" ? "success" : "warning"} dot>
                           {t(`onboarding.stepState.${stepState(s)}`)}
@@ -754,7 +775,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
                 onFinish={finish} onReload={() => void load(false)} />
             </div>
           ) : null}
-          {step === "handoff" ? (
+          {current === "handoff" ? (
             <HandoffStep data={data} demoLink={demoLink} busy={actionBusy} disabled={actionBusy || conflict}
               onDeliver={() => void runAction((revision) => deliverOnboardingCase(caseId, revision), "deliver")}
               onReload={() => void load(false)} onReview={() => goTo("review")} />
@@ -762,11 +783,11 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
 
           <div className="flex flex-wrap items-center justify-between gap-3 border-t border-border pt-4">
             <div className="flex flex-wrap gap-2">
-              <Button disabled={stepIndex === 0 || actionBusy} onClick={() => goTo(step === "review" && form.mode === "DEMO" ? "mode" : ONBOARDING_STEPS[stepIndex - 1])}>
+              <Button disabled={previous === null || actionBusy} onClick={() => { if (previous) goTo(previous); }}>
                 {t("common.previous")}
               </Button>
-              {stepIndex < ONBOARDING_STEPS.length - 1 ? (
-                <Button variant="primary" disabled={actionBusy} onClick={() => void continueFrom(step)}>
+              {next !== null ? (
+                <Button variant="primary" disabled={actionBusy} onClick={() => void continueFrom(current)}>
                   {t("onboarding.continue")}
                 </Button>
               ) : null}

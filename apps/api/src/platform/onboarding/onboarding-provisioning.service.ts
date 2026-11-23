@@ -25,11 +25,10 @@ import {
   type OnboardingCaseView,
 } from './onboarding-cases.service';
 import {
+  evaluateSteps,
   isUuid,
   readDetails,
   readModeConfig,
-  validateCustomerStep,
-  validateModeStep,
 } from './onboarding-details';
 import {
   menuProblemsForCase,
@@ -164,7 +163,9 @@ export class OnboardingProvisioningService {
     try {
       if (claimed.status === 'PROVISIONING') {
         const config = readModeConfig(claimed.modeConfig);
+        // The internal demo label (validated by the mode step with DemoService's 1–80 character rule).
         const label = (readDetails(claimed.details).restaurant.name ?? '')
+          .replace(/\s+/g, ' ')
           .trim()
           .slice(0, 80);
         const result = await this.demos.create(
@@ -323,14 +324,20 @@ export class OnboardingProvisioningService {
           row.packageId === config.packageId
             ? await lockActivePackage(tx, config.packageId)
             : null;
-        const customer = validateCustomerStep(details);
-        const mode = validateModeStep(row.mode, config, {
-          pkg,
-          trialsEnabled:
-            row.mode !== 'TRIAL' ||
-            !!row.trialSubscriptionId ||
-            (await trialsEnabled(tx)),
-        });
+        // The same evaluation as the wizard: a DEMO needs only its mode step (kind, hours, label, optional
+        // package) and is never blocked by customer validation; REAL / TRIAL keep every customer check.
+        const { customer, mode } = evaluateSteps(
+          row.mode,
+          config,
+          {
+            pkg,
+            trialsEnabled:
+              row.mode !== 'TRIAL' ||
+              !!row.trialSubscriptionId ||
+              (await trialsEnabled(tx)),
+          },
+          details,
+        );
         const menu = menuProblemsForCase(row, details);
         if (
           row.mode !== 'DEMO' &&
