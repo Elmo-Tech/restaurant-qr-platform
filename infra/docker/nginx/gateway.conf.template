@@ -199,6 +199,16 @@ server {
 
     # only the platform routes of the API are reachable from the console host
     location ^~ /api/v1/platform/ {
+        # Owner Onboarding A3: only the UUID-scoped menu-import POST needs a larger
+        # multipart envelope and a longer, silent AI-extraction response window.
+        # Keep the default 16 MiB / 120 s for every other Platform request.
+        # A quoted regex is required because UUID quantifiers contain braces.
+        location ~ "^/api/v1/platform/onboarding-cases/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}/menu-import$" {
+            client_max_body_size 42m;  # 40 MiB file data + up to 2 MiB multipart envelope
+            proxy_read_timeout 600s;   # inactivity budget; external ingress must be >= 630s
+            proxy_pass $api_upstream;
+        }
+
         proxy_read_timeout 120s;
         proxy_pass $api_upstream;
     }

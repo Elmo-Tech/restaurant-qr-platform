@@ -55,8 +55,8 @@ try {
   assert.ok(ready, 'local gateway healthy');
   docker('exec', name, 'nginx', '-t');
   // Native HTTP keeps the virtual Host; Expect also captures 413 without racing an early socket close.
-  const post = (body, wait = 0) => new Promise((resolve, reject) => {
-    const req = request(`${base}${path}`, {
+  const post = (body, wait = 0, targetPath = path) => new Promise((resolve, reject) => {
+    const req = request(`${base}${targetPath}`, {
       method: 'POST',
       headers: { host, 'content-type': contentType, 'content-length': body.length,
         expect: '100-continue', 'x-test-delay-ms': String(wait) },
@@ -72,27 +72,47 @@ try {
     req.on('continue', () => req.end(body));
     req.flushHeaders();
   });
-  const overhead = multipart([0, 0]).length;
+  const overheadTwoFiles = multipart([0, 0]).length;
+  const overheadFiveFiles = multipart([0, 0, 0, 0, 0]).length;
+  // The upstream is a byte-counting stub; this test probes Nginx limits,
+  // not Nest's separate 40 MiB file-data validation.
   for (const [label, sizes, expected] of [
     ['one max-size file', [10 * mib], 200],
-    ['body exactly 16 MiB', [10 * mib, 6 * mib - overhead], 200],
-    ['body 1 byte over 16 MiB', [10 * mib, 6 * mib - overhead + 1], 413],
-    ['files total 16 MiB', [10 * mib, 6 * mib], 413],
-    ['files total 40 MiB', Array(4).fill(10 * mib), 413],
+    ['40 MiB file data', Array(4).fill(10 * mib), 200],
+    ['body exactly 42 MiB', [10 * mib, 10 * mib, 10 * mib, 10 * mib, 2 * mib - overheadFiveFiles], 200],
+    ['body one byte over 42 MiB', [10 * mib, 10 * mib, 10 * mib, 10 * mib, 2 * mib - overheadFiveFiles + 1], 413],
   ]) {
     const body = multipart(sizes);
     const response = await post(body);
     assert.equal(response.status, expected, label);
     if (expected === 200) assert.deepEqual(JSON.parse(response.body), { bytes: body.length });
     else assert.match(response.body, /413 Request Entity Too Large/);
-    console.log(`PASS ${label}: ${sizes.reduce((a, b) => a + b, 0)} file bytes, ${body.length} body bytes -> ${response.status}`);
+    console.log(`PASS scoped ${label}: ${body.length} body bytes -> ${response.status}`);
   }
-  const startedAt = performance.now();
-  const response = await post(multipart([1]), 123_000);
-  const elapsed = (performance.now() - startedAt) / 1000;
-  assert.equal(response.status, 504);
-  assert.ok(elapsed >= 119 && elapsed < 123, `unexpected gateway response time: ${elapsed}s`);
-  console.log(`PASS silent upstream (123s): gateway returned ${response.status} at ${elapsed.toFixed(2)}s`);
+  const sibling = '/api/v1/platform/onboarding-cases/00000000-0000-4000-8000-000000000000/duplicates';
+  for (const [label, sizes, expected] of [
+    ['exactly 16 MiB', [10 * mib, 6 * mib - overheadTwoFiles], 200],
+    ['one byte over 16 MiB', [10 * mib, 6 * mib - overheadTwoFiles + 1], 413],
+  ]) {
+    const body = multipart(sizes);
+    const response = await post(body, 0, sibling);
+    assert.equal(response.status, expected, `sibling ${label}`);
+    console.log(`PASS sibling ${label}: ${body.length} body bytes -> ${response.status}`);
+  }
+  // Nginx's timeout measures upstream silence, not an absolute request deadline.
+  const startImport = performance.now();
+  const longImport = await post(multipart([1]), 123_000);
+  const importSeconds = (performance.now() - startImport) / 1000;
+  assert.equal(longImport.status, 200);
+  assert.ok(importSeconds >= 123 && importSeconds < 133, `unexpected import duration: ${importSeconds}s`);
+  console.log(`PASS import 123s silent upstream -> 200 at ${importSeconds.toFixed(2)}s`);
+
+  const startSibling = performance.now();
+  const siblingWait = await post(multipart([1]), 123_000, sibling);
+  const siblingSeconds = (performance.now() - startSibling) / 1000;
+  assert.equal(siblingWait.status, 504);
+  assert.ok(siblingSeconds >= 119 && siblingSeconds < 123, `unexpected sibling timeout: ${siblingSeconds}s`);
+  console.log(`PASS sibling 123s silent upstream -> 504 at ${siblingSeconds.toFixed(2)}s`);
 } finally {
   for (const container of [name, stub]) {
     try { docker('rm', '-f', container); } catch { /* not started */ }
