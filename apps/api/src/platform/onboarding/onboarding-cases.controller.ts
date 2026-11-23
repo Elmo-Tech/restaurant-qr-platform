@@ -19,6 +19,7 @@ import {
 import { FilesInterceptor } from '@nestjs/platform-express';
 import { Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsIn,
   IsInt,
   IsObject,
@@ -97,6 +98,13 @@ class RevisionBody {
   @IsInt()
   @Min(1)
   revision!: number;
+}
+
+class CancelBody extends RevisionBody {
+  /** Explicit, operator-confirmed assertion: the purged READY demo was not handed off. */
+  @IsOptional()
+  @IsBoolean()
+  confirmNotDelivered?: boolean;
 }
 
 /**
@@ -456,11 +464,16 @@ export class OnboardingCasesController {
   @UseGuards(PlatformAuthGuard)
   async cancel(
     @Param('caseId') caseId: string,
-    @Body() body: RevisionBody,
+    @Body() body: CancelBody,
     @Req() request: PlatformRequest,
   ): Promise<{ data: OnboardingCaseView }> {
     return unwrap(
-      await this.cases.cancel(request.platformAdmin, caseId, body.revision),
+      await this.cases.cancel(
+        request.platformAdmin,
+        caseId,
+        body.revision,
+        body.confirmNotDelivered === true,
+      ),
     );
   }
 }
