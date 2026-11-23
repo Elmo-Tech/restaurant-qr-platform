@@ -109,7 +109,8 @@ try {
   assert.ok(!logs.includes(marker), 'Demo capability marker leaked into Nginx logs');
   assert.ok(!logs.includes(refererMarker), 'Demo Referer marker leaked into Nginx logs');
   for (const id of ids) {
-    assert.equal(logs.split('req=' + id).length - 1, 1,
+    // Match the complete request id, not prefixes (safe-qa-1 also prefixes safe-qa-10).
+    assert.equal(logs.split('\n').filter((line) => line.trimEnd().endsWith('req=' + id)).length, 1,
       'duplicate inherited main access log or missing request correlation: ' + id);
   }
   assert.ok(logs.includes('/demo/[redacted]'), 'Expected a redacted request path');
