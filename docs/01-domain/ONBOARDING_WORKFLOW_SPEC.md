@@ -8,6 +8,9 @@ The Product Owner decision table (all A-D1…A-D7 decided as of 2026-11-21) is i
 preview) approved as design policies — section 7.4–7.7 and DEC-076. A3 / A4 are **not started**.
 **Update 2026-11-22 (Product Owner decision):** the trial default package is a recommendation only and must be
 chosen explicitly by the operator — section 7.3.1 (refines A-D3; DEC-056 trial settings otherwise unchanged).
+**Update 2026-11-23 (Product Owner request):** the onboarding type is chosen first, a DEMO takes a short path without
+customer data, the Menu step offers the AI prompt helper, and cases can be removed from the outer list (cancel +
+archive, never a delete) — section 9, which supersedes the step order of section 2.
 
 ---
 
@@ -23,6 +26,9 @@ An **onboarding case** is a resumable, Platform-only draft of that work. Several
 autosaved; it never stores a password.
 
 ## 2. Steps
+
+> _Superseded order (2026-11-23, section 9):_ step 1 is now the onboarding type (mode); REAL / TRIAL continue with
+> customer, menu, review and handoff; DEMO goes mode → review → handoff. The table below is kept as the A1/A2 record.
 
 | # | Step | This build (A1 + A2) |
 |---|---|---|
@@ -269,3 +275,49 @@ Provisioning, menu preparation (import or manual), trial / demo creation, guest-
 (credentials, links, QR), lead status changes, case assignment UI, and editing a case after it leaves
 READY_FOR_REVIEW. The UI shows steps 3 and 5 as "Not available yet in this build" with no fake success.
 (2026-11-21: the policies for these are approved — 7.4–7.7 — but A3 / A4 have not started.)
+
+## 9. Mode first, DEMO short path, AI-prepared menu and list removal (Product Owner request, 2026-11-23)
+
+Technical contract: `docs/02-technical/ONBOARDING_API_AND_PERSISTENCE.md` §6.
+
+### 9.1 Choose the onboarding type first
+
+- Step 1 is the onboarding type: REAL, TRIAL or DEMO. A new case opens on it; a resumed case opens on the first
+  incomplete step of its own path.
+- REAL / TRIAL: type (with package / trial length) → customer & restaurant → menu → review → handoff, with every
+  existing validation unchanged (customer, package, trial, menu, import review, provisioning).
+- DEMO: type → review → handoff. The type step asks only for an internal demo name (1–80 characters, stored as the
+  case's restaurant name and passed to the demo service as the demo label), the demo kind, the duration and an
+  optional package. No owner contact, acquisition source, branch, locale or menu is asked for or validated, and the
+  server accepts submit-for-review and provisioning of a DEMO without them (no placeholder data). Demo expiry, purge,
+  private link, handoff, idempotency and concurrency rules are unchanged.
+- A case started from a lead keeps the lead association for a DEMO too (the demo name is prefilled from the lead's
+  restaurant name); demo handoff still moves a `NEW` lead to `CONTACTED` only (section 7.4).
+- Switching type keeps compatible draft data (customer details, menu draft, trial length, demo kind / hours / name);
+  the package is cleared as in 7.3.1 and the console says so instead of clearing it silently. Progress, step numbers,
+  back / next, completion and the review summary follow the current type's path.
+
+### 9.2 AI prompt helper in the onboarding Menu step
+
+- An optional, collapsed "Prepare your menu with ChatGPT or another AI" section explains: attach the menu photos /
+  PDF to any AI chat, paste the copied instructions, download the Excel file it makes, then upload it here. It shows
+  the canonical Menu Import instructions (MENU_IMPORT_SPEC #3A) with a copy button (success and manual-copy fallback
+  messages) and the same Excel template as the Staff Import page.
+- It never calls Wayta or any AI service, never changes the case and never uses an import attempt; only uploading a
+  file does, through the unchanged staged import (file checks, quota, review, expiry, replacement confirmation).
+
+### 9.3 Removing a case from the outer list
+
+- Desktop rows and mobile cards have a "Remove" action. Nothing is hard-deleted through it: no case, restaurant,
+  account, subscription, order history, demo, lead or audit record.
+- An open case (draft, under review, failed) is **cancelled with the existing cancellation rules and archived**; an
+  already finished case (cancelled, delivered) is only archived. Archived cases leave the active list, stay in the
+  "Archive" filter with their full history, and can be restored (their status does not change).
+- A routine draft (no lead, not submitted, no menu, nothing created) needs one short confirmation. Anything else lists
+  in plain words what changes — linked request kept and freed for a new onboarding, review dropped, prepared menu
+  discarded, restaurant account or demo kept, delivered account unchanged — and requires an explicit "I understand".
+- Refused: a case whose provisioning is running, and a READY case awaiting handoff (including a live demo). The
+  READY purged-and-never-delivered DEMO keeps its existing rule: the operator must also confirm the link was never
+  handed over.
+- The server decides and enforces all of this under the case lock with Platform authorization, CSRF, the revision and
+  the acknowledged impacts, and audits it (`onboarding.cancelled` / `onboarding.archived` / `onboarding.restored`).

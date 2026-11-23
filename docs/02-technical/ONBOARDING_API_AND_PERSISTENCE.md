@@ -246,3 +246,92 @@ A3 is therefore a **resumable saga whose progress lives on the case**:
   ACTIVE package, archived before / after selection and between evaluation and the guarded submit write, mode
   switching, concurrent selections and stale revisions); UI contract `tests/contract/onboarding-package-choice.spec.ts`
   (run by `npm run test:contract-ui`; `apps/platform` has no test runner of its own).
+
+## 6. Mode first, DEMO short path, AI-prepared menu and list removal (PO request 2026-11-23)
+
+Product rules: `docs/01-domain/ONBOARDING_WORKFLOW_SPEC.md` §9.
+
+### 6.1 Step evaluation
+
+- `ONBOARDING_STEPS` is now `mode, customer, menu, review, handoff`. `stepsForMode(DEMO)` is `mode, review, handoff`;
+  REAL, TRIAL and a case without a mode keep the full path. `stepsRequiredForReview`: `mode` for DEMO, `mode` +
+  `customer` otherwise. The console mirrors both in `apps/platform/src/lib/onboarding-steps.ts` (contract-tested).
+- One evaluation, `evaluateSteps(mode, modeConfig, context, details)` (`onboarding-details.ts`), is used by PATCH,
+  reads, submit-for-review and the provisioning claim. For DEMO: `problems.customer` is always `[]`, the customer step
+  is never reported in `completedSteps`, and the mode step adds `DEMO_LABEL_INVALID` (the internal label, stored as
+  `details.restaurant.name`, must be 1–80 characters after collapsing whitespace, the `DemoService.create` rule). The
+  demo is created with that normalized label. REAL / TRIAL validation is unchanged.
+- `decideSubmit(status, completedSteps, mode)` requires the mode's steps. No request or view field was added or
+  removed for this; customer details typed before a switch to DEMO stay stored (the sanitizer is unchanged) and count
+  again after switching back. The existing mode-change rule still clears the package unless the same PATCH supplies it.
+
+### 6.2 Removal from the active list
+
+| Method | Path | Body / query | Success |
+|---|---|---|---|
+| GET | `/onboarding-cases` | new `&archived=true` lists only removed cases (default: the active list, `archived_at IS NULL`) | as before |
+| POST | `/onboarding-cases/:id/remove` | `{ revision, acknowledgedImpacts: Impact[], confirmNotDelivered? }` | `200 { data: { id, status, revision, archivedAt } }` |
+| POST | `/onboarding-cases/:id/restore` | `{ revision }` | `200 { data: CaseView }` (status unchanged, `archivedAt: null`) |
+
+`CaseSummary` adds `archivedAt` and `removal` (`{ allowed: true, action: CANCEL_AND_ARCHIVE | ARCHIVE, impacts[],
+confirmNotDelivered }` or `{ allowed: false, refusal }`); `CaseView` adds `archivedAt`. The decision is the pure
+`decideRemoval` in `onboarding-transitions.ts`:
+
+| Case | Action | Impacts the operator must acknowledge |
+|---|---|---|
+| DRAFT / READY_FOR_REVIEW | cancel (existing rule) + archive | `LINKED_LEAD`, `SUBMITTED` (review), `MENU_DRAFT` (discarded by cancel); none for a routine draft |
+| FAILED | cancel (existing rule) + archive | `SETUP_FAILED`, `RESTAURANT_KEPT`, `DEMO_KEPT`, `MENU_DRAFT`, `LINKED_LEAD` |
+| READY DEMO, purge committed, never delivered | the existing READY cancel + archive; also `confirmNotDelivered: true` | `DEMO_PURGED`, `LINKED_LEAD` |
+| DELIVERED | archive only | `DELIVERED`, `RESTAURANT_KEPT` / `DEMO_KEPT` |
+| CANCELLED | archive only | `RESTAURANT_KEPT` / `DEMO_KEPT` when one exists |
+| PROVISIONING, MENU_SETUP | refused `PROVISIONING_ACTIVE` | — |
+| any other READY (handoff pending, live demo) | refused `HANDOFF_PENDING` | — |
+
+Server enforcement: one transaction takes the case row lock (`FOR UPDATE`, the same lock as delivery, provisioning,
+staged import and the demo purge), re-reads the row, checks the revision, recomputes the decision and requires every
+current impact to be in `acknowledgedImpacts` (a demo purge or lead removal does not bump the revision, so the
+acknowledgement, not only the revision, guards against a stale dialog). The write is a guarded `updateMany` with the
+same status predicates as `cancel`. A repeated request for an already-archived case answers `200` without writing
+(lost-response retry). Nothing is ever deleted: no case, restaurant, account, subscription, demo, lead, order or audit
+row; the lead is not changed (cancelling only frees its one-open-case slot).
+
+Errors: `409 ONBOARDING_REVISION_CONFLICT`; `409 ONBOARDING_REMOVE_CONFIRMATION_REQUIRED + details.impacts`;
+`409 ONBOARDING_REMOVE_REFUSED + details.reason` (`PROVISIONING_ACTIVE | HANDOFF_PENDING | ALREADY_ARCHIVED`);
+`409 ONBOARDING_INVALID_TRANSITION` (restore of a case that is not archived, or a guarded write that lost a race);
+`400 VALIDATION_ERROR` for an unknown impact. Audit: `onboarding.cancelled { caseId, from, leadId, reason:
+REMOVED_FROM_LIST | DEMO_PURGED_UNDELIVERED, confirmedNoHandoff? }` (cancelling removals),
+`onboarding.archived { caseId, from, removal, impacts, leadId }`, `onboarding.restored { caseId, status }`, written
+in the same transaction.
+
+Schema (forward migration `20261129090000_onboarding_case_archive`, additive and nullable, no backfill):
+`archived_at TIMESTAMPTZ`, `archived_by_admin_id UUID` (FK `platform_admins`, `ON DELETE SET NULL`), CHECK
+`onboarding_cases_archived_terminal_check` (`archived_at IS NULL OR status IN ('CANCELLED','DELIVERED')`), index
+`(archived_at, updated_at)`. Rollback: the application ignores the columns if reverted; dropping them loses only the
+archive marker (the cases stay CANCELLED / DELIVERED and reappear in the list).
+
+### 6.3 AI-prepared menu import
+
+The Menu step's optional helper shows `MENU_AI_PROMPT` and offers `/templates/menu-import-template.xlsx`. Both are
+mirrors of the Staff importer's canonical files (`apps/web/src/lib/menu-import/ai-prompt.ts`,
+`apps/web/public/templates/menu-import-template.xlsx`), because each Next.js image is built from its own app folder;
+`tests/contract/onboarding-ai-prompt.spec.ts` fails on any difference. The helper is client-only: no request, no
+import attempt and no case write until the operator uploads a file through the unchanged `menu-import` route
+(same file validation, quota, review, expiry and replacement confirmation). `onboarding-menu-import.spec.ts` proves an
+openpyxl-written `.xlsx` with the prompt's header is read as the template (no model) and staged as a valid draft.
+
+### 6.4 Verification
+
+- API unit: `onboarding-details.spec.ts`, `onboarding-transitions.spec.ts`, `onboarding-menu-import.spec.ts`.
+- Contract: `tests/contract/onboarding-mode-first.spec.ts`, `onboarding-removal.spec.ts`, `onboarding-ai-prompt.spec.ts`.
+- Real PostgreSQL: block "mode first: DEMO short path, mode switching and list removal" in
+  `apps/api/test/onboarding-cases-http.e2e-spec.ts` (DEMO submitted and provisioned without customer data, missing
+  label refused at edit / submit / provisioning, lead association, mode switching, routine removal + restore, impact
+  acknowledgement, stale revisions, concurrent removals and removal vs edit, refusals, delivered archive, purged-demo
+  rule, DB CHECK, pagination). CI: `wayta-feature-regression.yml` (units, contracts, lint, `onboarding-postgres` job).
+- Browser smoke (local, not in CI): `tests/release/onboarding-ux-browser-smoke.mjs` against a loopback API +
+  Platform stack on a disposable migrated database with a disposable operator (`npm run provision:platform-admin
+  --workspace=apps/api -- --email operator@example.test --name "UX operator" --password-env UX_ADMIN_PASSWORD`).
+  Set `UX_API_ORIGIN` / `UX_PLATFORM_ORIGIN` (127.0.0.1 only), `UX_ADMIN_PASSWORD`, `UX_PLAYWRIGHT_MODULE` (absolute path
+  of an isolated Playwright install) and optionally `UX_BROWSER_CHANNEL=chrome`. It covers the mode-first DEMO path
+  through provisioning, mode switching, prompt copy (and the manual fallback), template download, AI-prepared upload,
+  list removal / restore / refusal / stale revision, and Arabic RTL at 390 px.
