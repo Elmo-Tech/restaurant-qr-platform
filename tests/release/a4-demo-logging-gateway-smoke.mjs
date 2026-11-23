@@ -1,6 +1,6 @@
 // Disposable, localhost-only Nginx probe. Tokens are inert markers, never working Demo links.
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { request } from 'node:http';
@@ -93,9 +93,16 @@ try {
     assert.equal(response.status, expected, name + ' returned unexpected status');
     ids.push(response.id);
   }
+  // docker logs emits Nginx access to stdout and Nginx error details to stderr.
+  // Both streams must be inspected: dropping stderr would miss the 502 leak.
+  const getLogs = () => {
+    const result = spawnSync('docker', ['logs', session], { encoding: 'utf8' });
+    assert.equal(result.status, 0, 'cannot retrieve disposable gateway logs');
+    return result.stdout + '\n' + result.stderr;
+  };
   let logs = '';
   for (let attempt = 0; attempt < 20; attempt++) {
-    logs = docker('logs', session);
+    logs = getLogs();
     if (logs.includes('req=' + ids.at(-1))) break;
     await pause(100);
   }
