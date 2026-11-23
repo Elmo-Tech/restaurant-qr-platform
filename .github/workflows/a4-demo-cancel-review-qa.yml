@@ -40,6 +40,8 @@ jobs:
     steps:
       - name: Checkout review branch
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - name: Use Node.js 24 and locked npm cache
         uses: actions/setup-node@v4
         with:
@@ -79,4 +81,4 @@ jobs:
       - name: A4 contract regression
         run: npm run test:contract-ui -- --runInBand onboarding-a4.spec.ts
       - name: Whitespace validation
-        run: git diff --check HEAD~1 HEAD
+        run: git diff --check 6437d437cfd4757d9415ffa1384247a434d84daf...HEAD
