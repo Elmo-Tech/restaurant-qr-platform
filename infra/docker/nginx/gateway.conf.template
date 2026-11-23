@@ -188,6 +188,16 @@ server {
         proxy_pass $api_upstream;
     }
 
+    # DEMO capability exchange can receive a token-bearing Referer from older
+    # browsers/clients. Keep API routing and the host guard identical while
+    # preventing upstream error diagnostics from echoing the raw Referer.
+    location = /api/v1/demo/enter {
+        if ($host != ${WEB_HOST}) { return 404; }
+        error_log /dev/null crit;
+        proxy_read_timeout 600s;
+        proxy_pass $api_upstream;
+    }
+
     location /api/v1/ {
         # No Staff auth/session/business API on restaurant hostnames.
         if ($host != ${WEB_HOST}) { return 404; }
