@@ -6,6 +6,7 @@ import {
 import { ConflictException } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { postgresPoolConfig } from './../src/database/postgres-connection';
 import { Prisma, PrismaClient } from './../src/generated/prisma/client';
 import { DeliveryZonesController } from './../src/delivery/delivery-zones.controller';
 import { DeliveryZonesService } from './../src/delivery/delivery-zones.service';
@@ -37,7 +38,7 @@ describeSandbox(
     beforeAll(async () => {
       assertSandboxUrl(SANDBOX_URL as string);
       prisma = new PrismaClient({
-        adapter: new PrismaPg({ connectionString: SANDBOX_URL as string }),
+        adapter: new PrismaPg(postgresPoolConfig(SANDBOX_URL as string)),
       });
       await prisma.$connect();
       try {

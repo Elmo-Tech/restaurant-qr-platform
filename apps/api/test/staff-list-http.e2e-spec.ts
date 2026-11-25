@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -10,6 +11,9 @@ import { PrismaService } from './../src/database/prisma.service';
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
 import { StaffService } from './../src/staff/staff.service';
 
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
+const SUITE_TITLE = 'GET /api/v1/restaurants/:restaurantId/memberships (e2e)';
+
 /**
  * Business Foundation R: proves the Restaurant Staff Membership List
  * end-to-end through the real
@@ -21,7 +25,7 @@ import { StaffService } from './../src/staff/staff.service';
  * removes them in afterEach, so the database returns to its empty state
  * regardless of test outcome.
  */
-describe('GET /api/v1/restaurants/:restaurantId/memberships (e2e)', () => {
+describeSandbox(SUITE_TITLE, () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let passwordHasherService: PasswordHasherService;
@@ -66,6 +70,7 @@ describe('GET /api/v1/restaurants/:restaurantId/memberships (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     passwordHasherService = app.get(PasswordHasherService);
   });
 

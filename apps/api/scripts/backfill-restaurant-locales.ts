@@ -64,7 +64,7 @@
  */
 import path from 'node:path';
 import dotenv from 'dotenv';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createPrismaPgAdapter } from '../src/database/postgres-connection';
 import { PrismaClient } from '../src/generated/prisma/client';
 import {
   applyBackfillPlan,
@@ -83,7 +83,7 @@ async function main(): Promise<void> {
     throw new Error('DATABASE_URL is not set.');
   }
   const realPrisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    adapter: createPrismaPgAdapter(connectionString),
   });
   // Narrowed to the minimal shape the planning/execution logic needs --
   // see restaurant-locales-backfill.ts for why this is a separate,

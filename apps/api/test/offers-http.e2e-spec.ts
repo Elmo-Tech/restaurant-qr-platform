@@ -1,6 +1,10 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment, @typescript-eslint/no-unsafe-call --
  * supertest exposes `response.body` as `any`; the assertions below read the JSON envelope directly, like the other HTTP e2e specs. */
-import { SCRATCH_URL } from './support/scratch-guard';
+import {
+  assertSandboxDatabase,
+  assertSandboxIdentity,
+  SANDBOX_URL,
+} from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -20,11 +24,11 @@ import { ensureStarterRole } from './fixtures/ensure-starter-role';
  * the OFFERS package feature), what the Guest menu returns, and order creation: exact pricing, every validation, the stable error
  * codes, idempotency, the kitchen / Staff views, history snapshots and the WhatsApp message.
  *
- * Isolation: see `support/scratch-guard.ts`; without OFFERS_E2E_DATABASE_URL (a local database whose name contains "scratch") the
- * whole suite is skipped.
+ * Isolation: see `support/sandbox-guard.ts`; without TABLE_SESSION_IT_DATABASE_URL the whole suite is skipped, and the live
+ * database identity is verified before the Nest application is created.
  */
 
-const describeScratch = SCRATCH_URL ? describe : describe.skip;
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
 const PASSWORD = 'correct horse battery staple';
 const TZ = 'Africa/Cairo';
 
@@ -41,13 +45,14 @@ interface World {
   productId: string;
 }
 
-describeScratch('Offers (real PostgreSQL)', () => {
+describeSandbox('Offers (real PostgreSQL)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let hasher: PasswordHasherService;
   const origin = process.env.CORS_ORIGIN ?? 'http://localhost:3000';
 
   beforeAll(async () => {
+    await assertSandboxDatabase();
     const moduleRef = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -62,6 +67,7 @@ describeScratch('Offers (real PostgreSQL)', () => {
     );
     await app.init();
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     hasher = app.get(PasswordHasherService);
   });
 

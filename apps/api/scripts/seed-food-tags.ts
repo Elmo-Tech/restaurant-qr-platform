@@ -12,7 +12,7 @@
  */
 import path from 'node:path';
 import dotenv from 'dotenv';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createPrismaPgAdapter } from '../src/database/postgres-connection';
 import { PrismaClient } from '../src/generated/prisma/client';
 import {
   FOOD_TAG_CATALOG,
@@ -104,7 +104,7 @@ async function main(): Promise<void> {
   if (!connectionString)
     throw new Error('DATABASE_URL is required for --apply.');
   const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    adapter: createPrismaPgAdapter(connectionString),
   });
   try {
     // A seeded tag is a bootstrap only. Once it exists, the Platform Admin owns

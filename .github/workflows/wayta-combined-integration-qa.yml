@@ -20,19 +20,21 @@ jobs:
       postgres:
         image: postgres:18
         env:
-          POSTGRES_USER: wayta_ci
-          POSTGRES_PASSWORD: wayta_ci_only
-          POSTGRES_DB: wayta_scratch
+          POSTGRES_USER: restaurant_qr_it
+          POSTGRES_PASSWORD: ci_disposable_only
+          POSTGRES_DB: restaurant_qr_combined_ci_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U wayta_ci -d wayta_scratch"
+          --health-cmd "pg_isready -U restaurant_qr_it -d restaurant_qr_combined_ci_test"
           --health-interval 5s
           --health-timeout 5s
           --health-retries 20
+    # Disposable sandbox identity required by apps/api/test/support/sandbox-guard.ts (local host, role
+    # restaurant_qr_it, *_test name, sandbox marker comment checked on the live connection before the app boots).
     env:
-      DATABASE_URL: postgresql://wayta_ci:wayta_ci_only@127.0.0.1:5432/wayta_scratch?schema=public
-      OFFERS_E2E_DATABASE_URL: postgresql://wayta_ci:wayta_ci_only@127.0.0.1:5432/wayta_scratch?schema=public
+      DATABASE_URL: postgresql://restaurant_qr_it:ci_disposable_only@127.0.0.1:5432/restaurant_qr_combined_ci_test?schema=public
+      TABLE_SESSION_IT_DATABASE_URL: postgresql://restaurant_qr_it:ci_disposable_only@127.0.0.1:5432/restaurant_qr_combined_ci_test?schema=public
       CORS_ORIGIN: http://localhost:3000
       NODE_ENV: test
     steps:
@@ -45,6 +47,21 @@ jobs:
           cache: npm
       - name: Install locked dependencies
         run: npm ci
+      - name: Mark the disposable database as the integration sandbox
+        run: |
+          node <<'NODE'
+          const { Client } = require('pg');
+          (async () => {
+            const db = new Client({ connectionString: process.env.DATABASE_URL });
+            await db.connect();
+            const identity = await db.query('SELECT current_database() AS db, current_user AS usr');
+            if (identity.rows[0].db !== 'restaurant_qr_combined_ci_test' || identity.rows[0].usr !== 'restaurant_qr_it') {
+              throw new Error('unexpected database identity');
+            }
+            await db.query("COMMENT ON DATABASE restaurant_qr_combined_ci_test IS 'restaurant-qr-integration-sandbox'");
+            await db.end();
+          })().catch(error => { console.error(error.message); process.exitCode = 1; });
+          NODE
       - name: Validate unified Prisma schema
         run: npm run db:validate
       - name: Generate merged Prisma Client for Jest and NestJS

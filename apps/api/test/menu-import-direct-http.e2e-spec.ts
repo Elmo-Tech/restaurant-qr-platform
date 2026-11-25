@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type IncomingMessage, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -15,6 +16,8 @@ import {
   N8nMenuImportExtractor,
 } from './../src/menu-import/menu-import-extractor';
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
+
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
 
 jest.setTimeout(30000);
 
@@ -52,7 +55,7 @@ interface Seen {
   text: string;
 }
 
-describe('Menu import, DIRECT engine (e2e)', () => {
+describeSandbox('Menu import, DIRECT engine (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let hasher: PasswordHasherService;
@@ -140,6 +143,7 @@ describe('Menu import, DIRECT engine (e2e)', () => {
     );
     await app.init();
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     hasher = app.get(PasswordHasherService);
     ai = app.get(AiSettingsService);
   });

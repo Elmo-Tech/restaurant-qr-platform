@@ -90,6 +90,19 @@ jobs:
           apps/web/src/lib/kitchen/board-state.test.mjs
           apps/web/src/lib/staff/kitchen-board-states.contract.test.mjs
 
+      - name: E2E database safety and UTC session settings (static + unit, no database)
+        run: npm run test:db-safety --workspace=apps/api
+
+      - name: Lint database safety files
+        run: >-
+          npm exec --workspace=apps/api -- eslint
+          src/database/postgres-connection.ts
+          src/database/postgres-connection.spec.ts
+          src/database/prisma.service.ts
+          test/support
+          test/database-timezone.e2e-spec.ts
+          test/kitchen-http.e2e-spec.ts
+
       - name: Onboarding mode-first, DEMO short path, AI-prepared import and list removal (API units)
         run: >-
           npm exec --workspace=apps/api -- jest --runInBand
@@ -320,6 +333,80 @@ jobs:
         env:
           NODE_OPTIONS: --experimental-vm-modules
         run: npm exec --workspace=apps/api -- jest --config ./test/jest-e2e.json --runInBand onboarding-cases-http.e2e-spec.ts
+
+  database-timezone-postgres:
+    # Real PostgreSQL 18 whose server default TimeZone is UTC or Africa/Cairo: the API must pin every
+    # connection to UTC, store/read application- and database-generated timestamps as the exact
+    # instant, and keep Branch business-timezone behaviour. Disposable sandbox identity required by
+    # test/support/sandbox-guard.ts.
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        server_timezone: ['UTC', 'Africa/Cairo']
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: restaurant_qr_it
+          POSTGRES_PASSWORD: ci_disposable_only
+          POSTGRES_DB: restaurant_qr_timezone_ci_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U restaurant_qr_it -d restaurant_qr_timezone_ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      NODE_ENV: test
+      CORS_ORIGIN: http://localhost:3000
+      PLATFORM_ORIGIN: http://localhost:3001
+      DATABASE_URL: postgresql://restaurant_qr_it:ci_disposable_only@127.0.0.1:5432/restaurant_qr_timezone_ci_test?schema=public
+      TABLE_SESSION_IT_DATABASE_URL: postgresql://restaurant_qr_it:ci_disposable_only@127.0.0.1:5432/restaurant_qr_timezone_ci_test?schema=public
+      TZ_IT_EXPECTED_DATABASE_TIMEZONE: ${{ matrix.server_timezone }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Mark the disposable sandbox and set the server default TimeZone
+        run: |
+          node <<'NODE'
+          const {Client}=require('pg');
+          const expected=process.env.TZ_IT_EXPECTED_DATABASE_TIMEZONE;
+          (async()=>{
+            const db=new Client({connectionString:process.env.DATABASE_URL});
+            await db.connect();
+            const identity=await db.query("SELECT current_database() AS db, current_user AS usr");
+            if(identity.rows[0].db!=='restaurant_qr_timezone_ci_test'||identity.rows[0].usr!=='restaurant_qr_it') throw new Error('unexpected database identity');
+            await db.query("COMMENT ON DATABASE restaurant_qr_timezone_ci_test IS 'restaurant-qr-integration-sandbox'");
+            await db.query(`ALTER SYSTEM SET timezone = '${expected.replace(/'/g,"''")}'`);
+            await db.query('SELECT pg_reload_conf()');
+            await db.end();
+            const fresh=new Client({connectionString:process.env.DATABASE_URL});
+            await fresh.connect();
+            const shown=(await fresh.query("SELECT current_setting('TimeZone') AS tz")).rows[0].tz;
+            await fresh.end();
+            if(shown!==expected) throw new Error(`server default TimeZone is ${shown}, expected ${expected}`);
+            console.log(`server default TimeZone: ${shown}`);
+          })().catch(e=>{console.error(e.message);process.exitCode=1});
+          NODE
+      - name: Generate Prisma client and apply the migration chain
+        run: |
+          npm run db:generate
+          npm exec --workspace=apps/api -- prisma migrate deploy
+      - name: Timestamp safety and Kitchen HTTP suites on real PostgreSQL
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+        run: >-
+          npm exec --workspace=apps/api -- jest --config ./test/jest-e2e.json --runInBand
+          database-timezone.e2e-spec.ts
+          kitchen-http.e2e-spec.ts
 
   dev-launchers:
     runs-on: ubuntu-latest

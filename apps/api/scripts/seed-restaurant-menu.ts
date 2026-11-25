@@ -26,7 +26,7 @@ import { readFile } from 'node:fs/promises';
 import { ConfigService } from '@nestjs/config';
 import path from 'node:path';
 import dotenv from 'dotenv';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createPrismaPgAdapter } from '../src/database/postgres-connection';
 import { PasswordHasherService } from '../src/auth/password/password-hasher.service';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { ensureRestaurantSlug } from '../src/restaurants/restaurant-slug-store';
@@ -146,7 +146,7 @@ async function main(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error('DATABASE_URL is not set.');
   const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    adapter: createPrismaPgAdapter(connectionString),
   });
   try {
     const provisioned = await provisionRestaurant(
