@@ -69,6 +69,7 @@ export type PlatformAction =
   | 'onboarding.import_grant_revoked'
   | 'onboarding.import_staged'
   | 'onboarding.import_reviewed'
+  | 'onboarding.legacy_draft_recovered'
   | 'onboarding.import_discarded'
   | 'onboarding.failed'
   | 'onboarding.ready'

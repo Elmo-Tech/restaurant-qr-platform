@@ -350,6 +350,9 @@ export const grantOnboardingImport = (id: string, revision: number, reason: stri
 export const revokeOnboardingImport = (id: string, revision: number, reason: string) =>
   platformFetch<{ data: OnboardingCase }>(`${path(id)}/menu-import/revoke`, { method: "POST", body: { revision, reason } }).then((r) => r.data);
 
+export const recoverLegacyOnboardingMenu = (id: string, revision: number, reason: string) =>
+  platformFetch<{ data: OnboardingCase }>(`${path(id)}/menu-import/recover-legacy`, { method: "POST", body: { revision, reason } }).then((r) => r.data);
+
 export const reviewOnboardingMenu = (id: string, revision: number) =>
   platformFetch<{ data: OnboardingCase }>(`${path(id)}/menu-import/review`, { method: "POST", body: { revision } }).then((r) => r.data);
 

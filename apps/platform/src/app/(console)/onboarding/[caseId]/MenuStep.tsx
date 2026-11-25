@@ -11,7 +11,7 @@ import { MenuEditor } from "./MenuEditor";
 
 const EMPTY_DRAFT: OnboardingMenuDraft = { menus: [] };
 
-export function MenuStep({ data, restaurant, draft, disabled, grantDisabled, busy, saving, dirty, expired, onChange, onImport, onReview, onDiscard, onGrant, onRevoke, onOpenModeStep }: {
+export function MenuStep({ data, restaurant, draft, disabled, grantDisabled, busy, saving, dirty, expired, onChange, onImport, onReview, onDiscard, onGrant, onRevoke, onRecover, onOpenModeStep }: {
   data: OnboardingCase;
   restaurant: RestaurantDraft;
   draft: OnboardingMenuDraft | null;
@@ -27,6 +27,7 @@ export function MenuStep({ data, restaurant, draft, disabled, grantDisabled, bus
   onDiscard: () => Promise<boolean>;
   onGrant: (reason: string) => Promise<boolean>;
   onRevoke: (reason: string) => Promise<boolean>;
+  onRecover: (reason: string) => Promise<boolean>;
   /** Opens the Mode step, where the package (and so Menu import) is chosen. */
   onOpenModeStep: () => void;
 }) {
@@ -37,10 +38,15 @@ export function MenuStep({ data, restaurant, draft, disabled, grantDisabled, bus
   const [confirm, setConfirm] = useState<"replace" | "discard" | null>(null);
   const expiresAt = data.importExpiresAt;
   const staged = hasStagedImport(data);
+  const legacyRecovery = data.menuProvenance === "LEGACY" && expired;
   const unknownRetention = staged && !expiresAt;
   const fileProblem = files.length ? menuFileProblem(files) : null;
   const grant = data.importGrant;
   const [reason, setReason] = useState("");
+  const [recoveryReason, setRecoveryReason] = useState("");
+  const recoveryReasonId = useId();
+  const canRecover = data.menuProvenance === "LEGACY" && expired && !disabled &&
+    (data.mode === "REAL" || data.mode === "TRIAL");
   const [grantExpiredAt, setGrantExpiredAt] = useState<string | null>(null);
   const reasonId = useId();
   const grantExpiry = grant.expiresAt;
@@ -97,10 +103,23 @@ export function MenuStep({ data, restaurant, draft, disabled, grantDisabled, bus
             </div>
             {staged ? (
               <Alert tone={expired ? "warning" : data.importReviewed && !dirty ? "success" : "info"}>
-                <p className="font-medium">{t(unknownRetention ? "onboarding.menu.legacyRetention" : expired ? "onboarding.menu.error.expired" : data.importReviewed && !dirty ? "onboarding.menu.reviewed" : "onboarding.menu.reviewNeeded")}</p>
+                <p className="font-medium">{t(legacyRecovery || unknownRetention ? "onboarding.menu.legacyRetention" : expired ? "onboarding.menu.error.expired" : data.importReviewed && !dirty ? "onboarding.menu.reviewed" : "onboarding.menu.reviewNeeded")}</p>
                 {!expired && expiresAt ? <p>{t("onboarding.menu.expires", { when: fmt.dateTime(expiresAt) })}</p> : null}
                 {!expired && (!data.importReviewed || dirty) ? <p className="mt-1">{t("onboarding.menu.reviewHint")}</p> : null}
               </Alert>
+            ) : null}
+            {canRecover ? (
+              <div className="space-y-3 rounded-lg border border-border p-3">
+                <p className="text-sm">{t("onboarding.menu.recoverHint")}</p>
+                <Field id={recoveryReasonId} label={t("onboarding.menu.recoverReason")} hint={t("onboarding.menu.recoverReasonHint")}>
+                  <Input id={recoveryReasonId} value={recoveryReason} maxLength={500} disabled={actionsDisabled}
+                    onChange={(event) => setRecoveryReason(event.target.value)} {...describedBy(recoveryReasonId, true, null)} />
+                </Field>
+                <Button type="button" disabled={actionsDisabled || grantStatus !== "ACTIVE" || !recoveryReason.trim()}
+                  onClick={() => void onRecover(recoveryReason.trim()).then((ok) => { if (ok) setRecoveryReason(""); })}>
+                  {t("onboarding.menu.recover")}
+                </Button>
+              </div>
             ) : null}
             {staged && !disabled ? (
               <div className="flex flex-wrap gap-2">

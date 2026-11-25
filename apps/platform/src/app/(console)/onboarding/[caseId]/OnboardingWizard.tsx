@@ -13,6 +13,7 @@ import {
   getOnboardingCase,
   grantOnboardingImport,
   importOnboardingMenu,
+  recoverLegacyOnboardingMenu,
   revokeOnboardingImport,
   reviewOnboardingMenu,
   submitOnboardingForReview,
@@ -410,8 +411,8 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
   /** Actions consume the revision only after any queued edits have been saved. */
   async function runAction(
     request: (revision: number) => Promise<OnboardingCase>,
-    kind: "submit" | "cancel" | "menu" | "grant" | "final" | "deliver",
-    discardPendingMenu = false,
+    kind: "submit" | "cancel" | "menu" | "grant" | "recover" | "final" | "deliver",
+    pendingMenu: "normal" | "discard" | "preserve" = "normal",
   ): Promise<boolean> {
     if (!data || loadBusy || actionRef.current || conflictRef.current) return false;
     actionRef.current = true;
@@ -427,7 +428,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
       heldMenu = undefined;
     };
     try {
-      if (discardPendingMenu && pendingRef.current.menuDraft !== undefined) {
+      if (pendingMenu !== "normal" && pendingRef.current.menuDraft !== undefined) {
         // An expired draft cannot be PATCHed. Keep it locally until replacement or discard actually succeeds.
         heldMenu = pendingRef.current.menuDraft;
         pendingRef.current = { ...pendingRef.current, menuDraft: undefined };
@@ -438,8 +439,10 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
       if (!saved && (kind !== "cancel" || conflictRef.current || savingRef.current)) return false;
       requestRevision = revisionRef.current;
       const updated = await request(requestRevision);
-      heldMenu = undefined;
+      if (pendingMenu === "preserve") restoreHeldMenu();
+      else heldMenu = undefined;
       adopt(updated, kind !== "grant" && !hasPending(pendingRef.current));
+      if (kind === "recover" && pendingRef.current.menuDraft !== undefined) schedule();
       if ((kind === "final" || kind === "deliver") && isHandoffStepOpen(updated)) {
         movedRef.current = true;
         setStep("handoff");
@@ -482,10 +485,12 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
         setActionError(caught instanceof ApiError && caught.problems.includes("ONBOARDING_IMPORT_EXPIRED")
           ? "onboarding.menu.error.expired" : "onboarding.menu.error.review");
       } else {
-        setActionError(kind === "deliver" && code === "ONBOARDING_INVALID_TRANSITION"
-          ? "onboarding.handoff.deliveryChanged" : failure.key);
+        setActionError(kind === "recover" && code === "ONBOARDING_INVALID_TRANSITION"
+          ? "onboarding.menu.recoverUnavailable"
+          : kind === "deliver" && code === "ONBOARDING_INVALID_TRANSITION"
+            ? "onboarding.handoff.deliveryChanged" : failure.key);
       }
-      if (kind === "menu" || kind === "grant" || kind === "final" || kind === "deliver" || code === "ONBOARDING_INCOMPLETE") {
+      if (kind === "menu" || kind === "grant" || kind === "recover" || kind === "final" || kind === "deliver" || code === "ONBOARDING_INCOMPLETE") {
         // A lost response can still have committed; reconciliations only read the case, never replay a mutation.
         try {
           const fresh = await getOnboardingCase(caseId);
@@ -754,11 +759,12 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
             <MenuStep data={data} restaurant={form.details.restaurant} draft={form.menuDraft} disabled={!editable || conflict}
               grantDisabled={conflict || !['REAL', 'TRIAL'].includes(data.mode ?? '') || !['DRAFT', 'READY_FOR_REVIEW', 'FAILED', 'PROVISIONING', 'MENU_SETUP'].includes(data.status)}
               dirty={pendingFields.has("menu")} busy={actionBusy} saving={saveState === "saving"} expired={importExpired} onChange={onMenu}
-              onImport={(files) => runAction((revision) => importOnboardingMenu(caseId, revision, files), "menu", importExpired)}
+              onImport={(files) => runAction((revision) => importOnboardingMenu(caseId, revision, files), "menu", importExpired ? "discard" : "normal")}
               onReview={() => void runAction((revision) => reviewOnboardingMenu(caseId, revision), "menu")}
-              onDiscard={() => runAction((revision) => discardOnboardingImport(caseId, revision), "menu", importExpired)}
-              onGrant={(reason) => runAction((revision) => grantOnboardingImport(caseId, revision, reason), "grant")}
-              onRevoke={(reason) => runAction((revision) => revokeOnboardingImport(caseId, revision, reason), "grant")}
+              onDiscard={() => runAction((revision) => discardOnboardingImport(caseId, revision), "menu", importExpired ? "discard" : "normal")}
+              onGrant={(reason) => runAction((revision) => grantOnboardingImport(caseId, revision, reason), "grant", importExpired ? "preserve" : "normal")}
+              onRevoke={(reason) => runAction((revision) => revokeOnboardingImport(caseId, revision, reason), "grant", importExpired ? "preserve" : "normal")}
+              onRecover={(reason) => runAction((revision) => recoverLegacyOnboardingMenu(caseId, revision, reason), "recover", "preserve")}
               onOpenModeStep={() => goTo("mode")} />
           ) : null}
           {current === "review" ? (

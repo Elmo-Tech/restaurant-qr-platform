@@ -154,6 +154,7 @@ export class OnboardingMenuImportService
     await this.prisma.onboardingCase.updateMany({
       where: {
         importExpiresAt: { lte: now },
+        menuProvenance: { not: 'LEGACY' },
         menuDraft: { not: Prisma.DbNull },
       },
       data: {
@@ -503,6 +504,71 @@ export class OnboardingMenuImportService
           await tx.$executeRaw`UPDATE onboarding_import_usage SET finished_at = ${new Date()} WHERE id = ${lease.usageId}::uuid`;
       });
     }
+  }
+
+  async recoverLegacy(
+    admin: PlatformAdminPrincipal,
+    id: string,
+    revision: number,
+    reason: string,
+  ): Promise<CaseOutcome<OnboardingCaseView>> {
+    if (!isUuid(id)) return { outcome: 'notFound' };
+    if (!reason.trim() || reason.length > 500)
+      return { outcome: 'invalidInput', problems: ['recovery'] };
+    const changed = await this.prisma.$transaction(
+      async (tx): Promise<CaseOutcome<null>> => {
+        await tx.$queryRaw`SELECT id FROM onboarding_cases WHERE id = ${id}::uuid FOR UPDATE`;
+        const row = await tx.onboardingCase.findUnique({ where: { id } });
+        if (!row) return { outcome: 'notFound' };
+        if (row.revision !== revision)
+          return { outcome: 'revisionConflict', currentRevision: row.revision };
+        if (
+          !isEditable(row.status) ||
+          (row.mode !== 'REAL' && row.mode !== 'TRIAL') ||
+          row.menuPublishedAt
+        )
+          return { outcome: 'notEditable', status: row.status };
+        const [{ now }] = await tx.$queryRaw<
+          { now: Date }[]
+        >`SELECT clock_timestamp() AS now`;
+        if (
+          row.menuProvenance !== 'LEGACY' ||
+          !row.menuDraft ||
+          (row.importExpiresAt && row.importExpiresAt > now) ||
+          (row.importLeaseUntil && row.importLeaseUntil > now)
+        )
+          return { outcome: 'invalidTransition', status: row.status };
+        requireImportGrant(row, now);
+        const expiresAt = new Date(now.getTime() + RETENTION_MS);
+        await tx.onboardingCase.update({
+          where: { id },
+          data: {
+            importExpiresAt: expiresAt,
+            importReviewed: false,
+            status: 'DRAFT',
+            completedSteps: row.completedSteps.filter(
+              (step) => step !== 'menu',
+            ),
+            updatedByAdminId: admin.adminId,
+            revision: { increment: 1 },
+          },
+        });
+        await this.audit.record(
+          {
+            admin,
+            action: 'onboarding.legacy_draft_recovered',
+            details: {
+              caseId: id,
+              reason: reason.trim(),
+              expiresAt: expiresAt.toISOString(),
+            },
+          },
+          tx,
+        );
+        return { outcome: 'ok', data: null };
+      },
+    );
+    return changed.outcome === 'ok' ? this.cases.get(id) : changed;
   }
 
   async reviewOrDiscard(

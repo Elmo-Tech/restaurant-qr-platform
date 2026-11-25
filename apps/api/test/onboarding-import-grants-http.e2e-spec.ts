@@ -289,6 +289,71 @@ describeSandbox('onboarding imports across Nest API instances', () => {
     30000,
   );
 
+  it('requires platform authentication, trusted origin and a nonblank reason to recover LEGACY', async () => {
+    const row = await fixture();
+    const draft = { menus: [{ name: 'retained' }] };
+    await db.onboardingCase.update({
+      where: { id: row.id },
+      data: { menuDraft: draft, menuProvenance: 'LEGACY' },
+    });
+    const url = `/api/v1/platform/onboarding-cases/${row.id}/menu-import/recover-legacy`;
+    const unauthenticated = await request(first.getHttpServer())
+      .post(url)
+      .set('Origin', origin)
+      .send({ revision: row.revision, reason: 'reason' });
+    expect(unauthenticated.status).toBe(401);
+    const badOrigin = await request(first.getHttpServer())
+      .post(url)
+      .set('Origin', 'https://attacker.invalid')
+      .set('Cookie', cookie)
+      .send({ revision: row.revision, reason: 'reason' });
+    expect(badOrigin.status).toBe(403);
+    for (const body of [
+      { revision: row.revision },
+      { revision: row.revision, reason: '   ' },
+    ]) {
+      const invalid = await request(first.getHttpServer())
+        .post(url)
+        .set('Origin', origin)
+        .set('Cookie', cookie)
+        .send(body);
+      expect(invalid.status).toBe(400);
+    }
+    const before = await db.onboardingCase.findUniqueOrThrow({
+      where: { id: row.id },
+    });
+    expect(before).toMatchObject({
+      menuDraft: draft,
+      menuProvenance: 'LEGACY',
+      revision: row.revision,
+      importExpiresAt: null,
+    });
+    expect(
+      await db.platformAuditLog.count({
+        where: {
+          adminId,
+          action: 'onboarding.legacy_draft_recovered',
+          details: { path: ['caseId'], equals: row.id },
+        },
+      }),
+    ).toBe(0);
+    const authorized = await request(first.getHttpServer())
+      .post(url)
+      .set('Origin', origin)
+      .set('Cookie', cookie)
+      .send({ revision: row.revision, reason: 'reauthorize' });
+    expect(authorized.status).toBe(200);
+    const after = await db.onboardingCase.findUniqueOrThrow({
+      where: { id: row.id },
+    });
+    expect(after).toMatchObject({
+      menuDraft: draft,
+      menuProvenance: 'LEGACY',
+      revision: row.revision + 1,
+      importReviewed: false,
+    });
+  });
+
   it('does not expose a recovery bypass to a signed-in platform admin', async () => {
     const row = await fixture();
     extractor.extract.mockRejectedValueOnce(

@@ -329,6 +329,249 @@ describeSandbox('onboarding import grants (PostgreSQL)', () => {
     },
   );
 
+  it.each([null, new Date('2000-01-01T00:00:00Z')])(
+    'reauthorizes retained LEGACY content with old expiry %s and requires fresh review',
+    async (oldExpiry) => {
+      const row = await fixture();
+      const draft = { menus: [{ name: 'Retained', categories: [] }] };
+      await db.onboardingCase.update({
+        where: { id: row.id },
+        data: {
+          menuDraft: draft,
+          menuProvenance: 'LEGACY',
+          importExpiresAt: oldExpiry,
+          importReviewed: true,
+          completedSteps: ['customer', 'menu'],
+        },
+      });
+      const before = Date.now();
+      expect(
+        (
+          await service(db).recoverLegacy(
+            admin,
+            row.id,
+            row.revision,
+            '  review retained draft  ',
+          )
+        ).outcome,
+      ).toBe('ok');
+      const saved = await db.onboardingCase.findUniqueOrThrow({
+        where: { id: row.id },
+      });
+      expect(saved).toMatchObject({
+        menuDraft: draft,
+        menuProvenance: 'LEGACY',
+        importReviewed: false,
+        revision: row.revision + 1,
+        importGrantId: row.importGrantId,
+        completedSteps: ['customer'],
+      });
+      expect(saved.importExpiresAt!.getTime()).toBeGreaterThanOrEqual(
+        before + 7 * 86_400_000 - 1000,
+      );
+      expect(saved.importExpiresAt!.getTime()).toBeLessThanOrEqual(
+        Date.now() + 7 * 86_400_000 + 1000,
+      );
+      const audit = await db.platformAuditLog.findMany({
+        where: {
+          adminId: admin.adminId,
+          action: 'onboarding.legacy_draft_recovered',
+          details: { path: ['caseId'], equals: row.id },
+        },
+      });
+      expect(audit).toHaveLength(1);
+      expect(audit[0].details).toEqual({
+        caseId: row.id,
+        reason: 'review retained draft',
+        expiresAt: saved.importExpiresAt!.toISOString(),
+      });
+    },
+  );
+
+  it.each([
+    'no grant',
+    'expired grant',
+    'revoked grant',
+    'deleted',
+    'intact',
+    'published',
+    'manual',
+    'active lease',
+  ] as const)('does not recover %s', async (condition) => {
+    const row = await fixture();
+    await db.onboardingCase.update({
+      where: { id: row.id },
+      data: {
+        menuDraft: { menus: [{ name: 'retained' }] },
+        menuProvenance: 'LEGACY',
+        ...(condition === 'no grant' ? { importGrantId: null } : {}),
+        ...(condition === 'expired grant'
+          ? { importGrantExpiresAt: new Date('2000-01-01') }
+          : {}),
+        ...(condition === 'revoked grant'
+          ? { importGrantRevokedAt: new Date() }
+          : {}),
+        ...(condition === 'deleted' ? { menuDraft: undefined } : {}),
+        ...(condition === 'intact'
+          ? { importExpiresAt: new Date('2099-01-01') }
+          : {}),
+        ...(condition === 'published' ? { menuPublishedAt: new Date() } : {}),
+        ...(condition === 'manual' ? { menuProvenance: 'MANUAL' } : {}),
+        ...(condition === 'active lease'
+          ? { importLeaseUntil: new Date('2099-01-01') }
+          : {}),
+      },
+    });
+    if (condition === 'deleted')
+      await db.$executeRaw`UPDATE onboarding_cases SET menu_draft = NULL WHERE id = ${row.id}::uuid`;
+    const before = await db.onboardingCase.findUniqueOrThrow({
+      where: { id: row.id },
+    });
+    const result = await service(db)
+      .recoverLegacy(admin, row.id, row.revision, 'reason')
+      .catch((error: unknown) => error);
+    if (condition.includes('grant'))
+      expect(code(result)).toBe('ONBOARDING_IMPORT_GRANT_REQUIRED');
+    else
+      expect(result).toMatchObject({
+        outcome:
+          condition === 'published' ? 'notEditable' : 'invalidTransition',
+      });
+    expect(
+      await db.onboardingCase.findUniqueOrThrow({ where: { id: row.id } }),
+    ).toEqual(before);
+    expect(
+      await db.platformAuditLog.count({
+        where: {
+          adminId: admin.adminId,
+          action: 'onboarding.legacy_draft_recovered',
+          details: { path: ['caseId'], equals: row.id },
+        },
+      }),
+    ).toBe(0);
+  });
+
+  it('preserves expired LEGACY drafts across cleanup until explicit discard, while cleaning imported drafts', async () => {
+    const legacy = await fixture();
+    const imported = await fixture();
+    const draft = { menus: [{ name: 'retained' }] };
+    const expired = new Date('2000-01-01T00:00:00Z');
+    await db.onboardingCase.update({
+      where: { id: legacy.id },
+      data: {
+        menuDraft: draft,
+        menuProvenance: 'LEGACY',
+        importExpiresAt: expired,
+      },
+    });
+    await db.onboardingCase.update({
+      where: { id: imported.id },
+      data: {
+        menuDraft: draft,
+        menuProvenance: 'IMPORTED',
+        importExpiresAt: expired,
+      },
+    });
+    await service(db).cleanupExpired();
+    expect(
+      (await db.onboardingCase.findUniqueOrThrow({ where: { id: legacy.id } }))
+        .menuDraft,
+    ).toEqual(draft);
+    expect(
+      (
+        await db.onboardingCase.findUniqueOrThrow({
+          where: { id: imported.id },
+        })
+      ).menuDraft,
+    ).toBeNull();
+    expect(
+      (
+        await service(db).recoverLegacy(
+          admin,
+          legacy.id,
+          legacy.revision,
+          'retain',
+        )
+      ).outcome,
+    ).toBe('ok');
+    await service(db).cleanupExpired(new Date(Date.now() + 8 * 86_400_000));
+    const retained = await db.onboardingCase.findUniqueOrThrow({
+      where: { id: legacy.id },
+    });
+    expect(retained.menuDraft).toEqual(draft);
+    expect(
+      (
+        await service(db).reviewOrDiscard(
+          admin,
+          legacy.id,
+          retained.revision,
+          true,
+        )
+      ).outcome,
+    ).toBe('ok');
+    expect(
+      (await db.onboardingCase.findUniqueOrThrow({ where: { id: legacy.id } }))
+        .menuDraft,
+    ).toBeNull();
+  });
+
+  it('serializes concurrent reauthorization at the same revision', async () => {
+    const row = await fixture();
+    await db.onboardingCase.update({
+      where: { id: row.id },
+      data: { menuDraft: { menus: [] }, menuProvenance: 'LEGACY' },
+    });
+    const results = await Promise.all([
+      service(db).recoverLegacy(admin, row.id, row.revision, 'first'),
+      service(other).recoverLegacy(admin, row.id, row.revision, 'second'),
+    ]);
+    expect(results.map((result) => result.outcome).sort()).toEqual([
+      'ok',
+      'revisionConflict',
+    ]);
+    expect(
+      await db.platformAuditLog.count({
+        where: {
+          adminId: admin.adminId,
+          action: 'onboarding.legacy_draft_recovered',
+          details: { path: ['caseId'], equals: row.id },
+        },
+      }),
+    ).toBe(1);
+  });
+
+  it('rolls back reauthorization when audit persistence fails', async () => {
+    const row = await fixture();
+    await db.onboardingCase.update({
+      where: { id: row.id },
+      data: {
+        menuDraft: { menus: [] },
+        menuProvenance: 'LEGACY',
+        importReviewed: true,
+      },
+    });
+    const before = await db.onboardingCase.findUniqueOrThrow({
+      where: { id: row.id },
+    });
+    const audit = new PlatformAuditService(db);
+    jest
+      .spyOn(audit, 'record')
+      .mockRejectedValue(new Error('audit unavailable'));
+    const failing = new OnboardingMenuImportService(
+      db,
+      cases,
+      extractor as unknown as MenuImportExtractor,
+      audit,
+      new ConfigService(limits),
+    );
+    await expect(
+      failing.recoverLegacy(admin, row.id, row.revision, 'reason'),
+    ).rejects.toThrow('audit unavailable');
+    expect(
+      await db.onboardingCase.findUniqueOrThrow({ where: { id: row.id } }),
+    ).toEqual(before);
+  });
+
   it('regrant during extraction invalidates the in-flight generation and preserves attempts', async () => {
     const row = await fixture(1);
     let started!: () => void;

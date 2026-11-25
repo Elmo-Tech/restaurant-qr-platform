@@ -79,6 +79,11 @@ describe('onboarding import: error classification (A1)', () => {
       'onboarding.grant.required',
       'onboarding.grant.title',
       'onboarding.menu.legacyRetention',
+      'onboarding.menu.recoverHint',
+      'onboarding.menu.recoverReason',
+      'onboarding.menu.recoverReasonHint',
+      'onboarding.menu.recover',
+      'onboarding.menu.recoverUnavailable',
       'onboarding.menu.unavailable.notInPackage',
       'onboarding.menu.unavailable.noPackage',
       'onboarding.menu.unavailable.hint',
@@ -104,6 +109,19 @@ describe('onboarding import: wizard and menu step wiring (A1)', () => {
   const root = path.resolve(__dirname, '../../apps/platform/src/app/(console)/onboarding/[caseId]');
   const wizard = readFileSync(path.join(root, 'OnboardingWizard.tsx'), 'utf8');
   const menuStep = readFileSync(path.join(root, 'MenuStep.tsx'), 'utf8');
+
+  it('wires explicit legacy recovery with a reason and preserves pending menu edits', () => {
+    const api = readFileSync(path.resolve(__dirname, '../../apps/platform/src/lib/api/onboarding.ts'), 'utf8');
+    expect(api).toContain('/menu-import/recover-legacy');
+    expect(api).toContain('body: { revision, reason }');
+    expect(menuStep).toContain('data.menuProvenance === "LEGACY" && expired');
+    expect(menuStep).toContain('grantStatus !== "ACTIVE" || !recoveryReason.trim()');
+    expect(menuStep).toContain('onRecover(recoveryReason.trim())');
+    expect(wizard).toContain('recoverLegacyOnboardingMenu(caseId, revision, reason), "recover", "preserve"');
+    expect(wizard).toContain('if (pendingMenu === "preserve") restoreHeldMenu()');
+    expect(wizard).toContain('kind === "recover" && pendingRef.current.menuDraft !== undefined');
+    expect(wizard).toContain('onboarding.menu.recoverUnavailable');
+  });
 
   it('never maps a status code straight to the case-access message', () => {
     expect(wizard).not.toMatch(/status === 403\)\s*return "onboarding\.handoff\.accessDenied"/);
