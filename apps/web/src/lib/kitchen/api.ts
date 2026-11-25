@@ -9,10 +9,12 @@ import type { KitchenTicket } from './types';
 export async function listKitchenTickets(
   restaurantId: string,
   branchId?: string,
+  options: { signal?: AbortSignal } = {},
 ): Promise<KitchenTicket[]> {
   const query = branchId ? `?branchId=${encodeURIComponent(branchId)}` : '';
   const body = await apiFetch<{ data: KitchenTicket[] }>(
     `/restaurants/${restaurantId}/kitchen/orders${query}`,
+    { signal: options.signal },
   );
   return body.data;
 }

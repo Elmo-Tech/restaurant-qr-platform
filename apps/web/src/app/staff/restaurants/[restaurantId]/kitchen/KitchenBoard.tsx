@@ -2,13 +2,26 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
+import type { MessageKey } from '../../../../../lib/i18n/messages';
 import { localizedName } from '../../../../../lib/i18n/localized-name';
 import * as kitchenApi from '../../../../../lib/kitchen/api';
+import {
+  KITCHEN_ACTION_TIMEOUT_MS,
+  KITCHEN_READ_TIMEOUT_MS,
+  appendBoardNotices,
+  classifyKitchenActionError,
+  detectArrivals,
+  nextKitchenStatus,
+  pruneCardNotices,
+  resolvePendingChecks,
+  type BoardNotice,
+  type CardNotice,
+  type PendingCheck,
+} from '../../../../../lib/kitchen/board-state';
 import { canUpdateKitchen } from '../../../../../lib/kitchen/capabilities';
 import type { KitchenStatus, KitchenTicket } from '../../../../../lib/kitchen/types';
 import * as ordersApi from '../../../../../lib/orders/api';
 import type { AuthContextBranch } from '../../../../../lib/auth/types';
-import { ApiError } from '../../../../../lib/api/errors';
 import {
   describeError,
   isUnauthenticatedError,
@@ -19,44 +32,40 @@ import { Button } from '../../../../../components/ui/Button';
 import { ChipGroup, type ChipOption } from '../../../../../components/ui/ChipGroup';
 import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../components/ui/PageHeader';
-import { KitchenTicketCard } from './KitchenTicketCard';
+import { ReadErrorAlert } from '../../../../../components/staff/ReadErrorAlert';
+import { IconSound } from '../../../../../components/staff/icons';
+import { KitchenTicketCard, kitchenTicketLabel, type KitchenCardNotice } from './KitchenTicketCard';
+import { useKitchenSound } from './useKitchenSound';
 
 const POLL_INTERVAL_MS = 5_000;
 const CLOCK_INTERVAL_MS = 20_000;
-const SOUND_KEY = 'kitchen-sound';
 const COLUMNS: readonly KitchenStatus[] = ['ACCEPTED', 'PREPARING', 'READY'];
 
-const NEXT_STATUS: Record<'ACCEPTED' | 'PREPARING', 'PREPARING' | 'READY'> = {
-  ACCEPTED: 'PREPARING',
-  PREPARING: 'READY',
-};
+/**
+ * Why a read is requested. `reconcile` must observe the server AFTER a status
+ * change settled, so it never reuses a read that was already in flight.
+ */
+type ReadReason = 'initial' | 'poll' | 'visible' | 'manual' | 'reconcile';
+/** `stale`: the result belonged to a previous branch session (or unmounted board) and was discarded. */
+type ReadResult = 'ok' | 'failed' | 'stale';
 
-/** A short, soft two-note chime (no audio file). Browsers only allow it after the user has interacted with the page, which the Sound toggle guarantees. */
-function playChime(): void {
-  try {
-    const AudioContextClass =
-      window.AudioContext ??
-      (window as unknown as { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioContextClass) return;
-    const context = new AudioContextClass();
-    const now = context.currentTime;
-    [660, 880].forEach((frequency, index) => {
-      const oscillator = context.createOscillator();
-      const gain = context.createGain();
-      oscillator.type = 'sine';
-      oscillator.frequency.value = frequency;
-      gain.gain.setValueAtTime(0.0001, now + index * 0.18);
-      gain.gain.exponentialRampToValueAtTime(0.25, now + index * 0.18 + 0.02);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + index * 0.18 + 0.3);
-      oscillator.connect(gain).connect(context.destination);
-      oscillator.start(now + index * 0.18);
-      oscillator.stop(now + index * 0.18 + 0.32);
-    });
-    window.setTimeout(() => void context.close(), 900);
-  } catch {
-    // A blocked or unsupported audio device must never break the board.
-  }
+/** The data of ONE branch session. Tagged with its branch so another branch's data can never render. */
+interface BoardData {
+  branchId: string | null;
+  tickets: KitchenTicket[] | null;
+  loadedAt: Date | null;
+  /** Localized reason of the latest failed read; cleared by the next successful one. */
+  error: string | null;
 }
+
+/** One polite announcement at a time: recovery after a failed read, or a ticket that left during reconciliation. */
+interface Announcement {
+  key: MessageKey;
+  params?: Record<string, string>;
+}
+
+const EMPTY_BOARD: BoardData = { branchId: null, tickets: null, loadedAt: null, error: null };
+const NO_BUSY: ReadonlySet<string> = new Set();
 
 export interface KitchenBoardProps {
   restaurantId: string;
@@ -66,34 +75,55 @@ export interface KitchenBoardProps {
 }
 
 /**
- * Kitchen View V1 (VERSION_ROADMAP, STAFF_DASHBOARD_UX_SPEC #99-#110): one
+ * Kitchen View V1 (VERSION_ROADMAP, STAFF_DASHBOARD_UX_SPEC #99-#119): one
  * Branch at a time, three columns -- New, Preparing, Ready -- oldest ticket
- * first. It refreshes itself every few seconds (and the moment the tab
- * becomes visible again), chimes when a new ticket arrives (opt-in), and moves
- * a ticket forward with one big button through the existing, Backend-checked
- * status route. Below the large breakpoint the columns become tabs so a phone
- * or a small tablet shows one column at a time.
+ * first. It polls every few seconds (and the moment the tab becomes visible
+ * again), chimes when a new ticket arrives (opt-in), and moves a ticket
+ * forward with one big button through the existing, Backend-checked status
+ * route. Below the large breakpoint the columns become tabs.
+ *
+ * Kitchen K1 (states and recovery): reads never overlap -- polling, the
+ * visible-tab refetch and Refresh join the read in flight, and a
+ * reconciliation after a status change queues exactly one fresh read behind
+ * it. Every read and action belongs to a branch session; switching branches
+ * (or unmounting) discards whatever the previous session still had in flight.
+ * A status change with an unknown outcome blocks that ticket until a read
+ * started after it succeeds.
  */
 export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoardProps) {
-  const { t, locale } = useStaffI18n();
+  const { t, locale, formatTime } = useStaffI18n();
   const canUpdate = canUpdateKitchen(permissions);
+  const sound = useKitchenSound();
+  const playChime = sound.play;
   const activeBranches = useMemo(
     () => branches.filter((branch) => branch.status === 'ACTIVE'),
     [branches],
   );
-  const [branchId, setBranchId] = useState<string | null>(activeBranches[0]?.id ?? null);
-  const [tickets, setTickets] = useState<KitchenTicket[] | null>(null);
-  const [loadFailed, setLoadFailed] = useState(false);
-  const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
+  const initialBranchId = activeBranches[0]?.id ?? null;
+  const [branchId, setBranchId] = useState<string | null>(initialBranchId);
+  const [board, setBoard] = useState<BoardData>(EMPTY_BOARD);
+  const [refreshing, setRefreshing] = useState(false);
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(NO_BUSY);
+  const [pending, setPending] = useState<Record<string, PendingCheck>>({});
+  const [cardNotices, setCardNotices] = useState<Record<string, CardNotice>>({});
+  const [boardNotices, setBoardNotices] = useState<BoardNotice[]>([]);
+  const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [now, setNow] = useState<number>(0);
   const [column, setColumn] = useState<KitchenStatus>('ACCEPTED');
-  const [busyId, setBusyId] = useState<string | null>(null);
-  const [cardErrors, setCardErrors] = useState<Record<string, string>>({});
-  const [soundOn, setSoundOn] = useState(false);
 
-  const requestRef = useRef(0);
-  const seenNewRef = useRef<Set<string> | null>(null);
-  const soundRef = useRef(false);
+  /** Bumped on every branch switch and on unmount: any older read or action result is discarded. */
+  const generationRef = useRef(0);
+  const branchRef = useRef<string | null>(initialBranchId);
+  /** Every read gets a number; a pending check needs a read numbered after it. */
+  const readSeqRef = useRef(0);
+  const inFlightRef = useRef<{ seq: number; promise: Promise<ReadResult> } | null>(null);
+  const queuedRef = useRef<Promise<ReadResult> | null>(null);
+  /** Synchronous per-ticket action locks: a second tap in the same frame never sends twice. */
+  const locksRef = useRef<Set<string>>(new Set());
+  const pendingRef = useRef<Record<string, PendingCheck>>({});
+  const seenRef = useRef<Set<string> | null>(null);
+  const refreshLockRef = useRef(false);
+  const staleRef = useRef(false);
 
   // The ticket timers share one clock owned here, so they all tick together.
   useEffect(() => {
@@ -102,111 +132,217 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
     return () => window.clearInterval(timer);
   }, []);
 
-  // The Sound choice is a per-device convenience.
-  useEffect(() => {
-    try {
-      const stored = window.localStorage.getItem(SOUND_KEY) === 'on';
-      queueMicrotask(() => setSoundOn(stored));
-    } catch {
-      // Storage may be unavailable; the board works without it.
-    }
+  /** Ends the current branch session: nothing still in flight may touch the next one. */
+  const invalidateSession = useCallback(() => {
+    generationRef.current += 1;
+    inFlightRef.current = null;
+    queuedRef.current = null;
+    locksRef.current = new Set();
+    pendingRef.current = {};
+    seenRef.current = null;
+    refreshLockRef.current = false;
+    staleRef.current = false;
   }, []);
-  useEffect(() => {
-    soundRef.current = soundOn;
-  }, [soundOn]);
 
-  const load = useCallback(async () => {
+  useEffect(() => () => invalidateSession(), [invalidateSession]);
+
+  const runRead = useCallback(
+    (generation: number, branch: string): Promise<ReadResult> => {
+      const seq = ++readSeqRef.current;
+      const promise = (async (): Promise<ReadResult> => {
+        try {
+          // Bounded: a hung read would otherwise hold the single in-flight slot and stop every later poll.
+          const list = await kitchenApi.listKitchenTickets(restaurantId, branch, {
+            signal: AbortSignal.timeout(KITCHEN_READ_TIMEOUT_MS),
+          });
+          if (generationRef.current !== generation) return 'stale';
+
+          const arrivals = detectArrivals(seenRef.current, list);
+          seenRef.current = arrivals.seen;
+          if (arrivals.arrived.length > 0) playChime();
+
+          const resolution = resolvePendingChecks(pendingRef.current, list, seq);
+          pendingRef.current = resolution.pending;
+          setPending(resolution.pending);
+          setCardNotices((current) => ({ ...pruneCardNotices(current, list), ...resolution.cardNotices }));
+          const lastLeft = resolution.boardNotices.at(-1);
+          if (lastLeft) {
+            setBoardNotices((current) => appendBoardNotices(current, resolution.boardNotices));
+            setAnnouncement({ key: 'kitchen.boardNotice.left', params: { label: lastLeft.label } });
+          }
+          setBoard({ branchId: branch, tickets: list, loadedAt: new Date(), error: null });
+          setNow(Date.now());
+          if (staleRef.current) {
+            staleRef.current = false;
+            setAnnouncement({ key: 'kitchen.announce.recovered' });
+          }
+          return 'ok';
+        } catch (error) {
+          if (generationRef.current !== generation) return 'stale';
+          if (isUnauthenticatedError(error)) {
+            redirectToLogin();
+            return 'failed';
+          }
+          // The last loaded board stays on screen, labelled as out of date.
+          staleRef.current = true;
+          setAnnouncement(null);
+          setBoard((current) => ({ ...current, branchId: branch, error: describeError(error) }));
+          return 'failed';
+        } finally {
+          if (inFlightRef.current?.seq === seq) inFlightRef.current = null;
+        }
+      })();
+      inFlightRef.current = { seq, promise };
+      return promise;
+    },
+    [restaurantId, playChime],
+  );
+
+  /** The single entry point for reads: at most one in flight, plus at most one fresh read queued behind it. */
+  const requestRead = useCallback(
+    (reason: ReadReason): Promise<ReadResult> => {
+      const branch = branchRef.current;
+      if (branch === null) return Promise.resolve('stale');
+      const generation = generationRef.current;
+      if (queuedRef.current) return queuedRef.current;
+      const inFlight = inFlightRef.current;
+      if (!inFlight) return runRead(generation, branch);
+      if (reason !== 'reconcile') return inFlight.promise;
+      const queued: Promise<ReadResult> = inFlight.promise.then(() => {
+        if (queuedRef.current === queued) queuedRef.current = null;
+        if (generationRef.current !== generation) return 'stale';
+        return runRead(generation, branch);
+      });
+      queuedRef.current = queued;
+      return queued;
+    },
+    [runRead],
+  );
+
+  // First load of a branch session, the polling loop and "tab visible again".
+  useEffect(() => {
     if (branchId === null) return;
-    const requestId = ++requestRef.current;
-    try {
-      const list = await kitchenApi.listKitchenTickets(restaurantId, branchId);
-      if (requestRef.current !== requestId) return; // superseded -- discard
-      // Chime for tickets that are new since the last look (never for the first load).
-      const newIds = new Set(list.filter((ticket) => ticket.status === 'ACCEPTED').map((ticket) => ticket.id));
-      const seen = seenNewRef.current;
-      if (seen !== null && soundRef.current && [...newIds].some((id) => !seen.has(id))) {
-        playChime();
-      }
-      seenNewRef.current = newIds;
-      setTickets(list);
-      setLoadFailed(false);
-      setUpdatedAt(new Date());
-      setNow(Date.now());
-    } catch (error) {
-      if (requestRef.current !== requestId) return;
-      if (isUnauthenticatedError(error)) {
-        redirectToLogin();
-        return;
-      }
-      setLoadFailed(true);
-    }
-  }, [restaurantId, branchId]);
-
-  // First load, a new Branch, the polling loop and "tab visible again".
-  useEffect(() => {
-    seenNewRef.current = null;
-    queueMicrotask(() => {
-      setTickets(null);
-      void load();
-    });
-    const timer = window.setInterval(() => void load(), POLL_INTERVAL_MS);
+    void requestRead('initial');
+    const timer = window.setInterval(() => void requestRead('poll'), POLL_INTERVAL_MS);
     const onVisible = () => {
-      if (document.visibilityState === 'visible') void load();
+      if (document.visibilityState === 'visible') void requestRead('visible');
     };
     document.addEventListener('visibilitychange', onVisible);
     return () => {
       window.clearInterval(timer);
       document.removeEventListener('visibilitychange', onVisible);
     };
-  }, [load]);
+  }, [branchId, requestRead]);
+
+  /** Refresh, Retry and "Check again": read-only, never a status change, and never two at once. */
+  const refreshNow = useCallback(
+    (reason: 'manual' | 'reconcile') => {
+      if (refreshLockRef.current) return;
+      refreshLockRef.current = true;
+      setRefreshing(true);
+      const generation = generationRef.current;
+      void requestRead(reason).finally(() => {
+        if (generationRef.current !== generation) return;
+        refreshLockRef.current = false;
+        setRefreshing(false);
+      });
+    },
+    [requestRead],
+  );
+
+  function selectBranch(next: string) {
+    if (next === branchRef.current) return;
+    invalidateSession();
+    branchRef.current = next;
+    // One batched update: the previous branch's tickets, errors, time and notices never render with the new one.
+    setBranchId(next);
+    setBoard(EMPTY_BOARD);
+    setRefreshing(false);
+    setBusyIds(NO_BUSY);
+    setPending({});
+    setCardNotices({});
+    setBoardNotices([]);
+    setAnnouncement(null);
+  }
 
   const advance = useCallback(
-    async (ticket: KitchenTicket) => {
-      if (ticket.status === 'READY') return;
-      setBusyId(ticket.id);
-      setCardErrors((current) => {
+    async (ticket: KitchenTicket, label: string) => {
+      const to = nextKitchenStatus(ticket.status);
+      if (to === null) return;
+      const locks = locksRef.current;
+      if (locks.has(ticket.id) || pendingRef.current[ticket.id]) return;
+      locks.add(ticket.id);
+      const generation = generationRef.current;
+      const isCurrent = () => generationRef.current === generation;
+      setBusyIds((current) => new Set(current).add(ticket.id));
+      setCardNotices((current) => {
         const rest = { ...current };
         delete rest[ticket.id];
         return rest;
       });
+
       try {
-        await ordersApi.updateOrderStatus(restaurantId, ticket.id, {
-          expectedStatus: ticket.status,
-          status: NEXT_STATUS[ticket.status],
-        });
-        await load();
-      } catch (error) {
-        if (isUnauthenticatedError(error)) {
-          redirectToLogin();
-          return;
+        let kind: PendingCheck['kind'];
+        try {
+          // A timed-out request may still have been applied: it is classified `unknown` and reconciled.
+          await ordersApi.updateOrderStatus(
+            restaurantId,
+            ticket.id,
+            { expectedStatus: ticket.status, status: to },
+            { signal: AbortSignal.timeout(KITCHEN_ACTION_TIMEOUT_MS) },
+          );
+          kind = 'saved';
+        } catch (error) {
+          const failure = classifyKitchenActionError(error);
+          if (failure === 'unauthenticated') {
+            redirectToLogin();
+            return;
+          }
+          if (!isCurrent()) return;
+          if (failure === 'denied' || failure === 'rejected') {
+            // Definitely not applied: the shown state is still right, so the ticket stays actionable.
+            const notice: CardNotice =
+              failure === 'denied'
+                ? { kind: 'denied', status: ticket.status }
+                : { kind: 'failed', status: ticket.status, message: describeError(error) };
+            setCardNotices((current) => ({ ...current, [ticket.id]: notice }));
+            return;
+          }
+          kind = failure; // 'conflict' | 'unknown'
         }
-        // Someone else (another tablet, the Orders page) already moved this ticket: say so and show the truth.
-        if (error instanceof ApiError && error.status === 409) {
-          setCardErrors((current) => ({ ...current, [ticket.id]: t('kitchen.staleAction') }));
-          await load();
-        } else {
-          setCardErrors((current) => ({
-            ...current,
-            [ticket.id]: describeError(error) || t('kitchen.actionFailed'),
-          }));
-        }
+        if (!isCurrent()) return;
+
+        // Blocked until a read that starts after this point answers for the ticket.
+        pendingRef.current = {
+          ...pendingRef.current,
+          [ticket.id]: {
+            ticketId: ticket.id,
+            label,
+            from: ticket.status,
+            to,
+            kind,
+            afterRead: readSeqRef.current,
+          },
+        };
+        setPending(pendingRef.current);
+        await requestRead('reconcile');
       } finally {
-        setBusyId(null);
+        locks.delete(ticket.id);
+        if (isCurrent()) {
+          setBusyIds((current) => {
+            const next = new Set(current);
+            next.delete(ticket.id);
+            return next;
+          });
+        }
       }
     },
-    [restaurantId, load, t],
+    [restaurantId, requestRead],
   );
 
-  function toggleSound() {
-    const next = !soundOn;
-    setSoundOn(next);
-    try {
-      window.localStorage.setItem(SOUND_KEY, next ? 'on' : 'off');
-    } catch {
-      // Ignore: the toggle still works for this visit.
-    }
-    if (next) playChime(); // a preview, and the user gesture the browser needs
-  }
+  const tickets = board.branchId === branchId ? board.tickets : null;
+  const readError = board.branchId === branchId ? board.error : null;
+  const loadedAt = board.branchId === branchId ? board.loadedAt : null;
 
   const byColumn = useMemo(() => {
     const groups: Record<KitchenStatus, KitchenTicket[]> = { ACCEPTED: [], PREPARING: [], READY: [] };
@@ -239,9 +375,34 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
     label: localizedName(branch, locale),
   }));
 
+  function cardNoticeView(notice: CardNotice | undefined): KitchenCardNotice | null {
+    if (!notice) return null;
+    switch (notice.kind) {
+      case 'denied':
+        return { tone: 'error', text: t('kitchen.notice.denied') };
+      case 'failed':
+        return { tone: 'error', text: notice.message || t('kitchen.actionFailed') };
+      case 'confirmed':
+        return { tone: 'info', text: t('kitchen.notice.confirmed', { column: columnLabel[notice.status] }) };
+      case 'notApplied':
+        return { tone: 'info', text: t('kitchen.notice.notApplied') };
+      case 'changedElsewhere':
+        return { tone: 'info', text: t('kitchen.notice.changedElsewhere', { column: columnLabel[notice.status] }) };
+    }
+  }
+
+  const pendingText: Record<PendingCheck['kind'], string> = {
+    saved: t('kitchen.pending.saved'),
+    unknown: t('kitchen.pending.unknown'),
+    conflict: t('kitchen.pending.conflict'),
+  };
+
   if (activeBranches.length === 0) {
     return <Alert variant="info">{t('kitchen.noBranches')}</Alert>;
   }
+
+  const loadedTime = loadedAt ? formatTime(loadedAt) : null;
+  const isStale = readError !== null && tickets !== null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -250,48 +411,118 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
         description={t('kitchen.subtitle')}
         actions={
           <>
-            <span
-              role="status"
-              className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
-                loadFailed ? 'bg-warning-soft text-warning' : 'bg-success-soft text-success'
-              }`}
-            >
+            {/*
+              Not a live region: it changes on every poll (recovery is announced
+              once, below). Hidden when nothing has loaded yet and the read
+              failed: the error alert already says so.
+            */}
+            {loadedTime === null && readError ? null : (
               <span
-                aria-hidden="true"
-                className={`size-2 rounded-full ${loadFailed ? 'bg-warning' : 'animate-pulse bg-success'}`}
-              />
-              {loadFailed
-                ? t('kitchen.loadFailed')
-                : updatedAt
-                  ? t('kitchen.updatedAt', { time: updatedAt.toLocaleTimeString() })
-                  : t('kitchen.live')}
-            </span>
-            <Button type="button" variant="secondary" size="sm" onClick={toggleSound} aria-pressed={soundOn}>
-              {soundOn ? t('kitchen.sound.on') : t('kitchen.sound.off')}
+                className={`inline-flex items-center gap-2 rounded-full px-3 py-1.5 text-xs font-semibold ${
+                  readError ? 'bg-warning-soft text-warning' : 'bg-success-soft text-success'
+                }`}
+              >
+                <span
+                  aria-hidden="true"
+                  className={`size-2 rounded-full ${readError ? 'bg-warning' : 'animate-pulse bg-success motion-reduce:animate-none'}`}
+                />
+                {loadedTime === null
+                  ? t('kitchen.connecting')
+                  : readError
+                    ? t('kitchen.notUpToDate', { time: loadedTime })
+                    : t('kitchen.updatedAt', { time: loadedTime })}
+              </span>
+            )}
+            <Button
+              type="button"
+              variant="secondary"
+              aria-pressed={sound.preference}
+              onClick={sound.toggle}
+              className="min-h-11 aria-pressed:border-primary aria-pressed:text-primary"
+            >
+              <IconSound muted={!sound.preference} />
+              {t('kitchen.sound.label')}
             </Button>
-            <Button type="button" variant="secondary" size="sm" onClick={() => void load()}>
-              {t('kitchen.refresh')}
+            {sound.preference && sound.audio === 'blocked' ? (
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={sound.enable}
+                className="min-h-11 border-warning text-warning"
+              >
+                {t('kitchen.sound.enable')}
+              </Button>
+            ) : null}
+            {sound.preference && sound.audio === 'unsupported' ? (
+              <span className="text-xs font-medium text-muted-foreground">{t('kitchen.sound.unsupported')}</span>
+            ) : null}
+            <Button
+              type="button"
+              variant="secondary"
+              disabled={refreshing}
+              aria-busy={refreshing || undefined}
+              onClick={() => refreshNow('manual')}
+              className="min-h-11"
+            >
+              {refreshing ? t('kitchen.refreshing') : t('kitchen.refresh')}
             </Button>
           </>
         }
       />
+
+      <p className="sr-only" aria-live="polite">
+        {announcement ? t(announcement.key, announcement.params) : ''}
+      </p>
 
       {activeBranches.length > 1 ? (
         <ChipGroup
           ariaLabel={t('kitchen.branch')}
           options={branchOptions}
           value={branchId ?? ''}
-          onChange={setBranchId}
+          onChange={selectBranch}
           size="lg"
         />
       ) : null}
 
       {!canUpdate ? <Alert variant="info">{t('kitchen.readOnly')}</Alert> : null}
 
+      {readError ? (
+        <ReadErrorAlert
+          title={
+            isStale && loadedTime
+              ? t('kitchen.refreshFailedTitle', { time: loadedTime })
+              : t('kitchen.loadFailedTitle')
+          }
+          detail={readError}
+          isRetrying={refreshing}
+          onRetry={() => refreshNow('manual')}
+        />
+      ) : null}
+
+      {/* Announced through the live region above; these stay until dismissed or the branch changes. */}
+      <ul className="flex flex-col gap-2 empty:hidden">
+        {boardNotices.map((notice) => (
+          <li
+            key={notice.id}
+            className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-info bg-info-soft px-4 py-2.5"
+          >
+            <p dir="auto" className="min-w-0 flex-1 text-sm font-medium text-foreground">
+              {t('kitchen.boardNotice.left', { label: notice.label })}
+            </p>
+            <Button
+              type="button"
+              variant="secondary"
+              className="min-h-11"
+              onClick={() => setBoardNotices((current) => current.filter((item) => item.id !== notice.id))}
+            >
+              {t('kitchen.dismiss')}
+            </Button>
+          </li>
+        ))}
+      </ul>
+
       {tickets === null ? (
-        loadFailed ? (
-          <Alert variant="error">{t('kitchen.loadFailed')}</Alert>
-        ) : (
+        readError ? null : (
           <LoadingState label={t('kitchen.loading')} />
         )
       ) : (
@@ -328,17 +559,24 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
                     {emptyLabel[status]}
                   </p>
                 ) : (
-                  byColumn[status].map((ticket) => (
-                    <KitchenTicketCard
-                      key={ticket.id}
-                      ticket={ticket}
-                      now={now}
-                      canUpdate={canUpdate}
-                      busy={busyId === ticket.id}
-                      error={cardErrors[ticket.id] ?? null}
-                      onAdvance={(target) => void advance(target)}
-                    />
-                  ))
+                  byColumn[status].map((ticket) => {
+                    const check = pending[ticket.id];
+                    const busy = busyIds.has(ticket.id);
+                    return (
+                      <KitchenTicketCard
+                        key={ticket.id}
+                        ticket={ticket}
+                        now={now}
+                        canUpdate={canUpdate}
+                        busy={busy}
+                        notice={cardNoticeView(cardNotices[ticket.id])}
+                        pending={check && !busy ? pendingText[check.kind] : null}
+                        checking={refreshing}
+                        onAdvance={(target) => void advance(target, kitchenTicketLabel(target, t))}
+                        onCheckAgain={() => refreshNow('reconcile')}
+                      />
+                    );
+                  })
                 )}
               </section>
             ))}

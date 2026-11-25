@@ -12,6 +12,12 @@ export function canViewKitchen(membership: AuthContextMembership): boolean {
   return membership.permissions.includes('kitchen.view') && usesKitchen(membership);
 }
 
+/**
+ * Start preparing / Mark ready go through `PATCH .../orders/{id}/status`,
+ * which first requires `orders.view` (its baseline `PermissionGuard`) and
+ * then `kitchen.update` for these two transitions. A custom role holding only
+ * `kitchen.update` would be refused, so it must not see enabled actions.
+ */
 export function canUpdateKitchen(permissions: readonly string[]): boolean {
-  return permissions.includes('kitchen.update');
+  return permissions.includes('orders.view') && permissions.includes('kitchen.update');
 }
