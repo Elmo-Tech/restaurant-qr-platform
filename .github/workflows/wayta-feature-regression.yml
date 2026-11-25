@@ -73,6 +73,7 @@ jobs:
       - name: Staff hubs, navigation, setup checklist and form feedback
         run: >-
           node --experimental-strip-types --test
+          apps/web/src/lib/menu-import/access.test.mjs
           apps/web/src/lib/staff/menu-hub.contract.test.mjs
           apps/web/src/lib/staff/mobile-navigation.test.mjs
           apps/web/src/lib/staff/mobile-navigation.contract.test.mjs

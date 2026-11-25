@@ -174,6 +174,32 @@ try {
   assert.equal(imported.menuDraft.menus[0].categories.length, 3);
   console.log('PASS AI prompt: canonical prompt copied (and manual fallback), template downloaded byte-identical, no API call until upload, AI-prepared .xlsx imported');
 
+  // A staged draft must survive a refused replacement. The package warning is advisory: the backend still decides.
+  const withoutImport = await data(await control(context, 'POST', '/packages', {
+    nameAr: `باقة بدون استيراد ${tag}`, nameEn: `UX No Import ${tag}`, features: ['DASHBOARD_ORDERING'],
+  }), 201);
+  const changed = await data(await control(context, 'PATCH', `${cases}/${real.id}`, {
+    revision: imported.revision, modeConfig: { packageId: withoutImport.id },
+  }), 200);
+  await page.goto(`${platform}/onboarding/${real.id}`);
+  await page.getByRole('navigation', { name: /steps/i }).getByRole('button', { name: /^Menu/ }).click();
+  await page.getByText(`Menu import is not included in the package “UX No Import ${tag}”.`, { exact: true }).waitFor();
+  await page.getByText('Imported draft needs review', { exact: true }).waitFor();
+  await field(page, 'Menu files').setInputFiles(join(root, 'apps', 'api', 'test', 'fixtures', 'menu-import', 'menu-ai-generated-openpyxl.xlsx'));
+  await button(page, 'Extract draft').click();
+  const [refused] = await Promise.all([
+    page.waitForResponse((r) => r.url().endsWith(`${cases}/${real.id}/menu-import`) && r.request().method() === 'POST'),
+    button(page, 'Extract draft').last().click(),
+  ]);
+  assert.equal(refused.status(), 403);
+  assert.equal((await refused.json()).error.code, 'FEATURE_NOT_AVAILABLE');
+  await page.getByText(/This is a package setting, not a missing permission/).waitFor();
+  await stepHeading(page, 'Menu').waitFor();
+  const afterRefusal = await current(context, real.id);
+  assert.deepEqual(afterRefusal.menuDraft, changed.menuDraft, '403 must not replace a staged draft');
+  assert.equal(afterRefusal.importAttempts, changed.importAttempts);
+  console.log('PASS import entitlement: feature refusal stays in wizard and preserves staged draft');
+
   // ---------------------------------------------------------------- 4. removing cases from the outer list
   const routineName = `UX routine ${tag}`;
   const routine = await newCase(context, { details: { restaurant: { name: routineName } } });

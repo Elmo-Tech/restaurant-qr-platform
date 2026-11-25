@@ -1,17 +1,18 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useEffect, useId, useState } from "react";
 import { Alert, Badge, Button, Card, CardHeader, Input } from "@/components/ui";
 import type { OnboardingCase, OnboardingMenuDraft, RestaurantDraft } from "@/lib/api/onboarding";
+import { listPackages, type PackageSummary } from "@/lib/api/platform";
 import { useI18n } from "@/lib/i18n/client";
-import { IMPORT_ATTEMPT_LIMIT, MENU_FILE_ACCEPT, menuFileProblem, menuProblemText } from "@/lib/onboarding-menu";
+import { IMPORT_ATTEMPT_LIMIT, MENU_FILE_ACCEPT, menuFileProblem, menuImportAvailability, menuProblemText } from "@/lib/onboarding-menu";
 import { AiPromptHelp } from "./AiPromptHelp";
 import { describedBy, Field } from "./fields";
 import { MenuEditor } from "./MenuEditor";
 
 const EMPTY_DRAFT: OnboardingMenuDraft = { menus: [] };
 
-export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirty, expired, onChange, onImport, onReview, onDiscard }: {
+export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirty, expired, onChange, onImport, onReview, onDiscard, onOpenModeStep }: {
   data: OnboardingCase;
   restaurant: RestaurantDraft;
   draft: OnboardingMenuDraft | null;
@@ -24,8 +25,10 @@ export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirt
   onImport: (files: readonly File[]) => Promise<boolean>;
   onReview: () => void;
   onDiscard: () => Promise<boolean>;
+  /** Opens the Mode step, where the package (and so Menu import) is chosen. */
+  onOpenModeStep: () => void;
 }) {
-  const { t, fmt } = useI18n();
+  const { t, fmt, locale } = useI18n();
   const id = useId();
   const [files, setFiles] = useState<File[]>([]);
   const [fileInputKey, setFileInputKey] = useState(0);
@@ -37,6 +40,22 @@ export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirt
   const actionsDisabled = disabled || busy || saving;
   const canReview = dirty || data.problems.menu.every((problem) => problem === "ONBOARDING_IMPORT_REVIEW_REQUIRED");
   const showImport = data.status === "DRAFT" || data.status === "READY_FOR_REVIEW" || staged;
+  const [packages, setPackages] = useState<PackageSummary[] | null>(null);
+  const notice = useId();
+
+  // Menu import is a package feature (DEC-057). Knowing it up front explains a refusal before a file is sent; the API
+  // still decides (403 FEATURE_NOT_AVAILABLE). If the packages cannot be read, nothing is blocked here.
+  useEffect(() => {
+    if (!showImport) return;
+    let cancelled = false;
+    listPackages()
+      .then((loaded) => { if (!cancelled) setPackages(loaded); })
+      .catch(() => undefined);
+    return () => { cancelled = true; };
+  }, [showImport]);
+  const availability = menuImportAvailability(data.modeConfig.packageId, packages);
+  const importBlocked = availability === "notInPackage" || availability === "noPackage";
+  const selectedPackage = packages?.find((pkg) => pkg.id === data.modeConfig.packageId);
 
   async function importFiles() {
     if (await onImport(files)) {
@@ -52,6 +71,17 @@ export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirt
         <Card>
           <CardHeader title={t("onboarding.menu.import")} description={t("onboarding.menu.importHint")} />
           <div className="space-y-3 p-3 sm:p-5">
+            {importBlocked && !disabled ? (
+              <Alert tone="warning">
+                <p id={notice} className="font-medium">
+                  {availability === "noPackage"
+                    ? t("onboarding.menu.unavailable.noPackage")
+                    : t("onboarding.menu.unavailable.notInPackage", { package: selectedPackage ? (locale === "ar" ? selectedPackage.nameAr : selectedPackage.nameEn) : "" })}
+                </p>
+                <p className="mt-1">{t(staged ? "onboarding.menu.unavailable.stagedHint" : "onboarding.menu.unavailable.hint")}</p>
+                <Button type="button" size="sm" className="mt-2" disabled={busy} onClick={onOpenModeStep}>{t("onboarding.menu.unavailable.openMode")}</Button>
+              </Alert>
+            ) : null}
             {staged ? (
               <Alert tone={expired ? "warning" : data.importReviewed && !dirty ? "success" : "info"}>
                 <p className="font-medium">{t(expired ? "onboarding.menu.error.expired" : data.importReviewed && !dirty ? "onboarding.menu.reviewed" : "onboarding.menu.reviewNeeded")}</p>
@@ -62,7 +92,8 @@ export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirt
             {staged && !disabled ? (
               <div className="flex flex-wrap gap-2">
                 {!expired && (!data.importReviewed || dirty) ? (
-                  <Button type="button" variant="primary" disabled={actionsDisabled || !canReview} onClick={onReview}>{t("onboarding.menu.review")}</Button>
+                  <Button type="button" variant="primary" disabled={actionsDisabled || !canReview} onClick={onReview}
+                    aria-describedby={importBlocked ? notice : undefined}>{t("onboarding.menu.review")}</Button>
                 ) : null}
                 <Button type="button" disabled={actionsDisabled} onClick={() => setConfirm("discard")}>{t("onboarding.menu.discard")}</Button>
               </div>
@@ -76,7 +107,8 @@ export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirt
                       setConfirm(null);
                     }} {...describedBy(id, true, fileProblem)} />
                 </Field>
-                <Button type="button" disabled={actionsDisabled || files.length === 0 || fileProblem !== null} onClick={() => {
+                <Button type="button" disabled={actionsDisabled || files.length === 0 || fileProblem !== null}
+                  aria-describedby={importBlocked ? notice : undefined} onClick={() => {
                   if (draft?.menus.length || staged) setConfirm("replace");
                   else void importFiles();
                 }}>{t("onboarding.menu.upload")}</Button>

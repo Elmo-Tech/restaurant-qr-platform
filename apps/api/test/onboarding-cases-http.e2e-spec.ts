@@ -1840,6 +1840,158 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
       }
     });
 
+    describe('menu import entitlement (A1 regression)', () => {
+      type Context = Awaited<ReturnType<typeof start>>;
+      const extraction = {
+        status: 'EXTRACTED',
+        schemaVersion: 1,
+        languages: ['ar'],
+        categories: [
+          {
+            translations: { ar: { name: 'Drinks' } },
+            products: [
+              { translations: { ar: { name: 'Tea' } }, price: '4.20' },
+            ],
+          },
+        ],
+      };
+      const png = () =>
+        sharp({
+          create: { width: 1, height: 1, channels: 3, background: 'white' },
+        })
+          .png()
+          .toBuffer();
+      async function uploadTo(
+        c: Context,
+        cookie: string | null = c.cookie,
+        origin: string | null = platformOrigin,
+      ) {
+        let req = request(app.getHttpServer()).post(
+          `/api/v1/platform${c.path}/menu-import`,
+        );
+        if (origin) req = req.set('Origin', origin);
+        if (cookie) req = req.set('Cookie', cookie);
+        return req
+          .field('revision', c.revision)
+          .attach('file', await png(), 'menu.png');
+      }
+      const importAudits = (c: Context) =>
+        prisma.platformAuditLog.count({
+          where: {
+            action: { startsWith: 'onboarding.import_' },
+            details: { path: ['caseId'], equals: c.id },
+          },
+        });
+      const caseRow = (c: Context) =>
+        prisma.onboardingCase.findUniqueOrThrow({ where: { id: c.id } });
+
+      it('refuses unauthorized uploads and a package without MENU_IMPORT before extraction or attempt counting', async () => {
+        const c = await start('REAL', false, false);
+        const extract = jest
+          .spyOn(app.get(MenuImportExtractor), 'extract')
+          .mockResolvedValue(extraction);
+        try {
+          expect((await uploadTo(c, null)).status).toBe(401);
+          const foreign = await uploadTo(
+            c,
+            c.cookie,
+            'https://foreign.example.test',
+          );
+          expect(foreign.status).toBe(403);
+          expect(foreign.body.error.code).toBe('CSRF_VALIDATION_FAILED');
+
+          // The package is the entitlement: a missing feature is 403 FEATURE_NOT_AVAILABLE, never a case-access error.
+          const refused = await uploadTo(c);
+          expect(refused.status).toBe(403);
+          expect(refused.body.error.code).toBe('FEATURE_NOT_AVAILABLE');
+          const row = await caseRow(c);
+          expect(row).toMatchObject({
+            revision: c.revision,
+            importAttempts: 0,
+            importExpiresAt: null,
+            importLeaseUntil: null,
+            menuDraft: null,
+          });
+          expect(await importAudits(c)).toBe(0);
+          expect(extract).not.toHaveBeenCalled();
+          // The case itself stays readable and editable by the same operator.
+          expect((await get(c.path, c.cookie)).status).toBe(200);
+
+          // Authorized: the same operator, after the package gains MENU_IMPORT, stages a draft.
+          await prisma.packageFeature.create({
+            data: { packageId: c.pkg.id, feature: 'MENU_IMPORT' },
+          });
+          const staged = await uploadTo(c);
+          expect(staged.status).toBe(200);
+          expect(staged.body.data).toMatchObject({
+            importAttempts: 1,
+            importReviewed: false,
+          });
+          expect(extract).toHaveBeenCalledTimes(1);
+          expect(await importAudits(c)).toBe(1);
+        } finally {
+          extract.mockRestore();
+        }
+      });
+
+      it('keeps an existing staged draft intact when the package loses MENU_IMPORT; discard stays available', async () => {
+        const c = await start('REAL', false, true);
+        const extract = jest
+          .spyOn(app.get(MenuImportExtractor), 'extract')
+          .mockResolvedValue(extraction);
+        try {
+          const staged = await uploadTo(c);
+          expect(staged.status).toBe(200);
+          c.revision = staged.body.data.revision as number;
+          const before = await caseRow(c);
+          expect(before.importAttempts).toBe(1);
+
+          await prisma.packageFeature.deleteMany({
+            where: { packageId: c.pkg.id },
+          });
+          const reupload = await uploadTo(c);
+          expect(reupload.status).toBe(403);
+          expect(reupload.body.error.code).toBe('FEATURE_NOT_AVAILABLE');
+          const reviewed = await send(
+            'post',
+            `${c.path}/menu-import/review`,
+            c.cookie,
+            { revision: c.revision },
+          );
+          expect(reviewed.status).toBe(403);
+          expect(reviewed.body.error.code).toBe('FEATURE_NOT_AVAILABLE');
+
+          const after = await caseRow(c);
+          expect(after).toMatchObject({
+            revision: before.revision,
+            importAttempts: 1,
+            importReviewed: false,
+            importLeaseUntil: null,
+          });
+          expect(after.menuDraft).toEqual(before.menuDraft);
+          expect(after.importExpiresAt).toEqual(before.importExpiresAt);
+          expect(await importAudits(c)).toBe(1);
+          expect(extract).toHaveBeenCalledTimes(1);
+          expect((await get(c.path, c.cookie)).status).toBe(200);
+
+          // Discarding needs no entitlement, so the operator can always fall back to a manual menu.
+          const discarded = await request(app.getHttpServer())
+            .delete(`/api/v1/platform${c.path}/menu-import`)
+            .set('Origin', platformOrigin)
+            .set('Cookie', c.cookie)
+            .send({ revision: c.revision });
+          expect(discarded.status).toBe(200);
+          expect(discarded.body.data).toMatchObject({
+            menuDraft: null,
+            importExpiresAt: null,
+            importAttempts: 1,
+          });
+        } finally {
+          extract.mockRestore();
+        }
+      });
+    });
+
     describe('A4 explicit handoff', () => {
       type Context = Awaited<ReturnType<typeof start>>;
       type LeadStatus = 'NEW' | 'CONTACTED' | 'DONE' | 'DISMISSED';

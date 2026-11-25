@@ -1,4 +1,6 @@
+import { ApiError, isNetworkFailure } from "./api/errors";
 import type { OnboardingCase, OnboardingMenuDraft, OnboardingProvisionInput } from "./api/onboarding";
+import type { PackageSummary } from "./api/platform";
 import type { MessageKey } from "./i18n/messages";
 import type { Translate } from "./i18n/translate";
 import { hasRequiredSteps } from "./onboarding-steps";
@@ -96,6 +98,61 @@ const ACTION_ERROR = new Map<string, MessageKey>([
   ["IMPORT_FILE_TOO_LARGE", "onboarding.menu.error.fileSize"],
 ]);
 export const onboardingErrorKey = (code: string | null) => (code ? ACTION_ERROR.get(code) : undefined);
+
+/**
+ * How the wizard shows a failed request. `case`: the case itself cannot be shown (it does not exist), so the wizard is
+ * replaced by the message. `inline`: the wizard, the step and every unsaved edit stay on screen and the message is shown
+ * above it. Platform onboarding has no per-case authorization, so a 403 is never "you may not open this case": it is a
+ * refused action (FEATURE_NOT_AVAILABLE for a package without Menu import) or a refused Origin (CSRF_VALIDATION_FAILED).
+ */
+export type OnboardingFailure = { scope: "case" | "inline"; key: MessageKey };
+
+function failureKey(caught: unknown): MessageKey {
+  if (isNetworkFailure(caught)) return "common.unreachable";
+  if (!(caught instanceof ApiError)) return "common.error";
+  if (caught.status === 401) return "onboarding.error.sessionExpired";
+  if (caught.code === "CSRF_VALIDATION_FAILED") return "onboarding.error.requestRejected";
+  if (caught.code === "PERMISSION_DENIED") return "onboarding.error.permissionDenied";
+  const mapped = onboardingErrorKey(caught.code);
+  if (mapped) return mapped;
+  if (caught.status === 403) return "onboarding.error.actionRefused";
+  return "common.error";
+}
+
+/** A failed action (save, import, review, submit, provision, deliver, cancel): only a vanished case leaves the wizard. */
+export function onboardingActionFailure(caught: unknown): OnboardingFailure {
+  if (caught instanceof ApiError && caught.status === 404 && caught.code === "ONBOARDING_CASE_NOT_FOUND") {
+    return { scope: "case", key: "onboarding.notFound" };
+  }
+  return { scope: "inline", key: failureKey(caught) };
+}
+
+/** A failed read of the case (first load, reload, or the re-read after a failed action). */
+export function onboardingLoadFailure(caught: unknown): OnboardingFailure {
+  if (caught instanceof ApiError && caught.status === 404) return { scope: "case", key: "onboarding.notFound" };
+  if (caught instanceof ApiError && caught.status === 401) return { scope: "case", key: "common.sessionExpired" };
+  if (caught instanceof ApiError && caught.status === 403 && caught.code !== "CSRF_VALIDATION_FAILED") {
+    return { scope: "case", key: "onboarding.handoff.accessDenied" };
+  }
+  return { scope: "case", key: failureKey(caught) };
+}
+
+/**
+ * Whether the case's SAVED package lets this case stage a menu import (UX only: the API decides, and refuses with
+ * 403 FEATURE_NOT_AVAILABLE). `unknown` while packages are loading or could not be loaded: nothing is blocked then.
+ */
+export type MenuImportAvailability = "available" | "noPackage" | "notInPackage" | "unknown";
+
+export function menuImportAvailability(
+  packageId: string | null,
+  packages: readonly Pick<PackageSummary, "id" | "features" | "status">[] | null,
+): MenuImportAvailability {
+  if (!packageId) return "noPackage";
+  if (!packages) return "unknown";
+  const selected = packages.find((pkg) => pkg.id === packageId);
+  if (!selected || selected.status !== "ACTIVE") return "unknown";
+  return selected.features.includes("MENU_IMPORT") ? "available" : "notInPackage";
+}
 
 type ProvisionState = Pick<OnboardingCase, "status" | "mode" | "completedSteps" | "problems" | "menuDraft" | "importExpiresAt" | "importReviewed">;
 
