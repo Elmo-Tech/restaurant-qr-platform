@@ -303,8 +303,14 @@ describeSandbox('Onboarding Platform menu writer (real PostgreSQL)', () => {
   it('rechecks review, retention, effective MENU_IMPORT and active locale', async () => {
     const future = new Date(Date.now() + 60_000);
     // Import gates apply only to non-MANUAL provenance (manual-only menus need no grant).
+    // The unreviewed case holds an active grant so the review gate is the one that refuses.
     const unreviewed = await fixture(
-      { importExpiresAt: future, menuProvenance: 'IMPORTED' },
+      {
+        importExpiresAt: future,
+        menuProvenance: 'IMPORTED',
+        importGrantId: randomUUID(),
+        importGrantExpiresAt: future,
+      },
       { importEntitled: true },
     );
     const expired = await fixture(
