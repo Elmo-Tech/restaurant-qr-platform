@@ -1,4 +1,5 @@
 import {
+  assertSandboxDatabase,
   assertSandboxIdentity,
   assertSandboxUrl,
   SANDBOX_MARKER,
@@ -105,5 +106,27 @@ describe('assertSandboxIdentity', () => {
     await expect(assertSandboxIdentity(connection(rows))).rejects.toThrow(
       /not the marked integration sandbox/,
     );
+  });
+});
+
+describe('assertSandboxDatabase (before the application exists)', () => {
+  it('refuses when no sandbox URL is configured', async () => {
+    await expect(assertSandboxDatabase(undefined)).rejects.toThrow(
+      /TABLE_SESSION_IT_DATABASE_URL is not set/,
+    );
+  });
+
+  it.each([
+    ['a remote host', SANDBOX.replace('127.0.0.1', 'db.example.com')],
+    [
+      'a non-sandbox name',
+      SANDBOX.replace('restaurant_qr_it_test', 'restaurant_qr_platform'),
+    ],
+    ['another role', SANDBOX.replace(SANDBOX_ROLE, 'postgres')],
+  ])('refuses %s before opening any connection', async (_label, url) => {
+    // Port 1 would fail to connect; the URL rules must reject first.
+    await expect(
+      assertSandboxDatabase(url.replace(':5432', ':1')),
+    ).rejects.toThrow(/Refusing to run/);
   });
 });

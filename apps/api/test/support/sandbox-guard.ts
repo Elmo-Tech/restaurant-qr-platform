@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import dotenv from 'dotenv';
+import { Client } from 'pg';
 
 /**
  * ISOLATION GUARD for every integration spec that WRITES to PostgreSQL
@@ -18,7 +19,10 @@ import dotenv from 'dotenv';
  *   5. the connected database carries the explicit sandbox marker comment
  *      `restaurant-qr-integration-sandbox` (set once when it is created; the
  *      development database never has it) -- checked by `assertSandboxIdentity`
- *      against the live connection BEFORE any write.
+ *      against the live connection BEFORE any write. `assertSandboxDatabase`
+ *      does the same on a short-lived raw connection, so a suite can verify the
+ *      target before the Nest application (and its bootstrap hooks) even
+ *      exists; `sandbox-global-setup.ts` runs it once per e2e run.
  *
  * Importing this module FIRST in a spec also points the Nest application at the
  * sandbox (DATABASE_URL) and disables rate limiting, because Nest's
@@ -95,6 +99,32 @@ export async function assertSandboxIdentity(prisma: {
     throw new Error(
       'Refusing to run: connected database is not the marked integration sandbox',
     );
+  }
+}
+
+/**
+ * Verifies the URL rules AND the live identity of the target on its own raw
+ * connection -- no Nest application, no Prisma -- so nothing of the app has
+ * started yet. Call it before `Test.createTestingModule` / `app.init()`.
+ */
+export async function assertSandboxDatabase(
+  rawUrl: string | undefined = SANDBOX_URL,
+): Promise<void> {
+  if (!rawUrl) {
+    throw new Error(
+      'Refusing to run: TABLE_SESSION_IT_DATABASE_URL is not set',
+    );
+  }
+  assertSandboxUrl(rawUrl);
+  const client = new Client({ connectionString: rawUrl });
+  await client.connect();
+  try {
+    await assertSandboxIdentity({
+      $queryRaw: async (strings) =>
+        (await client.query<Record<string, unknown>>(strings.join(''))).rows,
+    });
+  } finally {
+    await client.end();
   }
 }
 

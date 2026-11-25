@@ -26,13 +26,32 @@ export const DATABASE_SESSION_TIME_ZONE = 'UTC';
 const SESSION_OPTIONS = `-c TimeZone=${DATABASE_SESSION_TIME_ZONE}`;
 
 /**
- * `pg` lets an `options` query parameter in the URL override the pool config,
- * which would drop the UTC pin. Refuse it instead of merging so the effective
- * session settings stay obvious.
+ * Query parameter names exactly as `pg-connection-string` sees them: it reads
+ * `new URL(...).searchParams`, so names are percent-decoded (`%6Fptions` is
+ * `options`) and `+` is a space. The fallback parses only the query part for
+ * URLs WHATWG cannot parse (for example some socket-path hosts).
+ */
+function queryParameterNames(connectionString: string): string[] {
+  try {
+    return [...new URL(connectionString).searchParams.keys()];
+  } catch {
+    const start = connectionString.indexOf('?');
+    if (start < 0) return [];
+    const end = connectionString.indexOf('#', start);
+    const query = connectionString.slice(start + 1, end < 0 ? undefined : end);
+    return [...new URLSearchParams(query).keys()];
+  }
+}
+
+/**
+ * `pg` lets an `options` query parameter in the URL replace the pool config's
+ * `options` (an empty or value-less one too), which would drop the UTC pin.
+ * Refuse every spelling of it -- including case variants `pg` itself would
+ * ignore -- instead of merging, so the effective session settings stay obvious.
  */
 function assertNoOptionsParameter(connectionString: string): void {
-  const query = connectionString.split('?')[1] ?? '';
-  if (/(^|&)options=/i.test(query)) {
+  const names = queryParameterNames(connectionString);
+  if (names.some((name) => name.trim().toLowerCase() === 'options')) {
     throw new Error(
       'DATABASE_URL must not set the PostgreSQL "options" parameter: the application pins the session TimeZone to UTC itself.',
     );
