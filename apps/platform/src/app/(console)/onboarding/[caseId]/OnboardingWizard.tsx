@@ -11,7 +11,9 @@ import {
   discardOnboardingImport,
   finishOnboardingCase,
   getOnboardingCase,
+  grantOnboardingImport,
   importOnboardingMenu,
+  revokeOnboardingImport,
   reviewOnboardingMenu,
   submitOnboardingForReview,
   updateOnboardingCase,
@@ -408,7 +410,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
   /** Actions consume the revision only after any queued edits have been saved. */
   async function runAction(
     request: (revision: number) => Promise<OnboardingCase>,
-    kind: "submit" | "cancel" | "menu" | "final" | "deliver",
+    kind: "submit" | "cancel" | "menu" | "grant" | "final" | "deliver",
     discardPendingMenu = false,
   ): Promise<boolean> {
     if (!data || loadBusy || actionRef.current || conflictRef.current) return false;
@@ -437,7 +439,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
       requestRevision = revisionRef.current;
       const updated = await request(requestRevision);
       heldMenu = undefined;
-      adopt(updated, true);
+      adopt(updated, kind !== "grant" && !hasPending(pendingRef.current));
       if ((kind === "final" || kind === "deliver") && isHandoffStepOpen(updated)) {
         movedRef.current = true;
         setStep("handoff");
@@ -483,7 +485,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
         setActionError(kind === "deliver" && code === "ONBOARDING_INVALID_TRANSITION"
           ? "onboarding.handoff.deliveryChanged" : failure.key);
       }
-      if (kind === "menu" || kind === "final" || kind === "deliver" || code === "ONBOARDING_INCOMPLETE") {
+      if (kind === "menu" || kind === "grant" || kind === "final" || kind === "deliver" || code === "ONBOARDING_INCOMPLETE") {
         // A lost response can still have committed; reconciliations only read the case, never replay a mutation.
         try {
           const fresh = await getOnboardingCase(caseId);
@@ -750,10 +752,13 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
           ) : null}
           {current === "menu" ? (
             <MenuStep data={data} restaurant={form.details.restaurant} draft={form.menuDraft} disabled={!editable || conflict}
+              grantDisabled={conflict || !['REAL', 'TRIAL'].includes(data.mode ?? '') || !['DRAFT', 'READY_FOR_REVIEW', 'FAILED', 'PROVISIONING', 'MENU_SETUP'].includes(data.status)}
               dirty={pendingFields.has("menu")} busy={actionBusy} saving={saveState === "saving"} expired={importExpired} onChange={onMenu}
               onImport={(files) => runAction((revision) => importOnboardingMenu(caseId, revision, files), "menu", importExpired)}
               onReview={() => void runAction((revision) => reviewOnboardingMenu(caseId, revision), "menu")}
               onDiscard={() => runAction((revision) => discardOnboardingImport(caseId, revision), "menu", importExpired)}
+              onGrant={(reason) => runAction((revision) => grantOnboardingImport(caseId, revision, reason), "grant")}
+              onRevoke={(reason) => runAction((revision) => revokeOnboardingImport(caseId, revision, reason), "grant")}
               onOpenModeStep={() => goTo("mode")} />
           ) : null}
           {current === "review" ? (

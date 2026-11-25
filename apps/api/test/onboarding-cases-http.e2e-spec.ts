@@ -14,6 +14,7 @@ import sharp from 'sharp';
 import { MenuImportExtractor } from '../src/menu-import/menu-import-extractor';
 import { OnboardingMenuImportService } from '../src/platform/onboarding/onboarding-menu-import.service';
 import { OnboardingMenuWriterService } from '../src/platform/onboarding/onboarding-menu-writer.service';
+import { OnboardingProvisioningService } from '../src/platform/onboarding/onboarding-provisioning.service';
 import { PlatformAuditService } from '../src/platform/platform-audit.service';
 import { SubscriptionSyncService } from '../src/platform/billing/subscription-sync.service';
 import { App } from 'supertest/types';
@@ -110,6 +111,7 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
     await prisma.platformAuditLog.deleteMany({
       where: { adminEmail: { in: adminEmails } },
     });
+    await prisma.$executeRaw`DELETE FROM onboarding_import_usage WHERE operator_id IN (SELECT id FROM platform_admins WHERE email_normalized = ANY(${adminEmails}::text[]))`;
     await prisma.platformSession.deleteMany({
       where: { admin: { emailNormalized: { in: adminEmails } } },
     });
@@ -1788,6 +1790,14 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
           .field('revision', c.revision)
           .attach('file', bytes, 'menu.png');
       try {
+        const grant = await send(
+          'post',
+          `${c.path}/menu-import/grant`,
+          c.cookie,
+          { revision: c.revision, reason: 'Approved' },
+        );
+        expect(grant.status).toBe(200);
+        c.revision = grant.body.data.revision as number;
         expect((await upload(png, '')).status).toBe(401);
         expect(
           (await upload(Buffer.from('not an image'))).body.error.code,
@@ -1819,8 +1829,8 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
         await prisma.packageFeature.deleteMany({
           where: { packageId: c.pkg.id },
         });
-        expect((await final(c)).body.error.problems).toContain(
-          'FEATURE_NOT_AVAILABLE',
+        expect((await get(c.path, c.cookie)).body.data.importGrant.status).toBe(
+          'ACTIVE',
         );
         expect(await prisma.restaurant.count({ where: { name: c.name } })).toBe(
           0,
@@ -1838,6 +1848,553 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
       } finally {
         extract.mockRestore();
       }
+    });
+
+    describe('onboarding import grants', () => {
+      async function reviewedImportedCase() {
+        const c = await start();
+        const granted = await send(
+          'post',
+          `${c.path}/menu-import/grant`,
+          c.cookie,
+          {
+            revision: c.revision,
+            reason: 'Approved',
+          },
+        );
+        expect(granted.status).toBe(200);
+        c.revision = granted.body.data.revision as number;
+        // Exercise the real provisioning and writer paths with an already-reviewed imported draft.
+        await prisma.onboardingCase.update({
+          where: { id: c.id },
+          data: {
+            menuProvenance: 'IMPORTED',
+            importReviewed: true,
+            importExpiresAt: new Date(Date.now() + 86400_000),
+          },
+        });
+        await review(c);
+        return c;
+      }
+
+      it('rechecks expiry after the provisioning claim and allows retry after regrant', async () => {
+        const c = await reviewedImportedCase();
+        const service = app.get(OnboardingProvisioningService);
+        const target = service as unknown as {
+          provision: (...args: unknown[]) => Promise<unknown>;
+        };
+        const original = target.provision.bind(service);
+        const spy = jest
+          .spyOn(target, 'provision')
+          .mockImplementationOnce(async (...args) => {
+            await prisma.onboardingCase.update({
+              where: { id: c.id },
+              data: { importGrantExpiresAt: new Date('2020-01-01T00:00:00Z') },
+            });
+            return original(...args);
+          });
+        try {
+          const failed = await final(c);
+          expect(failed.body.data).toMatchObject({
+            status: 'FAILED',
+            lastErrorCode: 'ONBOARDING_IMPORT_GRANT_REQUIRED',
+          });
+          expect(
+            await prisma.restaurant.count({ where: { name: c.name } }),
+          ).toBe(0);
+          c.revision = failed.body.data.revision as number;
+          const denied = await final(c, true);
+          expect(denied.status).toBe(422);
+          expect(denied.body.error.details.menu).toContain(
+            'ONBOARDING_IMPORT_GRANT_REQUIRED',
+          );
+          const granted = await send(
+            'post',
+            `${c.path}/menu-import/grant`,
+            c.cookie,
+            {
+              revision: c.revision,
+              reason: 'Renewed approval',
+            },
+          );
+          expect(granted.status).toBe(200);
+          c.revision = granted.body.data.revision as number;
+          const resumed = await final(c, true);
+          expect(resumed.body.data.status).toBe('READY');
+          const row = await remember(c);
+          expect(
+            await prisma.menu.count({
+              where: { restaurantId: row.restaurantId! },
+            }),
+          ).toBe(1);
+        } finally {
+          spy.mockRestore();
+          await remember(c);
+        }
+      });
+
+      it('blocks publication after revocation at the tenant checkpoint and resumes only after regrant', async () => {
+        const c = await reviewedImportedCase();
+        const writer = app.get(OnboardingMenuWriterService);
+        const original = writer.publish.bind(writer);
+        const spy = jest
+          .spyOn(writer, 'publish')
+          .mockImplementationOnce(async (...args) => {
+            const checkpoint = await prisma.onboardingCase.findUniqueOrThrow({
+              where: { id: c.id },
+            });
+            const revoked = await send(
+              'post',
+              `${c.path}/menu-import/revoke`,
+              c.cookie,
+              {
+                revision: checkpoint.revision,
+                reason: 'Approval withdrawn',
+              },
+            );
+            expect(revoked.status).toBe(200);
+            return original(...args);
+          });
+        try {
+          const failed = await final(c);
+          const row = await remember(c);
+          expect(row.restaurantId).not.toBeNull();
+          expect(failed.body.data).toMatchObject({
+            status: 'FAILED',
+            lastErrorCode: 'ONBOARDING_IMPORT_GRANT_REQUIRED',
+          });
+          expect(row.menuPublishedAt).toBeNull();
+          expect(
+            await prisma.menu.count({
+              where: { restaurantId: row.restaurantId! },
+            }),
+          ).toBe(0);
+          c.revision = row.revision;
+          const denied = await final(c, true, null);
+          expect(denied.status).toBe(422);
+          expect(denied.body.error.details.menu).toContain(
+            'ONBOARDING_IMPORT_GRANT_REQUIRED',
+          );
+          const granted = await send(
+            'post',
+            `${c.path}/menu-import/grant`,
+            c.cookie,
+            {
+              revision: c.revision,
+              reason: 'New approval',
+            },
+          );
+          expect(granted.status).toBe(200);
+          c.revision = granted.body.data.revision as number;
+          const resumed = await final(c, true, null);
+          expect(resumed.body.data).toMatchObject({
+            status: 'READY',
+            restaurantId: row.restaurantId,
+          });
+          expect(
+            await prisma.menu.count({
+              where: { restaurantId: row.restaurantId! },
+            }),
+          ).toBe(1);
+          expect(
+            await prisma.restaurant.count({ where: { name: c.name } }),
+          ).toBe(1);
+        } finally {
+          spy.mockRestore();
+          await remember(c);
+        }
+      });
+
+      it('interrupts provisioning on regrant and retries with the new generation', async () => {
+        const c = await reviewedImportedCase();
+        const initial = await prisma.onboardingCase.findUniqueOrThrow({
+          where: { id: c.id },
+        });
+        const service = app.get(OnboardingProvisioningService);
+        const target = service as unknown as {
+          provision: (...args: unknown[]) => Promise<unknown>;
+        };
+        const original = target.provision.bind(service);
+        const spy = jest
+          .spyOn(target, 'provision')
+          .mockImplementationOnce(async (...args) => {
+            const checkpoint = await prisma.onboardingCase.findUniqueOrThrow({
+              where: { id: c.id },
+            });
+            const granted = await send(
+              'post',
+              `${c.path}/menu-import/grant`,
+              c.cookie,
+              {
+                revision: checkpoint.revision,
+                reason: 'Replacement approval',
+              },
+            );
+            expect(granted.status).toBe(200);
+            return original(...args);
+          });
+        try {
+          const interrupted = await final(c);
+          const row = await remember(c);
+          expect(interrupted.body.data).toMatchObject({
+            status: 'FAILED',
+            lastErrorCode: 'ONBOARDING_IMPORT_GRANT_CHANGED',
+          });
+          expect(
+            await prisma.platformAuditLog.count({
+              where: {
+                action: 'onboarding.failed',
+                details: { path: ['caseId'], equals: c.id },
+              },
+            }),
+          ).toBe(1);
+          expect(row.importGrantId).not.toBe(initial.importGrantId);
+          expect(row.restaurantId).toBeNull();
+          expect(
+            await prisma.restaurant.count({ where: { name: c.name } }),
+          ).toBe(0);
+          c.revision = row.revision;
+          const resumed = await final(c, true);
+          expect(resumed.body.data.status).toBe('READY');
+          const ready = await remember(c);
+          expect(
+            await prisma.menu.count({
+              where: { restaurantId: ready.restaurantId! },
+            }),
+          ).toBe(1);
+        } finally {
+          spy.mockRestore();
+          await remember(c);
+        }
+      });
+
+      it('does not interrupt manual-only provisioning when a grant is issued', async () => {
+        const c = await start();
+        await review(c);
+        const service = app.get(OnboardingProvisioningService);
+        const target = service as unknown as {
+          provision: (...args: unknown[]) => Promise<unknown>;
+        };
+        const original = target.provision.bind(service);
+        const spy = jest
+          .spyOn(target, 'provision')
+          .mockImplementationOnce(async (...args) => {
+            const checkpoint = await prisma.onboardingCase.findUniqueOrThrow({
+              where: { id: c.id },
+            });
+            const granted = await send(
+              'post',
+              `${c.path}/menu-import/grant`,
+              c.cookie,
+              {
+                revision: checkpoint.revision,
+                reason: 'Optional approval',
+              },
+            );
+            expect(granted.status).toBe(200);
+            return original(...args);
+          });
+        try {
+          const completed = await final(c);
+          const row = await remember(c);
+          expect(completed.body.data.status).toBe('READY');
+          expect(row.menuProvenance).toBe('MANUAL');
+          expect(
+            await prisma.menu.count({
+              where: { restaurantId: row.restaurantId! },
+            }),
+          ).toBe(1);
+          expect(
+            await prisma.platformAuditLog.count({
+              where: {
+                action: 'onboarding.failed',
+                details: { path: ['caseId'], equals: c.id },
+              },
+            }),
+          ).toBe(0);
+        } finally {
+          spy.mockRestore();
+          await remember(c);
+        }
+      });
+
+      it('does not interrupt or remove a menu already published before revocation', async () => {
+        const c = await reviewedImportedCase();
+        const writer = app.get(OnboardingMenuWriterService);
+        const original = writer.publish.bind(writer);
+        const spy = jest
+          .spyOn(writer, 'publish')
+          .mockImplementationOnce(async (...args) => {
+            const result = await original(...args);
+            expect(result.outcome).toBe('published');
+            const checkpoint = await prisma.onboardingCase.findUniqueOrThrow({
+              where: { id: c.id },
+            });
+            expect(checkpoint.menuPublishedAt).not.toBeNull();
+            const revoked = await send(
+              'post',
+              `${c.path}/menu-import/revoke`,
+              c.cookie,
+              {
+                revision: checkpoint.revision,
+                reason: 'Approval withdrawn after publication',
+              },
+            );
+            expect(revoked.status).toBe(200);
+            return result;
+          });
+        try {
+          const completed = await final(c);
+          const row = await remember(c);
+          expect(completed.body.data.status).toBe('READY');
+          expect(row.importGrantRevokedAt).not.toBeNull();
+          expect(row.menuPublishedAt).not.toBeNull();
+          expect(
+            await prisma.menu.count({
+              where: { restaurantId: row.restaurantId! },
+            }),
+          ).toBe(1);
+          expect(
+            await prisma.product.count({
+              where: { restaurantId: row.restaurantId! },
+            }),
+          ).toBe(1);
+        } finally {
+          spy.mockRestore();
+          await remember(c);
+        }
+      });
+
+      it('revokes the grant when switching to DEMO and does not revive it on return', async () => {
+        const c = await start('REAL', false, false);
+        const grant = await send(
+          'post',
+          `${c.path}/menu-import/grant`,
+          c.cookie,
+          { revision: c.revision, reason: 'Approved' },
+        );
+        expect(grant.status).toBe(200);
+        const demo = await send('patch', c.path, c.cookie, {
+          revision: grant.body.data.revision,
+          mode: 'DEMO',
+        });
+        expect(demo.status).toBe(200);
+        expect(demo.body.data.importGrant.status).toBe('REVOKED');
+        const real = await send('patch', c.path, c.cookie, {
+          revision: demo.body.data.revision,
+          mode: 'REAL',
+        });
+        expect(real.status).toBe(200);
+        expect(real.body.data.importGrant.status).toBe('REVOKED');
+      });
+
+      it('keeps capacity reserved after an ambiguous provider failure', async () => {
+        const c = await start('REAL', false, false);
+        const granted = await send(
+          'post',
+          `${c.path}/menu-import/grant`,
+          c.cookie,
+          { revision: c.revision, reason: 'Approved' },
+        );
+        expect(granted.status).toBe(200);
+        c.revision = granted.body.data.revision as number;
+        const extract = jest
+          .spyOn(app.get(MenuImportExtractor), 'extract')
+          .mockRejectedValue(new Error('timeout'));
+        try {
+          const image = await sharp({
+            create: { width: 1, height: 1, channels: 3, background: 'white' },
+          })
+            .png()
+            .toBuffer();
+          const upload = () =>
+            request(app.getHttpServer())
+              .post(`/api/v1/platform${c.path}/menu-import`)
+              .set('Origin', platformOrigin)
+              .set('Cookie', c.cookie)
+              .field('revision', c.revision)
+              .attach('file', image, 'menu.png');
+          expect((await upload()).status).toBe(503);
+          expect((await upload()).body.error.code).toBe(
+            'ONBOARDING_IMPORT_LIMIT',
+          );
+          expect(
+            (
+              await prisma.onboardingCase.findUniqueOrThrow({
+                where: { id: c.id },
+              })
+            ).importAttempts,
+          ).toBe(1);
+        } finally {
+          extract.mockRestore();
+          // The extractor is a settled test double, so its isolated usage slot is safe to remove.
+          const row = await prisma.onboardingCase.findUniqueOrThrow({
+            where: { id: c.id },
+          });
+          await prisma.$executeRaw`DELETE FROM onboarding_import_usage WHERE operator_id = ${row.createdByAdminId}::uuid`;
+        }
+      });
+
+      it('enforces one in-flight import per operator across distinct cases', async () => {
+        const a = await start('REAL', false, false);
+        const b = await start('REAL', false, false);
+        // Both cases must use the same authenticated operator for the per-operator limit.
+        b.cookie = a.cookie;
+        for (const c of [a, b]) {
+          const response = await send(
+            'post',
+            `${c.path}/menu-import/grant`,
+            c.cookie,
+            { revision: c.revision, reason: 'Approved' },
+          );
+          expect(response.status).toBe(200);
+          c.revision = response.body.data.revision as number;
+        }
+        let release!: () => void;
+        let entered!: () => void;
+        const blocked = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const started = new Promise<void>((resolve) => {
+          entered = resolve;
+        });
+        const extract = jest
+          .spyOn(app.get(MenuImportExtractor), 'extract')
+          .mockImplementation(async () => {
+            entered();
+            await blocked;
+            return {
+              status: 'EXTRACTED',
+              schemaVersion: 1,
+              languages: ['ar'],
+              categories: [
+                {
+                  translations: { ar: { name: 'Drinks' } },
+                  products: [
+                    { translations: { ar: { name: 'Tea' } }, price: '4.20' },
+                  ],
+                },
+              ],
+            };
+          });
+        try {
+          const image = await sharp({
+            create: { width: 1, height: 1, channels: 3, background: 'white' },
+          })
+            .png()
+            .toBuffer();
+          const upload = (c: typeof a) =>
+            request(app.getHttpServer())
+              .post(`/api/v1/platform${c.path}/menu-import`)
+              .set('Origin', platformOrigin)
+              .set('Cookie', c.cookie)
+              .field('revision', c.revision)
+              .attach('file', image, 'menu.png');
+          const first = upload(a).then((response) => response);
+          await started;
+          const second = await upload(b);
+          expect(second.status).toBe(429);
+          expect(second.body.error.code).toBe('ONBOARDING_IMPORT_LIMIT');
+          expect(
+            (
+              await prisma.onboardingCase.findUniqueOrThrow({
+                where: { id: b.id },
+              })
+            ).importAttempts,
+          ).toBe(0);
+          release();
+          expect((await first).status).toBe(200);
+        } finally {
+          release();
+          extract.mockRestore();
+        }
+      });
+
+      it('rejects an in-flight extraction after revoke and regrant, and never resets case attempts', async () => {
+        const c = await start('REAL', false, false);
+        const grant = async (reason: string) => {
+          const response = await send(
+            'post',
+            `${c.path}/menu-import/grant`,
+            c.cookie,
+            { revision: c.revision, reason },
+          );
+          expect(response.status).toBe(200);
+          c.revision = response.body.data.revision as number;
+          return response;
+        };
+        const first = await grant('Operator approved extraction');
+        expect(first.body.data.importGrant).toMatchObject({
+          status: 'ACTIVE',
+          attempts: 0,
+          maxAttempts: 3,
+        });
+        let release!: () => void;
+        let started!: () => void;
+        const waiting = new Promise<void>((resolve) => {
+          release = resolve;
+        });
+        const entered = new Promise<void>((resolve) => {
+          started = resolve;
+        });
+        const extract = jest
+          .spyOn(app.get(MenuImportExtractor), 'extract')
+          .mockImplementation(async () => {
+            started();
+            await waiting;
+            return {
+              status: 'EXTRACTED',
+              schemaVersion: 1,
+              languages: ['ar'],
+              categories: [
+                {
+                  translations: { ar: { name: 'Drinks' } },
+                  products: [
+                    { translations: { ar: { name: 'Tea' } }, price: '4.20' },
+                  ],
+                },
+              ],
+            };
+          });
+        try {
+          const image = await sharp({
+            create: { width: 1, height: 1, channels: 3, background: 'white' },
+          })
+            .png()
+            .toBuffer();
+          const pending = request(app.getHttpServer())
+            .post(`/api/v1/platform${c.path}/menu-import`)
+            .set('Origin', platformOrigin)
+            .set('Cookie', c.cookie)
+            .field('revision', c.revision)
+            .attach('file', image, 'menu.png')
+            .then((response) => response);
+          await entered;
+          const revoked = await send(
+            'post',
+            `${c.path}/menu-import/revoke`,
+            c.cookie,
+            { revision: c.revision, reason: 'Withdrawn' },
+          );
+          expect(revoked.status).toBe(200);
+          c.revision = revoked.body.data.revision as number;
+          const replacement = await grant('New approval');
+          expect(replacement.body.data.importGrant.attempts).toBe(1);
+          release();
+          expect((await pending).status).toBe(409);
+          const row = await prisma.onboardingCase.findUniqueOrThrow({
+            where: { id: c.id },
+          });
+          expect(row).toMatchObject({
+            importAttempts: 1,
+            menuDraft: null,
+            importLeaseUntil: null,
+          });
+        } finally {
+          release();
+          extract.mockRestore();
+        }
+      });
     });
 
     describe('menu import entitlement (A1 regression)', () => {
@@ -1885,7 +2442,7 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
       const caseRow = (c: Context) =>
         prisma.onboardingCase.findUniqueOrThrow({ where: { id: c.id } });
 
-      it('refuses unauthorized uploads and a package without MENU_IMPORT before extraction or attempt counting', async () => {
+      it('refuses unauthorized and ungranted uploads without consuming attempts; a grant works without MENU_IMPORT', async () => {
         const c = await start('REAL', false, false);
         const extract = jest
           .spyOn(app.get(MenuImportExtractor), 'extract')
@@ -1900,10 +2457,11 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
           expect(foreign.status).toBe(403);
           expect(foreign.body.error.code).toBe('CSRF_VALIDATION_FAILED');
 
-          // The package is the entitlement: a missing feature is 403 FEATURE_NOT_AVAILABLE, never a case-access error.
           const refused = await uploadTo(c);
           expect(refused.status).toBe(403);
-          expect(refused.body.error.code).toBe('FEATURE_NOT_AVAILABLE');
+          expect(refused.body.error.code).toBe(
+            'ONBOARDING_IMPORT_GRANT_REQUIRED',
+          );
           const row = await caseRow(c);
           expect(row).toMatchObject({
             revision: c.revision,
@@ -1917,10 +2475,14 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
           // The case itself stays readable and editable by the same operator.
           expect((await get(c.path, c.cookie)).status).toBe(200);
 
-          // Authorized: the same operator, after the package gains MENU_IMPORT, stages a draft.
-          await prisma.packageFeature.create({
-            data: { packageId: c.pkg.id, feature: 'MENU_IMPORT' },
-          });
+          const grant = await send(
+            'post',
+            `${c.path}/menu-import/grant`,
+            c.cookie,
+            { revision: c.revision, reason: 'Approved' },
+          );
+          expect(grant.status).toBe(200);
+          c.revision = grant.body.data.revision as number;
           const staged = await uploadTo(c);
           expect(staged.status).toBe(200);
           expect(staged.body.data).toMatchObject({
@@ -1928,30 +2490,44 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
             importReviewed: false,
           });
           expect(extract).toHaveBeenCalledTimes(1);
-          expect(await importAudits(c)).toBe(1);
+          expect(await importAudits(c)).toBe(2);
         } finally {
           extract.mockRestore();
         }
       });
 
-      it('keeps an existing staged draft intact when the package loses MENU_IMPORT; discard stays available', async () => {
+      it('keeps an existing staged draft intact after revocation; discard stays available', async () => {
         const c = await start('REAL', false, true);
         const extract = jest
           .spyOn(app.get(MenuImportExtractor), 'extract')
           .mockResolvedValue(extraction);
         try {
+          const grant = await send(
+            'post',
+            `${c.path}/menu-import/grant`,
+            c.cookie,
+            { revision: c.revision, reason: 'Approved' },
+          );
+          expect(grant.status).toBe(200);
+          c.revision = grant.body.data.revision as number;
           const staged = await uploadTo(c);
           expect(staged.status).toBe(200);
           c.revision = staged.body.data.revision as number;
+          const revoke = await send(
+            'post',
+            `${c.path}/menu-import/revoke`,
+            c.cookie,
+            { revision: c.revision, reason: 'Withdrawn' },
+          );
+          expect(revoke.status).toBe(200);
+          c.revision = revoke.body.data.revision as number;
           const before = await caseRow(c);
           expect(before.importAttempts).toBe(1);
-
-          await prisma.packageFeature.deleteMany({
-            where: { packageId: c.pkg.id },
-          });
           const reupload = await uploadTo(c);
           expect(reupload.status).toBe(403);
-          expect(reupload.body.error.code).toBe('FEATURE_NOT_AVAILABLE');
+          expect(reupload.body.error.code).toBe(
+            'ONBOARDING_IMPORT_GRANT_REQUIRED',
+          );
           const reviewed = await send(
             'post',
             `${c.path}/menu-import/review`,
@@ -1959,7 +2535,9 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
             { revision: c.revision },
           );
           expect(reviewed.status).toBe(403);
-          expect(reviewed.body.error.code).toBe('FEATURE_NOT_AVAILABLE');
+          expect(reviewed.body.error.code).toBe(
+            'ONBOARDING_IMPORT_GRANT_REQUIRED',
+          );
 
           const after = await caseRow(c);
           expect(after).toMatchObject({
@@ -1970,7 +2548,7 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
           });
           expect(after.menuDraft).toEqual(before.menuDraft);
           expect(after.importExpiresAt).toEqual(before.importExpiresAt);
-          expect(await importAudits(c)).toBe(1);
+          expect(await importAudits(c)).toBe(3);
           expect(extract).toHaveBeenCalledTimes(1);
           expect((await get(c.path, c.cookie)).status).toBe(200);
 
@@ -2047,6 +2625,14 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
       it('delivers READY exactly once, clears only staging and keeps the published guest menu and URLs', async () => {
         const lead = await addLead(`a4-real-${randomUUID()}@example.test`);
         const c = await start('REAL', true, false, lead.id);
+        const grant = await send(
+          'post',
+          `${c.path}/menu-import/grant`,
+          c.cookie,
+          { revision: c.revision, reason: 'Approved' },
+        );
+        expect(grant.status).toBe(200);
+        c.revision = grant.body.data.revision as number;
         expect((await get(c.path, c.cookie)).body.data).toMatchObject({
           handoff: null,
           deliveredAt: null,
@@ -2180,6 +2766,10 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
           statusVersion: 1,
         });
         expect(await caseAudit(c.id, 'onboarding.delivered')).toHaveLength(1);
+        expect(delivered.importGrant.status).toBe('REVOKED');
+        expect(
+          await caseAudit(c.id, 'onboarding.import_grant_revoked'),
+        ).toMatchObject([{ details: { caseId: c.id, reason: 'HANDOFF' } }]);
         expect(
           await caseAudit(c.id, 'onboarding.lead_transitioned'),
         ).toMatchObject([

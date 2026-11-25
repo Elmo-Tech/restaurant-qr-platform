@@ -65,6 +65,8 @@ export type PlatformAction =
   | 'onboarding.provisioning_started'
   | 'onboarding.restaurant_provisioned'
   | 'onboarding.menu_published'
+  | 'onboarding.import_granted'
+  | 'onboarding.import_grant_revoked'
   | 'onboarding.import_staged'
   | 'onboarding.import_reviewed'
   | 'onboarding.import_discarded'

@@ -1,7 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { randomUUID } from 'node:crypto';
 import { PrismaService } from '../../database/prisma.service';
-import { resolveFeatures } from '../../entitlements/features';
+import { importGrantStatus } from './onboarding-import-grant';
 import { Prisma } from '../../generated/prisma/client';
 import { createProductPublicId } from '../../menu/product-public-id';
 import { PlatformAuditService } from '../platform-audit.service';
@@ -22,6 +22,7 @@ type PublishRefusalCode =
   | 'ONBOARDING_MENU_INCOMPLETE'
   | 'ONBOARDING_IMPORT_EXPIRED'
   | 'ONBOARDING_IMPORT_REVIEW_REQUIRED'
+  | 'ONBOARDING_IMPORT_GRANT_REQUIRED'
   | 'FEATURE_NOT_AVAILABLE'
   | 'ONBOARDING_MENU_TARGET_NOT_EMPTY';
 
@@ -74,6 +75,10 @@ export class OnboardingMenuWriterService {
             menuPublishedAt: true,
             importExpiresAt: true,
             importReviewed: true,
+            menuProvenance: true,
+            importGrantId: true,
+            importGrantExpiresAt: true,
+            importGrantRevokedAt: true,
           },
         });
         if (row.provisioningKey !== input.provisioningKey.toLowerCase()) {
@@ -128,29 +133,13 @@ export class OnboardingMenuWriterService {
         if (pkg?.status !== 'ACTIVE') return refuse('PACKAGE_NOT_AVAILABLE');
 
         const expiresAt = row.importExpiresAt?.getTime();
-        if (expiresAt !== undefined) {
-          // Retention cleanup preserves the expiry marker but clears the review flag and draft.
-          if (expiresAt <= Date.now())
+        if (row.menuProvenance !== 'MANUAL') {
+          if (expiresAt === undefined || expiresAt <= Date.now())
             return refuse('ONBOARDING_IMPORT_EXPIRED');
+          if (importGrantStatus(row) !== 'ACTIVE')
+            return refuse('ONBOARDING_IMPORT_GRANT_REQUIRED');
           if (!row.importReviewed)
             return refuse('ONBOARDING_IMPORT_REVIEW_REQUIRED');
-          const overrides = await tx.$queryRaw<
-            { feature: string; enabled: boolean }[]
-          >`
-          SELECT feature, enabled FROM restaurant_features
-          WHERE restaurant_id = ${restaurantId}::uuid AND feature = 'MENU_IMPORT'
-          FOR SHARE
-        `;
-          if (
-            !resolveFeatures(
-              overrides,
-              pkg.features.map(({ feature }) => feature),
-            ).MENU_IMPORT
-          ) {
-            return refuse('FEATURE_NOT_AVAILABLE');
-          }
-        } else if (row.importReviewed) {
-          return refuse('ONBOARDING_IMPORT_EXPIRED');
         }
 
         const locales = await tx.$queryRaw<{ locale: string }[]>`
@@ -175,6 +164,11 @@ export class OnboardingMenuWriterService {
         if (expiresAt !== undefined && expiresAt <= Date.now()) {
           return refuse('ONBOARDING_IMPORT_EXPIRED');
         }
+        if (
+          row.menuProvenance !== 'MANUAL' &&
+          importGrantStatus(row) !== 'ACTIVE'
+        )
+          return refuse('ONBOARDING_IMPORT_GRANT_REQUIRED');
         const counts = await this.insertMenuGraph(tx, restaurant, draft.value);
         await tx.onboardingCase.update({
           where: { id: row.id },

@@ -56,6 +56,19 @@ async function newCase(context, patch = {}, leadId) {
   if (Object.keys(patch).length === 0) return created;
   return data(await control(context, 'PATCH', `${cases}/${created.id}`, { revision: created.revision, ...patch }), 200);
 }
+async function bounded(promise, label) {
+  let timer;
+  try {
+    return await Promise.race([promise, new Promise((_, reject) => { timer = setTimeout(() => reject(new Error(`Timed out waiting for ${label}`)), 25_000); })]);
+  } finally {
+    clearTimeout(timer);
+  }
+}
+async function grantImport(context, onboardingCase) {
+  return data(await control(context, 'POST', `${cases}/${onboardingCase.id}/menu-import/grant`, {
+    revision: onboardingCase.revision, reason: 'Browser smoke fixture',
+  }), 200);
+}
 async function login(context) {
   const page = await context.newPage();
   await page.goto(`${platform}/login`);
@@ -139,7 +152,7 @@ try {
   console.log('PASS mode switching: package cleared with a visible notice, REAL requires choosing it again');
 
   // ---------------------------------------------------------------- 3. AI prompt helper and AI-prepared Excel import
-  const real = await newCase(context, { mode: 'REAL', modeConfig: { packageId: pkg.id }, details: step1(`UX menu ${tag}`, `ux-menu-${tag}@example.test`) });
+  const real = await grantImport(context, await newCase(context, { mode: 'REAL', modeConfig: { packageId: pkg.id }, details: step1(`UX menu ${tag}`, `ux-menu-${tag}@example.test`) }));
   await page.goto(`${platform}/onboarding/${real.id}`);
   await page.getByRole('navigation', { name: /steps/i }).getByRole('button', { name: /^Menu/ }).click();
   await stepHeading(page, 'Menu').waitFor();
@@ -174,31 +187,110 @@ try {
   assert.equal(imported.menuDraft.menus[0].categories.length, 3);
   console.log('PASS AI prompt: canonical prompt copied (and manual fallback), template downloaded byte-identical, no API call until upload, AI-prepared .xlsx imported');
 
-  // A staged draft must survive a refused replacement. The package warning is advisory: the backend still decides.
-  const withoutImport = await data(await control(context, 'POST', '/packages', {
-    nameAr: `باقة بدون استيراد ${tag}`, nameEn: `UX No Import ${tag}`, features: ['DASHBOARD_ORDERING'],
-  }), 201);
-  const changed = await data(await control(context, 'PATCH', `${cases}/${real.id}`, {
-    revision: imported.revision, modeConfig: { packageId: withoutImport.id },
-  }), 200);
-  await page.goto(`${platform}/onboarding/${real.id}`);
-  await page.getByRole('navigation', { name: /steps/i }).getByRole('button', { name: /^Menu/ }).click();
-  await page.getByText(`Menu import is not included in the package “UX No Import ${tag}”.`, { exact: true }).waitFor();
-  await page.getByText('Imported draft needs review', { exact: true }).waitFor();
+  // A real edit immediately before import must be saved before the action consumes its revision. Hold the
+  // PATCH and then the actual import request before they reach the server to exercise both windows.
+  const race = await grantImport(context, await newCase(context, { mode: 'REAL', modeConfig: { packageId: pkg.id }, details: step1(`UX race ${tag}`, `ux-race-${tag}@example.test`) }));
+  const raceUrl = `${api}/api/v1/platform${cases}/${race.id}`;
+  let releasePatch, patchStarted, releaseImport, importStarted;
+  const patchGate = new Promise((resolve) => { releasePatch = resolve; });
+  const patchSeen = new Promise((resolve) => { patchStarted = resolve; });
+  const importGate = new Promise((resolve) => { releaseImport = resolve; });
+  const importSeen = new Promise((resolve) => { importStarted = resolve; });
+  await page.route(raceUrl, async (route) => {
+    if (route.request().method() !== 'PATCH') return route.continue();
+    patchStarted();
+    await patchGate;
+    await route.continue();
+  });
+  await page.route(`${raceUrl}/menu-import`, async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    importStarted();
+    await importGate;
+    await route.continue();
+  });
+  await page.goto(`${platform}/onboarding/${race.id}`);
+  const steps = page.getByRole('navigation', { name: /steps/i });
+  await steps.getByRole('button', { name: /^Customer & restaurant/ }).click();
+  const raceName = `UX unsaved ${tag}`;
+  await field(page, 'Restaurant name').fill(raceName);
+  assert.notEqual((await current(context, race.id)).details.restaurant.name, raceName, 'edit starts genuinely unsaved');
+  await steps.getByRole('button', { name: /^Menu/ }).click();
+  await bounded(patchSeen, 'the edit PATCH');
+  await field(page, 'Menu files').waitFor();
+  assert.ok(await field(page, 'Menu files').isDisabled(), 'import cannot start while the edit PATCH is in flight');
+  assert.notEqual((await current(context, race.id)).details.restaurant.name, raceName, 'held PATCH has not reached the server');
+  releasePatch();
+  await page.waitForFunction(() => Array.from(document.querySelectorAll('input[type="file"]')).some((input) => !input.disabled));
   await field(page, 'Menu files').setInputFiles(join(root, 'apps', 'api', 'test', 'fixtures', 'menu-import', 'menu-ai-generated-openpyxl.xlsx'));
   await button(page, 'Extract draft').click();
-  const [refused] = await Promise.all([
-    page.waitForResponse((r) => r.url().endsWith(`${cases}/${real.id}/menu-import`) && r.request().method() === 'POST'),
-    button(page, 'Extract draft').last().click(),
-  ]);
+  await bounded(importSeen, 'the import request');
+  assert.equal((await current(context, race.id)).details.restaurant.name, raceName, 'edit saved before the import');
+  assert.ok(await steps.getByRole('button', { name: /^Customer & restaurant/ }).isDisabled(), 'navigation is locked while import is in flight');
+  assert.ok(await field(page, 'Menu files').isDisabled(), 'file selection is locked during import');
+  assert.equal(await button(page, 'Add menu').count(), 0, 'menu editing is unavailable during import');
+  const raceResponse = page.waitForResponse((r) => r.url() === `${raceUrl}/menu-import` && r.request().method() === 'POST');
+  releaseImport();
+  await data(await raceResponse, 200);
+  await page.getByText('Imported draft needs review', { exact: true }).waitFor();
+  assert.ok(await button(page, 'Add menu').isEnabled(), 'menu editing is restored after import');
+  assert.ok(await field(page, 'Menu files').isEnabled(), 'file selection is restored after import');
+  await steps.getByRole('button', { name: /^Customer & restaurant/ }).click();
+  assert.equal(await field(page, 'Restaurant name').inputValue(), raceName, 'the saved edit remains visible after import');
+  await until(context, race.id, (view) => view.details.restaurant.name === raceName, 'the edit after import');
+  await page.unroute(raceUrl);
+  await page.unroute(`${raceUrl}/menu-import`);
+  console.log('PASS import ordering: an unsaved edit flushes before import, controls lock while the request is held, and the edit survives');
+
+  await page.goto(`${platform}/onboarding/${real.id}`);
+  await page.getByRole('navigation', { name: /steps/i }).getByRole('button', { name: /^Menu/ }).click();
+  await page.getByText('Imported draft needs review', { exact: true }).waitFor();
+  // A1 compatibility: the current backend no longer issues this package refusal here, so inject the legacy
+  // envelope at the network boundary and verify that the wizard still keeps its staged draft and explains it.
+  const realImportUrl = `${api}/api/v1/platform${cases}/${real.id}/menu-import`;
+  let releaseRefusal, refusalStarted;
+  const refusalGate = new Promise((resolve) => { releaseRefusal = resolve; });
+  const refusalSeen = new Promise((resolve) => { refusalStarted = resolve; });
+  await page.route(realImportUrl, async (route) => {
+    if (route.request().method() !== 'POST') return route.continue();
+    refusalStarted();
+    await refusalGate;
+    await route.fulfill({ status: 403, headers: { 'access-control-allow-origin': platform, 'access-control-allow-credentials': 'true' }, json: { error: { code: 'FEATURE_NOT_AVAILABLE', message: 'Feature not available' } } });
+  });
+  await field(page, 'Menu files').setInputFiles(join(root, 'apps', 'api', 'test', 'fixtures', 'menu-import', 'menu-ai-generated-openpyxl.xlsx'));
+  await button(page, 'Extract draft').click();
+  await button(page, 'Extract draft').last().click();
+  await bounded(refusalSeen, 'the replacement import request');
+  assert.equal(await button(page, 'Add menu').count(), 0, 'menu editing is unavailable while replacement is in flight');
+  assert.ok(await field(page, 'Menu files').isDisabled(), 'file selection is locked while replacement is in flight');
+  const refusalResponse = page.waitForResponse((r) => r.url() === realImportUrl && r.request().method() === 'POST');
+  releaseRefusal();
+  const refused = await refusalResponse;
   assert.equal(refused.status(), 403);
   assert.equal((await refused.json()).error.code, 'FEATURE_NOT_AVAILABLE');
   await page.getByText(/This is a package setting, not a missing permission/).waitFor();
   await stepHeading(page, 'Menu').waitFor();
+  assert.ok(await button(page, 'Add menu').isEnabled(), 'menu editing is restored after refusal');
+  assert.ok(await field(page, 'Menu files').isEnabled(), 'file selection is restored after refusal');
   const afterRefusal = await current(context, real.id);
-  assert.deepEqual(afterRefusal.menuDraft, changed.menuDraft, '403 must not replace a staged draft');
-  assert.equal(afterRefusal.importAttempts, changed.importAttempts);
-  console.log('PASS import entitlement: feature refusal stays in wizard and preserves staged draft');
+  assert.deepEqual(afterRefusal.menuDraft, imported.menuDraft, 'refusal must preserve the staged draft');
+  assert.equal(afterRefusal.importAttempts, imported.importAttempts);
+  await page.unroute(realImportUrl);
+  console.log('PASS injected legacy FEATURE_NOT_AVAILABLE: the wizard explains the refusal and preserves the staged draft');
+
+  // Revoking the case-specific authorization preserves the staged draft and prevents a replacement in the UI.
+  await field(page, 'Reason').fill('Browser smoke revocation');
+  const [revocation] = await Promise.all([
+    page.waitForResponse((r) => r.url().endsWith(`${cases}/${real.id}/menu-import/revoke`) && r.request().method() === 'POST'),
+    button(page, 'Revoke authorization').click(),
+  ]);
+  assert.equal((await data(revocation, 200)).importGrant.status, 'REVOKED');
+  await button(page, 'Grant authorization').waitFor();
+  await field(page, 'Menu files').setInputFiles(join(root, 'apps', 'api', 'test', 'fixtures', 'menu-import', 'menu-ai-generated-openpyxl.xlsx'));
+  assert.ok(await button(page, 'Extract draft').isDisabled(), 'revocation blocks replacement in the UI');
+  const afterRevocation = await current(context, real.id);
+  assert.deepEqual(afterRevocation.menuDraft, imported.menuDraft, 'revocation must preserve the staged draft');
+  assert.equal(afterRevocation.importAttempts, imported.importAttempts);
+  console.log('PASS import authorization: revocation preserves the staged draft and blocks replacement');
 
   // ---------------------------------------------------------------- 4. removing cases from the outer list
   const routineName = `UX routine ${tag}`;

@@ -139,6 +139,17 @@ class ImportBody extends RevisionBody {
   declare revision: number;
 }
 
+class GrantBody extends RevisionBody {
+  @IsString()
+  @Length(1, 500)
+  reason!: string;
+
+  @IsOptional()
+  @IsString()
+  @MaxLength(64)
+  expiresAt?: string;
+}
+
 class ProvisionBody extends RevisionBody {
   @IsUUID('4')
   provisioningKey!: string;
@@ -440,6 +451,46 @@ export class OnboardingCasesController {
   ): Promise<{ data: OnboardingCaseView }> {
     return unwrap(
       await this.cases.deliver(request.platformAdmin, caseId, body.revision),
+    );
+  }
+
+  @Post(':caseId/menu-import/grant')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PlatformAuthGuard)
+  async grantImport(
+    @Param('caseId') id: string,
+    @Body() body: GrantBody,
+    @Req() request: PlatformRequest,
+  ) {
+    return unwrap(
+      await this.menuImport.setGrant(
+        request.platformAdmin,
+        id,
+        body.revision,
+        body.reason,
+        body.expiresAt,
+        false,
+      ),
+    );
+  }
+
+  @Post(':caseId/menu-import/revoke')
+  @HttpCode(HttpStatus.OK)
+  @UseGuards(PlatformAuthGuard)
+  async revokeImport(
+    @Param('caseId') id: string,
+    @Body() body: GrantBody,
+    @Req() request: PlatformRequest,
+  ) {
+    return unwrap(
+      await this.menuImport.setGrant(
+        request.platformAdmin,
+        id,
+        body.revision,
+        body.reason,
+        undefined,
+        true,
+      ),
     );
   }
 

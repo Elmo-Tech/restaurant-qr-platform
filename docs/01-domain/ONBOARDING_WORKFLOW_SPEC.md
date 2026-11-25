@@ -233,6 +233,8 @@ DEC-056) into the case when TRIAL was chosen, so it counted as the operator's se
 
 ### 7.6 Menu import before restaurant creation — staging only (A-D6, approved 2026-11-21 — not started)
 
+> The onboarding-specific package entitlement requirement below is superseded by the approved grant policy in §10; Staff import entitlement is unchanged. The remaining staging and review safeguards continue.
+
 - The upload and extraction result live only in a protected, bounded onboarding draft. Today the Staff import keeps
   files **in memory only** (Multer, never written to disk; DEC-040 "source file not stored") with 1–10 images or
   one PDF / spreadsheet, 10 MB each, 40 MB total (`menu-import-file.ts`), ≤ 80 categories / 800 products
@@ -278,7 +280,7 @@ READY_FOR_REVIEW. The UI shows steps 3 and 5 as "Not available yet in this build
 
 ## 9. Mode first, DEMO short path, AI-prepared menu and list removal (Product Owner request, 2026-11-23)
 
-Technical contract: `docs/02-technical/ONBOARDING_API_AND_PERSISTENCE.md` §6.
+Technical contract: `docs/02-technical/ONBOARDING_API_AND_PERSISTENCE.md` §6. The later approved onboarding import grant policy in §10 supersedes package-based eligibility for onboarding only.
 
 ### 9.1 Choose the onboarding type first
 
@@ -321,3 +323,12 @@ Technical contract: `docs/02-technical/ONBOARDING_API_AND_PERSISTENCE.md` §6.
   handed over.
 - The server decides and enforces all of this under the case lock with Platform authorization, CSRF, the revision and
   the acknowledged impacts, and audits it (`onboarding.cancelled` / `onboarding.archived` / `onboarding.restored`).
+
+## 10. Approved A2 onboarding import grant policy
+
+This A2 is the import-grants decision, not the historical wizard milestone A2 above. It is approved policy; implementation and rollout require separate review and validation. It supersedes the onboarding-only package eligibility requirement in §7.6: a REAL / TRIAL case requires an explicit, case-scoped grant independent of its selected package. Staff Menu Import entitlement remains unchanged. Manual-only menus need no grant.
+
+- A grant defaults to 24 hours and cannot exceed seven days. Each regrant creates a new generation; it does not reset the case's three-attempt limit or revive an in-flight extraction. The ten-minute lease and seven-day draft retention remain unchanged.
+- Configurable ceilings default to 10 attempts per operator per UTC day and 30 globally per UTC day, with one concurrent attempt per operator and three globally. Enforcement must be atomic across application instances; these are attempt/concurrency controls, not monetary budget limits.
+- Imported provenance must survive manual edits. Legacy or ambiguous drafts fail closed: a valid expiry marker and explicit grant are required, and a draft without the marker must be discarded and imported afresh; an expired or revoked grant must not prevent discarding the draft. Grant, extraction, review, provisioning and publication synchronize on the case lock and enforce the applicable current grant and provenance. Handoff closes the grant; already published menus remain intact.
+- Human review, bounded upload, transient source files, normalized staging, secure Platform authorization and audit remain required. The grant is not permission to fabricate a tenant identity or bypass menu validation. Rollout and provider spending caveats are recorded in `docs/02-technical/ONBOARDING_API_AND_PERSISTENCE.md` §7.

@@ -6,8 +6,14 @@ import {
   type OnApplicationShutdown,
 } from '@nestjs/common';
 import sharp from 'sharp';
+import { ConfigService } from '@nestjs/config';
+import type { EnvConfig } from '../../config/env.schema';
+import { randomUUID } from 'node:crypto';
+import {
+  importGrantStatus,
+  requireImportGrant,
+} from './onboarding-import-grant';
 import { PrismaService } from '../../database/prisma.service';
-import { resolveFeatures } from '../../entitlements/features';
 import { Prisma } from '../../generated/prisma/client';
 import {
   normalizeExtraction,
@@ -123,6 +129,7 @@ export class OnboardingMenuImportService
     private readonly cases: OnboardingCasesService,
     private readonly extractor: MenuImportExtractor,
     private readonly audit: PlatformAuditService,
+    private readonly config: ConfigService<EnvConfig, true>,
   ) {}
 
   onApplicationBootstrap() {
@@ -141,6 +148,9 @@ export class OnboardingMenuImportService
   }
 
   async cleanupExpired(now = new Date()) {
+    const cutoff = new Date(now.getTime() - RETENTION_MS);
+    await this.prisma
+      .$executeRaw`DELETE FROM onboarding_import_usage WHERE finished_at IS NOT NULL AND started_at < ${cutoff}`;
     await this.prisma.onboardingCase.updateMany({
       where: {
         importExpiresAt: { lte: now },
@@ -152,6 +162,107 @@ export class OnboardingMenuImportService
         revision: { increment: 1 },
       },
     });
+  }
+
+  async setGrant(
+    admin: PlatformAdminPrincipal,
+    id: string,
+    revision: number,
+    reason: string,
+    expiresAt: string | undefined,
+    revoke: boolean,
+  ): Promise<CaseOutcome<OnboardingCaseView>> {
+    if (!isUuid(id)) return { outcome: 'notFound' };
+    if (!reason.trim() || reason.length > 500)
+      return { outcome: 'invalidInput', problems: ['grant'] };
+    const result = await this.prisma.$transaction(
+      async (tx): Promise<CaseOutcome<null>> => {
+        await tx.$queryRaw`SELECT id FROM onboarding_cases WHERE id = ${id}::uuid FOR UPDATE`;
+        const [{ now }] = await tx.$queryRaw<
+          { now: Date }[]
+        >`SELECT clock_timestamp() AS now`;
+        const expiry = expiresAt
+          ? new Date(expiresAt)
+          : new Date(now.getTime() + 24 * 60 * 60_000);
+        if (
+          !revoke &&
+          (!Number.isFinite(expiry.getTime()) ||
+            expiry <= now ||
+            expiry.getTime() > now.getTime() + 7 * 24 * 60 * 60_000)
+        )
+          return { outcome: 'invalidInput', problems: ['grant'] };
+        const row = await tx.onboardingCase.findUnique({ where: { id } });
+        if (!row) return { outcome: 'notFound' };
+        if (row.revision !== revision)
+          return { outcome: 'revisionConflict', currentRevision: row.revision };
+        if (
+          (!isEditable(row.status) &&
+            !['FAILED', 'PROVISIONING', 'MENU_SETUP'].includes(row.status)) ||
+          (row.mode !== 'REAL' && row.mode !== 'TRIAL')
+        )
+          return { outcome: 'notEditable', status: row.status };
+        if (revoke && importGrantStatus(row, now) === 'NONE')
+          return { outcome: 'invalidTransition', status: row.status };
+        // Invalidate an unpublished import run under the same case lock as its checkpoints.
+        // Otherwise this revision change can fence out the worker's failure update and
+        // leave the case indefinitely in an in-progress state.
+        const interrupted =
+          ['PROVISIONING', 'MENU_SETUP'].includes(row.status) &&
+          row.menuProvenance !== 'MANUAL' &&
+          !row.menuPublishedAt;
+        const interruptionCode = revoke
+          ? 'ONBOARDING_IMPORT_GRANT_REQUIRED'
+          : 'ONBOARDING_IMPORT_GRANT_CHANGED';
+        await tx.onboardingCase.update({
+          where: { id },
+          data: {
+            ...(interrupted
+              ? { status: 'FAILED' as const, lastErrorCode: interruptionCode }
+              : {}),
+            ...(revoke
+              ? {
+                  importGrantRevokedAt: now,
+                  importGrantRevokedBy: admin.adminId,
+                }
+              : {
+                  importGrantId: randomUUID(),
+                  importGrantIssuedBy: admin.adminId,
+                  importGrantIssuedAt: now,
+                  importGrantExpiresAt: expiry,
+                  importGrantRevokedAt: null,
+                  importGrantRevokedBy: null,
+                }),
+            updatedByAdminId: admin.adminId,
+            revision: { increment: 1 },
+          },
+        });
+        if (interrupted)
+          await this.audit.record(
+            {
+              admin,
+              action: 'onboarding.failed',
+              details: { caseId: id, code: interruptionCode },
+            },
+            tx,
+          );
+        await this.audit.record(
+          {
+            admin,
+            action: revoke
+              ? 'onboarding.import_grant_revoked'
+              : 'onboarding.import_granted',
+            details: {
+              caseId: id,
+              reason: reason.trim(),
+              ...(revoke ? {} : { expiresAt: expiry.toISOString() }),
+            },
+          },
+          tx,
+        );
+        return { outcome: 'ok', data: null };
+      },
+    );
+    return result.outcome === 'ok' ? this.cases.get(id) : result;
   }
 
   async stage(
@@ -183,8 +294,9 @@ export class OnboardingMenuImportService
           'PACKAGE_NOT_AVAILABLE',
           'Choose an active package before importing a menu.',
         );
-      await this.requireImportPackage(tx, row.packageId);
-      const now = new Date();
+      await this.requireActivePackage(tx, row.packageId);
+      let now = new Date();
+      requireImportGrant(row, now);
       if (row.importLeaseUntil && row.importLeaseUntil > now)
         onboardingError(
           HttpStatus.CONFLICT,
@@ -197,19 +309,81 @@ export class OnboardingMenuImportService
           'ONBOARDING_IMPORT_QUOTA',
           'This case has reached the import limit.',
         );
+      // Serialize accounting across all API instances; never hold this lock during extraction.
+      await tx.$executeRaw`SELECT pg_advisory_xact_lock(718203541)`;
+      [{ now }] = await tx.$queryRaw<
+        { now: Date }[]
+      >`SELECT clock_timestamp() AS now`;
+      requireImportGrant(row, now);
+      if (row.importLeaseUntil && row.importLeaseUntil > now)
+        onboardingError(
+          HttpStatus.CONFLICT,
+          'IMPORT_ALREADY_RUNNING',
+          'A menu import is already running.',
+        );
+      const day = new Date(
+        Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()),
+      );
+      const [usage] = await tx.$queryRaw<
+        {
+          daily: bigint;
+          operatorDaily: bigint;
+          running: bigint;
+          operatorRunning: bigint;
+        }[]
+      >`
+        SELECT count(*) FILTER (WHERE started_at >= ${day}) AS daily,
+          count(*) FILTER (WHERE started_at >= ${day} AND operator_id = ${admin.adminId}::uuid) AS "operatorDaily",
+          count(*) FILTER (WHERE finished_at IS NULL) AS running,
+          count(*) FILTER (WHERE finished_at IS NULL AND operator_id = ${admin.adminId}::uuid) AS "operatorRunning"
+        FROM onboarding_import_usage`;
+      if (
+        Number(usage.daily) >=
+          this.config.get('ONBOARDING_IMPORT_GLOBAL_DAILY_LIMIT', {
+            infer: true,
+          }) ||
+        Number(usage.operatorDaily) >=
+          this.config.get('ONBOARDING_IMPORT_OPERATOR_DAILY_LIMIT', {
+            infer: true,
+          }) ||
+        Number(usage.running) >=
+          this.config.get('ONBOARDING_IMPORT_GLOBAL_CONCURRENCY', {
+            infer: true,
+          }) ||
+        Number(usage.operatorRunning) >=
+          this.config.get('ONBOARDING_IMPORT_OPERATOR_CONCURRENCY', {
+            infer: true,
+          })
+      )
+        onboardingError(
+          HttpStatus.TOO_MANY_REQUESTS,
+          'ONBOARDING_IMPORT_LIMIT',
+          'The onboarding import capacity has been reached.',
+        );
       const until = new Date(now.getTime() + LEASE_MS);
+      const usageId = randomUUID();
+      await tx.$executeRaw`INSERT INTO onboarding_import_usage (id, operator_id, started_at, lease_until) VALUES (${usageId}::uuid, ${admin.adminId}::uuid, ${now}, ${until})`;
       await tx.onboardingCase.update({
         where: { id },
-        data: { importLeaseUntil: until, importAttempts: { increment: 1 } },
+        data: {
+          importLeaseUntil: until,
+          importLeaseId: usageId,
+          importAttempts: { increment: 1 },
+        },
       });
       return {
         outcome: 'claimed',
         until,
+        usageId,
+        grantId: row.importGrantId,
         packageId: row.packageId,
         details: readDetails(row.details),
       } as const;
     });
     if (lease.outcome !== 'claimed') return lease;
+    // A failed or timed-out provider call may continue downstream after our connection closes.
+    // Keep its capacity slot until an operator verifies that the external work has stopped.
+    let providerOutcomeUnknown = false;
     try {
       if (inspected.sourceType === 'IMAGE') {
         for (const file of inspected.files)
@@ -221,13 +395,16 @@ export class OnboardingMenuImportService
           : null;
       let extracted: unknown;
       try {
-        extracted =
-          sheet?.kind === 'template'
-            ? sheet.extraction
-            : await this.extractor.extract({
-                files: inspected.files,
-                languageHint: 'auto',
-              });
+        if (sheet?.kind === 'template') {
+          extracted = sheet.extraction;
+        } else {
+          providerOutcomeUnknown = true;
+          extracted = await this.extractor.extract({
+            files: inspected.files,
+            languageHint: 'auto',
+          });
+          providerOutcomeUnknown = false;
+        }
       } catch {
         onboardingError(
           HttpStatus.SERVICE_UNAVAILABLE,
@@ -258,16 +435,21 @@ export class OnboardingMenuImportService
         );
       const saved = await this.prisma.$transaction(async (tx) => {
         await tx.$queryRaw`SELECT id FROM onboarding_cases WHERE id = ${id}::uuid FOR UPDATE`;
-        const now = new Date();
-        await this.requireImportPackage(tx, lease.packageId);
-        const current = await tx.onboardingCase.findUnique({
-          where: { id },
-          select: { completedSteps: true },
-        });
+        await this.requireActivePackage(tx, lease.packageId);
+        const [{ now }] = await tx.$queryRaw<
+          { now: Date }[]
+        >`SELECT clock_timestamp() AS now`;
+        const current = await tx.onboardingCase.findUnique({ where: { id } });
+        if (!current || current.importGrantId !== lease.grantId) return false;
+        requireImportGrant(current, now);
         const changed = await tx.onboardingCase.updateMany({
           where: {
             id,
             revision,
+            importLeaseId: lease.usageId,
+            importGrantId: lease.grantId,
+            importGrantRevokedAt: null,
+            importGrantExpiresAt: { gt: new Date() },
             status: { in: ['DRAFT', 'READY_FOR_REVIEW'] },
             AND: [
               { importLeaseUntil: lease.until },
@@ -276,9 +458,12 @@ export class OnboardingMenuImportService
           },
           data: {
             menuDraft: draft.value,
+            menuProvenance: 'IMPORTED',
+            importDraftGrantId: lease.grantId,
             importExpiresAt: new Date(now.getTime() + RETENTION_MS),
             importReviewed: false,
             importLeaseUntil: null,
+            importLeaseId: null,
             status: 'DRAFT',
             completedSteps: (current?.completedSteps ?? []).filter(
               (step) => step !== 'menu',
@@ -309,9 +494,13 @@ export class OnboardingMenuImportService
       }
       return this.cases.get(id);
     } finally {
-      await this.prisma.onboardingCase.updateMany({
-        where: { id, importLeaseUntil: lease.until },
-        data: { importLeaseUntil: null },
+      await this.prisma.$transaction(async (tx) => {
+        await tx.onboardingCase.updateMany({
+          where: { id, importLeaseId: lease.usageId },
+          data: { importLeaseUntil: null, importLeaseId: null },
+        });
+        if (!providerOutcomeUnknown)
+          await tx.$executeRaw`UPDATE onboarding_import_usage SET finished_at = ${new Date()} WHERE id = ${lease.usageId}::uuid`;
       });
     }
   }
@@ -332,9 +521,18 @@ export class OnboardingMenuImportService
           return { outcome: 'revisionConflict', currentRevision: row.revision };
         if (!isEditable(row.status))
           return { outcome: 'notEditable', status: row.status };
-        if (!row.importExpiresAt)
+        if (!row.importExpiresAt && row.menuProvenance === 'MANUAL')
           return { outcome: 'invalidTransition', status: row.status };
         if (!discard) {
+          if (row.menuProvenance !== 'MANUAL' && !row.importExpiresAt)
+            return {
+              outcome: 'incomplete',
+              problems: {
+                customer: [],
+                mode: [],
+                menu: ['ONBOARDING_IMPORT_EXPIRED'],
+              },
+            };
           const menu = menuContentProblems(row, readDetails(row.details));
           if (menu.length)
             return {
@@ -347,7 +545,20 @@ export class OnboardingMenuImportService
               'PACKAGE_NOT_AVAILABLE',
               'Choose an active package before reviewing the import.',
             );
-          await this.requireImportPackage(tx, row.packageId);
+          await this.requireActivePackage(tx, row.packageId);
+          const [{ now }] = await tx.$queryRaw<
+            { now: Date }[]
+          >`SELECT clock_timestamp() AS now`;
+          requireImportGrant(row, now);
+          if (row.importExpiresAt && row.importExpiresAt <= now)
+            return {
+              outcome: 'incomplete',
+              problems: {
+                customer: [],
+                mode: [],
+                menu: ['ONBOARDING_IMPORT_EXPIRED'],
+              },
+            };
         }
         await tx.onboardingCase.update({
           where: { id },
@@ -355,8 +566,11 @@ export class OnboardingMenuImportService
             ...(discard
               ? {
                   menuDraft: Prisma.DbNull,
+                  menuProvenance: 'MANUAL',
+                  importDraftGrantId: null,
                   importExpiresAt: null,
                   importLeaseUntil: null,
+                  importLeaseId: null,
                   status: 'DRAFT' as const,
                 }
               : {}),
@@ -385,7 +599,7 @@ export class OnboardingMenuImportService
     return changed.outcome === 'ok' ? this.cases.get(id) : changed;
   }
 
-  private async requireImportPackage(
+  private async requireActivePackage(
     tx: Prisma.TransactionClient,
     packageId: string,
   ) {
@@ -397,21 +611,6 @@ export class OnboardingMenuImportService
         HttpStatus.UNPROCESSABLE_ENTITY,
         'PACKAGE_NOT_AVAILABLE',
         'The selected package is not active.',
-      );
-    const features = await tx.packageFeature.findMany({
-      where: { packageId },
-      select: { feature: true },
-    });
-    if (
-      !resolveFeatures(
-        [],
-        features.map((item) => item.feature),
-      ).MENU_IMPORT
-    )
-      onboardingError(
-        HttpStatus.FORBIDDEN,
-        'FEATURE_NOT_AVAILABLE',
-        'Menu import is not available on this package.',
       );
   }
 }

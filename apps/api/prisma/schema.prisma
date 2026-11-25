@@ -1580,6 +1580,15 @@ model OnboardingCase {
   importReviewed          Boolean   @default(false) @map("import_reviewed")
   importAttempts          Int       @default(0) @map("import_attempts")
   importLeaseUntil        DateTime? @map("import_lease_until") @db.Timestamptz
+  importLeaseId           String?   @map("import_lease_id") @db.Uuid
+  importGrantId           String?   @map("import_grant_id") @db.Uuid
+  importGrantIssuedBy     String?   @map("import_grant_issued_by") @db.Uuid
+  importGrantIssuedAt     DateTime? @map("import_grant_issued_at") @db.Timestamptz
+  importGrantRevokedBy    String?   @map("import_grant_revoked_by") @db.Uuid
+  importDraftGrantId      String?   @map("import_draft_grant_id") @db.Uuid
+  importGrantExpiresAt    DateTime? @map("import_grant_expires_at") @db.Timestamptz
+  importGrantRevokedAt    DateTime? @map("import_grant_revoked_at") @db.Timestamptz
+  menuProvenance          String    @default("MANUAL") @map("menu_provenance") @db.VarChar(16)
   // Durable identity, even if an operator cancels/removes the subscription.
   trialSubscriptionId     String?   @map("trial_subscription_id") @db.Uuid
   createdByAdminId String?              @map("created_by_admin_id") @db.Uuid
