@@ -18,7 +18,7 @@ import { randomBytes } from 'node:crypto';
 import { appendFile } from 'node:fs/promises';
 import path from 'node:path';
 import dotenv from 'dotenv';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createPrismaPgAdapter } from '../src/database/postgres-connection';
 import { PasswordHasherService } from '../src/auth/password/password-hasher.service';
 import { normalizeLoginEmail } from '../src/auth/login/login.service';
 import { PrismaClient } from '../src/generated/prisma/client';
@@ -62,7 +62,7 @@ async function main(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error('DATABASE_URL is not set.');
   const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    adapter: createPrismaPgAdapter(connectionString),
   });
   try {
     const emailNormalized = normalizeLoginEmail(email);

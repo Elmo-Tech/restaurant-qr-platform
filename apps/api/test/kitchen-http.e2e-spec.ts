@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -9,14 +10,19 @@ import { PasswordHasherService } from './../src/auth/password/password-hasher.se
 import { PrismaService } from './../src/database/prisma.service';
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
 
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
+
 /**
  * Kitchen View V1, end to end: `GET /restaurants/{id}/kitchen/orders`
  * (kitchen.view, Branch scoped) lists only accepted orders still in the
  * kitchen with exactly what is needed to prepare them (items, sizes, options,
  * note), oldest first; the existing status route moves a ticket forward with
  * `kitchen.update` and refuses the front-of-house steps.
+ *
+ * Isolation: see `support/sandbox-guard.ts`; without TABLE_SESSION_IT_DATABASE_URL the
+ * whole suite is skipped, and it refuses any database that is not the marked sandbox.
  */
-describe('Kitchen board (e2e)', () => {
+describeSandbox('Kitchen board (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let passwordHasher: PasswordHasherService;
@@ -41,6 +47,7 @@ describe('Kitchen board (e2e)', () => {
     );
     await app.init();
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     passwordHasher = app.get(PasswordHasherService);
   });
 

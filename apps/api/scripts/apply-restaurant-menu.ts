@@ -31,7 +31,7 @@ import { readFile } from 'node:fs/promises';
 import { ConfigService } from '@nestjs/config';
 import path from 'node:path';
 import dotenv from 'dotenv';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createPrismaPgAdapter } from '../src/database/postgres-connection';
 import { PrismaClient } from '../src/generated/prisma/client';
 import {
   applyMenuToExistingRestaurant,
@@ -126,7 +126,7 @@ async function main(): Promise<void> {
     console.log(
       `Apply the OFFERS of "${seedName}" to the restaurant of ${ownerEmail} -- mode: ${isApply ? 'APPLY' : 'DRY RUN'}`,
     );
-    const offersPrisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+    const offersPrisma = new PrismaClient({ adapter: createPrismaPgAdapter(connectionString) });
     try {
       const offerStorage = new ImageStorageService(
         new ConfigService({ UPLOAD_LOCAL_DIR: uploadDir }) as never,
@@ -202,7 +202,7 @@ async function main(): Promise<void> {
   console.log(`  Photos:      ${named.size} files from seed-data/${seedName}/images`);
 
   const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    adapter: createPrismaPgAdapter(connectionString),
   });
   try {
     const storage = new ImageStorageService(

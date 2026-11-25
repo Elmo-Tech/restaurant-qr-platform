@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access, @typescript-eslint/no-unsafe-assignment -- loosely typed JSON response bodies */
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomBytes, randomUUID } from 'node:crypto';
 import { createServer, type Server } from 'node:http';
 import type { AddressInfo } from 'node:net';
@@ -13,6 +14,8 @@ import { validationExceptionFactory } from './../src/common/http/validation-exce
 import type { EnvConfig } from './../src/config/env.schema';
 import { PrismaService } from './../src/database/prisma.service';
 
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
+
 /**
  * The AI section of the platform console API (DEC-059): engine, model, fallback and the pool of model keys, with
  * the platform audit log. A FAKE Gemini server on this machine answers the key test, so no real provider is called.
@@ -21,7 +24,7 @@ const PASSWORD = 'Platform-Admin-Pw-1';
 const SECRET_A = 'AIzaSyE2eKeyAAAAAAAAAAAAAAAAAAAAAAAA1';
 const SECRET_B = 'AIzaSyE2eKeyBBBBBBBBBBBBBBBBBBBBBBBB2';
 
-describe('Platform AI settings API (e2e)', () => {
+describeSandbox('Platform AI settings API (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let server: Server;
@@ -72,6 +75,7 @@ describe('Platform AI settings API (e2e)', () => {
     );
     await app.init();
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     const config = app.get<ConfigService<EnvConfig, true>>(ConfigService);
     origin = new URL(config.get('PLATFORM_ORIGIN', { infer: true }) ?? '')
       .origin;

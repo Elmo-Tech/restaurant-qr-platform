@@ -1,5 +1,6 @@
 import {
   assertSandboxUrl,
+  sandboxDatabaseName,
   SANDBOX_MARKER,
   SANDBOX_ROLE,
   SANDBOX_URL,
@@ -41,11 +42,16 @@ describeSandbox(
       assertSandboxUrl(SANDBOX_URL as string);
       db = new Client({ connectionString: SANDBOX_URL as string });
       await db.connect();
-      const identity = await db.query<{ usr: string; marker: string | null }>(
-        `SELECT current_user::text AS usr, shobj_description(d.oid, 'pg_database') AS marker
+      const identity = await db.query<{
+        db: string;
+        usr: string;
+        marker: string | null;
+      }>(
+        `SELECT current_database()::text AS db, current_user::text AS usr, shobj_description(d.oid, 'pg_database') AS marker
          FROM pg_database d WHERE d.datname = current_database()`,
       );
       if (
+        identity.rows[0]?.db !== sandboxDatabaseName() ||
         identity.rows[0]?.marker !== SANDBOX_MARKER ||
         identity.rows[0]?.usr !== SANDBOX_ROLE
       ) {

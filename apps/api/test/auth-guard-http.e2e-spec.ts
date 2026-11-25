@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -10,6 +11,8 @@ import { PasswordHasherService } from './../src/auth/password/password-hasher.se
 import { PrismaService } from './../src/database/prisma.service';
 import { ProtectedTestModule } from './fixtures/protected-test.module';
 
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
+
 /**
  * Proves the real wiring for Auth Foundation E: HTTP Cookie -> AuthGuard ->
  * AuthSessionService -> PrismaService -> PostgreSQL, through the TEST-ONLY
@@ -20,7 +23,7 @@ import { ProtectedTestModule } from './fixtures/protected-test.module';
  * empty state regardless of test outcome. No Restaurant/Membership/Branch
  * records are created: this slice is authentication only.
  */
-describe('AuthGuard (e2e)', () => {
+describeSandbox('AuthGuard (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let passwordHasherService: PasswordHasherService;
@@ -46,6 +49,7 @@ describe('AuthGuard (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     passwordHasherService = app.get(PasswordHasherService);
     authSessionService = app.get(AuthSessionService);
     sessionTokenService = app.get(SessionTokenService);

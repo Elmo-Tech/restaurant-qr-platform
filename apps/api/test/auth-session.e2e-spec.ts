@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -5,6 +6,8 @@ import { AppModule } from './../src/app.module';
 import { AuthSessionService } from './../src/auth/session/auth-session.service';
 import { SessionTokenService } from './../src/auth/session/session-token.service';
 import { PrismaService } from './../src/database/prisma.service';
+
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
 
 /**
  * Proves the real wiring: SessionTokenService -> AuthSessionService ->
@@ -16,7 +19,7 @@ import { PrismaService } from './../src/database/prisma.service';
  * AuthSession) and removes it — with its sessions — in afterEach, so the
  * database returns to its empty state regardless of test outcome.
  */
-describe('AuthSessionService database integration (e2e)', () => {
+describeSandbox('AuthSessionService database integration (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let authSessionService: AuthSessionService;
@@ -32,6 +35,7 @@ describe('AuthSessionService database integration (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     authSessionService = app.get(AuthSessionService);
     sessionTokenService = app.get(SessionTokenService);
   });

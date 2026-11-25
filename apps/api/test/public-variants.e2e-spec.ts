@@ -5,6 +5,7 @@ import {
 } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { postgresPoolConfig } from './../src/database/postgres-connection';
 import { PrismaClient } from './../src/generated/prisma/client';
 import { EntitlementsService } from './../src/entitlements/entitlements.service';
 import { PublicMenuService } from './../src/public/public-menu.service';
@@ -34,7 +35,7 @@ describeSandbox(
       assertSandboxUrl(SANDBOX_URL as string);
       prisma = new PrismaClient({
         adapter: new PrismaPg({
-          connectionString: SANDBOX_URL as string,
+          ...postgresPoolConfig(SANDBOX_URL as string),
           max: 10,
         }),
       });

@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -8,6 +9,10 @@ import { validationExceptionFactory } from './../src/common/http/validation-exce
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import { PrismaService } from './../src/database/prisma.service';
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
+
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
+const SUITE_TITLE =
+  'PATCH /api/v1/restaurants/:restaurantId/branches/:branchId/tables/:tableId (e2e)';
 
 /**
  * Business Foundation Q: proves Table Basic Info Update end-to-end through
@@ -24,7 +29,7 @@ import { ensureStarterRole } from './fixtures/ensure-starter-role';
  * rows and removes them in afterEach, so the database returns to its empty
  * state regardless of test outcome.
  */
-describe('PATCH /api/v1/restaurants/:restaurantId/branches/:branchId/tables/:tableId (e2e)', () => {
+describeSandbox(SUITE_TITLE, () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let passwordHasherService: PasswordHasherService;
@@ -95,6 +100,7 @@ describe('PATCH /api/v1/restaurants/:restaurantId/branches/:branchId/tables/:tab
     await app.init();
 
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     passwordHasherService = app.get(PasswordHasherService);
   });
 

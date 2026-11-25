@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
@@ -9,8 +10,9 @@ import type { Prisma } from '../src/generated/prisma/client';
 import { PasswordHasherService } from '../src/auth/password/password-hasher.service';
 import { validationExceptionFactory } from '../src/common/http/validation-exception.factory';
 
+// Still opt-in, and only ever against the marked integration sandbox (see support/sandbox-guard.ts).
 const disposable = process.env.CONTRACT_E2E_DISPOSABLE === '1';
-const suite = disposable ? describe : describe.skip;
+const suite = disposable && SANDBOX_URL ? describe : describe.skip;
 jest.setTimeout(60000);
 type ContractResponse = {
   data: {
@@ -42,9 +44,6 @@ suite('contract editing and signing (real HTTP and PostgreSQL)', () => {
   );
 
   beforeAll(async () => {
-    const db = new URL(process.env.DATABASE_URL ?? '');
-    if (db.hostname !== 'localhost' || !db.pathname.includes('contracts_local'))
-      throw new Error('Use the disposable local contracts database only');
     const module = await Test.createTestingModule({
       imports: [AppModule],
     }).compile();
@@ -59,6 +58,7 @@ suite('contract editing and signing (real HTTP and PostgreSQL)', () => {
     );
     await app.init();
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     const hasher = app.get(PasswordHasherService);
     const admin = await prisma.platformAdmin.create({
       data: {

@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -8,6 +9,8 @@ import { validationExceptionFactory } from './../src/common/http/validation-exce
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import { PrismaService } from './../src/database/prisma.service';
 
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
+
 /**
  * HTTP transport for the already-approved LoginService (Auth Foundation D).
  * Exercises the real Nest application -- routing, the global ValidationPipe,
@@ -17,7 +20,7 @@ import { PrismaService } from './../src/database/prisma.service';
  * removes them -- with any AuthSession they created -- in afterEach, so the
  * database returns to its empty state regardless of test outcome.
  */
-describe('POST /api/v1/auth/login (e2e)', () => {
+describeSandbox('POST /api/v1/auth/login (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let passwordHasherService: PasswordHasherService;
@@ -44,6 +47,7 @@ describe('POST /api/v1/auth/login (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     passwordHasherService = app.get(PasswordHasherService);
   });
 

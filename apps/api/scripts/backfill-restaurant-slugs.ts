@@ -15,7 +15,7 @@
  */
 import path from 'node:path';
 import dotenv from 'dotenv';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createPrismaPgAdapter } from '../src/database/postgres-connection';
 import { PrismaClient } from '../src/generated/prisma/client';
 import { backfillRestaurantSlugs } from '../src/restaurants/restaurant-slug-store';
 
@@ -31,7 +31,7 @@ async function main(): Promise<void> {
     return;
   }
   const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    adapter: createPrismaPgAdapter(connectionString),
   });
   try {
     const summary = await backfillRestaurantSlugs(prisma, { dryRun: !apply });

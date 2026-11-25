@@ -240,6 +240,13 @@ Application timestamps should be treated consistently in UTC internally.
 
 Restaurant / Branch timezone is applied when displaying or evaluating local operational time.
 
+Implementation note (enforcement, no behavior change): every application connection, including
+the operational scripts, runs with session `TimeZone = UTC` regardless of the server, database
+or role default (`apps/api/src/database/postgres-connection.ts`); the API refuses to start on a
+non-UTC session, and a `DATABASE_URL` carrying its own `options` parameter is rejected. The
+Prisma PostgreSQL adapter is only correct on UTC sessions. Verified against servers defaulting
+to UTC and Africa/Cairo by `apps/api/test/database-timezone.e2e-spec.ts`.
+
 ---
 
 # 12. Date and Time Fields

@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -6,6 +7,8 @@ import { App } from 'supertest/types';
 import { AppModule } from './../src/app.module';
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import { PrismaService } from './../src/database/prisma.service';
+
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
 
 /**
  * Proves Auth Foundation I end-to-end: HTTP Cookie -> AuthGuard -> CsrfGuard
@@ -20,7 +23,7 @@ import { PrismaService } from './../src/database/prisma.service';
  * Creates temporary User/AuthSession rows and removes them in afterEach, so
  * the database returns to its empty state regardless of test outcome.
  */
-describe('POST /api/v1/auth/logout (e2e)', () => {
+describeSandbox('POST /api/v1/auth/logout (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let passwordHasherService: PasswordHasherService;
@@ -49,6 +52,7 @@ describe('POST /api/v1/auth/logout (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     passwordHasherService = app.get(PasswordHasherService);
   });
 

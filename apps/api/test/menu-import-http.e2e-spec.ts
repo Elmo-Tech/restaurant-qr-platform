@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access -- loosely typed JSON response bodies */
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
@@ -16,6 +17,8 @@ import {
   type ExtractionInput,
 } from './../src/menu-import/menu-import-extractor';
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
+
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
 
 /**
  * Menu Import (DEC-040) end to end with a FAKE extraction service: the n8n answer
@@ -80,7 +83,7 @@ const extraction = {
   ],
 };
 
-describe('Menu import (e2e)', () => {
+describeSandbox('Menu import (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let hasher: PasswordHasherService;
@@ -108,6 +111,7 @@ describe('Menu import (e2e)', () => {
     );
     await app.init();
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     hasher = app.get(PasswordHasherService);
   });
 
