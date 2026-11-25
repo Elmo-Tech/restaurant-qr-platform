@@ -1,9 +1,13 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access -- Supertest response.body is untyped. */
+import {
+  assertSandboxDatabase,
+  assertSandboxIdentity,
+  SANDBOX_URL,
+} from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import type { INestApplication } from '@nestjs/common';
 import { Test } from '@nestjs/testing';
 import request from 'supertest';
-import { SCRATCH_URL } from './support/scratch-guard';
 import { AppModule } from '../src/app.module';
 import { PrismaService } from '../src/database/prisma.service';
 import { PublicMenuService } from '../src/public/public-menu.service';
@@ -19,12 +23,13 @@ import { createQrPublicCode } from '../src/qr/qr-public-code';
  * data are needed to prove that the guard blocks foreign tenant QRs before
  * the underlying public service is invoked.
  *
- * SCRATCH_URL is required and validated by support/scratch-guard: a LOCAL
- * database with "scratch" in its name. Never run against production.
+ * Isolation: see `support/sandbox-guard.ts`; without TABLE_SESSION_IT_DATABASE_URL
+ * the suite is skipped, and the live database identity is verified before the
+ * Nest application is created. Never run against production.
  */
-const describeScratch = SCRATCH_URL ? describe : describe.skip;
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
 
-describeScratch('Restaurant subdomain isolation (real disposable PostgreSQL)', () => {
+describeSandbox('Restaurant subdomain isolation (real disposable PostgreSQL)', () => {
   let app: INestApplication;
   let db: PrismaService;
   const createdRestaurantIds: string[] = [];
@@ -45,6 +50,7 @@ describeScratch('Restaurant subdomain isolation (real disposable PostgreSQL)', (
   };
 
   beforeAll(async () => {
+    await assertSandboxDatabase();
     // ConfigModule is evaluated when the AppModule is created. This setting
     // only affects the isolated Jest process/database and is cleared below.
     process.env.RESTAURANT_BASE_DOMAIN = 'waytaapp.com';
@@ -59,6 +65,7 @@ describeScratch('Restaurant subdomain isolation (real disposable PostgreSQL)', (
     app.setGlobalPrefix('api/v1');
     await app.init();
     db = app.get(PrismaService);
+    await assertSandboxIdentity(db);
 
     for (const [slug, label] of [[slugA, 'A'], [slugB, 'B']] as const) {
       const restaurant = await db.restaurant.create({

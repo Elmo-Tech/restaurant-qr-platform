@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -9,6 +10,8 @@ import { PrismaService } from './../src/database/prisma.service';
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
 import { TenantProtectedTestModule } from './fixtures/tenant-protected.module';
 
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
+
 /**
  * Proves Authorization Foundation H (PermissionGuard) end-to-end: HTTP
  * Cookie -> AuthGuard -> RestaurantAccessGuard -> PermissionGuard ->
@@ -18,7 +21,7 @@ import { TenantProtectedTestModule } from './fixtures/tenant-protected.module';
  * #168 (every protected operation has an allowed-role and a denied-role
  * test).
  */
-describe('Permission authorization (e2e)', () => {
+describeSandbox('Permission authorization (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let passwordHasherService: PasswordHasherService;
@@ -46,6 +49,7 @@ describe('Permission authorization (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     passwordHasherService = app.get(PasswordHasherService);
   });
 
