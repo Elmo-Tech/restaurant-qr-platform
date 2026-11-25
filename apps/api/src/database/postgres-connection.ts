@@ -31,7 +31,7 @@ const SESSION_OPTIONS = `-c TimeZone=${DATABASE_SESSION_TIME_ZONE}`;
  * `options`) and `+` is a space. The fallback parses only the query part for
  * URLs WHATWG cannot parse (for example some socket-path hosts).
  */
-function queryParameterNames(connectionString: string): string[] {
+export function queryParameterNames(connectionString: string): string[] {
   try {
     return [...new URL(connectionString).searchParams.keys()];
   } catch {
