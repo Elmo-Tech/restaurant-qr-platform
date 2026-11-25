@@ -302,8 +302,9 @@ describeSandbox('Onboarding Platform menu writer (real PostgreSQL)', () => {
 
   it('rechecks review, retention, effective MENU_IMPORT and active locale', async () => {
     const future = new Date(Date.now() + 60_000);
+    // Import gates apply only to non-MANUAL provenance (manual-only menus need no grant).
     const unreviewed = await fixture(
-      { importExpiresAt: future },
+      { importExpiresAt: future, menuProvenance: 'IMPORTED' },
       { importEntitled: true },
     );
     const expired = await fixture(
@@ -311,12 +312,14 @@ describeSandbox('Onboarding Platform menu writer (real PostgreSQL)', () => {
         importExpiresAt: new Date(0),
         menuDraft: Prisma.DbNull,
         importReviewed: false,
+        menuProvenance: 'IMPORTED',
       },
       { importEntitled: true },
     );
     const notEntitled = await fixture({
       importExpiresAt: future,
       importReviewed: true,
+      menuProvenance: 'IMPORTED',
     });
     const localeInactive = await fixture({}, { extraLocale: false });
     expect(await writer.publish(admin, unreviewed)).toEqual({
