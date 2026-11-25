@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -9,12 +10,14 @@ import { PasswordHasherService } from './../src/auth/password/password-hasher.se
 import { PrismaService } from './../src/database/prisma.service';
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
 
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
+
 /**
  * Product Variants V1 (DEC-041), Staff API end to end:
  * `/restaurants/{id}/products/{productId}/variants` (menu.view to read,
  * menu.manage with Restaurant-wide scope + CSRF to write).
  */
-describe('Product variants (e2e)', () => {
+describeSandbox('Product variants (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let passwordHasherService: PasswordHasherService;
@@ -39,6 +42,7 @@ describe('Product variants (e2e)', () => {
     );
     await app.init();
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     passwordHasherService = app.get(PasswordHasherService);
   });
 

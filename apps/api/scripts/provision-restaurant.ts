@@ -28,7 +28,7 @@
  */
 import path from 'node:path';
 import dotenv from 'dotenv';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createPrismaPgAdapter } from '../src/database/postgres-connection';
 import { PasswordHasherService } from '../src/auth/password/password-hasher.service';
 import { PrismaClient } from '../src/generated/prisma/client';
 import {
@@ -85,7 +85,7 @@ async function main(): Promise<void> {
   if (!connectionString) {
     throw new Error('DATABASE_URL is not set.');
   }
-  const prisma = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+  const prisma = new PrismaClient({ adapter: createPrismaPgAdapter(connectionString) });
   try {
     const result = await provisionRestaurant(
       prisma as unknown as ProvisioningPrisma,

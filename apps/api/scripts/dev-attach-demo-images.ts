@@ -34,7 +34,7 @@ import { readdir, readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { ConfigService } from '@nestjs/config';
 import dotenv from 'dotenv';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createPrismaPgAdapter } from '../src/database/postgres-connection';
 import { CategoriesService } from '../src/menu/categories.service';
 import { ProductsService } from '../src/menu/products.service';
 import { PrismaClient } from '../src/generated/prisma/client';
@@ -154,7 +154,7 @@ async function main(): Promise<void> {
   const connectionString = process.env.DATABASE_URL;
   if (!connectionString) throw new Error('DATABASE_URL is not set.');
   const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString }),
+    adapter: createPrismaPgAdapter(connectionString),
   });
 
   try {

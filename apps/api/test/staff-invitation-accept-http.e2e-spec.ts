@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID, randomBytes, createHash } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -8,6 +9,8 @@ import { validationExceptionFactory } from './../src/common/http/validation-exce
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import { PrismaService } from './../src/database/prisma.service';
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
+
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
 
 /**
  * Business Foundation T: proves Staff Invitation Acceptance end-to-end
@@ -20,7 +23,7 @@ import { ensureStarterRole } from './fixtures/ensure-starter-role';
  * state regardless of test outcome. New Users created BY the endpoint itself
  * (not tracked via an explicit id) are cleaned up by normalized email.
  */
-describe('POST /api/v1/auth/invitations/accept (e2e)', () => {
+describeSandbox('POST /api/v1/auth/invitations/accept (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let passwordHasherService: PasswordHasherService;
@@ -64,6 +67,7 @@ describe('POST /api/v1/auth/invitations/accept (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     passwordHasherService = app.get(PasswordHasherService);
   });
 

@@ -3,8 +3,9 @@ import path from 'node:path';
 import dotenv from 'dotenv';
 
 /**
- * ISOLATION GUARD for every integration spec that WRITES to PostgreSQL (the
- * Table Sessions specs). These tests must NEVER touch the development or any
+ * ISOLATION GUARD for every integration spec that WRITES to PostgreSQL
+ * (enforced for every `*.e2e-spec.ts` by `e2e-database-safety.spec.ts`; run
+ * `npm run test:db-safety`). These tests must NEVER touch the development or any
  * production database. They only run when TABLE_SESSION_IT_DATABASE_URL is set
  * -- deliberately NOT DATABASE_URL -- and then refuse to continue unless ALL of
  * these hold:
@@ -46,11 +47,13 @@ function developmentTarget(): { database: string | null; user: string | null } {
   }
 }
 
-export function assertSandboxUrl(rawUrl: string): void {
+export function assertSandboxUrl(
+  rawUrl: string,
+  dev: { database: string | null; user: string | null } = developmentTarget(),
+): void {
   const url = new URL(rawUrl);
   const database = url.pathname.replace(/^\//, '');
   const user = decodeURIComponent(url.username);
-  const dev = developmentTarget();
   if (!['localhost', '127.0.0.1'].includes(url.hostname)) {
     throw new Error(
       `Refusing to run: sandbox host must be local, got ${url.hostname}`,

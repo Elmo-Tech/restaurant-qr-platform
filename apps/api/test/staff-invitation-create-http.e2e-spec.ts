@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID, createHash } from 'node:crypto';
 import { INestApplication, ValidationPipe } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -9,6 +10,9 @@ import { PasswordHasherService } from './../src/auth/password/password-hasher.se
 import { PrismaService } from './../src/database/prisma.service';
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
 import { StaffInvitationsService } from './../src/staff/staff-invitations.service';
+
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
+const SUITE_TITLE = 'POST /api/v1/restaurants/:restaurantId/invitations (e2e)';
 
 /**
  * Business Foundation S: proves Staff Invitation Creation end-to-end through
@@ -23,7 +27,7 @@ import { StaffInvitationsService } from './../src/staff/staff-invitations.servic
  * rows and removes them in afterEach, so the database returns to its empty
  * state regardless of test outcome.
  */
-describe('POST /api/v1/restaurants/:restaurantId/invitations (e2e)', () => {
+describeSandbox(SUITE_TITLE, () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let passwordHasherService: PasswordHasherService;
@@ -92,6 +96,7 @@ describe('POST /api/v1/restaurants/:restaurantId/invitations (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     passwordHasherService = app.get(PasswordHasherService);
   });
 

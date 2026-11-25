@@ -1,4 +1,5 @@
 /* eslint-disable @typescript-eslint/no-unsafe-member-access -- loosely typed JSON response bodies */
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
@@ -17,6 +18,8 @@ import { NotADemoError, purgeDemoRestaurant } from './../src/demo/demo-purge';
 import { EntitlementsService } from './../src/entitlements/entitlements.service';
 import { resolveUploadDir } from './../src/storage/upload-dir';
 
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
+
 /**
  * Temporary demo restaurants (DEC-060), end to end: the Platform console creates one from the template, the prospect
  * enters by the secret link, the Backend restricts what a demo may do, and after the end the demo is locked and then
@@ -24,7 +27,7 @@ import { resolveUploadDir } from './../src/storage/upload-dir';
  */
 const PASSWORD = 'Platform-Admin-Pw-1';
 
-describe('Temporary demo restaurants (e2e)', () => {
+describeSandbox('Temporary demo restaurants (e2e)', () => {
   let app: INestApplication<App>;
   let prisma: PrismaService;
   let demos: DemoService;
@@ -53,6 +56,7 @@ describe('Temporary demo restaurants (e2e)', () => {
     );
     await app.init();
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     demos = app.get(DemoService);
     const config = app.get<ConfigService<EnvConfig, true>>(ConfigService);
     platformOrigin = new URL(

@@ -5,6 +5,7 @@ import {
 } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { PrismaPg } from '@prisma/adapter-pg';
+import { postgresPoolConfig } from './../src/database/postgres-connection';
 import { PrismaClient } from './../src/generated/prisma/client';
 import { PublicOrdersService } from './../src/public/public-orders.service';
 import { isClosedSessionTriggerViolation } from './../src/table-sessions/table-session-ordering';
@@ -38,7 +39,7 @@ describeSandbox('Table Sessions Slice 1 (real PostgreSQL)', () => {
     assertSandboxUrl(SANDBOX_URL as string);
     prisma = new PrismaClient({
       adapter: new PrismaPg({
-        connectionString: SANDBOX_URL as string,
+        ...postgresPoolConfig(SANDBOX_URL as string),
         max: 20,
       }),
     });

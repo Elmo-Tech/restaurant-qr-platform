@@ -1,3 +1,4 @@
+import { assertSandboxIdentity, SANDBOX_URL } from './support/sandbox-guard';
 import { randomUUID } from 'node:crypto';
 import { INestApplication } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
@@ -5,6 +6,8 @@ import { AppModule } from './../src/app.module';
 import { LoginService } from './../src/auth/login/login.service';
 import { PasswordHasherService } from './../src/auth/password/password-hasher.service';
 import { PrismaService } from './../src/database/prisma.service';
+
+const describeSandbox = SANDBOX_URL ? describe : describe.skip;
 
 /**
  * Proves the real wiring: PrismaService (User lookup) ->
@@ -18,7 +21,7 @@ import { PrismaService } from './../src/database/prisma.service';
  * Restaurant/Branch/Membership records are created: login proves User
  * identity only.
  */
-describe('LoginService database integration (e2e)', () => {
+describeSandbox('LoginService database integration (e2e)', () => {
   let app: INestApplication;
   let prisma: PrismaService;
   let passwordHasherService: PasswordHasherService;
@@ -36,6 +39,7 @@ describe('LoginService database integration (e2e)', () => {
     await app.init();
 
     prisma = app.get(PrismaService);
+    await assertSandboxIdentity(prisma);
     passwordHasherService = app.get(PasswordHasherService);
     loginService = app.get(LoginService);
   });

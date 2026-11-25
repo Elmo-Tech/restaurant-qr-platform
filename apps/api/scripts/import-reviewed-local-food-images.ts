@@ -12,7 +12,7 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import dotenv from 'dotenv';
 import { ConfigService } from '@nestjs/config';
-import { PrismaPg } from '@prisma/adapter-pg';
+import { createPrismaPgAdapter } from '../src/database/postgres-connection';
 import { PrismaClient } from '../src/generated/prisma/client';
 import type { PrismaService } from '../src/database/prisma.service';
 import { ImageStorageService } from '../src/storage/image-storage.service';
@@ -91,7 +91,7 @@ async function main(): Promise<void> {
   }
 
   const prisma = new PrismaClient({
-    adapter: new PrismaPg({ connectionString: process.env.DATABASE_URL! }),
+    adapter: createPrismaPgAdapter(process.env.DATABASE_URL!),
   });
   try {
     const codes = [
