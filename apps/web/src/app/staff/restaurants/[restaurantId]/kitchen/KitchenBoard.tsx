@@ -6,6 +6,8 @@ import type { MessageKey } from '../../../../../lib/i18n/messages';
 import { localizedName } from '../../../../../lib/i18n/localized-name';
 import * as kitchenApi from '../../../../../lib/kitchen/api';
 import {
+  KITCHEN_ACTION_TIMEOUT_MS,
+  KITCHEN_READ_TIMEOUT_MS,
   appendBoardNotices,
   classifyKitchenActionError,
   detectArrivals,
@@ -149,7 +151,10 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
       const seq = ++readSeqRef.current;
       const promise = (async (): Promise<ReadResult> => {
         try {
-          const list = await kitchenApi.listKitchenTickets(restaurantId, branch);
+          // Bounded: a hung read would otherwise hold the single in-flight slot and stop every later poll.
+          const list = await kitchenApi.listKitchenTickets(restaurantId, branch, {
+            signal: AbortSignal.timeout(KITCHEN_READ_TIMEOUT_MS),
+          });
           if (generationRef.current !== generation) return 'stale';
 
           const arrivals = detectArrivals(seenRef.current, list);
@@ -279,10 +284,13 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
       try {
         let kind: PendingCheck['kind'];
         try {
-          await ordersApi.updateOrderStatus(restaurantId, ticket.id, {
-            expectedStatus: ticket.status,
-            status: to,
-          });
+          // A timed-out request may still have been applied: it is classified `unknown` and reconciled.
+          await ordersApi.updateOrderStatus(
+            restaurantId,
+            ticket.id,
+            { expectedStatus: ticket.status, status: to },
+            { signal: AbortSignal.timeout(KITCHEN_ACTION_TIMEOUT_MS) },
+          );
           kind = 'saved';
         } catch (error) {
           const failure = classifyKitchenActionError(error);
@@ -430,13 +438,18 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
               variant="secondary"
               aria-pressed={sound.preference}
               onClick={sound.toggle}
-              className="aria-pressed:border-primary aria-pressed:text-primary"
+              className="min-h-11 aria-pressed:border-primary aria-pressed:text-primary"
             >
               <IconSound muted={!sound.preference} />
               {t('kitchen.sound.label')}
             </Button>
             {sound.preference && sound.audio === 'blocked' ? (
-              <Button type="button" variant="secondary" onClick={sound.enable} className="border-warning text-warning">
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={sound.enable}
+                className="min-h-11 border-warning text-warning"
+              >
                 {t('kitchen.sound.enable')}
               </Button>
             ) : null}
@@ -449,6 +462,7 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
               disabled={refreshing}
               aria-busy={refreshing || undefined}
               onClick={() => refreshNow('manual')}
+              className="min-h-11"
             >
               {refreshing ? t('kitchen.refreshing') : t('kitchen.refresh')}
             </Button>
@@ -498,6 +512,7 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
             <Button
               type="button"
               variant="secondary"
+              className="min-h-11"
               onClick={() => setBoardNotices((current) => current.filter((item) => item.id !== notice.id))}
             >
               {t('kitchen.dismiss')}

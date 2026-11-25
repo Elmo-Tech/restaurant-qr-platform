@@ -175,7 +175,7 @@ export function KitchenTicketCard({
           <Button
             type="button"
             variant="secondary"
-            className="aria-disabled:cursor-wait aria-disabled:opacity-60"
+            className="min-h-11 aria-disabled:cursor-wait aria-disabled:opacity-60"
             aria-disabled={checking || undefined}
             onClick={() => {
               if (!checking) onCheckAgain();

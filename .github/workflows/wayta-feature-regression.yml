@@ -217,7 +217,9 @@ jobs:
           src/lib/staff/focus-invalid-field.ts
           src/lib/contact/international-phone.ts
           src/lib/kitchen/board-state.ts
+          src/lib/kitchen/api.ts
           src/lib/kitchen/capabilities.ts
+          src/lib/orders/api.ts
           src/lib/i18n/messages/kitchen.ts
           src/components/staff/icons.tsx
           'src/app/staff/restaurants/[restaurantId]/kitchen/KitchenBoard.tsx'

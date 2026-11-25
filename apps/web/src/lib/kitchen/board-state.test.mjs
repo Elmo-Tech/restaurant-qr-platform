@@ -3,6 +3,8 @@ import assert from 'node:assert/strict';
 import { ApiError } from '../api/errors.ts';
 import {
   BOARD_NOTICE_LIMIT,
+  KITCHEN_ACTION_TIMEOUT_MS,
+  KITCHEN_READ_TIMEOUT_MS,
   appendBoardNotices,
   classifyKitchenActionError,
   detectArrivals,
@@ -42,6 +44,24 @@ test('action failures are classified by HTTP status and stable code, never by me
   assert.equal(classifyKitchenActionError(apiError(502, 'UNKNOWN_ERROR')), 'unknown');
   assert.equal(classifyKitchenActionError(new TypeError('Failed to fetch')), 'unknown');
   assert.equal(classifyKitchenActionError(undefined), 'unknown');
+});
+
+test('timeouts are ambiguous: always unknown, never "refused"', () => {
+  // A proxy can time out after forwarding the request; the gateway variants likewise.
+  assert.equal(classifyKitchenActionError(apiError(408, 'UNKNOWN_ERROR')), 'unknown');
+  assert.equal(classifyKitchenActionError(apiError(504, 'UNKNOWN_ERROR')), 'unknown');
+  assert.equal(classifyKitchenActionError(apiError(503, 'UNKNOWN_ERROR')), 'unknown');
+  // AbortSignal.timeout() rejects fetch with a TimeoutError DOMException; a plain abort with AbortError.
+  assert.equal(classifyKitchenActionError(new DOMException('signal timed out', 'TimeoutError')), 'unknown');
+  assert.equal(classifyKitchenActionError(new DOMException('aborted', 'AbortError')), 'unknown');
+  // A definite refusal stays definite.
+  assert.equal(classifyKitchenActionError(apiError(429, 'RATE_LIMITED')), 'rejected');
+});
+
+test('client-side bounds: reads give up before actions, both well under browser defaults', () => {
+  assert.ok(KITCHEN_READ_TIMEOUT_MS > 5_000, 'a read must outlive one poll interval');
+  assert.ok(KITCHEN_ACTION_TIMEOUT_MS >= KITCHEN_READ_TIMEOUT_MS);
+  assert.ok(KITCHEN_ACTION_TIMEOUT_MS <= 30_000);
 });
 
 test('a pending check is only settled by a read that started after it', () => {

@@ -45,10 +45,12 @@ export async function updateOrderStatus(
   restaurantId: string,
   orderId: string,
   input: { expectedStatus: OrderStatus; status: OrderStatus },
+  /** Optional: lets a caller bound the wait (an aborted request has an unknown outcome). */
+  options: { signal?: AbortSignal } = {},
 ): Promise<OrderDetail> {
   const body = await apiFetch<{ data: OrderDetail }>(
     `${restaurantPath(restaurantId)}/orders/${orderId}/status`,
-    { method: 'PATCH', body: input },
+    { method: 'PATCH', body: input, signal: options.signal },
   );
   return body.data;
 }

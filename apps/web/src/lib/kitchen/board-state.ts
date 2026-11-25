@@ -26,15 +26,25 @@ export function nextKitchenStatus(status: KitchenStatus): 'PREPARING' | 'READY' 
  *   else moved, cancelled or closed it). Nothing was applied by this request.
  * - `denied`: this account may not make the change. Nothing was applied.
  * - `rejected`: any other definite refusal (4xx). Nothing was applied.
- * - `unknown`: no reliable answer (network failure, gateway or server error).
- *   The change may or may not have been saved, so the board must re-read the
- *   truth before another attempt is allowed.
+ * - `unknown`: no reliable answer -- a network failure, a client-side timeout
+ *   or abort, a `408 Request Timeout` (a proxy may have forwarded the request
+ *   before giving up), or a gateway / server error. The change may or may not
+ *   have been saved, so the board must re-read the truth before another
+ *   attempt is allowed.
  */
 export type KitchenActionFailure = 'unauthenticated' | 'conflict' | 'denied' | 'rejected' | 'unknown';
 
+/** Client-side bounds on a request; reaching one means "no answer", never "refused". */
+export const KITCHEN_READ_TIMEOUT_MS = 10_000;
+export const KITCHEN_ACTION_TIMEOUT_MS = 15_000;
+
+const HTTP_REQUEST_TIMEOUT = 408;
+
 export function classifyKitchenActionError(error: unknown): KitchenActionFailure {
+  // Includes `AbortSignal.timeout()`'s TimeoutError and any other abort or network failure.
   if (!(error instanceof ApiError)) return 'unknown';
   if (error.status === 401 || error.code === 'UNAUTHENTICATED') return 'unauthenticated';
+  if (error.status === HTTP_REQUEST_TIMEOUT) return 'unknown';
   if (error.status === 409 || error.code === 'ORDER_NOT_FOUND') return 'conflict';
   if (error.status === 403) return 'denied';
   if (error.status >= 400 && error.status < 500) return 'rejected';

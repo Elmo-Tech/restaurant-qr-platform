@@ -77,14 +77,14 @@ test('the lifecycle stays ACCEPTED -> PREPARING -> READY; READY never implies SE
   assert.match(boardState, /if \(status === 'ACCEPTED'\) return 'PREPARING';\n\s+if \(status === 'PREPARING'\) return 'READY';\n\s+return null;/);
   const advance = block(board, /const advance = useCallback\(/);
   assert.match(advance, /const to = nextKitchenStatus\(ticket\.status\);\n\s+if \(to === null\) return;/);
-  assert.match(advance, /expectedStatus: ticket\.status,\n\s+status: to,/);
+  assert.match(advance, /\{ expectedStatus: ticket\.status, status: to \}/);
   assert.match(card, /ticket\.status === 'READY' \?[\s\S]*?kitchen\.waitingService/);
 });
 
 test('reads never overlap: one in flight, joins for poll/visible/manual, one queued fresh read for reconciliation', () => {
   // The only network read lives in runRead, keyed by the branch session's branch.
   assert.equal(board.match(/listKitchenTickets\(/g).length, 1);
-  assert.match(block(board, /const runRead = useCallback\(/), /kitchenApi\.listKitchenTickets\(restaurantId, branch\)/);
+  assert.match(block(board, /const runRead = useCallback\(/), /kitchenApi\.listKitchenTickets\(restaurantId, branch, \{/);
   const requestRead = block(board, /const requestRead = useCallback\(/);
   assert.match(requestRead, /if \(queuedRef\.current\) return queuedRef\.current;/);
   assert.match(requestRead, /if \(!inFlight\) return runRead\(generation, branch\);/);
@@ -224,4 +224,27 @@ test('every new message exists in English and Arabic; retired keys are gone', ()
   for (const retired of ['kitchen.live', 'kitchen.loadFailed', 'kitchen.staleAction']) {
     assert.doesNotMatch(copySource, new RegExp(`'${retired.replaceAll('.', '\\.')}'`), retired);
   }
+});
+
+test('reads and status changes are time-bounded; a timed-out change is reconciled, not retried', () => {
+  assert.match(
+    block(board, /const runRead = useCallback\(/),
+    /kitchenApi\.listKitchenTickets\(restaurantId, branch, \{\n\s+signal: AbortSignal\.timeout\(KITCHEN_READ_TIMEOUT_MS\),/,
+  );
+  assert.match(
+    block(board, /const advance = useCallback\(/),
+    /\{ expectedStatus: ticket\.status, status: to \},\n\s+\{ signal: AbortSignal\.timeout\(KITCHEN_ACTION_TIMEOUT_MS\) \},/,
+  );
+  assert.match(boardState, /if \(error\.status === HTTP_REQUEST_TIMEOUT\) return 'unknown';/);
+  // The shared helpers only gained an optional signal; other callers are unchanged.
+  assert.match(read('../orders/api.ts'), /options: \{ signal\?: AbortSignal \} = \{\},/);
+  assert.match(read('../kitchen/api.ts'), /options: \{ signal\?: AbortSignal \} = \{\},/);
+});
+
+test('K1 controls meet the 44px touch target (min-h-11 over the 40px default button)', () => {
+  assert.match(board, /className="min-h-11 aria-pressed:border-primary aria-pressed:text-primary"/); // Sound
+  assert.match(board, /onClick=\{\(\) => refreshNow\('manual'\)\}\n\s+className="min-h-11"/); // Refresh
+  assert.match(board, /onClick=\{sound\.enable\}\n\s+className="min-h-11 border-warning text-warning"/); // Enable sound
+  assert.match(board, /className="min-h-11"\n\s+onClick=\{\(\) => setBoardNotices/); // Dismiss
+  assert.match(card, /className="min-h-11 aria-disabled:cursor-wait aria-disabled:opacity-60"/); // Check again
 });
