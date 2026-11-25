@@ -9,6 +9,16 @@ export const menuImportMessages = defineMessages({
       'Upload photos of your menu (one or several), or a PDF or Excel file. We read it into a draft that you review before anything is added.',
     'import.back': 'Back to menu',
     'import.loading': 'Loading…',
+    'import.blocked.demo':
+      'Importing a menu from a file is turned off in demo restaurants on purpose. You can still add products by hand to try the menu.',
+    'import.blocked.permission':
+      "Your role can't change this restaurant's menu, so it can't import one either. Ask the owner or a manager to import it, or to change your role.",
+    'import.blocked.branchScope':
+      "Your account works with specific branches only. Importing a menu changes it for the whole restaurant, so it needs access to all branches. Ask the owner to give you all-branches access.",
+    'import.error.permission':
+      "You can't import a menu with your current access. It needs menu management for all branches. Refresh the page, or ask the owner to check your role.",
+    'import.error.featureOff':
+      'Menu import is no longer turned on for this restaurant. Ask the Wayta team to turn it on, or add the menu by hand.',
 
     'import.upload.file': 'Menu photos or file',
     'import.upload.fileHint':
@@ -133,6 +143,16 @@ export const menuImportMessages = defineMessages({
       'ارفع صور المنيو (صورة واحدة أو عدة صور) أو ملف PDF أو Excel. نقرأه إلى مسودة تراجعها قبل إضافة أي شيء.',
     'import.back': 'العودة إلى المنيو',
     'import.loading': 'جارٍ التحميل…',
+    'import.blocked.demo':
+      'استيراد المنيو من ملف مقفول في المطاعم التجريبية بشكل مقصود. تقدر تضيف أصناف بإيدك علشان تجرّب المنيو.',
+    'import.blocked.permission':
+      'دورك مش بيسمح بتعديل منيو المطعم، فمش هتقدر تستورد منيو. اطلب من المالك أو المدير يستورده، أو يغيّر دورك.',
+    'import.blocked.branchScope':
+      'حسابك شغال على فروع معيّنة بس. استيراد المنيو بيغيّره للمطعم كله، فمحتاج صلاحية على كل الفروع. اطلب من المالك يديك صلاحية كل الفروع.',
+    'import.error.permission':
+      'مش هتقدر تستورد منيو بصلاحياتك الحالية. محتاج إدارة المنيو على كل الفروع. حدّث الصفحة أو اطلب من المالك يراجع دورك.',
+    'import.error.featureOff':
+      'استيراد المنيو اتقفل للمطعم ده. اطلب من فريق Wayta يفعّله، أو ضيف المنيو بإيدك.',
 
     'import.upload.file': 'صور المنيو أو ملفه',
     'import.upload.fileHint':

@@ -1,11 +1,8 @@
 import { redirect } from 'next/navigation';
 import { getAuthSessionState } from '../../../../../../lib/auth/session';
 import { getStaffI18n } from '../../../../../../lib/i18n/server';
-import {
-  canManageMenu,
-  canViewMenu,
-} from '../../../../../../lib/menu/capabilities';
-import { usesMenuImport } from '../../../../../../lib/entitlements/access';
+import { canViewMenu } from '../../../../../../lib/menu/capabilities';
+import { menuImportBlock, MENU_IMPORT_BLOCK_MESSAGE } from '../../../../../../lib/menu-import/access';
 import { Alert } from '../../../../../../components/ui/Alert';
 import { MenuImportWorkspace } from './MenuImportWorkspace';
 
@@ -48,11 +45,10 @@ export default async function MenuImportPage({ params }: MenuImportPageProps) {
       </Alert>
     );
   }
-  // A platform feature (DEC-057): off unless the platform turned it on. UX only; the Backend refuses the upload too.
-  if (!usesMenuImport(membership)) {
-    return <Alert variant="info">{t('features.page.menuImport')}</Alert>;
-  }
-  if (!canViewMenu(membership) || !canManageMenu(membership)) {
+  // Advisory only; the Backend remains authoritative for each request.
+  const block = menuImportBlock(membership);
+  if (block) return <Alert variant="info">{t(MENU_IMPORT_BLOCK_MESSAGE[block])}</Alert>;
+  if (!canViewMenu(membership)) {
     return <Alert variant="error">{t('guard.noPermission.menu')}</Alert>;
   }
 

@@ -30,7 +30,7 @@ import {
 import { useI18n } from "@/lib/i18n/client";
 import type { MessageKey } from "@/lib/i18n/messages";
 import { demoAccessStatus, handoffUrl, isHandoffStepOpen } from "@/lib/onboarding-handoff";
-import { onboardingErrorKey, provisioningRequest } from "@/lib/onboarding-menu";
+import { onboardingActionFailure, onboardingLoadFailure, provisioningRequest } from "@/lib/onboarding-menu";
 import { formConfigAfterModeChange, pendingConfigAfterModeChange } from "@/lib/onboarding-package-choice";
 import {
   canSubmitForReview,
@@ -41,7 +41,7 @@ import {
   visibleStep,
 } from "@/lib/onboarding-steps";
 import { cn } from "@/lib/utils";
-import { OnboardingStatusBadge, transportErrorKey } from "../shared";
+import { OnboardingStatusBadge } from "../shared";
 import { CustomerStep, type CustomerField } from "./CustomerStep";
 import { DuplicatesPanel } from "./DuplicatesPanel";
 import { FinalProvisioning } from "./FinalProvisioning";
@@ -120,13 +120,6 @@ const formOf = (data: OnboardingCase): Form => ({
 /** The first incomplete step of the case's own path (mode first; a DEMO has no customer or menu step). */
 const firstOpenStep = (data: OnboardingCase): OnboardingStep =>
   firstOpenStepOf({ status: data.status, mode: data.mode, completedSteps: data.completedSteps, handoffOpen: isHandoffStepOpen(data) });
-function caseAccessError(caught: unknown): MessageKey | null {
-  if (!(caught instanceof ApiError)) return null;
-  if (caught.status === 401) return "common.sessionExpired";
-  if (caught.status === 403) return "onboarding.handoff.accessDenied";
-  if (caught.status === 404) return "onboarding.notFound";
-  return null;
-}
 
 export function OnboardingWizard({ caseId }: { caseId: string }) {
   const { t, fmt } = useI18n();
@@ -191,7 +184,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
         setLoadError(null);
       } catch (caught) {
         setDemoLink(null);
-        setLoadError(caseAccessError(caught) ?? transportErrorKey(caught));
+        setLoadError(onboardingLoadFailure(caught).key);
       } finally {
         setLoadBusy(false);
       }
@@ -297,7 +290,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
         } else if (caught instanceof ApiError && caught.code === "ONBOARDING_INPUT_INVALID") {
           setSaveError("onboarding.save.invalid");
         } else {
-          setSaveError(transportErrorKey(caught));
+          setSaveError(onboardingActionFailure(caught).key);
         }
       } finally {
         savingRef.current = false;
@@ -423,9 +416,18 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
     setActionBusy(true);
     setActionError(null);
     let requestRevision = revisionRef.current;
+    let heldMenu: OnboardingMenuDraft | undefined;
+    const restoreHeldMenu = () => {
+      if (heldMenu === undefined) return;
+      pendingRef.current = { ...pendingRef.current, menuDraft: pendingRef.current.menuDraft ?? heldMenu };
+      setPendingFields((fields) => new Set(fields).add("menu"));
+      setSaveState("dirty");
+      heldMenu = undefined;
+    };
     try {
       if (discardPendingMenu && pendingRef.current.menuDraft !== undefined) {
-        // Discard is explicit, and an expired menu can no longer be PATCHed.
+        // An expired draft cannot be PATCHed. Keep it locally until replacement or discard actually succeeds.
+        heldMenu = pendingRef.current.menuDraft;
         pendingRef.current = { ...pendingRef.current, menuDraft: undefined };
         setPendingFields((fields) => { const next = new Set(fields); next.delete("menu"); return next; });
         if (!hasPending(pendingRef.current)) setSaveState("idle");
@@ -434,6 +436,7 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
       if (!saved && (kind !== "cancel" || conflictRef.current || savingRef.current)) return false;
       requestRevision = revisionRef.current;
       const updated = await request(requestRevision);
+      heldMenu = undefined;
       adopt(updated, true);
       if ((kind === "final" || kind === "deliver") && isHandoffStepOpen(updated)) {
         movedRef.current = true;
@@ -448,10 +451,13 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
       setConfirmCancel(false);
       return true;
     } catch (caught) {
-      const accessError = caseAccessError(caught);
-      if (accessError) {
+      restoreHeldMenu();
+      // Only a case that no longer exists leaves the wizard. Every other failure (a package without Menu import,
+      // an expired session, a refused Origin) is shown inline, so the step and any unsaved edits stay on screen.
+      const failure = onboardingActionFailure(caught);
+      if (failure.scope === "case") {
         setDemoLink(null);
-        setLoadError(accessError);
+        setLoadError(failure.key);
         return false;
       }
       const code = caught instanceof ApiError ? caught.code : null;
@@ -475,12 +481,20 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
           ? "onboarding.menu.error.expired" : "onboarding.menu.error.review");
       } else {
         setActionError(kind === "deliver" && code === "ONBOARDING_INVALID_TRANSITION"
-          ? "onboarding.handoff.deliveryChanged" : onboardingErrorKey(code) ?? transportErrorKey(caught));
+          ? "onboarding.handoff.deliveryChanged" : failure.key);
       }
       if (kind === "menu" || kind === "final" || kind === "deliver" || code === "ONBOARDING_INCOMPLETE") {
         // A lost response can still have committed; reconciliations only read the case, never replay a mutation.
         try {
           const fresh = await getOnboardingCase(caseId);
+          // Edits can arrive while the action or this read is in flight. Never replace those edits with the server copy.
+          if (hasPending(pendingRef.current) || savingRef.current) {
+            if (fresh.revision !== revisionRef.current) {
+              conflictRef.current = true;
+              setConflict(true);
+            }
+            return false;
+          }
           adopt(fresh, true);
           if ((kind === "final" || kind === "deliver") && isHandoffStepOpen(fresh)) {
             movedRef.current = true;
@@ -489,15 +503,16 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
           if (kind === "final" && (isHandoffStepOpen(fresh) || (fresh.status === "FAILED" && fresh.revision !== requestRevision))) setActionError(null);
           if (kind === "deliver" && fresh.status === "DELIVERED") setActionError(null);
         } catch (freshError) {
-          const accessError = caseAccessError(freshError);
-          if (accessError) {
+          const freshFailure = onboardingActionFailure(freshError);
+          if (freshFailure.scope === "case") {
             setDemoLink(null);
-            setLoadError(accessError);
+            setLoadError(freshFailure.key);
           }
         }
       }
       return false;
     } finally {
+      restoreHeldMenu();
       actionRef.current = false;
       setActionBusy(false);
     }
@@ -738,7 +753,8 @@ export function OnboardingWizard({ caseId }: { caseId: string }) {
               dirty={pendingFields.has("menu")} busy={actionBusy} saving={saveState === "saving"} expired={importExpired} onChange={onMenu}
               onImport={(files) => runAction((revision) => importOnboardingMenu(caseId, revision, files), "menu", importExpired)}
               onReview={() => void runAction((revision) => reviewOnboardingMenu(caseId, revision), "menu")}
-              onDiscard={() => runAction((revision) => discardOnboardingImport(caseId, revision), "menu", importExpired)} />
+              onDiscard={() => runAction((revision) => discardOnboardingImport(caseId, revision), "menu", importExpired)}
+              onOpenModeStep={() => goTo("mode")} />
           ) : null}
           {current === "review" ? (
             <div className="space-y-4">

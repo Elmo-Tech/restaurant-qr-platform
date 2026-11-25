@@ -5,6 +5,7 @@ import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEv
 import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../../lib/i18n/messages';
 import * as importApi from '../../../../../../lib/menu-import/api';
+import { menuImportErrorKey } from '../../../../../../lib/menu-import/access';
 import {
   addToSelection,
   formatFileSize,
@@ -68,8 +69,9 @@ export function MenuImportWorkspace({
       redirectToLogin();
       return;
     }
-    setError(describeError(caught));
-  }, []);
+    const key = menuImportErrorKey(caught);
+    setError(key ? t(key) : describeError(caught));
+  }, [t]);
 
   // First load: the menus to import into, and any unfinished import to resume.
   useEffect(() => {

@@ -76,7 +76,7 @@ export default async function MenuManagementPage({
       restaurantName={membership.restaurant.name}
       currencyCode={membership.restaurant.currencyCode}
       canManage={canManageMenu(membership)}
-      canImportMenu={usesMenuImport(membership)}
+      canImportMenu={usesMenuImport(membership) && !membership.restaurant.demoExpiresAt}
       offersEnabled={usesOffers(membership)}
       promotionsEnabled={canOpenPromotions(membership)}
       hasMenuManagePermission={hasMenuManagePermission(membership)}
