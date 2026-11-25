@@ -84,6 +84,12 @@ jobs:
           apps/web/src/lib/staff/staff-form-feedback.contract.test.mjs
           apps/web/src/lib/contact/international-phone.test.mjs
 
+      - name: Kitchen board states, recovery and conflict handling (K1)
+        run: >-
+          node --experimental-strip-types --test
+          apps/web/src/lib/kitchen/board-state.test.mjs
+          apps/web/src/lib/staff/kitchen-board-states.contract.test.mjs
+
       - name: Onboarding mode-first, DEMO short path, AI-prepared import and list removal (API units)
         run: >-
           npm exec --workspace=apps/api -- jest --runInBand
@@ -210,6 +216,13 @@ jobs:
           src/lib/staff/restaurant-setup-api.ts
           src/lib/staff/focus-invalid-field.ts
           src/lib/contact/international-phone.ts
+          src/lib/kitchen/board-state.ts
+          src/lib/kitchen/capabilities.ts
+          src/lib/i18n/messages/kitchen.ts
+          src/components/staff/icons.tsx
+          'src/app/staff/restaurants/[restaurantId]/kitchen/KitchenBoard.tsx'
+          'src/app/staff/restaurants/[restaurantId]/kitchen/KitchenTicketCard.tsx'
+          'src/app/staff/restaurants/[restaurantId]/kitchen/useKitchenSound.ts'
           src/components/staff/MenuHubBackLink.tsx
           src/components/staff/RestaurantSidebar.tsx
           src/components/staff/StaffShell.tsx

@@ -1,6 +1,7 @@
 'use client';
 
 import { useStaffI18n } from '../../../../../lib/i18n/client';
+import type { Translator } from '../../../../../lib/i18n/translate';
 import type { KitchenStatus, KitchenTicket } from '../../../../../lib/kitchen/types';
 import { elapsedMinutes, formatElapsedAge } from '../../../../../lib/orders/order-views';
 import { Button } from '../../../../../components/ui/Button';
@@ -16,6 +17,19 @@ const ACCENT: Record<KitchenStatus, string> = {
   READY: 'border-s-success',
 };
 
+/** Who a ticket is for: the Table, else the customer name, else the order type. Also names a ticket that left the board. */
+export function kitchenTicketLabel(ticket: KitchenTicket, t: Translator['t']): string {
+  return ticket.table
+    ? t('orders.card.table', { number: ticket.table.tableNumber })
+    : (ticket.customerName ?? t(`orders.type.${ticket.type}` as const));
+}
+
+/** Feedback shown on the card: `error` for a refused action, `info` for what reconciliation found. */
+export interface KitchenCardNotice {
+  tone: 'error' | 'info';
+  text: string;
+}
+
 /**
  * One Kitchen Ticket (STAFF_DASHBOARD_UX_SPEC #104-#108): who it is for, how
  * long it has been in this column, the items large enough to read from a
@@ -28,18 +42,28 @@ export function KitchenTicketCard({
   now,
   canUpdate,
   busy,
-  error,
+  notice,
+  pending,
+  checking,
   onAdvance,
+  onCheckAgain,
 }: {
   ticket: KitchenTicket;
   /** The current time (ms), owned by the board so every timer ticks together. */
   now: number;
   canUpdate: boolean;
+  /** A status change for this ticket is in flight (or being reconciled). */
   busy: boolean;
-  error: string | null;
+  notice: KitchenCardNotice | null;
+  /** The shown state is out of date or the last action's outcome is unknown: the action stays blocked until a fresh read. */
+  pending: string | null;
+  /** A read-only re-check is running. */
+  checking: boolean;
   onAdvance: (ticket: KitchenTicket) => void;
+  /** Re-reads the board. Never retries the status change. */
+  onCheckAgain: () => void;
 }) {
-  const { t } = useStaffI18n();
+  const { t, formatTime } = useStaffI18n();
   const reference = new Date(now);
   const minutes = elapsedMinutes(ticket.statusSince, reference);
   const age = formatElapsedAge(
@@ -60,9 +84,7 @@ export function KitchenTicketCard({
         ? 'bg-warning-soft text-warning'
         : 'bg-muted text-muted-foreground';
 
-  const identity = ticket.table
-    ? t('orders.card.table', { number: ticket.table.tableNumber })
-    : (ticket.customerName ?? t(`orders.type.${ticket.type}` as const));
+  const identity = kitchenTicketLabel(ticket, t);
 
   return (
     <article
@@ -84,7 +106,7 @@ export function KitchenTicketCard({
         </div>
         <span
           className={`shrink-0 rounded-lg px-3 py-1.5 text-lg font-bold tabular-nums ${ageClass}`}
-          title={new Date(ticket.statusSince).toLocaleTimeString()}
+          title={formatTime(ticket.statusSince)}
         >
           {age}
         </span>
@@ -132,10 +154,36 @@ export function KitchenTicketCard({
         ))}
       </ul>
 
-      {error ? (
-        <p role="alert" className="text-sm font-medium text-destructive">
-          {error}
+      {notice ? (
+        <p
+          role={notice.tone === 'error' ? 'alert' : 'status'}
+          className={
+            notice.tone === 'error'
+              ? 'text-sm font-medium text-destructive'
+              : 'rounded-lg bg-info-soft px-3 py-2 text-sm font-medium text-foreground'
+          }
+        >
+          {notice.text}
         </p>
+      ) : null}
+
+      {pending ? (
+        <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-warning bg-warning-soft px-3 py-2">
+          <p role="status" className="min-w-0 flex-1 text-sm font-medium text-foreground">
+            {pending}
+          </p>
+          <Button
+            type="button"
+            variant="secondary"
+            className="aria-disabled:cursor-wait aria-disabled:opacity-60"
+            aria-disabled={checking || undefined}
+            onClick={() => {
+              if (!checking) onCheckAgain();
+            }}
+          >
+            {checking ? t('kitchen.checking') : t('kitchen.checkAgain')}
+          </Button>
+        </div>
       ) : null}
 
       {ticket.status === 'READY' ? (
@@ -146,13 +194,16 @@ export function KitchenTicketCard({
         <Button
           type="button"
           size="lg"
-                    disabled={busy || !canUpdate}
+          disabled={busy || pending !== null || !canUpdate}
+          aria-busy={busy || undefined}
           onClick={() => onAdvance(ticket)}
           className="min-h-14 w-full text-lg font-extrabold"
         >
-          {ticket.status === 'ACCEPTED'
-            ? t('orders.action.startPreparing')
-            : t('orders.action.markReady')}
+          {busy
+            ? t('kitchen.action.updating')
+            : ticket.status === 'ACCEPTED'
+              ? t('orders.action.startPreparing')
+              : t('orders.action.markReady')}
         </Button>
       )}
     </article>
