@@ -2397,7 +2397,7 @@ describeSandbox('Onboarding cases API (real PostgreSQL)', () => {
       });
     });
 
-    describe('menu import entitlement (A1 regression)', () => {
+    describe('menu import authorization is grant-based, not package-based (A1 regression)', () => {
       type Context = Awaited<ReturnType<typeof start>>;
       const extraction = {
         status: 'EXTRACTED',

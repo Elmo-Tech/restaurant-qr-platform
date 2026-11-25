@@ -300,71 +300,130 @@ describeSandbox('Onboarding Platform menu writer (real PostgreSQL)', () => {
     ).toBe(0);
   });
 
-  it('rechecks review, retention, effective MENU_IMPORT and active locale', async () => {
-    const future = new Date(Date.now() + 60_000);
-    // Import gates apply only to non-MANUAL provenance (manual-only menus need no grant).
-    // The unreviewed case holds an active grant so the review gate is the one that refuses.
-    const unreviewed = await fixture(
-      {
-        importExpiresAt: future,
-        menuProvenance: 'IMPORTED',
-        importGrantId: randomUUID(),
-        importGrantExpiresAt: future,
+  // A2 policy: Platform Onboarding import authorization is the case-scoped grant,
+  // independent of the customer's package MENU_IMPORT entitlement. Staff Menu Import
+  // entitlement is a separate concern and is not checked by this writer.
+  describe('import authorization (A2 policy)', () => {
+    const future = () => new Date(Date.now() + 60_000);
+    const activeGrant = () => ({
+      importGrantId: randomUUID(),
+      importGrantExpiresAt: future(),
+    });
+
+    it.each([
+      ['package MENU_IMPORT on, active grant', true, true, 'published'],
+      ['package MENU_IMPORT off, active grant', false, true, 'published'],
+      [
+        'package MENU_IMPORT on, no grant',
+        true,
+        false,
+        'ONBOARDING_IMPORT_GRANT_REQUIRED',
+      ],
+      [
+        'package MENU_IMPORT off, no grant',
+        false,
+        false,
+        'ONBOARDING_IMPORT_GRANT_REQUIRED',
+      ],
+    ])(
+      'imported menu with %s',
+      async (_label, packageEntitled, granted, expected) => {
+        const row = await fixture(
+          {
+            importExpiresAt: future(),
+            importReviewed: true,
+            menuProvenance: 'IMPORTED',
+            ...(granted ? activeGrant() : {}),
+          },
+          { importEntitled: packageEntitled },
+        );
+        const result = await writer.publish(admin, row);
+        expect(result).toEqual(
+          expected === 'published'
+            ? { outcome: 'published' }
+            : { outcome: 'refused', code: expected },
+        );
       },
-      { importEntitled: true },
     );
-    const expired = await fixture(
-      {
-        importExpiresAt: new Date(0),
-        menuDraft: Prisma.DbNull,
-        importReviewed: false,
-        menuProvenance: 'IMPORTED',
-      },
-      { importEntitled: true },
-    );
-    const notEntitled = await fixture({
-      importExpiresAt: future,
-      importReviewed: true,
-      menuProvenance: 'IMPORTED',
+
+    it('an active grant does not bypass the review gate', async () => {
+      const unreviewed = await fixture(
+        {
+          importExpiresAt: future(),
+          importReviewed: false,
+          menuProvenance: 'IMPORTED',
+          ...activeGrant(),
+        },
+        { importEntitled: true },
+      );
+      expect(await writer.publish(admin, unreviewed)).toEqual({
+        outcome: 'refused',
+        code: 'ONBOARDING_IMPORT_REVIEW_REQUIRED',
+      });
     });
-    const localeInactive = await fixture({}, { extraLocale: false });
-    expect(await writer.publish(admin, unreviewed)).toEqual({
-      outcome: 'refused',
-      code: 'ONBOARDING_IMPORT_REVIEW_REQUIRED',
+
+    it('an active grant does not bypass retention expiry', async () => {
+      const expired = await fixture(
+        {
+          importExpiresAt: new Date(0),
+          menuDraft: Prisma.DbNull,
+          importReviewed: true,
+          menuProvenance: 'IMPORTED',
+          ...activeGrant(),
+        },
+        { importEntitled: true },
+      );
+      expect(await writer.publish(admin, expired)).toEqual({
+        outcome: 'refused',
+        code: 'ONBOARDING_IMPORT_EXPIRED',
+      });
     });
-    expect(await writer.publish(admin, expired)).toEqual({
-      outcome: 'refused',
-      code: 'ONBOARDING_IMPORT_EXPIRED',
+
+    it('an active grant does not bypass active package validation', async () => {
+      const inactivePackage = await fixture(
+        {
+          importExpiresAt: future(),
+          importReviewed: true,
+          menuProvenance: 'IMPORTED',
+          ...activeGrant(),
+        },
+        { importEntitled: true },
+      );
+      await prisma.package.update({
+        where: { id: inactivePackage.packageId },
+        data: { status: 'ARCHIVED' },
+      });
+      expect(await writer.publish(admin, inactivePackage)).toEqual({
+        outcome: 'refused',
+        code: 'PACKAGE_NOT_AVAILABLE',
+      });
     });
-    expect(await writer.publish(admin, notEntitled)).toEqual({
-      outcome: 'refused',
-      code: 'FEATURE_NOT_AVAILABLE',
+
+    it('an active grant does not bypass locale validation', async () => {
+      const localeInactive = await fixture(
+        {
+          importExpiresAt: future(),
+          importReviewed: true,
+          menuProvenance: 'IMPORTED',
+          ...activeGrant(),
+        },
+        { importEntitled: true, extraLocale: false },
+      );
+      expect(await writer.publish(admin, localeInactive)).toEqual({
+        outcome: 'refused',
+        code: 'ONBOARDING_MENU_INCOMPLETE',
+        problems: ['menus[0].translations[1].locale'],
+      });
     });
-    expect(await writer.publish(admin, localeInactive)).toEqual({
-      outcome: 'refused',
-      code: 'ONBOARDING_MENU_INCOMPLETE',
-      problems: ['menus[0].translations[1].locale'],
-    });
-    const entitled = await fixture(
-      { importExpiresAt: future, importReviewed: true },
-      { importEntitled: true },
-    );
-    await prisma.restaurantFeature.create({
-      data: {
-        restaurantId: entitled.restaurantId,
-        feature: 'MENU_IMPORT',
-        enabled: false,
-      },
-    });
-    expect(await writer.publish(admin, entitled)).toEqual({
-      outcome: 'refused',
-      code: 'FEATURE_NOT_AVAILABLE',
-    });
-    await prisma.restaurantFeature.deleteMany({
-      where: { restaurantId: entitled.restaurantId },
-    });
-    expect(await writer.publish(admin, entitled)).toEqual({
-      outcome: 'published',
+
+    it('manual-only drafts publish without any import grant', async () => {
+      const manual = await fixture(
+        { menuProvenance: 'MANUAL' },
+        { importEntitled: false },
+      );
+      expect(await writer.publish(admin, manual)).toEqual({
+        outcome: 'published',
+      });
     });
   });
 
