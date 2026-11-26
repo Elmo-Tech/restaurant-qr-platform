@@ -241,14 +241,20 @@ not `value × units`). Existing percentage rows and every pre-DEC-077 order are 
 
 ## 11. CART minimum and legacy promotions (B2)
 
-**Create validation (CART).** `minimumSubtotal` is required and must be > 0.00 with at most 2 decimals.
+**Create validation (CART).** `minimumSubtotal` is required and must be > 0.00 with at most 2 decimals. The request DTO is
+strict and unchanged: it accepts only the wire shape `^\d{1,12}(\.\d{1,2})?$`, so a malformed, negative or over-precision string is
+refused by the global request validation with `400` before the domain rules run, and nothing is written. Only well-formed values reach
+the `422` problem codes.
 
 | Input | Result |
 | --- | --- |
+| `"-5.00"`, `"100.005"`, `"abc"`, `"1e3"`, `" 100"` (any non-string) | `400` (global request validation; never reaches the domain rules) |
 | absent / `null` | `422 PROMOTION_INVALID`, problem `MINIMUM_SUBTOTAL_REQUIRED` |
-| `"0.00"`, `"-5.00"` | `422 PROMOTION_INVALID`, problem `MINIMUM_SUBTOTAL_NOT_POSITIVE` |
-| `"100.005"`, `"abc"` | `422 PROMOTION_INVALID`, problem `MINIMUM_SUBTOTAL_INVALID` (existing code) |
+| `"0"`, `"0.00"` | `422 PROMOTION_INVALID`, problem `MINIMUM_SUBTOTAL_NOT_POSITIVE` |
 | `"0.01"`, `"200.00"` | accepted |
+
+`MINIMUM_SUBTOTAL_INVALID` remains in the domain validator as a defensive check; it is not
+reachable for a CART create through the HTTP wire.
 
 **Eligibility before discounts.** CART 10 %, minimum 200.00, delivery fee 30.00. Cart: Product A 100.00 + paid
 extras 20.00 (120.00), Product B 60.00, Offer 150.00.
@@ -277,6 +283,9 @@ A legacy Product discount does not reduce the basis: Product 100.00 with a 50 % 
 | Reactivate (INACTIVE → ACTIVE) | same; `POST …/activate` is refused until the minimum is saved |
 | Send `minimumSubtotal: "100.00"` together with any change | accepted; the promotion is no longer legacy |
 | Send `minimumSubtotal: "0.00"` with any non-metadata change | `MINIMUM_SUBTOTAL_NOT_POSITIVE` |
+| Send a negative or over-precision `minimumSubtotal` | `400` (global request validation), nothing written |
+| Convert the legacy promotion to another scope (for example DELIVERY) | Follows the **destination** scope's rules: no CART minimum is required, and a minimum the destination scope does not accept is refused by that scope's rules |
+| Convert it back to CART afterwards | A positive minimum is required again (`MINIMUM_SUBTOTAL_REQUIRED` unless a valid one is sent): the row is no longer a CART promotion, so it is not legacy |
 
 ## 12. Preview examples (B3 API, B4 UI)
 

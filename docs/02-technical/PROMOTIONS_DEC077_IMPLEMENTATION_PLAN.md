@@ -191,7 +191,7 @@ states the rollout and rollback procedure above and what remains for a deploymen
 
 ## 6. B2 — Mandatory CART minimum and legacy compatibility
 
-**Implementation status.** Implemented in the DEC-077 B2 pull request (Backend write rule in `validatePromotionInput` / `requiresPositiveCartMinimum` / `PromotionsService`, read-model field `needsMinimumSubtotal`, editor validation and legacy notice, tests on PostgreSQL 18); test evidence and remaining limitations are in that PR. No migration. Not merged or deployed by this plan. Two precisions found while implementing: (1) the wire DTO accepts only well-formed `^\d{1,12}(\.\d{1,2})?$` strings for `minimumSubtotal`, so a negative, over-precise or non-numeric string is refused earlier by the global validation (`400`) and never reaches the problem codes; the codes cover every well-formed value (absent / `null` → `MINIMUM_SUBTOTAL_REQUIRED`, `0` / `0.00` → `MINIMUM_SUBTOTAL_NOT_POSITIVE`, > 0 accepted); (2) a PATCH or activation that does not send the minimum of a legacy row stored as `0.00` reports `MINIMUM_SUBTOTAL_REQUIRED` (still missing), the same as for a `NULL` row. The pre-flight legacy-count query (`DATABASE_SPEC.md`) is a per-environment step before a deployment and was not run against any existing database here.
+**Implementation status.** Implemented in the DEC-077 B2 pull request (Backend write rule in `validatePromotionInput` / `requiresPositiveCartMinimum` / `PromotionsService`, read-model field `needsMinimumSubtotal`, editor validation and legacy notice, tests on PostgreSQL 18); test evidence and remaining limitations are in that PR. No migration. Not merged or deployed by this plan. Product Owner decisions confirmed at B2 technical review: (1) the existing strict request DTO is kept: it accepts only well-formed `^\d{1,12}(\.\d{1,2})?$` strings for `minimumSubtotal`, so a malformed, negative or over-precision string returns HTTP `400` (global validation) and never reaches the problem codes; well-formed values map to the codes (absent / `null` → `422 MINIMUM_SUBTOTAL_REQUIRED`, `0` / `0.00` → `422 MINIMUM_SUBTOTAL_NOT_POSITIVE`, > 0 accepted); (2) converting a legacy CART promotion to another scope follows the destination scope's rules, and returning to CART requires a positive minimum; (3) mixed B1 / B2 pricing is compatible, but mixed writers can bypass the new CART minimum rule (see "Rollout notes" below). One more precision found while implementing: a PATCH or activation that does not send the minimum of a legacy row stored as `0.00` reports `MINIMUM_SUBTOTAL_REQUIRED` (still missing), the same as for a `NULL` row. The pre-flight legacy-count query (`DATABASE_SPEC.md`) is a per-environment step before a deployment and was not run against any existing database here.
 
 **Scope.** Backend validation and read model plus the corresponding editor validation. No migration, no preview change.
 
@@ -219,6 +219,23 @@ by code alone (no schema involved).
 rename / deactivate / archive and is refused on value / dates / Branches / priority / activation without a minimum; tenant and
 Branch scope unchanged; OpenAPI regenerates; web validation tests. §4.1 B2 column in full: a legacy CART promotion prices identically
 before and after (menu, quote, checkout, snapshot, readers), and a new CART promotion qualifies at exactly the minimum.
+
+**Rollout notes (B2).**
+
+- **Pricing compatibility.** B2 never changes evaluation, so B1 and B2 instances price identically (menu, quote, checkout, snapshots,
+  readers). A fleet mixing B1 and B2 builds is therefore safe for pricing; no fleet check like B1's is needed for B2 alone.
+- **Write compatibility (limitation).** The positive-minimum rule lives in the Backend write path only (no CHECK, no trigger, by
+  design). While any writer that does not run the B2 build is live — a B1 instance, a retained "previous" container, an older
+  script or a direct data fix — it can still save, change or activate a CART promotion without a minimum and so bypass the rule. The rule
+  is guaranteed only once **every** Staff-write instance runs B2; record that in the deployment record, and treat any later direct data
+  fix as a writer that must respect the rule.
+- **Detecting bypass.** After the full B2 rollout, the read-only legacy count query (`DATABASE_SPEC.md`) is run again; a count that
+  grew since the pre-flight run means a non-B2 writer created a CART promotion without a minimum. Such rows are legacy by definition:
+  they keep applying and are never changed automatically.
+- **Wire behavior for clients.** A malformed, negative or over-precision minimum is a `400`; a well-formed missing / `null` / zero minimum
+  on a new or reactivated CART promotion is a `422 PROMOTION_INVALID`. Older clients that send no minimum for a new CART promotion
+  get the `422`; clients re-sending stored values are unaffected.
+- **Rollback.** Code-only; legacy rows and any CART promotion created with a minimum stay as stored and keep applying.
 
 ## 7. B3 — Backend-authoritative contextual preview API
 
