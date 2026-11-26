@@ -37,6 +37,13 @@ test('known codes track API unions and have English and Arabic messages', () => 
   }
 });
 
+test('an illustrative no-product result discloses the 500-product scan in both languages', () => {
+  const text = source('../i18n/messages/promotions.ts');
+  const lines = text.split('\n').filter((line) => line.includes("'promotions.preview.illustrativeReason.NO_ORDERABLE_APPLICABLE_PRODUCT':"));
+  assert.equal(lines.length, 2);
+  for (const line of lines) assert.match(line, /500/);
+});
+
 test('unknown backend codes use safe localized fallbacks', () => {
   assert.equal(problemKey('UNKNOWN'), 'promotions.preview.problem.OTHER');
   assert.equal(excludedKey('UNKNOWN'), 'promotions.preview.excluded.ITEM_NOT_ORDERABLE');
