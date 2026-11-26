@@ -2,12 +2,15 @@ name: Promotions PostgreSQL regression
 
 # DEC-077 B1 + B2 + B3: real PostgreSQL 18 (disposable, UTC and Africa/Cairo) for the unified promotions engine, the
 # forward migration that dropped the two percentage-only item CHECKs, the Staff write gate / type-change
-# confirmation, and the Guest quote -> checkout -> snapshot -> readers chain, plus (B2) the mandatory CART minimum and legacy compatibility, plus (B3) the opt-in contextual preview contract (REAL / ILLUSTRATIVE / INCOMPLETE, REAL only for baskets the Guest quote accepts and in a real delivery zone, competition explanations, preview == Guest quote, pre-B3 contract fixture). No secrets, no deployment.
+# confirmation, and the Guest quote -> checkout -> snapshot -> readers chain, plus (B2) the mandatory CART minimum and legacy compatibility, plus (B3) the opt-in contextual preview contract (REAL / ILLUSTRATIVE / INCOMPLETE, real orderable products and delivery zones, with zone minimum shortfalls disclosed separately; competition explanations, preview == Guest quote, pre-B3 contract fixture). No secrets, no deployment.
 
 on:
   pull_request:
     paths:
       - 'apps/api/**'
+      - 'apps/web/src/lib/promotions/**'
+      - 'apps/web/src/app/staff/restaurants/**/menu/promotions/**'
+      - 'apps/web/e2e/promotions-b4/**'
       - 'package.json'
       - 'package-lock.json'
       - '.github/workflows/promotions-postgres.yml'

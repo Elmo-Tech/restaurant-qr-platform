@@ -58,7 +58,7 @@ function PromotionParticipation({ row, targets }: { row: Promotion; targets: Pro
           : branches.length === row.branchIds.length && branches.length <= 2 ? branches.map((name, index) => <span key={`${name}-${index}`}>{index ? ' · ' : ''}<bdi>{name}</bdi></span>)
           : t('promotions.listBranches.selected', { count: row.branchIds.length })}
       </dd></div>
-      <div><dt className="sr-only">{t('promotions.priority')}</dt><dd>{t('promotions.listPriority', { priority: row.priority })}</dd></div>
+      {row.priority !== 100 ? <div><dt className="sr-only">{t('promotions.priority')}</dt><dd>{t('promotions.listPriority', { priority: row.priority })}</dd></div> : null}
     </dl>
   );
 }

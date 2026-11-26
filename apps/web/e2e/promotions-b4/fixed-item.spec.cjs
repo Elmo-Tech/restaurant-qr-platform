@@ -28,7 +28,7 @@ async function signInAndOpen(page, w, copy, internalName) {
   await page.goto('/login');
   await input(page, copy.email).fill(owner.email);
   await input(page, copy.password).fill(owner.password);
-  await Promise.all([page.waitForURL(url => url.pathname.startsWith('/staff')), button(page, copy.signIn).click()]);
+  await Promise.all([page.waitForURL(url => url.pathname === `/staff/restaurants/${w.restaurantId}`), button(page, copy.signIn).click()]);
   await page.goto(`/staff/restaurants/${w.restaurantId}/menu/promotions`);
   await expect(page.getByRole('heading', { name: copy.heading, level: 1 })).toBeVisible();
   const row = page.getByRole('list', { name: copy.heading }).getByRole('listitem').filter({ hasText: internalName });
@@ -42,6 +42,7 @@ async function expectNoHorizontalOverflow(page) {
 
 const stored = id => prisma.promotion.findUniqueOrThrow({ where: { id } });
 
+test.use({ viewport: { width: 1280, height: 900 } });
 test.beforeAll(assertDisposableDatabase);
 test.afterAll(() => prisma.$disconnect());
 
@@ -54,7 +55,10 @@ test.describe('Fixed item promotion in the Staff editor (LTR desktop)', () => {
     // The editor shows the type selector for an item scope and keeps the stored fixed promotion as it is.
     await expect(input(page, en.type)).toHaveValue('FIXED_AMOUNT');
     await expect(page.getByLabel(en.value)).toHaveValue('35.00');
-    await expect(page.getByText('Taken off each item the customer buys, never more than the item’s price. Paid extras are not discounted.')).toBeVisible();
+    await expect(page.getByText(/Customers get .* off each unit of the items in the chosen categories/)).toBeVisible();
+    const advanced = page.locator('details').filter({ hasText: 'Advanced settings' });
+    await expect(advanced).not.toHaveAttribute('open', '');
+    await expect(advanced.locator('summary')).toContainText('Custom priority set');
     await expect(button(page, en.save)).toBeDisabled(); // nothing changed yet
 
     // A metadata-only save sends the stored type and no confirmation flag; nothing about the discount changes.
@@ -146,7 +150,7 @@ test.describe('Discount type confirmation in Arabic (RTL, mobile)', () => {
     const row = await addPromotion(w, { scope: 'MENU', discountType: 'FIXED_AMOUNT', value: '12.50', title: 'خصم القائمة', titleAr: 'خصم القائمة' });
     await signInAndOpen(page, w, ar, row.internalName);
     await expect(input(page, ar.type)).toHaveValue('FIXED_AMOUNT');
-    await expect(page.getByText('يُخصم من كل قطعة يشتريها العميل، ولا يزيد على سعر القطعة. الإضافات المدفوعة لا تُخصم.')).toBeVisible();
+    await expect(page.getByText(/يحصل العميل على خصم .* على كل قطعة من أصناف القوائم المختارة/)).toBeVisible();
     await input(page, ar.type).selectOption('PERCENTAGE');
     const confirm = page.getByRole('checkbox', { name: ar.confirmType });
     await expect(confirm).toBeVisible();

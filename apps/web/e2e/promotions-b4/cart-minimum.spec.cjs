@@ -11,14 +11,14 @@ const { prisma, assertDisposableDatabase, seedWorld, addPromotion, createOwner, 
  */
 const en = {
   heading: 'Promotions', email: 'Email', password: 'Password', signIn: 'Sign in', edit: 'Edit', save: 'Save',
-  internal: 'Internal name (staff only)', value: /^Discount value/, minimumOptional: 'Minimum subtotal before discounts (optional)',
+  internal: 'Internal name (staff only)', value: /^Discount value/, minimumOptional: 'Minimum order amount (optional)',
   legacyNotice: /has no minimum order amount/,
   required: 'Enter a minimum order amount greater than 0 to save or activate this cart promotion.',
 };
 const ar = {
   heading: 'العروض الترويجية', email: 'البريد الإلكتروني', password: 'كلمة المرور', signIn: 'تسجيل الدخول', edit: 'تعديل',
   save: 'حفظ', internal: 'الاسم الداخلي (للموظفين فقط)', legacyNotice: /هذا العرض بلا حد أدنى لمبلغ الطلب/,
-  minimumOptional: 'الحد الأدنى للمجموع قبل الخصومات (اختياري)', value: /^قيمة الخصم/,
+  minimumOptional: 'الحد الأدنى لمبلغ الطلب (اختياري)', value: /^قيمة الخصم/,
   required: 'أدخل حدًا أدنى لمبلغ الطلب أكبر من 0 لحفظ عرض السلة هذا أو تفعيله.',
 };
 const button = (container, name) => container.getByRole('button', { name, exact: true });
@@ -32,7 +32,7 @@ async function signInAndOpen(page, w, copy, internalName) {
   await page.goto('/login');
   await input(page, copy.email).fill(owner.email);
   await input(page, copy.password).fill(owner.password);
-  await Promise.all([page.waitForURL(url => url.pathname.startsWith('/staff')), button(page, copy.signIn).click()]);
+  await Promise.all([page.waitForURL(url => url.pathname === `/staff/restaurants/${w.restaurantId}`), button(page, copy.signIn).click()]);
   await page.goto(`/staff/restaurants/${w.restaurantId}/menu/promotions`);
   await expect(page.getByRole('heading', { name: copy.heading, level: 1 })).toBeVisible();
   const row = page.getByRole('list', { name: copy.heading }).getByRole('listitem').filter({ hasText: internalName });
@@ -64,6 +64,7 @@ async function guestQuote(browser, w, locale = 'en') {
   }
 }
 
+test.use({ viewport: { width: 1280, height: 900 } });
 test.beforeAll(assertDisposableDatabase);
 test.afterAll(() => prisma.$disconnect());
 

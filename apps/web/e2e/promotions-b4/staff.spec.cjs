@@ -8,7 +8,7 @@ const en = {
   email: 'Email', password: 'Password', signIn: 'Sign in',
   internal: 'Internal name (staff only)', scope: 'Discount scope', type: 'Discount type', value: /^Discount value/,
   title: language => `Title — ${language}`, moreLanguages: 'More guest languages',
-  applied: 'The offer works on this example.', needsValue: 'Enter the discount value to see how much customers save.',
+  applied: 'The offer works on this example.', needsValue: 'Enter the discount value.',
 };
 const ar = {
   heading: 'العروض الترويجية', create: 'عرض ترويجي جديد', save: 'إنشاء دون تفعيل', edit: 'تعديل العرض الترويجي',
@@ -16,10 +16,10 @@ const ar = {
   email: 'البريد الإلكتروني', password: 'كلمة المرور', signIn: 'تسجيل الدخول',
   internal: 'الاسم الداخلي (للموظفين فقط)', scope: 'نطاق الخصم', type: 'نوع الخصم', value: /^قيمة الخصم/,
   title: language => `العنوان — ${language}`, moreLanguages: 'لغات إضافية للضيف',
-  applied: 'العرض شغال على المثال ده.', needsValue: 'اكتب قيمة الخصم علشان تشوف العميل هيوفّر قد إيه.',
+  applied: 'يعمل العرض في هذا المثال.', needsValue: 'أدخل قيمة الخصم.',
   // DEC-077 B2: a new CART promotion needs a minimum order amount above 0.
   minimum: 'الحد الأدنى لمبلغ الطلب قبل الخصومات (مطلوب)', minimumRequired: 'أدخل حدًا أدنى لمبلغ الطلب أكبر من 0.',
-  minimumPositive: 'يجب أن يكون الحد الأدنى لمبلغ الطلب أكبر من 0.', minimumPreview: 'راجع الحد الأدنى للطلب.',
+  minimumPositive: 'يجب أن يكون الحد الأدنى لمبلغ الطلب أكبر من 0.', minimumPreview: 'راجع الحد الأدنى لمبلغ الطلب.',
 };
 const button = (container, name) => container.getByRole('button', { name, exact: true });
 const text = (container, label) => container.getByText(label, { exact: true });
@@ -49,7 +49,7 @@ async function signIn(page, w, copy) {
   await input(page, copy.email).fill(owner.email);
   await input(page, copy.password).fill(owner.password);
   await Promise.all([
-    page.waitForURL(url => url.pathname.startsWith('/staff')),
+    page.waitForURL(url => url.pathname === `/staff/restaurants/${w.restaurantId}`),
     button(page, copy.signIn).click(),
   ]);
   await page.goto(`/staff/restaurants/${w.restaurantId}/menu/promotions`);
@@ -80,23 +80,30 @@ function waitPreview(page, w, matches) {
 
 /** The automatic preview of the saved promotion: no selectors, no Calculate button. */
 async function staffPreview(page, w, copy, created, scenario, response) {
-  const { scope, items, strategy, original, payable, saving, grand } = scenario;
+  const { scope } = scenario;
   const result = await readData(response, 200);
   const body = response.request().postDataJSON();
-  expect(body).toMatchObject({ promotionId: created.id, branchId: w.branchId, orderType: scope === 'DELIVERY' ? 'DELIVERY' : 'PICKUP',
-    items: items(w) });
+  expect(body).toMatchObject({ contract: 'CONTEXTUAL_V1', promotionId: created.id, branchId: w.branchId,
+    orderType: scope === 'DELIVERY' ? 'DELIVERY' : 'PICKUP' });
+  expect(body.items).toBeUndefined(); // the Backend constructs the example basket
   expect(body.deliveryZoneId).toBe(scope === 'DELIVERY' ? w.zoneId : undefined);
-  expect(result).toMatchObject({ strategy, merchandiseOriginal: original, merchandisePayable: payable,
-    appliedSaving: saving, grandTotal: grand, diagnostic: { status: 'APPLIED' } });
+  expect(result).toMatchObject({ state: 'REAL', requestId: body.requestId });
+  const example = result.examples.find(item => item.kind === 'QUALIFYING' || item.kind === 'SINGLE');
+  expect(example).toBeDefined();
+  expect(example).toMatchObject({ strategy: scenario.strategy, merchandiseOriginal: scenario.original,
+    merchandisePayable: scenario.payable, appliedSaving: scenario.saving, grandTotal: scenario.grand,
+    diagnostic: { status: 'APPLIED' } });
   const card = page.getByTestId('savings-preview');
-  const status = card.getByRole('status').filter({ hasText: copy.applied });
-  await expect(status).toBeVisible();
-  await expect(card.getByTestId('savings-preview-saving')).toContainText(`${saving} EGP`);
-  await expect(card.getByTestId('savings-preview-payable')).toContainText(`${scope === 'DELIVERY' ? '19.50' : payable} EGP`);
-  await expect(card.locator('select, input, textarea, button')).toHaveCount(0);
+  const rendered = card.getByTestId(`savings-preview-example-${example.kind}`);
+  const status = rendered.getByTestId('savings-preview-diagnostic');
+  await expect(card).toHaveAttribute('data-state', 'REAL');
+  await expect(status).toHaveAttribute('data-status', example.diagnostic.status);
+  await expect(rendered.getByTestId('savings-preview-payable')).toContainText(`${scope === 'DELIVERY' ? example.deliveryFeePayable : example.merchandisePayable} EGP`);
+  if (example.diagnostic.status === 'APPLIED') {
+    await expect(rendered.getByTestId('savings-preview-saving')).toContainText(`${example.appliedSaving} EGP`);
+  }
   if (scope === 'DELIVERY') {
-    expect(result).toMatchObject({ deliveryFeeOriginal: '30.00', deliveryFeePayable: '19.50' });
-    await expect(card.getByTestId('savings-preview-original')).toContainText('30.00 EGP');
+    expect(example).toMatchObject({ deliveryFeeOriginal: '30.00', deliveryFeePayable: '19.50' });
   }
   // Preview runs the real engine as if active, but must not write any state.
   const persisted = await prisma.promotion.findUniqueOrThrow({ where: { id: created.id } });
@@ -164,6 +171,8 @@ const one = w => [{ productId: w.products[0].id, quantity: 1 }];
 const scenarios = [
   { scope: 'CART', label: 'سلة', defaultLocale: 'ar', mobile: true, discountType: 'FIXED_AMOUNT', value: '35.00',
     items: one, strategy: 'CART', original: '100.00', payable: '65.00', saving: '35.00', grand: '65.00' },
+  { scope: 'CART', label: 'سلة', defaultLocale: 'ar', mobile: true, discountType: 'PERCENTAGE', value: '35.00',
+    items: one, strategy: 'CART', original: '100.00', payable: '65.00', saving: '35.00', grand: '65.00' },
   { scope: 'CATEGORY', label: 'Category', defaultLocale: 'ar', discountType: 'PERCENTAGE', value: '35.00',
     target: ['Grill', 'categories', 'categoryId', w => w.products[0].categoryId],
     items: one, strategy: 'ITEM', original: '100.00', payable: '65.00', saving: '35.00', grand: '65.00' },
@@ -180,11 +189,18 @@ const scenarios = [
   { scope: 'QUANTITY', label: 'Quantity', discountType: 'FIXED_AMOUNT', value: '50.00',
     items: w => w.products.map(({ id }) => ({ productId: id, quantity: 1 })),
     strategy: 'CART', original: '200.00', payable: '150.00', saving: '50.00', grand: '150.00' },
+  { scope: 'QUANTITY', label: 'Quantity', discountType: 'PERCENTAGE', value: '35.00',
+    items: w => w.products.map(({ id }) => ({ productId: id, quantity: 1 })),
+    strategy: 'CART', original: '200.00', payable: '130.00', saving: '70.00', grand: '130.00' },
   { scope: 'DELIVERY', label: 'Delivery fee', discountType: 'FIXED_AMOUNT', value: '10.50',
+    target: ['Nile Zone', 'deliveryZones', 'deliveryZoneId', w => w.zoneId],
+    items: one, strategy: 'ITEM', original: '100.00', payable: '80.00', saving: '10.50', grand: '99.50' },
+  { scope: 'DELIVERY', label: 'Delivery fee', discountType: 'PERCENTAGE', value: '35.00',
     target: ['Nile Zone', 'deliveryZones', 'deliveryZoneId', w => w.zoneId],
     items: one, strategy: 'ITEM', original: '100.00', payable: '80.00', saving: '10.50', grand: '99.50' },
 ];
 
+test.use({ viewport: { width: 1280, height: 900 } });
 test.beforeAll(assertDisposableDatabase);
 test.afterAll(() => prisma.$disconnect());
 
@@ -205,7 +221,9 @@ for (const scenario of scenarios) {
       await signIn(page, w, copy);
       const card = page.getByTestId('savings-preview');
       // A blank draft explains what is missing instead of showing a number.
-      await expect(card.getByRole('status')).toHaveText(copy.needsValue);
+      await expect(card).toHaveAttribute('data-state', 'INCOMPLETE');
+      await expect(text(card, copy.needsValue)).toBeVisible();
+      await expect(card.getByTestId('savings-preview-payable')).toHaveCount(0);
       await expect(card).toHaveCSS('direction', direction);
       const heading = page.getByRole('heading', { name: copy.create, level: 1 });
       await expect(heading).toHaveCSS('direction', direction);
@@ -236,7 +254,7 @@ for (const scenario of scenarios) {
         await expect(text(page, copy.minimumRequired)).toBeVisible();
         await expect(text(page, copy.minimumRequired)).toHaveCSS('direction', 'rtl');
         await expect(button(page, copy.save)).toBeDisabled();
-        await expect(card.getByRole('status')).toContainText(copy.minimumPreview);
+        await expect(card).toContainText(copy.minimumPreview);
         await expect(card.getByTestId('savings-preview-saving')).toHaveCount(0);
         await minimum.fill('٠');
         await expect(minimum).toHaveValue('0');
@@ -254,8 +272,9 @@ for (const scenario of scenarios) {
       }
       await expectNoHorizontalOverflow(page);
       // The unsaved draft previews by itself, with no button to press.
-      await expect(card.getByTestId('savings-preview-saving')).toContainText(`${scenario.saving} EGP`);
-      await expect(card.getByRole('status').filter({ hasText: copy.applied })).toBeVisible();
+      await expect(card).toHaveAttribute('data-state', 'REAL');
+      await expect(card.getByTestId('savings-preview-result')).toHaveAttribute('data-fresh', 'true');
+      await expect(card.getByTestId('savings-preview-diagnostic').filter({ hasText: copy.applied }).first()).toBeVisible();
       const [form, side] = await Promise.all([page.locator('form').filter({ has: button(page, copy.save) }).boundingBox(), card.boundingBox()]);
       if (mobile) {
         // Full width below the editor on a phone.
@@ -286,10 +305,18 @@ for (const scenario of scenarios) {
       const { result: preview, status } = await staffPreview(page, w, copy, created, scenario, await savedPreview);
       const catalog = new Set(w.products.map(({ id }) => id));
       expect(sent.length).toBeGreaterThan(0);
-      for (const body of sent) for (const item of body.items) expect(catalog.has(item.productId)).toBe(true);
+      for (const body of sent) {
+        expect(body.contract).toBe('CONTEXTUAL_V1');
+        expect(body.items).toBeUndefined();
+      }
+      for (const example of preview.examples) {
+        for (const item of example.lines) expect(catalog.has(item.productId)).toBe(true);
+      }
       await expectNoHorizontalOverflow(page);
       await status.scrollIntoViewIfNeeded();
-      await info.attach(`${scope.toLowerCase()}-staff-preview`, { body: await page.screenshot({ animations: 'disabled' }), contentType: 'image/png' });
+      const screenshot = info.outputPath(`${mobile ? 'arabic-390' : 'english-1280'}-${scope.toLowerCase()}-${discountType.toLowerCase()}.png`);
+      await page.screenshot({ path: screenshot, animations: 'disabled', fullPage: true });
+      await info.attach(`${scope.toLowerCase()}-staff-preview`, { path: screenshot, contentType: 'image/png' });
       await button(page, copy.activate).click();
       const dialog = page.getByRole('dialog', { name: copy.activate });
       await expect(dialog).toBeVisible();
@@ -305,7 +332,9 @@ for (const scenario of scenarios) {
       await expect(text(page, copy.activated)).toBeVisible();
       const row = page.getByRole('list', { name: copy.heading }).getByRole('listitem').filter({ hasText: internalName });
       await expect(text(row, copy.active)).toBeVisible();
-      await expect(text(row, label)).toBeVisible();
+      const scopeLabel = mobile ? 'إجمالي الطلب' : ({ CATEGORY: 'Items in a category', MENU: 'Items in a menu',
+        QUANTITY: 'Number of items', DELIVERY: 'Delivery fee' })[scope];
+      await expect(text(row, scopeLabel)).toBeVisible();
       await expect(text(row, title)).toBeVisible();
       expect((await stored()).status).toBe('ACTIVE');
 
@@ -326,3 +355,130 @@ for (const scenario of scenarios) {
     });
   });
 }
+
+test('preview discards a late answer and hides previous prices after failure', async ({ page }) => {
+  const w = await seedWorld();
+  await signIn(page, w, en);
+  await input(page, en.internal).fill('Preview freshness');
+  await input(page, en.title('English')).fill('Preview freshness');
+  const value = page.getByLabel(en.value);
+  const card = page.getByTestId('savings-preview');
+  await page.getByLabel('Minimum order amount before discounts (required)').fill('50');
+  await value.fill('35');
+  await expect(card).toHaveAttribute('data-state', 'REAL');
+  await expect(card.getByTestId('savings-preview-result')).toHaveAttribute('data-fresh', 'true');
+
+  let releaseOld;
+  const oldGate = new Promise(resolve => { releaseOld = resolve; });
+  let sawOld;
+  const oldStarted = new Promise(resolve => { sawOld = resolve; });
+  let oldFinished;
+  const oldDelivered = new Promise(resolve => { oldFinished = resolve; });
+  await page.route(previewPath(w), async route => {
+    const request = route.request().postDataJSON();
+    if (request.draft.value === '36') {
+      const response = await route.fetch();
+      sawOld();
+      await oldGate;
+      await route.fulfill({ response }).catch(() => {});
+      oldFinished();
+    } else if (request.draft.value === '37') {
+      await route.fulfill({ status: 500, contentType: 'application/json', body: '{}' });
+    } else {
+      await route.continue();
+    }
+  });
+  try {
+    await value.fill('36');
+    await oldStarted;
+    await expect(card.getByTestId('savings-preview-stale')).toBeVisible();
+    await expect(card.getByTestId('savings-preview-result')).toHaveAttribute('data-fresh', 'false');
+    await expect(card.getByTestId('savings-preview-result')).toHaveAttribute('inert', '');
+    await value.fill('37');
+    await expect(card.getByRole('alert')).toBeVisible();
+    await expect(card.getByTestId('savings-preview-result')).toHaveCount(0);
+    await expect(card.getByTestId('savings-preview-payable')).toHaveCount(0);
+    releaseOld();
+    await oldDelivered;
+    await expect(card.getByRole('alert')).toBeVisible();
+    await expect(card.getByTestId('savings-preview-result')).toHaveCount(0);
+  } finally {
+    releaseOld();
+  }
+});
+
+test('keyboard opens advanced settings at 200% CSS zoom', async ({ page }, info) => {
+  const w = await seedWorld();
+  await signIn(page, w, en);
+  // CSS zoom exercises the enlarged layout; it is not a substitute for manual browser text-zoom QA.
+  await page.evaluate(() => { document.documentElement.style.zoom = '2'; });
+  const advanced = page.getByTestId('promotion-advanced');
+  const summary = advanced.locator('summary');
+  await expect(advanced).not.toHaveAttribute('open', '');
+  await summary.focus();
+  await expect(summary).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(advanced).toHaveAttribute('open', '');
+  await page.keyboard.press('Tab');
+  const priority = page.getByLabel('Priority (0–1000)', { exact: true });
+  await expect(priority).toBeFocused();
+  await page.keyboard.press('ControlOrMeta+A');
+  await page.keyboard.type('7');
+  await expect(priority).toHaveValue('7');
+  const screenshot = info.outputPath('english-1280-keyboard-200-percent-css-zoom.png');
+  await page.screenshot({ path: screenshot, animations: 'disabled', fullPage: true });
+  await info.attach('keyboard-200-percent-css-zoom', { path: screenshot, contentType: 'image/png' });
+});
+
+test('quantity preview shows both quantity and amount shortfalls', async ({ page }) => {
+  const w = await seedWorld();
+  await signIn(page, w, en);
+  await input(page, en.internal).fill('Quantity and amount');
+  await input(page, en.title('English')).fill('Quantity and amount');
+  await input(page, en.scope).selectOption('QUANTITY');
+  await page.getByLabel(en.value).fill('35');
+  await input(page, 'Minimum quantity').fill('3');
+  await input(page, 'Count by').selectOption('DISTINCT_PRODUCTS');
+  const response = waitPreview(page, w, body => body.draft.minimumSubtotal === '20000');
+  await input(page, 'Minimum order amount (optional)').fill('20000');
+  const answer = await readData(await response, 200);
+  const below = answer.examples.find(example => example.kind === 'BELOW_THRESHOLD');
+  expect(below.diagnostic).toMatchObject({ status: 'BELOW_MINIMUM_QUANTITY', remainingQuantity: 1, remainingAmount: '200.00' });
+  const card = page.getByTestId('savings-preview-example-BELOW_THRESHOLD');
+  await expect(card.getByTestId('savings-preview-diagnostic')).toContainText('1 more items');
+  await expect(card).toContainText('200.00 EGP');
+  await expect(card).toContainText('short of the minimum amount');
+});
+
+test.describe('Arabic preview on a 360px phone', () => {
+  test.use({ viewport: { width: 360, height: 800 }, locale: 'ar-EG', hasTouch: true });
+  test('real threshold examples and illustrative fallback remain labelled', async ({ page }, info) => {
+    const w = await seedWorld({ defaultLocale: 'ar' });
+    await signIn(page, w, ar);
+    await input(page, ar.internal).fill('Preview threshold');
+    await input(page, ar.title('العربية')).fill('معاينة الحد الأدنى');
+    await input(page, ar.scope).selectOption('CART');
+    await page.getByLabel(ar.value).fill('35');
+    await page.getByLabel(ar.minimum).fill('150');
+    const card = page.getByTestId('savings-preview');
+    await expect(card).toHaveAttribute('data-state', 'REAL');
+    await expect(card.getByTestId('savings-preview-example-BELOW_THRESHOLD')).toBeVisible();
+    await expect(card.getByTestId('savings-preview-example-QUALIFYING')).toBeVisible();
+    await expect(card).toHaveCSS('direction', 'rtl');
+    await expectNoHorizontalOverflow(page);
+    await card.scrollIntoViewIfNeeded();
+    const realScreenshot = info.outputPath('arabic-360-real-preview.png');
+    await page.screenshot({ path: realScreenshot, animations: 'disabled', fullPage: true });
+    await info.attach('arabic-360-real-preview', { path: realScreenshot, contentType: 'image/png' });
+
+    // Remove all orderable items only in this runner's verified disposable database.
+    await prisma.product.updateMany({ where: { restaurantId: w.restaurantId }, data: { status: 'INACTIVE' } });
+    await card.getByRole('button', { name: 'تحديث', exact: true }).click();
+    await expect(card).toHaveAttribute('data-state', 'ILLUSTRATIVE');
+    await expect(card.getByTestId('savings-preview-illustrative')).toBeVisible();
+    await expectNoHorizontalOverflow(page);
+    const illustrativeScreenshot = info.outputPath('arabic-360-illustrative-preview.png');
+    await page.screenshot({ path: illustrativeScreenshot, animations: 'disabled', fullPage: true });
+    await info.attach('arabic-360-illustrative-preview', { path: illustrativeScreenshot, contentType: 'image/png' });
+  });
+});

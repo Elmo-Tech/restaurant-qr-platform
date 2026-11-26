@@ -16,10 +16,12 @@ import { localizedName } from '../../../../../../lib/i18n/localized-name';
 import type { MessageKey } from '../../../../../../lib/i18n/messages';
 import { promotionScopes, savePromotion, type Promotion, type PromotionOption, type PromotionTargets } from '../../../../../../lib/promotions/api';
 import { blankDraft, canOfferFixed, cartMinimumProblem, changesDiscountType, hasItemRestrictions, isItemScope, normalizePromotionNumber, requiresCartMinimum, supportsMinimumSubtotal, toPromotionDraft, widening, type DraftFields } from '../../../../../../lib/promotions/draft';
+import { describePromotion } from '../../../../../../lib/promotions/describe';
 import { needsPromotionReload, promotionError } from '../../../../../../lib/promotions/errors';
 import { localeDirection, localeLabel } from '../../../../../../lib/settings/locale-labels';
 import { SavingsPreview } from './SavingsPreview';
 
+const DEFAULT_PRIORITY = 100;
 const sectionTitle = 'text-base font-semibold text-foreground';
 const disclosure = 'min-h-11 cursor-pointer rounded-md py-2 font-semibold focus-visible:outline-2 focus-visible:outline-ring';
 const helper = 'text-sm text-muted-foreground';
@@ -74,7 +76,7 @@ function PromotionSummary({ row, targets, currencyCode }: { row: Promotion; targ
       <p className={helper}>{t(`promotions.scopeHint.${row.scope}`)}</p>
       <dl className="grid min-w-0 gap-3 sm:grid-cols-2">
         <div><dt className={helper}>{t('promotions.discountValue')}</dt><dd><bdi dir="ltr">{row.value}{row.discountType === 'PERCENTAGE' ? '%' : ` ${currencyCode}`}</bdi></dd></div>
-        <div><dt className={helper}>{t('promotions.priority')}</dt><dd>{row.priority}</dd></div>
+        {row.priority !== DEFAULT_PRIORITY ? <div><dt className={helper}>{t('promotions.advancedCustom')}</dt><dd><bdi dir="ltr">{row.priority}</bdi></dd></div> : null}
         {row.startsOn ? <div><dt className={helper}>{t('promotions.startsOn')}</dt><dd><bdi dir="ltr">{row.startsOn.slice(0, 10)}</bdi></dd></div> : null}
         {row.endsOn ? <div><dt className={helper}>{t('promotions.endsOn')}</dt><dd><bdi dir="ltr">{row.endsOn.slice(0, 10)}</bdi></dd></div> : null}
         {row.minimumSubtotal !== null ? <div><dt className={helper}>{t('promotions.minimumSubtotal')}</dt><dd><bdi dir="ltr">{row.minimumSubtotal} {currencyCode}</bdi></dd></div> : null}
@@ -128,6 +130,8 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
   const [serverTypeChange, setServerTypeChange] = useState(false);
   const [confirmType, setConfirmType] = useState(false);
   const [discard, setDiscard] = useState(false);
+  // Priority lives in the collapsed Advanced settings; it opens by itself only when its value needs fixing.
+  const [advancedOpen, setAdvancedOpen] = useState(false);
   const dirty = JSON.stringify(fields) !== JSON.stringify(initial);
   const { scope } = fields;
   const { zone, other } = widening(original, fields);
@@ -141,6 +145,7 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
   const minimumRequired = requiresCartMinimum(scope, original);
   const minimumProblem = cartMinimumProblem(fields, original);
   const legacyMinimum = scope === 'CART' && original?.scope === 'CART' && original.needsMinimumSubtotal === true;
+  const sentence = describePromotion(fields, currencyCode);
   const offerFixed = canOfferFixed(scope, targets.fixedItemScopeEnabled === true, original) || fields.discountType === 'FIXED_AMOUNT';
 
   function change<K extends keyof DraftFields>(key: K, value: DraftFields[K]) {
@@ -188,7 +193,11 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
     event.preventDefault();
     if (!canEdit || blocked || minimumProblem !== null || (mustConfirm && !confirmWiden) || (mustConfirmType && !confirmType)) return;
     const result = toPromotionDraft(fields, targets, original);
-    if ('error' in result) { setError(result.error); return; }
+    if ('error' in result) {
+      setError(result.error);
+      if (result.error === 'promotions.validation.priority') setAdvancedOpen(true);
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
@@ -250,10 +259,13 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
                     </Select>
                   </FormField>
                   <FormField label={`${t('promotions.discountValue')} (${fields.discountType === 'PERCENTAGE' ? '%' : currencyCode})`} htmlFor="promo-value">
-                    <Input id="promo-value" dir="ltr" inputMode="decimal" maxLength={15} required value={fields.value} onChange={(e) => change('value', normalizePromotionNumber(e.target.value))} aria-describedby={isItemScope(scope) && fields.discountType === 'FIXED_AMOUNT' ? 'promo-fixed-item-help' : undefined} />
+                    <Input id="promo-value" dir="ltr" inputMode="decimal" maxLength={15} required value={fields.value} onChange={(e) => change('value', normalizePromotionNumber(e.target.value))} aria-describedby="promo-sentence" />
                   </FormField>
                 </div>
-                {isItemScope(scope) && fields.discountType === 'FIXED_AMOUNT' ? <p id="promo-fixed-item-help" className={helper}>{t('promotions.fixedItemHint')}</p> : null}
+                <div className="space-y-1 rounded-lg bg-muted/50 p-3" data-testid="promotion-sentence">
+                  <h3 className="text-sm font-semibold">{t('promotions.sentence.title')}</h3>
+                  <p id="promo-sentence" className="text-sm">{sentence.map((part) => t(part.key, part.params)).join(' ')}</p>
+                </div>
               </Card>
               <Card className="space-y-4 p-4 sm:p-6">
                 <h2 className={sectionTitle}>{t('promotions.guestCopy')}</h2>
@@ -285,22 +297,27 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
                 </details>
                 {scopeSupportsMin ? <FormField label={t(minimumRequired ? 'promotions.minimumSubtotalRequired' : 'promotions.minimumSubtotal')} htmlFor="promo-min-subtotal">
                   <Input id="promo-min-subtotal" dir="ltr" inputMode="decimal" maxLength={15} value={fields.minimumSubtotal} aria-required={minimumRequired || undefined} aria-invalid={minimumProblem !== null || undefined}
-                    aria-describedby={scope === 'CART' ? `promo-min-subtotal-help${minimumProblem ? ' promo-min-subtotal-problem' : ''}` : undefined} onChange={(e) => change('minimumSubtotal', normalizePromotionNumber(e.target.value))} />
+                    aria-describedby={`promo-min-subtotal-help${minimumProblem ? ' promo-min-subtotal-problem' : ''}`} onChange={(e) => change('minimumSubtotal', normalizePromotionNumber(e.target.value))} />
                 </FormField> : null}
                 {scope === 'CART' ? <p id="promo-min-subtotal-help" className={helper}>{t('promotions.minimumSubtotalHint')}</p> : null}
+                {scope === 'QUANTITY' || scope === 'DELIVERY' ? <p id="promo-min-subtotal-help" className={helper}>{t(scope === 'QUANTITY' ? 'promotions.minimumHint.QUANTITY' : 'promotions.minimumHint.DELIVERY')}</p> : null}
                 {minimumProblem ? <p id="promo-min-subtotal-problem" role="status" className="text-sm font-semibold text-destructive">{t(minimumProblem)}</p> : null}
                 {legacyMinimum ? <Alert variant="warning"><p>{t('promotions.legacyMinimumNotice')}</p></Alert> : null}
               </Card>
+              <Card className="space-y-4 p-4 sm:p-6">
+                <h2 className={sectionTitle}>{t('promotions.schedule')}</h2>
+                <p className={helper}>{t('promotions.scheduleHint')}</p>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <FormField label={t('promotions.startsOn')} htmlFor="promo-start"><Input id="promo-start" dir="ltr" type="date" value={fields.startsOn} onChange={(e) => change('startsOn', e.target.value)} /></FormField>
+                  <FormField label={t('promotions.endsOn')} htmlFor="promo-end"><Input id="promo-end" dir="ltr" type="date" value={fields.endsOn} onChange={(e) => change('endsOn', e.target.value)} /></FormField>
+                </div>
+              </Card>
               <Card className="p-4 sm:p-6">
-                <details className="space-y-3" open={Boolean(original?.startsOn || original?.endsOn || (original && original.priority !== 100)) || undefined}>
-                  <summary className={disclosure}>{t('promotions.schedule')}</summary>
-                  <p className={helper}>{t('promotions.scheduleHint')}</p>
-                  <div className="grid gap-4 sm:grid-cols-2">
-                    <FormField label={t('promotions.startsOn')} htmlFor="promo-start"><Input id="promo-start" dir="ltr" type="date" value={fields.startsOn} onChange={(e) => change('startsOn', e.target.value)} /></FormField>
-                    <FormField label={t('promotions.endsOn')} htmlFor="promo-end"><Input id="promo-end" dir="ltr" type="date" value={fields.endsOn} onChange={(e) => change('endsOn', e.target.value)} /></FormField>
-                  </div>
-                  <FormField label={t('promotions.priority')} htmlFor="promo-priority"><Input id="promo-priority" dir="ltr" inputMode="numeric" maxLength={4} value={fields.priority} onChange={(e) => change('priority', normalizePromotionNumber(e.target.value))} /></FormField>
-                  <p className={helper}>{t('promotions.priorityHint')}</p>
+                {/* Collapsed by default, also when a custom value is stored: the stored priority is only ever changed here. */}
+                <details className="space-y-3" open={advancedOpen} onToggle={(event) => setAdvancedOpen(event.currentTarget.open)} data-testid="promotion-advanced">
+                  <summary className={disclosure}>{t('promotions.advanced')}{fields.priority.trim() !== String(DEFAULT_PRIORITY) ? <> · <span className="font-normal text-muted-foreground" data-testid="promotion-advanced-custom">{t('promotions.advancedCustom')}</span></> : null}</summary>
+                  <FormField label={t('promotions.priority')} htmlFor="promo-priority"><Input id="promo-priority" dir="ltr" inputMode="numeric" maxLength={4} value={fields.priority} onChange={(e) => change('priority', normalizePromotionNumber(e.target.value))} aria-describedby="promo-priority-help" /></FormField>
+                  <p id="promo-priority-help" className={helper}>{t('promotions.priorityHint')}</p>
                 </details>
               </Card>
               {mustConfirmType && original ? (
