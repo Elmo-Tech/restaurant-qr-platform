@@ -75,9 +75,9 @@ export function KitchenFocusView({
   onSelectStage: (stage: KitchenStatus) => void;
   onSelectTicket: (ticketId: string) => void;
   onStep: (delta: -1 | 1) => void;
-  onAcknowledge: () => void;
-  onShowMoved: (ticketId: string, stage: KitchenStatus) => void;
-  onDismissNotice: () => void;
+  onAcknowledge: (expected: { ticketId: string; generation: number }) => void;
+  onShowMoved: (notice: FocusNotice, focusedTicketId: string | null) => void;
+  onDismissNotice: (notice: FocusNotice) => void;
 }) {
   const { t } = useStaffI18n();
   const regionRef = useRef<HTMLDivElement>(null);
@@ -87,7 +87,8 @@ export function KitchenFocusView({
   const focused = tickets.find((ticket) => ticket.id === focus.ticketId) ?? null;
   const index = focused ? tickets.indexOf(focused) : -1;
   const others = tickets.filter((ticket) => ticket.id !== focus.ticketId);
-  const awaitingConfirmation = focus.guard.kind === 'confirm' && focus.guard.ticketId === focus.ticketId;
+  const confirmGuard = focus.guard.kind === 'confirm' && focus.guard.ticketId === focus.ticketId ? focus.guard : null;
+  const awaitingConfirmation = confirmGuard !== null;
   const held = focus.guard.kind !== 'none' && focus.guard.ticketId === focus.ticketId;
   const movedTo = notice?.notice.kind === 'moved' ? notice.notice.to : null;
 
@@ -141,20 +142,20 @@ export function KitchenFocusView({
                   type="button"
                   variant="secondary"
                   className="min-h-11"
-                  onClick={() => onShowMoved(notice.notice.ticketId, movedTo)}
+                  onClick={() => onShowMoved(notice.notice, focus.ticketId)}
                 >
                   {t('kitchen.focus.showIt')}
                 </Button>
               ) : null}
-              {awaitingConfirmation ? (
-                <Button type="button" className="min-h-11" onClick={onAcknowledge}>
+              {confirmGuard ? (
+                <Button type="button" className="min-h-11" onClick={() => onAcknowledge({ ticketId: confirmGuard.ticketId, generation: confirmGuard.generation })}>
                   {t('kitchen.focus.continue')}
                 </Button>
-              ) : (
-                <Button type="button" variant="secondary" className="min-h-11" onClick={onDismissNotice}>
+              ) : notice ? (
+                <Button type="button" variant="secondary" className="min-h-11" onClick={() => onDismissNotice(notice.notice)}>
                   {t('kitchen.dismiss')}
                 </Button>
-              )}
+              ) : null}
             </div>
           </div>
         ) : null}

@@ -182,6 +182,7 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
   const staleRef = useRef(false);
   /** The focus the board is acting on RIGHT NOW (the state below may still be one render behind it). */
   const focusRef = useRef<KitchenFocus>(focus);
+  const focusNoticeRef = useRef<FocusNoticeView | null>(null);
   /** The latest read grouped by stage; focus choices are validated against it, not against an older render. */
   const stagesRef = useRef<StageTickets>({ ACCEPTED: [], PREPARING: [], READY: [] });
   const labelRef = useRef<(ticket: KitchenTicket) => string>(() => '');
@@ -201,6 +202,11 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
   const commitFocus = useCallback((next: KitchenFocus) => {
     focusRef.current = next;
     setFocus(next);
+  }, []);
+
+  const commitFocusNotice = useCallback((next: FocusNoticeView | null) => {
+    focusNoticeRef.current = next;
+    setFocusNotice(next);
   }, []);
 
   /** Ends the current branch session: nothing still in flight may touch the next one. */
@@ -258,7 +264,8 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
           const left = reconciled.notice;
           if (left) {
             const covered = resolution.boardNotices.some((entry) => entry.ticketId === left.ticketId);
-            if (!left.own) setFocusNotice({ notice: left, covered });
+            if (!left.own) commitFocusNotice({ notice: left, covered });
+            else commitFocusNotice(null);
             if (!covered) {
               setAnnouncement(
                 left.kind === 'moved'
@@ -295,7 +302,7 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
       inFlightRef.current = { seq, promise };
       return promise;
     },
-    [restaurantId, playChime, commitFocus],
+    [restaurantId, playChime, commitFocus, commitFocusNotice],
   );
 
   /** The single entry point for reads: at most one in flight, plus at most one fresh read queued behind it. */
@@ -365,22 +372,22 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
     setAnnouncement(null);
     // The new branch starts with no focus: the first read of that branch pins its own ticket.
     stagesRef.current = { ACCEPTED: [], PREPARING: [], READY: [] };
-    commitFocus(initialKitchenFocus(focusRef.current.stage));
-    setFocusNotice(null);
+    commitFocus(initialKitchenFocus(focusRef.current.stage, focusRef.current.generation + 1));
+    commitFocusNotice(null);
   }
 
   const focusOptions = { labelOf: (ticket: KitchenTicket) => labelRef.current(ticket) };
   function chooseStage(stage: KitchenStatus) {
     commitFocus(selectKitchenStage(focusRef.current, stage, stagesRef.current, focusOptions));
-    setFocusNotice(null);
+    commitFocusNotice(null);
   }
   function chooseTicket(ticketId: string, stage: KitchenStatus = focusRef.current.stage) {
     commitFocus(selectKitchenTicket(focusRef.current, stage, ticketId, stagesRef.current, focusOptions));
-    setFocusNotice(null);
+    commitFocusNotice(null);
   }
   function stepFocus(delta: -1 | 1) {
     commitFocus(stepKitchenFocus(focusRef.current, delta, stagesRef.current, focusOptions));
-    setFocusNotice(null);
+    commitFocusNotice(null);
   }
 
   // A pause after the board moved the focus on by itself ends by itself.
@@ -693,12 +700,25 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
             onSelectStage={chooseStage}
             onSelectTicket={(ticketId) => chooseTicket(ticketId)}
             onStep={stepFocus}
-            onAcknowledge={() => {
-              commitFocus(acknowledgeKitchenFocus(focusRef.current));
-              setFocusNotice(null);
+            onAcknowledge={(expected) => {
+              const current = focusRef.current;
+              if (focusNoticeRef.current?.notice.generation !== expected.generation) return;
+              const acknowledged = acknowledgeKitchenFocus(current, expected);
+              if (acknowledged === current) return;
+              commitFocus(acknowledged);
+              commitFocusNotice(null);
             }}
-            onShowMoved={(ticketId, stage) => chooseTicket(ticketId, stage)}
-            onDismissNotice={() => setFocusNotice(null)}
+            onShowMoved={(notice, focusedTicketId) => {
+              const current = focusRef.current;
+              if (focusNoticeRef.current?.notice !== notice || current.generation !== notice.generation ||
+                  current.ticketId !== focusedTicketId || notice.kind !== 'moved') return;
+              chooseTicket(notice.ticketId, notice.to);
+            }}
+            onDismissNotice={(notice) => {
+              if (focusNoticeRef.current?.notice === notice && focusRef.current.generation === notice.generation) {
+                commitFocusNotice(null);
+              }
+            }}
           />
         ) : (
           <div className="grid grid-cols-3 items-start gap-5">

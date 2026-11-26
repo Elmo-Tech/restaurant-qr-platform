@@ -73,18 +73,41 @@ test('a ticket that another employee moved: focus falls to its neighbour, the ac
   const after = board().map((entry) => (entry.id === 'b' ? { ...entry, status: 'PREPARING', statusSince: at(20) } : entry));
   const result = reconcile(focus, after);
   assert.equal(result.focus.ticketId, 'c'); // the next ticket in the old order
-  assert.deepEqual(result.focus.guard, { kind: 'confirm', ticketId: 'c' });
-  assert.deepEqual(result.notice, { kind: 'moved', ticketId: 'b', label: 'Ticket b', to: 'PREPARING', own: false });
+  assert.deepEqual(result.focus.guard, { kind: 'confirm', ticketId: 'c', generation: 1 });
+  assert.deepEqual(result.notice, { kind: 'moved', ticketId: 'b', label: 'Ticket b', to: 'PREPARING', own: false, generation: 1 });
   assert.equal(kitchenActionHold(result.focus, 'c', NOW + 60_000), 'confirm'); // time never releases it
-  assert.equal(kitchenActionHold(acknowledgeKitchenFocus(result.focus), 'c', NOW), null);
+  assert.equal(kitchenActionHold(acknowledgeKitchenFocus(result.focus, { ticketId: 'c', generation: 1 }), 'c', NOW), null);
 });
 
 test('a ticket removed by another employee behaves the same, naming the ticket that left', () => {
   const focus = pinned(board(), 'c');
   const result = reconcile(focus, board().filter((entry) => entry.id !== 'c'));
   assert.equal(result.focus.ticketId, 'b'); // nothing after it: the closest earlier one
-  assert.deepEqual(result.focus.guard, { kind: 'confirm', ticketId: 'b' });
-  assert.deepEqual(result.notice, { kind: 'removed', ticketId: 'c', label: 'Ticket c', own: false });
+  assert.deepEqual(result.focus.guard, { kind: 'confirm', ticketId: 'b', generation: 1 });
+  assert.deepEqual(result.notice, { kind: 'removed', ticketId: 'c', label: 'Ticket c', own: false, generation: 1 });
+});
+
+test('successive departures issue distinct generations and reject stale acknowledgements', () => {
+  const first = reconcile(pinned(board(), 'a'), board().filter((entry) => entry.id !== 'a'));
+  const second = reconcile(first.focus, board().filter((entry) => entry.id !== 'a' && entry.id !== 'b'));
+  assert.equal(first.focus.ticketId, 'b');
+  assert.equal(second.focus.ticketId, 'c');
+  assert.equal(first.notice.generation, 1);
+  assert.equal(second.notice.generation, 2);
+  assert.deepEqual(second.focus.guard, { kind: 'confirm', ticketId: 'c', generation: 2 });
+  assert.equal(acknowledgeKitchenFocus(second.focus, { ticketId: 'b', generation: 1 }), second.focus);
+  assert.equal(acknowledgeKitchenFocus(second.focus, { ticketId: 'c', generation: 1 }), second.focus);
+  assert.equal(acknowledgeKitchenFocus(second.focus, { ticketId: 'b', generation: 2 }), second.focus);
+  assert.equal(kitchenActionHold(second.focus, 'c', NOW), 'confirm');
+  assert.equal(kitchenActionHold(acknowledgeKitchenFocus(second.focus, { ticketId: 'c', generation: 2 }), 'c', NOW), null);
+});
+
+test('a departure without a neighbour still advances the notice generation', () => {
+  const first = reconcile(pinned(board(), 'a'), board().filter((entry) => entry.id !== 'a'));
+  const second = reconcile(first.focus, board().filter((entry) => !['a', 'b', 'c'].includes(entry.id)));
+  assert.equal(second.focus.ticketId, null);
+  assert.equal(second.notice.generation, first.notice.generation + 1);
+  assert.equal(second.focus.generation, second.notice.generation);
 });
 
 test('the person\'s own action moves the focus on with a short settle pause, not an acknowledgement', () => {

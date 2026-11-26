@@ -261,6 +261,45 @@ test('a ticket moved by another employee: it is named, "Show it" follows it, and
   expect(stub.state.patchCalls).toEqual([]);
 });
 
+for (const staleButton of ['Continue', 'Show it']) {
+  test(`a stale ${staleButton} handler cannot acknowledge a newer poll's notice`, async ({ page, context }) => {
+    await open(page, context);
+    const moved = stub.state.tickets.find((entry) => entry.id === 'b-late');
+    moved.status = 'PREPARING';
+    moved.statusSince = new Date().toISOString();
+    await refresh(page);
+    await expect(panel(page).getByText('Table 7 was moved to “Preparing” by someone else.')).toBeVisible();
+    await expect(identity(page)).toHaveText('Table 3');
+    await expect(startButton(page)).toBeDisabled();
+
+    // Retain the actual rendered React click closure: a later locator click would call the new handler instead.
+    await page.getByRole('button', { name: staleButton }).evaluate((button) => {
+      const key = Object.keys(button).find((name) => name.startsWith('__reactProps$'));
+      if (!key || typeof button[key].onClick !== 'function') throw new Error('Rendered click handler not found');
+      window.staleKitchenClick = button[key].onClick;
+    });
+
+    stub.state.tickets = stub.state.tickets.filter((entry) => entry.id !== 'd-tie-2');
+    // Wait for the real 5-second poll, without acknowledging the first notice.
+    const newNotice = panel(page).getByText('Table 3 is no longer on the board. It was finished or cancelled from another screen.');
+    await expect(newNotice).toBeVisible({ timeout: 15_000 });
+    await expect(identity(page)).toHaveText('Omar K.');
+    await expect(startButton(page)).toBeDisabled();
+
+    await page.evaluate(() => window.staleKitchenClick());
+    await expect(newNotice).toBeVisible();
+    await expect(page.getByRole('tab', { name: 'New: 2' })).toHaveAttribute('aria-selected', 'true');
+    await expect(identity(page)).toHaveText('Omar K.');
+    await expect(startButton(page)).toBeDisabled();
+    expect(stub.state.patchCalls).toEqual([]);
+
+    await page.getByRole('button', { name: 'Continue' }).click();
+    await expect(newNotice).toHaveCount(0);
+    await expect(startButton(page)).toBeEnabled();
+    expect(stub.state.patchCalls).toEqual([]);
+  });
+}
+
 test('the last ticket leaving a stage shows its empty state; READY departures are routine and silent', async ({ page, context }) => {
   await open(page, context);
   await page.getByRole('tab', { name: 'Ready: 1' }).click();

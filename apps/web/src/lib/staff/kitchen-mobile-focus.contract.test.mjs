@@ -44,8 +44,8 @@ test('the focus is reconciled inside the guarded read, after the stale-branch ch
   assert.match(runRead, /ownMoves\.set\(check\.ticketId, check\.to\)/);
   assert.match(runRead, /if \(check\.kind !== 'conflict'\)/);
   const select = board.slice(board.indexOf('function selectBranch('), board.indexOf('const focusOptions'));
-  assert.match(select, /commitFocus\(initialKitchenFocus\(focusRef\.current\.stage\)\);/);
-  assert.match(select, /setFocusNotice\(null\);/);
+  assert.match(select, /commitFocus\(initialKitchenFocus\(focusRef\.current\.stage, focusRef\.current\.generation \+ 1\)\);/);
+  assert.match(select, /commitFocusNotice\(null\);/);
   assert.match(select, /stagesRef\.current = \{ ACCEPTED: \[\], PREPARING: \[\], READY: \[\] \};/);
 });
 

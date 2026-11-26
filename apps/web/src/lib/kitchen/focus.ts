@@ -31,7 +31,7 @@ export type FocusGuard =
   /** The person's own action moved the focus: a short pause on the new ticket's action. */
   | { kind: 'settling'; ticketId: string; until: number }
   /** Someone else's change moved the focus: the new ticket's action waits for an explicit "Continue". */
-  | { kind: 'confirm'; ticketId: string };
+  | { kind: 'confirm'; ticketId: string; generation: number };
 
 export interface KitchenFocus {
   stage: KitchenStatus;
@@ -44,19 +44,21 @@ export interface KitchenFocus {
   /** The last focused ticket of each stage, so switching tabs and back returns to the same ticket. */
   memory: Readonly<Partial<Record<KitchenStatus, string>>>;
   guard: FocusGuard;
+  /** Monotonic identity of the latest departure, even when there is no neighbour. */
+  generation: number;
 }
 
 /** Feedback about a focused ticket that left its stage. `own` is the person's own action (announced, not shown). */
 export type FocusNotice =
-  | { kind: 'moved'; ticketId: string; label: string; to: KitchenStatus; own: boolean }
-  | { kind: 'removed'; ticketId: string; label: string; own: false };
+  | { kind: 'moved'; ticketId: string; label: string; to: KitchenStatus; own: boolean; generation: number }
+  | { kind: 'removed'; ticketId: string; label: string; own: false; generation: number };
 
 export interface FocusOptions {
   labelOf: (ticket: KitchenTicket) => string;
 }
 
-export function initialKitchenFocus(stage: KitchenStatus = 'ACCEPTED'): KitchenFocus {
-  return { stage, ticketId: null, label: null, order: [], memory: {}, guard: { kind: 'none' } };
+export function initialKitchenFocus(stage: KitchenStatus = 'ACCEPTED', generation = 0): KitchenFocus {
+  return { stage, ticketId: null, label: null, order: [], memory: {}, guard: { kind: 'none' }, generation };
 }
 
 function idsOf(tickets: readonly KitchenTicket[]): string[] {
@@ -79,6 +81,7 @@ function focusOn(
     order: idsOf(byStage[stage]),
     memory,
     guard,
+    generation: prev.generation,
   };
 }
 
@@ -139,19 +142,20 @@ export function reconcileKitchenFocus(
   const actionable = prev.stage !== 'READY';
   const own = movedTo !== undefined && context.ownMoves.get(leftId) === movedTo;
 
+  const generation = actionable ? prev.generation + 1 : prev.generation;
   let guard: FocusGuard = { kind: 'none' };
   if (next && actionable) {
-    guard = own ? { kind: 'settling', ticketId: next.id, until: context.now + FOCUS_SETTLE_MS } : { kind: 'confirm', ticketId: next.id };
+    guard = own ? { kind: 'settling', ticketId: next.id, until: context.now + FOCUS_SETTLE_MS } : { kind: 'confirm', ticketId: next.id, generation };
   }
 
   let notice: FocusNotice | null = null;
   if (actionable) {
     notice =
       movedTo !== undefined
-        ? { kind: 'moved', ticketId: leftId, label, to: movedTo, own }
-        : { kind: 'removed', ticketId: leftId, label, own: false };
+        ? { kind: 'moved', ticketId: leftId, label, to: movedTo, own, generation }
+        : { kind: 'removed', ticketId: leftId, label, own: false, generation };
   }
-  return { focus: focusOn(prev, prev.stage, next, byStage, context, guard), notice };
+  return { focus: { ...focusOn(prev, prev.stage, next, byStage, context, guard), generation }, notice };
 }
 
 /** The person chose a tab: back to the ticket they last had there if it is still there, else the longest-waiting one. */
@@ -194,8 +198,12 @@ export function stepKitchenFocus(
 }
 
 /** "Continue": the person has seen the change, so the focused ticket's action is released. */
-export function acknowledgeKitchenFocus(prev: KitchenFocus): KitchenFocus {
-  return prev.guard.kind === 'confirm' ? { ...prev, guard: { kind: 'none' } } : prev;
+export function acknowledgeKitchenFocus(prev: KitchenFocus, expected: { ticketId: string; generation: number }): KitchenFocus {
+  return prev.guard.kind === 'confirm' && prev.ticketId === expected.ticketId &&
+    prev.guard.ticketId === expected.ticketId && prev.guard.generation === expected.generation &&
+    prev.generation === expected.generation
+    ? { ...prev, guard: { kind: 'none' } }
+    : prev;
 }
 
 /** Releases a `settling` guard whose pause is over. */
