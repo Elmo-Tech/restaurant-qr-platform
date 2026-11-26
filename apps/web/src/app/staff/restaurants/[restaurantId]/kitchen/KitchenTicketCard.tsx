@@ -31,7 +31,7 @@ const DELAY_STYLE: Record<KitchenDelayLevel, { card: string; timer: string }> = 
   alert: { card: 'ring-4 ring-destructive', timer: 'bg-destructive-soft text-destructive' },
 };
 
-function DelayIcon() {
+export function DelayIcon() {
   return (
     <svg aria-hidden="true" viewBox="0 0 24 24" className="size-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
       <path d="M12 3 2.5 20h19L12 3Z" />
@@ -45,6 +45,24 @@ export function kitchenTicketLabel(ticket: KitchenTicket, t: Translator['t']): s
   return ticket.table
     ? t('orders.card.table', { number: ticket.table.tableNumber })
     : (ticket.customerName ?? t(`orders.type.${ticket.type}` as const));
+}
+
+/** How long a ticket has been in its current stage, both as minutes and as the localized "26 min" text. */
+export function kitchenTicketAge(ticket: KitchenTicket, now: number, t: Translator['t']): { minutes: number; age: string } {
+  const reference = new Date(now);
+  return {
+    minutes: elapsedMinutes(ticket.statusSince, reference),
+    age: formatElapsedAge(
+      ticket.statusSince,
+      {
+        t,
+        tMinutes: (count) => t('orders.time.minutes', { count }),
+        tHoursMinutes: (hours, mins) =>
+          t('orders.time.hoursMinutes', { hours, minutes: String(mins).padStart(2, '0') }),
+      },
+      reference,
+    ),
+  };
 }
 
 /** Feedback shown on the card: `error` for a refused action, `info` for what reconciliation found. */
@@ -71,6 +89,8 @@ export function KitchenTicketCard({
   notice,
   pending,
   checking,
+  held = false,
+  stickyAction = false,
   onAdvance,
   onCheckAgain,
 }: {
@@ -85,23 +105,19 @@ export function KitchenTicketCard({
   pending: string | null;
   /** A read-only re-check is running. */
   checking: boolean;
+  /**
+   * Kitchen K3 (One Ticket Focus): the board moved the focus onto this ticket by itself, so its action waits
+   * until the person has seen the change. It never replaces the K1 `pending` block.
+   */
+  held?: boolean;
+  /** Phone focus view: the action stays reachable above the bottom navigation while a long ticket scrolls. */
+  stickyAction?: boolean;
   onAdvance: (ticket: KitchenTicket) => void;
   /** Re-reads the board. Never retries the status change. */
   onCheckAgain: () => void;
 }) {
   const { t, formatTime } = useStaffI18n();
-  const reference = new Date(now);
-  const minutes = elapsedMinutes(ticket.statusSince, reference);
-  const age = formatElapsedAge(
-    ticket.statusSince,
-    {
-      t,
-      tMinutes: (count) => t('orders.time.minutes', { count }),
-      tHoursMinutes: (hours, mins) =>
-        t('orders.time.hoursMinutes', { hours, minutes: String(mins).padStart(2, '0') }),
-    },
-    reference,
-  );
+  const { minutes, age } = kitchenTicketAge(ticket, now, t);
   const delay = kitchenDelayLevel(ticket.status, minutes);
   const delayStyle = DELAY_STYLE[delay];
 
@@ -237,10 +253,14 @@ export function KitchenTicketCard({
         <Button
           type="button"
           size="lg"
-          disabled={busy || pending !== null || !canUpdate}
+          disabled={busy || pending !== null || !canUpdate || held}
           aria-busy={busy || undefined}
           onClick={() => onAdvance(ticket)}
-          className="min-h-14 w-full text-lg font-extrabold"
+          className={`min-h-14 w-full text-lg font-extrabold ${
+            stickyAction
+              ? 'sticky bottom-[calc(5.5rem+env(safe-area-inset-bottom))] z-10 shadow-[0_0_0_6px_var(--color-card)]'
+              : ''
+          }`}
         >
           {busy
             ? t('kitchen.action.updating')

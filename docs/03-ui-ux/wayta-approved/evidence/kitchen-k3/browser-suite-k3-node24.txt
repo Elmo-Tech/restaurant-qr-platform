@@ -1,0 +1,23 @@
+
+Running 18 tests using 1 worker
+
+  ✓   1 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:53:3 › 360px: three tabs with counts, one ticket, an action that is never covered, no sideways scroll (3.7s)
+  ✓   2 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:53:3 › 390px: three tabs with counts, one ticket, an action that is never covered, no sideways scroll (1.2s)
+  ✓   3 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:53:3 › 430px: three tabs with counts, one ticket, an action that is never covered, no sideways scroll (1.1s)
+  ✓   4 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:100:1 › tabs follow the reading direction from the keyboard; only the selected tab is in the Tab order (1.1s)
+  ✓   5 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:120:1 › Arabic mirrors the tabs, the arrow keys and Previous / Next, and fits at 360px (1.1s)
+  ✓   6 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:143:1 › the focused ticket is chosen by id: the list, Previous and Next never act on anything (1.1s)
+  ✓   7 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:160:1 › switching tabs returns to the ticket last focused there (1.1s)
+  ✓   8 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:169:1 › polling during interaction: reordering and new tickets never change the focused ticket or where the action goes (1.2s)
+  ✓   9 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:188:1 › the real 5 s poll adds a ticket without moving the focus or the scroll position (5.9s)
+  ✓  10 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:197:1 › a finished ticket moves the focus on: a short pause on the next action, no notice, focus lands on the new ticket (2.5s)
+  ✓  11 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:213:1 › a double tap sends one guarded request and never starts the next ticket (2.4s)
+  ✓  12 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:221:1 › a ticket removed by another employee: the neighbour is shown with an explanation and its action waits for Continue (2.3s)
+  ✓  13 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:244:1 › a ticket moved by another employee: it is named, "Show it" follows it, and the neighbour waits for Continue (1.2s)
+  ✓  14 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:264:1 › the last ticket leaving a stage shows its empty state; READY departures are routine and silent (1.1s)
+  ✓  15 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:275:1 › a refused move is reconciled against a fresh read, never retried, and the focus stays on the same ticket (1.1s)
+  ✓  16 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:288:1 › a read-only account can browse every ticket but nothing is enabled and nothing is sent (997ms)
+  ✓  17 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:298:1 › branch switching: only the current branch is shown, the focus restarts there, and actions carry that branch's ticket (1.2s)
+  ✓  18 apps/web/e2e/kitchen-k3/kitchen.spec.cjs:324:1 › on a desktop the board is still three columns with every ticket and no tabs (1.0s)
+
+  18 passed (31.8s)

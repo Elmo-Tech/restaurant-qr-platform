@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import { useStaffI18n } from '../../../../../lib/i18n/client';
 import type { MessageKey } from '../../../../../lib/i18n/messages';
 import { localizedName } from '../../../../../lib/i18n/localized-name';
@@ -19,6 +19,18 @@ import {
   type PendingCheck,
 } from '../../../../../lib/kitchen/board-state';
 import { canUpdateKitchen } from '../../../../../lib/kitchen/capabilities';
+import {
+  acknowledgeKitchenFocus,
+  initialKitchenFocus,
+  kitchenActionHold,
+  reconcileKitchenFocus,
+  selectKitchenStage,
+  selectKitchenTicket,
+  settleKitchenFocus,
+  stepKitchenFocus,
+  type KitchenFocus,
+  type StageTickets,
+} from '../../../../../lib/kitchen/focus';
 import { sortKitchenTickets } from '../../../../../lib/kitchen/ticket-view';
 import type { KitchenStatus, KitchenTicket } from '../../../../../lib/kitchen/types';
 import * as ordersApi from '../../../../../lib/orders/api';
@@ -35,12 +47,42 @@ import { LoadingState } from '../../../../../components/ui/LoadingState';
 import { PageHeader } from '../../../../../components/ui/PageHeader';
 import { ReadErrorAlert } from '../../../../../components/staff/ReadErrorAlert';
 import { IconSound } from '../../../../../components/staff/icons';
+import { KitchenFocusView, type FocusNoticeView } from './KitchenFocusView';
 import { KitchenTicketCard, kitchenTicketLabel, type KitchenCardNotice } from './KitchenTicketCard';
 import { useKitchenSound } from './useKitchenSound';
 
 const POLL_INTERVAL_MS = 5_000;
 const CLOCK_INTERVAL_MS = 20_000;
 const COLUMNS: readonly KitchenStatus[] = ['ACCEPTED', 'PREPARING', 'READY'];
+const COLUMN_LABEL_KEY = {
+  ACCEPTED: 'kitchen.col.new',
+  PREPARING: 'kitchen.col.preparing',
+  READY: 'kitchen.col.ready',
+} as const satisfies Record<KitchenStatus, MessageKey>;
+/** Tailwind's `lg` (64rem): from here the three columns fit side by side; below it the board is tabs + one ticket. */
+const DESKTOP_QUERY = '(min-width: 64rem)';
+
+function subscribeToLayout(onChange: () => void): () => void {
+  const query = window.matchMedia(DESKTOP_QUERY);
+  query.addEventListener('change', onChange);
+  return () => query.removeEventListener('change', onChange);
+}
+
+/** True on a phone or small tablet (tabs + One Ticket Focus); false when the three columns fit. */
+function useIsPhoneLayout(): boolean {
+  return useSyncExternalStore(
+    subscribeToLayout,
+    () => !window.matchMedia(DESKTOP_QUERY).matches,
+    () => true,
+  );
+}
+
+/** Each stage in K2 time-priority order. The Backend lists by creation time, which differs for an order that waited as PENDING. */
+function groupByStage(list: readonly KitchenTicket[]): Record<KitchenStatus, KitchenTicket[]> {
+  const groups: Record<KitchenStatus, KitchenTicket[]> = { ACCEPTED: [], PREPARING: [], READY: [] };
+  for (const ticket of sortKitchenTickets(list)) groups[ticket.status].push(ticket);
+  return groups;
+}
 
 /**
  * Why a read is requested. `reconcile` must observe the server AFTER a status
@@ -93,6 +135,14 @@ export interface KitchenBoardProps {
  *
  * Kitchen K2 (ticket readability and time priority): presentation and sort
  * order only -- see `lib/kitchen/ticket-view` and `KitchenTicketCard`.
+ *
+ * Kitchen K3 (mobile tabs and One Ticket Focus): below the large breakpoint
+ * the columns become three tabs with counts and exactly one ticket in full.
+ * The focus is held by the ticket's stable id (`lib/kitchen/focus`), so
+ * polling and re-sorting never change which ticket is shown, an action is
+ * only ever delivered to the ticket currently in focus, and a ticket moved or
+ * removed by someone else is explained before its neighbour's action unlocks.
+ * Desktop columns, reads, locks and recovery are unchanged.
  */
 export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoardProps) {
   const { t, locale, formatTime } = useStaffI18n();
@@ -113,7 +163,9 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
   const [boardNotices, setBoardNotices] = useState<BoardNotice[]>([]);
   const [announcement, setAnnouncement] = useState<Announcement | null>(null);
   const [now, setNow] = useState<number>(0);
-  const [column, setColumn] = useState<KitchenStatus>('ACCEPTED');
+  const [focus, setFocus] = useState<KitchenFocus>(() => initialKitchenFocus());
+  const [focusNotice, setFocusNotice] = useState<FocusNoticeView | null>(null);
+  const isPhone = useIsPhoneLayout();
 
   /** Bumped on every branch switch and on unmount: any older read or action result is discarded. */
   const generationRef = useRef(0);
@@ -128,12 +180,33 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
   const seenRef = useRef<Set<string> | null>(null);
   const refreshLockRef = useRef(false);
   const staleRef = useRef(false);
+  /** The focus the board is acting on RIGHT NOW (the state below may still be one render behind it). */
+  const focusRef = useRef<KitchenFocus>(focus);
+  const focusNoticeRef = useRef<FocusNoticeView | null>(null);
+  /** The latest read grouped by stage; focus choices are validated against it, not against an older render. */
+  const stagesRef = useRef<StageTickets>({ ACCEPTED: [], PREPARING: [], READY: [] });
+  const labelRef = useRef<(ticket: KitchenTicket) => string>(() => '');
+  const columnTextRef = useRef<(status: KitchenStatus) => string>(() => '');
+  useEffect(() => {
+    labelRef.current = (ticket) => kitchenTicketLabel(ticket, t);
+    columnTextRef.current = (status) => t(COLUMN_LABEL_KEY[status]);
+  }, [t]);
 
   // The ticket timers share one clock owned here, so they all tick together.
   useEffect(() => {
     queueMicrotask(() => setNow(Date.now()));
     const timer = window.setInterval(() => setNow(Date.now()), CLOCK_INTERVAL_MS);
     return () => window.clearInterval(timer);
+  }, []);
+
+  const commitFocus = useCallback((next: KitchenFocus) => {
+    focusRef.current = next;
+    setFocus(next);
+  }, []);
+
+  const commitFocusNotice = useCallback((next: FocusNoticeView | null) => {
+    focusNoticeRef.current = next;
+    setFocusNotice(next);
   }, []);
 
   /** Ends the current branch session: nothing still in flight may touch the next one. */
@@ -165,6 +238,11 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
           seenRef.current = arrivals.seen;
           if (arrivals.arrived.length > 0) playChime();
 
+          // Which tickets the person's own (not refused) requests were moving, before those checks settle.
+          const ownMoves = new Map<string, KitchenStatus>();
+          for (const check of Object.values(pendingRef.current)) {
+            if (check.kind !== 'conflict') ownMoves.set(check.ticketId, check.to);
+          }
           const resolution = resolvePendingChecks(pendingRef.current, list, seq);
           pendingRef.current = resolution.pending;
           setPending(resolution.pending);
@@ -173,6 +251,31 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
           if (lastLeft) {
             setBoardNotices((current) => appendBoardNotices(current, resolution.boardNotices));
             setAnnouncement({ key: 'kitchen.boardNotice.left', params: { label: lastLeft.label } });
+          }
+          // One Ticket Focus: keep the same ticket (by id) in focus; if it left its stage, say why.
+          const stages = groupByStage(list);
+          stagesRef.current = stages;
+          const reconciled = reconcileKitchenFocus(focusRef.current, stages, {
+            ownMoves,
+            now: Date.now(),
+            labelOf: (ticket) => labelRef.current(ticket),
+          });
+          commitFocus(reconciled.focus);
+          const left = reconciled.notice;
+          if (left) {
+            const covered = resolution.boardNotices.some((entry) => entry.ticketId === left.ticketId);
+            if (!left.own) commitFocusNotice({ notice: left, covered });
+            else commitFocusNotice(null);
+            if (!covered) {
+              setAnnouncement(
+                left.kind === 'moved'
+                  ? {
+                      key: left.own ? 'kitchen.focus.announce.moved' : 'kitchen.focus.moved',
+                      params: { label: left.label, column: columnTextRef.current(left.to) },
+                    }
+                  : { key: 'kitchen.focus.removed', params: { label: left.label } },
+              );
+            }
           }
           setBoard({ branchId: branch, tickets: list, loadedAt: new Date(), error: null });
           setNow(Date.now());
@@ -199,7 +302,7 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
       inFlightRef.current = { seq, promise };
       return promise;
     },
-    [restaurantId, playChime],
+    [restaurantId, playChime, commitFocus, commitFocusNotice],
   );
 
   /** The single entry point for reads: at most one in flight, plus at most one fresh read queued behind it. */
@@ -267,7 +370,36 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
     setCardNotices({});
     setBoardNotices([]);
     setAnnouncement(null);
+    // The new branch starts with no focus: the first read of that branch pins its own ticket.
+    stagesRef.current = { ACCEPTED: [], PREPARING: [], READY: [] };
+    commitFocus(initialKitchenFocus(focusRef.current.stage, focusRef.current.generation + 1));
+    commitFocusNotice(null);
   }
+
+  const focusOptions = { labelOf: (ticket: KitchenTicket) => labelRef.current(ticket) };
+  function chooseStage(stage: KitchenStatus) {
+    commitFocus(selectKitchenStage(focusRef.current, stage, stagesRef.current, focusOptions));
+    commitFocusNotice(null);
+  }
+  function chooseTicket(ticketId: string, stage: KitchenStatus = focusRef.current.stage) {
+    commitFocus(selectKitchenTicket(focusRef.current, stage, ticketId, stagesRef.current, focusOptions));
+    commitFocusNotice(null);
+  }
+  function stepFocus(delta: -1 | 1) {
+    commitFocus(stepKitchenFocus(focusRef.current, delta, stagesRef.current, focusOptions));
+    commitFocusNotice(null);
+  }
+
+  // A pause after the board moved the focus on by itself ends by itself.
+  const settlingUntil = focus.guard.kind === 'settling' ? focus.guard.until : null;
+  useEffect(() => {
+    if (settlingUntil === null) return;
+    const timer = window.setTimeout(
+      () => commitFocus(settleKitchenFocus(focusRef.current, Date.now())),
+      Math.max(0, settlingUntil - Date.now()) + 50,
+    );
+    return () => window.clearTimeout(timer);
+  }, [settlingUntil, commitFocus]);
 
   const advance = useCallback(
     async (ticket: KitchenTicket, label: string) => {
@@ -349,11 +481,8 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
   const loadedAt = board.branchId === branchId ? board.loadedAt : null;
 
   const byColumn = useMemo(() => {
-    const groups: Record<KitchenStatus, KitchenTicket[]> = { ACCEPTED: [], PREPARING: [], READY: [] };
-    // Longest waiting in its current stage first (K2). The Backend lists by creation time, which is a
-    // different order for an order that waited as PENDING before it was accepted.
-    for (const ticket of sortKitchenTickets(tickets ?? [])) groups[ticket.status].push(ticket);
-    return groups;
+    // Longest waiting in its current stage first (K2).
+    return groupByStage(tickets ?? []);
   }, [tickets]);
 
   const columnLabel: Record<KitchenStatus, string> = {
@@ -371,11 +500,7 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
     PREPARING: 'bg-warning',
     READY: 'bg-success',
   };
-  const columnOptions: ChipOption<KitchenStatus>[] = COLUMNS.map((status) => ({
-    value: status,
-    label: columnLabel[status],
-    count: byColumn[status].length,
-  }));
+  const stageTabs = COLUMNS.map((status) => ({ stage: status, label: columnLabel[status], count: byColumn[status].length }));
   const branchOptions: ChipOption<string>[] = activeBranches.map((branch) => ({
     value: branch.id,
     label: localizedName(branch, locale),
@@ -403,6 +528,37 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
     conflict: t('kitchen.pending.conflict'),
   };
 
+  /**
+   * A tap on an action is delivered only to the ticket the board has in focus at that moment (phone layout):
+   * if a poll moved the focus after the screen was painted, a tap that still lands on the old button is refused.
+   * The status route's `expectedStatus` guard and the K1 locks sit behind this, unchanged.
+   */
+  function guardedAdvance(target: KitchenTicket) {
+    if (isPhone && kitchenActionHold(focusRef.current, target.id, Date.now()) !== null) return;
+    void advance(target, kitchenTicketLabel(target, t));
+  }
+
+  function renderCard(ticket: KitchenTicket, extra: { held: boolean; stickyAction: boolean } = { held: false, stickyAction: false }) {
+    const check = pending[ticket.id];
+    const busy = busyIds.has(ticket.id);
+    return (
+      <KitchenTicketCard
+        key={ticket.id}
+        ticket={ticket}
+        now={now}
+        canUpdate={canUpdate}
+        busy={busy}
+        notice={cardNoticeView(cardNotices[ticket.id])}
+        pending={check && !busy ? pendingText[check.kind] : null}
+        checking={refreshing}
+        held={extra.held}
+        stickyAction={extra.stickyAction}
+        onAdvance={guardedAdvance}
+        onCheckAgain={() => refreshNow('reconcile')}
+      />
+    );
+  }
+
   if (activeBranches.length === 0) {
     return <Alert variant="info">{t('kitchen.noBranches')}</Alert>;
   }
@@ -414,7 +570,7 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
     <div className="flex flex-col gap-5">
       <PageHeader
         title={t('kitchen.title')}
-        description={t('kitchen.subtitle')}
+        description={isPhone ? undefined : t('kitchen.subtitle')}
         actions={
           <>
             {/*
@@ -532,26 +688,43 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
           <LoadingState label={t('kitchen.loading')} />
         )
       ) : (
-        <>
-          <div className="lg:hidden">
-            <ChipGroup
-              ariaLabel={t('kitchen.columns')}
-              options={columnOptions}
-              value={column}
-              onChange={setColumn}
-              variant="segmented"
-              size="lg"
-            />
-          </div>
-
-          <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-3">
+        isPhone ? (
+          <KitchenFocusView
+            tabs={stageTabs}
+            focus={focus}
+            tickets={byColumn[focus.stage]}
+            emptyLabel={emptyLabel[focus.stage]}
+            now={now}
+            notice={focusNotice}
+            renderCard={renderCard}
+            onSelectStage={chooseStage}
+            onSelectTicket={(ticketId) => chooseTicket(ticketId)}
+            onStep={stepFocus}
+            onAcknowledge={(expected) => {
+              const current = focusRef.current;
+              if (focusNoticeRef.current?.notice.generation !== expected.generation) return;
+              const acknowledged = acknowledgeKitchenFocus(current, expected);
+              if (acknowledged === current) return;
+              commitFocus(acknowledged);
+              commitFocusNotice(null);
+            }}
+            onShowMoved={(notice, focusedTicketId) => {
+              const current = focusRef.current;
+              if (focusNoticeRef.current?.notice !== notice || current.generation !== notice.generation ||
+                  current.ticketId !== focusedTicketId || notice.kind !== 'moved') return;
+              chooseTicket(notice.ticketId, notice.to);
+            }}
+            onDismissNotice={(notice) => {
+              if (focusNoticeRef.current?.notice === notice && focusRef.current.generation === notice.generation) {
+                commitFocusNotice(null);
+              }
+            }}
+          />
+        ) : (
+          <div className="grid grid-cols-3 items-start gap-5">
             {COLUMNS.map((status) => (
-              <section
-                key={status}
-                aria-label={columnLabel[status]}
-                className={`${status === column ? 'flex' : 'hidden'} min-w-0 flex-col gap-3 lg:flex`}
-              >
-                <h2 className="hidden items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2.5 lg:flex">
+              <section key={status} aria-label={columnLabel[status]} className="flex min-w-0 flex-col gap-3">
+                <h2 className="flex items-center justify-between gap-2 rounded-lg bg-muted px-3 py-2.5">
                   <span className="flex items-center gap-2 text-base font-bold text-foreground">
                     <span aria-hidden="true" className={`size-3 rounded-full ${columnAccent[status]}`} />
                     {columnLabel[status]}
@@ -565,29 +738,12 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
                     {emptyLabel[status]}
                   </p>
                 ) : (
-                  byColumn[status].map((ticket) => {
-                    const check = pending[ticket.id];
-                    const busy = busyIds.has(ticket.id);
-                    return (
-                      <KitchenTicketCard
-                        key={ticket.id}
-                        ticket={ticket}
-                        now={now}
-                        canUpdate={canUpdate}
-                        busy={busy}
-                        notice={cardNoticeView(cardNotices[ticket.id])}
-                        pending={check && !busy ? pendingText[check.kind] : null}
-                        checking={refreshing}
-                        onAdvance={(target) => void advance(target, kitchenTicketLabel(target, t))}
-                        onCheckAgain={() => refreshNow('reconcile')}
-                      />
-                    );
-                  })
+                  byColumn[status].map((ticket) => renderCard(ticket))
                 )}
               </section>
             ))}
           </div>
-        </>
+        )
       )}
     </div>
   );

@@ -95,12 +95,14 @@ jobs:
           apps/web/src/lib/staff/staff-form-feedback.contract.test.mjs
           apps/web/src/lib/contact/international-phone.test.mjs
 
-      - name: Kitchen board states, recovery, conflict handling (K1) and ticket view (K2)
+      - name: Kitchen board states and recovery (K1), ticket view (K2), mobile tabs and One Ticket Focus (K3)
         run: >-
           node --experimental-strip-types --test
           apps/web/src/lib/kitchen/board-state.test.mjs
           apps/web/src/lib/kitchen/ticket-view.test.mjs
+          apps/web/src/lib/kitchen/focus.test.mjs
           apps/web/src/lib/staff/kitchen-board-states.contract.test.mjs
+          apps/web/src/lib/staff/kitchen-mobile-focus.contract.test.mjs
 
       - name: E2E database safety and UTC session settings (static + unit, no database)
         run: npm run test:db-safety --workspace=apps/api
@@ -243,6 +245,7 @@ jobs:
           src/lib/contact/international-phone.ts
           src/lib/kitchen/board-state.ts
           src/lib/kitchen/ticket-view.ts
+          src/lib/kitchen/focus.ts
           src/lib/kitchen/api.ts
           src/lib/kitchen/capabilities.ts
           src/lib/orders/api.ts
@@ -250,6 +253,8 @@ jobs:
           src/components/staff/icons.tsx
           'src/app/staff/restaurants/[restaurantId]/kitchen/KitchenBoard.tsx'
           'src/app/staff/restaurants/[restaurantId]/kitchen/KitchenTicketCard.tsx'
+          'src/app/staff/restaurants/[restaurantId]/kitchen/KitchenFocusView.tsx'
+          'src/app/staff/restaurants/[restaurantId]/kitchen/KitchenStageTabs.tsx'
           'src/app/staff/restaurants/[restaurantId]/kitchen/useKitchenSound.ts'
           src/components/staff/MenuHubBackLink.tsx
           src/components/staff/RestaurantSidebar.tsx

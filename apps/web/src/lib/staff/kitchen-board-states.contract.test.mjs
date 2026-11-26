@@ -148,7 +148,8 @@ test('synchronous action locks and pending checks block duplicate or premature s
   // Unknown and conflict outcomes are pending until a read that starts afterwards.
   assert.match(advance, /kind = failure; \/\/ 'conflict' \| 'unknown'/);
   assert.match(advance, /afterRead: readSeqRef\.current,/);
-  assert.match(card, /disabled=\{busy \|\| pending !== null \|\| !canUpdate\}/);
+  // K3 only ADDED the focus hold (`held`); busy, pending and read-only still disable the action exactly as before.
+  assert.match(card, /disabled=\{busy \|\| pending !== null \|\| !canUpdate \|\| held\}/);
   assert.match(card, /aria-busy=\{busy \|\| undefined\}/);
 });
 
