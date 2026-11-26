@@ -196,9 +196,11 @@ export interface OnboardingCase {
   completedSteps: OnboardingStep[];
   problems: { customer: CustomerProblem[]; mode: ModeProblem[]; menu: string[] };
   menuDraft: OnboardingMenuDraft | null;
+  menuProvenance: "MANUAL" | "IMPORTED" | "LEGACY";
   importExpiresAt: string | null;
   importReviewed: boolean;
   importAttempts: number;
+  importGrant: { status: "ACTIVE" | "EXPIRED" | "REVOKED" | "NONE"; expiresAt: string | null; attempts: number; maxAttempts: number };
   restaurantId?: string | null;
   provisioningKey: string | null;
   lastErrorCode: string | null;
@@ -341,6 +343,15 @@ export function importOnboardingMenu(id: string, revision: number, files: readon
   for (const file of files) body.append("file", file);
   return platformFetch<{ data: OnboardingCase }>(`${path(id)}/menu-import`, { method: "POST", body }).then((r) => r.data);
 }
+
+export const grantOnboardingImport = (id: string, revision: number, reason: string) =>
+  platformFetch<{ data: OnboardingCase }>(`${path(id)}/menu-import/grant`, { method: "POST", body: { revision, reason } }).then((r) => r.data);
+
+export const revokeOnboardingImport = (id: string, revision: number, reason: string) =>
+  platformFetch<{ data: OnboardingCase }>(`${path(id)}/menu-import/revoke`, { method: "POST", body: { revision, reason } }).then((r) => r.data);
+
+export const recoverLegacyOnboardingMenu = (id: string, revision: number, reason: string) =>
+  platformFetch<{ data: OnboardingCase }>(`${path(id)}/menu-import/recover-legacy`, { method: "POST", body: { revision, reason } }).then((r) => r.data);
 
 export const reviewOnboardingMenu = (id: string, revision: number) =>
   platformFetch<{ data: OnboardingCase }>(`${path(id)}/menu-import/review`, { method: "POST", body: { revision } }).then((r) => r.data);

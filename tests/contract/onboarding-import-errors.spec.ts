@@ -3,7 +3,8 @@ import path from 'node:path';
 import { ApiError } from '../../apps/platform/src/lib/api/errors';
 import { MESSAGES } from '../../apps/platform/src/lib/i18n/messages';
 import {
-  menuImportAvailability,
+  hasStagedImport,
+  onboardingErrorKey,
   onboardingActionFailure,
   onboardingLoadFailure,
 } from '../../apps/platform/src/lib/onboarding-menu';
@@ -31,7 +32,9 @@ describe('onboarding import: error classification (A1)', () => {
       [apiError(403), 'onboarding.error.actionRefused'],
       [apiError(403, 'SOMETHING_NEW'), 'onboarding.error.actionRefused'],
       [apiError(422, 'PACKAGE_NOT_AVAILABLE'), 'onboarding.problem.PACKAGE_NOT_AVAILABLE'],
+      [apiError(403, 'ONBOARDING_IMPORT_GRANT_REQUIRED'), 'onboarding.grant.required'],
       [apiError(429, 'ONBOARDING_IMPORT_QUOTA'), 'onboarding.menu.error.quota'],
+      [apiError(429, 'ONBOARDING_IMPORT_LIMIT'), 'onboarding.menu.error.quota'],
       [apiError(409, 'IMPORT_ALREADY_RUNNING'), 'onboarding.menu.error.running'],
       [apiError(404), 'common.error'],
       [apiError(500), 'common.error'],
@@ -53,23 +56,34 @@ describe('onboarding import: error classification (A1)', () => {
     expect(onboardingLoadFailure(new TypeError('Failed to fetch')).key).toBe('common.unreachable');
   });
 
-  it('knows from the saved package whether an import can run, without blocking when packages are unknown', () => {
-    const packages = [
-      { id: 'with', status: 'ACTIVE' as const, features: ['MENU_IMPORT' as const] },
-      { id: 'without', status: 'ACTIVE' as const, features: ['KITCHEN' as const] },
-      { id: 'archived', status: 'ARCHIVED' as const, features: [] },
-    ];
-    expect(menuImportAvailability('with', packages)).toBe('available');
-    expect(menuImportAvailability('without', packages)).toBe('notInPackage');
-    expect(menuImportAvailability(null, packages)).toBe('noPackage');
-    expect(menuImportAvailability('without', null)).toBe('unknown');
-    expect(menuImportAvailability('archived', packages)).toBe('unknown');
-    expect(menuImportAvailability('missing', packages)).toBe('unknown');
+  it('explains a changed import authorization and directs an explicit provisioning retry', () => {
+    expect(onboardingErrorKey('ONBOARDING_IMPORT_GRANT_CHANGED')).toBe('onboarding.grant.changed');
+    expect(onboardingActionFailure(apiError(409, 'ONBOARDING_IMPORT_GRANT_CHANGED'))).toEqual({
+      scope: 'inline', key: 'onboarding.grant.changed',
+    });
+    expect(MESSAGES.en['onboarding.grant.changed']).toMatch(/authorization changed.*retry provisioning/i);
+    expect(MESSAGES.ar['onboarding.grant.changed']).toContain('أعد محاولة التجهيز');
+  });
+
+  it('recognizes imported or legacy drafts even when the retention marker is missing', () => {
+    expect(hasStagedImport({ menuProvenance: 'MANUAL', importExpiresAt: null })).toBe(false);
+    expect(hasStagedImport({ menuProvenance: 'LEGACY', importExpiresAt: null })).toBe(true);
+    expect(hasStagedImport({ menuProvenance: 'IMPORTED', importExpiresAt: null })).toBe(true);
+    expect(hasStagedImport({ menuProvenance: 'IMPORTED', importExpiresAt: '2026-12-01T00:00:00Z' })).toBe(true);
+    expect(hasStagedImport({ menuProvenance: 'MANUAL', importExpiresAt: '2026-12-01T00:00:00Z' })).toBe(true);
   });
 
   it('has every new message in English and Arabic, and says it is not a permission problem', () => {
     const keys = [
       'onboarding.menu.error.feature',
+      'onboarding.grant.required',
+      'onboarding.grant.title',
+      'onboarding.menu.legacyRetention',
+      'onboarding.menu.recoverHint',
+      'onboarding.menu.recoverReason',
+      'onboarding.menu.recoverReasonHint',
+      'onboarding.menu.recover',
+      'onboarding.menu.recoverUnavailable',
       'onboarding.menu.unavailable.notInPackage',
       'onboarding.menu.unavailable.noPackage',
       'onboarding.menu.unavailable.hint',
@@ -96,6 +110,19 @@ describe('onboarding import: wizard and menu step wiring (A1)', () => {
   const wizard = readFileSync(path.join(root, 'OnboardingWizard.tsx'), 'utf8');
   const menuStep = readFileSync(path.join(root, 'MenuStep.tsx'), 'utf8');
 
+  it('wires explicit legacy recovery with a reason and preserves pending menu edits', () => {
+    const api = readFileSync(path.resolve(__dirname, '../../apps/platform/src/lib/api/onboarding.ts'), 'utf8');
+    expect(api).toContain('/menu-import/recover-legacy');
+    expect(api).toContain('body: { revision, reason }');
+    expect(menuStep).toContain('data.menuProvenance === "LEGACY" && expired');
+    expect(menuStep).toContain('grantStatus !== "ACTIVE" || !recoveryReason.trim()');
+    expect(menuStep).toContain('onRecover(recoveryReason.trim())');
+    expect(wizard).toContain('recoverLegacyOnboardingMenu(caseId, revision, reason), "recover", "preserve"');
+    expect(wizard).toContain('if (pendingMenu === "preserve") restoreHeldMenu()');
+    expect(wizard).toContain('kind === "recover" && pendingRef.current.menuDraft !== undefined');
+    expect(wizard).toContain('onboarding.menu.recoverUnavailable');
+  });
+
   it('never maps a status code straight to the case-access message', () => {
     expect(wizard).not.toMatch(/status === 403\)\s*return "onboarding\.handoff\.accessDenied"/);
     expect(wizard).not.toContain('caseAccessError');
@@ -103,12 +130,14 @@ describe('onboarding import: wizard and menu step wiring (A1)', () => {
     expect(wizard).toContain('onboardingLoadFailure(caught)');
   });
 
-  it('explains an unavailable import next to the upload, keeps discard and the manual editor, and links to the package', () => {
-    expect(menuStep).toContain('menuImportAvailability(data.modeConfig.packageId, packages)');
-    // Package data can become stale; only the backend decides whether upload or review is permitted.
-    expect(menuStep).toMatch(/disabled=\{actionsDisabled \|\| !canReview\}/);
-    expect(menuStep).not.toMatch(/disabled=\{[^}]*importBlocked/);
-    // Discard never depends on the package: a staged draft can always be dropped for a manual menu.
+  it('offers grant controls and keeps legacy discard and the manual editor available', () => {
+    expect(menuStep).toContain('hasStagedImport(data)');
+    expect(menuStep).toContain('onboarding.menu.legacyRetention');
+    expect(menuStep).toContain('onboarding.grant.grant');
+    expect(menuStep).toContain('onboarding.grant.revoke');
+    expect(menuStep).not.toContain('menuImportAvailability');
+    expect(menuStep).toMatch(/disabled=\{actionsDisabled \|\| !canReview \|\| grantStatus !== "ACTIVE"\}/);
+    // Discard never depends on the package or grant: a staged draft can always be dropped for a manual menu.
     expect(menuStep).toContain('<Button type="button" disabled={actionsDisabled} onClick={() => setConfirm("discard")}>');
     expect(menuStep).toContain('onOpenModeStep');
     expect(menuStep).toMatch(/<MenuEditor [^>]*disabled=\{disabled \|\| busy \|\| expired\}/);

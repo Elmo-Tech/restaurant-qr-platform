@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { importGrantStatus } from './onboarding-import-grant';
 import { PrismaService } from '../../database/prisma.service';
 import { Prisma } from '../../generated/prisma/client';
 import {
@@ -101,9 +102,16 @@ export interface OnboardingCaseView {
     menu: string[];
   };
   menuDraft: OnboardingMenuDraft | null;
+  menuProvenance: 'MANUAL' | 'IMPORTED' | 'LEGACY';
   importExpiresAt: string | null;
   importReviewed: boolean;
   importAttempts: number;
+  importGrant: {
+    status: 'NONE' | 'ACTIVE' | 'EXPIRED' | 'REVOKED';
+    expiresAt: string | null;
+    attempts: number;
+    maxAttempts: number;
+  };
   restaurantId?: string;
   provisioningKey: string | null;
   lastErrorCode: string | null;
@@ -315,6 +323,7 @@ const cancelledFields = (adminId: string, now: Date) => ({
   menuDraft: Prisma.DbNull,
   importExpiresAt: null,
   importLeaseUntil: null,
+  importLeaseId: null,
   importReviewed: false,
   cancelledAt: now,
   updatedByAdminId: adminId,
@@ -578,28 +587,52 @@ export class OnboardingCasesService {
       },
       details,
     );
-    const written = await this.prisma.onboardingCase.updateMany({
-      where: {
-        id,
-        revision: patch.revision,
-        status: { in: [...EDITABLE_STATUSES] },
-      },
-      data: {
-        details: json(details),
-        modeConfig: json(modeConfig),
-        mode,
-        status: statusAfterEdit(row.status),
-        completedSteps:
-          mode !== 'DEMO' && menu.length === 0
-            ? [...evaluation.completedSteps, 'menu']
-            : evaluation.completedSteps,
-        ...(menuEdited ? { menuDraft: menuDraft ?? Prisma.DbNull } : {}),
-        ...(reviewInvalidated ? { importReviewed: false } : {}),
-        ...searchColumns(details),
-        packageId: evaluation.pkg?.id ?? null,
-        updatedByAdminId: admin.adminId,
-        revision: { increment: 1 },
-      },
+    const revokeForDemo =
+      mode === 'DEMO' &&
+      row.mode !== 'DEMO' &&
+      !!row.importGrantId &&
+      !row.importGrantRevokedAt;
+    const written = await this.prisma.$transaction(async (tx) => {
+      const result = await tx.onboardingCase.updateMany({
+        where: {
+          id,
+          revision: patch.revision,
+          status: { in: [...EDITABLE_STATUSES] },
+        },
+        data: {
+          ...(revokeForDemo
+            ? {
+                importGrantRevokedAt: new Date(),
+                importGrantRevokedBy: admin.adminId,
+              }
+            : {}),
+          details: json(details),
+          modeConfig: json(modeConfig),
+          mode,
+          status: statusAfterEdit(row.status),
+          completedSteps:
+            mode !== 'DEMO' && menu.length === 0
+              ? [...evaluation.completedSteps, 'menu']
+              : evaluation.completedSteps,
+          ...(menuEdited ? { menuDraft: menuDraft ?? Prisma.DbNull } : {}),
+          ...(reviewInvalidated ? { importReviewed: false } : {}),
+          ...searchColumns(details),
+          packageId: evaluation.pkg?.id ?? null,
+          updatedByAdminId: admin.adminId,
+          revision: { increment: 1 },
+        },
+      });
+      if (result.count === 1 && revokeForDemo) {
+        await this.audit.record(
+          {
+            admin,
+            action: 'onboarding.import_grant_revoked',
+            details: { caseId: id, reason: 'MODE_CHANGED_TO_DEMO' },
+          },
+          tx,
+        );
+      }
+      return result;
     });
     if (written.count !== 1) return this.writeRefused(id, patch.revision);
     return this.get(id);
@@ -718,14 +751,23 @@ export class OnboardingCasesService {
               code: 'ONBOARDING_HANDOFF_UNAVAILABLE',
             };
         }
+        const deliveredAt = new Date();
+        const closeGrant = !!row.importGrantId && !row.importGrantRevokedAt;
         await tx.onboardingCase.update({
           where: { id },
           data: {
             status: 'DELIVERED',
-            deliveredAt: new Date(),
+            deliveredAt,
+            ...(closeGrant
+              ? {
+                  importGrantRevokedAt: deliveredAt,
+                  importGrantRevokedBy: admin.adminId,
+                }
+              : {}),
             menuDraft: Prisma.DbNull,
             importExpiresAt: null,
             importLeaseUntil: null,
+            importLeaseId: null,
             importReviewed: false,
             updatedByAdminId: admin.adminId,
             revision: { increment: 1 },
@@ -739,6 +781,16 @@ export class OnboardingCasesService {
           },
           tx,
         );
+        if (closeGrant) {
+          await this.audit.record(
+            {
+              admin,
+              action: 'onboarding.import_grant_revoked',
+              details: { caseId: id, reason: 'HANDOFF' },
+            },
+            tx,
+          );
+        }
         await this.leads.onOnboardingDelivered(tx, admin, {
           caseId: id,
           leadId: row.leadId,
@@ -1218,12 +1270,24 @@ export class OnboardingCasesService {
       ],
       problems: { customer: evaluation.customer, mode: evaluation.mode, menu },
       menuDraft: readCaseMenu(row),
+      menuProvenance:
+        row.menuProvenance === 'IMPORTED'
+          ? 'IMPORTED'
+          : row.menuProvenance === 'LEGACY'
+            ? 'LEGACY'
+            : 'MANUAL',
       importExpiresAt: row.importExpiresAt?.toISOString() ?? null,
       importReviewed:
         !!row.importReviewed &&
         !!row.importExpiresAt &&
         row.importExpiresAt > new Date(),
       importAttempts: row.importAttempts,
+      importGrant: {
+        status: importGrantStatus(row),
+        expiresAt: row.importGrantExpiresAt?.toISOString() ?? null,
+        attempts: row.importAttempts,
+        maxAttempts: 3,
+      },
       ...(row.restaurantId ? { restaurantId: row.restaurantId } : {}),
       provisioningKey: row.provisioningKey,
       lastErrorCode: row.lastErrorCode,

@@ -1,0 +1,90 @@
+name: Onboarding import grants PostgreSQL regression
+
+on:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: onboarding-import-grants-postgres-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  onboarding-import-grants:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres_timezone: [UTC, Africa/Cairo]
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: restaurant_qr_it
+          POSTGRES_PASSWORD: ci_disposable_only
+          POSTGRES_DB: restaurant_qr_onboarding_ci_test
+          TZ: ${{ matrix.postgres_timezone }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U restaurant_qr_it -d restaurant_qr_onboarding_ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TZ: UTC
+      EXPECTED_POSTGRES_TIMEZONE: ${{ matrix.postgres_timezone }}
+      NODE_ENV: test
+      CORS_ORIGIN: http://localhost:3000
+      PLATFORM_ORIGIN: http://localhost:3001
+      DATABASE_URL: postgresql://restaurant_qr_it:ci_disposable_only@127.0.0.1:5432/restaurant_qr_onboarding_ci_test?schema=public
+      TABLE_SESSION_IT_DATABASE_URL: postgresql://restaurant_qr_it:ci_disposable_only@127.0.0.1:5432/restaurant_qr_onboarding_ci_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Mark disposable database as integration sandbox
+        run: |
+          node <<'NODE'
+          const { Client } = require('pg');
+          (async () => {
+            const db = new Client({ connectionString: process.env.DATABASE_URL });
+            await db.connect();
+            const identity = await db.query('SELECT current_database() AS db, current_user AS usr');
+            if (identity.rows[0].db !== 'restaurant_qr_onboarding_ci_test' || identity.rows[0].usr !== 'restaurant_qr_it') throw new Error('unexpected database identity');
+            await db.query("COMMENT ON DATABASE restaurant_qr_onboarding_ci_test IS 'restaurant-qr-integration-sandbox'");
+            const actual = await db.query("SELECT current_setting('TimeZone') AS timezone");
+            if (actual.rows[0].timezone !== process.env.EXPECTED_POSTGRES_TIMEZONE) throw new Error(`server timezone mismatch: ${actual.rows[0].timezone}`);
+            await db.end();
+          })().catch(error => { console.error(error.message); process.exitCode = 1; });
+          NODE
+      - name: Generate client and deploy migrations to sandbox
+        run: |
+          npm run db:generate
+          npm exec --workspace=apps/api -- prisma migrate deploy
+      - name: Run onboarding unit regressions
+        run: >-
+          npm exec --workspace=apps/api -- jest --runInBand --runTestsByPath
+          src/config/env.schema.rate-limit.spec.ts
+          src/platform/onboarding/onboarding-details.spec.ts
+          src/platform/onboarding/onboarding-import-grant.spec.ts
+          src/platform/onboarding/onboarding-menu-import.spec.ts
+          src/platform/onboarding/onboarding-menu.spec.ts
+          src/platform/onboarding/onboarding-transitions.spec.ts
+      - name: Run onboarding import contract regression
+        run: npm run test:contract-ui -- --runTestsByPath ../../tests/contract/onboarding-import-errors.spec.ts
+      - name: Run onboarding PostgreSQL regressions
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+        run: >-
+          npm exec --workspace=apps/api -- jest --config ./test/jest-e2e.json --runInBand --runTestsByPath
+          test/onboarding-cases-http.e2e-spec.ts test/onboarding-menu-writer.e2e-spec.ts
+          test/onboarding-import-grants.e2e-spec.ts test/onboarding-import-grants-http.e2e-spec.ts
+          test/onboarding-import-grants-migration.e2e-spec.ts

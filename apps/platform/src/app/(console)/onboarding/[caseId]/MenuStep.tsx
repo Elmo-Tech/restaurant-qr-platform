@@ -3,20 +3,20 @@
 import { useEffect, useId, useState } from "react";
 import { Alert, Badge, Button, Card, CardHeader, Input } from "@/components/ui";
 import type { OnboardingCase, OnboardingMenuDraft, RestaurantDraft } from "@/lib/api/onboarding";
-import { listPackages, type PackageSummary } from "@/lib/api/platform";
 import { useI18n } from "@/lib/i18n/client";
-import { IMPORT_ATTEMPT_LIMIT, MENU_FILE_ACCEPT, menuFileProblem, menuImportAvailability, menuProblemText } from "@/lib/onboarding-menu";
+import { hasStagedImport, MENU_FILE_ACCEPT, menuFileProblem, menuProblemText } from "@/lib/onboarding-menu";
 import { AiPromptHelp } from "./AiPromptHelp";
 import { describedBy, Field } from "./fields";
 import { MenuEditor } from "./MenuEditor";
 
 const EMPTY_DRAFT: OnboardingMenuDraft = { menus: [] };
 
-export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirty, expired, onChange, onImport, onReview, onDiscard, onOpenModeStep }: {
+export function MenuStep({ data, restaurant, draft, disabled, grantDisabled, busy, saving, dirty, expired, onChange, onImport, onReview, onDiscard, onGrant, onRevoke, onRecover, onOpenModeStep }: {
   data: OnboardingCase;
   restaurant: RestaurantDraft;
   draft: OnboardingMenuDraft | null;
   disabled: boolean;
+  grantDisabled: boolean;
   busy: boolean;
   saving: boolean;
   dirty: boolean;
@@ -25,37 +25,43 @@ export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirt
   onImport: (files: readonly File[]) => Promise<boolean>;
   onReview: () => void;
   onDiscard: () => Promise<boolean>;
+  onGrant: (reason: string) => Promise<boolean>;
+  onRevoke: (reason: string) => Promise<boolean>;
+  onRecover: (reason: string) => Promise<boolean>;
   /** Opens the Mode step, where the package (and so Menu import) is chosen. */
   onOpenModeStep: () => void;
 }) {
-  const { t, fmt, locale } = useI18n();
+  const { t, fmt } = useI18n();
   const id = useId();
   const [files, setFiles] = useState<File[]>([]);
   const [fileInputKey, setFileInputKey] = useState(0);
   const [confirm, setConfirm] = useState<"replace" | "discard" | null>(null);
   const expiresAt = data.importExpiresAt;
-  const staged = expiresAt !== null;
+  const staged = hasStagedImport(data);
+  const legacyRecovery = data.menuProvenance === "LEGACY" && expired;
+  const unknownRetention = staged && !expiresAt;
   const fileProblem = files.length ? menuFileProblem(files) : null;
-  const exhausted = data.importAttempts >= IMPORT_ATTEMPT_LIMIT;
+  const grant = data.importGrant;
+  const [reason, setReason] = useState("");
+  const [recoveryReason, setRecoveryReason] = useState("");
+  const recoveryReasonId = useId();
+  const canRecover = data.menuProvenance === "LEGACY" && expired && !disabled &&
+    (data.mode === "REAL" || data.mode === "TRIAL");
+  const [grantExpiredAt, setGrantExpiredAt] = useState<string | null>(null);
+  const reasonId = useId();
+  const grantExpiry = grant.expiresAt;
+  useEffect(() => {
+    if (!grantExpiry) return;
+    const timer = window.setTimeout(() => setGrantExpiredAt(grantExpiry), Math.max(0, Date.parse(grantExpiry) - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [grantExpiry]);
+  const grantStatus = grant.status === "ACTIVE" && grantExpiry !== null && grantExpiry === grantExpiredAt ? "EXPIRED" : grant.status;
+  const exhausted = grant.attempts >= grant.maxAttempts;
   const actionsDisabled = disabled || busy || saving;
   const canReview = dirty || data.problems.menu.every((problem) => problem === "ONBOARDING_IMPORT_REVIEW_REQUIRED");
-  const showImport = data.status === "DRAFT" || data.status === "READY_FOR_REVIEW" || staged;
-  const [packages, setPackages] = useState<PackageSummary[] | null>(null);
+  const showImport = data.status === "DRAFT" || data.status === "READY_FOR_REVIEW" || staged || !grantDisabled;
   const notice = useId();
-
-  // Menu import is a package feature (DEC-057). Knowing it up front explains a refusal before a file is sent; the API
-  // still decides (403 FEATURE_NOT_AVAILABLE). If the packages cannot be read, nothing is blocked here.
-  useEffect(() => {
-    if (!showImport) return;
-    let cancelled = false;
-    listPackages()
-      .then((loaded) => { if (!cancelled) setPackages(loaded); })
-      .catch(() => undefined);
-    return () => { cancelled = true; };
-  }, [showImport]);
-  const availability = menuImportAvailability(data.modeConfig.packageId, packages);
-  const importBlocked = availability === "notInPackage" || availability === "noPackage";
-  const selectedPackage = packages?.find((pkg) => pkg.id === data.modeConfig.packageId);
+  const importBlocked = !data.modeConfig.packageId;
 
   async function importFiles() {
     if (await onImport(files)) {
@@ -73,26 +79,52 @@ export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirt
           <div className="space-y-3 p-3 sm:p-5">
             {importBlocked && !disabled ? (
               <Alert tone="warning">
-                <p id={notice} className="font-medium">
-                  {availability === "noPackage"
-                    ? t("onboarding.menu.unavailable.noPackage")
-                    : t("onboarding.menu.unavailable.notInPackage", { package: selectedPackage ? (locale === "ar" ? selectedPackage.nameAr : selectedPackage.nameEn) : "" })}
-                </p>
-                <p className="mt-1">{t(staged ? "onboarding.menu.unavailable.stagedHint" : "onboarding.menu.unavailable.hint")}</p>
+                <p id={notice} className="font-medium">{t("onboarding.menu.unavailable.noPackage")}</p>
                 <Button type="button" size="sm" className="mt-2" disabled={busy} onClick={onOpenModeStep}>{t("onboarding.menu.unavailable.openMode")}</Button>
               </Alert>
             ) : null}
+            <div className="space-y-3 rounded-lg border border-border p-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <p className="font-medium">{t("onboarding.grant.title")}</p>
+                <Badge tone={grantStatus === "ACTIVE" ? "success" : "warning"}>{t(`onboarding.grant.status.${grantStatus}`)}</Badge>
+              </div>
+              <p className="text-sm text-muted-foreground">{t("onboarding.grant.hint")}</p>
+              {grant.expiresAt ? <p className="text-sm">{t("onboarding.grant.expires", { when: fmt.dateTime(grant.expiresAt) })}</p> : null}
+              <p className="text-sm">{t("onboarding.grant.remaining", { count: fmt.number(Math.max(0, grant.maxAttempts - grant.attempts)), total: fmt.number(grant.maxAttempts) })}</p>
+              {!grantDisabled ? <div className="flex flex-wrap items-end gap-3">
+                <Field id={reasonId} className="min-w-0 flex-1 basis-56" label={t("onboarding.grant.reason")} hint={t("onboarding.grant.reasonHint")}>
+                  <Input id={reasonId} value={reason} maxLength={500} disabled={busy || saving} onChange={(event) => setReason(event.target.value)} {...describedBy(reasonId, true, null)} />
+                </Field>
+                <Button type="button" variant={grantStatus === "ACTIVE" ? "danger" : "primary"} disabled={busy || saving || !reason.trim()} onClick={() => {
+                  const action = grantStatus === "ACTIVE" ? onRevoke : onGrant;
+                  void action(reason.trim()).then((ok) => { if (ok) setReason(""); });
+                }}>{t(grantStatus === "ACTIVE" ? "onboarding.grant.revoke" : "onboarding.grant.grant")}</Button>
+              </div> : null}
+            </div>
             {staged ? (
               <Alert tone={expired ? "warning" : data.importReviewed && !dirty ? "success" : "info"}>
-                <p className="font-medium">{t(expired ? "onboarding.menu.error.expired" : data.importReviewed && !dirty ? "onboarding.menu.reviewed" : "onboarding.menu.reviewNeeded")}</p>
+                <p className="font-medium">{t(legacyRecovery || unknownRetention ? "onboarding.menu.legacyRetention" : expired ? "onboarding.menu.error.expired" : data.importReviewed && !dirty ? "onboarding.menu.reviewed" : "onboarding.menu.reviewNeeded")}</p>
                 {!expired && expiresAt ? <p>{t("onboarding.menu.expires", { when: fmt.dateTime(expiresAt) })}</p> : null}
                 {!expired && (!data.importReviewed || dirty) ? <p className="mt-1">{t("onboarding.menu.reviewHint")}</p> : null}
               </Alert>
             ) : null}
+            {canRecover ? (
+              <div className="space-y-3 rounded-lg border border-border p-3">
+                <p className="text-sm">{t("onboarding.menu.recoverHint")}</p>
+                <Field id={recoveryReasonId} label={t("onboarding.menu.recoverReason")} hint={t("onboarding.menu.recoverReasonHint")}>
+                  <Input id={recoveryReasonId} value={recoveryReason} maxLength={500} disabled={actionsDisabled}
+                    onChange={(event) => setRecoveryReason(event.target.value)} {...describedBy(recoveryReasonId, true, null)} />
+                </Field>
+                <Button type="button" disabled={actionsDisabled || grantStatus !== "ACTIVE" || !recoveryReason.trim()}
+                  onClick={() => void onRecover(recoveryReason.trim()).then((ok) => { if (ok) setRecoveryReason(""); })}>
+                  {t("onboarding.menu.recover")}
+                </Button>
+              </div>
+            ) : null}
             {staged && !disabled ? (
               <div className="flex flex-wrap gap-2">
                 {!expired && (!data.importReviewed || dirty) ? (
-                  <Button type="button" variant="primary" disabled={actionsDisabled || !canReview} onClick={onReview}
+                  <Button type="button" variant="primary" disabled={actionsDisabled || !canReview || grantStatus !== "ACTIVE"} onClick={onReview}
                     aria-describedby={importBlocked ? notice : undefined}>{t("onboarding.menu.review")}</Button>
                 ) : null}
                 <Button type="button" disabled={actionsDisabled} onClick={() => setConfirm("discard")}>{t("onboarding.menu.discard")}</Button>
@@ -107,7 +139,7 @@ export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirt
                       setConfirm(null);
                     }} {...describedBy(id, true, fileProblem)} />
                 </Field>
-                <Button type="button" disabled={actionsDisabled || files.length === 0 || fileProblem !== null}
+                <Button type="button" disabled={actionsDisabled || grantStatus !== "ACTIVE" || importBlocked || files.length === 0 || fileProblem !== null}
                   aria-describedby={importBlocked ? notice : undefined} onClick={() => {
                   if (draft?.menus.length || staged) setConfirm("replace");
                   else void importFiles();
@@ -118,7 +150,7 @@ export function MenuStep({ data, restaurant, draft, disabled, busy, saving, dirt
             {!disabled && !exhausted ? <AiPromptHelp /> : null}
             {!disabled ? (
               <p className="text-xs text-muted-foreground">{t(exhausted ? "onboarding.menu.error.quota" : "onboarding.menu.quota", {
-                used: fmt.number(data.importAttempts), total: fmt.number(IMPORT_ATTEMPT_LIMIT),
+                used: fmt.number(grant.attempts), total: fmt.number(grant.maxAttempts),
               })}</p>
             ) : null}
             {busy ? <p role="status" className="text-sm text-muted-foreground">{t("onboarding.menu.working")}</p> : null}

@@ -30,6 +30,31 @@ export const envSchema = z
       .min(1, 'API_HOST must not be empty')
       .default('0.0.0.0'),
 
+    ONBOARDING_IMPORT_OPERATOR_DAILY_LIMIT: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100000)
+      .default(10),
+    ONBOARDING_IMPORT_GLOBAL_DAILY_LIMIT: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100000)
+      .default(30),
+    ONBOARDING_IMPORT_OPERATOR_CONCURRENCY: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100000)
+      .default(1),
+    ONBOARDING_IMPORT_GLOBAL_CONCURRENCY: z.coerce
+      .number()
+      .int()
+      .min(1)
+      .max(100000)
+      .default(3),
+
     API_PORT: z.coerce
       .number({ message: 'API_PORT must be a number' })
       .int('API_PORT must be an integer')

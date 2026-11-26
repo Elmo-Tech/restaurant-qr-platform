@@ -1,4 +1,5 @@
 import type { OnboardingCase } from '../../generated/prisma/client';
+import { importGrantStatus } from './onboarding-import-grant';
 import { normalizePlatformLocale } from '../../restaurants/platform-locales';
 import type { OnboardingDetails } from './onboarding-details';
 import {
@@ -13,6 +14,10 @@ type MenuCase = Pick<
   | 'menuPublishedAt'
   | 'importExpiresAt'
   | 'importReviewed'
+  | 'menuProvenance'
+  | 'importGrantId'
+  | 'importGrantExpiresAt'
+  | 'importGrantRevokedAt'
 >;
 
 export function readCaseMenu(row: MenuCase, now = new Date()) {
@@ -53,7 +58,11 @@ export function menuProblemsForCase(
 ) {
   if (row.mode === 'DEMO' || row.menuPublishedAt) return [];
   const problems = menuContentProblems(row, details, now);
-  if (row.importExpiresAt && row.importExpiresAt > now && !row.importReviewed)
-    problems.push('ONBOARDING_IMPORT_REVIEW_REQUIRED');
+  if (row.menuProvenance !== 'MANUAL') {
+    if (!row.importExpiresAt) problems.push('ONBOARDING_IMPORT_EXPIRED');
+    if (importGrantStatus(row, now) !== 'ACTIVE')
+      problems.push('ONBOARDING_IMPORT_GRANT_REQUIRED');
+    if (!row.importReviewed) problems.push('ONBOARDING_IMPORT_REVIEW_REQUIRED');
+  }
   return problems;
 }

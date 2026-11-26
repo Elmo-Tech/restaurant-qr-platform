@@ -1,6 +1,6 @@
 import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { importGrantStatus } from './onboarding-import-grant';
 import { PasswordHasherService } from '../../auth/password/password-hasher.service';
-import { resolveFeatures } from '../../entitlements/features';
 import { PrismaService } from '../../database/prisma.service';
 import { DemoService } from '../../demo/demo.service';
 import { Prisma, type OnboardingCase } from '../../generated/prisma/client';
@@ -339,24 +339,6 @@ export class OnboardingProvisioningService {
           details,
         );
         const menu = menuProblemsForCase(row, details);
-        if (
-          row.mode !== 'DEMO' &&
-          pkg &&
-          row.importExpiresAt &&
-          !row.menuPublishedAt
-        ) {
-          const features = await tx.packageFeature.findMany({
-            where: { packageId: pkg.id },
-            select: { feature: true },
-          });
-          if (
-            !resolveFeatures(
-              [],
-              features.map((item) => item.feature),
-            ).MENU_IMPORT
-          )
-            menu.push('FEATURE_NOT_AVAILABLE');
-        }
         if (customer.length || mode.length || menu.length)
           return { outcome: 'incomplete', problems: { customer, mode, menu } };
         this.requirePassword(row, input.ownerPassword);
@@ -431,6 +413,12 @@ export class OnboardingProvisioningService {
         return row;
       }
       if (row.status !== 'PROVISIONING') return null;
+      if (
+        row.menuProvenance !== 'MANUAL' &&
+        !row.menuPublishedAt &&
+        importGrantStatus(row) !== 'ACTIVE'
+      )
+        throw new StepFailure('ONBOARDING_IMPORT_GRANT_REQUIRED');
       if (row.restaurantProvisionedAt || row.restaurantId)
         throw new StepFailure('ONBOARDING_RESTAURANT_NOT_ELIGIBLE');
       if (!password) throw new StepFailure('OWNER_PASSWORD_REQUIRED');

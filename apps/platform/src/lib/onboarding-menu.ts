@@ -1,11 +1,9 @@
 import { ApiError, isNetworkFailure } from "./api/errors";
 import type { OnboardingCase, OnboardingMenuDraft, OnboardingProvisionInput } from "./api/onboarding";
-import type { PackageSummary } from "./api/platform";
 import type { MessageKey } from "./i18n/messages";
 import type { Translate } from "./i18n/translate";
 import { hasRequiredSteps } from "./onboarding-steps";
 
-export const IMPORT_ATTEMPT_LIMIT = 3;
 export const MENU_FILE_ACCEPT = ".jpg,.jpeg,.png,.webp,.pdf,.xlsx,.xls,image/jpeg,image/png,image/webp,application/pdf";
 const MB = 1024 * 1024;
 
@@ -88,6 +86,9 @@ const ACTION_ERROR = new Map<string, MessageKey>([
   ["FEATURE_NOT_AVAILABLE", "onboarding.menu.error.feature"],
   ["ONBOARDING_IMPORT_EXPIRED", "onboarding.menu.error.expired"],
   ["ONBOARDING_IMPORT_REVIEW_REQUIRED", "onboarding.menu.error.review"],
+  ["ONBOARDING_IMPORT_GRANT_REQUIRED", "onboarding.grant.required"],
+  ["ONBOARDING_IMPORT_GRANT_CHANGED", "onboarding.grant.changed"],
+  ["ONBOARDING_IMPORT_LIMIT", "onboarding.menu.error.quota"],
   ["ONBOARDING_IMPORT_QUOTA", "onboarding.menu.error.quota"],
   ["ONBOARDING_IMPORT_FAILED", "onboarding.menu.error.extraction"],
   ["IMPORT_ALREADY_RUNNING", "onboarding.menu.error.running"],
@@ -137,21 +138,9 @@ export function onboardingLoadFailure(caught: unknown): OnboardingFailure {
   return { scope: "case", key: failureKey(caught) };
 }
 
-/**
- * Whether the case's SAVED package lets this case stage a menu import (UX only: the API decides, and refuses with
- * 403 FEATURE_NOT_AVAILABLE). `unknown` while packages are loading or could not be loaded: nothing is blocked then.
- */
-export type MenuImportAvailability = "available" | "noPackage" | "notInPackage" | "unknown";
-
-export function menuImportAvailability(
-  packageId: string | null,
-  packages: readonly Pick<PackageSummary, "id" | "features" | "status">[] | null,
-): MenuImportAvailability {
-  if (!packageId) return "noPackage";
-  if (!packages) return "unknown";
-  const selected = packages.find((pkg) => pkg.id === packageId);
-  if (!selected || selected.status !== "ACTIVE") return "unknown";
-  return selected.features.includes("MENU_IMPORT") ? "available" : "notInPackage";
+/** Non-manual provenance remains recoverable even when its retention marker is missing. */
+export function hasStagedImport(data: Pick<OnboardingCase, "menuProvenance" | "importExpiresAt">): boolean {
+  return data.menuProvenance !== "MANUAL" || data.importExpiresAt !== null;
 }
 
 type ProvisionState = Pick<OnboardingCase, "status" | "mode" | "completedSteps" | "problems" | "menuDraft" | "importExpiresAt" | "importReviewed">;
