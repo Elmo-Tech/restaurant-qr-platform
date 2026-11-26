@@ -123,6 +123,78 @@ export function toPromotionCandidate(
   };
 }
 
+/** CATEGORY / MENU with a fixed amount: the DEC-077 item-scope discount that the write gate controls. */
+export function isFixedItemPromotion(
+  config: Pick<PromotionConfig, 'scope' | 'discountType'>,
+): boolean {
+  return (
+    (config.scope === 'CATEGORY' || config.scope === 'MENU') &&
+    config.discountType === 'FIXED_AMOUNT'
+  );
+}
+
+function sameIds(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  const left = [...a].sort();
+  const right = [...b].sort();
+  return left.every((id, index) => id === right[index]);
+}
+
+function sameMoney(
+  a: Prisma.Decimal | null,
+  b: Prisma.Decimal | null,
+): boolean {
+  if (a === null || b === null) return a === b;
+  return a.equals(b);
+}
+
+/**
+ * True when `after` differs from `before` at most in metadata (internal name, customer titles / descriptions).
+ * Compares NORMALIZED values, so a client that re-sends the stored form is not changing anything.
+ */
+export function changesOnlyMetadata(
+  before: PromotionConfig,
+  after: PromotionConfig,
+): boolean {
+  return (
+    before.scope === after.scope &&
+    before.discountType === after.discountType &&
+    before.value.equals(after.value) &&
+    before.priority === after.priority &&
+    before.startsOn === after.startsOn &&
+    before.endsOn === after.endsOn &&
+    sameMoney(before.minimumSubtotal, after.minimumSubtotal) &&
+    before.minimumQuantity === after.minimumQuantity &&
+    before.quantityBasis === after.quantityBasis &&
+    sameIds(before.branchIds, after.branchIds) &&
+    sameIds(before.menuIds, after.menuIds) &&
+    sameIds(before.categoryIds, after.categoryIds) &&
+    sameIds(before.productIds, after.productIds) &&
+    sameIds(before.deliveryZoneIds, after.deliveryZoneIds)
+  );
+}
+
+/**
+ * DEC-077 B1 write gate. With writes off, a fixed item configuration is refused unless it is the stored fixed item
+ * promotion with metadata-only edits. Evaluation is never gated; this only guards what Staff may save, activate or
+ * simulate.
+ */
+export function fixedItemGateProblem(
+  before: PromotionConfig | null,
+  after: PromotionConfig,
+  writesEnabled: boolean,
+): { code: 'FIXED_ITEM_SCOPE_NOT_ENABLED'; field: 'discountType' } | null {
+  if (writesEnabled || !isFixedItemPromotion(after)) return null;
+  if (
+    before !== null &&
+    isFixedItemPromotion(before) &&
+    changesOnlyMetadata(before, after)
+  ) {
+    return null;
+  }
+  return { code: 'FIXED_ITEM_SCOPE_NOT_ENABLED', field: 'discountType' };
+}
+
 export const staffPromotionSelect = {
   ...promotionConfigSelect,
   createdAt: true,

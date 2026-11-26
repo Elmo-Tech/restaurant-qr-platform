@@ -226,6 +226,18 @@ export const envSchema = z
       .min(1, 'UPLOAD_LOCAL_DIR must not be empty')
       .default('storage/uploads'),
 
+    // DEC-077 B1 write gate. Controls only WRITES that create, activate or change a CATEGORY / MENU promotion to
+    // FIXED_AMOUNT. Evaluation of existing fixed item promotions (menu, quote, checkout, readers) is never gated, so
+    // switching this off cannot remove an active customer discount. Default false: turn it on only after the migration
+    // is applied and EVERY pricing process runs this build (docs/02-technical/PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md #5).
+    PROMOTIONS_FIXED_ITEM_WRITES_ENABLED: z
+      .enum(['true', 'false'], {
+        message:
+          'PROMOTIONS_FIXED_ITEM_WRITES_ENABLED must be "true" or "false"',
+      })
+      .default('false')
+      .transform((value) => value === 'true'),
+
     // FT-9: application-level rate limiting (in-memory, per API process --
     // no Redis/distributed store in V1). Defaults are generous enough for
     // a restaurant's shared Wi-Fi/NAT; the reverse proxy adds its own

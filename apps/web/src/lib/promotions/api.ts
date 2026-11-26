@@ -50,6 +50,8 @@ export interface PromotionOption extends LocalizedNameSource {
 
 export interface PromotionTargets {
   defaultLocale: string;
+  /** DEC-077 B1 write gate: whether the backend currently accepts creating / activating / changing to a fixed CATEGORY or MENU promotion. */
+  fixedItemScopeEnabled: boolean;
   activeLocales: string[];
   branches: (PromotionOption & { timezone: string })[];
   menus: PromotionOption[];
@@ -128,11 +130,16 @@ export async function listPromotionTargets(restaurantId: string): Promise<Promot
   return data;
 }
 
-export async function savePromotion(restaurantId: string, draft: PromotionDraft, original: Promotion | null, confirmTargetWidening: boolean): Promise<Promotion> {
+export async function savePromotion(restaurantId: string, draft: PromotionDraft, original: Promotion | null, confirmTargetWidening: boolean, confirmDiscountTypeChange = false): Promise<Promotion> {
   const { data } = await apiFetch<{ data: Promotion }>(original ? resource(restaurantId, original.id) : base(restaurantId), {
     method: original ? 'PATCH' : 'POST',
     body: original
-      ? { ...draft, expectedUpdatedAt: original.updatedAt, ...(confirmTargetWidening ? { confirmTargetWidening: true } : {}) }
+      ? {
+        ...draft,
+        expectedUpdatedAt: original.updatedAt,
+        ...(confirmTargetWidening ? { confirmTargetWidening: true } : {}),
+        ...(confirmDiscountTypeChange ? { confirmDiscountTypeChange: true } : {}),
+      }
       : draft,
   });
   return data;

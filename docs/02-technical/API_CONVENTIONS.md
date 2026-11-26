@@ -2490,8 +2490,8 @@ Configuration uses `internalName`, `scope`, `discountType`, `value`, `priority` 
 
 Preview takes `{ draft, promotionId?, branchId, orderType, deliveryZoneId?, items: [{ productId, quantity }] }`. It simulates the draft as enabled on the Branch's current local date against the other active Promotions and legacy Product discounts, using catalog prices (first active size if present, no paid extras/Offer lines). It is not a Guest quote or an availability check. It returns the engine strategy and totals as decimal strings, draft-only `appliedSaving`, a draft diagnostic with potential saving and any remaining amount/quantity, and `zoneMinimumShortfall` if the net merchandise misses the zone minimum. Invalid preview selections return `422 PROMOTION_PREVIEW_BRANCH_INVALID`, `PROMOTION_PREVIEW_ZONE_INVALID` or `PROMOTION_PREVIEW_PRODUCT_INVALID`.
 
-> **Planned by DEC-077 (2026-11-26) — documentation only; none of this is implemented on `main` (`02a000c`).** The contract above stays
-> authoritative for the running API until the named milestone ships. Domain rules: `PROMOTIONS_SPEC.md` "Amendment DEC-077"; plan:
+> **DEC-077 (2026-11-26).** The **B1** part below is implemented by the DEC-077 B1 pull request and applies once it is merged and deployed; B2–B4 are planned and
+> not implemented. The contract above stays authoritative for the running API until the named milestone ships. Domain rules: `PROMOTIONS_SPEC.md` "Amendment DEC-077"; plan:
 > `PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`. Milestones: B1 fixed / percentage MENU and CATEGORY, B2 CART minimum, B3 preview API,
 > B4 editor UX (no API change).
 >

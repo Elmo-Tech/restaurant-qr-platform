@@ -447,15 +447,6 @@ describe('evaluatePromotions — item scope competition', () => {
     expect(statusOf(result, 'cat-z').status).toBe('NO_ELIGIBLE_ITEMS');
     expect(result.strategy).toBe('NONE');
   });
-
-  it('a FIXED_AMOUNT category promotion (invalid config) is never applied', () => {
-    const result = run(
-      [product(0)],
-      [promo('cat-fixed', 'CATEGORY', 'FIXED_AMOUNT', '10.00')],
-    );
-    expect(statusOf(result, 'cat-fixed').status).toBe('INVALID_CONFIGURATION');
-    expect(result.strategy).toBe('NONE');
-  });
 });
 
 describe('evaluatePromotions — sizes, modifiers, zero price, rounding', () => {
@@ -546,6 +537,300 @@ describe('evaluatePromotions — sizes, modifiers, zero price, rounding', () => 
       [promo('cat100', 'CATEGORY', 'PERCENTAGE', '100')],
     );
     expect(s(result.lines[0].netLineTotal)).toBe('5.00');
+  });
+});
+
+describe('evaluatePromotions — fixed item scope (DEC-077 B1)', () => {
+  const fixed = (
+    id: string,
+    scope: 'CATEGORY' | 'MENU',
+    value: string,
+    overrides: Partial<EnginePromotion> = {},
+  ) => promo(id, scope, 'FIXED_AMOUNT', value, overrides);
+
+  it('applies per purchased unit: 100.00 x 3 with fixed 15.00 saves 45.00', () => {
+    const result = run(
+      [product(0, { quantity: 3 })],
+      [fixed('cat-f15', 'CATEGORY', '15.00')],
+    );
+    expect(result.strategy).toBe('ITEM');
+    expect(result.lines[0].itemWinner?.promotionId).toBe('cat-f15');
+    expect(s(result.lines[0].promotionUnitDiscount)).toBe('15.00');
+    expect(alloc(result.lines[0])).toBe('45.00');
+    expect(s(result.lines[0].lineTotal)).toBe('300.00'); // legacy-net, before new promotions
+    expect(s(result.merchandisePayable)).toBe('255.00');
+    expect(statusOf(result, 'cat-f15').status).toBe('APPLIED');
+    // the persisted row records the configured per-unit value and the amount actually saved
+    const applied = result.applied.find((a) => a.promotionId === 'cat-f15');
+    expect(applied?.discountType).toBe('FIXED_AMOUNT');
+    expect(s(applied?.value ?? d('0'))).toBe('15.00');
+    expect(s(applied?.amount ?? d('0'))).toBe('45.00');
+  });
+
+  it('is capped at the ORIGINAL unit price: 12.00 x 2 with fixed 20.00 saves 24.00 and never goes negative', () => {
+    const result = run(
+      [product(0, { unitPrice: d('12.00'), quantity: 2 })],
+      [fixed('menu-f20', 'MENU', '20.00')],
+    );
+    expect(s(result.lines[0].promotionUnitDiscount)).toBe('12.00');
+    expect(alloc(result.lines[0])).toBe('24.00');
+    expect(s(result.merchandisePayable)).toBe('0.00');
+    const applied = result.applied.find((a) => a.promotionId === 'menu-f20');
+    expect(s(applied?.value ?? d('0'))).toBe('20.00'); // configured value kept
+    expect(s(applied?.amount ?? d('0'))).toBe('24.00'); // amount saved, not value x units
+  });
+
+  it('excludes paid extras: 100.00 + 20.00 extras x 2 with fixed 10.00 saves 20.00', () => {
+    const result = run(
+      [product(0, { modifiersUnitTotal: d('20.00'), quantity: 2 })],
+      [fixed('cat-f10', 'CATEGORY', '10.00')],
+    );
+    expect(alloc(result.lines[0])).toBe('20.00');
+    expect(s(result.merchandisePayable)).toBe('220.00'); // (100 - 10 + 20) x 2
+    // a fixed amount above the unit price is capped by the price, never by price + extras
+    const capped = run(
+      [product(0, { unitPrice: d('15.00'), modifiersUnitTotal: d('20.00') })],
+      [fixed('cat-f30', 'CATEGORY', '30.00')],
+    );
+    expect(alloc(capped.lines[0])).toBe('15.00');
+    expect(s(capped.merchandisePayable)).toBe('20.00'); // the extras stay payable
+  });
+
+  it('competes by line saving: fixed beats percentage, percentage beats fixed', () => {
+    const fixedWins = run(
+      [product(0, { productDiscount: legacy('PERCENTAGE', '10') })],
+      [fixed('cat-f25', 'CATEGORY', '25.00')],
+    );
+    expect(fixedWins.lines[0].itemWinner?.promotionId).toBe('cat-f25');
+    expect(s(fixedWins.lines[0].legacyLineDiscount)).toBe('0.00'); // the beaten legacy discount is not stored
+
+    const percentWins = run(
+      [product(0, { productDiscount: legacy('PERCENTAGE', '40') })],
+      [fixed('menu-f30', 'MENU', '30.00')],
+    );
+    expect(percentWins.lines[0].itemWinner?.source).toBe('PRODUCT_DISCOUNT');
+    expect(statusOf(percentWins, 'menu-f30').status).toBe(
+      'LOST_TO_BETTER_OFFER',
+    );
+
+    const fixedVsPercentPromotion = run(
+      [product(0)],
+      [
+        promo('cat-p20', 'CATEGORY', 'PERCENTAGE', '20'),
+        fixed('menu-f21', 'MENU', '21.00'),
+      ],
+    );
+    expect(fixedVsPercentPromotion.lines[0].itemWinner?.promotionId).toBe(
+      'menu-f21',
+    );
+  });
+
+  it('caps against the original price, not the legacy-discounted price', () => {
+    const result = run(
+      [product(0, { productDiscount: legacy('PERCENTAGE', '50') })],
+      [fixed('cat-f80', 'CATEGORY', '80.00')],
+    );
+    expect(result.lines[0].itemWinner?.promotionId).toBe('cat-f80');
+    expect(s(result.lines[0].promotionUnitDiscount)).toBe('80.00');
+    expect(s(result.lines[0].netLineTotal)).toBe('20.00');
+  });
+
+  it('exact ties stay deterministic: priority, then CATEGORY > MENU, then id', () => {
+    const specificity = run(
+      [product(0)],
+      [
+        promo('menu-p10', 'MENU', 'PERCENTAGE', '10'),
+        fixed('cat-f10', 'CATEGORY', '10.00'),
+      ],
+    );
+    expect(specificity.lines[0].itemWinner?.promotionId).toBe('cat-f10');
+
+    const priority = run(
+      [product(0)],
+      [
+        fixed('cat-f10', 'CATEGORY', '10.00', { priority: 50 }),
+        fixed('menu-f10', 'MENU', '10.00', { priority: 5 }),
+      ],
+    );
+    expect(priority.lines[0].itemWinner?.promotionId).toBe('menu-f10');
+
+    const byId = run(
+      [product(0)],
+      [
+        fixed('b-fixed', 'CATEGORY', '10.00'),
+        fixed('a-fixed', 'CATEGORY', '10.00'),
+      ],
+    );
+    expect(byId.lines[0].itemWinner?.promotionId).toBe('a-fixed');
+  });
+
+  it('is independent of the order the candidates are supplied in', () => {
+    const promotions = [
+      fixed('c-fixed', 'CATEGORY', '12.00'),
+      promo('a-pct', 'CATEGORY', 'PERCENTAGE', '12'),
+      fixed('b-menu', 'MENU', '12.00'),
+    ];
+    const forward = run([product(0)], promotions);
+    const backward = run([product(0)], [...promotions].reverse());
+    expect(forward.lines[0].itemWinner?.promotionId).toBe('a-pct');
+    expect(backward.lines[0].itemWinner?.promotionId).toBe('a-pct');
+    expect(s(backward.merchandisePayable)).toBe(s(forward.merchandisePayable));
+  });
+
+  it('rounds the percentage candidate before comparing: 15% of 0.10 = 0.02 ties a fixed 0.02', () => {
+    const result = run(
+      [product(0, { unitPrice: d('0.10'), quantity: 3 })],
+      [
+        promo('cat-p15', 'CATEGORY', 'PERCENTAGE', '15'),
+        fixed('menu-f002', 'MENU', '0.02'),
+      ],
+    );
+    // 0.02 each: an exact tie -> same priority -> CATEGORY wins on specificity
+    expect(result.lines[0].itemWinner?.promotionId).toBe('cat-p15');
+    expect(alloc(result.lines[0])).toBe('0.06');
+    expect(s(result.merchandisePayable)).toBe('0.24');
+  });
+
+  it('monetary boundaries: the smallest fixed value, the smallest price and a huge value', () => {
+    const cent = run(
+      [product(0, { unitPrice: d('0.01'), quantity: 99 })],
+      [fixed('cat-cent', 'CATEGORY', '0.01')],
+    );
+    expect(alloc(cent.lines[0])).toBe('0.99');
+    expect(s(cent.merchandisePayable)).toBe('0.00');
+
+    const huge = run(
+      [product(0, { unitPrice: d('250.50'), quantity: 2 })],
+      [fixed('cat-huge', 'CATEGORY', '999999999999.99')],
+    );
+    expect(s(huge.lines[0].promotionUnitDiscount)).toBe('250.50');
+    expect(s(huge.merchandisePayable)).toBe('0.00');
+
+    const zero = run(
+      [product(0, { unitPrice: d('0.00') })],
+      [fixed('cat-zero', 'CATEGORY', '5.00')],
+    );
+    expect(zero.strategy).toBe('NONE');
+    expect(statusOf(zero, 'cat-zero').status).toBe('NO_ELIGIBLE_ITEMS');
+  });
+
+  it('size: each size is capped at its own price (small 60.00, large 120.00 x 2)', () => {
+    const lines = [
+      product(0, { variantId: 'size-s', unitPrice: d('60.00') }),
+      product(1, {
+        variantId: 'size-l',
+        unitPrice: d('120.00'),
+        quantity: 2,
+      }),
+    ];
+    const f25 = run(lines, [fixed('cat-f25', 'CATEGORY', '25.00')]);
+    expect(f25.lines.map(alloc)).toEqual(['25.00', '50.00']);
+    expect(s(f25.merchandisePayable)).toBe('225.00'); // 300 - 75
+
+    const f70 = run(lines, [fixed('cat-f70', 'CATEGORY', '70.00')]);
+    expect(f70.lines.map(alloc)).toEqual(['60.00', '140.00']); // small capped at its own price
+    expect(s(f70.merchandisePayable)).toBe('100.00');
+  });
+
+  it('weighted sizes: a 500 g size is one unit at its own price; no proration, not per kilo', () => {
+    const lines = [
+      product(0, {
+        variantId: 'size-500g',
+        unitPrice: d('90.00'),
+        quantity: 2,
+      }),
+      product(1, {
+        productId: 'prod-1kg',
+        variantId: 'size-1kg',
+        unitPrice: d('170.00'),
+      }),
+    ];
+    const result = run(lines, [fixed('cat-f100', 'CATEGORY', '100.00')]);
+    expect(result.lines.map(alloc)).toEqual(['180.00', '100.00']); // 500 g: capped at 90.00 each, 1 kg: 100.00
+    expect(s(result.merchandisePayable)).toBe('70.00'); // 350 - 280
+  });
+
+  it('a Product without sizes uses its base price; quantity 99 is per unit', () => {
+    const result = run(
+      [product(0, { unitPrice: d('40.00'), quantity: 3 })],
+      [fixed('menu-f10', 'MENU', '10.00')],
+    );
+    expect(alloc(result.lines[0])).toBe('30.00');
+    expect(s(result.merchandisePayable)).toBe('90.00');
+    const many = run(
+      [product(0, { unitPrice: d('40.00'), quantity: 99 })],
+      [fixed('menu-f10', 'MENU', '10.00')],
+    );
+    expect(alloc(many.lines[0])).toBe('990.00');
+  });
+
+  it('discountApplies=false: the legacy discount is off but a fixed CATEGORY promotion applies to the size', () => {
+    const result = run(
+      [
+        product(0, {
+          variantId: 'size-l',
+          sizeDiscountApplies: false,
+          unitPrice: d('120.00'),
+          productDiscount: legacy('PERCENTAGE', '50'),
+        }),
+      ],
+      [fixed('cat-f12', 'CATEGORY', '12.00')],
+    );
+    expect(result.lines[0].itemWinner?.promotionId).toBe('cat-f12');
+    expect(s(result.lines[0].legacyLineDiscount)).toBe('0.00');
+    expect(alloc(result.lines[0])).toBe('12.00');
+  });
+
+  it('never discounts Offer lines and leaves them in the payable total', () => {
+    const result = run(
+      [product(0), offer(1, '150.00', 2)],
+      [fixed('cat-f30', 'CATEGORY', '30.00')],
+    );
+    expect(alloc(result.lines[0])).toBe('30.00');
+    expect(alloc(result.lines[1])).toBe('0.00');
+    expect(s(result.merchandisePayable)).toBe('370.00'); // 70 + 300
+  });
+
+  it('item vs cart is strict and never combined: cart 50.00 beats item 40.00, a tie keeps the item path', () => {
+    const lines = [product(0), product(1, { productId: 'prod-1' })];
+    const cartWins = run(lines, [
+      fixed('cat-f20', 'CATEGORY', '20.00'),
+      promo('cart-f50', 'CART', 'FIXED_AMOUNT', '50.00', {
+        minimumSubtotal: d('150.00'),
+      }),
+    ]);
+    expect(cartWins.strategy).toBe('CART');
+    expect(cartWins.lines.map(alloc)).toEqual(['25.00', '25.00']);
+    expect(s(cartWins.merchandisePayable)).toBe('150.00');
+    expect(statusOf(cartWins, 'cat-f20').status).toBe('LOST_TO_BETTER_OFFER');
+
+    const tie = run(lines, [
+      fixed('cat-f20', 'CATEGORY', '20.00'),
+      promo('cart-f40', 'CART', 'FIXED_AMOUNT', '40.00', {
+        minimumSubtotal: d('150.00'),
+      }),
+    ]);
+    expect(tie.strategy).toBe('ITEM');
+    expect(s(tie.merchandisePayable)).toBe('160.00');
+  });
+
+  it('a winning cart promotion removes the legacy Product discount beaten by a fixed item path', () => {
+    const result = run(
+      [
+        product(0, { productDiscount: legacy('PERCENTAGE', '10') }),
+        product(1, {
+          productId: 'prod-1',
+          productDiscount: legacy('PERCENTAGE', '10'),
+        }),
+      ],
+      [
+        fixed('cat-f5', 'CATEGORY', '5.00'),
+        promo('cart-f60', 'CART', 'FIXED_AMOUNT', '60.00'),
+      ],
+    );
+    expect(result.strategy).toBe('CART');
+    expect(s(result.legacyDiscountTotal)).toBe('0.00');
+    expect(s(result.merchandisePayable)).toBe('140.00');
   });
 });
 
@@ -1417,20 +1702,44 @@ describe('validatePromotionInput', () => {
     ).toEqual([]);
   });
 
-  it('rejects FIXED_AMOUNT for CATEGORY and MENU', () => {
+  it('accepts FIXED_AMOUNT and PERCENTAGE for CATEGORY and MENU (DEC-077 B1)', () => {
+    for (const discountType of ['FIXED_AMOUNT', 'PERCENTAGE'] as const) {
+      expect(codes(input({ discountType, value: d('10') }))).toEqual([]);
+      expect(
+        codes(
+          input({
+            scope: 'MENU',
+            categoryIds: [],
+            menuIds: ['m'],
+            discountType,
+            value: d('10'),
+          }),
+        ),
+      ).toEqual([]);
+    }
+    // a fixed value may exceed any price (it is capped per unit at pricing time) but keeps the value rules
+    expect(
+      codes(input({ discountType: 'FIXED_AMOUNT', value: d('5000') })),
+    ).toEqual([]);
+    expect(
+      codes(input({ discountType: 'FIXED_AMOUNT', value: d('0') })),
+    ).toContain('VALUE_INVALID');
+    expect(
+      codes(input({ discountType: 'FIXED_AMOUNT', value: d('10.005') })),
+    ).toContain('VALUE_INVALID');
     expect(
       codes(input({ discountType: 'FIXED_AMOUNT', value: d('10') })),
-    ).toContain('ITEM_SCOPE_REQUIRES_PERCENTAGE');
-    expect(
-      codes(
-        input({
-          scope: 'MENU',
-          categoryIds: [],
-          menuIds: ['m'],
-          discountType: 'FIXED_AMOUNT',
-        }),
-      ),
-    ).toContain('ITEM_SCOPE_REQUIRES_PERCENTAGE');
+    ).not.toContain('PERCENTAGE_ABOVE_100');
+  });
+
+  it('discount-type support is separate from minimum applicability: item scopes accept either type but never a minimum', () => {
+    for (const discountType of ['FIXED_AMOUNT', 'PERCENTAGE'] as const) {
+      expect(
+        codes(
+          input({ discountType, value: d('10'), minimumSubtotal: d('100') }),
+        ),
+      ).toContain('MINIMUM_SUBTOTAL_NOT_ALLOWED');
+    }
   });
 
   it('value rules: > 0, percentage <= 100, at most 2 decimals', () => {

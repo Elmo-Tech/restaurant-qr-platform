@@ -164,6 +164,11 @@ export class UpdatePromotionDto extends OptionalPromotionFieldsDto {
   @IsBoolean()
   confirmTargetWidening?: boolean;
 
+  /** DEC-077: required to change the stored discount type of an existing promotion (any scope). */
+  @whenProvided()
+  @IsBoolean()
+  confirmDiscountTypeChange?: boolean;
+
   @whenProvided()
   @IsISO8601({ strict: true, strictSeparator: true })
   @Matches(/T.*(?:Z|[+-]\d{2}:\d{2})$/)

@@ -1,5 +1,7 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import type { RestaurantAccessContext } from '../auth/context/restaurant-access.service';
+import type { EnvConfig } from '../config/env.schema';
 import {
   resolveLocalizedName,
   type NameTranslationView,
@@ -21,7 +23,10 @@ const targetSelect = { id: true, status: true, translations } as const;
 
 @Injectable()
 export class PromotionTargetsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly env: ConfigService<EnvConfig, true>,
+  ) {}
 
   async list({ restaurantId, membershipId, allBranches }: PromotionReadScope) {
     // Branches and zones carry branch-scoped operational context. The menu catalog is Restaurant-wide.
@@ -95,6 +100,13 @@ export class PromotionTargetsService {
       });
     return {
       defaultLocale,
+      // DEC-077 B1: lets the editor offer FIXED_AMOUNT for CATEGORY / MENU only when a write will be accepted.
+      fixedItemScopeEnabled: this.env.get(
+        'PROMOTIONS_FIXED_ITEM_WRITES_ENABLED',
+        {
+          infer: true,
+        },
+      ),
       activeLocales: restaurant.locales.map(({ locale }) => locale),
       branches,
       menus: menus.map(({ nameInternal, ...row }) => ({

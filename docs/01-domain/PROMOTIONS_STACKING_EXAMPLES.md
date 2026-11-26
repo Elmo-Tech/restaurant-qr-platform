@@ -225,7 +225,7 @@ unit; no proration by weight, no per-kilo application.
 | Exact tie, same priority | Unit 100.00: CATEGORY fixed 10.00 and MENU 10 %, both priority 100 | CATEGORY (specificity) |
 | Exact tie, lower priority number | CATEGORY fixed 10.00 priority 50, MENU fixed 10.00 priority 5 | MENU |
 | Size without Product discount | Large 120.00, `discountApplies = false`, Product discount 50 %, CATEGORY fixed 12.00 | no Product discount; CATEGORY **12.00** off (as for percentage, DEC-041) |
-| Nothing to win | Product 0.00, CATEGORY fixed 5.00 | no candidate; diagnostic `NO_EFFECTIVE_DISCOUNT` |
+| Nothing to win | Product 0.00, CATEGORY fixed 5.00 | no candidate; diagnostic `NO_ELIGIBLE_ITEMS` (same as a percentage promotion on a 0.00 price) |
 | Two sizes of one Product | Pizza Small 60.00 × 1 and Large 120.00 × 2, CATEGORY fixed 25.00 | Small 25.00; Large 25.00 × 2 = 50.00; total **75.00** off; payable 60.00 + 240.00 − 75.00 = **225.00** |
 | Cap differs by size | Same cart, CATEGORY fixed 70.00 | Small min(70.00, 60.00) = 60.00; Large 70.00 × 2 = 140.00; total **200.00** off; payable **100.00** |
 | Weighted cut (sizes) | Cut sold as 500 g 90.00 and 1 kg 170.00, CATEGORY fixed 100.00; cart 2 × 500 g + 1 × 1 kg | 500 g: min(100.00, 90.00) = 90.00 × 2 = 180.00 (free); 1 kg: 100.00 × 1; total **280.00** off; payable 180.00 + 170.00 − 280.00 = **70.00**. Not prorated by grams, not per kilo. |

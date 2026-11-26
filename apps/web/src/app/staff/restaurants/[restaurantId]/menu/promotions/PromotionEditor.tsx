@@ -15,7 +15,7 @@ import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import { localizedName } from '../../../../../../lib/i18n/localized-name';
 import type { MessageKey } from '../../../../../../lib/i18n/messages';
 import { promotionScopes, savePromotion, type Promotion, type PromotionOption, type PromotionTargets } from '../../../../../../lib/promotions/api';
-import { blankDraft, hasItemRestrictions, isPercentageOnly, normalizePromotionNumber, toPromotionDraft, widening, type DraftFields } from '../../../../../../lib/promotions/draft';
+import { blankDraft, canOfferFixed, changesDiscountType, hasItemRestrictions, isItemScope, normalizePromotionNumber, supportsMinimumSubtotal, toPromotionDraft, widening, type DraftFields } from '../../../../../../lib/promotions/draft';
 import { needsPromotionReload, promotionError } from '../../../../../../lib/promotions/errors';
 import { localeDirection, localeLabel } from '../../../../../../lib/settings/locale-labels';
 import { SavingsPreview } from './SavingsPreview';
@@ -124,18 +124,34 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
   const [uncertainCreate, setUncertainCreate] = useState(false);
   const [serverWiden, setServerWiden] = useState(false);
   const [confirmWiden, setConfirmWiden] = useState(false);
+  // DEC-077: changing the stored discount type of an existing promotion needs an explicit confirmation (the API refuses with a 409 otherwise).
+  const [serverTypeChange, setServerTypeChange] = useState(false);
+  const [confirmType, setConfirmType] = useState(false);
   const [discard, setDiscard] = useState(false);
   const dirty = JSON.stringify(fields) !== JSON.stringify(initial);
   const { scope } = fields;
   const { zone, other } = widening(original, fields);
   const mustConfirm = zone || other || serverWiden;
+  const mustConfirmType = changesDiscountType(original, fields) || serverTypeChange;
   const blocked = saving || reloading || targetsRefreshing || requiresReload || uncertainCreate;
   const branchZones = targets.deliveryZones.filter((item) => !fields.branchIds.length || fields.branchIds.includes(item.branchId) || fields.deliveryZoneIds.includes(item.id));
-  const scopeSupportsMin = !isPercentageOnly(scope);
+  const scopeSupportsMin = supportsMinimumSubtotal(scope);
+  const offerFixed = canOfferFixed(scope, targets.fixedItemScopeEnabled === true, original) || fields.discountType === 'FIXED_AMOUNT';
 
   function change<K extends keyof DraftFields>(key: K, value: DraftFields[K]) {
-    setFields((prior) => ({ ...prior, [key]: value }));
+    setFields((prior) => {
+      const next = { ...prior, [key]: value };
+      // A new fixed item promotion is not offered while the backend gate is off: fall back to a percentage when the scope moves to an item scope.
+      if (key === 'scope' && isItemScope(next.scope) && next.discountType === 'FIXED_AMOUNT' && !canOfferFixed(next.scope, targets.fixedItemScopeEnabled === true, original)) {
+        next.discountType = 'PERCENTAGE';
+      }
+      return next;
+    });
     setError(null);
+    if (key === 'discountType' || key === 'scope') {
+      setConfirmType(false);
+      setServerTypeChange(false);
+    }
     if (key === 'scope' || key === 'branchIds' || key === 'menuIds' || key === 'categoryIds' || key === 'productIds' || key === 'deliveryZoneIds') {
       setConfirmWiden(false);
       setServerWiden(false);
@@ -165,18 +181,22 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canEdit || blocked || (mustConfirm && !confirmWiden)) return;
+    if (!canEdit || blocked || (mustConfirm && !confirmWiden) || (mustConfirmType && !confirmType)) return;
     const result = toPromotionDraft(fields, targets);
     if ('error' in result) { setError(result.error); return; }
     setSaving(true);
     setError(null);
     try {
-      const row = await savePromotion(restaurantId, result.draft, original, mustConfirm && confirmWiden);
+      const row = await savePromotion(restaurantId, result.draft, original, mustConfirm && confirmWiden, mustConfirmType && confirmType);
       onSaved(row);
     } catch (caught) {
       if (caught instanceof ApiError && caught.code === 'PROMOTION_TARGET_WIDENING_CONFIRMATION_REQUIRED') {
         setServerWiden(true);
         setConfirmWiden(false);
+      }
+      if (caught instanceof ApiError && caught.code === 'PROMOTION_DISCOUNT_TYPE_CHANGE_CONFIRMATION_REQUIRED') {
+        setServerTypeChange(true);
+        setConfirmType(false);
       }
       setError(promotionError(caught));
       if (caught instanceof ApiError && (caught.code === 'PROMOTION_TARGET_CHANGED' || caught.code === 'INVALID_PROMOTION_TARGET')) onReloadTargets();
@@ -218,15 +238,17 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
                 </FormField>
                 <p id="promo-scope-help" className={helper}>{t(`promotions.scopeHint.${scope}`)}</p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  {!isPercentageOnly(scope) ? <FormField label={t('promotions.discountType')} htmlFor="promo-type">
+                  <FormField label={t('promotions.discountType')} htmlFor="promo-type">
                     <Select id="promo-type" value={fields.discountType} onChange={(e) => change('discountType', e.target.value === 'FIXED_AMOUNT' ? 'FIXED_AMOUNT' : 'PERCENTAGE')}>
-                      <option value="PERCENTAGE">{t('promotions.type.PERCENTAGE')}</option><option value="FIXED_AMOUNT">{t('promotions.type.FIXED_AMOUNT')}</option>
+                      <option value="PERCENTAGE">{t('promotions.type.PERCENTAGE')}</option>
+                      {offerFixed ? <option value="FIXED_AMOUNT">{t('promotions.type.FIXED_AMOUNT')}</option> : null}
                     </Select>
-                  </FormField> : null}
-                  <FormField label={`${t('promotions.discountValue')} (${isPercentageOnly(scope) || fields.discountType === 'PERCENTAGE' ? '%' : currencyCode})`} htmlFor="promo-value">
-                    <Input id="promo-value" dir="ltr" inputMode="decimal" maxLength={15} required value={fields.value} onChange={(e) => change('value', normalizePromotionNumber(e.target.value))} />
+                  </FormField>
+                  <FormField label={`${t('promotions.discountValue')} (${fields.discountType === 'PERCENTAGE' ? '%' : currencyCode})`} htmlFor="promo-value">
+                    <Input id="promo-value" dir="ltr" inputMode="decimal" maxLength={15} required value={fields.value} onChange={(e) => change('value', normalizePromotionNumber(e.target.value))} aria-describedby={isItemScope(scope) && fields.discountType === 'FIXED_AMOUNT' ? 'promo-fixed-item-help' : undefined} />
                   </FormField>
                 </div>
+                {isItemScope(scope) && fields.discountType === 'FIXED_AMOUNT' ? <p id="promo-fixed-item-help" className={helper}>{t('promotions.fixedItemHint')}</p> : null}
               </Card>
               <Card className="space-y-4 p-4 sm:p-6">
                 <h2 className={sectionTitle}>{t('promotions.guestCopy')}</h2>
@@ -270,6 +292,12 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
                   <p className={helper}>{t('promotions.priorityHint')}</p>
                 </details>
               </Card>
+              {mustConfirmType && original ? (
+                <Alert variant="warning">
+                  <p>{t('promotions.typeChangeWarning', { from: t(`promotions.type.${original.discountType}`), to: t(`promotions.type.${fields.discountType}`), value: original.value })}</p>
+                  <label className="mt-1 flex min-h-11 items-center gap-2 font-semibold"><input type="checkbox" className={check} checked={confirmType} onChange={(e) => setConfirmType(e.target.checked)} />{t('promotions.confirmTypeChange')}</label>
+                </Alert>
+              ) : null}
               {mustConfirm ? (
                 <Alert variant="warning">
                   <p>{t(zone ? 'promotions.widenZone' : 'promotions.widenOther')}</p>
@@ -282,7 +310,7 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
             {requiresReload && original ? <Alert variant="warning"><p>{t('promotions.reloadHelp')}</p><Button type="button" variant="secondary" disabled={reloading} onClick={() => void onReload(original)}>{t(reloading ? 'common.loading' : 'promotions.reload')}</Button></Alert> : null}
             {uncertainCreate ? <Alert variant="warning"><p>{t('promotions.uncertainCreate')}</p><Button type="button" variant="secondary" onClick={onUncertainCreate}>{t('promotions.viewList')}</Button></Alert> : null}
             <div className="flex flex-wrap justify-end rounded-xl border border-border bg-card p-3">
-              <Button type="submit" className="h-11" disabled={blocked || (mustConfirm && !confirmWiden) || (original !== null && !dirty)}>{t(saving ? 'common.saving' : original ? 'common.save' : 'promotions.createInactive')}</Button>
+              <Button type="submit" className="h-11" disabled={blocked || (mustConfirm && !confirmWiden) || (mustConfirmType && !confirmType) || (original !== null && !dirty)}>{t(saving ? 'common.saving' : original ? 'common.save' : 'promotions.createInactive')}</Button>
             </div>
           </form>
           {preview}

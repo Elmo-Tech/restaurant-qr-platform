@@ -4,11 +4,14 @@ import {
   NotFoundException,
   UnprocessableEntityException,
 } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import type { EnvConfig } from '../config/env.schema';
 import { isWellFormedUuid } from '../common/is-uuid';
 import { PrismaService } from '../database/prisma.service';
 import { Prisma } from '../generated/prisma/client';
 import {
   configFromRow,
+  fixedItemGateProblem,
   fromDraft,
   promotionConfigSelect,
   promotionScalarData,
@@ -220,7 +223,17 @@ function translationDiff(
 
 @Injectable()
 export class PromotionsService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly env: ConfigService<EnvConfig, true>,
+  ) {}
+
+  /** DEC-077 B1 write gate (default off). Gates writes only; evaluation never reads it. */
+  private get fixedItemWritesEnabled(): boolean {
+    return this.env.get('PROMOTIONS_FIXED_ITEM_WRITES_ENABLED', {
+      infer: true,
+    });
+  }
 
   async list(restaurantId: string, query: ListPromotionsQueryDto) {
     const page = query.page ?? 1;
@@ -328,6 +341,7 @@ export class PromotionsService {
             ([field, value]) =>
               field === 'expectedUpdatedAt' ||
               field === 'confirmTargetWidening' ||
+              field === 'confirmDiscountTypeChange' ||
               value === undefined,
           )
         )
@@ -365,7 +379,29 @@ export class PromotionsService {
           scope.restaurantId,
           config,
           before.translations,
+          before,
         );
+        // DEC-077: the stored type changes only with explicit confirmation. Older clients (whose editor forced
+        // PERCENTAGE for CATEGORY / MENU and re-sends the whole form) must not silently convert a fixed promotion.
+        if (
+          dto.discountType !== undefined &&
+          dto.discountType !== before.discountType &&
+          dto.confirmDiscountTypeChange !== true
+        ) {
+          throw new ConflictException({
+            error: {
+              code: 'PROMOTION_DISCOUNT_TYPE_CHANGE_CONFIRMATION_REQUIRED',
+              message:
+                'Changing the discount type changes what the value means. Confirm the change to continue.',
+              details: {
+                fields: ['discountType'],
+                from: before.discountType,
+                to: dto.discountType,
+                value: before.value.toFixed(2),
+              },
+            },
+          });
+        }
         const widening = widenedTargets(before, validated);
         if (widening.length && dto.confirmTargetWidening !== true) {
           throw new ConflictException({
@@ -453,6 +489,7 @@ export class PromotionsService {
             scope.restaurantId,
             config,
             config.translations,
+            null,
           );
         const updatedAt = nextVersion(current.updatedAt);
         const row = await tx.promotion.update({
@@ -507,12 +544,28 @@ export class PromotionsService {
     }
   }
 
+  /** `stored` = the saved promotion a draft edits (preview of an existing promotion), so an unchanged fixed item draft stays valid with writes off. */
   validateDraft(
     db: Prisma.TransactionClient,
     restaurantId: string,
     dto: PromotionDraftDto,
+    stored: PromotionConfig | null = null,
   ): Promise<ValidatedDraft> {
-    return this.validateConfig(db, restaurantId, fromDraft(dto));
+    return this.validateConfig(db, restaurantId, fromDraft(dto), [], stored);
+  }
+
+  /** The stored configuration of one promotion of this Restaurant, or null. */
+  async storedConfig(
+    db: Prisma.TransactionClient,
+    restaurantId: string,
+    promotionId: string,
+  ): Promise<PromotionConfig | null> {
+    if (!isWellFormedUuid(promotionId)) return null;
+    const row = await db.promotion.findUnique({
+      where: { id: promotionId, restaurantId },
+      select: promotionConfigSelect,
+    });
+    return row ? configFromRow(row) : null;
   }
 
   /** Staff simulation includes configured schedules; the engine decides if each is eligible on the selected Branch date. */
@@ -568,6 +621,7 @@ export class PromotionsService {
     restaurantId: string,
     draft: PromotionConfig,
     existingTranslations: readonly PromotionTranslation[] = [],
+    stored: PromotionConfig | null = null,
   ): Promise<ValidatedDraft> {
     const restaurant = await db.restaurant.findUnique({
       where: { id: restaurantId },
@@ -595,6 +649,12 @@ export class PromotionsService {
       draft,
       restaurant.defaultLocale,
     );
+    const gated = fixedItemGateProblem(
+      stored,
+      draft,
+      this.fixedItemWritesEnabled,
+    );
+    if (gated) problems.push(gated);
     for (const { locale, title, description } of draft.translations) {
       if (supplied.has(locale))
         problems.push({

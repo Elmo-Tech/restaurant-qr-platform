@@ -70,6 +70,13 @@ jobs:
           apps/web/src/lib/promotions/savings-preview.test.mjs
           apps/web/src/lib/promotions/workspace.contract.test.mjs
 
+      - name: Promotions engine, snapshots and fixed item write gate (API units, DEC-077 B1)
+        run: >-
+          npm exec --workspace=apps/api -- jest --runInBand --runTestsByPath
+          src/promotions/promotion-engine.spec.ts
+          src/promotions/promotion-snapshot.spec.ts
+          src/config/env.schema.promotions.spec.ts
+
       - name: Staff hubs, navigation, setup checklist and form feedback
         run: >-
           node --experimental-strip-types --test
