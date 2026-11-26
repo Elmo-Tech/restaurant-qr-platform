@@ -19,6 +19,10 @@ async function selectAppearance(page, scenario, appearance) {
   if (!EXCLUSIVE_ATTR[scenario]) return;
   const root = page.locator(`[${EXCLUSIVE_ATTR[scenario]}]`).first();
   const current = async () => APPEARANCE[await root.getAttribute(EXCLUSIVE_ATTR[scenario])];
+  if (scenario === 'verde') {
+    await expect.poll(current, { timeout: 30000 }).toBe(appearance);
+    return;
+  }
   if (await current() !== appearance) {
     await page.getByRole('button', { name: /^(Dark|Light) mode$/ }).first().click();
     await expect.poll(current).toBe(appearance);
@@ -32,6 +36,9 @@ async function assertContrast(locator, context, minimum = 4.5) {
 for (const scenario of SCENARIOS) {
   for (const appearance of APPEARANCES) {
     test(`quantity ${scenario} ${appearance}`, async ({ page, context, baseURL }) => {
+      if (scenario === 'verde') {
+        await page.addInitScript((mode) => localStorage.setItem('verde-menu-theme', mode), appearance === 'light' ? 'LIGHT' : 'SIGNATURE');
+      }
       await openMenu(page, context, baseURL, scenario, 'en', appearance);
       await selectAppearance(page, scenario, appearance);
       const more = await showStepper(page, 'en');

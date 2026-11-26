@@ -238,7 +238,7 @@
 .makkboz-experience .m-add:hover{background:var(--m-btn-hover);transform:scale(1.04)}
 .makkboz-experience .m-add svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .makkboz-experience .m-add-count{position:absolute;inset-block-start:-7px;inset-inline-end:-7px;min-width:20px;height:20px;border-radius:999px;padding:0 5px;background:#e0ba73;color:#0d3027;font:800 11px/20px var(--m-body);text-align:center}
-.makkboz-experience .m-stepper{display:flex;align-items:center;flex:none;border:1px solid var(--m-btn);border-radius:8px;overflow:hidden;background:var(--m-card)}
+.makkboz-experience .m-stepper{display:flex;align-items:center;flex:none;border:1px solid var(--m-btn);border-radius:8px;overflow:hidden;background:var(--m-card);color:var(--m-text)}
 .makkboz-experience .m-stepper button{width:40px;height:44px;border:0;background:transparent;color:var(--m-title);font-size:20px;font-weight:800}
 .makkboz-experience .m-stepper button:hover{background:var(--m-btn);color:var(--m-btn-fg)}
 .makkboz-experience .m-stepper span{min-width:26px;text-align:center;font-weight:800}
