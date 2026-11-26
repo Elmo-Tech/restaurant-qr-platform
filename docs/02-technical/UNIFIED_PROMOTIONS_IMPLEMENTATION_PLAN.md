@@ -10,6 +10,11 @@ Related: `docs/01-domain/PROMOTIONS_SPEC.md` (amendment "Unified Promotions", ac
 `docs/02-technical/UNIFIED_PROMOTIONS_SCHEMA_AND_ROLLOUT.md`,
 `docs/02-technical/UNIFIED_PROMOTIONS_HISTORICAL_SNAPSHOTS.md`.
 
+> **Status correction (2026-11-26).** The "Nothing here is merged" line and the milestone headings below ("B2 — NOT STARTED", "B4 — PENDING")
+> record the state at the time they were written and are kept as history. On `main`: B1 #76 (`8b08fd8`), B2 #77 (`1252e1a`), B3 #80
+> (`0c7e8f0`), B4 #81 (`25fe242`) and the savings preview #86 (`c04213b`) are merged. Merge is not deployment; no environment's state is
+> asserted. Follow-up work is tracked separately by DEC-077 (`PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`).
+
 ## Decisions
 
 | # | Decision | PO decision (2026-11-21) | Code / docs match? |
@@ -35,6 +40,10 @@ original order instead of `409 IDEMPOTENCY_KEY_REUSED` (`API_CONVENTIONS.md` #76
 > fingerprint deliberately **excludes prices, totals and `expectedTotal`**, so B2 promotion results never take part
 > in request identity. If B2 adds a Guest-supplied promotion input (for example a code), that input is material and
 > needs a new fingerprint version (keeping the old canonicalizer), per the versioning rule of that clarification.
+
+> **Follow-up (DEC-077, 2026-11-26, documentation only).** Fixed MENU / CATEGORY discounts, the strictly positive CART minimum, real
+> previews and the editor UX are planned in `PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md` as a separate B1–B4 series (labels differ from the
+> milestones below).
 
 ## Milestones
 

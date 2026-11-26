@@ -14,6 +14,11 @@
 > under AGENTS.md #19, #35, DEC-034, PROMOTIONS_SPEC #6 / #22 / #94 and
 > DATABASE_SPEC #85.
 
+> **Amended by DEC-077 (2026-11-26, documentation only).** Two rules below change in a later milestone: CATEGORY / MENU gain
+> `FIXED_AMOUNT` (the two `*_item_scope_percentage_only` CHECKs are dropped by a forward migration), and a new CART promotion needs a
+> strictly positive minimum (application rule, no CHECK). See `DATABASE_SPEC.md` "Amendment 2026-11-26" and
+> `PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`.
+
 ## 1. Milestones
 
 | Milestone | Scope | State |
