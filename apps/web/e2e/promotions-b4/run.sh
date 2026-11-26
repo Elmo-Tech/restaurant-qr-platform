@@ -96,7 +96,7 @@ api_entry="$repo/apps/api/dist/src/main.js"
 [[ -f $api_entry ]] || { echo 'Nest build did not produce a boot entrypoint.' >&2; exit 1; }
 "${safe_env[@]}" NODE_ENV=test API_HOST=127.0.0.1 API_PORT="$api_port" \
   CORS_ORIGIN="$B4_WEB_ORIGIN" UPLOAD_LOCAL_DIR="$state/uploads" LOG_LEVEL=warn \
-  RATE_LIMIT_ENABLED=false node "$api_entry" >"$state/api.log" 2>&1 &
+  RATE_LIMIT_ENABLED=false PROMOTIONS_FIXED_ITEM_WRITES_ENABLED=true node "$api_entry" >"$state/api.log" 2>&1 &
 api_pid=$!
 "${safe_env[@]}" NEXT_TELEMETRY_DISABLED=1 NEXT_PUBLIC_API_URL="$B4_API_ORIGIN" \
   NEXT_PUBLIC_API_BASE_PATH=/api/v1 WEB_URL="$B4_WEB_ORIGIN" \

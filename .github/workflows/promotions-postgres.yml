@@ -1,0 +1,99 @@
+name: Promotions PostgreSQL regression
+
+# DEC-077 B1: real PostgreSQL 18 (disposable, UTC and Africa/Cairo) for the unified promotions engine, the
+# forward migration that dropped the two percentage-only item CHECKs, the Staff write gate / type-change
+# confirmation, and the Guest quote -> checkout -> snapshot -> readers chain. No secrets, no deployment.
+
+on:
+  pull_request:
+    paths:
+      - 'apps/api/**'
+      - 'package.json'
+      - 'package-lock.json'
+      - '.github/workflows/promotions-postgres.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: promotions-postgres-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  promotions:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        postgres_timezone: [UTC, Africa/Cairo]
+    services:
+      postgres:
+        image: postgres:18
+        env:
+          POSTGRES_USER: restaurant_qr_it
+          POSTGRES_PASSWORD: ci_disposable_only
+          POSTGRES_DB: restaurant_qr_promotions_ci_test
+          TZ: ${{ matrix.postgres_timezone }}
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U restaurant_qr_it -d restaurant_qr_promotions_ci_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+    env:
+      TZ: UTC
+      EXPECTED_POSTGRES_TIMEZONE: ${{ matrix.postgres_timezone }}
+      NODE_ENV: test
+      CORS_ORIGIN: http://localhost:3000
+      PLATFORM_ORIGIN: http://localhost:3001
+      DATABASE_URL: postgresql://restaurant_qr_it:ci_disposable_only@127.0.0.1:5432/restaurant_qr_promotions_ci_test?schema=public
+      TABLE_SESSION_IT_DATABASE_URL: postgresql://restaurant_qr_it:ci_disposable_only@127.0.0.1:5432/restaurant_qr_promotions_ci_test?schema=public
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+      - name: Install locked dependencies
+        run: npm ci
+      - name: Mark disposable database as integration sandbox
+        run: |
+          node <<'NODE'
+          const { Client } = require('pg');
+          (async () => {
+            const db = new Client({ connectionString: process.env.DATABASE_URL });
+            await db.connect();
+            const identity = await db.query('SELECT current_database() AS db, current_user AS usr');
+            if (identity.rows[0].db !== 'restaurant_qr_promotions_ci_test' || identity.rows[0].usr !== 'restaurant_qr_it') throw new Error('unexpected database identity');
+            await db.query("COMMENT ON DATABASE restaurant_qr_promotions_ci_test IS 'restaurant-qr-integration-sandbox'");
+            const actual = await db.query("SELECT current_setting('TimeZone') AS timezone");
+            if (actual.rows[0].timezone !== process.env.EXPECTED_POSTGRES_TIMEZONE) throw new Error(`server timezone mismatch: ${actual.rows[0].timezone}`);
+            await db.end();
+          })().catch(error => { console.error(error.message); process.exitCode = 1; });
+          NODE
+      - name: Generate client and deploy every migration from scratch
+        run: |
+          npm run db:generate
+          npm exec --workspace=apps/api -- prisma migrate deploy
+      - name: Promotion engine, snapshot and write-gate configuration units
+        run: >-
+          npm exec --workspace=apps/api -- jest --runInBand --runTestsByPath
+          src/promotions/promotion-engine.spec.ts
+          src/promotions/promotion-snapshot.spec.ts
+          src/config/env.schema.promotions.spec.ts
+      - name: Promotions PostgreSQL regressions
+        env:
+          NODE_OPTIONS: --experimental-vm-modules
+        run: >-
+          npm exec --workspace=apps/api -- jest --config ./test/jest-e2e.json --runInBand --runTestsByPath
+          test/promotions-fixed-item-migration.e2e-spec.ts
+          test/promotions-fixed-item-postgres.e2e-spec.ts
+          test/staff-promotions-postgres.e2e-spec.ts
+          test/unified-promotions-integrity-postgres.e2e-spec.ts
+          test/unified-promotions-order-pricing-postgres.e2e-spec.ts
+          test/unified-promotions-checkout-locking-postgres.e2e-spec.ts
+          test/delivery-zone-delete-postgres.e2e-spec.ts
+          test/public-order-idempotency-reuse.e2e-spec.ts

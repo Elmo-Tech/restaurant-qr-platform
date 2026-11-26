@@ -699,9 +699,8 @@ Category + Fixed Amount is invalid in V1.
 > never discounted by item scope. A **new** `CART` promotion needs a
 > strictly positive `minimumSubtotal`; existing CART promotions with no / zero minimum are *legacy*, are never changed
 > automatically, and need a valid minimum only to change pricing, eligibility or priority, or to be reactivated
-> (metadata edits, deactivation and archiving stay allowed). Agent rules until the milestones land: the code on `main` still
-> refuses fixed item-scope promotions and still allows a CART promotion without a minimum — that is documented drift to be fixed by
-> the milestone, not a reason to deviate from DEC-077; do not backfill or default legacy minimums, and do not add a database CHECK
+> (metadata edits, deactivation and archiving stay allowed). Agent rules until the milestones land: at the time of B0 the code on `main` refused fixed item-scope promotions (B1 changes that) and still
+> allows a CART promotion without a minimum (B2 changes that) — documented drift to be fixed by the milestone, not a reason to deviate from DEC-077; do not backfill or default legacy minimums, and do not add a database CHECK
 > or trigger for the minimum (it would block metadata edits of legacy rows). Milestones, each with its own review and merge approval
 > (a merge is not a deployment; production deployments are separate explicit decisions): B1 fixed / percentage MENU and CATEGORY
 > (the only migration), B2 CART minimum and legacy compatibility, B3 contextual preview API, B4 editor UX and final financial

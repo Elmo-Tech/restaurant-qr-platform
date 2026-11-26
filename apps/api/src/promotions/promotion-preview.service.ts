@@ -127,10 +127,19 @@ export class PromotionPreviewService {
             });
           }
         }
+        // An unchanged stored fixed item promotion stays previewable with the DEC-077 write gate off.
+        const stored = dto.promotionId
+          ? await this.promotions.storedConfig(
+              tx,
+              restaurantId,
+              dto.promotionId,
+            )
+          : null;
         const { config, defaultLocale } = await this.promotions.validateDraft(
           tx,
           restaurantId,
           dto.draft,
+          stored,
         );
         const draft = toPromotionCandidate(
           config,

@@ -167,6 +167,13 @@ const scenarios = [
   { scope: 'MENU', label: 'Menu', discountType: 'PERCENTAGE', value: '30.00',
     target: ['Nile Menu', 'menus', 'menuId', w => w.menuId],
     items: one, strategy: 'ITEM', original: '100.00', payable: '70.00', saving: '30.00', grand: '70.00' },
+  // DEC-077 B1: the same two item scopes with a fixed amount per purchased unit (35.00 beats Kofta's 20 % Product discount).
+  { scope: 'CATEGORY', label: 'Category', defaultLocale: 'ar', discountType: 'FIXED_AMOUNT', value: '35.00',
+    target: ['Grill', 'categories', 'categoryId', w => w.products[0].categoryId],
+    items: one, strategy: 'ITEM', original: '100.00', payable: '65.00', saving: '35.00', grand: '65.00' },
+  { scope: 'MENU', label: 'Menu', discountType: 'FIXED_AMOUNT', value: '30.00',
+    target: ['Nile Menu', 'menus', 'menuId', w => w.menuId],
+    items: one, strategy: 'ITEM', original: '100.00', payable: '70.00', saving: '30.00', grand: '70.00' },
   { scope: 'QUANTITY', label: 'Quantity', discountType: 'FIXED_AMOUNT', value: '50.00',
     items: w => w.products.map(({ id }) => ({ productId: id, quantity: 1 })),
     strategy: 'CART', original: '200.00', payable: '150.00', saving: '50.00', grand: '150.00' },
@@ -180,7 +187,7 @@ test.afterAll(() => prisma.$disconnect());
 
 for (const scenario of scenarios) {
   const { scope, label, defaultLocale = 'en', mobile, discountType, value, target } = scenario;
-  test.describe(`Staff Promotions ${scope}`, () => {
+  test.describe(`Staff Promotions ${scope} ${discountType}`, () => {
     if (mobile) test.use({ viewport: { width: 390, height: 844 }, locale: 'ar-EG', hasTouch: true });
 
     test('creates inactive, previews against real prices and activates', async ({ page, browser }, info) => {
@@ -212,8 +219,9 @@ for (const scenario of scenarios) {
       }
       await input(page, copy.internal).fill(internalName);
       await input(page, copy.scope).selectOption(scope);
-      if (scope === 'CATEGORY' || scope === 'MENU') await expect(input(page, copy.type)).toHaveCount(0);
-      else await input(page, copy.type).selectOption(discountType);
+      // DEC-077 B1: every scope offers both discount types (the runner enables the fixed item write gate).
+      await expect(input(page, copy.type)).toHaveCount(1);
+      await input(page, copy.type).selectOption(discountType);
       const valueInput = page.getByLabel(copy.value);
       await valueInput.fill(mobile ? '٣٥' : value);
       if (mobile) await expect(valueInput).toHaveValue('35');

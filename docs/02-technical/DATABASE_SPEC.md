@@ -2841,7 +2841,7 @@ yet**. Milestones: B1 fixed / percentage MENU and CATEGORY (the only migration),
 B4 editor UX and final verification (no schema). This section tells B1 what the storage change is, and what it must not be. It supersedes, for the two
 items below only, the Unified Promotions amendment of 2026-11-22.
 
-**1. Fixed MENU / CATEGORY promotions — relax two CHECKs (B1, the only migration).**
+**1. Fixed MENU / CATEGORY promotions — relax two CHECKs (B1, the only migration; implemented as `20261201090000_promotions_fixed_item_scope` by the B1 pull request).**
 
 | Constraint | Table | Today | After B1 |
 | --- | --- | --- | --- |

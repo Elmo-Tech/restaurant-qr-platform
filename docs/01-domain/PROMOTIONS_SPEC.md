@@ -164,7 +164,7 @@ optional Branches; a title in the Restaurant default locale is required.
 
 ## Amendment DEC-077 (2026-11-26): fixed item discounts, CART minimum, real previews, editor UX
 
-> **Status: Accepted (2026-11-26, Product Owner) — DEC-077. Documentation only (B0).**
+> **Status: Accepted (2026-11-26, Product Owner) — DEC-077. B0 is documentation only; B1 (D1, D1.11, D5.1–D5.3) is implemented by the DEC-077 B1 pull request and applies once that PR is merged and deployed.**
 > This section is the approved contract for the follow-up milestones B1–B4
 > (B1 fixed item discounts, B2 CART minimum, B3 preview API, B4 editor UX and final
 > verification; `docs/02-technical/PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`). **It is not
@@ -189,7 +189,7 @@ optional Branches; a title in the Restaurant default locale is required.
 | D1.5 Value | Fixed: > 0, at most 2 decimals. Percentage: 0 < v ≤ 100. Because a fixed value has at most 2 decimals no rounding applies. |
 | D1.6 Selection | Unchanged and deterministic. Per product line the greatest **line** saving among the legacy Product discount (only for sizes with `discountApplies`), CATEGORY and MENU wins; exact tie → lower priority number → PRODUCT > CATEGORY > MENU → stable promotion id. A fixed and a percentage candidate compete only through their monetary line saving. The fixed value is capped against the **original** unit price, never against an already discounted price. |
 | D1.7 Non-stacking | Unchanged: one item candidate per line; item path and the CART / QUANTITY winner are never combined; the cart winner must save strictly more than all item winners together; a winning cart promotion removes legacy Product discounts. |
-| D1.8 Eligibility | Unchanged (R1): target category / menu of the Product's current category, `ACTIVE`, inclusive dates in the order Branch timezone, Branch list (empty = all). No spend or quantity minimum for item scope. A line whose unit saving is 0.00 has nothing to win (`NO_EFFECTIVE_DISCOUNT`). |
+| D1.8 Eligibility | Unchanged (R1): target category / menu of the Product's current category, `ACTIVE`, inclusive dates in the order Branch timezone, Branch list (empty = all). No spend or quantity minimum for item scope. A line whose unit saving is 0.00 has nothing to win (the promotion reports `NO_ELIGIBLE_ITEMS`, as for percentage promotions today). |
 | D1.9 History | Unchanged model. A fixed item winner is stored as an `order_promotions` row (`scope` CATEGORY / MENU, `discount_type` `FIXED_AMOUNT`, `value` = the configured per-unit amount, `amount` = the total actually saved across lines, which can be lower than `value × units` when capped) plus per-line allocations. Existing orders are never recalculated; editing, deactivating or archiving the promotion never changes them. |
 | D1.10 Guest and AI display | `itemPromotion.type` may be `FIXED_AMOUNT` for CATEGORY and MENU; `value` is the per-unit amount and `amountOff` the capped per-unit amount for the displayed size. A Guest label must branch on `type`, never assume a percentage. |
 | D1.11 Write gate and type changes | Fixed item **writes** (create, activate, change to FIXED_AMOUNT) are gated by a default-off backend setting until the migration is applied and every pricing process runs the new build; **evaluation is never gated**, so existing fixed discounts keep applying whatever the setting says. Changing the stored discount type of an existing promotion requires explicit confirmation (D5.1). |

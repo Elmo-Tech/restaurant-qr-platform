@@ -9,8 +9,33 @@ export type DraftFields = Omit<PromotionDraft, 'priority' | 'startsOn' | 'endsOn
   minimumQuantity: string;
 };
 
-export function isPercentageOnly(scope: PromotionScope) {
+/** CATEGORY and MENU discount the items themselves (per purchased unit); the other scopes discount a cart or a fee. */
+export function isItemScope(scope: PromotionScope) {
   return scope === 'CATEGORY' || scope === 'MENU';
+}
+
+/**
+ * DEC-077 B1: discount-type support and minimum applicability are two separate questions. Every scope supports both
+ * discount types (a fixed item discount only while the backend write gate is on, see `canOfferFixed`); only a
+ * cart, quantity or delivery promotion can have a minimum order amount.
+ */
+export function supportsMinimumSubtotal(scope: PromotionScope) {
+  return !isItemScope(scope);
+}
+
+/** A stored fixed item promotion keeps its type in the form even when new fixed item promotions are not allowed. */
+export function isFixedItem(row: Pick<PromotionDraft, 'scope' | 'discountType'> | null): boolean {
+  return row !== null && isItemScope(row.scope) && row.discountType === 'FIXED_AMOUNT';
+}
+
+/** Whether FIXED_AMOUNT may be offered for `scope`: always for non-item scopes; for item scopes only while writes are enabled, or to keep an existing fixed item promotion as it is. */
+export function canOfferFixed(scope: PromotionScope, fixedItemScopeEnabled: boolean, original: Promotion | null): boolean {
+  return !isItemScope(scope) || fixedItemScopeEnabled || (isFixedItem(original) && original?.scope === scope);
+}
+
+/** True when saving would change the stored discount type of an existing promotion (needs an explicit confirmation). */
+export function changesDiscountType(original: Promotion | null, fields: Pick<DraftFields, 'discountType'>): boolean {
+  return original !== null && original.discountType !== fields.discountType;
 }
 
 export function hasItemRestrictions(scope: PromotionScope) {
@@ -75,13 +100,14 @@ export function toPromotionDraft(fields: DraftFields, targets: PromotionTargets)
     .map((entry) => ({ ...entry, title: entry.title.trim(), description: entry.description?.trim() || null }));
   if (!internalName || !translations.some((entry) => entry.locale === targets.defaultLocale && entry.title)) return { error: 'promotions.validation.names' };
   if (translations.some((entry) => entry.description && !entry.title)) return { error: 'promotions.validation.translation' };
-  const discountType = isPercentageOnly(scope) ? 'PERCENTAGE' : fields.discountType;
+  // Never forced: a stored fixed item promotion must reach the API as the fixed promotion it is (DEC-077 B1).
+  const { discountType } = fields;
   const value = fields.value.trim();
   // Shape validation only; the backend evaluates all money and pricing.
   if (!money.test(value) || !/[1-9]/.test(value) || (discountType === 'PERCENTAGE' && !/^(100(?:\.0{1,2})?|\d{1,2}(?:\.\d{1,2})?)$/.test(value))) {
     return { error: 'promotions.validation.value' };
   }
-  const minimumSubtotal = isPercentageOnly(scope) ? null : fields.minimumSubtotal.trim() || null;
+  const minimumSubtotal = supportsMinimumSubtotal(scope) ? fields.minimumSubtotal.trim() || null : null;
   if (minimumSubtotal !== null && !money.test(minimumSubtotal)) return { error: 'promotions.validation.minimumSubtotal' };
   const minimumQuantity = scope === 'QUANTITY' ? Number(fields.minimumQuantity) : null;
   if (minimumQuantity !== null && (!whole.test(fields.minimumQuantity) || minimumQuantity < 1 || minimumQuantity > 2147483647)) return { error: 'promotions.validation.minimumQuantity' };

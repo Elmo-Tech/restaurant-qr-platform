@@ -24,7 +24,9 @@ import {
  * Bounded, explicit policy -- not a rule interpreter:
  *   R1 item scope   per product line, the legacy Product discount (only when
  *                   the chosen size has `discountApplies`), CATEGORY and MENU
- *                   percentage promotions compete; the greatest line saving
+ *                   promotions (PERCENTAGE or, since DEC-077 B1, FIXED_AMOUNT
+ *                   per purchased unit, capped at the unit's original price,
+ *                   paid extras excluded) compete; the greatest line saving
  *                   wins; exact tie -> lower priority number -> PRODUCT >
  *                   CATEGORY > MENU -> promotion id ascending.
  *   R2 cart scope   CART and QUANTITY promotions compete for ONE winner over
@@ -426,15 +428,6 @@ export function evaluatePromotions(input: EngineInput): EngineResult {
     const check = baseEligibility(promotion, context);
     if (!check.ok) {
       evaluations.set(promotion.id, evaluation(promotion, check.status));
-    } else if (
-      (promotion.scope === 'CATEGORY' || promotion.scope === 'MENU') &&
-      promotion.discountType !== 'PERCENTAGE'
-    ) {
-      // Rejected by validation and by a DB CHECK; never trusted here either.
-      evaluations.set(
-        promotion.id,
-        evaluation(promotion, 'INVALID_CONFIGURATION'),
-      );
     } else {
       eligible.push(promotion);
     }
@@ -482,9 +475,11 @@ export function evaluatePromotions(input: EngineInput): EngineResult {
           ? promotion.categoryIds.includes(line.categoryId)
           : promotion.menuIds.includes(line.menuId);
       if (!targeted) continue;
+      // DEC-077 D1: the promotion's own type; a fixed amount is taken per purchased unit and capped at the
+      // ORIGINAL unit price (paid extras are not part of `unitPrice`). The shared helper also caps and rounds.
       const unitDiscount = computeUnitDiscount(
         line.unitPrice,
-        'PERCENTAGE',
+        promotion.discountType,
         promotion.value,
       );
       // A zero-price line (or a sub-half-cent saving) gives nothing to win.
@@ -946,7 +941,7 @@ export type PromotionInputProblemCode =
   | 'INTERNAL_NAME_TOO_LONG'
   | 'SCOPE_INVALID'
   | 'DISCOUNT_TYPE_INVALID'
-  | 'ITEM_SCOPE_REQUIRES_PERCENTAGE'
+  | 'FIXED_ITEM_SCOPE_NOT_ENABLED'
   | 'VALUE_INVALID'
   | 'PERCENTAGE_ABOVE_100'
   | 'PRIORITY_INVALID'
@@ -1043,9 +1038,6 @@ export function validatePromotionInput(
   const scope = input.scope as PromotionScopeName;
   const itemScope = scope === 'CATEGORY' || scope === 'MENU';
 
-  if (itemScope && typeKnown && input.discountType !== 'PERCENTAGE') {
-    add('ITEM_SCOPE_REQUIRES_PERCENTAGE', 'discountType');
-  }
   if (
     !input.value.isFinite() ||
     !input.value.greaterThan(ZERO) ||

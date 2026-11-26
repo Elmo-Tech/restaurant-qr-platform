@@ -108,6 +108,8 @@ shortfall or product price), in any contract.
 
 ## 5. B1 — Fixed and percentage MENU / CATEGORY discounts
 
+**Implementation status.** Implemented in the DEC-077 B1 pull request (migration `20261201090000_promotions_fixed_item_scope`, write gate `PROMOTIONS_FIXED_ITEM_WRITES_ENABLED`, type-change confirmation, minimal editor support); test evidence and the rollout precautions are in that PR. Not merged or deployed by this plan; a zero-saving item line reports `NO_ELIGIBLE_ITEMS` like a percentage promotion.
+
 **Scope.** Backend, one migration, safeguards, and the smallest editor change that keeps the Staff UI correct. No UX redesign.
 
 **Backend.**
