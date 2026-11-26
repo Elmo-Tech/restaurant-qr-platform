@@ -277,7 +277,8 @@ a.ml-contact-line:hover{color:#fff}
 .ml-hours span{width:8px;height:8px;border-radius:50%;background:#c0675d}
 .ml-hours.is-open span{background:#5fb27a}
 .ml-channels{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:10px}
-.ml-channels a{display:inline-flex;align-items:center;gap:8px;color:#e4d8cb;text-decoration:none;font-size:12px;min-height:40px}
+.ml-channels a{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:50%;color:#e4d8cb;text-decoration:none}
+.ml-channels a:focus-visible{outline:2px solid #efd8be;outline-offset:2px}
 .ml-channels a:hover{color:#fff}
 .ml-back-top{font-size:13px;font-weight:700;color:#efd8be;text-decoration:none;min-height:44px;display:inline-flex;align-items:center}
 .ml-back-top:hover{color:#fff}

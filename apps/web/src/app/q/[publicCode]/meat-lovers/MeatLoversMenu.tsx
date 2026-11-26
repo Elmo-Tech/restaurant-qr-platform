@@ -596,9 +596,8 @@ export function MeatLoversMenu(props: MeatLoversMenuProps) {
                 <ul className="ml-channels" aria-label={copy.findUs}>
                   {channels.map((channel) => (
                     <li key={channel.key}>
-                      <a href={channel.href} {...(channel.external ? LINK_PROPS : {})}>
+                      <a href={channel.href} aria-label={channel.label} title={channel.label} {...(channel.external ? LINK_PROPS : {})}>
                         <Badge channel={channel} size={30} />
-                        <span>{channel.label}</span>
                       </a>
                     </li>
                   ))}

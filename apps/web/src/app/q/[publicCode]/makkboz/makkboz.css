@@ -238,7 +238,7 @@
 .makkboz-experience .m-add:hover{background:var(--m-btn-hover);transform:scale(1.04)}
 .makkboz-experience .m-add svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round}
 .makkboz-experience .m-add-count{position:absolute;inset-block-start:-7px;inset-inline-end:-7px;min-width:20px;height:20px;border-radius:999px;padding:0 5px;background:#e0ba73;color:#0d3027;font:800 11px/20px var(--m-body);text-align:center}
-.makkboz-experience .m-stepper{display:flex;align-items:center;flex:none;border:1px solid var(--m-btn);border-radius:8px;overflow:hidden;background:var(--m-card)}
+.makkboz-experience .m-stepper{display:flex;align-items:center;flex:none;border:1px solid var(--m-btn);border-radius:8px;overflow:hidden;background:var(--m-card);color:var(--m-text)}
 .makkboz-experience .m-stepper button{width:40px;height:44px;border:0;background:transparent;color:var(--m-title);font-size:20px;font-weight:800}
 .makkboz-experience .m-stepper button:hover{background:var(--m-btn);color:var(--m-btn-fg)}
 .makkboz-experience .m-stepper span{min-width:26px;text-align:center;font-weight:800}
@@ -286,7 +286,8 @@
 .makkboz-experience .m-hours span{width:9px;height:9px;border-radius:50%;background:#d9594c}
 .makkboz-experience .m-hours.is-open span{background:#5fd68a}
 .makkboz-experience .m-channels{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:10px}
-.makkboz-experience .m-channels a{display:inline-flex;align-items:center;gap:9px;min-height:44px;padding-block:6px;padding-inline:6px 16px;border-radius:999px;border:1px solid rgba(245,219,175,.25);font-weight:700;font-size:14px;color:#f3e6cc}
+.makkboz-experience .m-channels a{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:999px;border:1px solid rgba(245,219,175,.25);color:#f3e6cc}
+.makkboz-experience .m-channels a:focus-visible{outline:2px solid #e0ba73;outline-offset:2px}
 .makkboz-experience .m-channels a:hover{border-color:#e0ba73}
 .makkboz-experience .m-footer-bottom{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:57px;border-top:1px solid rgba(245,219,175,.13);color:#cbbda5;font-size:12px;flex-wrap:wrap}
 .makkboz-experience .m-powered{display:inline-flex;align-items:center;gap:8px}
