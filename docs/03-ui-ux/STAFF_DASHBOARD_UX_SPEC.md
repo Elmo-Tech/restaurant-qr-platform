@@ -1107,6 +1107,8 @@ Waiter should not see administrative controls such as:
 
 > **Implemented 2026-10-17 (Kitchen View V1):** route `/staff/restaurants/{restaurantId}/kitchen`. One Branch at a time, columns New / Preparing / Ready (tabs below the large breakpoint), oldest ticket first, a per-ticket timer (warning at 10 min, alert at 20 min), the Guest note highlighted, items with quantity, size and options, one large action (Start preparing / Mark ready), automatic refresh every 5 seconds and when the tab becomes visible, and an opt-in new-ticket chime. A KITCHEN account lands on it. Not in V1: per-item cancel state, kitchen stations, printing.
 
+> **Kitchen K2 (ticket readability and time priority, Wayta UX roadmap Phase 2):** each column now lists the ticket that has waited longest in its *current stage* first (`statusSince`, then `createdAt`, then id), not oldest-created first. The timer thresholds are unchanged (warning at 10 min, alert at 20 min; never on READY). A delayed ticket is marked with a word, an icon and an outline, not colour alone; options are listed under their own group name. The Kitchen Ticket API has no order number, so the Table or customer name remains the ticket identity. READY still means "waiting for service", never SERVED. Presentation only: no API, pricing or permission change.
+
 Kitchen Board is a specialized operational experience.
 
 ---

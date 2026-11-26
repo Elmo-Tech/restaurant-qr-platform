@@ -19,6 +19,7 @@ import {
   type PendingCheck,
 } from '../../../../../lib/kitchen/board-state';
 import { canUpdateKitchen } from '../../../../../lib/kitchen/capabilities';
+import { sortKitchenTickets } from '../../../../../lib/kitchen/ticket-view';
 import type { KitchenStatus, KitchenTicket } from '../../../../../lib/kitchen/types';
 import * as ordersApi from '../../../../../lib/orders/api';
 import type { AuthContextBranch } from '../../../../../lib/auth/types';
@@ -76,8 +77,8 @@ export interface KitchenBoardProps {
 
 /**
  * Kitchen View V1 (VERSION_ROADMAP, STAFF_DASHBOARD_UX_SPEC #99-#119): one
- * Branch at a time, three columns -- New, Preparing, Ready -- oldest ticket
- * first. It polls every few seconds (and the moment the tab becomes visible
+ * Branch at a time, three columns -- New, Preparing, Ready -- the ticket that
+ * has waited longest in its column first. It polls every few seconds (and the moment the tab becomes visible
  * again), chimes when a new ticket arrives (opt-in), and moves a ticket
  * forward with one big button through the existing, Backend-checked status
  * route. Below the large breakpoint the columns become tabs.
@@ -89,6 +90,9 @@ export interface KitchenBoardProps {
  * (or unmounting) discards whatever the previous session still had in flight.
  * A status change with an unknown outcome blocks that ticket until a read
  * started after it succeeds.
+ *
+ * Kitchen K2 (ticket readability and time priority): presentation and sort
+ * order only -- see `lib/kitchen/ticket-view` and `KitchenTicketCard`.
  */
 export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoardProps) {
   const { t, locale, formatTime } = useStaffI18n();
@@ -346,7 +350,9 @@ export function KitchenBoard({ restaurantId, branches, permissions }: KitchenBoa
 
   const byColumn = useMemo(() => {
     const groups: Record<KitchenStatus, KitchenTicket[]> = { ACCEPTED: [], PREPARING: [], READY: [] };
-    for (const ticket of tickets ?? []) groups[ticket.status].push(ticket);
+    // Longest waiting in its current stage first (K2). The Backend lists by creation time, which is a
+    // different order for an order that waited as PENDING before it was accepted.
+    for (const ticket of sortKitchenTickets(tickets ?? [])) groups[ticket.status].push(ticket);
     return groups;
   }, [tickets]);
 
