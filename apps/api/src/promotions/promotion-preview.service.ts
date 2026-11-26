@@ -33,13 +33,18 @@ export interface PromotionPreview {
   zoneMinimumShortfall: string | null;
 }
 
-function invalid(code: string, message: string): never {
+export type PreviewScope = Pick<
+  RestaurantAccessContext,
+  'restaurantId' | 'membershipId' | 'allBranches'
+>;
+
+export function invalid(code: string, message: string): never {
   throw new UnprocessableEntityException({ error: { code, message } });
 }
 
 const ZERO = new Prisma.Decimal(0);
 // Sort after persisted UUIDs on an exact tie; a new draft has no stable id yet.
-const NEW_DRAFT_ID = 'preview-draft';
+export const NEW_DRAFT_ID = 'preview-draft';
 
 @Injectable()
 export class PromotionPreviewService {
@@ -50,34 +55,15 @@ export class PromotionPreviewService {
 
   /** A read-only example basket, not a quote or an availability promise. */
   async preview(
-    scope: Pick<
-      RestaurantAccessContext,
-      'restaurantId' | 'membershipId' | 'allBranches'
-    >,
+    scope: PreviewScope,
     dto: PromotionPreviewDto,
   ): Promise<PromotionPreview> {
-    const { restaurantId, membershipId, allBranches } = scope;
+    const { restaurantId } = scope;
+    // Required by the pre-B3 request validation; only a CONTEXTUAL_V1 request can omit it.
+    const items = dto.items ?? [];
     return this.prisma.$transaction(
       async (tx) => {
-        const branch = await tx.branch.findFirst({
-          where: {
-            id: dto.branchId,
-            restaurantId,
-            status: 'ACTIVE',
-            ...(!allBranches && {
-              membershipBranches: {
-                some: { restaurantMembershipId: membershipId },
-              },
-            }),
-          },
-          select: { timezone: true },
-        });
-        if (!branch) {
-          invalid(
-            'PROMOTION_PREVIEW_BRANCH_INVALID',
-            'Choose an available Branch.',
-          );
-        }
+        const branch = await this.loadBranch(tx, scope, dto.branchId);
         if (
           (dto.orderType === 'DELIVERY') !==
           (dto.deliveryZoneId !== undefined)
@@ -105,27 +91,12 @@ export class PromotionPreviewService {
           );
         }
         if (dto.promotionId) {
-          const existing = await tx.promotion.findFirst({
-            where: {
-              id: dto.promotionId,
-              restaurantId,
-              ...(!allBranches && {
-                OR: [
-                  { branches: { none: {} } },
-                  { branches: { some: { branchId: dto.branchId } } },
-                ],
-              }),
-            },
-            select: { id: true },
-          });
-          if (!existing) {
-            throw new NotFoundException({
-              error: {
-                code: 'PROMOTION_NOT_FOUND',
-                message: 'Promotion not found.',
-              },
-            });
-          }
+          await this.assertPromotionVisible(
+            tx,
+            scope,
+            dto.promotionId,
+            dto.branchId,
+          );
         }
         // An unchanged stored fixed item promotion stays previewable with the DEC-077 write gate off.
         const stored = dto.promotionId
@@ -149,7 +120,7 @@ export class PromotionPreviewService {
           defaultLocale,
         ).promotion;
         const productIds = [
-          ...new Set(dto.items.map(({ productId }) => productId)),
+          ...new Set(items.map(({ productId }) => productId)),
         ];
         const products =
           productIds.length === 0
@@ -174,7 +145,7 @@ export class PromotionPreviewService {
                 },
               });
         const byId = new Map(products.map((product) => [product.id, product]));
-        const lines: EngineProductLine[] = dto.items.map(
+        const lines: EngineProductLine[] = items.map(
           ({ productId, quantity }, index) => {
             const product = byId.get(productId);
             if (!product) {
@@ -259,5 +230,65 @@ export class PromotionPreviewService {
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.RepeatableRead },
     );
+  }
+
+  /** The selected Branch, which must be ACTIVE and inside the caller's Branch grants (Tenant and Branch scope). */
+  async loadBranch(
+    tx: Prisma.TransactionClient,
+    scope: PreviewScope,
+    branchId: string,
+  ): Promise<{ timezone: string }> {
+    const { restaurantId, membershipId, allBranches } = scope;
+    const branch = await tx.branch.findFirst({
+      where: {
+        id: branchId,
+        restaurantId,
+        status: 'ACTIVE',
+        ...(!allBranches && {
+          membershipBranches: {
+            some: { restaurantMembershipId: membershipId },
+          },
+        }),
+      },
+      select: { timezone: true },
+    });
+    if (!branch) {
+      invalid(
+        'PROMOTION_PREVIEW_BRANCH_INVALID',
+        'Choose an available Branch.',
+      );
+    }
+    return branch;
+  }
+
+  /** A foreign Restaurant's promotion, or one a Branch-limited caller cannot see, is the same safe not-found. */
+  async assertPromotionVisible(
+    tx: Prisma.TransactionClient,
+    scope: PreviewScope,
+    promotionId: string,
+    branchId: string,
+  ): Promise<void> {
+    const { restaurantId, allBranches } = scope;
+    const existing = await tx.promotion.findFirst({
+      where: {
+        id: promotionId,
+        restaurantId,
+        ...(!allBranches && {
+          OR: [
+            { branches: { none: {} } },
+            { branches: { some: { branchId } } },
+          ],
+        }),
+      },
+      select: { id: true },
+    });
+    if (!existing) {
+      throw new NotFoundException({
+        error: {
+          code: 'PROMOTION_NOT_FOUND',
+          message: 'Promotion not found.',
+        },
+      });
+    }
   }
 }

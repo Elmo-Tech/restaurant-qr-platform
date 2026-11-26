@@ -1,0 +1,219 @@
+{
+  "cartApplied": {
+    "status": 200,
+    "body": {
+      "data": {
+        "strategy": "CART",
+        "merchandiseOriginal": "240.00",
+        "merchandisePayable": "216.00",
+        "deliveryFeeOriginal": "0.00",
+        "deliveryFeePayable": "0.00",
+        "grandTotal": "216.00",
+        "appliedSaving": "24.00",
+        "diagnostic": {
+          "status": "APPLIED",
+          "potentialSaving": "24.00",
+          "remainingAmount": null,
+          "remainingQuantity": null
+        },
+        "zoneMinimumShortfall": null
+      }
+    }
+  },
+  "cartBelow": {
+    "status": 200,
+    "body": {
+      "data": {
+        "strategy": "NONE",
+        "merchandiseOriginal": "120.00",
+        "merchandisePayable": "120.00",
+        "deliveryFeeOriginal": "0.00",
+        "deliveryFeePayable": "0.00",
+        "grandTotal": "120.00",
+        "appliedSaving": "0.00",
+        "diagnostic": {
+          "status": "BELOW_MINIMUM_SUBTOTAL",
+          "potentialSaving": "0.00",
+          "remainingAmount": "80.00",
+          "remainingQuantity": null
+        },
+        "zoneMinimumShortfall": null
+      }
+    }
+  },
+  "cartNoMinimum": {
+    "status": 200,
+    "body": {
+      "data": {
+        "strategy": "CART",
+        "merchandiseOriginal": "40.00",
+        "merchandisePayable": "36.00",
+        "deliveryFeeOriginal": "0.00",
+        "deliveryFeePayable": "0.00",
+        "grandTotal": "36.00",
+        "appliedSaving": "4.00",
+        "diagnostic": {
+          "status": "APPLIED",
+          "potentialSaving": "4.00",
+          "remainingAmount": null,
+          "remainingQuantity": null
+        },
+        "zoneMinimumShortfall": null
+      }
+    }
+  },
+  "quantityFixed": {
+    "status": 200,
+    "body": {
+      "data": {
+        "strategy": "CART",
+        "merchandiseOriginal": "360.00",
+        "merchandisePayable": "330.00",
+        "deliveryFeeOriginal": "0.00",
+        "deliveryFeePayable": "0.00",
+        "grandTotal": "330.00",
+        "appliedSaving": "30.00",
+        "diagnostic": {
+          "status": "APPLIED",
+          "potentialSaving": "30.00",
+          "remainingAmount": null,
+          "remainingQuantity": null
+        },
+        "zoneMinimumShortfall": null
+      }
+    }
+  },
+  "categoryPercent": {
+    "status": 200,
+    "body": {
+      "data": {
+        "strategy": "ITEM",
+        "merchandiseOriginal": "320.00",
+        "merchandisePayable": "272.00",
+        "deliveryFeeOriginal": "0.00",
+        "deliveryFeePayable": "0.00",
+        "grandTotal": "272.00",
+        "appliedSaving": "48.00",
+        "diagnostic": {
+          "status": "APPLIED",
+          "potentialSaving": "48.00",
+          "remainingAmount": null,
+          "remainingQuantity": null
+        },
+        "zoneMinimumShortfall": null
+      }
+    }
+  },
+  "menuLosesToLegacyDiscount": {
+    "status": 200,
+    "body": {
+      "data": {
+        "strategy": "ITEM",
+        "merchandiseOriginal": "50.00",
+        "merchandisePayable": "40.00",
+        "deliveryFeeOriginal": "0.00",
+        "deliveryFeePayable": "0.00",
+        "grandTotal": "40.00",
+        "appliedSaving": "0.00",
+        "diagnostic": {
+          "status": "LOST_TO_BETTER_OFFER",
+          "potentialSaving": "0.00",
+          "remainingAmount": null,
+          "remainingQuantity": null
+        },
+        "zoneMinimumShortfall": null
+      }
+    }
+  },
+  "delivery": {
+    "status": 200,
+    "body": {
+      "data": {
+        "strategy": "NONE",
+        "merchandiseOriginal": "120.00",
+        "merchandisePayable": "120.00",
+        "deliveryFeeOriginal": "25.00",
+        "deliveryFeePayable": "25.00",
+        "grandTotal": "145.00",
+        "appliedSaving": "0.00",
+        "diagnostic": {
+          "status": "BELOW_MINIMUM_SUBTOTAL",
+          "potentialSaving": "0.00",
+          "remainingAmount": "30.00",
+          "remainingQuantity": null
+        },
+        "zoneMinimumShortfall": "30.00"
+      }
+    }
+  },
+  "emptyItems": {
+    "status": 200,
+    "body": {
+      "data": {
+        "strategy": "NONE",
+        "merchandiseOriginal": "0.00",
+        "merchandisePayable": "0.00",
+        "deliveryFeeOriginal": "0.00",
+        "deliveryFeePayable": "0.00",
+        "grandTotal": "0.00",
+        "appliedSaving": "0.00",
+        "diagnostic": {
+          "status": "NO_ELIGIBLE_ITEMS",
+          "potentialSaving": "0.00",
+          "remainingAmount": null,
+          "remainingQuantity": null
+        },
+        "zoneMinimumShortfall": null
+      }
+    }
+  },
+  "invalidDraft": {
+    "status": 422,
+    "code": "PROMOTION_INVALID",
+    "details": {
+      "problems": [
+        {
+          "code": "TARGETS_REQUIRED",
+          "field": "categoryIds"
+        }
+      ]
+    }
+  },
+  "wrongBranch": {
+    "status": 422,
+    "code": "PROMOTION_PREVIEW_BRANCH_INVALID",
+    "details": null
+  },
+  "zoneWithoutDelivery": {
+    "status": 422,
+    "code": "PROMOTION_PREVIEW_ZONE_INVALID",
+    "details": null
+  },
+  "deliveryWithoutZone": {
+    "status": 422,
+    "code": "PROMOTION_PREVIEW_ZONE_INVALID",
+    "details": null
+  },
+  "unknownProduct": {
+    "status": 422,
+    "code": "PROMOTION_PREVIEW_PRODUCT_INVALID",
+    "details": null
+  },
+  "missingItems": {
+    "status": 400,
+    "code": "VALIDATION_ERROR",
+    "details": {
+      "fields": [
+        {
+          "field": "items",
+          "code": "INVALID_VALUE"
+        }
+      ]
+    }
+  },
+  "unknownPromotion": {
+    "status": 404,
+    "code": "PROMOTION_NOT_FOUND",
+    "details": null
+  }
+}
