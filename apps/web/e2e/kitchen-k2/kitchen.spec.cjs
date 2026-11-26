@@ -121,14 +121,17 @@ test('every control on the board is at least 44px tall, on a phone and on a desk
   }
 });
 
-test('on a phone the three stages are tabs and only one column is shown', async ({ page, context }) => {
+test('on a phone the stages are tabs and one ticket is in focus (the K3 suite covers it in depth)', async ({ page, context }) => {
   await page.setViewportSize({ width: 390, height: 844 });
   await open(page, context);
+  await expect(page.getByRole('tab', { name: 'New: 4' })).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('article')).toHaveCount(1);
+  await page.getByRole('tab', { name: 'Preparing: 2' }).click();
+  await expect(page.locator('article h3')).toHaveText('Table 12');
+  await page.setViewportSize({ width: 1365, height: 900 });
   await expect(column(page, 'New')).toBeVisible();
-  await expect(column(page, 'Preparing')).toBeHidden();
-  await page.getByRole('group', { name: 'Board column' }).getByRole('button', { name: /Preparing/ }).click();
   await expect(column(page, 'Preparing')).toBeVisible();
-  expect(await identities(column(page, 'Preparing'))).toEqual(['Table 12', 'Omar K.']);
+  await expect(page.getByRole('tab')).toHaveCount(0);
 });
 
 test('a read-only account sees every ticket but no enabled action, and sends nothing', async ({ page, context }) => {

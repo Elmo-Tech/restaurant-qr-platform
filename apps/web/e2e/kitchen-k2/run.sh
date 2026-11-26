@@ -2,6 +2,7 @@
 # Kitchen K2 browser suite. Starts the real Next.js app (webpack dev) against the in-process stub API
 # (stub-api.cjs): no database, no real Backend, no external service. Extra args go to Playwright.
 #   K2_SHOT_DIR=<dir> K2_LABEL=before|after   also write screenshots
+#   K2_SUITE_DIR=<dir with playwright.config.cjs>   run another suite on this harness (Kitchen K3 does)
 set -euo pipefail
 
 repo=$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd -P)
@@ -41,5 +42,5 @@ for (( attempt=0; attempt<120; attempt++ )); do
 done
 
 NODE_PATH="$tools/node_modules" CI=1 \
-  node "$tools/node_modules/@playwright/test/cli.js" test --config "$repo/apps/web/e2e/kitchen-k2/playwright.config.cjs" "$@" \
+  node "$tools/node_modules/@playwright/test/cli.js" test --config "${K2_SUITE_DIR:-$repo/apps/web/e2e/kitchen-k2}/playwright.config.cjs" "$@" \
   2>&1 | tee "$state/playwright.log"
