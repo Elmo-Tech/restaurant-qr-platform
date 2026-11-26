@@ -65,7 +65,9 @@ function incompleteReason(fields: DraftFields, error: string): IncompleteReason 
     case 'promotions.validation.value': return 'VALUE_INVALID';
     case 'promotions.validation.targets': return fields.scope === 'MENU' ? 'MENU_TARGETS' : 'CATEGORY_TARGETS';
     case 'promotions.validation.minimumQuantity': return 'MINIMUM_QUANTITY';
-    case 'promotions.validation.minimumSubtotal': return 'MINIMUM_SUBTOTAL';
+    case 'promotions.validation.minimumSubtotal':
+    case 'promotions.validation.minimumSubtotalRequired':
+    case 'promotions.validation.minimumSubtotalPositive': return 'MINIMUM_SUBTOTAL';
     case 'promotions.validation.dates': return 'DATES';
     case 'promotions.validation.priority': return 'PRIORITY';
     case 'promotions.validation.zoneBranch': return 'ZONE_BRANCH';
@@ -165,9 +167,9 @@ export function illustrativeExample(draft: PromotionDraft): IllustrativeExample 
 
 // ---- planning --------------------------------------------------------------
 
-export function planSavingsPreview(fields: DraftFields, targets: PromotionTargets, original: Pick<Promotion, 'id'> | null): SavingsPreviewPlan {
+export function planSavingsPreview(fields: DraftFields, targets: PromotionTargets, original: Pick<Promotion, 'id' | 'scope' | 'needsMinimumSubtotal'> | null): SavingsPreviewPlan {
   if (!fields.value.trim()) return { kind: 'incomplete', reason: 'VALUE_MISSING' };
-  const validated = toPromotionDraft(previewFields(fields, targets), targets);
+  const validated = toPromotionDraft(previewFields(fields, targets), targets, original);
   if ('error' in validated) return { kind: 'incomplete', reason: incompleteReason(fields, validated.error) };
   const { draft } = validated;
   const illustrative = (reason: IllustrativeReason, requiredQuantity: number | null = null): SavingsPreviewPlan =>

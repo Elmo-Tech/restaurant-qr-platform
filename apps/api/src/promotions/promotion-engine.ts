@@ -947,6 +947,8 @@ export type PromotionInputProblemCode =
   | 'PRIORITY_INVALID'
   | 'DATE_INVALID'
   | 'DATES_ORDER_INVALID'
+  | 'MINIMUM_SUBTOTAL_REQUIRED'
+  | 'MINIMUM_SUBTOTAL_NOT_POSITIVE'
   | 'MINIMUM_SUBTOTAL_INVALID'
   | 'MINIMUM_SUBTOTAL_NOT_ALLOWED'
   | 'MINIMUM_QUANTITY_REQUIRED'
@@ -965,6 +967,20 @@ export type PromotionInputProblemCode =
 export interface PromotionInputProblem {
   code: PromotionInputProblemCode;
   field: string;
+}
+
+export interface PromotionInputOptions {
+  /**
+   * DEC-077 D2: a CART promotion being created, activated or changed needs `minimumSubtotal` > 0. The caller decides
+   * (the Backend compares stored vs. requested values for legacy rows); false keeps the pre-B2 "NULL or >= 0" rule,
+   * which the unchanged preview contract still uses.
+   */
+  requirePositiveCartMinimum?: boolean;
+  /**
+   * A PATCH that did not send `minimumSubtotal` leaves the stored value in place; when that stored value is a legacy
+   * 0.00 the problem is "still missing" (REQUIRED), not "you sent a non-positive amount" (NOT_POSITIVE). Default true.
+   */
+  minimumSupplied?: boolean;
 }
 
 const SCOPES: readonly string[] = [
@@ -1020,6 +1036,7 @@ const TARGET_FIELDS: readonly TargetField[] = [
 export function validatePromotionInput(
   input: PromotionInput,
   defaultLocale: string,
+  options: PromotionInputOptions = {},
 ): PromotionInputProblem[] {
   const problems: PromotionInputProblem[] = [];
   const add = (code: PromotionInputProblemCode, field: string) =>
@@ -1073,7 +1090,21 @@ export function validatePromotionInput(
     add('DATES_ORDER_INVALID', 'endsOn');
   }
 
-  if (input.minimumSubtotal !== null) {
+  if (scope === 'CART' && options.requirePositiveCartMinimum === true) {
+    const minimum = input.minimumSubtotal;
+    if (minimum === null) {
+      add('MINIMUM_SUBTOTAL_REQUIRED', 'minimumSubtotal');
+    } else if (!minimum.isFinite() || minimum.decimalPlaces() > 2) {
+      add('MINIMUM_SUBTOTAL_INVALID', 'minimumSubtotal');
+    } else if (!minimum.greaterThan(ZERO)) {
+      add(
+        options.minimumSupplied === false
+          ? 'MINIMUM_SUBTOTAL_REQUIRED'
+          : 'MINIMUM_SUBTOTAL_NOT_POSITIVE',
+        'minimumSubtotal',
+      );
+    }
+  } else if (input.minimumSubtotal !== null) {
     if (itemScope) {
       add('MINIMUM_SUBTOTAL_NOT_ALLOWED', 'minimumSubtotal');
     } else if (

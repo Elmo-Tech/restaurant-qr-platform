@@ -15,7 +15,7 @@ import { useStaffI18n } from '../../../../../../lib/i18n/client';
 import { localizedName } from '../../../../../../lib/i18n/localized-name';
 import type { MessageKey } from '../../../../../../lib/i18n/messages';
 import { promotionScopes, savePromotion, type Promotion, type PromotionOption, type PromotionTargets } from '../../../../../../lib/promotions/api';
-import { blankDraft, canOfferFixed, changesDiscountType, hasItemRestrictions, isItemScope, normalizePromotionNumber, supportsMinimumSubtotal, toPromotionDraft, widening, type DraftFields } from '../../../../../../lib/promotions/draft';
+import { blankDraft, canOfferFixed, cartMinimumProblem, changesDiscountType, hasItemRestrictions, isItemScope, normalizePromotionNumber, requiresCartMinimum, supportsMinimumSubtotal, toPromotionDraft, widening, type DraftFields } from '../../../../../../lib/promotions/draft';
 import { needsPromotionReload, promotionError } from '../../../../../../lib/promotions/errors';
 import { localeDirection, localeLabel } from '../../../../../../lib/settings/locale-labels';
 import { SavingsPreview } from './SavingsPreview';
@@ -136,6 +136,11 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
   const blocked = saving || reloading || targetsRefreshing || requiresReload || uncertainCreate;
   const branchZones = targets.deliveryZones.filter((item) => !fields.branchIds.length || fields.branchIds.includes(item.branchId) || fields.deliveryZoneIds.includes(item.id));
   const scopeSupportsMin = supportsMinimumSubtotal(scope);
+  // DEC-077 B2: a new (or non-legacy) CART promotion cannot look ready to save without a minimum above 0. A stored legacy
+  // promotion keeps its own rules, which the Backend applies; the client only explains them.
+  const minimumRequired = requiresCartMinimum(scope, original);
+  const minimumProblem = cartMinimumProblem(fields, original);
+  const legacyMinimum = scope === 'CART' && original?.scope === 'CART' && original.needsMinimumSubtotal === true;
   const offerFixed = canOfferFixed(scope, targets.fixedItemScopeEnabled === true, original) || fields.discountType === 'FIXED_AMOUNT';
 
   function change<K extends keyof DraftFields>(key: K, value: DraftFields[K]) {
@@ -181,8 +186,8 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!canEdit || blocked || (mustConfirm && !confirmWiden) || (mustConfirmType && !confirmType)) return;
-    const result = toPromotionDraft(fields, targets);
+    if (!canEdit || blocked || minimumProblem !== null || (mustConfirm && !confirmWiden) || (mustConfirmType && !confirmType)) return;
+    const result = toPromotionDraft(fields, targets, original);
     if ('error' in result) { setError(result.error); return; }
     setSaving(true);
     setError(null);
@@ -278,7 +283,13 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
                   <summary className={disclosure}>{t('promotions.branchTargets')} · {t('promotions.selectedCount', { count: fields.branchIds.length })}</summary>
                   <TargetChoices title={t('promotions.branchTargets')} hint={t('promotions.allBranches')} options={targets.branches} selected={fields.branchIds} onChange={(ids) => change('branchIds', ids)} />
                 </details>
-                {scopeSupportsMin ? <FormField label={t('promotions.minimumSubtotal')} htmlFor="promo-min-subtotal"><Input id="promo-min-subtotal" dir="ltr" inputMode="decimal" maxLength={15} value={fields.minimumSubtotal} onChange={(e) => change('minimumSubtotal', normalizePromotionNumber(e.target.value))} /></FormField> : null}
+                {scopeSupportsMin ? <FormField label={t(minimumRequired ? 'promotions.minimumSubtotalRequired' : 'promotions.minimumSubtotal')} htmlFor="promo-min-subtotal">
+                  <Input id="promo-min-subtotal" dir="ltr" inputMode="decimal" maxLength={15} value={fields.minimumSubtotal} aria-required={minimumRequired || undefined} aria-invalid={minimumProblem !== null || undefined}
+                    aria-describedby={scope === 'CART' ? `promo-min-subtotal-help${minimumProblem ? ' promo-min-subtotal-problem' : ''}` : undefined} onChange={(e) => change('minimumSubtotal', normalizePromotionNumber(e.target.value))} />
+                </FormField> : null}
+                {scope === 'CART' ? <p id="promo-min-subtotal-help" className={helper}>{t('promotions.minimumSubtotalHint')}</p> : null}
+                {minimumProblem ? <p id="promo-min-subtotal-problem" role="status" className="text-sm font-semibold text-destructive">{t(minimumProblem)}</p> : null}
+                {legacyMinimum ? <Alert variant="warning"><p>{t('promotions.legacyMinimumNotice')}</p></Alert> : null}
               </Card>
               <Card className="p-4 sm:p-6">
                 <details className="space-y-3" open={Boolean(original?.startsOn || original?.endsOn || (original && original.priority !== 100)) || undefined}>
@@ -310,7 +321,7 @@ export function PromotionEditor({ restaurantId, original, targets, initialZoneId
             {requiresReload && original ? <Alert variant="warning"><p>{t('promotions.reloadHelp')}</p><Button type="button" variant="secondary" disabled={reloading} onClick={() => void onReload(original)}>{t(reloading ? 'common.loading' : 'promotions.reload')}</Button></Alert> : null}
             {uncertainCreate ? <Alert variant="warning"><p>{t('promotions.uncertainCreate')}</p><Button type="button" variant="secondary" onClick={onUncertainCreate}>{t('promotions.viewList')}</Button></Alert> : null}
             <div className="flex flex-wrap justify-end rounded-xl border border-border bg-card p-3">
-              <Button type="submit" className="h-11" disabled={blocked || (mustConfirm && !confirmWiden) || (mustConfirmType && !confirmType) || (original !== null && !dirty)}>{t(saving ? 'common.saving' : original ? 'common.save' : 'promotions.createInactive')}</Button>
+              <Button type="submit" className="h-11" disabled={blocked || minimumProblem !== null || (mustConfirm && !confirmWiden) || (mustConfirmType && !confirmType) || (original !== null && !dirty)}>{t(saving ? 'common.saving' : original ? 'common.save' : 'promotions.createInactive')}</Button>
             </div>
           </form>
           {preview}

@@ -2870,6 +2870,9 @@ items below only, the Unified Promotions amendment of 2026-11-22.
 - **No automatic data change.** No migration, seed, job or deploy step updates, deletes, deactivates or archives a legacy CART
   promotion, and no default is applied to a NULL minimum. A legacy promotion is identified by reading
   (`scope = 'CART' AND status <> 'ARCHIVED' AND (minimum_subtotal IS NULL OR minimum_subtotal = 0)`); no marker column is added.
+- **Mixed writers.** Because the rule is application-level only, any writer that does not run the B2 build (a B1 instance, a retained
+  previous container, a script, a direct data fix) can still store a CART promotion without a minimum. B1 and B2 price identically, so
+  this is a write-rule gap, not a pricing inconsistency. Re-run the query below after the full B2 rollout to detect it.
 - Pre-flight evidence for the rollout (read-only, run per environment before B2 is deployed, result recorded in the PR):
 
 ```sql

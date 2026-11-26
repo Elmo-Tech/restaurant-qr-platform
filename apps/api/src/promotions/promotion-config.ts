@@ -3,6 +3,8 @@ import { dateOnlyString, dateOnlyToDate } from '../menu/product-discount';
 import type { PromotionDraftDto } from './promotion.dto';
 import type { EnginePromotion, PromotionStatusName } from './promotion-engine';
 
+const ZERO = new Prisma.Decimal(0);
+
 export const promotionConfigSelect = {
   id: true,
   internalName: true,
@@ -174,6 +176,36 @@ export function changesOnlyMetadata(
   );
 }
 
+/** A missing or zero CART minimum is the pre-DEC-077 "no minimum" state. The engine keeps evaluating it as such. */
+export function hasNoCartMinimum(
+  config: Pick<PromotionConfig, 'scope' | 'minimumSubtotal'>,
+): boolean {
+  return (
+    config.scope === 'CART' &&
+    (config.minimumSubtotal === null || config.minimumSubtotal.isZero())
+  );
+}
+
+/**
+ * DEC-077 D2.4-D2.5: must the saved result of this write carry a minimum > 0?
+ * Always for a new or reactivated CART promotion (`before` null). For a stored LEGACY one (CART, NULL or 0.00) only when
+ * the NORMALIZED result differs from the stored one in more than metadata (scope, type, value, minimum, dates, targets,
+ * priority); a client that re-sends the stored values is not changing anything, and the client sends no flag. NULL and
+ * 0.00 are the same "no minimum" here.
+ */
+export function requiresPositiveCartMinimum(
+  before: PromotionConfig | null,
+  after: PromotionConfig,
+): boolean {
+  if (after.scope !== 'CART') return false;
+  if (before === null || !hasNoCartMinimum(before)) return true;
+  const unchanged = changesOnlyMetadata(
+    { ...before, minimumSubtotal: ZERO },
+    { ...after, minimumSubtotal: after.minimumSubtotal ?? ZERO },
+  );
+  return !unchanged;
+}
+
 /**
  * DEC-077 B1 write gate. With writes off, a fixed item configuration is refused unless it is the stored fixed item
  * promotion with metadata-only edits. Evaluation is never gated; this only guards what Staff may save, activate or
@@ -212,6 +244,8 @@ export type StaffPromotion = Omit<
   'value' | 'minimumSubtotal'
 > & {
   id: string;
+  /** DEC-077 D2.9: informational. True for a legacy (NULL / 0.00 minimum), non-archived CART promotion. */
+  needsMinimumSubtotal: boolean;
   value: string;
   minimumSubtotal: string | null;
   status: PromotionStatusName;
@@ -225,6 +259,7 @@ export function toStaffPromotion(row: StaffPromotionRow): StaffPromotion {
   return {
     ...configFromRow(row),
     id: row.id,
+    needsMinimumSubtotal: row.status !== 'ARCHIVED' && hasNoCartMinimum(row),
     value: row.value.toFixed(2),
     minimumSubtotal: row.minimumSubtotal?.toFixed(2) ?? null,
     status: row.status,

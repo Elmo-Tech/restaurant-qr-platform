@@ -11,6 +11,8 @@ export function promotionError(caught: unknown): MessageKey {
   if (isUnauthenticatedError(caught)) redirectToLogin();
   if (!(caught instanceof ApiError)) return 'error.network';
   if (caught.code === 'PROMOTION_INVALID' && hasProblem(caught, 'FIXED_ITEM_SCOPE_NOT_ENABLED')) return 'error.FIXED_ITEM_SCOPE_NOT_ENABLED';
+  if (caught.code === 'PROMOTION_INVALID' && hasProblem(caught, 'MINIMUM_SUBTOTAL_REQUIRED')) return 'error.MINIMUM_SUBTOTAL_REQUIRED';
+  if (caught.code === 'PROMOTION_INVALID' && hasProblem(caught, 'MINIMUM_SUBTOTAL_NOT_POSITIVE')) return 'error.MINIMUM_SUBTOTAL_NOT_POSITIVE';
   const key = `error.${caught.code}`;
   return Object.hasOwn(messages.en, key) ? key as MessageKey : 'promotions.requestError';
 }
