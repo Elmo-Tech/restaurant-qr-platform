@@ -124,7 +124,8 @@ function createStub(initial = {}) {
   return {
     state,
     listen: (port) => new Promise((resolve) => server.listen(port, '127.0.0.1', resolve)),
-    close: () => new Promise((resolve) => server.close(resolve)),
+    // The page keeps polling over keep-alive connections: close them, or `server.close` waits for them.
+    close: () => new Promise((resolve) => { server.close(resolve); server.closeAllConnections(); }),
   };
 }
 

@@ -95,10 +95,11 @@ jobs:
           apps/web/src/lib/staff/staff-form-feedback.contract.test.mjs
           apps/web/src/lib/contact/international-phone.test.mjs
 
-      - name: Kitchen board states, recovery and conflict handling (K1)
+      - name: Kitchen board states, recovery, conflict handling (K1) and ticket view (K2)
         run: >-
           node --experimental-strip-types --test
           apps/web/src/lib/kitchen/board-state.test.mjs
+          apps/web/src/lib/kitchen/ticket-view.test.mjs
           apps/web/src/lib/staff/kitchen-board-states.contract.test.mjs
 
       - name: E2E database safety and UTC session settings (static + unit, no database)
@@ -241,6 +242,7 @@ jobs:
           src/lib/staff/focus-invalid-field.ts
           src/lib/contact/international-phone.ts
           src/lib/kitchen/board-state.ts
+          src/lib/kitchen/ticket-view.ts
           src/lib/kitchen/api.ts
           src/lib/kitchen/capabilities.ts
           src/lib/orders/api.ts
