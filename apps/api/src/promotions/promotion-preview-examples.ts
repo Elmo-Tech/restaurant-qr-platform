@@ -9,6 +9,17 @@ import type {
   PromotionScopeName,
 } from './promotion-engine';
 import type { PromotionConfig } from './promotion-config';
+import {
+  explainLoss,
+  type CompetingWinner,
+  type CompetitionEnvironment,
+} from './promotion-preview-competition';
+
+export type {
+  CompetingWinner,
+  CompetingWinnerPart,
+  CompetitionReason,
+} from './promotion-preview-competition';
 
 /**
  * DEC-077 B3: deterministic example baskets for the contextual preview.
@@ -66,7 +77,17 @@ export interface BasketEvaluation {
   applied: AppliedPromotionSnapshot | null;
 }
 
-export interface ExampleEnvironment {
+/** How an unsaved draft's outcome would change if its (not yet existing) id sorted first instead of last. */
+export interface TieBreakUncertainty {
+  /** The engine breaks an exact tie by promotion id; a draft that is not saved yet has none, so it is assumed to sort last. */
+  code: 'UNSAVED_DRAFT_ID_TIE_BREAK';
+  alternative: {
+    status: PromotionEvaluationStatus;
+    appliedSaving: string;
+  };
+}
+
+export interface ExampleEnvironment extends CompetitionEnvironment {
   /** Prices the basket with the shared engine. Pure; the only source of every figure. */
   evaluate(basket: readonly BasketLine[]): BasketEvaluation;
   /**
@@ -74,22 +95,16 @@ export interface ExampleEnvironment {
    * competition. The engine reports no potential saving for an item promotion that lost, so this supplies it.
    */
   evaluateAlone(basket: readonly BasketLine[]): BasketEvaluation;
+  /**
+   * The only outcome difference the draft's final id could make, or null. Always null for a saved draft (its id is
+   * known); for an unsaved one the basket is priced once more with the draft's id sorting FIRST.
+   */
+  tieBreakAlternative(
+    basket: readonly BasketLine[],
+    evaluated: BasketEvaluation,
+  ): TieBreakUncertainty['alternative'] | null;
   /** The zone minimum shortfall for a priced basket (null when no zone or the minimum is met). */
   zoneMinimumShortfall(result: EngineResult): string | null;
-  /** The Staff-facing name of another active promotion, when known. */
-  promotionName(promotionId: string): string | null;
-  draftId: string;
-}
-
-export interface CompetingWinner {
-  source: 'PROMOTION' | 'PRODUCT_DISCOUNT';
-  promotionId: string | null;
-  scope: PromotionScopeName | 'PRODUCT';
-  name: string | null;
-  discountType: 'PERCENTAGE' | 'FIXED_AMOUNT' | null;
-  value: string | null;
-  /** The winner's saving as reported by the engine (`applied[].amount`, or the legacy discount total). */
-  saving: string;
 }
 
 export interface ExampleLine {
@@ -116,6 +131,9 @@ export interface ContextualExample {
     remainingQuantity: number | null;
   };
   zoneMinimumShortfall: string | null;
+  /** Present only when the draft is unsaved and its stable id could change this outcome (see `TieBreakUncertainty`). */
+  uncertainty: Pick<TieBreakUncertainty, 'code' | 'alternative'> | null;
+  /** Present when the draft is `LOST_TO_BETTER_OFFER`: who beat it and why. */
   competingWinner?: CompetingWinner;
 }
 
@@ -200,49 +218,6 @@ function* ladder(
   }
 }
 
-function competingWinner(
-  scope: PromotionScopeName,
-  evaluated: BasketEvaluation,
-  environment: ExampleEnvironment,
-): CompetingWinner | undefined {
-  if (evaluated.evaluation.status !== 'LOST_TO_BETTER_OFFER') return undefined;
-  const { result } = evaluated;
-  // A delivery fee promotion competes only with other delivery fee promotions; every other scope with the rest.
-  const delivery = scope === 'DELIVERY';
-  let best: AppliedPromotionSnapshot | null = null;
-  for (const entry of result.applied) {
-    if (entry.promotionId === environment.draftId) continue;
-    if ((entry.scope === 'DELIVERY') !== delivery) continue;
-    if (best === null || entry.amount.greaterThan(best.amount)) best = entry;
-  }
-  const legacy = delivery ? null : result.legacyDiscountTotal;
-  if (
-    legacy &&
-    legacy.greaterThan(0) &&
-    (best === null || legacy.greaterThan(best.amount))
-  ) {
-    return {
-      source: 'PRODUCT_DISCOUNT',
-      promotionId: null,
-      scope: 'PRODUCT',
-      name: null,
-      discountType: null,
-      value: null,
-      saving: legacy.toFixed(2),
-    };
-  }
-  if (best === null) return undefined;
-  return {
-    source: 'PROMOTION',
-    promotionId: best.promotionId,
-    scope: best.scope,
-    name: environment.promotionName(best.promotionId),
-    discountType: best.discountType,
-    value: best.value.toFixed(2),
-    saving: best.amount.toFixed(2),
-  };
-}
-
 export function toExample(
   kind: ExampleKind,
   scope: PromotionScopeName,
@@ -251,13 +226,21 @@ export function toExample(
   environment: ExampleEnvironment,
 ): ContextualExample {
   const { result, evaluation, applied } = evaluated;
-  const winner = competingWinner(scope, evaluated, environment);
-  // D3.6: a draft that lost shows what it would have saved. Cart and delivery losers carry it already.
+  // D3.6: a draft that lost shows what it would have saved. Cart and delivery losers carry it already. This is the
+  // draft's own figure and never the winners' saving, and it is never added to `appliedSaving` (0.00 for a loser).
   const potentialSaving =
     evaluation.status === 'LOST_TO_BETTER_OFFER' &&
     !evaluation.potentialSaving.greaterThan(ZERO)
       ? environment.evaluateAlone(basket).evaluation.potentialSaving
       : evaluation.potentialSaving;
+  const winner = explainLoss(
+    scope,
+    basket,
+    evaluated,
+    potentialSaving,
+    environment,
+  );
+  const alternative = environment.tieBreakAlternative(basket, evaluated);
   return {
     kind,
     lines: basket.map(({ sample, quantity }) => ({
@@ -280,6 +263,9 @@ export function toExample(
       remainingQuantity: evaluation.remainingQuantity,
     },
     zoneMinimumShortfall: environment.zoneMinimumShortfall(result),
+    uncertainty: alternative
+      ? { code: 'UNSAVED_DRAFT_ID_TIE_BREAK', alternative }
+      : null,
     ...(winner ? { competingWinner: winner } : {}),
   };
 }

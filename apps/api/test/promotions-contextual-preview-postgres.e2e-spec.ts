@@ -537,12 +537,22 @@ describeSandbox('DEC-077 B3 contextual preview (real PostgreSQL)', () => {
       remainingQuantity: number | null;
     };
     zoneMinimumShortfall: string | null;
+    uncertainty: {
+      code: string;
+      alternative: { status: string; appliedSaving: string };
+    } | null;
     competingWinner?: {
-      source: string;
-      promotionId: string | null;
-      scope: string;
-      name: string | null;
+      reason: string;
+      combined: boolean;
       saving: string;
+      comparedSaving: string;
+      winners: {
+        source: string;
+        promotionId: string | null;
+        scope: string;
+        name: string | null;
+        saving: string;
+      }[];
     };
   }
   interface Preview {
@@ -554,6 +564,8 @@ describeSandbox('DEC-077 B3 contextual preview (real PostgreSQL)', () => {
     assumptions?: Record<string, unknown>;
     applicableProducts?: {
       total: number;
+      truncated: boolean;
+      excluded: { code: string; count: number }[];
       items: {
         productId: string;
         name: string;
@@ -842,7 +854,12 @@ describeSandbox('DEC-077 B3 contextual preview (real PostgreSQL)', () => {
         { branchId: w.otherBranchId },
       );
       expect(result.state).toBe('ILLUSTRATIVE');
-      expect(result.applicableProducts).toEqual({ total: 0, items: [] });
+      expect(result.applicableProducts).toEqual({
+        total: 0,
+        truncated: false,
+        items: [],
+        excluded: [],
+      });
       expect(result.assumptions).toMatchObject({
         deliveryZoneId: null,
         sampleProductId: null,
@@ -878,7 +895,12 @@ describeSandbox('DEC-077 B3 contextual preview (real PostgreSQL)', () => {
         draft('Empty 10', 'CATEGORY', { categoryIds: [w.emptyCategory] }),
       );
       expect(result.state).toBe('ILLUSTRATIVE');
-      expect(result.applicableProducts).toEqual({ total: 0, items: [] });
+      expect(result.applicableProducts).toEqual({
+        total: 0,
+        truncated: false,
+        items: [],
+        excluded: [],
+      });
       expect(result.examples).toHaveLength(1);
       expect(result.examples?.[0]).toMatchObject({
         kind: 'SINGLE',
@@ -1265,13 +1287,21 @@ describeSandbox('DEC-077 B3 contextual preview (real PostgreSQL)', () => {
         },
       });
       expect(single.competingWinner).toEqual({
-        source: 'PROMOTION',
-        promotionId: menuId,
-        scope: 'MENU',
-        name: 'Menu 40',
-        discountType: 'PERCENTAGE',
-        value: '40.00',
+        reason: 'ITEM_OFFER_BEATEN_ON_SAME_ITEMS',
+        combined: false,
         saving: '48.00',
+        comparedSaving: '36.00', // the draft's own saving, kept apart from the winner's
+        winners: [
+          {
+            source: 'PROMOTION',
+            promotionId: menuId,
+            scope: 'MENU',
+            name: 'Menu 40',
+            discountType: 'PERCENTAGE',
+            value: '40.00',
+            saving: '48.00',
+          },
+        ],
       });
     });
 
@@ -1286,10 +1316,11 @@ describeSandbox('DEC-077 B3 contextual preview (real PostgreSQL)', () => {
       expect(qualifying.diagnostic.potentialSaving).toBe('12.00'); // the draft's own saving, 10 % of 120.00
       expect(qualifying.appliedSaving).toBe('0.00');
       expect(qualifying.competingWinner).toMatchObject({
-        source: 'PROMOTION',
-        scope: 'MENU',
-        name: 'Menu 40',
+        reason: 'CART_LEVEL_BEATEN_BY_ITEM_OFFERS',
+        combined: false,
         saving: '48.00',
+        comparedSaving: '12.00',
+        winners: [{ source: 'PROMOTION', scope: 'MENU', name: 'Menu 40' }],
       });
     });
 
@@ -1305,9 +1336,9 @@ describeSandbox('DEC-077 B3 contextual preview (real PostgreSQL)', () => {
       );
       // Latte 50.00 has a 20 % legacy discount (10.00) and the active MENU 40 % promotion (20.00) beats it
       expect(example(result, 'SINGLE').competingWinner).toMatchObject({
-        source: 'PROMOTION',
-        scope: 'MENU',
+        reason: 'ITEM_OFFER_BEATEN_ON_SAME_ITEMS',
         saving: '20.00',
+        winners: [{ source: 'PROMOTION', scope: 'MENU', saving: '20.00' }],
       });
       await prisma.promotion.updateMany({
         where: { restaurantId: w.restaurantId },
@@ -1327,10 +1358,16 @@ describeSandbox('DEC-077 B3 contextual preview (real PostgreSQL)', () => {
         // 5 % of 50.00, the draft's own saving, although the legacy 20 % (10.00) wins
         diagnostic: { status: 'LOST_TO_BETTER_OFFER', potentialSaving: '2.50' },
         competingWinner: {
-          source: 'PRODUCT_DISCOUNT',
-          promotionId: null,
-          scope: 'PRODUCT',
+          reason: 'ITEM_OFFER_BEATEN_ON_SAME_ITEMS',
           saving: '10.00',
+          winners: [
+            {
+              source: 'PRODUCT_DISCOUNT',
+              promotionId: null,
+              scope: 'PRODUCT',
+              saving: '10.00',
+            },
+          ],
         },
       });
       // the same draft on a product without a legacy discount wins
@@ -2079,10 +2116,9 @@ describeSandbox('DEC-077 B3 contextual preview (real PostgreSQL)', () => {
       const quote = await guestQuote(qualifying, false);
       expect(quote.subtotal).toBe(qualifying.merchandisePayable);
       expect(quote.total).toBe(qualifying.grandTotal);
-      expect(qualifying.competingWinner).toMatchObject({
-        promotionId: winnerId,
-        scope: 'MENU',
-      });
+      expect(qualifying.competingWinner?.winners).toMatchObject([
+        { promotionId: winnerId, scope: 'MENU' },
+      ]);
       expect(quote.promotions.map(({ scope }) => scope)).toEqual(['MENU']);
       expect(quote.promotions[0].amount).toBe(
         qualifying.competingWinner?.saving,
@@ -2115,6 +2151,1054 @@ describeSandbox('DEC-077 B3 contextual preview (real PostgreSQL)', () => {
       await prisma.promotion.update({
         where: { id },
         data: { status: 'INACTIVE' },
+      });
+    });
+  });
+  describe('REAL means a basket the Guest quote accepts (eligibility, delivery context, refusals)', () => {
+    let w: World;
+    let cookie: string;
+    let bareBranchId: string; // an ACTIVE Branch without any Delivery Zone
+    let otherBranchZoneId: string; // an ACTIVE zone of the OTHER Branch
+    let inactiveZoneId: string; // an INACTIVE zone of the main Branch
+    let retired: string; // INACTIVE product in the primary menu
+    let hiddenCategoryProduct: string; // ACTIVE product in an INACTIVE category of the primary menu
+    let specials: string; // category: Combo (paid mandatory), Soup, Wrap (free mandatory), Retired
+    let combosOnly: string; // category whose only product needs a paid extra
+    let combo: string;
+    let specialSoup: string;
+    let wrap: string;
+    let wrapFreeOption: string;
+    let comboPaidOption: string;
+    let sizedSoup: string; // sizes: first INACTIVE, second ACTIVE
+    let soupInactiveSize: string;
+    let soupActiveSize: string;
+    let namelessSize: string; // product whose first active size has no name
+    let namelessSizeId: string;
+
+    const cart = () =>
+      draft('Cart 10 over 50', 'CART', { minimumSubtotal: '50.00' });
+    const product = (
+      categoryId: string,
+      name: string,
+      basePrice: string,
+      displayOrder: number,
+      extra: Body = {},
+    ) =>
+      prisma.product.create({
+        data: {
+          publicId: `it-b3-p-${randomUUID()}`,
+          restaurantId: w.restaurantId,
+          categoryId,
+          status: 'ACTIVE',
+          availability: 'AVAILABLE',
+          basePrice,
+          displayOrder,
+          allowCustomerNotes: false,
+          featured: false,
+          translations: { create: { locale: 'en', name } },
+          ...extra,
+        },
+      });
+    const category = async (
+      menuId: string,
+      name: string,
+      order: number,
+      status: 'ACTIVE' | 'INACTIVE' = 'ACTIVE',
+    ) =>
+      (
+        await prisma.category.create({
+          data: {
+            restaurantId: w.restaurantId,
+            menuId,
+            status,
+            displayOrder: order,
+            translations: { create: { locale: 'en', name } },
+          },
+        })
+      ).id;
+    const choice = async (
+      productId: string,
+      minimum: number,
+      maximum: number,
+      prices: string[],
+    ) => {
+      const group = await prisma.modifierGroup.create({
+        data: {
+          restaurantId: w.restaurantId,
+          productId,
+          status: 'ACTIVE',
+          minimumSelections: minimum,
+          maximumSelections: maximum,
+          displayOrder: 0,
+          translations: { create: { locale: 'en', name: 'Choice' } },
+        },
+      });
+      const ids: string[] = [];
+      for (const [index, price] of prices.entries()) {
+        const option = await prisma.modifierOption.create({
+          data: {
+            restaurantId: w.restaurantId,
+            modifierGroupId: group.id,
+            status: 'ACTIVE',
+            priceAdjustment: price,
+            displayOrder: index,
+            priceIsOverridden: false,
+            translations: { create: { locale: 'en', name: `Option ${index}` } },
+          },
+        });
+        ids.push(option.id);
+      }
+      return ids;
+    };
+
+    beforeAll(async () => {
+      w = await seedWorld('eligibility');
+      cookie = await staff(w);
+      bareBranchId = (
+        await prisma.branch.create({
+          data: {
+            restaurantId: w.restaurantId,
+            publicId: `it-b3-br-${randomUUID()}`,
+            name: 'Bare',
+            status: 'ACTIVE',
+            timezone: 'Africa/Cairo',
+          },
+        })
+      ).id;
+      const zone = (branchId: string, status: 'ACTIVE' | 'INACTIVE') =>
+        prisma.deliveryZone.create({
+          data: {
+            restaurantId: w.restaurantId,
+            branchId,
+            name: `Zone ${status}`,
+            status,
+            displayOrder: 9,
+            deliveryFee: '11.00',
+            minimumOrder: '0.00',
+          },
+        });
+      otherBranchZoneId = (await zone(w.otherBranchId, 'ACTIVE')).id;
+      inactiveZoneId = (await zone(w.branchId, 'INACTIVE')).id;
+
+      retired = (
+        await product(w.burgersCategory, 'Retired', '10.00', 9, {
+          status: 'INACTIVE',
+        })
+      ).id;
+      const hidden = await category(w.menuId, 'Hidden', 8, 'INACTIVE');
+      hiddenCategoryProduct = (await product(hidden, 'Hidden dish', '10.00', 0))
+        .id;
+      specials = await category(w.menuId, 'Specials', 4);
+      combosOnly = await category(w.menuId, 'Combos only', 5);
+      const comboProduct = await product(specials, 'Combo', '10.00', 0);
+      combo = comboProduct.id;
+      [comboPaidOption] = await choice(combo, 1, 1, ['5.00', '6.00']);
+      await product(combosOnly, 'Lonely combo', '10.00', 0).then(
+        async ({ id }) => {
+          await choice(id, 1, 1, ['5.00']);
+        },
+      );
+      specialSoup = (await product(specials, 'Soup', '20.00', 2)).id;
+      const wrapProduct = await product(specials, 'Wrap', '30.00', 3);
+      wrap = wrapProduct.id;
+      [wrapFreeOption] = await choice(wrap, 1, 1, ['0.00', '4.00']);
+      await product(specials, 'Retired special', '5.00', 4, {
+        status: 'INACTIVE',
+      });
+
+      const sized = await product(w.drinksCategory, 'Sized soup', '99.00', 5);
+      soupInactiveSize = (
+        await prisma.productVariant.create({
+          data: {
+            restaurantId: w.restaurantId,
+            productId: sized.id,
+            status: 'INACTIVE',
+            price: '10.00',
+            displayOrder: 0,
+            isDefault: false,
+            translations: { create: { locale: 'en', name: 'Hidden size' } },
+          },
+        })
+      ).id;
+      soupActiveSize = (
+        await prisma.productVariant.create({
+          data: {
+            restaurantId: w.restaurantId,
+            productId: sized.id,
+            status: 'ACTIVE',
+            price: '20.00',
+            displayOrder: 1,
+            isDefault: true,
+            translations: { create: { locale: 'en', name: 'Big' } },
+          },
+        })
+      ).id;
+      sizedSoup = sized.id;
+      const nameless = await product(
+        w.drinksCategory,
+        'Nameless size',
+        '50.00',
+        6,
+      );
+      namelessSize = nameless.id;
+      namelessSizeId = (
+        await prisma.productVariant.create({
+          data: {
+            restaurantId: w.restaurantId,
+            productId: nameless.id,
+            status: 'ACTIVE',
+            price: '50.00',
+            displayOrder: 0,
+            isDefault: true,
+            translations: { create: { locale: 'en', name: 'Temp' } },
+          },
+        })
+      ).id;
+      await prisma.productVariantTranslation.deleteMany({
+        where: { productVariantId: namelessSizeId },
+      });
+    }, 90_000);
+
+    const quote = (items: Body[], extra: Body = {}) =>
+      request(app.getHttpServer())
+        .post(`/api/v1/public/qr/${w.genericQr}/quote`)
+        .send({
+          fulfillment: 'PICKUP',
+          branchId: w.branchId,
+          items,
+          ...extra,
+        });
+    /** The Guest quote with the same configuration SAVED and active (the draft is deactivated again afterwards). */
+    const savedQuote = async (body: Body, items: Body[], extra: Body = {}) => {
+      const id = await activate(w, cookie, body);
+      try {
+        return await quote(items, extra);
+      } finally {
+        await prisma.promotion.update({
+          where: { id },
+          data: { status: 'INACTIVE' },
+        });
+      }
+    };
+    const guestRefuses = async (items: Body[]) => {
+      const response = await quote(items);
+      expect(response.status).toBe(409);
+      expect((response.body as { error: { code: string } }).error.code).toBe(
+        'ORDER_ITEM_UNAVAILABLE',
+      );
+    };
+    const expectIncomplete = (
+      result: Preview,
+      problems: { code: string; field: string }[],
+    ) => {
+      expect(result.state).toBe('INCOMPLETE');
+      expect(Object.keys(result).sort()).toEqual([
+        'evaluatedAt',
+        'problems',
+        'requestId',
+        'state',
+      ]);
+      expect(result.problems).toEqual(problems);
+      expect(JSON.stringify(result)).not.toMatch(
+        /merchandise|grandTotal|unitPrice|potentialSaving|appliedSaving/,
+      );
+    };
+    interface Quoted {
+      subtotal: string;
+      total: string;
+      deliveryFee: string;
+      deliveryFeeOriginal: string | null;
+    }
+    const quoted = (response: request.Response) =>
+      (response.body as { data: Quoted }).data;
+
+    describe('explicit Staff items use the same orderability rules as Guest pricing', () => {
+      it('inactive, sold-out, non-primary-menu and inactive-category products are never a REAL basket', async () => {
+        const cases: [string, string][] = [
+          [retired, 'ITEM_PRODUCT_INACTIVE'],
+          [w.soldOut, 'ITEM_PRODUCT_SOLD_OUT'],
+          [w.secondMenuProduct, 'ITEM_OUTSIDE_PRIMARY_MENU'],
+          [hiddenCategoryProduct, 'ITEM_CATEGORY_INACTIVE'],
+        ];
+        for (const [productId, code] of cases) {
+          const result = await preview(w, cookie, cart(), {
+            items: [{ productId, quantity: 1 }],
+          });
+          expectIncomplete(result, [{ code, field: 'items[0].productId' }]);
+          // the real Guest quote refuses the very same basket
+          await guestRefuses([{ productId, quantity: 1 }]);
+        }
+        // every offending line is named, with its position; the good line is not
+        const mixed = await preview(w, cookie, cart(), {
+          items: [
+            { productId: w.burger, quantity: 1 },
+            { productId: w.soldOut, quantity: 1 },
+            { productId: w.secondMenuProduct, quantity: 2 },
+          ],
+        });
+        expectIncomplete(mixed, [
+          { code: 'ITEM_PRODUCT_SOLD_OUT', field: 'items[1].productId' },
+          { code: 'ITEM_OUTSIDE_PRIMARY_MENU', field: 'items[2].productId' },
+        ]);
+      });
+
+      it('a repeated product, an empty basket and a product of another Restaurant are refused', async () => {
+        const repeated = await preview(w, cookie, cart(), {
+          items: [
+            { productId: w.burger, quantity: 1 },
+            { productId: w.burger, quantity: 2 },
+          ],
+        });
+        expectIncomplete(repeated, [
+          { code: 'ITEM_DUPLICATE', field: 'items[1].productId' },
+        ]);
+        // the Guest quote refuses the same repeated line too
+        const twice = await quote([
+          { productId: w.burger, quantity: 1 },
+          { productId: w.burger, quantity: 2 },
+        ]);
+        expect(twice.status).toBe(400);
+        expectIncomplete(await preview(w, cookie, cart(), { items: [] }), [
+          { code: 'ITEMS_EMPTY', field: 'items' },
+        ]);
+      });
+
+      it('a size: the first ACTIVE size is used, an inactive one is skipped, a nameless one is refused', async () => {
+        const real = await preview(w, cookie, cart(), {
+          items: [{ productId: sizedSoup, quantity: 2 }],
+        });
+        expect(real.state).toBe('REAL');
+        expect(example(real, 'SINGLE').lines).toMatchObject([
+          { productId: sizedSoup, unitPrice: '20.00', quantity: 2 },
+        ]);
+        const response = await quote([
+          { productId: sizedSoup, variantId: soupActiveSize, quantity: 2 },
+        ]);
+        expect(response.status).toBe(200);
+        expect(quoted(response).subtotal).toBe(
+          example(real, 'SINGLE').merchandisePayable,
+        );
+        // the inactive size is not orderable for the Guest either
+        await guestRefuses([
+          { productId: sizedSoup, variantId: soupInactiveSize, quantity: 1 },
+        ]);
+        // a size without a name is refused by the quote, so it is never REAL
+        expectIncomplete(
+          await preview(w, cookie, cart(), {
+            items: [{ productId: namelessSize, quantity: 1 }],
+          }),
+          [{ code: 'ITEM_SIZE_UNAVAILABLE', field: 'items[0].productId' }],
+        );
+        await guestRefuses([
+          { productId: namelessSize, variantId: namelessSizeId, quantity: 1 },
+        ]);
+      });
+
+      it('a mandatory choice: satisfied with the free option (REAL, equal to the quote), refused when only a paid extra would do', async () => {
+        const ok = await preview(w, cookie, cart(), {
+          items: [{ productId: wrap, quantity: 2 }],
+        });
+        expect(ok.state).toBe('REAL');
+        expect(example(ok, 'SINGLE')).toMatchObject({
+          merchandiseOriginal: '60.00', // no paid extra is added
+          appliedSaving: '6.00',
+        });
+        const response = await savedQuote(cart(), [
+          { productId: wrap, quantity: 2, modifierOptionIds: [wrapFreeOption] },
+        ]);
+        expect(response.status).toBe(200);
+        expect(quoted(response)).toMatchObject({
+          subtotal: example(ok, 'SINGLE').merchandisePayable,
+          total: example(ok, 'SINGLE').grandTotal,
+        });
+        // with no selection at all the Guest quote refuses it, so a naive basket would have been impossible
+        await guestRefuses([{ productId: wrap, quantity: 1 }]);
+        // only a paid option satisfies the mandatory choice
+        expectIncomplete(
+          await preview(w, cookie, cart(), {
+            items: [{ productId: combo, quantity: 1 }],
+          }),
+          [
+            {
+              code: 'ITEM_REQUIRED_CHOICE_NEEDS_PAID_EXTRA',
+              field: 'items[0].productId',
+            },
+          ],
+        );
+        await guestRefuses([{ productId: combo, quantity: 1 }]);
+        expect(
+          (
+            await quote([
+              {
+                productId: combo,
+                quantity: 1,
+                modifierOptionIds: [comboPaidOption],
+              },
+            ])
+          ).status,
+        ).toBe(200); // orderable by a Guest who pays the extra: the preview assumes none, and says so
+      });
+
+      it('a Staff basket that is orderable is REAL and equals the quote line for line', async () => {
+        const result = await preview(w, cookie, cart(), {
+          items: [
+            { productId: w.burger, quantity: 1 },
+            { productId: sizedSoup, quantity: 1 },
+            { productId: wrap, quantity: 1 },
+          ],
+        });
+        expect(result.state).toBe('REAL');
+        const response = await quote([
+          { productId: w.burger, quantity: 1 },
+          { productId: sizedSoup, variantId: soupActiveSize, quantity: 1 },
+          { productId: wrap, quantity: 1, modifierOptionIds: [wrapFreeOption] },
+        ]);
+        expect(response.status).toBe(200);
+        expect(quoted(response).subtotal).toBe(
+          example(result, 'SINGLE').merchandiseOriginal,
+        ); // no promotion is saved, so the quote is the undiscounted basket
+      });
+    });
+
+    describe('generated baskets are built only from products a Guest can order', () => {
+      it('skips products that need a paid extra, reports why, and every example equals the quote', async () => {
+        const result = await preview(
+          w,
+          cookie,
+          draft('Specials 10', 'CATEGORY', { categoryIds: [specials] }),
+        );
+        expect(result.state).toBe('REAL');
+        // Combo (paid mandatory choice) and the inactive special are not part of the sample
+        expect(result.applicableProducts).toMatchObject({
+          total: 2,
+          truncated: false,
+          excluded: [
+            { code: 'ITEM_REQUIRED_CHOICE_NEEDS_PAID_EXTRA', count: 1 },
+          ],
+        });
+        expect(
+          result.applicableProducts?.items.map(({ name }) => name),
+        ).toEqual(['Soup', 'Wrap']);
+        expect(specialSoup).toBeDefined();
+      });
+
+      it('a category where nothing is orderable is ILLUSTRATIVE with a reason code, not a REAL example', async () => {
+        const result = await preview(
+          w,
+          cookie,
+          draft('Combos 10', 'CATEGORY', { categoryIds: [combosOnly] }),
+        );
+        expect(result.state).toBe('ILLUSTRATIVE');
+        expect(result.assumptions).toMatchObject({
+          illustrativeReasons: ['NO_ORDERABLE_APPLICABLE_PRODUCT'],
+          sampleProductId: null,
+          deliveryZoneId: null,
+        });
+        expect(result.applicableProducts).toEqual({
+          total: 0,
+          truncated: false,
+          items: [],
+          excluded: [
+            { code: 'ITEM_REQUIRED_CHOICE_NEEDS_PAID_EXTRA', count: 1 },
+          ],
+        });
+        expect(example(result, 'SINGLE').lines).toEqual([
+          {
+            productId: null,
+            label: 'Sample item 1',
+            unitPrice: '100.00',
+            quantity: 1,
+          },
+        ]);
+      });
+
+      it('a sample that no Guest can order as a simple basket is refused like any non-applicable product', async () => {
+        const refused = await contextual(
+          w,
+          cookie,
+          draft('Specials 10', 'CATEGORY', { categoryIds: [specials] }),
+          { sampleProductId: combo },
+        );
+        expect(refused.status).toBe(422);
+        expect((refused.body as { error: { code: string } }).error.code).toBe(
+          'PROMOTION_PREVIEW_PRODUCT_INVALID',
+        );
+        for (const productId of [retired, hiddenCategoryProduct]) {
+          const response = await contextual(w, cookie, cart(), {
+            sampleProductId: productId,
+          });
+          expect(response.status).toBe(422);
+        }
+      });
+
+      it('a MENU promotion on a menu that is not the primary one has no REAL example', async () => {
+        const result = await preview(
+          w,
+          cookie,
+          draft('Second 10', 'MENU', { menuIds: [w.secondMenuId] }),
+        );
+        expect(result.state).toBe('ILLUSTRATIVE');
+        expect(result.assumptions).toMatchObject({
+          illustrativeReasons: ['NO_ORDERABLE_APPLICABLE_PRODUCT'],
+        });
+        await guestRefuses([{ productId: w.secondMenuProduct, quantity: 1 }]);
+      });
+
+      it('the generated REAL example is exactly the basket the quote accepts', async () => {
+        const result = await preview(
+          w,
+          cookie,
+          draft('Specials 10', 'CATEGORY', { categoryIds: [specials] }),
+        );
+        const single = example(result, 'SINGLE');
+        expect(single.lines).toHaveLength(1);
+        const line = single.lines[0];
+        const response = await quote([
+          {
+            productId: line.productId,
+            quantity: line.quantity,
+            ...(line.productId === wrap
+              ? { modifierOptionIds: [wrapFreeOption] }
+              : {}),
+          },
+        ]);
+        expect(response.status).toBe(200);
+        expect(quoted(response).subtotal).toBe(single.merchandiseOriginal);
+      });
+    });
+
+    describe('delivery context', () => {
+      const scopeDrafts = (): [string, Body][] => [
+        ['CART', draft('Cart d', 'CART', { minimumSubtotal: '100.00' })],
+        [
+          'QUANTITY',
+          draft('Qty d', 'QUANTITY', {
+            minimumQuantity: 2,
+            quantityBasis: 'UNITS',
+          }),
+        ],
+        [
+          'CATEGORY',
+          draft('Cat d', 'CATEGORY', { categoryIds: [w.burgersCategory] }),
+        ],
+        ['MENU', draft('Menu d', 'MENU', { menuIds: [w.menuId] })],
+        [
+          'DELIVERY',
+          draft('Delivery d', 'DELIVERY', {
+            value: '50.00',
+            minimumSubtotal: '100.00',
+          }),
+        ],
+      ];
+
+      it('without a real zone every generated delivery preview is ILLUSTRATIVE as a whole, whatever the scope', async () => {
+        const scopes = scopeDrafts();
+        for (const [scope, body] of scopes) {
+          const result = await preview(w, cookie, body, {
+            branchId: bareBranchId,
+            orderType: 'DELIVERY',
+          });
+          expect(result.state).toBe('ILLUSTRATIVE');
+          expect(result.assumptions).toMatchObject({
+            orderType: 'DELIVERY',
+            deliveryZoneId: null,
+            sampleProductId: null,
+            illustrativeReasons: ['NO_DELIVERY_ZONE'],
+          });
+          expect(result.applicableProducts).toMatchObject({
+            total: 0,
+            items: [],
+          });
+          for (const entry of result.examples ?? []) {
+            // no restaurant price and no restaurant fee: sample money only (never 25.00 or 120.00)
+            expect(entry.deliveryFeeOriginal).toBe('30.00');
+            expect(
+              entry.lines.every(({ productId }) => productId === null),
+            ).toBe(true);
+            expect(
+              entry.lines.every(({ unitPrice }) => unitPrice === '100.00'),
+            ).toBe(true);
+            expect(entry.zoneMinimumShortfall).toBeNull();
+          }
+          void scope;
+        }
+      });
+
+      it('with explicit items and no real zone there is no REAL answer and no figure at all', async () => {
+        const scopes = scopeDrafts();
+        for (const [, body] of scopes) {
+          const result = await preview(w, cookie, body, {
+            branchId: bareBranchId,
+            orderType: 'DELIVERY',
+            items: [{ productId: w.burger, quantity: 2 }],
+          });
+          expectIncomplete(result, [
+            { code: 'DELIVERY_ZONE_REQUIRED', field: 'deliveryZoneId' },
+          ]);
+        }
+        // the zone problem and an unorderable item are reported together
+        const both = await preview(w, cookie, scopes[0][1], {
+          branchId: bareBranchId,
+          orderType: 'DELIVERY',
+          items: [{ productId: w.soldOut, quantity: 1 }],
+        });
+        expectIncomplete(both, [
+          { code: 'DELIVERY_ZONE_REQUIRED', field: 'deliveryZoneId' },
+          { code: 'ITEM_PRODUCT_SOLD_OUT', field: 'items[0].productId' },
+        ]);
+        // a pickup preview of the same basket needs no zone
+        const pickup = await preview(w, cookie, scopes[0][1], {
+          items: [{ productId: w.burger, quantity: 2 }],
+        });
+        expect(pickup.state).toBe('REAL');
+      });
+
+      it('a zone limit the Branch cannot satisfy is not a real zone either', async () => {
+        const restricted = draft('Other zone only', 'DELIVERY', {
+          value: '100.00',
+          deliveryZoneIds: [otherBranchZoneId],
+        });
+        const generated = await preview(w, cookie, restricted);
+        expect(generated.state).toBe('ILLUSTRATIVE');
+        expect(generated.assumptions).toMatchObject({
+          illustrativeReasons: ['NO_DELIVERY_ZONE'],
+          deliveryZoneId: null,
+        });
+        expectIncomplete(
+          await preview(w, cookie, restricted, {
+            items: [{ productId: w.burger, quantity: 1 }],
+          }),
+          [{ code: 'DELIVERY_ZONE_REQUIRED', field: 'deliveryZoneId' }],
+        );
+      });
+
+      it('with a real zone every scope is REAL: real merchandise and the zone fee, equal to the Guest quote', async () => {
+        const scopes = scopeDrafts();
+        for (const [scope, body] of scopes) {
+          const generated = await preview(w, cookie, body, {
+            orderType: 'DELIVERY',
+            deliveryZoneId: w.zoneCId,
+          });
+          expect(generated.state).toBe('REAL');
+          expect(generated.assumptions).toMatchObject({
+            orderType: 'DELIVERY',
+            deliveryZoneId: w.zoneCId,
+            illustrativeReasons: [],
+          });
+          const explicit = await preview(w, cookie, body, {
+            orderType: 'DELIVERY',
+            deliveryZoneId: w.zoneCId,
+            items: [
+              { productId: w.burger, quantity: 2 },
+              { productId: w.cola, quantity: 1 },
+            ],
+          });
+          expect(explicit.state).toBe('REAL');
+          // the same configuration saved and active: what a Guest is really quoted
+          const id = await activate(w, cookie, body);
+          for (const entry of [
+            ...(generated.examples ?? []),
+            ...(explicit.examples ?? []),
+          ]) {
+            expect(entry.deliveryFeeOriginal).toBe('25.00'); // the zone's own fee, never 30.00
+            expect(
+              entry.lines.every(({ productId }) => productId !== null),
+            ).toBe(true);
+            const response = await quote(
+              entry.lines.map(({ productId, quantity }) => ({
+                productId,
+                quantity,
+              })),
+              { fulfillment: 'DELIVERY', deliveryZoneId: w.zoneCId },
+            );
+            expect(response.status).toBe(200);
+            expect(quoted(response)).toMatchObject({
+              subtotal: entry.merchandisePayable,
+              deliveryFeeOriginal: entry.deliveryFeeOriginal,
+              deliveryFee: entry.deliveryFeePayable,
+              total: entry.grandTotal,
+            });
+          }
+          await prisma.promotion.update({
+            where: { id },
+            data: { status: 'INACTIVE' },
+          });
+          void scope;
+        }
+      });
+
+      it('a delivery fee draft and a pickup request resolve the zone itself (never a sample zone)', async () => {
+        const result = await preview(
+          w,
+          cookie,
+          draft('Free delivery', 'DELIVERY', { value: '100.00' }),
+        );
+        expect(result.state).toBe('REAL');
+        expect(result.assumptions).toMatchObject({
+          orderType: 'DELIVERY',
+          deliveryZoneId: w.zoneId,
+        });
+        // a non-delivery draft in a delivery request resolves it too
+        const cartDelivery = await preview(w, cookie, cart(), {
+          orderType: 'DELIVERY',
+        });
+        expect(cartDelivery.assumptions).toMatchObject({
+          deliveryZoneId: w.zoneId,
+        });
+        expect(example(cartDelivery, 'QUALIFYING').deliveryFeeOriginal).toBe(
+          '25.00',
+        );
+      });
+
+      it('no merchandise and a real zone: illustrative money on both sides, never mixed', async () => {
+        const result = await preview(
+          w,
+          cookie,
+          draft('Empty 10', 'CATEGORY', { categoryIds: [w.emptyCategory] }),
+          { orderType: 'DELIVERY', deliveryZoneId: w.zoneCId },
+        );
+        expect(result.state).toBe('ILLUSTRATIVE');
+        expect(result.assumptions).toMatchObject({
+          deliveryZoneId: null,
+          illustrativeReasons: ['NO_ORDERABLE_APPLICABLE_PRODUCT'],
+        });
+        expect(example(result, 'SINGLE')).toMatchObject({
+          merchandiseOriginal: '100.00',
+          deliveryFeeOriginal: '30.00', // not the real zone's 25.00
+          zoneMinimumShortfall: null,
+        });
+      });
+
+      it('Tenant and Branch restrictions still hold for the zone', async () => {
+        const refuse = async (extra: Body) => {
+          const response = await contextual(w, cookie, cart(), {
+            orderType: 'DELIVERY',
+            ...extra,
+          });
+          expect(response.status).toBe(422);
+          expect(
+            (response.body as { error: { code: string } }).error.code,
+          ).toBe('PROMOTION_PREVIEW_ZONE_INVALID');
+        };
+        await refuse({ deliveryZoneId: otherBranchZoneId }); // another Branch of this Restaurant
+        await refuse({ deliveryZoneId: inactiveZoneId });
+        await refuse({ deliveryZoneId: randomUUID() });
+        // a Branch-limited member cannot preview a Branch outside the grant
+        const limited = await staff(w, 'MANAGER', [w.otherBranchId]);
+        const denied = await contextual(w, limited, cart(), {
+          orderType: 'DELIVERY',
+          deliveryZoneId: w.zoneCId,
+        });
+        expect(denied.status).toBe(422);
+        expect((denied.body as { error: { code: string } }).error.code).toBe(
+          'PROMOTION_PREVIEW_BRANCH_INVALID',
+        );
+      });
+
+      it('the zone minimum is disclosed: the Guest quote refuses exactly that basket, with the same figures', async () => {
+        const over200 = draft('Cart over 200', 'CART', {
+          minimumSubtotal: '200.00',
+        });
+        const result = await preview(w, cookie, over200, {
+          orderType: 'DELIVERY',
+        });
+        const below = example(result, 'BELOW_THRESHOLD');
+        expect(below.zoneMinimumShortfall).toBe('30.00'); // Zone A: minimum 150.00, one Burger 120.00
+        const response = await savedQuote(
+          over200,
+          below.lines.map(({ productId, quantity }) => ({
+            productId,
+            quantity,
+          })),
+          { fulfillment: 'DELIVERY', deliveryZoneId: w.zoneId },
+        );
+        expect(response.status).toBe(400);
+        const body = response.body as {
+          error: {
+            code: string;
+            details: { remainingAmount: string; quote: Quoted };
+          };
+        };
+        expect(body.error.code).toBe('DELIVERY_MINIMUM_NOT_MET');
+        expect(body.error.details.remainingAmount).toBe(
+          below.zoneMinimumShortfall,
+        );
+        expect(body.error.details.quote).toMatchObject({
+          subtotal: below.merchandisePayable,
+          total: below.grandTotal,
+        });
+      });
+    });
+
+    describe('competition explains why the draft lost', () => {
+      afterEach(async () => {
+        await prisma.promotion.updateMany({
+          where: { restaurantId: w.restaurantId },
+          data: { status: 'INACTIVE' },
+        });
+      });
+
+      it('an unrelated promotion on another product is not blamed', async () => {
+        const unrelated = await activate(
+          w,
+          cookie,
+          draft('Burgers 40', 'CATEGORY', {
+            value: '40.00',
+            categoryIds: [w.burgersCategory],
+          }),
+        );
+        const result = await preview(
+          w,
+          cookie,
+          draft('Drinks 5', 'CATEGORY', {
+            value: '5.00',
+            categoryIds: [w.drinksCategory],
+          }),
+          {
+            items: [
+              { productId: w.latte, quantity: 1 }, // legacy 20 % = 10.00 wins its own line
+              { productId: w.burger, quantity: 1 }, // the unrelated Burgers 40 % applies here
+            ],
+          },
+        );
+        const single = example(result, 'SINGLE');
+        expect(single.diagnostic.status).toBe('LOST_TO_BETTER_OFFER');
+        expect(single.competingWinner).toMatchObject({
+          reason: 'ITEM_OFFER_BEATEN_ON_SAME_ITEMS',
+          combined: false,
+          saving: '10.00',
+          comparedSaving: '2.50',
+        });
+        expect(single.competingWinner?.winners).toHaveLength(1);
+        expect(single.competingWinner?.winners[0]).toMatchObject({
+          source: 'PRODUCT_DISCOUNT',
+          saving: '10.00',
+        });
+        expect(
+          single.competingWinner?.winners.map(({ promotionId }) => promotionId),
+        ).not.toContain(unrelated);
+        // the real quote: the unrelated promotion is applied to the Burger and the Drinks draft would not be
+        const response = await quote([
+          { productId: w.latte, quantity: 1 },
+          { productId: w.burger, quantity: 1 },
+        ]);
+        expect(quoted(response).subtotal).toBe(single.merchandisePayable);
+      });
+
+      it('promotions that win together are reported together, with the combined saving', async () => {
+        await activate(
+          w,
+          cookie,
+          draft('Burgers 40', 'CATEGORY', {
+            value: '40.00',
+            categoryIds: [w.burgersCategory],
+          }),
+        );
+        const body = draft('Cart 10', 'CART', { minimumSubtotal: '100.00' });
+        const result = await preview(w, cookie, body, {
+          items: [
+            { productId: w.burger, quantity: 1 },
+            { productId: w.latte, quantity: 1 },
+          ],
+        });
+        const single = example(result, 'SINGLE');
+        expect(single.diagnostic).toMatchObject({
+          status: 'LOST_TO_BETTER_OFFER',
+          potentialSaving: '17.00', // the draft's own saving: 10 % of 170.00
+        });
+        expect(single.appliedSaving).toBe('0.00'); // distinct from the potential saving
+        expect(single.competingWinner).toMatchObject({
+          reason: 'CART_LEVEL_BEATEN_BY_ITEM_OFFERS',
+          combined: true,
+          saving: '58.00', // Burgers 40 % (48.00) together with the Latte's own 20 % (10.00)
+          comparedSaving: '17.00',
+        });
+        expect(
+          single.competingWinner?.winners.map(({ source, saving }) => [
+            source,
+            saving,
+          ]),
+        ).toEqual([
+          ['PROMOTION', '48.00'],
+          ['PRODUCT_DISCOUNT', '10.00'],
+        ]);
+        // the Guest pays exactly what those winners leave: 170.00 - 58.00
+        const response = await quote([
+          { productId: w.burger, quantity: 1 },
+          { productId: w.latte, quantity: 1 },
+        ]);
+        expect(quoted(response).subtotal).toBe('112.00');
+        expect(single.merchandisePayable).toBe('112.00');
+      });
+
+      it('an item draft that would win its lines but loses to a basket promotion names that promotion and both figures', async () => {
+        const cartId = await activate(
+          w,
+          cookie,
+          draft('Cart 50', 'CART', {
+            value: '50.00',
+            minimumSubtotal: '10.00',
+          }),
+        );
+        const result = await preview(
+          w,
+          cookie,
+          draft('Burgers 10', 'CATEGORY', { categoryIds: [w.burgersCategory] }),
+          { items: [{ productId: w.burger, quantity: 1 }] },
+        );
+        const single = example(result, 'SINGLE');
+        expect(single.diagnostic).toMatchObject({
+          status: 'LOST_TO_BETTER_OFFER',
+          potentialSaving: '12.00',
+        });
+        expect(single.competingWinner).toMatchObject({
+          reason: 'ITEM_OFFER_BEATEN_BY_CART_LEVEL',
+          saving: '60.00',
+          comparedSaving: '12.00',
+          winners: [{ promotionId: cartId, scope: 'CART' }],
+        });
+        const response = await quote([{ productId: w.burger, quantity: 1 }]);
+        expect(quoted(response).subtotal).toBe(single.merchandisePayable);
+      });
+
+      it('a delivery fee draft that loses names the better delivery promotion', async () => {
+        const better = await activate(
+          w,
+          cookie,
+          draft('Free delivery', 'DELIVERY', { value: '100.00' }),
+        );
+        const result = await preview(
+          w,
+          cookie,
+          draft('Half delivery', 'DELIVERY', { value: '50.00' }),
+          { orderType: 'DELIVERY', deliveryZoneId: w.zoneCId },
+        );
+        const single = example(result, 'SINGLE');
+        expect(single.appliedSaving).toBe('0.00');
+        expect(single.diagnostic.potentialSaving).toBe('12.50');
+        expect(single.competingWinner).toMatchObject({
+          reason: 'DELIVERY_BEATEN_BY_BETTER_DELIVERY',
+          saving: '25.00',
+          comparedSaving: '12.50',
+          winners: [{ promotionId: better, scope: 'DELIVERY' }],
+        });
+      });
+
+      it('an unsaved draft discloses a tie decided only by its not-yet-existing id; a saved one does not', async () => {
+        const live = draft('Burgers 10 (live)', 'CATEGORY', {
+          categoryIds: [w.burgersCategory],
+        });
+        const rivalId = await activate(w, cookie, live);
+        const same = draft('Burgers 10 (draft)', 'CATEGORY', {
+          categoryIds: [w.burgersCategory],
+        });
+        const items = [{ productId: w.burger, quantity: 1 }];
+        const unsaved = await preview(w, cookie, same, { items });
+        const single = example(unsaved, 'SINGLE');
+        // the unsaved draft is priced as sorting last: it loses the exact tie ...
+        expect(single.diagnostic.status).toBe('LOST_TO_BETTER_OFFER');
+        expect(single.appliedSaving).toBe('0.00');
+        // ... and says that a saved id sorting first would have won it
+        expect(single.uncertainty).toEqual({
+          code: 'UNSAVED_DRAFT_ID_TIE_BREAK',
+          alternative: { status: 'APPLIED', appliedSaving: '12.00' },
+        });
+        // Saved, its id is final: the preview is certain and equals what the Guest quote applies.
+        const savedId = await activate(w, cookie, same);
+        const saved = await preview(w, cookie, same, {
+          promotionId: savedId,
+          items,
+        });
+        expect(example(saved, 'SINGLE').uncertainty).toBeNull();
+        const draftWins = savedId < rivalId; // the engine's last tie-break: the lower id
+        expect(example(saved, 'SINGLE').diagnostic.status).toBe(
+          draftWins ? 'APPLIED' : 'LOST_TO_BETTER_OFFER',
+        );
+        const response = await quote([{ productId: w.burger, quantity: 1 }]);
+        const applied = (
+          response.body as { data: { promotions: { title: string }[] } }
+        ).data.promotions;
+        expect(applied.map(({ title }) => title)).toEqual([
+          draftWins ? 'Burgers 10 (draft)' : 'Burgers 10 (live)',
+        ]);
+        // and the unsaved answer disclosed exactly these two possibilities
+        const outcomes = [
+          single.diagnostic.status,
+          single.uncertainty?.alternative.status,
+        ];
+        expect(outcomes).toContain(example(saved, 'SINGLE').diagnostic.status);
+      });
+
+      it('no tie, no disclosure: a clearly better or worse unsaved draft is certain', async () => {
+        await activate(
+          w,
+          cookie,
+          draft('Burgers 10 (live)', 'CATEGORY', {
+            categoryIds: [w.burgersCategory],
+          }),
+        );
+        for (const [value, status] of [
+          ['30.00', 'APPLIED'],
+          ['5.00', 'LOST_TO_BETTER_OFFER'],
+        ]) {
+          const result = await preview(
+            w,
+            cookie,
+            draft(`Burgers ${value}`, 'CATEGORY', {
+              value,
+              categoryIds: [w.burgersCategory],
+            }),
+            { items: [{ productId: w.burger, quantity: 1 }] },
+          );
+          expect(example(result, 'SINGLE').diagnostic.status).toBe(status);
+          expect(example(result, 'SINGLE').uncertainty).toBeNull();
+        }
+      });
+    });
+
+    describe('approved behavior is kept', () => {
+      it('the draft schedule is respected and stated; ready answers keep every top-level field', async () => {
+        const today = cairoDate(new Date().toISOString());
+        const future = await preview(
+          w,
+          cookie,
+          draft('Next week', 'CART', {
+            minimumSubtotal: '50.00',
+            startsOn: addDays(today, 7),
+          }),
+        );
+        expect(future.state).toBe('REAL');
+        expect(future.assumptions).toMatchObject({ schedule: 'NOT_STARTED' });
+        expect(example(future, 'SINGLE').diagnostic.status).toBe('NOT_STARTED');
+        expect(example(future, 'SINGLE').appliedSaving).toBe('0.00');
+        const ready = await preview(w, cookie, cart());
+        for (const key of [
+          'strategy',
+          'merchandiseOriginal',
+          'merchandisePayable',
+          'deliveryFeeOriginal',
+          'deliveryFeePayable',
+          'grandTotal',
+          'appliedSaving',
+          'diagnostic',
+          'zoneMinimumShortfall',
+        ]) {
+          expect(ready).toHaveProperty(key);
+        }
+        // and an ILLUSTRATIVE answer keeps them too
+        const illustrative = await preview(
+          w,
+          cookie,
+          draft('Empty 10', 'CATEGORY', { categoryIds: [w.emptyCategory] }),
+        );
+        for (const key of [
+          'strategy',
+          'grandTotal',
+          'appliedSaving',
+          'diagnostic',
+        ]) {
+          expect(illustrative).toHaveProperty(key);
+        }
       });
     });
   });

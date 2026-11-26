@@ -3,14 +3,13 @@ import type { PromotionConfig } from './promotion-config';
 import {
   evaluatePromotions,
   type EngineContext,
-  type EngineProductLine,
   type EnginePromotion,
 } from './promotion-engine';
+import { createEnvironment, lineOf } from './promotion-preview-environment';
 import {
   MAX_LINE_QUANTITY,
   buildExamples,
   hasThreshold,
-  type BasketLine,
   type ExampleEnvironment,
   type PreviewSample,
 } from './promotion-preview-examples';
@@ -67,28 +66,12 @@ function sample(
   };
 }
 
-const lineOf = (
-  { sample: product, quantity }: BasketLine,
-  index: number,
-): EngineProductLine => ({
-  index,
-  kind: 'PRODUCT',
-  productId: product.engineProductId,
-  categoryId: product.categoryId,
-  menuId: product.menuId,
-  variantId: product.variantId,
-  sizeDiscountApplies: product.sizeDiscountApplies,
-  quantity,
-  unitPrice: product.unitPrice,
-  modifiersUnitTotal: d('0'),
-  productDiscount: product.productDiscount,
-});
-
-/** The environment the service builds, over the REAL engine; `calls` counts engine evaluations. */
+/** The environment the service builds (the real `createEnvironment` over the REAL engine); `calls` counts engine runs. */
 function environment(
   draftConfig: PromotionConfig,
   others: EnginePromotion[] = [],
   context: EngineContext = CONTEXT,
+  saved = false,
 ) {
   const draft = toPromotionCandidate(
     draftConfig,
@@ -97,41 +80,33 @@ function environment(
     'en',
   ).promotion;
   const calls = { count: 0 };
-  const run = (
-    basket: readonly BasketLine[],
-    promotions: EnginePromotion[],
-    plain: boolean,
-  ) => {
-    calls.count += 1;
-    const result = evaluatePromotions({
-      lines: basket.map((line, index) =>
-        lineOf(
-          plain
-            ? { ...line, sample: { ...line.sample, productDiscount: null } }
-            : line,
-          index,
-        ),
-      ),
-      promotions,
-      context,
-    });
-    const evaluation = result.evaluations.find(
-      ({ promotionId }) => promotionId === DRAFT_ID,
-    )!;
-    return {
-      result,
-      evaluation,
-      applied:
-        result.applied.find(({ promotionId }) => promotionId === DRAFT_ID) ??
-        null,
-    };
-  };
-  const env: ExampleEnvironment = {
-    draftId: DRAFT_ID,
-    evaluate: (basket) => run(basket, [...others, draft], false),
-    evaluateAlone: (basket) => run(basket, [draft], true),
+  const real = createEnvironment({
+    draft,
+    competitors: others,
+    context,
+    saved,
+    config: draftConfig,
     zoneMinimumShortfall: () => null,
     promotionName: (id) => `name of ${id}`,
+  });
+  const env: ExampleEnvironment = {
+    ...real,
+    evaluate: (basket) => {
+      calls.count += 1;
+      return real.evaluate(basket);
+    },
+    evaluateAlone: (basket) => {
+      calls.count += 1;
+      return real.evaluateAlone(basket);
+    },
+    evaluateItemLevel: (basket) => {
+      calls.count += 1;
+      return real.evaluateItemLevel(basket);
+    },
+    tieBreakAlternative: (basket, evaluated) => {
+      calls.count += saved ? 0 : 1;
+      return real.tieBreakAlternative(basket, evaluated);
+    },
   };
   return { env, calls, draft };
 }
@@ -231,7 +206,7 @@ describe('buildExamples: the smallest qualifying and the largest below-threshold
     const a = buildExamples(cfg, [burger], first.env);
     const b = buildExamples(cfg, [burger], second.env);
     expect(b).toStrictEqual(a);
-    expect(first.calls.count).toBeLessThanOrEqual(MAX_LINE_QUANTITY + 2);
+    expect(first.calls.count).toBeLessThanOrEqual(MAX_LINE_QUANTITY + 3);
     expect(a.omittedExamples).toEqual([
       { kind: 'QUALIFYING', reason: 'THRESHOLD_NOT_REACHABLE_WITH_SAMPLE' },
     ]);
@@ -328,13 +303,21 @@ describe('buildExamples: the smallest qualifying and the largest below-threshold
     });
     expect(single.appliedSaving).toBe('0.00');
     expect(single.competingWinner).toEqual({
-      source: 'PROMOTION',
-      promotionId: 'rival-id',
-      scope: 'CATEGORY',
-      name: 'name of rival-id',
-      discountType: 'PERCENTAGE',
-      value: '40.00',
+      reason: 'ITEM_OFFER_BEATEN_ON_SAME_ITEMS',
+      combined: false,
       saving: '48.00',
+      comparedSaving: '36.00',
+      winners: [
+        {
+          source: 'PROMOTION',
+          promotionId: 'rival-id',
+          scope: 'CATEGORY',
+          name: 'name of rival-id',
+          discountType: 'PERCENTAGE',
+          value: '40.00',
+          saving: '48.00',
+        },
+      ],
     });
     // the legacy Product discount as the winner
     const legacy = sample('Latte', '50.00', {
@@ -358,10 +341,11 @@ describe('buildExamples: the smallest qualifying and the largest below-threshold
       environment(small).env,
     ).examples;
     expect(lost.competingWinner).toMatchObject({
-      source: 'PRODUCT_DISCOUNT',
-      promotionId: null,
-      scope: 'PRODUCT',
+      reason: 'ITEM_OFFER_BEATEN_ON_SAME_ITEMS',
       saving: '10.00',
+      winners: [
+        { source: 'PRODUCT_DISCOUNT', promotionId: null, scope: 'PRODUCT' },
+      ],
     });
     expect(lost.diagnostic.potentialSaving).toBe('2.50');
   });
