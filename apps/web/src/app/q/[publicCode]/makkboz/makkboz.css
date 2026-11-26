@@ -286,7 +286,8 @@
 .makkboz-experience .m-hours span{width:9px;height:9px;border-radius:50%;background:#d9594c}
 .makkboz-experience .m-hours.is-open span{background:#5fd68a}
 .makkboz-experience .m-channels{list-style:none;margin:14px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:10px}
-.makkboz-experience .m-channels a{display:inline-flex;align-items:center;gap:9px;min-height:44px;padding-block:6px;padding-inline:6px 16px;border-radius:999px;border:1px solid rgba(245,219,175,.25);font-weight:700;font-size:14px;color:#f3e6cc}
+.makkboz-experience .m-channels a{display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:999px;border:1px solid rgba(245,219,175,.25);color:#f3e6cc}
+.makkboz-experience .m-channels a:focus-visible{outline:2px solid #e0ba73;outline-offset:2px}
 .makkboz-experience .m-channels a:hover{border-color:#e0ba73}
 .makkboz-experience .m-footer-bottom{display:flex;align-items:center;justify-content:space-between;gap:20px;min-height:57px;border-top:1px solid rgba(245,219,175,.13);color:#cbbda5;font-size:12px;flex-wrap:wrap}
 .makkboz-experience .m-powered{display:inline-flex;align-items:center;gap:8px}

@@ -1,6 +1,6 @@
 'use client';
 
-import type { CSSProperties, ReactNode } from 'react';
+import type { CSSProperties } from 'react';
 import { GuestIconLink, GuestIconPhone } from '../../../components/guest/icons';
 import { BRAND_PATHS, type BrandName } from '../../../lib/contact/brand-paths';
 import { telHref, whatsappHref, type ContactField, type RestaurantContact } from '../../../lib/contact/types';
@@ -102,7 +102,7 @@ export const LINK_PROPS = { target: '_blank', rel: 'noopener noreferrer' } as co
 /**
  * The compact row under the restaurant name in the hero: app-icon style round badges
  * (at most six, so it never crowds the header); the full list is in "Find us" below.
- * Each is a real link with an accessible name and a 40px touch target.
+ * Each is a real link with an accessible name and a 44px touch target.
  */
 export function HeroContactIcons({
   contact,
@@ -138,7 +138,7 @@ export function HeroContactIcons({
             aria-label={channel.label}
             title={channel.label}
             {...(channel.external ? LINK_PROPS : {})}
-            className="relative inline-flex size-8 items-center justify-center rounded-full transition-transform after:absolute after:-inset-[3px] after:content-[''] hover:scale-110 active:scale-95 lg:size-11"
+            className="inline-flex size-11 items-center justify-center rounded-full transition-transform hover:scale-110 active:scale-95 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-g-accent"
           >
             <Badge channel={channel} size="hero" />
           </a>
@@ -152,8 +152,8 @@ export function HeroContactIcons({
 export const HERO_BUTTON_KEYS = ['phone', 'hotline', 'whatsapp', 'mapsUrl'] as const;
 
 /**
- * The main ways to reach the restaurant as labelled buttons (call, WhatsApp, location) for the
- * hero of the `floating` template. The hotline stands in for the phone only when there is none.
+ * The main ways to reach the restaurant in the `floating` hero.
+ * The hotline stands in for the phone only when there is none.
  */
 export function HeroContactButtons({ contact, copy }: { contact: RestaurantContact; copy: PublicMenuCopy }) {
   const channels = buildChannels(contact, copy)
@@ -167,11 +167,12 @@ export function HeroContactButtons({ contact, copy }: { contact: RestaurantConta
         <li key={channel.key}>
           <a
             href={channel.href}
+            aria-label={channel.label}
+            title={channel.label}
             {...(channel.external ? LINK_PROPS : {})}
-            className="inline-flex h-10 items-center gap-2 rounded-full border border-g-line bg-g-surface-2 ps-1.5 pe-3.5 text-[13px] font-bold text-g-text transition-colors hover:border-g-accent hover:bg-g-accent-soft"
+            className="inline-flex size-11 items-center justify-center rounded-full border border-g-line bg-g-surface-2 transition-colors hover:border-g-accent hover:bg-g-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-g-accent"
           >
             <Badge channel={channel} size={28} />
-            {channel.label}
           </a>
         </li>
       ))}
@@ -179,23 +180,23 @@ export function HeroContactButtons({ contact, copy }: { contact: RestaurantConta
   );
 }
 
-function Pill({ channel, children }: { channel: Channel; children?: ReactNode }) {
+function ChannelIcon({ channel }: { channel: Channel }) {
   return (
     <a
       href={channel.href}
+      aria-label={channel.label}
+      title={channel.label}
       {...(channel.external ? LINK_PROPS : {})}
-      className="inline-flex h-12 items-center gap-2.5 rounded-full border border-g-line bg-g-surface ps-2 pe-4 text-[14px] font-bold text-g-text transition-colors hover:border-g-accent hover:bg-g-accent-soft"
+      className="inline-flex size-12 items-center justify-center rounded-full border border-g-line bg-g-surface transition-colors hover:border-g-accent hover:bg-g-accent-soft focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-g-accent"
     >
       <Badge channel={channel} size={32} />
-      <span>{channel.label}</span>
-      {children}
     </a>
   );
 }
 
 /**
- * "Find us" at the bottom of the Guest Menu: one pill per channel that has a value
- * (brand logo + name), the phone numbers showing the number itself. Renders nothing
+ * "Find us" at the bottom of the Guest Menu: one icon per populated channel,
+ * with phone numbers shown separately. Renders nothing
  * when there is nothing to show. External links open in a new tab with `noopener`;
  * the Backend has already restricted every link to https on the platform's own domain.
  */
@@ -212,14 +213,15 @@ export function GuestContact({ contact, copy }: { contact: RestaurantContact; co
         </h2>
         <ul className="flex flex-wrap gap-2.5">
           {channels.map((channel) => (
-            <li key={channel.key}>
-              <Pill channel={channel}>
-                {channel.key === 'phone' || channel.key === 'hotline' ? (
-                  <bdi dir="ltr" className="g-num font-extrabold text-g-accent-text">
+            <li key={channel.key} className="flex items-center gap-2">
+              <ChannelIcon channel={channel} />
+              {channel.key === 'phone' || channel.key === 'hotline' ? (
+                <a href={channel.href} className="inline-flex min-h-11 items-center text-g-accent-text">
+                  <bdi dir="ltr" className="g-num font-extrabold">
                     {channel.key === 'phone' ? contact.phone : contact.hotline}
                   </bdi>
-                ) : null}
-              </Pill>
+                </a>
+              ) : null}
             </li>
           ))}
         </ul>

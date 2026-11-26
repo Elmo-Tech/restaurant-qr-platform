@@ -649,9 +649,8 @@ export function SherbinyMenu(props: SherbinyMenuProps) {
                 <ul className="s-channels" aria-label={copy.findUs}>
                   {channels.map((channel) => (
                     <li key={channel.key}>
-                      <a href={channel.href} {...(channel.external ? LINK_PROPS : {})}>
+                      <a href={channel.href} aria-label={channel.label} title={channel.label} {...(channel.external ? LINK_PROPS : {})}>
                         <Badge channel={channel} size={32} />
-                        <span>{channel.label}</span>
                       </a>
                     </li>
                   ))}
