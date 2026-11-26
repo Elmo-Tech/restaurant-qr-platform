@@ -1,0 +1,50 @@
+(node:57178) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/mahmoudsaber/Coding/Elmo%20Tech/restaurant-qr-platform/.agents/worktrees/feat-kitchen-k2-ticket-readability/apps/web/src/lib/api/errors.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/mahmoudsaber/Coding/Elmo Tech/restaurant-qr-platform/.agents/worktrees/feat-kitchen-k2-ticket-readability/apps/web/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ the kitchen only ever moves ACCEPTED -> PREPARING -> READY; READY has no kitchen step (0.399625ms)
+✔ action failures are classified by HTTP status and stable code, never by message text (0.135209ms)
+✔ timeouts are ambiguous: always unknown, never "refused" (0.077959ms)
+✔ client-side bounds: reads give up before actions, both well under browser defaults (0.06475ms)
+✔ a pending check is only settled by a read that started after it (0.381084ms)
+✔ unknown outcome: confirmed when moved, "not applied" when unchanged, "changed elsewhere" otherwise (0.080333ms)
+✔ conflict and saved checks: the latest state is explained; a saved move needs no extra notice (0.07375ms)
+✔ a ticket that left the board during reconciliation becomes a named board notice (0.074875ms)
+✔ card notices last only while the ticket stays in the status they describe (0.101458ms)
+✔ board notices: one per ticket, newest last, bounded (0.138417ms)
+✔ chime arrivals: silent first load, only never-seen ACCEPTED tickets, never twice (0.088584ms)
+(node:57179) [MODULE_TYPELESS_PACKAGE_JSON] Warning: Module type of file:///Users/mahmoudsaber/Coding/Elmo%20Tech/restaurant-qr-platform/.agents/worktrees/feat-kitchen-k2-ticket-readability/apps/web/src/lib/kitchen/ticket-view.ts is not specified and it doesn't parse as CommonJS.
+Reparsing as ES module because module syntax was detected. This incurs a performance overhead.
+To eliminate this warning, add "type": "module" to /Users/mahmoudsaber/Coding/Elmo Tech/restaurant-qr-platform/.agents/worktrees/feat-kitchen-k2-ticket-readability/apps/web/package.json.
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ the approved thresholds are unchanged: warning at 10 minutes, alert at 20 (0.37875ms)
+✔ delay level follows the thresholds at the exact boundaries (0.079167ms)
+✔ a READY ticket is never delayed: it only waits for service, which is not a kitchen step (0.048208ms)
+✔ tickets sort longest-waiting-in-stage first, by when the stage began, not by creation (3.034666ms)
+✔ ties break by creation time, then by id, whatever order the API returned (0.125209ms)
+✔ sorting never mutates its input and tolerates an unparseable timestamp (it sorts last) (0.112583ms)
+✔ modifiers are listed under their own group name, in the order the Guest saw them (0.101917ms)
+✔ options without a group name stay together and are not attached to a named group (0.064333ms)
+✔ Kitchen actions require both orders.view and kitchen.update, like the status route (0.542625ms)
+✔ the lifecycle stays ACCEPTED -> PREPARING -> READY; READY never implies SERVED (0.6535ms)
+✔ reads never overlap: one in flight, joins for poll/visible/manual, one queued fresh read for reconciliation (0.139583ms)
+✔ stale responses are discarded after every await (branch switch or unmount) (0.08375ms)
+✔ switching branches resets every ticket, error, timestamp and notice in one update (0.115375ms)
+✔ synchronous action locks and pending checks block duplicate or premature status changes (0.118542ms)
+✔ recovery controls only ever re-read; status changes are never retried automatically (0.1665ms)
+✔ first-load and refresh failures use the shared ReadErrorAlert and keep the last board visible (0.077292ms)
+✔ session expiry uses the existing login recovery for reads and actions (0.0965ms)
+✔ status and time are accessible and localized: no chatty live region, no browser-locale times (0.140209ms)
+✔ tickets that move or disappear during reconciliation leave persistent feedback (0.106917ms)
+✔ sound: one AudioContext, unlocked by a click, closed on unmount, preference separate from availability (0.172833ms)
+✔ every new message exists in English and Arabic; retired keys are gone (0.94925ms)
+✔ reads and status changes are time-bounded; a timed-out change is reconciled, not retried (0.46875ms)
+✔ K1 controls meet the 44px touch target (min-h-11 over the 40px default button) (0.111875ms)
+ℹ tests 34
+ℹ suites 0
+ℹ pass 34
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 78.663959

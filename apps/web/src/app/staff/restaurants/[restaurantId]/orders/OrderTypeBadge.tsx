@@ -39,14 +39,18 @@ export function orderTypeLabel(t: (key: MessageKey) => string, type: OrderType):
   return t(`orders.type.${type}` as const);
 }
 
-export function OrderTypeBadge({ type }: { type: OrderType }) {
+export function OrderTypeBadge({ type, size = 'sm' }: { type: OrderType; size?: 'sm' | 'lg' }) {
   const { t } = useStaffI18n();
   const style = TYPE_STYLES[type];
+  // `lg` is for surfaces read from a distance (the Kitchen Board); every other surface keeps `sm`.
+  const large = size === 'lg';
   return (
     <span
-      className={`inline-flex items-center gap-1 rounded-md border px-2 py-1 text-xs font-medium ${style.badge}`}
+      className={`inline-flex items-center gap-1 rounded-md border font-medium ${
+        large ? 'px-2.5 py-1 text-sm font-bold' : 'px-2 py-1 text-xs'
+      } ${style.badge}`}
     >
-      {style.icon('h-3.5 w-3.5')}
+      {style.icon(large ? 'h-4 w-4' : 'h-3.5 w-3.5')}
       {orderTypeLabel(t, type)}
     </span>
   );
