@@ -291,7 +291,8 @@
 .sherbiny-experience .s-hours span{width:9px;height:9px;border-radius:50%;background:#d9594c}
 .sherbiny-experience .s-hours.is-open span{background:#2f9e5a}
 .sherbiny-experience .s-channels{list-style:none;margin:20px 0 0;padding:0;display:flex;flex-wrap:wrap;gap:10px}
-.sherbiny-experience .s-channels a{display:inline-flex;align-items:center;gap:10px;min-height:48px;padding:6px 16px 6px 6px;padding-inline:6px 16px;border-radius:999px;border:1px solid var(--s-rule);background:var(--s-panel);font-weight:800;font-size:14px;transition:border-color .2s}
+.sherbiny-experience .s-channels a{display:inline-flex;align-items:center;justify-content:center;width:48px;height:48px;border-radius:999px;border:1px solid var(--s-rule);background:var(--s-panel);transition:border-color .2s}
+.sherbiny-experience .s-channels a:focus-visible{outline:2px solid var(--s-orange);outline-offset:2px}
 .sherbiny-experience .s-channels a:hover{border-color:var(--s-orange)}
 .sherbiny-experience .s-footer{background:#101110;border-top:1px solid rgba(255,255,255,.08);color:#c3b8a6;padding:25px 0 38px}
 .sherbiny-experience .s-footer-inner{display:flex;align-items:center;justify-content:space-between;gap:20px;font-size:12px;flex-wrap:wrap}

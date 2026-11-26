@@ -24,9 +24,9 @@ const BUTTON: Record<StepperVariant, string> = {
 };
 
 const COUNT: Record<StepperVariant, string> = {
-  accent: 'min-w-4 text-[15px]',
-  sheet: 'min-w-5 text-[17px]',
-  cart: 'min-w-3.5 text-[14.5px]',
+  accent: 'min-w-4 text-[15px] text-g-on-accent',
+  sheet: 'min-w-5 text-[17px] text-g-text',
+  cart: 'min-w-3.5 text-[14.5px] text-g-text',
 };
 
 export function Stepper({

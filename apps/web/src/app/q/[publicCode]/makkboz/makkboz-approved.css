@@ -119,6 +119,7 @@
 .makkboz-experience[data-m-view="list"] .m-add:hover{background:#e9ad3d;color:#173f30}
 .makkboz-experience[data-m-view="list"] .m-stepper{border-color:#d8a23c;background:#174737}
 .makkboz-experience[data-m-view="list"] .m-stepper button,.makkboz-experience[data-m-view="list"] .m-stepper span{color:#fff6e2}
+.makkboz-experience[data-m-view="list"] .m-stepper button:hover{color:var(--m-btn-fg)}
 
 /* Shared offer cards are dressed by this renderer, without changing offer logic. */
 .makkboz-experience .m-offers{padding:18px 0 24px;--g-surface:#fff8e9;--g-surface-2:#f4e5cb;--g-line:#e2c38c;--g-text:#173f30;--g-text-2:#526b58;--g-text-3:#6e7c68;--g-price:#173f30;--g-accent:#174b38;--g-on-accent:#fff8e9;--g-accent-text:#b27d28}
