@@ -692,6 +692,18 @@ Category + Fixed Amount is invalid in V1.
 > invalid for `CATEGORY` and is also invalid for `MENU`. Availability is gated by the opt-in `PROMOTIONS` feature key.
 > Details: `docs/01-domain/PROMOTIONS_SPEC.md` "Implementation Amendment: Unified Promotions".
 
+> **Amended by DEC-077 (2026-11-26, Product Owner; documentation only until milestones B1–B4 ship).** Superseding the
+> sentence "Fixed Amount stays invalid for `CATEGORY` and is also invalid for `MENU`" (and the original "Category + Fixed
+> Amount is invalid in V1"): `MENU` and `CATEGORY` support `FIXED_AMOUNT`, applied **per eligible product unit** and capped
+> at that unit's original unit price; paid extras are never discounted by item scope. A **new** `CART` promotion needs a
+> strictly positive `minimumSubtotal`; existing CART promotions with no / zero minimum are *legacy*, are never changed
+> automatically, and need a valid minimum only to change pricing, eligibility or priority, or to be reactivated
+> (metadata edits, deactivation and archiving stay allowed). Agent rules until the milestones land: the code on `main` still
+> refuses fixed item-scope promotions and still allows a CART promotion without a minimum — that is documented drift to be fixed by
+> the milestone, not a reason to deviate from DEC-077; do not backfill or default legacy minimums, and do not add a database CHECK
+> or trigger for the minimum (it would block metadata edits of legacy rows). Details: `docs/00-product/PROJECT_DECISIONS.md`
+> DEC-077, `docs/01-domain/PROMOTIONS_SPEC.md` "Amendment DEC-077", `docs/02-technical/PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`.
+
 ---
 
 # 36. Promotion Conflict
@@ -724,6 +736,13 @@ Do not reproduce it in:
 > amended by the same decision (B-D2, 2026-11-21, see the note under §35); the DEC-034 release label carries a dated
 > note under DEC-034.
 
+> **Clarified by DEC-077 (2026-11-26).** Maximum-savings selection, non-stacking and deterministic tie-breaking are unchanged. For
+> previews: the Backend pricing engine is the only source of any promotion saving shown to Staff — no frontend, n8n or AI
+> calculation, including "illustrative" examples. A preview is labelled REAL, ILLUSTRATIVE or INCOMPLETE, is bound to the draft it
+> answers and never shows a stale result as current. In the Staff editor the numeric priority lives in a collapsed Advanced
+> settings disclosure; existing priority values are never changed by moving or saving it, and visible math formulas are replaced by
+> plain Arabic / English sentences. See `docs/01-domain/PROMOTIONS_SPEC.md` "Amendment DEC-077" D3–D4.
+
 ---
 
 # 37. Promotion Base
@@ -733,6 +752,11 @@ Product / Category percentage Promotions apply to approved Product pricing scope
 Paid extras are excluded by default according to the Promotion specification.
 
 Read the Promotion specification before implementing pricing.
+
+> **Clarified by DEC-077 (2026-11-26).** The percentage / fixed distinction does not change the base: item-scope (CATEGORY / MENU)
+> discounts of either type use the original unit price (size or base price) without paid extras; a fixed discount is capped at that
+> price per unit. CART eligibility is computed before discounts on eligible product lines **including** eligible paid extras and
+> **excluding** bundles (Offers) and delivery fees.
 
 ---
 

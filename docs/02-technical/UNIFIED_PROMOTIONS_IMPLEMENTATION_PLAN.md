@@ -36,6 +36,10 @@ original order instead of `409 IDEMPOTENCY_KEY_REUSED` (`API_CONVENTIONS.md` #76
 > in request identity. If B2 adds a Guest-supplied promotion input (for example a code), that input is material and
 > needs a new fingerprint version (keeping the old canonicalizer), per the versioning rule of that clarification.
 
+> **Follow-up (DEC-077, 2026-11-26, documentation only).** Fixed MENU / CATEGORY discounts, the strictly positive CART minimum, real
+> previews and the editor UX are planned in `PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md` as a separate B1–B4 series (labels differ from the
+> milestones below).
+
 ## Milestones
 
 ### B1 — Domain model, policy amendment, pure engine — **DONE (round 2, awaiting review)**

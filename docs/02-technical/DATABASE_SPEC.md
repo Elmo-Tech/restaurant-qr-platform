@@ -2214,6 +2214,10 @@ CATEGORY
 > (no Promotion row). Targets live in `promotion_branches`, `promotion_menus`, `promotion_categories`,
 > `promotion_products`, `promotion_delivery_zones`. Details: `docs/02-technical/UNIFIED_PROMOTIONS_SCHEMA_AND_ROLLOUT.md`.
 
+> **Amended by DEC-077 (2026-11-26), documentation only.** CATEGORY and MENU will support `FIXED_AMOUNT` (two CHECKs dropped by a
+> B1 forward migration) and new CART promotions will need a strictly positive minimum enforced in application code, not by a CHECK.
+> See "Amendment 2026-11-26 — DEC-077 storage rules" below #114.
+
 ---
 
 # 86. Promotion Validation Constraints
@@ -2827,6 +2831,67 @@ subtotal_amount + delivery_fee_amount             = total_amount              (u
 `orders_promotion_discount_within_total` (CHECK `promotion_discount_amount ≤ discount_total_amount`) keeps the legacy
 part non-negative; the cross-row identities are verified by `checkOrderPricingSnapshot` before B2 persists. Every
 pre-B1 order reads as "no promotion" (new columns 0 / NULL, no rows).
+
+---
+
+## Amendment 2026-11-26 — DEC-077 storage rules (documentation only, B0)
+
+Status: accepted policy (Product Owner 2026-11-26, DEC-077); **no schema change is made by B0 and none exists on `main`
+yet**. This section tells milestone B1 what the storage change is, and what it must not be. It supersedes, for the two
+items below only, the Unified Promotions amendment of 2026-11-22.
+
+**1. Fixed MENU / CATEGORY promotions — relax two CHECKs (B1, forward migration).**
+
+| Constraint | Table | Today | After B1 |
+| --- | --- | --- | --- |
+| `promotions_item_scope_percentage_only` | `promotions` | `scope NOT IN ('CATEGORY','MENU') OR discount_type = 'PERCENTAGE'` | dropped |
+| `order_promotions_item_scope_percentage_only` | `order_promotions` | same | dropped |
+
+- One new, hand-written, forward migration (`ALTER TABLE … DROP CONSTRAINT`, no table rewrite, no row scan, brief lock).
+  The applied migration `20261128100000_unified_promotions` is **never edited**.
+- Enums, columns, indexes and foreign keys are unchanged. `value` keeps `> 0`, and `PERCENTAGE ⇒ value ≤ 100` stays.
+- Meaning of the stored numbers for a FIXED item-scope row: `promotions.value` / `order_promotions.value` = the configured
+  **per-unit** amount; `order_promotions.amount` = the total actually saved across lines after the per-unit cap
+  (`amount ≤ value × units`); allocations are the per-line savings. `config_snapshot` keeps type and value, as today.
+- The reconciliation identities of the 2026-11-22 amendment are unchanged.
+- The `promotions.priority` column, default and range (0..1000) are unchanged; moving the editor field is a UI change and writes
+  nothing.
+
+**2. CART minimum — no database CHECK, no backfill.**
+
+- The existing `promotions_minimum_subtotal_shape` CHECK (`minimum_subtotal >= 0`, only for CART / QUANTITY / DELIVERY) **stays
+  as it is**. A CHECK such as `scope <> 'CART' OR minimum_subtotal > 0` is **forbidden**: PostgreSQL evaluates a CHECK on every
+  later `UPDATE` of a row (`NOT VALID` skips only the existing rows when the constraint is added), so it would also block
+  metadata-only edits, deactivation and archiving of legacy promotions, which DEC-077 requires to keep working. A status-
+  conditioned CHECK would still block metadata edits of ACTIVE legacy rows.
+- The strictly positive minimum for new CART promotions, and the legacy exceptions, are enforced by the Backend write path and its
+  tests (`PROMOTIONS_SPEC.md` "Amendment DEC-077" D2). No trigger is introduced.
+- **No automatic data change.** No migration, seed, job or deploy step updates, deletes, deactivates or archives a legacy CART
+  promotion, and no default is applied to a NULL minimum. A legacy promotion is identified by reading
+  (`scope = 'CART' AND status <> 'ARCHIVED' AND (minimum_subtotal IS NULL OR minimum_subtotal = 0)`); no marker column is added.
+- Pre-flight evidence for the rollout (read-only, run per environment before B1 is deployed, result recorded in the PR):
+
+```sql
+SELECT restaurant_id, status, count(*)
+FROM promotions
+WHERE scope = 'CART' AND status <> 'ARCHIVED'
+  AND (minimum_subtotal IS NULL OR minimum_subtotal = 0)
+GROUP BY restaurant_id, status;
+```
+
+**3. Backward compatibility and rollback.**
+
+- Reads: every existing reader of `promotions`, `order_promotions` and allocations keeps working; the new data are only rows
+  with `discount_type = 'FIXED_AMOUNT'` under scopes CATEGORY / MENU. Readers that format a promotion value must branch on
+  `discount_type` and never assume a percentage for an item scope (B4 reader audit).
+- Application rollback after B1 is safe for stored data: the pre-B1 engine treats a fixed item-scope row as
+  `INVALID_CONFIGURATION` and applies nothing (it never trusts the row), so no wrong discount is charged. Before rolling the
+  application back, deactivate the fixed item-scope promotions that were created.
+- The two dropped CHECKs are **not re-added** by a rollback once a fixed item-scope row exists in `promotions` or
+  `order_promotions` (the constraint would fail on existing history, and `order_promotions` rows are never rewritten). Rolling the
+  schema back is therefore a forward decision, not a revert; this follows AGENTS.md #82 (forward migrations only).
+- Take a backup before applying the B1 migration (`DEPLOYMENT_ARCHITECTURE.md` backup rules). Apply with
+  `prisma migrate deploy`; never `db push`.
 
 ---
 
