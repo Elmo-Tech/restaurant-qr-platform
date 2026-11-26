@@ -67,7 +67,10 @@ jobs:
       - name: Promotions live preview and workspace contracts
         run: >-
           node --experimental-strip-types --test
-          apps/web/src/lib/promotions/savings-preview.test.mjs
+          apps/web/src/lib/promotions/preview-plan.test.mjs
+          apps/web/src/lib/promotions/preview-session.test.mjs
+          apps/web/src/lib/promotions/preview-view.test.mjs
+          apps/web/src/lib/promotions/describe.test.mjs
           apps/web/src/lib/promotions/workspace.contract.test.mjs
 
       - name: Promotions engine, snapshots and fixed item write gate (API units, DEC-077 B1)

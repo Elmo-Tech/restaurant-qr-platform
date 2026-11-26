@@ -79,36 +79,132 @@ export interface PromotionsPage {
 
 export type PreviewOrderType = 'DINE_IN' | 'PICKUP' | 'DELIVERY';
 
-export interface PreviewInput {
+/**
+ * DEC-077 B3 `CONTEXTUAL_V1`: the authoritative preview contract. The browser sends the draft and a context (Branch,
+ * order type); the Backend builds the baskets and prices them with the real engine. Every amount in the answer is a
+ * Backend decimal string that is only displayed, never computed on.
+ */
+export interface PreviewRequest {
+  contract: 'CONTEXTUAL_V1';
+  /** Echoed back; an answer to any other id is never shown (`^[A-Za-z0-9._-]{8,64}$`). */
+  requestId: string;
   draft: PromotionDraft;
+  /** An existing promotion being edited: the draft replaces it instead of competing with itself. */
   promotionId?: string;
   branchId: string;
   orderType: PreviewOrderType;
   deliveryZoneId?: string;
-  items: { productId: string; quantity: number }[];
 }
 
+export type PreviewState = 'REAL' | 'ILLUSTRATIVE' | 'INCOMPLETE';
+export type PreviewExampleKind = 'QUALIFYING' | 'BELOW_THRESHOLD' | 'SINGLE';
 export type PreviewDiagnostic = 'APPLIED' | 'LOST_TO_BETTER_OFFER' | 'NOT_STARTED' | 'EXPIRED' |
   'INACTIVE' | 'WRONG_BRANCH' | 'WRONG_ORDER_TYPE' | 'WRONG_ZONE' | 'NO_ELIGIBLE_ITEMS' |
   'NO_DELIVERY_FEE' | 'NO_EFFECTIVE_DISCOUNT' | 'BELOW_MINIMUM_SUBTOTAL' |
   'BELOW_MINIMUM_QUANTITY' | 'INVALID_CONFIGURATION';
+export type CompetitionReason = 'ITEM_OFFER_BEATEN_ON_SAME_ITEMS' | 'ITEM_OFFER_BEATEN_BY_CART_LEVEL' |
+  'CART_LEVEL_BEATEN_BY_ITEM_OFFERS' | 'CART_LEVEL_BEATEN_BY_BETTER_CART_LEVEL' | 'DELIVERY_BEATEN_BY_BETTER_DELIVERY';
+export type OmittedExampleReason = 'SINGLE_UNIT_REACHES_THRESHOLD' | 'THRESHOLD_NOT_REACHABLE_WITH_SAMPLE' |
+  'NOT_ENOUGH_DISTINCT_PRODUCTS' | 'DRAFT_NOT_APPLICABLE_IN_CONTEXT';
+export type IllustrativeReason = 'NO_DELIVERY_ZONE' | 'NO_ORDERABLE_APPLICABLE_PRODUCT';
 
-export interface PromotionPreview {
+export interface PreviewProblem { code: string; field: string }
+
+/** An INCOMPLETE answer is exactly these four keys: it carries no financial figure of any kind. */
+export interface IncompletePreview {
+  state: 'INCOMPLETE';
+  requestId: string;
+  evaluatedAt: string;
+  problems: PreviewProblem[];
+}
+
+export interface PreviewExampleLine {
+  /** null for an ILLUSTRATIVE sample: it is not a product of this restaurant. */
+  productId: string | null;
+  label: string;
+  unitPrice: string;
+  quantity: number;
+}
+
+export interface CompetingWinnerPart {
+  source: 'PROMOTION' | 'PRODUCT_DISCOUNT';
+  promotionId: string | null;
+  scope: string;
+  name: string | null;
+  discountType: DiscountType;
+  value: string;
+  saving: string;
+}
+
+export interface CompetingWinner {
+  reason: CompetitionReason;
+  combined: boolean;
+  saving: string;
+  comparedSaving: string;
+  winners: CompetingWinnerPart[];
+}
+
+export interface PreviewExample {
+  kind: PreviewExampleKind;
+  lines: PreviewExampleLine[];
   strategy: 'ITEM' | 'CART' | 'NONE';
   merchandiseOriginal: string;
   merchandisePayable: string;
   deliveryFeeOriginal: string;
   deliveryFeePayable: string;
   grandTotal: string;
+  /** What THIS promotion saves in this basket (0.00 when it lost or did not qualify). */
   appliedSaving: string;
   diagnostic: {
     status: PreviewDiagnostic;
-    potentialSaving: string | null;
+    /** What it would save on its own, also when another offer wins. Not what is applied. */
+    potentialSaving: string;
     remainingAmount: string | null;
     remainingQuantity: number | null;
   };
+  /** Not null: the Guest quote would refuse this basket for the delivery area's minimum. Pricing stays accurate. */
   zoneMinimumShortfall: string | null;
+  uncertainty: { code: 'UNSAVED_DRAFT_ID_TIE_BREAK'; alternative: { status: PreviewDiagnostic; appliedSaving: string } } | null;
+  competingWinner?: CompetingWinner;
 }
+
+export interface ApplicableProduct {
+  productId: string;
+  name: string;
+  unitPrice: string;
+  unitSaving?: string;
+  unitPriceAfter?: string;
+}
+
+export interface ReadyPreview {
+  state: 'REAL' | 'ILLUSTRATIVE';
+  requestId: string;
+  evaluatedAt: string;
+  branchLocalDate: string;
+  assumptions: {
+    simulatedAsActive: true;
+    size: 'FIRST_ACTIVE_SIZE';
+    paidExtrasIncluded: false;
+    branchId: string;
+    orderType: PreviewOrderType;
+    deliveryZoneId: string | null;
+    sampleProductId: string | null;
+    schedule: 'CURRENT' | 'NOT_STARTED' | 'EXPIRED';
+    basket: 'BUILT_BY_BACKEND' | 'STAFF_ITEMS';
+    illustrativeReasons: IllustrativeReason[];
+  };
+  applicableProducts: {
+    total: number;
+    /** More products qualify than were read: `total` is then a lower bound. */
+    truncated: boolean;
+    items: ApplicableProduct[];
+    excluded: { code: string; count: number }[];
+  };
+  examples: PreviewExample[];
+  omittedExamples: { kind: 'QUALIFYING' | 'BELOW_THRESHOLD'; reason: OmittedExampleReason }[];
+}
+
+export type ContextualPreview = IncompletePreview | ReadyPreview;
 
 const base = (restaurantId: string) => `/restaurants/${encodeURIComponent(restaurantId)}/promotions`;
 const resource = (restaurantId: string, id: string) => `${base(restaurantId)}/${encodeURIComponent(id)}`;
@@ -156,7 +252,7 @@ export async function runPromotionAction(restaurantId: string, promotion: Promot
   }
 }
 
-export async function previewPromotion(restaurantId: string, input: PreviewInput, signal?: AbortSignal): Promise<PromotionPreview> {
-  const { data } = await apiFetch<{ data: PromotionPreview }>(`${base(restaurantId)}/preview`, { method: 'POST', body: input, signal });
+export async function previewPromotion(restaurantId: string, request: PreviewRequest, signal?: AbortSignal): Promise<ContextualPreview> {
+  const { data } = await apiFetch<{ data: ContextualPreview }>(`${base(restaurantId)}/preview`, { method: 'POST', body: request, signal });
   return data;
 }

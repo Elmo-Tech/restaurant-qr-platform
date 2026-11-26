@@ -9,6 +9,10 @@ import { AppModule } from '../src/app.module';
 import { PasswordHasherService } from '../src/auth/password/password-hasher.service';
 import { validationExceptionFactory } from '../src/common/http/validation-exception.factory';
 import { PrismaService } from '../src/database/prisma.service';
+import {
+  checkOrderPricingSnapshot,
+  type PromotionConfigSnapshot,
+} from '../src/promotions/promotion-snapshot';
 import { ensureStarterRole } from './fixtures/ensure-starter-role';
 
 /**
@@ -437,6 +441,29 @@ describeSandbox('DEC-077 B1 fixed item promotions (real PostgreSQL)', () => {
       },
     });
 
+  function expectStoredSnapshotReconciles(
+    stored: Awaited<ReturnType<typeof storedFor>>,
+  ) {
+    const itemIndex = new Map(
+      stored.items.map((item, index) => [item.id, index]),
+    );
+    expect(
+      checkOrderPricingSnapshot({
+        order: stored,
+        items: stored.items.map((item, lineIndex) => ({ ...item, lineIndex })),
+        promotions: stored.promotions.map((promotion) => ({
+          ...promotion,
+          configSnapshot:
+            promotion.configSnapshot as unknown as PromotionConfigSnapshot,
+          allocations: promotion.allocations.map((allocation) => ({
+            lineIndex: itemIndex.get(allocation.orderItemId) ?? -1,
+            amount: allocation.amount,
+          })),
+        })),
+      }),
+    ).toEqual([]);
+  }
+
   function expectProblem(response: request.Response, code: string) {
     expect(response.status).toBe(422);
     expect(response.body).toMatchObject({
@@ -824,6 +851,7 @@ describeSandbox('DEC-077 B1 fixed item promotions (real PostgreSQL)', () => {
 
     // Historical snapshot: one FIXED row (configured value, amount actually saved) + per-line allocations
     const stored = await storedFor(firstId);
+    expectStoredSnapshotReconciles(stored);
     expect(stored.promotions).toHaveLength(1);
     const row = stored.promotions[0];
     expect(row).toMatchObject({
@@ -891,6 +919,7 @@ describeSandbox('DEC-077 B1 fixed item promotions (real PostgreSQL)', () => {
       {},
     ).expect(200);
     const after = await storedFor(firstId);
+    expectStoredSnapshotReconciles(after);
     expect(after.promotions[0].amount.toFixed(2)).toBe('200.00');
     expect(after.promotions[0].value.toFixed(2)).toBe('70.00');
     expect(after.totalAmount.toFixed(2)).toBe('100.00');
@@ -1093,7 +1122,9 @@ describeSandbox('DEC-077 B1 fixed item promotions (real PostgreSQL)', () => {
       },
     });
     const placed = await place(w.genericQr, large, '102.00').expect(201);
-    const row = (await storedFor(orderId(placed))).promotions[0];
+    const stored = await storedFor(orderId(placed));
+    expectStoredSnapshotReconciles(stored);
+    const row = stored.promotions[0];
     expect(row).toMatchObject({
       scope: 'CATEGORY',
       discountType: 'PERCENTAGE',

@@ -71,9 +71,9 @@ test('zone deep link and server preview use Staff API contracts, not Guest prici
   assert.match(source('./api.ts'), /confirmTargetWidening: true/);
   assert.match(source('./api.ts'), /expectedUpdatedAt: original\.updatedAt/);
   assert.match(source(`${workspace}PromotionEditor.tsx`), /mustConfirm && !confirmWiden/);
-  assert.match(source(`${workspace}SavingsPreview.tsx`), /result\.appliedSaving/);
+  assert.match(source(`${workspace}SavingsPreview.tsx`), /example\.appliedSaving/);
   assert.match(source(`${workspace}SavingsPreview.tsx`), /diagnostic\.status/);
-  assert.match(source(`${workspace}SavingsPreview.tsx`), /result\.zoneMinimumShortfall/);
+  assert.match(source(`${workspace}SavingsPreview.tsx`), /example\.zoneMinimumShortfall/);
 });
 
 const storedFixed = (overrides = {}) => ({
@@ -173,8 +173,9 @@ test('DEC-077 B2: a stored legacy CART promotion is never blocked client-side; t
 });
 
 test('DEC-077 B2: an invalid new CART draft cannot look ready to save, and its preview carries no figure', async () => {
-  const { planSavingsPreview } = await import('./savings-preview.ts');
-  const fieldsFor = (minimumSubtotal, original = null) => planSavingsPreview({ ...baseDraft(), scope: 'CART', minimumSubtotal }, catalog, original);
+  const { planPreview } = await import('./preview-plan.ts');
+  const previewCatalog = { ...catalog, branches: [{ id: 'b1', status: 'ACTIVE' }] };
+  const fieldsFor = (minimumSubtotal, original = null) => planPreview({ ...baseDraft(), scope: 'CART', minimumSubtotal }, previewCatalog, original);
   assert.deepEqual(fieldsFor(''), { kind: 'incomplete', reason: 'MINIMUM_SUBTOTAL' });
   assert.deepEqual(fieldsFor('0.00'), { kind: 'incomplete', reason: 'MINIMUM_SUBTOTAL' });
   assert.notEqual(fieldsFor('50').kind, 'incomplete');
