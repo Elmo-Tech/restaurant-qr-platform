@@ -1055,6 +1055,100 @@ describe('evaluatePromotions — cart scope and strategy', () => {
     expect(above.strategy).toBe('CART');
   });
 
+  it('DEC-077 B2: 199.99 / 200.00 / 200.01 around a 200.00 minimum, equality qualifies, savings follow the percentage', () => {
+    const cart = promo('cart-200', 'CART', 'PERCENTAGE', '10', {
+      minimumSubtotal: d('200.00'),
+    });
+    const outcome = (unitPrice: string) => {
+      const result = run([product(0, { unitPrice: d(unitPrice) })], [cart]);
+      return {
+        status: statusOf(result, 'cart-200').status,
+        saving: s(result.cartDiscount?.amount ?? d('0')),
+        payable: s(result.merchandisePayable),
+      };
+    };
+    expect(outcome('199.99')).toEqual({
+      status: 'BELOW_MINIMUM_SUBTOTAL',
+      saving: '0.00',
+      payable: '199.99',
+    });
+    expect(outcome('200.00')).toEqual({
+      status: 'APPLIED',
+      saving: '20.00',
+      payable: '180.00',
+    });
+    expect(outcome('200.01')).toEqual({
+      status: 'APPLIED',
+      saving: '20.00', // 10 % of 200.01 = 20.001 -> half-up 20.00
+      payable: '180.01',
+    });
+  });
+
+  it('DEC-077 B2: eligibility counts product lines with paid extras before any discount, never an Offer or the delivery fee', () => {
+    const cart = promo('cart-200', 'CART', 'PERCENTAGE', '10', {
+      minimumSubtotal: d('200.00'),
+    });
+    // 2 x (60.00 + 20.00 paid extra) = 160.00; a 150.00 Offer and a 30.00 delivery fee must not close the gap
+    const below = run(
+      [
+        product(0, {
+          unitPrice: d('60.00'),
+          modifiersUnitTotal: d('20.00'),
+          quantity: 2,
+        }),
+        offer(1, '150.00'),
+      ],
+      [cart],
+      delivery('30.00'),
+    );
+    expect(statusOf(below, 'cart-200')).toMatchObject({
+      status: 'BELOW_MINIMUM_SUBTOTAL',
+    });
+    expect(s(below.cartDiscount?.amount ?? d('0'))).toBe('0.00');
+    expect(s(statusOf(below, 'cart-200').remainingAmount ?? d('0'))).toBe(
+      '40.00',
+    );
+    // paid extras DO count: 160.00 + 40.00 (one more 40.00 product) = exactly 200.00
+    const at = run(
+      [
+        product(0, {
+          unitPrice: d('60.00'),
+          modifiersUnitTotal: d('20.00'),
+          quantity: 2,
+        }),
+        product(1, { productId: 'prod-1', unitPrice: d('40.00') }),
+        offer(2, '150.00'),
+      ],
+      [cart],
+      delivery('30.00'),
+    );
+    expect(at.strategy).toBe('CART');
+    expect(s(at.cartDiscount?.amount ?? d('0'))).toBe('20.00');
+    // the extras alone are what qualifies this basket (without them 120.00 + 40.00 = 160.00)
+    const withoutExtras = run(
+      [
+        product(0, { unitPrice: d('60.00'), quantity: 2 }),
+        product(1, { productId: 'prod-1', unitPrice: d('40.00') }),
+      ],
+      [cart],
+    );
+    expect(statusOf(withoutExtras, 'cart-200').status).toBe(
+      'BELOW_MINIMUM_SUBTOTAL',
+    );
+  });
+
+  it('DEC-077 B2: legacy CART promotions with a NULL or zero minimum keep pricing exactly as before (the engine is unchanged)', () => {
+    for (const minimumSubtotal of [null, d('0.00')]) {
+      const legacyCart = promo('legacy', 'CART', 'PERCENTAGE', '10', {
+        minimumSubtotal,
+      });
+      const result = run([product(0, { unitPrice: d('40.00') })], [legacyCart]);
+      expect(statusOf(result, 'legacy').status).toBe('APPLIED');
+      expect(s(result.cartDiscount?.amount ?? d('0'))).toBe('4.00');
+      expect(s(result.merchandisePayable)).toBe('36.00');
+    }
+  });
+
   it('cart targets restrict the eligible lines (category / product union)', () => {
     const lines = [
       product(0, { categoryId: 'cat-a' }),
@@ -1811,6 +1905,69 @@ describe('validatePromotionInput', () => {
     expect(
       codes(input({ scope: 'CART', categoryIds: [], minimumSubtotal: d('0') })),
     ).toEqual([]);
+  });
+
+  describe('DEC-077 B2: CART minimum must be strictly positive when required', () => {
+    const cart = (minimumSubtotal: Prisma.Decimal | null) =>
+      input({ scope: 'CART', categoryIds: [], minimumSubtotal });
+    const required = (value: PromotionInput) =>
+      validatePromotionInput(value, 'ar', {
+        requirePositiveCartMinimum: true,
+      }).map((problem) => problem.code);
+
+    it('refuses a missing, zero or negative minimum with the specific codes', () => {
+      expect(required(cart(null))).toEqual(['MINIMUM_SUBTOTAL_REQUIRED']);
+      expect(required(cart(d('0')))).toEqual(['MINIMUM_SUBTOTAL_NOT_POSITIVE']);
+      expect(required(cart(d('0.00')))).toEqual([
+        'MINIMUM_SUBTOTAL_NOT_POSITIVE',
+      ]);
+      expect(required(cart(d('-5.00')))).toEqual([
+        'MINIMUM_SUBTOTAL_NOT_POSITIVE',
+      ]);
+    });
+
+    it('reports a stored zero that the request did not supply as REQUIRED, one the request sent as NOT_POSITIVE', () => {
+      const problems = (minimumSupplied: boolean) =>
+        validatePromotionInput(cart(d('0.00')), 'ar', {
+          requirePositiveCartMinimum: true,
+          minimumSupplied,
+        }).map((problem) => problem.code);
+      expect(problems(false)).toEqual(['MINIMUM_SUBTOTAL_REQUIRED']);
+      expect(problems(true)).toEqual(['MINIMUM_SUBTOTAL_NOT_POSITIVE']);
+    });
+
+    it('keeps MINIMUM_SUBTOTAL_INVALID for non-decimal or over-precise values', () => {
+      expect(required(cart(d('100.005')))).toEqual([
+        'MINIMUM_SUBTOTAL_INVALID',
+      ]);
+      expect(required(cart(d('NaN')))).toEqual(['MINIMUM_SUBTOTAL_INVALID']);
+      expect(required(cart(d('Infinity')))).toEqual([
+        'MINIMUM_SUBTOTAL_INVALID',
+      ]);
+    });
+
+    it('accepts the smallest positive amount and ordinary amounts', () => {
+      expect(required(cart(d('0.01')))).toEqual([]);
+      expect(required(cart(d('200.00')))).toEqual([]);
+      expect(required(cart(d('999999999999.99')))).toEqual([]);
+    });
+
+    it('never applies to other scopes: QUANTITY / DELIVERY keep an optional minimum >= 0, item scopes none', () => {
+      const delivery = (minimumSubtotal: Prisma.Decimal | null) =>
+        input({ scope: 'DELIVERY', categoryIds: [], minimumSubtotal });
+      expect(required(delivery(null))).toEqual([]);
+      expect(required(delivery(d('0')))).toEqual([]);
+      expect(required(delivery(d('-1')))).toEqual(['MINIMUM_SUBTOTAL_INVALID']);
+      expect(required(input({ minimumSubtotal: d('10') }))).toEqual([
+        'MINIMUM_SUBTOTAL_NOT_ALLOWED',
+      ]);
+    });
+
+    it('without the option the pre-B2 rule (and the unchanged preview contract) still holds', () => {
+      expect(codes(cart(null))).toEqual([]);
+      expect(codes(cart(d('0')))).toEqual([]);
+      expect(codes(cart(d('-1')))).toEqual(['MINIMUM_SUBTOTAL_INVALID']);
+    });
   });
 
   it('targets allowed per scope', () => {

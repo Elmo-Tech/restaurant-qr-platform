@@ -191,6 +191,8 @@ states the rollout and rollback procedure above and what remains for a deploymen
 
 ## 6. B2 — Mandatory CART minimum and legacy compatibility
 
+**Implementation status.** Implemented in the DEC-077 B2 pull request (Backend write rule in `validatePromotionInput` / `requiresPositiveCartMinimum` / `PromotionsService`, read-model field `needsMinimumSubtotal`, editor validation and legacy notice, tests on PostgreSQL 18); test evidence and remaining limitations are in that PR. No migration. Not merged or deployed by this plan. Two precisions found while implementing: (1) the wire DTO accepts only well-formed `^\d{1,12}(\.\d{1,2})?$` strings for `minimumSubtotal`, so a negative, over-precise or non-numeric string is refused earlier by the global validation (`400`) and never reaches the problem codes; the codes cover every well-formed value (absent / `null` → `MINIMUM_SUBTOTAL_REQUIRED`, `0` / `0.00` → `MINIMUM_SUBTOTAL_NOT_POSITIVE`, > 0 accepted); (2) a PATCH or activation that does not send the minimum of a legacy row stored as `0.00` reports `MINIMUM_SUBTOTAL_REQUIRED` (still missing), the same as for a `NULL` row. The pre-flight legacy-count query (`DATABASE_SPEC.md`) is a per-environment step before a deployment and was not run against any existing database here.
+
 **Scope.** Backend validation and read model plus the corresponding editor validation. No migration, no preview change.
 
 - `validatePromotionInput` / `PromotionsService`: a create needs `minimumSubtotal` > 0 (problems `MINIMUM_SUBTOTAL_REQUIRED` /

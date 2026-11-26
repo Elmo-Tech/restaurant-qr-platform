@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { blankDraft, canOfferFixed, changesDiscountType, isFixedItem, normalizePromotionNumber, supportsMinimumSubtotal, toPromotionDraft, widening } from './draft.ts';
+import { blankDraft, canOfferFixed, cartMinimumProblem, changesDiscountType, isFixedItem, normalizePromotionNumber, requiresCartMinimum, supportsMinimumSubtotal, toPromotionDraft, widening } from './draft.ts';
 import { canManagePromotions, canOpenPromotions } from './capabilities.ts';
 
 const catalog = {
@@ -9,7 +9,7 @@ const catalog = {
   deliveryZones: [{ id: 'zone-1', branchId: 'branch-1' }],
 };
 const baseDraft = () => ({
-  ...blankDraft(null), internalName: '  Test  ', value: '20.15',
+  ...blankDraft(null), internalName: '  Test  ', value: '20.15', minimumSubtotal: '100',
   translations: [{ locale: 'ar', title: ' خصم ', description: null }, { locale: 'en', title: 'Inactive translation', description: null }],
 });
 const draft = (overrides) => toPromotionDraft({ ...baseDraft(), ...overrides }, catalog);
@@ -77,7 +77,7 @@ test('zone deep link and server preview use Staff API contracts, not Guest prici
 });
 
 const storedFixed = (overrides = {}) => ({
-  id: 'promo-1', status: 'ACTIVE', updatedAt: '2026-11-26T10:00:00.000Z', createdAt: '2026-11-26T10:00:00.000Z', archivedAt: null, canDelete: true,
+  needsMinimumSubtotal: false, id: 'promo-1', status: 'ACTIVE', updatedAt: '2026-11-26T10:00:00.000Z', createdAt: '2026-11-26T10:00:00.000Z', archivedAt: null, canDelete: true,
   internalName: 'Pizza 70 off', scope: 'CATEGORY', discountType: 'FIXED_AMOUNT', value: '70.00', priority: 7,
   startsOn: null, endsOn: null, minimumSubtotal: null, minimumQuantity: null, quantityBasis: null,
   branchIds: [], menuIds: [], categoryIds: ['c1'], productIds: [], deliveryZoneIds: [],
@@ -128,4 +128,81 @@ test('a type change of an existing promotion needs the explicit confirmation fla
   assert.match(source('./api.ts'), /confirmDiscountTypeChange: true/);
   assert.match(source(`${workspace}PromotionEditor.tsx`), /mustConfirmType && !confirmType/);
   assert.match(source(`${workspace}PromotionEditor.tsx`), /PROMOTION_DISCOUNT_TYPE_CHANGE_CONFIRMATION_REQUIRED/);
+});
+
+const storedCart = (overrides = {}) => storedFixed({ scope: 'CART', discountType: 'PERCENTAGE', value: '10.00', categoryIds: [], minimumSubtotal: '200.00', priority: 100, ...overrides });
+const legacyCart = (minimumSubtotal = null) => storedCart({ minimumSubtotal, needsMinimumSubtotal: true });
+
+test('DEC-077 B2: a new CART promotion needs a minimum above 0, with the same rule the Backend applies', () => {
+  const cart = (minimumSubtotal, original = null) => draft_(minimumSubtotal, original);
+  function draft_(minimumSubtotal, original) {
+    return toPromotionDraft({ ...baseDraft(), scope: 'CART', minimumSubtotal }, catalog, original);
+  }
+  assert.equal(cart('').error, 'promotions.validation.minimumSubtotalRequired');
+  assert.equal(cart('   ').error, 'promotions.validation.minimumSubtotalRequired');
+  for (const zero of ['0', '0.0', '0.00', normalizePromotionNumber('٠٫٠٠')]) assert.equal(cart(zero).error, 'promotions.validation.minimumSubtotalPositive', zero);
+  for (const malformed of ['-5', '100.005', 'abc', '1e3']) assert.equal(cart(malformed).error, 'promotions.validation.minimumSubtotal', malformed);
+  for (const valid of ['0.01', '200', '200.00', '199.99']) assert.equal(cart(valid).draft.minimumSubtotal, valid);
+  // the Arabic keyboard value reaches the form already normalized; the rule still accepts the normalized form
+  assert.equal(cart(normalizePromotionNumber('٢٠٠٫٠٠')).draft.minimumSubtotal, '200.00');
+  // other scopes keep their optional minimum and item scopes send none
+  assert.equal(draft({ scope: 'DELIVERY', minimumSubtotal: '' }).draft.minimumSubtotal, null);
+  assert.equal(draft({ scope: 'QUANTITY', minimumQuantity: '2', minimumSubtotal: '0' }).draft.minimumSubtotal, '0');
+  assert.equal(draft({ scope: 'CATEGORY', categoryIds: ['c1'], minimumSubtotal: '' }).draft.minimumSubtotal, null);
+  assert.deepEqual(['CATEGORY', 'MENU', 'CART', 'QUANTITY', 'DELIVERY'].map((scope) => requiresCartMinimum(scope, null)), [false, false, true, false, false]);
+});
+
+test('DEC-077 B2: a stored legacy CART promotion is never blocked client-side; the Backend compares stored and requested values', () => {
+  for (const stored of [null, '0.00']) {
+    const original = legacyCart(stored);
+    assert.equal(requiresCartMinimum('CART', original), false);
+    // a whole-form save that re-sends the stored values reaches the API untouched (no minimum invented)
+    const unchanged = toPromotionDraft(blankDraft(original), catalog, original);
+    assert.equal(unchanged.error, undefined);
+    assert.equal(unchanged.draft.minimumSubtotal, stored);
+    assert.equal(unchanged.draft.priority, 100, 'existing priority is preserved');
+    assert.equal(cartMinimumProblem({ scope: 'CART', minimumSubtotal: '' }, original), null);
+  }
+  // once it has a valid minimum it is a regular CART promotion again
+  assert.equal(requiresCartMinimum('CART', storedCart()), true);
+  assert.equal(toPromotionDraft({ ...blankDraft(storedCart()), minimumSubtotal: '' }, catalog, storedCart()).error, 'promotions.validation.minimumSubtotalRequired');
+  // moving a promotion to CART from another scope is a new CART promotion
+  assert.equal(requiresCartMinimum('CART', storedFixed({ scope: 'DELIVERY' })), true);
+  // an archived legacy row never reports the need
+  assert.equal(requiresCartMinimum('CART', legacyCart(null)), false);
+});
+
+test('DEC-077 B2: an invalid new CART draft cannot look ready to save, and its preview carries no figure', async () => {
+  const { planSavingsPreview } = await import('./savings-preview.ts');
+  const fieldsFor = (minimumSubtotal, original = null) => planSavingsPreview({ ...baseDraft(), scope: 'CART', minimumSubtotal }, catalog, original);
+  assert.deepEqual(fieldsFor(''), { kind: 'incomplete', reason: 'MINIMUM_SUBTOTAL' });
+  assert.deepEqual(fieldsFor('0.00'), { kind: 'incomplete', reason: 'MINIMUM_SUBTOTAL' });
+  assert.notEqual(fieldsFor('50').kind, 'incomplete');
+  // a stored legacy promotion keeps its (unchanged contract) preview
+  assert.notEqual(fieldsFor('', legacyCart(null)).kind, 'incomplete');
+  const source = (relative) => readFileSync(new URL(relative, import.meta.url), 'utf8');
+  const editor = source('../../app/staff/restaurants/[restaurantId]/menu/promotions/PromotionEditor.tsx');
+  assert.match(editor, /minimumProblem !== null \|\| \(mustConfirm/, 'the save button is disabled while the minimum is invalid');
+  assert.match(editor, /aria-invalid=\{minimumProblem !== null/);
+  assert.match(editor, /original\.needsMinimumSubtotal === true/, 'the legacy notice uses the read-model field');
+  assert.match(editor, /toPromotionDraft\(fields, targets, original\)/);
+});
+
+test('DEC-077 B2: both refusal codes of the Backend and every new message exist in English and Arabic', () => {
+  const source = (relative) => readFileSync(new URL(relative, import.meta.url), 'utf8');
+  const errors = source('./errors.ts');
+  for (const code of ['MINIMUM_SUBTOTAL_REQUIRED', 'MINIMUM_SUBTOTAL_NOT_POSITIVE']) {
+    assert.match(errors, new RegExp(`hasProblem\\(caught, '${code}'\\)\\) return 'error\\.${code}'`));
+  }
+  const text = source('../i18n/messages/promotions.ts');
+  const arabicStart = text.indexOf("'promotions.title'", text.indexOf("'promotions.title'") + 1);
+  assert.ok(arabicStart > 0, 'the Arabic catalog follows the English one');
+  const [english, arabic] = [text.slice(0, arabicStart), text.slice(arabicStart)];
+  for (const key of ['promotions.minimumSubtotalRequired', 'promotions.minimumSubtotalHint', 'promotions.legacyMinimumNotice',
+    'promotions.validation.minimumSubtotalRequired', 'promotions.validation.minimumSubtotalPositive',
+    'error.MINIMUM_SUBTOTAL_REQUIRED', 'error.MINIMUM_SUBTOTAL_NOT_POSITIVE']) {
+    assert.ok(english.includes(`'${key}': '`), `en ${key}`);
+    const line = arabic.split('\n').find((entry) => entry.includes(`'${key}': '`));
+    assert.ok(line && /[\u0600-\u06FF]/.test(line), `ar ${key}`);
+  }
 });

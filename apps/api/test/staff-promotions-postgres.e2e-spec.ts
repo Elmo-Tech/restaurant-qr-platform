@@ -24,6 +24,12 @@ const draft = (internalName: string) => ({
   translations: [{ locale: 'en', title: internalName }],
 });
 
+/** DEC-077 B2: a NEW CART promotion needs a minimum above 0 (other scopes spread `draft` and override `scope`). */
+const cartDraft = (internalName: string) => ({
+  ...draft(internalName),
+  minimumSubtotal: '100.00',
+});
+
 interface Promotion {
   id: string;
   status: string;
@@ -271,7 +277,7 @@ describeSandbox('Staff Promotions (real PostgreSQL)', () => {
   it('enforces starter roles and requires all Branches on every structural write', async () => {
     const row = await create(
       own,
-      { ...draft('Role checks'), status: 'ACTIVE' },
+      { ...cartDraft('Role checks'), status: 'ACTIVE' },
       owner,
     );
     expect(row.status).toBe('INACTIVE');
@@ -331,7 +337,7 @@ describeSandbox('Staff Promotions (real PostgreSQL)', () => {
   });
 
   it('rejects missing and foreign Origins on unsafe routes, but not GET', async () => {
-    const row = await create(own, draft('CSRF check'));
+    const row = await create(own, cartDraft('CSRF check'));
     await get(manager, path(own, `/${row.id}`)).expect(200);
     expectError(
       await send('post', manager, path(own), draft('Missing Origin'), null),
@@ -387,7 +393,7 @@ describeSandbox('Staff Promotions (real PostgreSQL)', () => {
     for (const res of [
       await get(cookie, path(w)),
       await get(cookie, path(w, '/targets')),
-      await send('post', cookie, path(w), draft('Not enabled')),
+      await send('post', cookie, path(w), cartDraft('Not enabled')),
       await send('post', cookie, path(w, '/preview'), previewBody(w)),
     ]) {
       expectError(res, 403, 'FEATURE_NOT_AVAILABLE');
@@ -401,7 +407,7 @@ describeSandbox('Staff Promotions (real PostgreSQL)', () => {
     });
     await get(cookie, path(w)).expect(200);
     await get(cookie, path(w, '/targets')).expect(200);
-    expect((await create(w, draft('Explicit opt-in'), cookie)).status).toBe(
+    expect((await create(w, cartDraft('Explicit opt-in'), cookie)).status).toBe(
       'INACTIVE',
     );
   });
@@ -410,10 +416,10 @@ describeSandbox('Staff Promotions (real PostgreSQL)', () => {
     const foreignOwner = await login(foreign, 'OWNER');
     const other = await create(
       foreign,
-      draft('Foreign promotion'),
+      cartDraft('Foreign promotion'),
       foreignOwner,
     );
-    const local = await create(own, draft('Local promotion'));
+    const local = await create(own, cartDraft('Local promotion'));
     expectError(await get(manager, path(foreign)), 404, 'RESTAURANT_NOT_FOUND');
     expectError(
       await get(manager, path(own, `/${other.id}`)),
@@ -457,13 +463,23 @@ describeSandbox('Staff Promotions (real PostgreSQL)', () => {
       { scope: 'DELIVERY', deliveryZoneIds: [own.zoneId, foreign.zoneId] },
     ]) {
       const body = { ...draft('Foreign target'), ...restriction };
+      // A new CART promotion needs its minimum (DEC-077 B2) so the TARGET check is what refuses it.
+      const created =
+        restriction.scope === 'CART'
+          ? { ...body, minimumSubtotal: '100.00' }
+          : body;
       expectError(
-        await send('post', manager, path(own), body),
+        await send('post', manager, path(own), created),
         422,
         'INVALID_PROMOTION_TARGET',
       );
+      // `local` now carries a CART minimum, which a move to another scope must drop explicitly.
+      const patched =
+        restriction.scope === 'CART'
+          ? body
+          : { ...body, minimumSubtotal: null };
       expectError(
-        await send('patch', manager, path(own, `/${local.id}`), body),
+        await send('patch', manager, path(own, `/${local.id}`), patched),
         422,
         'INVALID_PROMOTION_TARGET',
       );

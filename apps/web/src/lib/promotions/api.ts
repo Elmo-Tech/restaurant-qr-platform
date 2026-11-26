@@ -41,6 +41,8 @@ export interface Promotion extends PromotionDraft {
   createdAt: string;
   archivedAt: string | null;
   canDelete: boolean;
+  /** DEC-077 B2 (informational): a legacy CART promotion without a minimum above 0. The Backend decides every write. */
+  needsMinimumSubtotal: boolean;
 }
 
 export interface PromotionOption extends LocalizedNameSource {

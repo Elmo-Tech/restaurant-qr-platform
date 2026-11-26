@@ -43,7 +43,8 @@ const targets = () => ({
     option(ids.zoneB, 'المعادي', { branchId: ids.branchB }),
   ],
 });
-const fields = (overrides = {}) => ({ ...blankDraft(null), value: '20', ...overrides });
+// DEC-077 B2: a new CART draft needs a minimum above 0; 40 is met by one 150.00 sample unit, so these scenarios keep their baskets.
+const fields = (overrides = {}) => ({ ...blankDraft(null), value: '20', minimumSubtotal: '40', ...overrides });
 const plan = (overrides, catalog = targets(), original = null) => planSavingsPreview(fields(overrides), catalog, original);
 const preview = (overrides = {}) => ({
   strategy: 'CART', merchandiseOriginal: '100.00', merchandisePayable: '80.00', deliveryFeeOriginal: '0.00', deliveryFeePayable: '0.00',

@@ -17,6 +17,9 @@ const ar = {
   internal: 'الاسم الداخلي (للموظفين فقط)', scope: 'نطاق الخصم', type: 'نوع الخصم', value: /^قيمة الخصم/,
   title: language => `العنوان — ${language}`, moreLanguages: 'لغات إضافية للضيف',
   applied: 'العرض شغال على المثال ده.', needsValue: 'اكتب قيمة الخصم علشان تشوف العميل هيوفّر قد إيه.',
+  // DEC-077 B2: a new CART promotion needs a minimum order amount above 0.
+  minimum: 'الحد الأدنى لمبلغ الطلب قبل الخصومات (مطلوب)', minimumRequired: 'أدخل حدًا أدنى لمبلغ الطلب أكبر من 0.',
+  minimumPositive: 'يجب أن يكون الحد الأدنى لمبلغ الطلب أكبر من 0.', minimumPreview: 'راجع الحد الأدنى للطلب.',
 };
 const button = (container, name) => container.getByRole('button', { name, exact: true });
 const text = (container, label) => container.getByText(label, { exact: true });
@@ -225,6 +228,25 @@ for (const scenario of scenarios) {
       const valueInput = page.getByLabel(copy.value);
       await valueInput.fill(mobile ? '٣٥' : value);
       if (mobile) await expect(valueInput).toHaveValue('35');
+      if (scope === 'CART') {
+        // DEC-077 B2: without a minimum above 0 the draft is visibly not ready: guidance (RTL), no preview figure, no save.
+        const minimum = input(page, copy.minimum);
+        await expect(minimum).toHaveAttribute('aria-required', 'true');
+        await expect(minimum).toHaveAttribute('aria-invalid', 'true');
+        await expect(text(page, copy.minimumRequired)).toBeVisible();
+        await expect(text(page, copy.minimumRequired)).toHaveCSS('direction', 'rtl');
+        await expect(button(page, copy.save)).toBeDisabled();
+        await expect(card.getByRole('status')).toContainText(copy.minimumPreview);
+        await expect(card.getByTestId('savings-preview-saving')).toHaveCount(0);
+        await minimum.fill('٠');
+        await expect(minimum).toHaveValue('0');
+        await expect(text(page, copy.minimumPositive)).toBeVisible();
+        await expect(button(page, copy.save)).toBeDisabled();
+        await minimum.fill('٥٠'); // Arabic-Indic digits are normalized before they reach the API
+        await expect(minimum).toHaveValue('50');
+        await expect(minimum).not.toHaveAttribute('aria-invalid', 'true');
+        await expect(button(page, copy.save)).toBeEnabled();
+      }
       if (target) await page.getByRole('checkbox', { name: target[0], exact: true }).check();
       if (scope === 'QUANTITY') {
         await input(page, 'Minimum quantity').fill('2');
@@ -250,6 +272,7 @@ for (const scenario of scenarios) {
       expect(created).toMatchObject({ scope, status: 'INACTIVE', internalName, discountType, value,
         translations: expect.arrayContaining([expect.objectContaining({ locale: defaultLocale, title })]) });
       if (scope === 'QUANTITY') expect(created).toMatchObject({ minimumQuantity: 2, quantityBasis: 'DISTINCT_PRODUCTS' });
+      if (scope === 'CART') expect(created).toMatchObject({ minimumSubtotal: '50.00', needsMinimumSubtotal: false });
       await expect(page.getByRole('heading', { name: copy.edit, level: 1 })).toBeVisible();
       const stored = () => prisma.promotion.findFirstOrThrow({ where: { id: created.id, restaurantId: w.restaurantId },
         include: { categories: true, menus: true, deliveryZones: true } });

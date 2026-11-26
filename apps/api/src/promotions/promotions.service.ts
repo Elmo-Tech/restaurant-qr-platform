@@ -15,6 +15,7 @@ import {
   fromDraft,
   promotionConfigSelect,
   promotionScalarData,
+  requiresPositiveCartMinimum,
   staffPromotionSelect,
   toPromotionCandidate,
   toStaffPromotion,
@@ -301,6 +302,8 @@ export class PromotionsService {
           tx,
           scope.restaurantId,
           dto,
+          null,
+          true,
         );
         const row = await tx.promotion.create({
           data: {
@@ -380,6 +383,8 @@ export class PromotionsService {
           config,
           before.translations,
           before,
+          true,
+          dto.minimumSubtotal !== undefined,
         );
         // DEC-077: the stored type changes only with explicit confirmation. Older clients (whose editor forced
         // PERCENTAGE for CATEGORY / MENU and re-sends the whole form) must not silently convert a fixed promotion.
@@ -490,6 +495,8 @@ export class PromotionsService {
             config,
             config.translations,
             null,
+            true,
+            false, // activation supplies no minimum: a stored 0.00 is "still missing", like NULL
           );
         const updatedAt = nextVersion(current.updatedAt);
         const row = await tx.promotion.update({
@@ -544,14 +551,26 @@ export class PromotionsService {
     }
   }
 
-  /** `stored` = the saved promotion a draft edits (preview of an existing promotion), so an unchanged fixed item draft stays valid with writes off. */
+  /**
+   * `stored` = the saved promotion a draft edits (preview of an existing promotion), so an unchanged fixed item draft
+   * stays valid with writes off. `enforceCartMinimum` is true for saving and false only for the preview, whose
+   * validation contract is unchanged until DEC-077 B4 (a CART draft without a minimum stays previewable).
+   */
   validateDraft(
     db: Prisma.TransactionClient,
     restaurantId: string,
     dto: PromotionDraftDto,
-    stored: PromotionConfig | null = null,
+    stored: PromotionConfig | null,
+    enforceCartMinimum: boolean,
   ): Promise<ValidatedDraft> {
-    return this.validateConfig(db, restaurantId, fromDraft(dto), [], stored);
+    return this.validateConfig(
+      db,
+      restaurantId,
+      fromDraft(dto),
+      [],
+      stored,
+      enforceCartMinimum,
+    );
   }
 
   /** The stored configuration of one promotion of this Restaurant, or null. */
@@ -621,7 +640,9 @@ export class PromotionsService {
     restaurantId: string,
     draft: PromotionConfig,
     existingTranslations: readonly PromotionTranslation[] = [],
-    stored: PromotionConfig | null = null,
+    stored: PromotionConfig | null,
+    enforceCartMinimum: boolean,
+    minimumSupplied = true,
   ): Promise<ValidatedDraft> {
     const restaurant = await db.restaurant.findUnique({
       where: { id: restaurantId },
@@ -648,6 +669,11 @@ export class PromotionsService {
     const problems: Problem[] = validatePromotionInput(
       draft,
       restaurant.defaultLocale,
+      {
+        requirePositiveCartMinimum:
+          enforceCartMinimum && requiresPositiveCartMinimum(stored, draft),
+        minimumSupplied,
+      },
     );
     const gated = fixedItemGateProblem(
       stored,

@@ -38,6 +38,24 @@ export function changesDiscountType(original: Promotion | null, fields: Pick<Dra
   return original !== null && original.discountType !== fields.discountType;
 }
 
+type MinimumContext = Pick<Promotion, 'scope' | 'needsMinimumSubtotal'>;
+
+/**
+ * DEC-077 B2: a CART promotion needs a minimum > 0, except a stored legacy one (no minimum), whose own rules the
+ * Backend applies by comparing stored and requested values; the client never decides what counts as a change.
+ */
+export function requiresCartMinimum(scope: PromotionScope, original: MinimumContext | null): boolean {
+  return scope === 'CART' && !(original?.scope === 'CART' && original.needsMinimumSubtotal === true);
+}
+
+/** Message for a missing / non-positive minimum where it is required, else null. Money shape is checked separately. */
+export function cartMinimumProblem(fields: Pick<DraftFields, 'scope' | 'minimumSubtotal'>, original: MinimumContext | null): MessageKey | null {
+  if (!requiresCartMinimum(fields.scope, original)) return null;
+  const minimum = normalizePromotionNumber(fields.minimumSubtotal).trim();
+  if (!minimum) return 'promotions.validation.minimumSubtotalRequired';
+  return /^\d{1,12}(\.\d{1,2})?$/.test(minimum) && !/[1-9]/.test(minimum) ? 'promotions.validation.minimumSubtotalPositive' : null;
+}
+
 export function hasItemRestrictions(scope: PromotionScope) {
   return scope === 'CART' || scope === 'QUANTITY';
 }
@@ -92,7 +110,7 @@ export function normalizePromotionNumber(value: string): string {
 const money = /^\d{1,12}(\.\d{1,2})?$/;
 const whole = /^(0|[1-9]\d*)$/;
 
-export function toPromotionDraft(fields: DraftFields, targets: PromotionTargets): { draft: PromotionDraft } | { error: MessageKey } {
+export function toPromotionDraft(fields: DraftFields, targets: PromotionTargets, original: MinimumContext | null = null): { draft: PromotionDraft } | { error: MessageKey } {
   const { scope } = fields;
   const internalName = fields.internalName.trim();
   // Save retains omitted inactive locales on the server; preview accepts only active locales.
@@ -109,6 +127,8 @@ export function toPromotionDraft(fields: DraftFields, targets: PromotionTargets)
   }
   const minimumSubtotal = supportsMinimumSubtotal(scope) ? fields.minimumSubtotal.trim() || null : null;
   if (minimumSubtotal !== null && !money.test(minimumSubtotal)) return { error: 'promotions.validation.minimumSubtotal' };
+  const minimumProblem = cartMinimumProblem(fields, original);
+  if (minimumProblem) return { error: minimumProblem };
   const minimumQuantity = scope === 'QUANTITY' ? Number(fields.minimumQuantity) : null;
   if (minimumQuantity !== null && (!whole.test(fields.minimumQuantity) || minimumQuantity < 1 || minimumQuantity > 2147483647)) return { error: 'promotions.validation.minimumQuantity' };
   const priority = Number(fields.priority);

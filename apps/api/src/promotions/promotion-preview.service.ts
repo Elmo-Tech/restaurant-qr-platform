@@ -140,6 +140,7 @@ export class PromotionPreviewService {
           restaurantId,
           dto.draft,
           stored,
+          false,
         );
         const draft = toPromotionCandidate(
           config,
