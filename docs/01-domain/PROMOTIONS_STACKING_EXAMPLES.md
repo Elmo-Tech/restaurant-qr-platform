@@ -302,6 +302,60 @@ All amounts are Backend engine results. Restaurant sample: Burger 120.00 (first 
 | CART 10 % with the minimum empty | INCOMPLETE | **no financial figure at all** (no example, product price, saving or total); only the problem and "Enter a minimum order amount greater than 0." |
 | CATEGORY 30 % competing with an active 40 % MENU promotion | REAL | the draft is `LOST_TO_BETTER_OFFER`; the preview shows the draft's potential saving and which offer wins |
 
+**Contract examples (B3, `CONTEXTUAL_V1`).** Real responses of the implemented API (ids shortened; the test suite asserts these figures on PostgreSQL 18 and re-prices every example through the Guest quote).
+
+REAL, CART 10 %, minimum 200.00 (request: `{ "contract": "CONTEXTUAL_V1", "requestId": "req-…", "branchId": "…", "orderType": "PICKUP", "draft": { "scope": "CART", "discountType": "PERCENTAGE", "value": "10.00", "minimumSubtotal": "200.00", … } }`), abridged:
+
+```json
+{ "data": {
+  "state": "REAL", "requestId": "req-…", "evaluatedAt": "2026-11-26T11:17:08.039Z", "branchLocalDate": "2026-11-26",
+  "assumptions": { "simulatedAsActive": true, "size": "FIRST_ACTIVE_SIZE", "paidExtrasIncluded": false, "orderType": "PICKUP",
+                   "deliveryZoneId": null, "sampleProductId": "20c3…", "schedule": "CURRENT", "basket": "BUILT_BY_BACKEND", "branchId": "…" },
+  "applicableProducts": { "total": 7, "items": [ { "productId": "20c3…", "name": "Burger", "unitPrice": "120.00" }, "…" ] },
+  "examples": [
+    { "kind": "BELOW_THRESHOLD", "lines": [ { "productId": "20c3…", "label": "Burger", "unitPrice": "120.00", "quantity": 1 } ],
+      "strategy": "NONE", "merchandiseOriginal": "120.00", "merchandisePayable": "120.00", "grandTotal": "120.00", "appliedSaving": "0.00",
+      "diagnostic": { "status": "BELOW_MINIMUM_SUBTOTAL", "potentialSaving": "0.00", "remainingAmount": "80.00", "remainingQuantity": null } },
+    { "kind": "QUALIFYING", "lines": [ { "productId": "20c3…", "label": "Burger", "unitPrice": "120.00", "quantity": 2 } ],
+      "strategy": "CART", "merchandiseOriginal": "240.00", "merchandisePayable": "216.00", "grandTotal": "216.00", "appliedSaving": "24.00",
+      "diagnostic": { "status": "APPLIED", "potentialSaving": "24.00", "remainingAmount": null, "remainingQuantity": null } } ],
+  "omittedExamples": [],
+  "strategy": "CART", "merchandisePayable": "216.00", "grandTotal": "216.00", "appliedSaving": "24.00" } }
+```
+
+INCOMPLETE (the same draft without a minimum): exactly four keys, no figure.
+
+```json
+{ "data": { "state": "INCOMPLETE", "requestId": "req-…", "evaluatedAt": "2026-11-26T11:17:08.749Z",
+            "problems": [ { "code": "MINIMUM_SUBTOTAL_REQUIRED", "field": "minimumSubtotal" } ] } }
+```
+
+ILLUSTRATIVE (delivery fee 100 % off over 150.00 on a Branch with no delivery zone; Backend sample prices, never restaurant data), abridged:
+
+```json
+{ "data": { "state": "ILLUSTRATIVE", "applicableProducts": { "total": 0, "items": [] },
+  "assumptions": { "orderType": "DELIVERY", "deliveryZoneId": null, "sampleProductId": null, "…": "…" },
+  "examples": [
+    { "kind": "BELOW_THRESHOLD", "lines": [ { "productId": null, "label": "Sample item 1", "unitPrice": "100.00", "quantity": 1 } ],
+      "deliveryFeeOriginal": "30.00", "deliveryFeePayable": "30.00", "grandTotal": "130.00", "appliedSaving": "0.00",
+      "diagnostic": { "status": "BELOW_MINIMUM_SUBTOTAL", "remainingAmount": "50.00", "…": "…" } },
+    { "kind": "QUALIFYING", "lines": [ { "productId": null, "label": "Sample item 1", "unitPrice": "100.00", "quantity": 2 } ],
+      "deliveryFeeOriginal": "30.00", "deliveryFeePayable": "0.00", "grandTotal": "200.00", "appliedSaving": "30.00",
+      "diagnostic": { "status": "APPLIED", "…": "…" } } ] } }
+```
+
+REAL, competition: CATEGORY 30 % on Burgers while an active MENU 40 % promotion exists. The draft loses but still reports what it would save; the winner is named:
+
+```json
+{ "kind": "SINGLE", "lines": [ { "productId": "c9ee…", "label": "Burger", "unitPrice": "120.00", "quantity": 1 } ],
+  "strategy": "ITEM", "merchandiseOriginal": "120.00", "merchandisePayable": "72.00", "appliedSaving": "0.00",
+  "diagnostic": { "status": "LOST_TO_BETTER_OFFER", "potentialSaving": "36.00", "remainingAmount": null, "remainingQuantity": null },
+  "competingWinner": { "source": "PROMOTION", "promotionId": "f4d3…", "scope": "MENU", "name": "Menu 40",
+                       "discountType": "PERCENTAGE", "value": "40.00", "saving": "48.00" } }
+```
+
+Further cases the suite pins: fixed per unit capped at the unit price (CATEGORY fixed 200.00 on a 120.00 Burger saves 120.00, the unit costs 0.00); a Pizza uses its first size (80.00); equality qualifies and one cent short does not (minimum 120.00 → one unit qualifies and `omittedExamples` says `SINGLE_UNIT_REACHES_THRESHOLD`; 120.01 → below by 0.01, then 2 units); a distinct-products threshold of 3 builds Burger + Big Burger, then + Pizza; a minimum of 100000.00 reports `THRESHOLD_NOT_REACHABLE_WITH_SAMPLE` and the 99-unit basket still short; a legacy CART promotion previews unchanged (`promotionId`) and a pricing change without a minimum is `INCOMPLETE`.
+
 **Stale protection.** Staff change the value 10 → 12 → 15 quickly. Requests 1 and 2 are cancelled or ignored; only
 the answer to value 15 may replace the card. If request 3 fails, the card shows "couldn't update", keeps no figure
 labelled as current, and offers retry. After Save or Activate the preview is requested again from the saved state.

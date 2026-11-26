@@ -10,8 +10,11 @@ import {
   Post,
   Query,
   Req,
+  Res,
   UseGuards,
 } from '@nestjs/common';
+import type { Response } from 'express';
+import { randomUUID } from 'node:crypto';
 import { CsrfGuard } from '../auth/csrf/csrf.guard';
 import { AllBranchesRequiredGuard } from '../auth/guard/all-branches-required.guard';
 import { AuthGuard } from '../auth/guard/auth.guard';
@@ -20,7 +23,11 @@ import { RestaurantAccessGuard } from '../auth/guard/restaurant-access.guard';
 import type { RestaurantAuthorizedRequest } from '../auth/guard/restaurant-authorized-request';
 import { PERMISSIONS } from '../auth/permission/permission';
 import { RequirePermission } from '../auth/permission/require-permission.decorator';
-import { PromotionPreviewDto } from './promotion-preview.dto';
+import { PromotionContextualPreviewService } from './promotion-contextual-preview.service';
+import {
+  CONTEXTUAL_PREVIEW_CONTRACT,
+  PromotionPreviewDto,
+} from './promotion-preview.dto';
 import { PromotionPreviewService } from './promotion-preview.service';
 import { PromotionTargetsService } from './promotion-targets.service';
 import {
@@ -60,6 +67,7 @@ export class PromotionsController {
     private readonly promotions: PromotionsService,
     private readonly targets: PromotionTargetsService,
     private readonly previewService: PromotionPreviewService,
+    private readonly contextualPreview: PromotionContextualPreviewService,
   ) {}
 
   @Get()
@@ -92,9 +100,25 @@ export class PromotionsController {
   async preview(
     @Req() request: RestaurantAuthorizedRequest,
     @Body() dto: PromotionPreviewDto,
+    @Res({ passthrough: true }) response: Response,
   ) {
     const { restaurantId, membershipId, allBranches } =
       request.restaurantAccess;
+    // DEC-077 B3: the opt-in contract. A request without `contract` takes the unchanged path below.
+    if (dto.contract === CONTEXTUAL_PREVIEW_CONTRACT) {
+      // The answer is bound to one draft and one instant; it must never be reused.
+      response.setHeader('Cache-Control', 'no-store');
+      const requestId =
+        dto.requestId ??
+        String(response.getHeader('X-Request-Id') ?? randomUUID());
+      return {
+        data: await this.contextualPreview.preview(
+          { restaurantId, membershipId, allBranches },
+          dto,
+          requestId,
+        ),
+      };
+    }
     return {
       data: await this.previewService.preview(
         { restaurantId, membershipId, allBranches },

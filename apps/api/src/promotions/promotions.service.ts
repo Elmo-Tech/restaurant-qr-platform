@@ -68,6 +68,9 @@ const TARGET_FKS: Readonly<Record<string, string>> = {
 
 type StaffWriteScope = { restaurantId: string; userId: string };
 type ValidatedDraft = { config: PromotionConfig; defaultLocale: string };
+/** Outcome of the save-time checks without throwing: what a preview needs to report an INCOMPLETE draft. */
+export type DraftCheck =
+  ({ ok: true } & ValidatedDraft) | { ok: false; problems: Problem[] };
 type Problem = { code: string; field: string };
 
 function invalidConfig(problems: Problem[]): never {
@@ -573,6 +576,19 @@ export class PromotionsService {
     );
   }
 
+  /**
+   * The same checks a save runs (DEC-077 B1 gate, B2 minimum with legacy compatibility, translations, targets), reported
+   * instead of thrown, for the contextual preview. A target problem is reported as `INVALID_PROMOTION_TARGET` per field.
+   */
+  checkDraft(
+    db: Prisma.TransactionClient,
+    restaurantId: string,
+    dto: PromotionDraftDto,
+    stored: PromotionConfig | null,
+  ): Promise<DraftCheck> {
+    return this.checkConfig(db, restaurantId, fromDraft(dto), [], stored, true);
+  }
+
   /** The stored configuration of one promotion of this Restaurant, or null. */
   async storedConfig(
     db: Prisma.TransactionClient,
@@ -644,6 +660,37 @@ export class PromotionsService {
     enforceCartMinimum: boolean,
     minimumSupplied = true,
   ): Promise<ValidatedDraft> {
+    const checked = await this.checkConfig(
+      db,
+      restaurantId,
+      draft,
+      existingTranslations,
+      stored,
+      enforceCartMinimum,
+      minimumSupplied,
+    );
+    if (checked.ok) {
+      return { config: checked.config, defaultLocale: checked.defaultLocale };
+    }
+    // Field problems are reported first, exactly as before; target problems only exist when there are none.
+    const targets = checked.problems.filter(
+      ({ code }) => code === 'INVALID_PROMOTION_TARGET',
+    );
+    if (targets.length === checked.problems.length && targets.length > 0) {
+      invalidTargets(targets.map(({ field }) => field));
+    }
+    return invalidConfig(checked.problems);
+  }
+
+  private async checkConfig(
+    db: Prisma.TransactionClient,
+    restaurantId: string,
+    draft: PromotionConfig,
+    existingTranslations: readonly PromotionTranslation[] = [],
+    stored: PromotionConfig | null,
+    enforceCartMinimum: boolean,
+    minimumSupplied = true,
+  ): Promise<DraftCheck> {
     const restaurant = await db.restaurant.findUnique({
       where: { id: restaurantId },
       select: {
@@ -699,7 +746,7 @@ export class PromotionsService {
         }
       }
     }
-    if (problems.length) invalidConfig(problems);
+    if (problems.length) return { ok: false, problems };
     // Disabling a Restaurant language never deletes its translations; retain any omitted inactive rows.
     const config = {
       ...draft,
@@ -710,15 +757,28 @@ export class PromotionsService {
         ),
       ],
     };
-    await this.validateTargets(db, restaurantId, config);
-    return { config, defaultLocale: restaurant.defaultLocale };
+    const invalidTargetFields = await this.invalidTargetFields(
+      db,
+      restaurantId,
+      config,
+    );
+    if (invalidTargetFields.length) {
+      return {
+        ok: false,
+        problems: invalidTargetFields.map((field) => ({
+          code: 'INVALID_PROMOTION_TARGET',
+          field,
+        })),
+      };
+    }
+    return { ok: true, config, defaultLocale: restaurant.defaultLocale };
   }
 
-  private async validateTargets(
+  private async invalidTargetFields(
     db: Prisma.TransactionClient,
     restaurantId: string,
     config: PromotionConfig,
-  ) {
+  ): Promise<string[]> {
     const ids = (inIds: readonly string[]) => ({
       restaurantId,
       id: { in: [...inIds] },
@@ -755,6 +815,6 @@ export class PromotionsService {
     const invalid = fields
       .filter(([field, found]) => found !== config[field].length)
       .map(([field]) => field);
-    if (invalid.length) invalidTargets(invalid);
+    return invalid;
   }
 }
