@@ -108,7 +108,14 @@ function ordered(
     .sort((a, b) => {
       const saving = b.saving.comparedTo(a.saving);
       if (saving !== 0) return saving;
-      return (a.part.promotionId ?? '').localeCompare(b.part.promotionId ?? '');
+      const id = (a.part.promotionId ?? '').localeCompare(
+        b.part.promotionId ?? '',
+      );
+      if (id !== 0) return id;
+      // Legacy Product discounts have no id: keep their order stable by type, then value.
+      const type = a.part.discountType.localeCompare(b.part.discountType);
+      if (type !== 0) return type;
+      return a.part.value.localeCompare(b.part.value, 'en', { numeric: true });
     })
     .map(({ part, saving }) => ({ ...part, saving: saving.toFixed(2) }));
 }
@@ -128,7 +135,11 @@ function itemWinners(
     if (indexes && !indexes.has(line.index)) continue;
     const { itemWinner } = line;
     if (!itemWinner) continue;
-    const key = itemWinner.promotionId ?? 'PRODUCT_DISCOUNT';
+    // A legacy Product discount has no id and differs per product (10 % on one, 5.00 off on another): one entry per
+    // distinct type and value, never one entry that would show the first product's type and value for all of them.
+    const key =
+      itemWinner.promotionId ??
+      `PRODUCT_DISCOUNT:${itemWinner.discountType}:${itemWinner.value.toFixed(2)}`;
     const entry = winners.get(key) ?? {
       part: fromWinner(
         itemWinner,

@@ -54,6 +54,7 @@ function sample(
   unitPrice: string,
   categoryId: string,
   legacyPercent?: string,
+  legacyType: 'PERCENTAGE' | 'FIXED_AMOUNT' = 'PERCENTAGE',
 ): PreviewSample {
   return {
     productId: `id-${name}`,
@@ -65,7 +66,7 @@ function sample(
     unitPrice: d(unitPrice),
     productDiscount: legacyPercent
       ? {
-          type: 'PERCENTAGE',
+          type: legacyType,
           value: d(legacyPercent),
           enabled: true,
           startsOn: null,
@@ -168,6 +169,40 @@ describe('competingWinner explains the loss the engine actually applied', () => 
     // the total is what the Guest actually pays less: nothing but the item offers applied
     expect(example.merchandisePayable).toBe('112.00');
     expect(example.appliedSaving).toBe('0.00');
+  });
+
+  it('never groups heterogeneous legacy Product discounts under one type and value', () => {
+    // Draft: CART 10 % (15.00). The Latte has a legacy 20 % (10.00), the Pasta a legacy fixed 30.00 off (30.00).
+    const pasta = sample('Pasta', '100.00', 'mains', '30.00', 'FIXED_AMOUNT');
+    const example = exampleOf(config(), [], basket(latte, pasta));
+    expect(example.diagnostic.status).toBe('LOST_TO_BETTER_OFFER');
+    const winner = example.competingWinner;
+    expect(winner).toMatchObject({
+      reason: 'CART_LEVEL_BEATEN_BY_ITEM_OFFERS',
+      combined: true,
+      saving: '40.00',
+      comparedSaving: '15.00',
+    });
+    // Two distinct legacy rules, each with its own type, value and saving; their sum equals the total.
+    expect(
+      winner?.winners.map(({ source, discountType, value, saving }) => [
+        source,
+        discountType,
+        value,
+        saving,
+      ]),
+    ).toEqual([
+      ['PRODUCT_DISCOUNT', 'FIXED_AMOUNT', '30.00', '30.00'],
+      ['PRODUCT_DISCOUNT', 'PERCENTAGE', '20.00', '10.00'],
+    ]);
+  });
+
+  it('keeps several products with the SAME legacy rule as one winner with their summed saving', () => {
+    const tea = sample('Tea', '30.00', 'drinks', '20.00'); // 6.00
+    const example = exampleOf(config(), [], basket(latte, tea));
+    expect(example.competingWinner?.winners).toMatchObject([
+      { discountType: 'PERCENTAGE', value: '20.00', saving: '16.00' },
+    ]);
   });
 
   it('a CART draft that loses to another CART promotion names that single winner', () => {
