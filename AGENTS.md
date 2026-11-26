@@ -694,14 +694,22 @@ Category + Fixed Amount is invalid in V1.
 
 > **Amended by DEC-077 (2026-11-26, Product Owner; documentation only until milestones B1–B4 ship).** Superseding the
 > sentence "Fixed Amount stays invalid for `CATEGORY` and is also invalid for `MENU`" (and the original "Category + Fixed
-> Amount is invalid in V1"): `MENU` and `CATEGORY` support `FIXED_AMOUNT`, applied **per eligible product unit** and capped
-> at that unit's original unit price; paid extras are never discounted by item scope. A **new** `CART` promotion needs a
+> Amount is invalid in V1"): `MENU` and `CATEGORY` support `FIXED_AMOUNT`, applied **per purchased unit** (a weighted cut is a
+> size, one unit at its own price; no proration, no per-kilo application) and capped at that unit's original unit price; paid extras are
+> never discounted by item scope. A **new** `CART` promotion needs a
 > strictly positive `minimumSubtotal`; existing CART promotions with no / zero minimum are *legacy*, are never changed
 > automatically, and need a valid minimum only to change pricing, eligibility or priority, or to be reactivated
 > (metadata edits, deactivation and archiving stay allowed). Agent rules until the milestones land: the code on `main` still
 > refuses fixed item-scope promotions and still allows a CART promotion without a minimum — that is documented drift to be fixed by
 > the milestone, not a reason to deviate from DEC-077; do not backfill or default legacy minimums, and do not add a database CHECK
-> or trigger for the minimum (it would block metadata edits of legacy rows). Details: `docs/00-product/PROJECT_DECISIONS.md`
+> or trigger for the minimum (it would block metadata edits of legacy rows). Milestones, each with its own review and merge approval
+> (a merge is not a deployment; production deployments are separate explicit decisions): B1 fixed / percentage MENU and CATEGORY
+> (the only migration), B2 CART minimum and legacy compatibility, B3 contextual preview API, B4 editor UX and final financial
+> verification. Safeguards agents must preserve: changing the stored `discountType` of an existing promotion needs explicit
+> confirmation (`409` without it) so an older client cannot silently turn a fixed item promotion into a percentage one; a mixed
+> old / new API fleet must never serve fixed item promotions; never roll back while an ACTIVE fixed item promotion exists without
+> replacing or deliberately deactivating it first; verify Guest menu, quote, checkout, snapshots and downstream readers inside every
+> financially affected milestone, not only the last. Details: `docs/00-product/PROJECT_DECISIONS.md`
 > DEC-077, `docs/01-domain/PROMOTIONS_SPEC.md` "Amendment DEC-077", `docs/02-technical/PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`.
 
 ---
@@ -739,7 +747,8 @@ Do not reproduce it in:
 > **Clarified by DEC-077 (2026-11-26).** Maximum-savings selection, non-stacking and deterministic tie-breaking are unchanged. For
 > previews: the Backend pricing engine is the only source of any promotion saving shown to Staff — no frontend, n8n or AI
 > calculation, including "illustrative" examples. A preview is labelled REAL, ILLUSTRATIVE or INCOMPLETE, is bound to the draft it
-> answers and never shows a stale result as current. In the Staff editor the numeric priority lives in a collapsed Advanced
+> answers, never shows a stale result as current, and an INCOMPLETE preview carries no financial figure at all; the existing preview
+> request / response / validation stay unchanged until B4 consumes the new opt-in contract. In the Staff editor the numeric priority lives in a collapsed Advanced
 > settings disclosure; existing priority values are never changed by moving or saving it, and visible math formulas are replaced by
 > plain Arabic / English sentences. See `docs/01-domain/PROMOTIONS_SPEC.md` "Amendment DEC-077" D3–D4.
 

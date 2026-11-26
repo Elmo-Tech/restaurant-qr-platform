@@ -2492,31 +2492,38 @@ Preview takes `{ draft, promotionId?, branchId, orderType, deliveryZoneId?, item
 
 > **Planned by DEC-077 (2026-11-26) — documentation only; none of this is implemented on `main` (`02a000c`).** The contract above stays
 > authoritative for the running API until the named milestone ships. Domain rules: `PROMOTIONS_SPEC.md` "Amendment DEC-077"; plan:
-> `PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`.
+> `PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`. Milestones: B1 fixed / percentage MENU and CATEGORY, B2 CART minimum, B3 preview API,
+> B4 editor UX (no API change).
 >
-> **B1 — validation and read model.**
-> - `discountType: FIXED_AMOUNT` is accepted for `CATEGORY` and `MENU`; `ITEM_SCOPE_REQUIRES_PERCENTAGE` is removed from the problem codes. Fixed value: > 0, at most 2 decimals; percentage: 0 < v ≤ 100.
+> **B1 — fixed and percentage MENU / CATEGORY.**
+> - `discountType: FIXED_AMOUNT` is accepted for `CATEGORY` and `MENU`; `ITEM_SCOPE_REQUIRES_PERCENTAGE` is removed from the problem codes. Fixed value: > 0, at most 2 decimals; percentage: 0 < v ≤ 100. A fixed item discount applies per purchased unit, capped at that unit's original unit price (per size).
+> - **Write gate.** While the backend setting `PROMOTIONS_FIXED_ITEM_WRITES_ENABLED` is off (default), creating, activating or changing a promotion to `FIXED_AMOUNT` under `CATEGORY` / `MENU` returns `422 PROMOTION_INVALID` with problem `FIXED_ITEM_SCOPE_NOT_ENABLED`. Metadata-only edits, `/deactivate` and `/archive` of an existing fixed item promotion still work, and evaluation (public menu, quote, checkout, readers) is never gated. `GET /targets` gains an additive `fixedItemScopeEnabled: boolean`.
+> - **Type-change confirmation.** A `PATCH` whose `discountType` differs from the stored one (any scope) returns `409 PROMOTION_DISCOUNT_TYPE_CHANGE_CONFIRMATION_REQUIRED` with `details: { fields: ["discountType"], from, to, value }` and writes nothing, unless the body sends `confirmDiscountTypeChange: true`. An omitted `discountType` is unchanged. This is independent of `confirmTargetWidening` and of `409 PROMOTION_CHANGED`; a request may need each confirmation in turn. It is what protects an existing fixed item promotion from older clients that always send `PERCENTAGE` for these scopes.
+> - Public menu `itemPromotion.type` may be `FIXED_AMOUNT` for `CATEGORY` / `MENU`; `value` is the per-unit amount and `amountOff` the capped per-unit amount for that size. Quote and order totals follow the engine; snapshot rules are in `DATABASE_SPEC.md`.
+> - The existing `POST /preview` request, response and validation behavior are unchanged apart from accepting a valid fixed item draft (and refusing it with the gate problem while writes are off).
+>
+> **B2 — CART minimum and legacy compatibility.**
 > - A `CART` create requires `minimumSubtotal` > 0: otherwise `422 PROMOTION_INVALID` with `details.problems[]` `MINIMUM_SUBTOTAL_REQUIRED` (absent / `null`) or `MINIMUM_SUBTOTAL_NOT_POSITIVE` (≤ 0); a non-decimal or more than 2 decimals keeps `MINIMUM_SUBTOTAL_INVALID`. QUANTITY / DELIVERY keep optional minimums (≥ 0).
 > - `PATCH` evaluates the **resulting** configuration. For a legacy CART promotion (stored minimum NULL or 0.00) the positive-minimum rule applies only if the normalized resulting values differ from the stored ones in scope, discount type, value, minimum, dates, Branches, categories, products or priority. Name and translation changes, and a request that re-sends the stored values, are not changes. The Backend decides; the request needs no flag.
-> - `POST /{promotionId}/activate` on a legacy CART promotion without a valid minimum returns the same `422 PROMOTION_INVALID`. `/deactivate` and `/archive` never check the minimum. The existing `409 PROMOTION_CHANGED` / `PROMOTION_ARCHIVED` / `PROMOTION_TARGET_WIDENING_CONFIRMATION_REQUIRED` behavior is unchanged.
-> - Staff read model (`GET /`, `GET /{promotionId}`, create / update / action responses) gains `needsMinimumSubtotal: boolean` (true for a legacy, non-archived CART promotion). Additive; existing fields keep their names and meaning. `priority` is unchanged.
-> - Public menu `itemPromotion.type` may be `FIXED_AMOUNT` for `CATEGORY` / `MENU`; `value` is the per-unit amount and `amountOff` the capped per-unit amount for that size. Quote and order totals follow the engine; the order snapshot rules are in `DATABASE_SPEC.md`.
+> - `POST /{promotionId}/activate` on a legacy CART promotion without a valid minimum returns the same `422 PROMOTION_INVALID`. `/deactivate` and `/archive` never check the minimum. `409 PROMOTION_CHANGED` / `PROMOTION_ARCHIVED` / `PROMOTION_TARGET_WIDENING_CONFIRMATION_REQUIRED` are unchanged.
+> - Staff read model (`GET /`, `GET /{promotionId}`, create / update / action responses) gains `needsMinimumSubtotal: boolean` (true for a legacy, non-archived CART promotion). Additive; `priority` and existing fields are unchanged.
+> - The existing `POST /preview` contract keeps its current validation: a CART draft without a minimum is still previewable there; saving it is what is refused.
 >
-> **B2 — preview contract (`POST /preview`).** The route, permission (`promotions.view`), CSRF and Branch rules are unchanged. Additions to the request: `requestId` (client-generated string echoed back) and optional `sampleProductId` (must be an applicable product). `items` becomes optional; the Backend builds the examples. Response `data`:
+> **B3 — contextual preview contract (opt-in).** Same route, permission (`promotions.view`), CSRF and Branch rules. A request **without** `contract: "CONTEXTUAL_V1"` gets exactly today's behavior and response (including `422` for an invalid draft). With it, additional request fields are `requestId` (client-generated, echoed back) and optional `sampleProductId` (must be an applicable product); `items` is optional (the Backend builds the examples). Response `data`:
 >
 > | Field | Meaning |
 > | --- | --- |
 > | `state` | `REAL`, `ILLUSTRATIVE` or `INCOMPLETE` (PROMOTIONS_SPEC D3.3) |
-> | `requestId`, `evaluatedAt`, `branchLocalDate` | echo and evaluation time (ISO), Branch-local date used |
-> | `problems[]` | `{ code, field }`, only for `INCOMPLETE` (the same checks as save, including the DEC-077 minimum rule); no money fields are returned for `INCOMPLETE` |
-> | `assumptions` | `{ simulatedAsActive: true, size, paidExtrasIncluded, branchId }` |
-> | `applicableProducts` | `{ total, items: [{ productId, name, unitPrice, unitSaving? }] }`, bounded (at most 5 items) |
-> | `examples[]` | `{ kind: QUALIFYING \| BELOW_THRESHOLD \| SINGLE, lines: [{ productId \| null, label, unitPrice, quantity }], strategy, merchandiseOriginal, merchandisePayable, deliveryFeeOriginal, deliveryFeePayable, grandTotal, appliedSaving, diagnostic, zoneMinimumShortfall, competingWinner? }` — every amount a decimal string produced by `evaluatePromotions` |
-> | `omittedExamples[]` | `{ kind, reason }`, for example `SINGLE_UNIT_REACHES_THRESHOLD` |
+> | `requestId`, `evaluatedAt` | echo and evaluation time (ISO) |
+> | `problems[]` | `{ code, field }`; present **only** for `INCOMPLETE` (the same checks as a save, including the B1 and B2 rules) |
+> | `branchLocalDate`, `assumptions` | `REAL` / `ILLUSTRATIVE` only. `assumptions` = `{ simulatedAsActive: true, size, paidExtrasIncluded, branchId }` |
+> | `applicableProducts` | `REAL` / `ILLUSTRATIVE` only. `{ total, items: [{ productId, name, unitPrice, unitSaving? }] }`, at most 5 items |
+> | `examples[]` | `REAL` / `ILLUSTRATIVE` only. `{ kind: QUALIFYING \| BELOW_THRESHOLD \| SINGLE, lines: [{ productId \| null, label, unitPrice, quantity }], strategy, merchandiseOriginal, merchandisePayable, deliveryFeeOriginal, deliveryFeePayable, grandTotal, appliedSaving, diagnostic, zoneMinimumShortfall, competingWinner? }` — every amount a decimal string produced by `evaluatePromotions` |
+> | `omittedExamples[]` | `REAL` / `ILLUSTRATIVE` only. `{ kind, reason }`, for example `SINGLE_UNIT_REACHES_THRESHOLD` |
 >
-> `ILLUSTRATIVE` examples use Backend-held sample prices evaluated by the same engine; the response marks them `lines[].productId = null`. The response is sent with `Cache-Control: no-store`. The current top-level fields (`strategy`, `merchandise*`, `deliveryFee*`, `grandTotal`, `appliedSaving`, `diagnostic`, `zoneMinimumShortfall`) are **kept unchanged** during B2 (mirroring the first example) so the existing editor keeps working until B3 switches to `examples[]`; removing them is outside this series. New error codes: none (selection errors keep `PROMOTION_PREVIEW_*`).
+> **An `INCOMPLETE` response contains only `state`, `requestId`, `evaluatedAt` and `problems`**: no example, product price, saving, total, shortfall or other financial figure, and none of the legacy top-level money fields. `ILLUSTRATIVE` examples use Backend-held sample prices evaluated by the same engine (`lines[].productId = null`). The response is sent with `Cache-Control: no-store`. The legacy contract's top-level fields (`strategy`, `merchandise*`, `deliveryFee*`, `grandTotal`, `appliedSaving`, `diagnostic`, `zoneMinimumShortfall`) are never removed or renamed in this series. New error codes: none (selection errors keep `PROMOTION_PREVIEW_*`).
 >
-> **B3 / B4.** No API change. B3 consumes the contract above; B4 only verifies Guest, receipt and reader behavior for `FIXED_AMOUNT` item-scope promotions.
+> **B4.** No API change. B4 consumes the contracts above and runs the final end-to-end financial verification.
 
 ---
 

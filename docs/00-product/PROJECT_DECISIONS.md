@@ -1805,6 +1805,8 @@ The Product Editor shows "Add-ons for every size" and one area per size, each wi
 **Details:** `PROMOTIONS_SPEC.md` "Implementation Amendment: Unified Promotions"; `docs/01-domain/PROMOTIONS_STACKING_EXAMPLES.md`; `docs/02-technical/UNIFIED_PROMOTIONS_SCHEMA_AND_ROLLOUT.md`; `docs/02-technical/UNIFIED_PROMOTIONS_HISTORICAL_SNAPSHOTS.md`; `docs/02-technical/UNIFIED_PROMOTIONS_IMPLEMENTATION_PLAN.md`.
 
 > **Amended by DEC-077 (2026-11-26, documentation only).** The original text above is kept. DEC-077 supersedes: "CATEGORY and MENU are percentage only" (fixed per-unit discounts are now supported), the optional CART `minimumSubtotal` (new CART promotions need a strictly positive minimum; legacy promotions are preserved), the browser-side illustrative preview, and the visible priority field (moves to Advanced settings). Maximum-savings selection, non-stacking, tie-breaking, historical snapshots and every other rule here are unchanged.
+>
+> **Status correction (2026-11-26).** The "Not live yet: milestone B1 …" wording above describes the state at acceptance. DEC-075 milestones B1–B4 are since merged on `main` (B1 #76, B2 #77, B3 #80, B4 #81, plus the savings preview #86); merge is not a deployment, and this note does not assert any environment's deployment state. The decision text is not otherwise changed.
 
 ---
 
@@ -1837,14 +1839,24 @@ Implementation plan: `docs/02-technical/ONBOARDING_IMPLEMENTATION_PLAN.md`; cont
 
 ### DEC-077 — Promotions Domain Decisions: fixed item discounts, CART minimum, real previews, editor UX (2026-11-26)
 
-**Status:** Accepted (Product Owner, 2026-11-26). **Documentation only (milestone B0).** Nothing here is implemented, migrated or deployed; the code on `main` (`02a000c`) still behaves as DEC-075 describes until the follow-up milestones B1–B4 below ship. Each of those is a separate review, QA, merge and deployment gate. Amends DEC-075; every DEC-075 rule not listed under "Superseded" stays in force.
+**Status:** Accepted (Product Owner, 2026-11-26; B0 review corrections the same day, including that changing the priority of a legacy CART promotion requires a valid minimum). **Documentation only (milestone B0).** Nothing here is implemented, migrated or deployed; the code on `main` (`02a000c`) still behaves as DEC-075 describes until the follow-up milestones B1–B4 below ship. Each milestone needs its own review and its own merge approval; a merge is not a deployment, and every production deployment is a separate explicit decision that is not mandatory after each PR. Amends DEC-075; every DEC-075 rule not listed under "Superseded" stays in force.
 
-**Label note.** "B1–B4" in this entry are the follow-up milestones of **this** decision. They are not the earlier DEC-075 milestones of the same names (engine, order integration, Staff workspace, Guest display), which are already on `main`. Plan: `docs/02-technical/PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`.
+**Milestones (strict order, each from the merged previous one).** "B1–B4" in this entry are the follow-up milestones of **this** decision, not the earlier DEC-075 milestones of the same names (engine, order integration, Staff workspace, Guest display), which are merged on `main`.
+
+| Milestone | Scope |
+| --- | --- |
+| B1 | Fixed **and** percentage MENU / CATEGORY discounts, forward migration, backend safeguards, minimal compatible editor support |
+| B2 | Mandatory CART minimum, legacy compatibility, corresponding editor validation |
+| B3 | Backend-authoritative contextual preview API (additive, opt-in) |
+| B4 | Simplified Staff editor UX, preview integration, final end-to-end financial verification |
+
+Plan, migration, compatibility, API, testing and rollout / rollback requirements: `docs/02-technical/PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`.
 
 **1. MENU and CATEGORY promotions.**
 
 - Both `PERCENTAGE` and `FIXED_AMOUNT` are supported.
-- A fixed discount applies **per eligible product unit** and is **capped at that unit's original unit price** (the size price, or the base price when the Product has no size, before any discount and without paid extras). A line of quantity *n* saves `min(value, original unit price) × n`.
+- A fixed discount applies **per purchased unit** of an eligible product and is **capped at that unit's original unit price** (the chosen size's price, or the base price when the Product has no size, before any discount and without paid extras). A line of quantity *n* saves `min(value, original unit price) × n`. It is not once per order, not once per line and not once per distinct product.
+- **Sizes and weighted products.** Weighted selling is modelled as Product Variants (DEC-067): a 500 g size is one unit at its own full price. The discount is neither prorated by weight nor applied per kilo; two sizes of one Product are separate lines, each capped at its own size price, so one fixed amount can save less on a cheaper size. Quantities are whole numbers; fractional-weight quantity or a per-kilo price is not supported and would need a new decision.
 - Paid extras (modifier options) are never part of an item-level discount, for either type.
 - Unchanged: per line the greatest saving wins across the legacy Product discount, CATEGORY and MENU (exact tie → lower priority number → PRODUCT > CATEGORY > MENU → stable id); the item path and the single CART / QUANTITY winner are never combined; the cart winner needs a strictly greater saving; paid extras and Offer / bundle lines are never discounted by item scope; historical orders keep their stored snapshots and are never recalculated.
 - A fixed value must be greater than 0 with at most 2 decimals. A percentage stays within 0 < v ≤ 100.
@@ -1861,8 +1873,9 @@ Implementation plan: `docs/02-technical/ONBOARDING_IMPLEMENTATION_PLAN.md`; cont
 
 - The **actual backend pricing engine is the only financial source of truth.** No client computes a saving, a payable amount or a threshold shortfall, including for illustrative examples (the browser-side illustration arithmetic is superseded; see below).
 - A preview reflects the selected scope, targets, discount type, value, conditions (minimums, dates, Branches, restrictions, quantity basis, zones) and the products to which the promotion applies.
-- Exactly three preview states, always labelled, never mixed in one figure: **REAL** (the restaurant's own current catalog and prices through the real engine), **ILLUSTRATIVE** (clearly labelled sample prices, still calculated by the backend engine), **INCOMPLETE** (the draft is invalid or unfinished: no money figures, only what is missing).
+- Exactly three preview states, always labelled, never mixed in one figure: **REAL** (the restaurant's own current catalog and prices through the real engine), **ILLUSTRATIVE** (clearly labelled sample prices, still calculated by the backend engine), **INCOMPLETE** (the draft is invalid or unfinished: **no financial figure of any kind** — no amount, price, saving, total or shortfall — only what is missing).
 - Where a threshold exists (CART minimum, QUANTITY threshold, DELIVERY minimum) the preview shows both a **below-threshold** example and a **qualifying** example.
+- **Compatibility:** the existing preview request, response and validation behavior stay unchanged through B1–B3 (the only exception is that B1 makes a fixed MENU / CATEGORY draft valid); the new contextual contract is opt-in (B3) and is consumed only by B4.
 - Previews must not mislead or go stale: a result is shown only for the exact draft it answers; results for an older edit are discarded; a result is dimmed, then replaced, while a newer one loads; a failed or outdated preview never presents old numbers as current; the preview states what it assumes (Branch, date, size, extras, other active promotions).
 
 **4. Promotion editor UX.**
@@ -1882,8 +1895,17 @@ Implementation plan: `docs/02-technical/ONBOARDING_IMPLEMENTATION_PLAN.md`; cont
 | S4 | Priority is a visible field next to the schedule, with a helper that explains the tie rule | Priority lives in collapsed Advanced settings; the schedule is its own section | `PROMOTIONS_SPEC.md` #62, #87; Staff editor |
 | S5 | A simple preview is "ideal" (PROMOTIONS_SPEC #85, non-binding) and the formula-style cards are acceptable | A real, engine-backed, plain-language preview is mandatory for the editor | `PROMOTIONS_SPEC.md` #85 |
 
+**Backward compatibility and safe rollout (applies to B1 and every later milestone).**
+
+- **Older clients cannot silently convert a fixed item promotion into a percentage one.** Today `apps/web/src/lib/promotions/draft.ts` forces `discountType = PERCENTAGE` for MENU / CATEGORY whenever it builds a request, and the editor sends the whole form on save. Therefore a change of the stored `discountType` of an existing promotion requires explicit confirmation (`confirmDiscountTypeChange: true`); without it the Backend refuses with `409 PROMOTION_DISCOUNT_TYPE_CHANGE_CONFIRMATION_REQUIRED` and writes nothing. B1 also removes the forcing from `draft.ts`.
+- **A mixed old / new API fleet must never serve fixed item promotions** (the pre-B1 engine ignores them, so menu, quote and checkout would disagree). Fixed item writes are therefore gated by a narrow, default-off backend setting that is switched on only after the migration is applied and every pricing process is confirmed to run the new build. The gate controls writes only: **evaluation is never gated**, so switching it off never removes an active customer discount.
+- **Rollback never silently removes active customer discounts.** While any ACTIVE fixed item promotion exists, rolling the API back to a pre-B1 build is not allowed without a recorded decision; the procedure is notify, explicitly replace or deliberately deactivate (audited), verify, then roll back. Never by script, never by re-adding the CHECKs.
+- Preview: see Compatibility under item 3.
+
+**Financial verification belongs to each milestone that changes money** (B1, B2, and B3 for preview parity), not only to B4: Guest menu, cart quote, checkout (including `PRICE_CHANGED`), WhatsApp, historical snapshots and downstream readers must be verified in the milestone that can affect them; B4 repeats the full matrix end to end.
+
 **Not superseded:** maximum-savings-first, non-stacking (one merchandise path + at most one DELIVERY), deterministic tie-breaking, the historical snapshot model, the opt-in `PROMOTIONS` entitlement, permissions (`promotions.view` / `promotions.manage`), QUANTITY and DELIVERY semantics, Offers, Delivery Zone minimum handling, `PRICE_CHANGED`.
 
-**Compatibility commitments.** No existing row is rewritten. Fixed MENU / CATEGORY support relaxes two CHECK constraints in a forward migration (B1) and is purely additive for stored data. The strictly positive minimum is enforced in application code, not by a CHECK, because a database CHECK would also block metadata-only edits, deactivation and archiving of legacy rows. Historical orders, `order_promotions` rows and allocations are unchanged and never recalculated. Roll-back and compatibility rules: `docs/02-technical/PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`.
+**Compatibility commitments.** No existing row is rewritten. Fixed MENU / CATEGORY support relaxes two CHECK constraints in a forward migration (B1) and is purely additive for stored data. The strictly positive minimum is enforced in application code, not by a CHECK, because a database CHECK would also block metadata-only edits, deactivation and archiving of legacy rows. Historical orders, `order_promotions` rows and allocations are unchanged and never recalculated. The strictly positive minimum arrives in B2, fixed item support (and the only migration) in B1. Roll-out, roll-back and compatibility rules: `docs/02-technical/PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`.
 
-**Details:** `docs/01-domain/PROMOTIONS_SPEC.md` ("Amendment DEC-077"); `docs/01-domain/PROMOTIONS_STACKING_EXAMPLES.md` §10–§13; `docs/02-technical/DATABASE_SPEC.md` ("Amendment 2026-11-26"); `docs/02-technical/API_CONVENTIONS.md` #111 note; `AGENTS.md` #35 / #36 notes.
+**Details:** `docs/01-domain/PROMOTIONS_SPEC.md` ("Amendment DEC-077"); `docs/01-domain/PROMOTIONS_STACKING_EXAMPLES.md` §10–§14; `docs/02-technical/DATABASE_SPEC.md` ("Amendment 2026-11-26"); `docs/02-technical/API_CONVENTIONS.md` #111 note; `AGENTS.md` #35 / #36 notes.

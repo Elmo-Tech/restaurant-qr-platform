@@ -7,8 +7,8 @@
 > case in `promotion-engine.spec.ts`; the persisted rows are in
 > `promotion-snapshot.spec.ts` and `docs/02-technical/UNIFIED_PROMOTIONS_HISTORICAL_SNAPSHOTS.md`.
 >
-> **DEC-077 (2026-11-26, documentation only).** §10–§13 at the end add the approved fixed MENU / CATEGORY, CART minimum / legacy,
-> preview and editor-wording examples. Wherever §1–§9 or the engine say "CATEGORY / MENU are percentage only" the
+> **DEC-077 (2026-11-26, documentation only).** §10–§14 at the end add the approved fixed MENU / CATEGORY, CART minimum / legacy,
+> preview, editor-wording and compatibility examples. Wherever §1–§9 or the engine say "CATEGORY / MENU are percentage only" the
 > DEC-077 rule supersedes it once milestone B1 ships.
 
 Engine fields per line (snapshot model accepted 2026-11-21): `legacyUnitDiscount`
@@ -202,16 +202,17 @@ With no Promotion rows, every line is exactly the Product Discounts V1 math:
 
 # DEC-077 additions (2026-11-26) — documentation only
 
-> **Status: Accepted (2026-11-26, Product Owner) — DEC-077, milestone B0.** §10–§13 define the approved
-> behavior for the follow-up milestones B1–B4. They are **not live**: today's engine refuses a fixed CATEGORY /
+> **Status: Accepted (2026-11-26, Product Owner) — DEC-077, milestone B0.** §10–§14 define the approved
+> behavior for the follow-up milestones B1–B4 (B1 fixed item discounts, B2 CART minimum, B3 preview API, B4 editor UX and final verification). They are **not live**: today's engine refuses a fixed CATEGORY /
 > MENU promotion (`INVALID_CONFIGURATION`) and has no strictly positive CART minimum. §1–§9 above are unchanged.
 > Each worked example below is a required test case for the milestone that implements it
 > (`docs/02-technical/PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`). Notation as above (EGP, `Decimal(14,2)`).
 
 ## 10. Fixed MENU / CATEGORY promotions (B1)
 
-Unit saving = `min(value, original unit price)`; line saving = unit saving × quantity. Original unit price = size
-price (or base price) before any discount, without paid extras.
+Unit saving = `min(value, original unit price)` **per purchased unit**; line saving = unit saving × quantity. Original unit price =
+size price (or base price) before any discount, without paid extras. Weighted products are sizes (DEC-067): one unit of a size is one
+unit; no proration by weight, no per-kilo application.
 
 | Case | Setup | Result |
 | --- | --- | --- |
@@ -225,6 +226,11 @@ price (or base price) before any discount, without paid extras.
 | Exact tie, lower priority number | CATEGORY fixed 10.00 priority 50, MENU fixed 10.00 priority 5 | MENU |
 | Size without Product discount | Large 120.00, `discountApplies = false`, Product discount 50 %, CATEGORY fixed 12.00 | no Product discount; CATEGORY **12.00** off (as for percentage, DEC-041) |
 | Nothing to win | Product 0.00, CATEGORY fixed 5.00 | no candidate; diagnostic `NO_EFFECTIVE_DISCOUNT` |
+| Two sizes of one Product | Pizza Small 60.00 × 1 and Large 120.00 × 2, CATEGORY fixed 25.00 | Small 25.00; Large 25.00 × 2 = 50.00; total **75.00** off; payable 60.00 + 240.00 − 75.00 = **225.00** |
+| Cap differs by size | Same cart, CATEGORY fixed 70.00 | Small min(70.00, 60.00) = 60.00; Large 70.00 × 2 = 140.00; total **200.00** off; payable **100.00** |
+| Weighted cut (sizes) | Cut sold as 500 g 90.00 and 1 kg 170.00, CATEGORY fixed 100.00; cart 2 × 500 g + 1 × 1 kg | 500 g: min(100.00, 90.00) = 90.00 × 2 = 180.00 (free); 1 kg: 100.00 × 1; total **280.00** off; payable 180.00 + 170.00 − 280.00 = **70.00**. Not prorated by grams, not per kilo. |
+| Product without sizes | Base price 40.00 × 3, MENU fixed 10.00 | 10.00 × 3 = **30.00** off; payable **90.00** |
+| Fixed per order, not per unit | CART fixed 10.00 (minimum 50.00) vs CATEGORY fixed 10.00 on 3 units of a 40.00 Product | CART takes 10.00 once; CATEGORY takes 10.00 × 3 = 30.00 → item path wins |
 | Item vs cart | Two lines 100.00 × 1, CATEGORY fixed 20.00 each (item 40.00); CART fixed 50.00, minimum 150.00 | CART wins (50.00 > 40.00 strictly); allocation 25.00 / 25.00; payable **150.00**; the item promotion is `LOST_TO_BETTER_OFFER` |
 | Item beats cart on a tie | Same, CART fixed 40.00 | tie keeps the item path; payable **160.00** |
 
@@ -233,7 +239,7 @@ Persisted rows for "Per unit": `order_items.discount_amount` 0.00, `line_total` 
 `subtotal_amount` 255.00. For "Cap at the unit price": `value` 20.00, `amount` **24.00** (the amount actually saved,
 not `value × units`). Existing percentage rows and every pre-DEC-077 order are unchanged.
 
-## 11. CART minimum and legacy promotions (B1)
+## 11. CART minimum and legacy promotions (B2)
 
 **Create validation (CART).** `minimumSubtotal` is required and must be > 0.00 with at most 2 decimals.
 
@@ -272,7 +278,7 @@ A legacy Product discount does not reduce the basis: Product 100.00 with a 50 % 
 | Send `minimumSubtotal: "100.00"` together with any change | accepted; the promotion is no longer legacy |
 | Send `minimumSubtotal: "0.00"` with any non-metadata change | `MINIMUM_SUBTOTAL_NOT_POSITIVE` |
 
-## 12. Preview examples (B2)
+## 12. Preview examples (B3 API, B4 UI)
 
 All amounts are Backend engine results. Restaurant sample: Burger 120.00 (first active size, no extras), Branch "Main".
 
@@ -284,14 +290,14 @@ All amounts are Backend engine results. Restaurant sample: Burger 120.00 (first 
 | CATEGORY fixed 15.00 on Burgers | REAL | no threshold; 1 × Burger 120.00 → saves **15.00**, pays **105.00**; the products list shows the Burger with its unit price and per-unit saving |
 | CART 10 %, minimum 50.00 | REAL | a single Burger (120.00) already qualifies, so only the **qualifying** example is shown, with the reason "one item already reaches the minimum" |
 | CATEGORY 10 % on a category with no available product | ILLUSTRATIVE | sample unit price labelled "Example only"; figures still come from the engine; never styled as the restaurant's prices |
-| CART 10 % with the minimum empty | INCOMPLETE | no money; "Enter a minimum order amount greater than 0." |
+| CART 10 % with the minimum empty | INCOMPLETE | **no financial figure at all** (no example, product price, saving or total); only the problem and "Enter a minimum order amount greater than 0." |
 | CATEGORY 30 % competing with an active 40 % MENU promotion | REAL | the draft is `LOST_TO_BETTER_OFFER`; the preview shows the draft's potential saving and which offer wins |
 
 **Stale protection.** Staff change the value 10 → 12 → 15 quickly. Requests 1 and 2 are cancelled or ignored; only
 the answer to value 15 may replace the card. If request 3 fails, the card shows "couldn't update", keeps no figure
 labelled as current, and offers retry. After Save or Activate the preview is requested again from the saved state.
 
-## 13. Editor wording (B3)
+## 13. Editor wording (B4)
 
 Plain sentences replace formulas; the values are inserted and numbers / currency are rendered as LTR runs inside RTL
 text. Wording is illustrative; the final strings live in the Staff i18n messages.
@@ -304,3 +310,19 @@ text. Wording is illustrative; the final strings live in the Staff i18n messages
 | Priority (Advanced settings) | If two offers save exactly the same amount, the one with the lower number is used. | إذا وفّر عرضان المبلغ نفسه تمامًا، يُستخدم العرض ذو الرقم الأقل. |
 
 Not shown to Staff: `÷`, `×`, `max(…)`, `min(…)`, percent-of-price expressions, raw enum names.
+
+## 14. Compatibility and rollout examples (B1)
+
+Stored: CATEGORY "Desserts" promotion, `FIXED_AMOUNT`, value 15.00, ACTIVE, created after B1 with fixed item writes enabled.
+
+| Case | Result |
+| --- | --- |
+| Pre-B1 web editor saves the whole form (its `draft.ts` forces `discountType: "PERCENTAGE"`, value `"15.00"`) | `409 PROMOTION_DISCOUNT_TYPE_CHANGE_CONFIRMATION_REQUIRED`, `details: { fields: ["discountType"], from: "FIXED_AMOUNT", to: "PERCENTAGE", value: "15.00" }`. Nothing is written; the promotion is still 15.00 EGP per unit. |
+| B1 editor, Staff deliberately switch the type to percentage and confirm | `PATCH` with `confirmDiscountTypeChange: true` is accepted; Staff must also have entered the new value (15 % is not assumed from 15.00). |
+| `PATCH` that omits `discountType` and renames the promotion | accepted; type unchanged |
+| Pre-B1 web editor creates a new CATEGORY percentage promotion | unaffected |
+| Fixed item writes switched **off**, Staff rename / deactivate / archive the fixed promotion | allowed; it keeps applying at checkout until deactivated |
+| Fixed item writes switched **off**, Staff create or activate a fixed item promotion | `422 PROMOTION_INVALID`, problem `FIXED_ITEM_SCOPE_NOT_ENABLED` |
+| Switching the setting off while the promotion is ACTIVE | no price changes: menu, quote and checkout still apply 15.00 per unit |
+| Old API instance still running while the setting is on | **Not allowed** (rollout step "fleet check"): it would ignore the promotion and quote / checkout would disagree |
+| Roll back to a pre-B1 build while the promotion is ACTIVE | **Not allowed** until the promotion is explicitly replaced or deliberately deactivated with the restaurant informed (audited); never silently inert |

@@ -80,6 +80,9 @@ Guest cart are display-only and are recomputed on submission.
 > **Amended by DEC-077 (2026-11-26, documentation only).** Rules R1 ("PERCENTAGE only" for CATEGORY / MENU), R2 (optional CART
 > minimum) and the Validation paragraph below are superseded in the cases listed in "Amendment DEC-077" further down. The text
 > here is kept as it describes the code on `main` until milestones B1–B4 ship.
+>
+> **Status correction (2026-11-26).** The "not live yet … until B2–B4 are built" wording above describes the state at acceptance: DEC-075
+> milestones B1–B4 are since merged on `main` (#76, #77, #80, #81; savings preview #86). Merge is not deployment; no environment state is asserted.
 
 ### Mapping of the original targets to engine scopes
 
@@ -163,7 +166,8 @@ optional Branches; a title in the Restaurant default locale is required.
 
 > **Status: Accepted (2026-11-26, Product Owner) — DEC-077. Documentation only (B0).**
 > This section is the approved contract for the follow-up milestones B1–B4
-> (`docs/02-technical/PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`). **It is not
+> (B1 fixed item discounts, B2 CART minimum, B3 preview API, B4 editor UX and final
+> verification; `docs/02-technical/PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`). **It is not
 > implemented**: on `main` (`02a000c`) the engine, validation, database CHECKs,
 > API and Staff editor still follow "Implementation Amendment: Unified Promotions"
 > above, including its "percentage only" and "optional minimum" rules. Where the
@@ -171,14 +175,15 @@ optional Branches; a title in the Restaurant default locale is required.
 > until then the code is not authoritative for the rules below. Everything in the
 > Unified Promotions amendment that is not listed here (maximum savings first,
 > non-stacking, tie-breaking, snapshots, entitlement, permissions, QUANTITY and
-> DELIVERY) is unchanged. Worked numbers: `PROMOTIONS_STACKING_EXAMPLES.md` §10–§13.
+> DELIVERY) is unchanged. Worked numbers: `PROMOTIONS_STACKING_EXAMPLES.md` §10–§14.
 
 ### D1. MENU and CATEGORY promotions: percentage and fixed amount
 
 | Rule | Behavior |
 | --- | --- |
-| D1.1 Types | `MENU` and `CATEGORY` accept `PERCENTAGE` and `FIXED_AMOUNT`. Supersedes R1 "PERCENTAGE only", INV-PROMO-008 and #10 for these two scopes. |
-| D1.2 Fixed amount | Applies **per eligible product unit**. Unit saving = `min(value, original unit price)`; line saving = unit saving × quantity. "Original unit price" = the chosen size's price (or the Product base price when it has no size) **before** any discount, **without** paid extras. The discount never makes a unit negative; a fixed value above the unit price makes that unit free, not cheaper than free. |
+| D1.1 Types (B1) | `MENU` and `CATEGORY` accept `PERCENTAGE` and `FIXED_AMOUNT`. Supersedes R1 "PERCENTAGE only", INV-PROMO-008 and #10 for these two scopes. |
+| D1.2 Fixed amount | Applies **per purchased unit** of an eligible product (not once per order, line or distinct product). Unit saving = `min(value, original unit price)`; line saving = unit saving × quantity. "Original unit price" = the chosen size's price (or the Product base price when it has no size) **before** any discount, **without** paid extras. The discount never makes a unit negative; a fixed value above the unit price makes that unit free, not cheaper than free. |
+| D1.2a Sizes and weighted products | Weighted selling is modelled as Product Variants (DEC-067): a 500 g size is **one** unit at its own full price. The discount is **not** prorated by weight and is **not** per kilo. Two sizes of one Product are separate lines; each is capped at its own size price (`min(value, that size's price)`), so the same fixed amount can save less on a cheaper size. A Product without sizes uses its base price. Quantities are whole numbers; fractional weight and a per-kilo price field are not supported and need a new decision. Contrast: CART and QUANTITY fixed amounts are taken **once per order**. |
 | D1.3 Percentage | Unchanged: half-up to 2 decimals per unit on the original unit price, capped at it. |
 | D1.4 Paid extras | Excluded from item-level discounts for both types (the unit saving is computed on the original unit price only). Cart-scope promotions still include eligible paid extras in their basis (R2). |
 | D1.5 Value | Fixed: > 0, at most 2 decimals. Percentage: 0 < v ≤ 100. Because a fixed value has at most 2 decimals no rounding applies. |
@@ -187,8 +192,9 @@ optional Branches; a title in the Restaurant default locale is required.
 | D1.8 Eligibility | Unchanged (R1): target category / menu of the Product's current category, `ACTIVE`, inclusive dates in the order Branch timezone, Branch list (empty = all). No spend or quantity minimum for item scope. A line whose unit saving is 0.00 has nothing to win (`NO_EFFECTIVE_DISCOUNT`). |
 | D1.9 History | Unchanged model. A fixed item winner is stored as an `order_promotions` row (`scope` CATEGORY / MENU, `discount_type` `FIXED_AMOUNT`, `value` = the configured per-unit amount, `amount` = the total actually saved across lines, which can be lower than `value × units` when capped) plus per-line allocations. Existing orders are never recalculated; editing, deactivating or archiving the promotion never changes them. |
 | D1.10 Guest and AI display | `itemPromotion.type` may be `FIXED_AMOUNT` for CATEGORY and MENU; `value` is the per-unit amount and `amountOff` the capped per-unit amount for the displayed size. A Guest label must branch on `type`, never assume a percentage. |
+| D1.11 Write gate and type changes | Fixed item **writes** (create, activate, change to FIXED_AMOUNT) are gated by a default-off backend setting until the migration is applied and every pricing process runs the new build; **evaluation is never gated**, so existing fixed discounts keep applying whatever the setting says. Changing the stored discount type of an existing promotion requires explicit confirmation (D5.1). |
 
-### D2. CART promotions: strictly positive minimum, legacy preservation
+### D2. CART promotions: strictly positive minimum, legacy preservation (B2)
 
 | Rule | Behavior |
 | --- | --- |
@@ -202,20 +208,21 @@ optional Branches; a title in the Restaurant default locale is required.
 | D2.8 Zone minimum | Unchanged (R8 / DEC-036): the Delivery Zone minimum is checked on the net payable after the engine; no promotion is suppressed to pass it. |
 | D2.9 Read model | The Staff read model exposes a derived boolean (`needsMinimumSubtotal`, true for a legacy CART promotion) so the editor can explain the requirement before Staff try to save. It is informational; the write rules above are authoritative. |
 
-### D3. Promotion preview
+### D3. Promotion preview (B3 API, B4 integration)
 
 | Rule | Behavior |
 | --- | --- |
 | D3.1 Source of truth | Every figure comes from the real Backend pricing engine (`evaluatePromotions`) with the same candidate loading as checkout (other active promotions, legacy Product discounts, Branch-local date). No money arithmetic exists in the browser, including for illustrations. |
 | D3.2 Reflects the draft | The preview is computed from the **current unsaved draft** (scope, targets, discount type, value, conditions, dates, Branches, zones) simulated as enabled on the Branch's current local date. It states this assumption when the draft is inactive or scheduled in the future. |
-| D3.3 Three states | **REAL**: built from the restaurant's own available Products and current prices, labelled as such. **ILLUSTRATIVE**: used only when no real applicable product, Branch or zone exists; uses clearly labelled sample prices that are still evaluated by the Backend engine, and never reads as real prices. **INCOMPLETE**: the draft is invalid or unfinished; no money is shown, only the missing or invalid items. Money from different states is never combined. |
+| D3.3 Three states | **REAL**: built from the restaurant's own available Products and current prices, labelled as such. **ILLUSTRATIVE**: used only when no real applicable product, Branch or zone exists; uses clearly labelled sample prices that are still evaluated by the Backend engine, and never reads as real prices. **INCOMPLETE**: the draft is invalid or unfinished; it contains **no financial figure of any kind** (no amount, price, saving, total, shortfall or product price), only the missing or invalid items. Money from different states is never combined. |
 | D3.4 Applicable products | The preview names the products the promotion applies to (bounded list plus total count) and the sample used, with its size, unit price and whether paid extras are included. Item scopes show the original unit price, the per-unit saving and the unit price after. CART / QUANTITY respect the optional restriction. |
 | D3.5 Threshold pairs | For CART (minimum spend), QUANTITY (threshold, and its optional spend) and DELIVERY (minimum) the preview shows a **below-threshold** example (not qualifying, with the shortfall) **and** a **qualifying** example, both engine results. If no real basket can fall below the threshold (a single unit already exceeds it) only the qualifying example is shown, with that reason. |
 | D3.6 Competition | The preview shows the draft against the other active promotions. When another offer would win it says so and shows the draft's potential saving (`LOST_TO_BETTER_OFFER`). Zone-minimum shortfall is shown as information, not as a promotion failure. |
 | D3.7 Not misleading or stale | A result is bound to the exact draft it answers (echoed request id); an older answer never replaces a newer one; while a new answer loads the old one is visibly dimmed, and after a failed or outdated request no old figure is presented as current; a saved or activated promotion triggers a fresh preview; the response carries the evaluation time and Branch local date, and responses are not cacheable. The preview is read-only: it writes nothing, takes no locks, reserves nothing and is not a quote or an availability promise. |
 | D3.8 Authorization | Unchanged: `promotions.view`, CSRF, accessible Branch only (DEC-075 B3). |
+| D3.9 Compatibility | The existing preview request, response and validation behavior are preserved through B1–B3 (the only change is that B1 makes a fixed item draft valid). The new contextual contract is **opt-in** and consumed only by B4; no existing field is removed or renamed by this series. |
 
-### D4. Promotion editor UX
+### D4. Promotion editor UX (B4; B1 and B2 add only minimal compatible editor support)
 
 | Rule | Behavior |
 | --- | --- |
@@ -227,11 +234,22 @@ optional Branches; a title in the Restaurant default locale is required.
 | D4.6 Legacy CART | A legacy CART promotion shows a clear notice that a minimum order amount is needed before the pricing or eligibility can be changed or the promotion can be turned on again, while name edits, turning off and archiving still work. |
 | D4.7 Quality | Preserve responsive layouts, RTL / LTR (numbers and currency isolated as LTR runs), existing design tokens, WCAG 2.2 AA practices: programmatic labels, keyboard operation, visible focus, `aria-live` for async preview status, reduced motion, 44 px touch targets, text zoom. |
 
+### D5. Backward compatibility, rollout and verification
+
+| Rule | Behavior |
+| --- | --- |
+| D5.1 No silent type conversion | A change to the stored `discountType` of an existing promotion needs explicit confirmation. Without it the Backend refuses with `409 PROMOTION_DISCOUNT_TYPE_CHANGE_CONFIRMATION_REQUIRED` and changes nothing. This protects existing fixed item promotions from older clients, whose editor forces `PERCENTAGE` for MENU / CATEGORY on every save. |
+| D5.2 No mixed fleet | A mixed old / new API fleet never serves fixed item promotions: writes stay off until the new build serves every pricing path (D1.11). |
+| D5.3 Rollback | Rolling back to a build that cannot apply fixed item promotions is not allowed while any is ACTIVE, unless the affected promotions are first explicitly replaced or deliberately deactivated (audited, restaurants informed). Active customer discounts are never removed silently. |
+| D5.4 Verification per milestone | Each milestone that changes money verifies Guest menu, cart quote, checkout (incl. `PRICE_CHANGED`), WhatsApp, historical snapshots and downstream readers before review; B4 repeats the full matrix end to end. |
+| D5.5 Release discipline | Every milestone has its own review and merge approval. A merge is not a deployment; each production deployment is a separate explicit decision. |
+
 ### Invariants added by DEC-077
 
-- **INV-PROMO-013.** A fixed MENU / CATEGORY discount applies per eligible unit, never exceeds the original unit price and never touches paid extras.
+- **INV-PROMO-013.** A fixed MENU / CATEGORY discount applies per purchased unit, never exceeds that unit's original unit price (per size) and never touches paid extras.
 - **INV-PROMO-014.** A new CART promotion has a strictly positive minimum; an existing legacy CART promotion is never changed automatically and is edited only as D2.4–D2.5 allow.
-- **INV-PROMO-015.** No client calculates a promotion saving; every preview figure is a Backend engine result bound to the draft it answers.
+- **INV-PROMO-015.** No client calculates a promotion saving; every preview figure is a Backend engine result bound to the draft it answers, and an incomplete preview carries no financial figure.
+- **INV-PROMO-016.** The stored discount type of an existing promotion changes only with explicit confirmation.
 
 ---
 
@@ -423,7 +441,7 @@ More advanced category pricing rules are deferred.
 > `QUANTITY` and `DELIVERY`.
 
 > **Superseded by DEC-077 (2026-11-26), documentation only.** The text and note above are kept as written. `MENU` and `CATEGORY` will
-> support `FIXED_AMOUNT` (per eligible unit, capped at the original unit price, paid extras excluded) once milestone B1
+> support `FIXED_AMOUNT` (per purchased unit, capped at the original unit price of the chosen size, paid extras excluded) once milestone B1
 > ships. See "Amendment DEC-077" D1 at the top of this document.
 
 ---

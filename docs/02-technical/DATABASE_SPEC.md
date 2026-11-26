@@ -2215,7 +2215,7 @@ CATEGORY
 > `promotion_products`, `promotion_delivery_zones`. Details: `docs/02-technical/UNIFIED_PROMOTIONS_SCHEMA_AND_ROLLOUT.md`.
 
 > **Amended by DEC-077 (2026-11-26), documentation only.** CATEGORY and MENU will support `FIXED_AMOUNT` (two CHECKs dropped by a
-> B1 forward migration) and new CART promotions will need a strictly positive minimum enforced in application code, not by a CHECK.
+> B1 forward migration) and new CART promotions will need a strictly positive minimum (B2) enforced in application code, not by a CHECK.
 > See "Amendment 2026-11-26 — DEC-077 storage rules" below #114.
 
 ---
@@ -2837,10 +2837,11 @@ pre-B1 order reads as "no promotion" (new columns 0 / NULL, no rows).
 ## Amendment 2026-11-26 — DEC-077 storage rules (documentation only, B0)
 
 Status: accepted policy (Product Owner 2026-11-26, DEC-077); **no schema change is made by B0 and none exists on `main`
-yet**. This section tells milestone B1 what the storage change is, and what it must not be. It supersedes, for the two
+yet**. Milestones: B1 fixed / percentage MENU and CATEGORY (the only migration), B2 CART minimum (no schema), B3 preview API (no schema),
+B4 editor UX and final verification (no schema). This section tells B1 what the storage change is, and what it must not be. It supersedes, for the two
 items below only, the Unified Promotions amendment of 2026-11-22.
 
-**1. Fixed MENU / CATEGORY promotions — relax two CHECKs (B1, forward migration).**
+**1. Fixed MENU / CATEGORY promotions — relax two CHECKs (B1, the only migration).**
 
 | Constraint | Table | Today | After B1 |
 | --- | --- | --- | --- |
@@ -2857,7 +2858,7 @@ items below only, the Unified Promotions amendment of 2026-11-22.
 - The `promotions.priority` column, default and range (0..1000) are unchanged; moving the editor field is a UI change and writes
   nothing.
 
-**2. CART minimum — no database CHECK, no backfill.**
+**2. CART minimum (B2) — no database CHECK, no backfill, no migration.**
 
 - The existing `promotions_minimum_subtotal_shape` CHECK (`minimum_subtotal >= 0`, only for CART / QUANTITY / DELIVERY) **stays
   as it is**. A CHECK such as `scope <> 'CART' OR minimum_subtotal > 0` is **forbidden**: PostgreSQL evaluates a CHECK on every
@@ -2869,7 +2870,7 @@ items below only, the Unified Promotions amendment of 2026-11-22.
 - **No automatic data change.** No migration, seed, job or deploy step updates, deletes, deactivates or archives a legacy CART
   promotion, and no default is applied to a NULL minimum. A legacy promotion is identified by reading
   (`scope = 'CART' AND status <> 'ARCHIVED' AND (minimum_subtotal IS NULL OR minimum_subtotal = 0)`); no marker column is added.
-- Pre-flight evidence for the rollout (read-only, run per environment before B1 is deployed, result recorded in the PR):
+- Pre-flight evidence for the rollout (read-only, run per environment before B2 is deployed, result recorded in the PR):
 
 ```sql
 SELECT restaurant_id, status, count(*)
@@ -2879,19 +2880,34 @@ WHERE scope = 'CART' AND status <> 'ARCHIVED'
 GROUP BY restaurant_id, status;
 ```
 
-**3. Backward compatibility and rollback.**
+**3. Backward compatibility, rollout and rollback.**
 
 - Reads: every existing reader of `promotions`, `order_promotions` and allocations keeps working; the new data are only rows
   with `discount_type = 'FIXED_AMOUNT'` under scopes CATEGORY / MENU. Readers that format a promotion value must branch on
-  `discount_type` and never assume a percentage for an item scope (B4 reader audit).
-- Application rollback after B1 is safe for stored data: the pre-B1 engine treats a fixed item-scope row as
-  `INVALID_CONFIGURATION` and applies nothing (it never trusts the row), so no wrong discount is charged. Before rolling the
-  application back, deactivate the fixed item-scope promotions that were created.
-- The two dropped CHECKs are **not re-added** by a rollback once a fixed item-scope row exists in `promotions` or
-  `order_promotions` (the constraint would fail on existing history, and `order_promotions` rows are never rewritten). Rolling the
-  schema back is therefore a forward decision, not a revert; this follows AGENTS.md #82 (forward migrations only).
+  `discount_type` and never assume a percentage for an item scope; each financially affected milestone verifies its readers
+  (`PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md` §4.1).
+- **Mixed fleets.** A pre-B1 API instance ignores a fixed item-scope row (`INVALID_CONFIGURATION`, no discount). A fleet that mixes
+  old and new instances must therefore never serve fixed item promotions: the menu, quote and checkout would disagree. The migration
+  alone creates no fixed row; fixed item **writes** stay off (default-off backend setting) until the migration is applied and every
+  pricing process runs the B1 build. Evaluation is never gated, so turning the setting off does not remove an active discount.
+- **Application rollback before any fixed item row exists** is safe; the relaxed CHECKs stay relaxed.
+- **Application rollback after fixed item rows exist** must not silently remove active customer discounts. While any ACTIVE fixed
+  item promotion exists, rolling back to a pre-B1 build needs a recorded decision and these steps: turn fixed item writes off; list the
+  affected promotions with the query below; inform the restaurants; have each promotion explicitly replaced (by a Staff-confirmed
+  promotion) or deliberately deactivated with audit; verify none remains ACTIVE; only then roll back. No script converts or edits
+  rows.
+
+```sql
+SELECT restaurant_id, id, internal_name, scope, value, status
+FROM promotions
+WHERE scope IN ('CATEGORY', 'MENU') AND discount_type = 'FIXED_AMOUNT' AND status = 'ACTIVE';
+```
+
+- The two dropped CHECKs are **not re-added** once a fixed item-scope row exists in `promotions` or `order_promotions` (the
+  constraint would fail on existing history, and `order_promotions` rows are never rewritten). Rolling the schema back is a forward
+  decision, not a revert (AGENTS.md #82).
 - Take a backup before applying the B1 migration (`DEPLOYMENT_ARCHITECTURE.md` backup rules). Apply with
-  `prisma migrate deploy`; never `db push`.
+  `prisma migrate deploy`; never `db push`. Merging B1 is not a deployment; deploying it is a separate Product Owner decision.
 
 ---
 

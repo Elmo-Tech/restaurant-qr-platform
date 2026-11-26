@@ -10,6 +10,11 @@ Related: `docs/01-domain/PROMOTIONS_SPEC.md` (amendment "Unified Promotions", ac
 `docs/02-technical/UNIFIED_PROMOTIONS_SCHEMA_AND_ROLLOUT.md`,
 `docs/02-technical/UNIFIED_PROMOTIONS_HISTORICAL_SNAPSHOTS.md`.
 
+> **Status correction (2026-11-26).** The "Nothing here is merged" line and the milestone headings below ("B2 — NOT STARTED", "B4 — PENDING")
+> record the state at the time they were written and are kept as history. On `main`: B1 #76 (`8b08fd8`), B2 #77 (`1252e1a`), B3 #80
+> (`0c7e8f0`), B4 #81 (`25fe242`) and the savings preview #86 (`c04213b`) are merged. Merge is not deployment; no environment's state is
+> asserted. Follow-up work is tracked separately by DEC-077 (`PROMOTIONS_DEC077_IMPLEMENTATION_PLAN.md`).
+
 ## Decisions
 
 | # | Decision | PO decision (2026-11-21) | Code / docs match? |
